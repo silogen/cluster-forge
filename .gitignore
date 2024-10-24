@@ -1,5 +1,15 @@
 .devbox
-logs/app.log
+logs/*
+!logs/.gitkeep
+working/*
+!working/.gitkeep
+!working/pre
+working/pre/*
+!working/pre/.gitkeep
+output/*
+!output/.gitkeep
+
+Library*
 
 # Binaries for programs and plugins
 *.exe

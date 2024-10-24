@@ -7,6 +7,7 @@ require (
 	github.com/charmbracelet/huh/spinner v0.0.0-20241011224433-983a50776b31
 	github.com/charmbracelet/lipgloss v0.13.0
 	github.com/charmbracelet/x/exp/strings v0.0.0-20241021221420-c527e24a5c07
+	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/sirupsen/logrus v1.9.3
 	gopkg.in/yaml.v2 v2.4.0
 )

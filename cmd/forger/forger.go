@@ -14,11 +14,12 @@
  *  limitations under the License.
 **/
 
-package menu
+package forger
 
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -26,12 +27,11 @@ import (
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/charmbracelet/lipgloss"
 	xstrings "github.com/charmbracelet/x/exp/strings"
-	log "github.com/sirupsen/logrus"
-
 	"github.com/silogen/cluster-forge/cmd/utils"
+	log "github.com/sirupsen/logrus"
 )
 
-type order struct {
+type toolbox struct {
 	Targettool targettool
 }
 
@@ -39,15 +39,38 @@ type targettool struct {
 	Type []string
 }
 
-func Menu(configs []utils.Config) {
+// Function to remove a specific element from a slice
+func removeElement(slice []string, element string) []string {
+	result := []string{}
+	for _, v := range slice {
+		if v != element {
+			result = append(result, v)
+		}
+	}
+	return result
+}
+
+func Forge(configs []utils.Config) {
 	log.Info("starting up the menu...")
 	var targettool targettool
-	var order = order{Targettool: targettool}
+	var toolbox = toolbox{Targettool: targettool}
+	names := []string{"all"}
 
-	var names []string
-	names = append(names, "all")
-	for _, config := range configs {
-		names = append(names, config.Name)
+	// Directory to search for .yaml files
+	outputDir := "./output"
+
+	// List all files in the output directory
+	files, err := os.ReadDir(outputDir)
+	if err != nil {
+		fmt.Printf("Failed to read directory: %v\n", err)
+		return
+	}
+
+	// Filter and append .tmp files to names
+	for _, file := range files {
+		if !file.IsDir() && filepath.Ext(file.Name()) == ".tmp" {
+			names = append(names, file.Name())
+		}
 	}
 	accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
 
@@ -59,61 +82,40 @@ func Menu(configs []utils.Config) {
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Options(huh.NewOptions(names...)...).
-				Title("Choose your target tools to setup").
-				Description("Which tools are we working with now?.").
+				Title("Choose your target packages to deploy").
+				Description("Which packages are we working with now?.").
 				Validate(func(t []string) error {
 					if len(t) <= 0 {
-						return fmt.Errorf("at least one tool is required")
+						return fmt.Errorf("at least one package is required")
 					}
 					return nil
 				}).
-				Value(&order.Targettool.Type).
+				Value(&toolbox.Targettool.Type).
 				Filterable(true),
 		),
 	).WithAccessible(accessible)
 
-	err := form.Run()
+	err = form.Run()
 
 	if err != nil {
 		fmt.Println("Uh oh:", err)
 		os.Exit(1)
 	}
-	if order.Targettool.Type[0] == "all" {
-		for _, config := range configs {
-			order.Targettool.Type = append(order.Targettool.Type, config.Name)
-		}
+	if toolbox.Targettool.Type[0] == "all" {
+		toolbox.Targettool.Type = append(toolbox.Targettool.Type, names...)
 	}
-
+	//remove 'all' from the toolbox.Targettool.Type array
+	toolbox.Targettool.Type = removeElement(toolbox.Targettool.Type, "all")
 	prepareTool := func() {
-		for _, tool := range order.Targettool.Type {
-			for _, config := range configs {
-				if config.Name == tool {
-					log.Debug("running setup for ", config.Name)
-					if config.HelmURL != "" {
-						log.Debug("   Using: ", config.HelmURL)
-					}
-					config.Filename = "input/" + config.Name + ".yaml"
-					files, _ := os.ReadDir("working/" + config.Name)
-					for _, file := range files {
-						if !file.IsDir() && !strings.Contains(file.Name(), "ExternalSecret") {
-							err := os.Remove("working/" + config.Name + "/" + file.Name())
-							if err != nil {
-								fmt.Println("Error deleting file:", err)
-							}
-						}
-					}
-					utils.Templatehelm(config)
-					// split.SplitYAML(config)
-					// compose.CreateComposition(config)
-
-				}
-			}
+		for _, tool := range toolbox.Targettool.Type {
+			// TODO setup the forging here!
+			fmt.Println(tool)
 		}
 	}
 
-	_ = spinner.New().Title("Preparing your tools...").Accessible(accessible).Action(prepareTool).Run()
+	_ = spinner.New().Title("Deploying your tools...").Accessible(accessible).Action(prepareTool).Run()
 
-	// Print order summary.
+	// Print toolbox summary.
 	{
 		var sb strings.Builder
 		keyword := func(s string) string {
@@ -122,7 +124,7 @@ func Menu(configs []utils.Config) {
 		fmt.Fprintf(&sb,
 			"%s\n\nCompleted: %s.",
 			lipgloss.NewStyle().Bold(true).Render("Cluster Forge"),
-			keyword(xstrings.EnglishJoin(order.Targettool.Type, true)),
+			keyword(xstrings.EnglishJoin(toolbox.Targettool.Type, true)),
 		)
 
 		fmt.Println(

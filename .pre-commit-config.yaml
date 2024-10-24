@@ -3,13 +3,16 @@ repos:
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace
+        exclude: ^(LICENSE|licenses/.*)$
       - id: end-of-file-fixer
+        exclude: ^(LICENSE|licenses/.*)$
   - repo: https://github.com/adrienverge/yamllint.git
     rev: v1.35.1
     hooks:
       - id: yamllint
         args: [--strict]
         files: k8s/apps
+        exclude: ^(LICENSE|licenses/.*)$
   - repo: https://github.com/jumanjihouse/pre-commit-hook-yamlfmt
     rev: 0.2.3
     hooks:
@@ -29,3 +32,4 @@ repos:
             --preserve_null,
           ]
         files: k8s/apps
+        exclude: ^(LICENSE|licenses/.*)$

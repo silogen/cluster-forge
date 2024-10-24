@@ -131,7 +131,7 @@ func Templatehelm(config Config) {
 			// Neither HelmVersion nor Namespace is provided
 			cmd = exec.Command("helm", "template", config.HelmName, "--repo", config.HelmURL, config.HelmChartName, "-f", "input/"+config.Name+"/"+config.Values)
 		}
-
+		cmd.Env = append(cmd.Env, "KUBECONFIG=''")
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
 		cmd.Stdout = file
