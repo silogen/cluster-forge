@@ -39,6 +39,17 @@ type targettool struct {
 	Type []string
 }
 
+// Function to remove a specific element from a slice
+func removeElement(slice []string, element string) []string {
+	result := []string{}
+	for _, v := range slice {
+		if v != element {
+			result = append(result, v)
+		}
+	}
+	return result
+}
+
 func Cast(configs []utils.Config) {
 	log.Info("starting up the menu...")
 	var targettool targettool
@@ -57,7 +68,7 @@ func Cast(configs []utils.Config) {
 
 	// Filter and append .yaml files to names
 	for _, file := range files {
-		if !file.IsDir() && filepath.Ext(file.Name()) == ".yaml" {
+		if !file.IsDir() && filepath.Ext(file.Name()) == "-component-object.yaml" {
 			names = append(names, file.Name())
 		}
 	}
@@ -95,6 +106,8 @@ func Cast(configs []utils.Config) {
 			toolbox.Targettool.Type = append(toolbox.Targettool.Type, config.Name)
 		}
 	}
+	//remove 'all' from the toolbox.Targettool.Type array
+	toolbox.Targettool.Type = removeElement(toolbox.Targettool.Type, "all")
 	prepareTool := func() {
 		for _, tool := range toolbox.Targettool.Type {
 			// TODO setup the casting here!

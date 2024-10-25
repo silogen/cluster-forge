@@ -39,17 +39,6 @@ type targettool struct {
 	Type []string
 }
 
-// Function to remove a specific element from a slice
-func removeElement(slice []string, element string) []string {
-	result := []string{}
-	for _, v := range slice {
-		if v != element {
-			result = append(result, v)
-		}
-	}
-	return result
-}
-
 func Forge(configs []utils.Config) {
 	log.Info("starting up the menu...")
 	var targettool targettool
@@ -104,8 +93,7 @@ func Forge(configs []utils.Config) {
 	if toolbox.Targettool.Type[0] == "all" {
 		toolbox.Targettool.Type = append(toolbox.Targettool.Type, names...)
 	}
-	//remove 'all' from the toolbox.Targettool.Type array
-	toolbox.Targettool.Type = removeElement(toolbox.Targettool.Type, "all")
+
 	prepareTool := func() {
 		for _, tool := range toolbox.Targettool.Type {
 			// TODO setup the forging here!

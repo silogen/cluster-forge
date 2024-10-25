@@ -14,7 +14,7 @@
  *  limitations under the License.
 **/
 
-package smelter
+package utils
 
 import (
 	"bytes"
@@ -25,8 +25,6 @@ import (
 	"regexp"
 	"strings"
 	"text/template"
-
-	"github.com/silogen/cluster-forge/cmd/utils"
 )
 
 //go:embed templates/*
@@ -75,22 +73,17 @@ func shouldSkipFile(file os.DirEntry, dirPath string) bool {
 	return false
 }
 
-// CreateComposition reads the output of the SplitYAML function and writes it to a file
-func CreateComposition(config utils.Config) {
+// CreateCrossplaneObject reads the output of the SplitYAML function and writes it to a file
+func CreateCrossplaneObject(config Config) {
 	// read a command line argument and assign it to a variable
 	platformpackage := new(platformpackage)
 	platformpackage.Name = config.Name
-	outfile, err := os.OpenFile("output/"+platformpackage.Name+"-composition.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+	outfile, err := os.OpenFile("output/"+platformpackage.Name+"-component-object.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	defer outfile.Close()
 
-	// read ebedded filesystem file header.templ and echo into outfile
-	err = htemp.Execute(outfile, platformpackage)
-	if err != nil {
-		log.Fatalln(err)
-	}
 	files, _ := os.ReadDir("working/" + platformpackage.Name)
 	for _, file := range files {
 		if shouldSkipFile(file, "working/"+platformpackage.Name) {
@@ -124,12 +117,38 @@ func CreateComposition(config utils.Config) {
 		platformpackage.Content.Reset()
 	}
 
-	// Execute the footer template
-	err = ftemp.Execute(outfile, platformpackage)
+	removeEmptyLines("output/" + platformpackage.Name + "-component-object.yaml")
+}
+
+// CreateComposition reads the output of the SplitYAML function and writes it to a file
+func CreateComposition(composition_name string) {
+	outfile, err := os.OpenFile("output/"+composition_name+"-composition.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	removeEmptyLines("output/" + platformpackage.Name + "-composition.yaml")
+	defer outfile.Close()
+	// read ebedded filesystem file header.templ and echo into outfile
+	err = htemp.Execute(outfile, composition_name)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	content, err := os.ReadFile("working/" + composition_name)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	lines := strings.Split(string(content), "\n")
+
+	// Convert the content to a string and pass it to the template
+	err = temp.Execute(outfile, lines)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	// Execute the footer template
+	err = ftemp.Execute(outfile, composition_name)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	removeEmptyLines("output/" + composition_name + "-composition.yaml")
 }
 
 func removeEmptyLines(filename string) error {

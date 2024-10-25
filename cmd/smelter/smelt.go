@@ -100,7 +100,7 @@ func Smelt(configs []utils.Config) {
 					}
 					utils.Templatehelm(config)
 					SplitYAML(config)
-					CreateComposition(config)
+					utils.CreateCrossplaneObject(config)
 
 				}
 			}
