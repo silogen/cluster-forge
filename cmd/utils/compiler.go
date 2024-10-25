@@ -121,7 +121,7 @@ func CreateCrossplaneObject(config Config) {
 }
 
 // CreateComposition reads the output of the SplitYAML function and writes it to a file
-func CreateComposition(composition_name string) {
+func CreateComposition(composition_name string, content string) {
 	outfile, err := os.OpenFile("output/"+composition_name+"-composition.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalln(err)
@@ -132,7 +132,6 @@ func CreateComposition(composition_name string) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	content, err := os.ReadFile("working/" + composition_name)
 	if err != nil {
 		log.Fatalln(err)
 	}

@@ -12,7 +12,8 @@
             "program": "${workspaceFolder}/main.go",
             "console": "integratedTerminal",
             "outputCapture": "std",
-            "internalConsoleOptions": "neverOpen"
+            "internalConsoleOptions": "neverOpen",
+            "args": ["--cast"]
         }
     ]
 }

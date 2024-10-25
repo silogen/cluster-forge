@@ -18,6 +18,7 @@ package caster
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -68,7 +69,7 @@ func Cast(configs []utils.Config) {
 
 	// Filter and append .yaml files to names
 	for _, file := range files {
-		if !file.IsDir() && filepath.Ext(file.Name()) == "-component-object.yaml" {
+		if !file.IsDir() && filepath.Ext(file.Name()) == ".yaml" {
 			names = append(names, file.Name())
 		}
 	}
@@ -101,18 +102,27 @@ func Cast(configs []utils.Config) {
 		fmt.Println("Uh oh:", err)
 		os.Exit(1)
 	}
-	if toolbox.Targettool.Type[0] == "all" {
-		for _, config := range configs {
-			toolbox.Targettool.Type = append(toolbox.Targettool.Type, config.Name)
-		}
-	}
+	filesDir := "./output"
+	var combinedText string
 	//remove 'all' from the toolbox.Targettool.Type array
-	toolbox.Targettool.Type = removeElement(toolbox.Targettool.Type, "all")
+	names = removeElement(names, "all")
 	prepareTool := func() {
-		for _, tool := range toolbox.Targettool.Type {
-			// TODO setup the casting here!
-			fmt.Println(tool)
+		for _, tool := range names {
+
+			// Construct the file path
+			filePath := filepath.Join(filesDir, tool)
+
+			// Read the content of the file
+			content, err := ioutil.ReadFile(filePath)
+			if err != nil {
+				log.Fatalf("Failed to read file %s: %v", filePath, err)
+			}
+
+			// Append the content to the combinedText
+			combinedText += string(content)
 		}
+		// fmt.Println(combinedText)
+		utils.CreateComposition("test", combinedText)
 	}
 
 	_ = spinner.New().Title("Preparing your tools...").Accessible(accessible).Action(prepareTool).Run()
