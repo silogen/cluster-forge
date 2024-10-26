@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"regexp"
@@ -105,7 +106,7 @@ func CreateCrossplaneObject(config Config) {
 
 		// Indent each line and write it to the buffer
 		for _, line := range lines {
-			platformpackage.Content.WriteString(fmt.Sprintf("                %s\n", line))
+			platformpackage.Content.WriteString(fmt.Sprintf("%s\n", line))
 		}
 
 		// Convert the content to a string and pass it to the template
@@ -122,23 +123,23 @@ func CreateCrossplaneObject(config Config) {
 
 // CreateComposition reads the output of the SplitYAML function and writes it to a file
 func CreateComposition(composition_name string, content string) {
+	platformpackage := new(platformpackage)
+	platformpackage.Name = composition_name
 	outfile, err := os.OpenFile("output/"+composition_name+"-composition.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	defer outfile.Close()
 	// read ebedded filesystem file header.templ and echo into outfile
-	err = htemp.Execute(outfile, composition_name)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	err = htemp.Execute(outfile, platformpackage)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	lines := strings.Split(string(content), "\n")
 
-	// Convert the content to a string and pass it to the template
-	err = temp.Execute(outfile, lines)
+	// Append content to outfile
+	contentToAppend := strings.Join(lines, "\n")
+	_, err = io.WriteString(outfile, contentToAppend)
 	if err != nil {
 		log.Fatalln(err)
 	}

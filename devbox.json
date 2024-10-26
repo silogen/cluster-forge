@@ -4,8 +4,9 @@
     "kubectl":     "1.31.0",
     "just":        "1.36.0",
     "kind":        "0.24.0",
-    "pre-commit":"3.6.2",
-    "go-licenses": "1.6.0"
+    "pre-commit":  "3.6.2",
+    "go-licenses": "1.6.0",
+    "go":          "1.23.2"
   },
   "shell": {
     "init_hook": [
