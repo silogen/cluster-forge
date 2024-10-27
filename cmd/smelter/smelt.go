@@ -74,8 +74,7 @@ func Smelt(configs []utils.Config) {
 	err := form.Run()
 
 	if err != nil {
-		fmt.Println("Uh oh:", err)
-		os.Exit(1)
+		log.Fatal("Uh oh:", err)
 	}
 	if toolbox.Targettool.Type[0] == "all" {
 		for _, config := range configs {
@@ -94,7 +93,7 @@ func Smelt(configs []utils.Config) {
 						if !file.IsDir() && !strings.Contains(file.Name(), "ExternalSecret") {
 							err := os.Remove("working/" + config.Name + "/" + file.Name())
 							if err != nil {
-								fmt.Println("Error deleting file:", err)
+								log.Error("Error deleting file:", err)
 							}
 						}
 					}
@@ -105,6 +104,7 @@ func Smelt(configs []utils.Config) {
 				}
 			}
 		}
+		utils.RemoveEmptyYAMLFiles("output")
 	}
 
 	_ = spinner.New().Title("Preparing your tools...").Accessible(accessible).Action(prepareTool).Run()

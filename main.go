@@ -82,4 +82,5 @@ func main() {
 		forger.Forge(configs)
 
 	}
+	// utils.ResetTerminal()
 }

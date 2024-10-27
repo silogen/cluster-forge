@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"regexp"
@@ -55,11 +56,6 @@ func shouldSkipFile(file os.DirEntry, dirPath string) bool {
 		return true
 	}
 	name := file.Name()
-	// Skip Secret files that are not ExternalSecret
-	if strings.Contains(name, "Secret") && !strings.Contains(name, "ExternalSecret") {
-		log.Printf("Secret %s should be created!", name)
-		return true
-	}
 	// Check if file contains helm.sh/hook
 	content, err := os.ReadFile(dirPath + "/" + name)
 	if err != nil {
@@ -78,11 +74,21 @@ func CreateCrossplaneObject(config Config) {
 	// read a command line argument and assign it to a variable
 	platformpackage := new(platformpackage)
 	platformpackage.Name = config.Name
-	outfile, err := os.OpenFile("output/"+platformpackage.Name+"-component-object.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+	objectFile, err := os.OpenFile("output/"+platformpackage.Name+"-object.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	defer outfile.Close()
+	defer objectFile.Close()
+	crdFile, err := os.OpenFile("output/"+platformpackage.Name+"-crd.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer crdFile.Close()
+	secretFile, err := os.OpenFile("output/"+platformpackage.Name+"-secret.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer secretFile.Close()
 
 	files, _ := os.ReadDir("working/" + platformpackage.Name)
 	for _, file := range files {
@@ -105,49 +111,55 @@ func CreateCrossplaneObject(config Config) {
 
 		// Indent each line and write it to the buffer
 		for _, line := range lines {
-			platformpackage.Content.WriteString(fmt.Sprintf("                %s\n", line))
+			platformpackage.Content.WriteString(fmt.Sprintf("%s\n", line))
 		}
-
+		// TODO select the correct outfile based on the kind
 		// Convert the content to a string and pass it to the template
-		err = temp.Execute(outfile, platformpackage)
+		if strings.Contains(platformpackage.Kind, "CustomResourceDefinition") {
+			err = temp.Execute(crdFile, platformpackage)
+		} else if strings.Contains(platformpackage.Kind, "Secret") {
+			err = temp.Execute(secretFile, platformpackage)
+		} else {
+			err = temp.Execute(objectFile, platformpackage)
+		}
 		if err != nil {
 			log.Fatalln(err)
 		}
 		// Clear the buffer
 		platformpackage.Content.Reset()
 	}
-
-	removeEmptyLines("output/" + platformpackage.Name + "-component-object.yaml")
+	removeEmptyLines("output/" + platformpackage.Name + "-object.yaml")
+	removeEmptyLines("output/" + platformpackage.Name + "-crd.yaml")
+	removeEmptyLines("output/" + platformpackage.Name + "-secret.yaml")
 }
 
-// CreateComposition reads the output of the SplitYAML function and writes it to a file
-func CreateComposition(composition_name string) {
-	outfile, err := os.OpenFile("output/"+composition_name+"-composition.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+// CreatePackage reads the output of the SplitYAML function and writes it to a file
+func CreatePackage(composition_name string, content string) {
+	platformpackage := new(platformpackage)
+	platformpackage.Name = composition_name
+	outfile, err := os.OpenFile("output/"+composition_name+"-packages.yml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	defer outfile.Close()
 	// read ebedded filesystem file header.templ and echo into outfile
-	err = htemp.Execute(outfile, composition_name)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	content, err := os.ReadFile("working/" + composition_name)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	// err = htemp.Execute(outfile, platformpackage)
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
 	lines := strings.Split(string(content), "\n")
 
-	// Convert the content to a string and pass it to the template
-	err = temp.Execute(outfile, lines)
+	// Append content to outfile
+	contentToAppend := strings.Join(lines, "\n")
+	_, err = io.WriteString(outfile, contentToAppend)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	// Execute the footer template
-	err = ftemp.Execute(outfile, composition_name)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	// err = ftemp.Execute(outfile, composition_name)
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
 	removeEmptyLines("output/" + composition_name + "-composition.yaml")
 }
 

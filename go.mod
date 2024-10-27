@@ -9,6 +9,7 @@ require (
 	github.com/charmbracelet/x/exp/strings v0.0.0-20241021221420-c527e24a5c07
 	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/sirupsen/logrus v1.9.3
+	golang.org/x/term v0.25.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -32,6 +33,6 @@ require (
 	github.com/muesli/termenv v0.15.3-0.20240618155329-98d742f6907a // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	golang.org/x/sync v0.8.0 // indirect
-	golang.org/x/sys v0.25.0 // indirect
+	golang.org/x/sys v0.26.0 // indirect
 	golang.org/x/text v0.18.0 // indirect
 )

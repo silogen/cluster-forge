@@ -19,11 +19,14 @@ package utils
 import (
 	"bytes"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/term"
 	"gopkg.in/yaml.v2"
 )
 
@@ -171,4 +174,40 @@ func downloadFile(filepath string, url string) error {
 	// Write the body to file
 	_, err = io.Copy(out, resp.Body)
 	return err
+}
+
+// RemoveEmptyYAMLFiles removes empty .yaml files in the specified directory
+func RemoveEmptyYAMLFiles(dir string) error {
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		if filepath.Ext(file.Name()) == ".yaml" {
+			filePath := filepath.Join(dir, file.Name())
+			info, err := os.Stat(filePath)
+			if err != nil {
+				return err
+			}
+			if info.Size() == 0 {
+				err = os.Remove(filePath)
+				if err != nil {
+					return err
+				}
+				log.Printf("Removed empty file: %s\n", filePath)
+			}
+		}
+	}
+	return nil
+}
+
+func ResetTerminal() {
+	// Restores terminal state
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		_, err := term.MakeRaw(int(os.Stdin.Fd())) // Put terminal in raw mode
+		if err != nil {
+			log.Error("Failed to make terminal raw: %v\n", err)
+		}
+	}
 }
