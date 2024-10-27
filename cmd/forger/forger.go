@@ -51,7 +51,7 @@ func Forge(configs []utils.Config) {
 	// List all files in the output directory
 	files, err := os.ReadDir(outputDir)
 	if err != nil {
-		fmt.Printf("Failed to read directory: %v\n", err)
+		log.Error("Failed to read directory: %v\n", err)
 		return
 	}
 
@@ -87,8 +87,7 @@ func Forge(configs []utils.Config) {
 	err = form.Run()
 
 	if err != nil {
-		fmt.Println("Uh oh:", err)
-		os.Exit(1)
+		log.Fatal("Uh oh:", err)
 	}
 	if toolbox.Targettool.Type[0] == "all" {
 		toolbox.Targettool.Type = append(toolbox.Targettool.Type, names...)
@@ -97,7 +96,7 @@ func Forge(configs []utils.Config) {
 	prepareTool := func() {
 		for _, tool := range toolbox.Targettool.Type {
 			// TODO setup the forging here!
-			fmt.Println(tool)
+			log.Println(tool)
 		}
 	}
 

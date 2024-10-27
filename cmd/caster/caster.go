@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -51,6 +52,49 @@ func removeElement(slice []string, element string) []string {
 	return result
 }
 
+// FetchFilesAndCategorize fetches files with the given prefix and categorizes them
+func FetchFilesAndCategorize(dir string, prefix string) (crdFiles, secretFiles, externalSecretFiles, objectFiles []string, err error) {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	for _, file := range files {
+		if !file.IsDir() && strings.HasPrefix(file.Name(), prefix) {
+			fileName := file.Name()
+			if strings.Contains(fileName, "crd") {
+				crdFiles = append(crdFiles, fileName)
+			} else if strings.Contains(fileName, "externalsecret") {
+				externalSecretFiles = append(externalSecretFiles, fileName)
+			} else if strings.Contains(fileName, "secret") {
+				secretFiles = append(secretFiles, fileName)
+			} else if strings.Contains(fileName, "object") {
+				objectFiles = append(objectFiles, fileName)
+			}
+		}
+	}
+
+	return crdFiles, secretFiles, externalSecretFiles, objectFiles, nil
+}
+
+func combineFiles(files []string, filesDir string) string {
+	var combinedText string
+	for _, file := range files {
+		// Construct the file path
+		filePath := filepath.Join(filesDir, file)
+
+		// Read the content of the file
+		content, err := ioutil.ReadFile(filePath)
+		if err != nil {
+			log.Fatalf("Failed to read file %s: %v", filePath, err)
+		}
+
+		// Append the content to the combinedText
+		combinedText += string(content)
+	}
+	return combinedText
+}
+
 func Cast(configs []utils.Config) {
 	log.Info("starting up the menu...")
 	var targettool targettool
@@ -63,22 +107,39 @@ func Cast(configs []utils.Config) {
 	// List all files in the output directory
 	files, err := os.ReadDir(outputDir)
 	if err != nil {
-		fmt.Printf("Failed to read directory: %v\n", err)
+		log.Error("Failed to read directory: %v\n", err)
 		return
 	}
 
-	// Filter and append .yaml files to names
+	// Filter all .yaml files and ensure names are unique
+	uniqueNames := make(map[string]struct{})
+	castname := ""
 	for _, file := range files {
 		if !file.IsDir() && filepath.Ext(file.Name()) == ".yaml" {
-			names = append(names, file.Name())
+			baseName := strings.SplitN(file.Name(), "-", 2)[0]
+			if _, exists := uniqueNames[baseName]; !exists {
+				names = append(names, baseName)
+				uniqueNames[baseName] = struct{}{}
+			}
 		}
 	}
-	accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
 
+	accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
+	re := regexp.MustCompile("^[a-z0-9]+$")
 	form := huh.NewForm(
 		huh.NewGroup(huh.NewNote().
 			Title("Cluster Forge").
 			Description("TO THE FORGE!\n\nLets get started")),
+		huh.NewGroup(huh.NewText().
+			Title("Name of this composition package").
+			CharLimit(25).
+			Validate(func(input string) error {
+				if !re.MatchString(input) {
+					return fmt.Errorf("input can only contain lowercase letters (a-z) and digits (0-9)")
+				}
+				return nil
+			}).
+			Value(&castname)),
 
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
@@ -99,35 +160,77 @@ func Cast(configs []utils.Config) {
 	err = form.Run()
 
 	if err != nil {
-		fmt.Println("Uh oh:", err)
-		os.Exit(1)
+		log.Fatal("Uh oh:", err)
 	}
 	filesDir := "./output"
-	var combinedText string
+	var combinedObjects string
+	var combinedCRDs string
+	var combinedExternalSecrets string
 	//remove 'all' from the toolbox.Targettool.Type array
 	names = removeElement(names, "all")
+	crdFiles := []string{}
+	secretFiles := []string{}
+	externalSecretFiles := []string{}
+	objectFiles := []string{}
 	prepareTool := func() {
 		for _, tool := range names {
-
-			// Construct the file path
-			filePath := filepath.Join(filesDir, tool)
-
-			// Read the content of the file
-			content, err := ioutil.ReadFile(filePath)
+			// fetch all files with the selected names
+			crdFile, secretFile, externalSecretFile, objectFile, err := FetchFilesAndCategorize(filesDir, tool)
 			if err != nil {
-				log.Fatalf("Failed to read file %s: %v", filePath, err)
+				log.Error("Error:", err)
+				return
 			}
 
-			// Append the content to the combinedText
-			combinedText += string(content)
+			crdFiles = append(crdFiles, crdFile...)
+			secretFiles = append(secretFiles, secretFile...)
+			externalSecretFiles = append(externalSecretFiles, externalSecretFile...)
+			objectFiles = append(objectFiles, objectFile...)
+
 		}
-		// fmt.Println(combinedText)
-		utils.CreateComposition("test", combinedText)
+		for _, extSecretFile := range externalSecretFiles {
+			extSecretPrefix := strings.SplitN(extSecretFile, "-", 2)[0]
+			for i := 0; i < len(secretFiles); i++ {
+				secretPrefix := strings.SplitN(secretFiles[i], "-", 2)[0]
+				if secretPrefix == extSecretPrefix {
+					// Remove the element from secretFiles
+					secretFiles = append(secretFiles[:i], secretFiles[i+1:]...)
+					i-- // Adjust index after removal
+				}
+			}
+		}
+		if len(secretFiles) != 0 {
+			rawsecrets := false
+			form := huh.NewForm(
+				huh.NewGroup(
+					huh.NewConfirm().
+						Title("You have secrets which are not converted to ExternalSecrets.\nAre you sure you want to continue?").
+						Value(&rawsecrets)))
+			err = form.Run()
+			if err != nil {
+				log.Fatal("Uh oh:", err)
+			}
+			if !rawsecrets {
+				log.Fatal("Fix secrets and try again...")
+			}
+			combinedObjects = combineFiles(secretFiles, filesDir)
+
+		}
+		if len(crdFiles) != 0 {
+			combinedCRDs += combineFiles(crdFiles, filesDir)
+		}
+		if len(externalSecretFiles) != 0 {
+			combinedExternalSecrets += combineFiles(externalSecretFiles, filesDir)
+		}
+		combinedObjects += combineFiles(objectFiles, filesDir)
+		utils.CreatePackage(castname+"-externalsecrets", combinedExternalSecrets)
+		utils.CreatePackage(castname+"-crds", combinedCRDs)
+		utils.CreatePackage(castname+"-objects", combinedObjects)
 	}
 
 	_ = spinner.New().Title("Preparing your tools...").Accessible(accessible).Action(prepareTool).Run()
 
 	// Print toolbox summary.
+
 	{
 		var sb strings.Builder
 		keyword := func(s string) string {
