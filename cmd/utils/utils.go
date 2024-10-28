@@ -19,7 +19,6 @@ package utils
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -178,7 +177,7 @@ func downloadFile(filepath string, url string) error {
 
 // RemoveEmptyYAMLFiles removes empty .yaml files in the specified directory
 func RemoveEmptyYAMLFiles(dir string) error {
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
@@ -207,7 +206,7 @@ func ResetTerminal() {
 	if term.IsTerminal(int(os.Stdin.Fd())) {
 		_, err := term.MakeRaw(int(os.Stdin.Fd())) // Put terminal in raw mode
 		if err != nil {
-			log.Error("Failed to make terminal raw: %v\n", err)
+			log.Errorf("Failed to make terminal raw: %v\n", err)
 		}
 	}
 }

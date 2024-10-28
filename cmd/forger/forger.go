@@ -51,7 +51,7 @@ func Forge(configs []utils.Config) {
 	// List all files in the output directory
 	files, err := os.ReadDir(outputDir)
 	if err != nil {
-		log.Error("Failed to read directory: %v\n", err)
+		log.Errorf("Failed to read directory: %v\n", err)
 		return
 	}
 

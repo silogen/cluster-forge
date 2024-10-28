@@ -33,15 +33,11 @@ var tplFolder embed.FS
 
 // Declare type pointer to a template
 var temp *template.Template
-var htemp *template.Template
-var ftemp *template.Template
 
 // Using the init function to make sure the template is only parsed once in the program
 func init() {
 	// template.Must takes the reponse of template.ParseFiles and does error checking
 	temp = template.Must(template.ParseFS(tplFolder, "templates/template.templ"))
-	htemp = template.Must(template.ParseFS(tplFolder, "templates/header.templ"))
-	ftemp = template.Must(template.ParseFS(tplFolder, "templates/footer.templ"))
 }
 
 type platformpackage struct {
@@ -113,7 +109,6 @@ func CreateCrossplaneObject(config Config) {
 		for _, line := range lines {
 			platformpackage.Content.WriteString(fmt.Sprintf("%s\n", line))
 		}
-		// TODO select the correct outfile based on the kind
 		// Convert the content to a string and pass it to the template
 		if strings.Contains(platformpackage.Kind, "CustomResourceDefinition") {
 			err = temp.Execute(crdFile, platformpackage)
@@ -135,18 +130,11 @@ func CreateCrossplaneObject(config Config) {
 
 // CreatePackage reads the output of the SplitYAML function and writes it to a file
 func CreatePackage(composition_name string, content string) {
-	platformpackage := new(platformpackage)
-	platformpackage.Name = composition_name
 	outfile, err := os.OpenFile("output/"+composition_name+"-packages.yml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	defer outfile.Close()
-	// read ebedded filesystem file header.templ and echo into outfile
-	// err = htemp.Execute(outfile, platformpackage)
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
 	lines := strings.Split(string(content), "\n")
 
 	// Append content to outfile
@@ -155,11 +143,6 @@ func CreatePackage(composition_name string, content string) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	// Execute the footer template
-	// err = ftemp.Execute(outfile, composition_name)
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
 	removeEmptyLines("output/" + composition_name + "-composition.yaml")
 }
 

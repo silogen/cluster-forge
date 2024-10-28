@@ -18,7 +18,6 @@ package caster
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -84,7 +83,7 @@ func combineFiles(files []string, filesDir string) string {
 		filePath := filepath.Join(filesDir, file)
 
 		// Read the content of the file
-		content, err := ioutil.ReadFile(filePath)
+		content, err := os.ReadFile(filePath)
 		if err != nil {
 			log.Fatalf("Failed to read file %s: %v", filePath, err)
 		}
@@ -107,7 +106,7 @@ func Cast(configs []utils.Config) {
 	// List all files in the output directory
 	files, err := os.ReadDir(outputDir)
 	if err != nil {
-		log.Error("Failed to read directory: %v\n", err)
+		log.Errorf("Failed to read directory: %v\n", err)
 		return
 	}
 

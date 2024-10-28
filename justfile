@@ -19,3 +19,6 @@ build:
 
 pre-commit:
   @pre-commit run --all-files
+
+clean-all:
+  @sh scripts/clean.sh
