@@ -130,10 +130,10 @@ func CreateCrossplaneObject(config Config) {
 }
 
 // CreatePackage reads the output of the SplitYAML function and writes it to a file
-func CreatePackage(composition_name string, content string) {
+func CreatePackage(config Config, part string, content string) {
 	platformpackage := new(platformpackage)
-	platformpackage.Name = composition_name
-	outfile, err := os.OpenFile("packages/"+composition_name+"-packages.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+	platformpackage.Name = config.CastName + "-" + config.Name
+	outfile, err := os.OpenFile("packages/"+config.CastName+"-"+config.Name+"-"+part+"-packages.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -156,7 +156,7 @@ func CreatePackage(composition_name string, content string) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	removeEmptyLines("packages/" + composition_name + "-packages.yaml")
+	removeEmptyLines("packages/" + config.CastName + "-" + config.Name + "-" + part + "-packages.yaml")
 }
 
 func removeEmptyLines(filename string) error {

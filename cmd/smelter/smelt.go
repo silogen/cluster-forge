@@ -17,7 +17,9 @@
 package smelter
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
 	"os"
 	"strconv"
 	"strings"
@@ -30,6 +32,12 @@ import (
 
 	"github.com/silogen/cluster-forge/cmd/utils"
 )
+
+const namespaceTemplate = `apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .NamespaceName }}
+`
 
 type toolbox struct {
 	Targettool targettool
@@ -83,28 +91,56 @@ func Smelt(configs []utils.Config) {
 	}
 
 	prepareTool := func() {
+		configMap := make(map[string]utils.Config)
+
+		for _, config := range configs {
+			configMap[config.Name] = config
+		}
+
+		// Now iterate over the tools and directly access the corresponding config in the map.
 		for _, tool := range toolbox.Targettool.Type {
-			for _, config := range configs {
-				if config.Name == tool {
-					log.Debug("running setup for ", config.Name)
-					config.Filename = "working/pre/" + config.Name + ".yaml"
-					files, _ := os.ReadDir("working/pre/" + config.Name)
-					for _, file := range files {
-						if !file.IsDir() && !strings.Contains(file.Name(), "ExternalSecret") {
-							err := os.Remove("working/" + config.Name + "/" + file.Name())
-							if err != nil {
-								log.Error("Error deleting file:", err)
-							}
+			if config, exists := configMap[tool]; exists {
+				namespaceObject := false
+				log.Debug("running setup for ", config.Name)
+				config.Filename = "working/pre/" + config.Name + ".yaml"
+				files, _ := os.ReadDir("working/pre/" + config.Name)
+				for _, file := range files {
+					if !file.IsDir() && !strings.Contains(file.Name(), "ExternalSecret") {
+						err := os.Remove("working/" + config.Name + "/" + file.Name())
+						if err != nil {
+							log.Error("Error deleting file:", err)
 						}
 					}
-					utils.Templatehelm(config)
-					SplitYAML(config)
-					utils.CreateCrossplaneObject(config)
-
+				}
+				utils.Templatehelm(config)
+				SplitYAML(config)
+				files, _ = os.ReadDir("working/" + config.Name)
+				for _, file := range files {
+					if !file.IsDir() && strings.Contains(file.Name(), "Namespace") {
+						namespaceObject = true
+					}
+				}
+				if !namespaceObject {
+					data := struct {
+						NamespaceName string
+					}{
+						NamespaceName: config.Namespace,
+					}
+					tmpl, err := template.New("namespace").Parse(namespaceTemplate)
+					if err != nil {
+						log.Fatal(err)
+					}
+					var rendered bytes.Buffer
+					if err := tmpl.Execute(&rendered, data); err != nil {
+						panic(err)
+					}
+					if err := os.WriteFile("working/"+config.Name+"/Namespace_"+config.Name+".yaml", rendered.Bytes(), 0644); err != nil {
+						log.Fatal(err)
+					}
 				}
 			}
 		}
-		utils.RemoveEmptyYAMLFiles("output")
+
 	}
 
 	_ = spinner.New().Title("Preparing your tools...").Accessible(accessible).Action(prepareTool).Run()

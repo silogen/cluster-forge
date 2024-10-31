@@ -101,7 +101,7 @@ func Cast(configs []utils.Config) {
 	names := []string{"all"}
 
 	// Directory to search for .yaml files
-	outputDir := "./output"
+	outputDir := "./working"
 
 	// List all files in the output directory
 	files, err := os.ReadDir(outputDir)
@@ -114,11 +114,11 @@ func Cast(configs []utils.Config) {
 	uniqueNames := make(map[string]struct{})
 	castname := ""
 	for _, file := range files {
-		if !file.IsDir() && filepath.Ext(file.Name()) == ".yaml" {
-			baseName := strings.SplitN(file.Name(), "-", 2)[0]
-			if _, exists := uniqueNames[baseName]; !exists {
-				names = append(names, baseName)
-				uniqueNames[baseName] = struct{}{}
+		if file.IsDir() && file.Name() != "pre" {
+
+			if _, exists := uniqueNames[file.Name()]; !exists {
+				names = append(names, file.Name())
+				uniqueNames[file.Name()] = struct{}{}
 			}
 		}
 	}
@@ -162,39 +162,36 @@ func Cast(configs []utils.Config) {
 		log.Fatal("Uh oh:", err)
 	}
 	filesDir := "./output"
-	var combinedObjects string
-	var combinedCRDs string
-	var combinedExternalSecrets string
 	//remove 'all' from the toolbox.Targettool.Type array
 	names = removeElement(names, "all")
-	crdFiles := []string{}
 	secretFiles := []string{}
-	externalSecretFiles := []string{}
-	objectFiles := []string{}
 	prepareTool := func() {
-		for _, tool := range names {
-			// fetch all files with the selected names
-			crdFile, secretFile, externalSecretFile, objectFile, err := FetchFilesAndCategorize(filesDir, tool)
-			if err != nil {
-				log.Error("Error:", err)
-				return
-			}
+		configMap := make(map[string]utils.Config)
 
-			crdFiles = append(crdFiles, crdFile...)
-			secretFiles = append(secretFiles, secretFile...)
-			externalSecretFiles = append(externalSecretFiles, externalSecretFile...)
-			objectFiles = append(objectFiles, objectFile...)
-
+		for _, config := range configs {
+			configMap[config.Name] = config
 		}
-		for _, extSecretFile := range externalSecretFiles {
-			extSecretPrefix := strings.SplitN(extSecretFile, "-", 2)[0]
-			for i := 0; i < len(secretFiles); i++ {
-				secretPrefix := strings.SplitN(secretFiles[i], "-", 2)[0]
-				if secretPrefix == extSecretPrefix {
-					// Remove the element from secretFiles
-					secretFiles = append(secretFiles[:i], secretFiles[i+1:]...)
-					i-- // Adjust index after removal
+
+		for _, tool := range names {
+			if config, exists := configMap[tool]; exists {
+				utils.CreateCrossplaneObject(config)
+				utils.RemoveEmptyYAMLFiles("output")
+				// fetch all files with the selected names
+				crdFile, secretFile, externalSecretFile, objectFile, err := FetchFilesAndCategorize(filesDir, tool)
+				if err != nil {
+					log.Error("Error:", err)
+					return
 				}
+
+				// Retrieve the struct, modify it, and put it back into the map
+				config.CRDFiles = append(config.CRDFiles, crdFile...)
+				config.ExternalSecretFiles = append(config.ExternalSecretFiles, externalSecretFile...)
+				config.SecretFiles = append(config.SecretFiles, secretFile...)
+				config.ObjectFiles = append(config.ObjectFiles, objectFile...)
+
+				configMap[tool] = config
+
+				secretFiles = append(secretFiles, secretFile...)
 			}
 		}
 		if len(secretFiles) != 0 {
@@ -211,24 +208,65 @@ func Cast(configs []utils.Config) {
 			if !rawsecrets {
 				log.Fatal("Fix secrets and try again...")
 			}
-			combinedExternalSecrets = combineFiles(secretFiles, filesDir)
+		}
+		for _, tool := range names {
+			if config, exists := configMap[tool]; exists {
+				config.CastName = castname
+				if len(config.CRDFiles) != 0 {
+					var crdFilesContent []string
+					for _, file := range config.CRDFiles {
+						filePath := filepath.Join("output", file)
+						content, err := os.ReadFile(filePath)
+						if err != nil {
+							log.Fatal("Error reading file:", err)
+						}
+						crdFilesContent = append(crdFilesContent, string(content))
+					}
+					crdFilesStr := strings.Join(crdFilesContent, "\n---\n") // Use "---" to separate YAML documents
+					utils.CreatePackage(config, "crds", crdFilesStr)
+				}
+				if len(config.ObjectFiles) != 0 {
+					var objectFilesContent []string
+					for _, file := range config.ObjectFiles {
+						filePath := filepath.Join("output", file)
+						content, err := os.ReadFile(filePath)
+						if err != nil {
+							log.Fatal("Error reading file:", err)
+						}
+						objectFilesContent = append(objectFilesContent, string(content))
+					}
+					objectFilesStr := strings.Join(objectFilesContent, "\n---\n") // Use "---" to separate YAML documents
+					utils.CreatePackage(config, "objects", objectFilesStr)
+				}
+
+				if len(config.SecretFiles) != 0 || len(config.ExternalSecretFiles) != 0 {
+					var secretFilesContent []string
+					if len(config.SecretFiles) != 0 {
+						for _, file := range config.SecretFiles {
+							filePath := filepath.Join("output", file)
+							content, err := os.ReadFile(filePath)
+							if err != nil {
+								log.Fatal("Error reading file:", err)
+							}
+							secretFilesContent = append(secretFilesContent, string(content))
+						}
+					}
+					if len(config.ExternalSecretFiles) != 0 {
+						for _, file := range config.ExternalSecretFiles {
+							filePath := filepath.Join("output", file)
+							content, err := os.ReadFile(filePath)
+							if err != nil {
+								log.Fatal("Error reading file:", err)
+							}
+							secretFilesContent = append(secretFilesContent, string(content))
+						}
+					}
+					secretFilesStr := strings.Join(secretFilesContent, "\n---\n") // Use "---" to separate YAML documents
+					utils.CreatePackage(config, "secrets", secretFilesStr)
+				}
+			}
 
 		}
-		if len(crdFiles) != 0 {
-			combinedCRDs += combineFiles(crdFiles, filesDir)
-		}
-		if len(externalSecretFiles) != 0 {
-			combinedExternalSecrets += combineFiles(externalSecretFiles, filesDir)
-
-		}
-		combinedObjects += combineFiles(objectFiles, filesDir)
-		if len(combinedExternalSecrets) > 1 {
-			utils.CreatePackage(castname+"-externalsecrets", combinedExternalSecrets)
-		}
-		if len(combinedCRDs) > 1 {
-			utils.CreatePackage(castname+"-crds", combinedCRDs)
-		}
-		utils.CreatePackage(castname+"-objects", combinedObjects)
 	}
 
 	_ = spinner.New().Title("Preparing your tools...").Accessible(accessible).Action(prepareTool).Run()

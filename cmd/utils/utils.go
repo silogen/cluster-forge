@@ -124,16 +124,21 @@ func LoadConfig(filename string) ([]Config, error) {
 
 // Config is the struct for the an individual tool config
 type Config struct {
-	HelmChartName string `yaml:"helm-chart-name"`
-	HelmURL       string `yaml:"helm-url"`
-	Values        string `yaml:"values"`
-	Secrets       bool   `yaml:"secrets"`
-	Name          string `yaml:"name"`
-	HelmName      string `yaml:"helm-name"`
-	ManifestURL   string `yaml:"manifest-url"`
-	HelmVersion   string `yaml:"helm-version"`
-	Namespace     string `yaml:"namespace"`
-	Filename      string
+	HelmChartName       string `yaml:"helm-chart-name"`
+	HelmURL             string `yaml:"helm-url"`
+	Values              string `yaml:"values"`
+	Secrets             bool   `yaml:"secrets"`
+	Name                string `yaml:"name"`
+	HelmName            string `yaml:"helm-name"`
+	ManifestURL         string `yaml:"manifest-url"`
+	HelmVersion         string `yaml:"helm-version"`
+	Namespace           string `yaml:"namespace"`
+	Filename            string
+	CRDFiles            []string
+	SecretFiles         []string
+	ExternalSecretFiles []string
+	ObjectFiles         []string
+	CastName            string
 }
 
 // Setup sets up the logging
