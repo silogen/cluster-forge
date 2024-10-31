@@ -30,6 +30,8 @@ import (
 
 //go:embed templates/*
 var tplFolder embed.FS
+var htemp *template.Template
+var ftemp *template.Template
 
 // Declare type pointer to a template
 var temp *template.Template
@@ -38,6 +40,8 @@ var temp *template.Template
 func init() {
 	// template.Must takes the reponse of template.ParseFiles and does error checking
 	temp = template.Must(template.ParseFS(tplFolder, "templates/template.templ"))
+	htemp = template.Must(template.ParseFS(tplFolder, "templates/header.templ"))
+	ftemp = template.Must(template.ParseFS(tplFolder, "templates/footer.templ"))
 }
 
 type platformpackage struct {
@@ -102,12 +106,9 @@ func CreateCrossplaneObject(config Config) {
 		}
 		lines := strings.Split(string(content), "\n")
 
-		// Create a buffer to hold the indented content
-		// var buf bytes.Buffer
-
 		// Indent each line and write it to the buffer
 		for _, line := range lines {
-			platformpackage.Content.WriteString(fmt.Sprintf("%s\n", line))
+			platformpackage.Content.WriteString(fmt.Sprintf("                %s\n", line))
 		}
 		// Convert the content to a string and pass it to the template
 		if strings.Contains(platformpackage.Kind, "CustomResourceDefinition") {
@@ -130,11 +131,18 @@ func CreateCrossplaneObject(config Config) {
 
 // CreatePackage reads the output of the SplitYAML function and writes it to a file
 func CreatePackage(composition_name string, content string) {
-	outfile, err := os.OpenFile("output/"+composition_name+"-packages.yml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+	platformpackage := new(platformpackage)
+	platformpackage.Name = composition_name
+	outfile, err := os.OpenFile("packages/"+composition_name+"-packages.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	defer outfile.Close()
+	// read ebedded filesystem file header.templ and echo into outfile
+	err = htemp.Execute(outfile, platformpackage)
+	if err != nil {
+		log.Fatalln(err)
+	}
 	lines := strings.Split(string(content), "\n")
 
 	// Append content to outfile
@@ -143,7 +151,12 @@ func CreatePackage(composition_name string, content string) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	removeEmptyLines("output/" + composition_name + "-composition.yaml")
+	// Execute the footer template
+	err = ftemp.Execute(outfile, platformpackage)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	removeEmptyLines("packages/" + composition_name + "-packages.yaml")
 }
 
 func removeEmptyLines(filename string) error {

@@ -46,10 +46,10 @@ func Forge(configs []utils.Config) {
 	names := []string{"all"}
 
 	// Directory to search for .yaml files
-	outputDir := "./output"
+	packagesDir := "./packages"
 
 	// List all files in the output directory
-	files, err := os.ReadDir(outputDir)
+	files, err := os.ReadDir(packagesDir)
 	if err != nil {
 		log.Errorf("Failed to read directory: %v\n", err)
 		return
@@ -57,7 +57,7 @@ func Forge(configs []utils.Config) {
 
 	// Filter and append .tmp files to names
 	for _, file := range files {
-		if !file.IsDir() && filepath.Ext(file.Name()) == ".tmp" {
+		if !file.IsDir() && filepath.Ext(file.Name()) == ".yaml" {
 			names = append(names, file.Name())
 		}
 	}
@@ -67,7 +67,13 @@ func Forge(configs []utils.Config) {
 		huh.NewGroup(huh.NewNote().
 			Title("Cluster Forge").
 			Description("TO THE FORGE!\n\nLets get started")),
-
+		// TODO select a cluster config to use for deploying
+		// TODO install crossplane and k8s provider
+		// TODO Deploy ExternalSecrets operator
+		// TODO deploy the CRDs
+		// TODO deploy the namespaces
+		// TODO deploy the external secrets
+		// TODO deploy all the things, based on choices made
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Options(huh.NewOptions(names...)...).

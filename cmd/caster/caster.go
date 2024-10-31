@@ -211,7 +211,7 @@ func Cast(configs []utils.Config) {
 			if !rawsecrets {
 				log.Fatal("Fix secrets and try again...")
 			}
-			combinedObjects = combineFiles(secretFiles, filesDir)
+			combinedExternalSecrets = combineFiles(secretFiles, filesDir)
 
 		}
 		if len(crdFiles) != 0 {
@@ -219,10 +219,15 @@ func Cast(configs []utils.Config) {
 		}
 		if len(externalSecretFiles) != 0 {
 			combinedExternalSecrets += combineFiles(externalSecretFiles, filesDir)
+
 		}
 		combinedObjects += combineFiles(objectFiles, filesDir)
-		utils.CreatePackage(castname+"-externalsecrets", combinedExternalSecrets)
-		utils.CreatePackage(castname+"-crds", combinedCRDs)
+		if len(combinedExternalSecrets) > 1 {
+			utils.CreatePackage(castname+"-externalsecrets", combinedExternalSecrets)
+		}
+		if len(combinedCRDs) > 1 {
+			utils.CreatePackage(castname+"-crds", combinedCRDs)
+		}
 		utils.CreatePackage(castname+"-objects", combinedObjects)
 	}
 

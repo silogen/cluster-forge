@@ -31,9 +31,13 @@ import (
 )
 
 type k8sObject struct {
-	Kind     string `yaml:"kind"`
-	Metadata struct {
-		Name string `yaml:"name"`
+	Kind       string `yaml:"kind"`
+	APIVersion string `yaml:"apiVersion"`
+	Metadata   struct {
+		Name        string            `yaml:"name"`
+		Namespace   string            `yaml:"namespace,omitempty"` // omit empty namespace for cluster-scoped objects
+		Labels      map[string]string `yaml:"labels,omitempty"`
+		Annotations map[string]string `yaml:"annotations,omitempty"`
 	} `yaml:"metadata"`
 }
 
@@ -109,9 +113,28 @@ func SplitYAML(config utils.Config) {
 			log.Fatal(err)
 		}
 
-		// Unmarshal the cleaned data into a K8sObject
-		var obj k8sObject
-		err = yaml.Unmarshal(cleanres, &obj)
+		// Unmarshal the cleaned data into a map to check and update the namespace
+		var objectMap map[string]interface{}
+		err = yaml.Unmarshal(cleanres, &objectMap)
+		if err != nil {
+			log.Fatal(err)
+		}
+		var metadataObject k8sObject
+		err = yaml.Unmarshal(cleanres, &metadataObject)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if !utils.IsClusterScoped(metadataObject.Kind, metadataObject.APIVersion) {
+			// Check and set the namespace if it's empty
+			if metadataObject.Metadata.Namespace == "" {
+				metadataObject.Metadata.Namespace = config.Namespace // Set your default namespace here
+				objectMap["metadata"] = metadataObject.Metadata
+			}
+
+		}
+
+		// Marshal the updated object back to YAML
+		updatedCleanres, err := yaml.Marshal(&objectMap)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -119,10 +142,13 @@ func SplitYAML(config utils.Config) {
 		// Use the kind and name to construct the output file name
 		// create the directory if it doesn't exist
 		err = os.MkdirAll(fmt.Sprintf("working/%s", config.Name), 0755)
-		filename := fmt.Sprintf("working/%s/%s_%s.yaml", config.Name, obj.Kind, obj.Metadata.Name)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-		// Write the cleaned data to the output file
-		err = os.WriteFile(filename, cleanres, 0644)
+		filename := fmt.Sprintf("working/%s/%s_%s.yaml", config.Name, metadataObject.Kind, metadataObject.Metadata.Name)
+		// Write the updated cleaned data to the output file
+		err = os.WriteFile(filename, updatedCleanres, 0644)
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -18,16 +18,90 @@ package utils
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/term"
 	"gopkg.in/yaml.v2"
 )
+
+// ClusterScopedResource represents a Kubernetes cluster-scoped resource.
+type ClusterScopedResource struct {
+	Name       string
+	APIVersion string
+}
+
+// clusterScopedResources holds a list of known cluster-scoped resources.
+var clusterScopedResources = []ClusterScopedResource{
+	{"ComponentStatus", "v1"},
+	{"Namespace", "v1"},
+	{"Node", "v1"},
+	{"PersistentVolume", "v1"},
+	{"MutatingWebhookConfiguration", "admissionregistration.k8s.io/v1"},
+	{"ValidatingWebhookConfiguration", "admissionregistration.k8s.io/v1"},
+	{"CustomResourceDefinition", "apiextensions.k8s.io/v1"},
+	{"APIService", "apiregistration.k8s.io/v1"},
+	{"ClusterComplianceReport", "aquasecurity.github.io/v1alpha1"},
+	{"ClusterConfigAuditReport", "aquasecurity.github.io/v1alpha1"},
+	{"ClusterInfraAssessmentReport", "aquasecurity.github.io/v1alpha1"},
+	{"ClusterRbacAssessmentReport", "aquasecurity.github.io/v1alpha1"},
+	{"ClusterSbomReport", "aquasecurity.github.io/v1alpha1"},
+	{"ClusterVulnerabilityReport", "aquasecurity.github.io/v1alpha1"},
+	{"ClusterWorkflowTemplate", "argoproj.io/v1alpha1"},
+	{"SelfSubjectReview", "authentication.k8s.io/v1"},
+	{"TokenReview", "authentication.k8s.io/v1"},
+	{"SelfSubjectAccessReview", "authorization.k8s.io/v1"},
+	{"SelfSubjectRulesReview", "authorization.k8s.io/v1"},
+	{"SubjectAccessReview", "authorization.k8s.io/v1"},
+	{"AllowlistedV2Workload", "auto.gke.io/v1"},
+	{"AllowlistedWorkload", "auto.gke.io/v1"},
+	{"ClusterIssuer", "cert-manager.io/v1"},
+	{"CertificateSigningRequest", "certificates.k8s.io/v1"},
+	{"CiliumEndpointSlice", "cilium.io/v2alpha1"},
+	{"CiliumExternalWorkload", "cilium.io/v2"},
+	{"CiliumIdentity", "cilium.io/v2"},
+	{"CiliumNode", "cilium.io/v2"},
+	{"ClusterExternalSecret", "external-secrets.io/v1beta1"},
+	{"ClusterSecretStore", "external-secrets.io/v1beta1"},
+	{"FlowSchema", "flowcontrol.apiserver.k8s.io/v1"},
+	{"PriorityLevelConfiguration", "flowcontrol.apiserver.k8s.io/v1"},
+	{"Membership", "hub.gke.io/v1"},
+	{"ClusterAdmissionReport", "kyverno.io/v1alpha2"},
+	{"ClusterBackgroundScanReport", "kyverno.io/v1alpha2"},
+	{"ClusterCleanupPolicy", "kyverno.io/v2beta1"},
+	{"ClusterPolicy", "kyverno.io/v1"},
+	{"NodeMetrics", "metrics.k8s.io/v1beta1"},
+	{"ClusterNodeMonitoring", "monitoring.googleapis.com/v1"},
+	{"ClusterPodMonitoring", "monitoring.googleapis.com/v1"},
+	{"ClusterRules", "monitoring.googleapis.com/v1"},
+	{"GlobalRules", "monitoring.googleapis.com/v1"},
+	{"DataplaneV2Encryption", "networking.gke.io/v1alpha1"},
+	{"GKENetworkParamSet", "networking.gke.io/v1"},
+	{"NetworkLogging", "networking.gke.io/v1alpha1"},
+	{"Network", "networking.gke.io/v1"},
+	{"RemoteNode", "networking.gke.io/v1alpha1"},
+	{"ClusterDomainClaim", "networking.internal.knative.dev/v1alpha1"},
+	{"IngressClass", "networking.k8s.io/v1"},
+	{"RuntimeClass", "node.k8s.io/v1"},
+	{"ClusterRoleBinding", "rbac.authorization.k8s.io/v1"},
+	{"ClusterRole", "rbac.authorization.k8s.io/v1"},
+	{"PriorityClass", "scheduling.k8s.io/v1"},
+	{"VolumeSnapshotClass", "snapshot.storage.k8s.io/v1"},
+	{"VolumeSnapshotContent", "snapshot.storage.k8s.io/v1"},
+	{"CSIDriver", "storage.k8s.io/v1"},
+	{"CSINode", "storage.k8s.io/v1"},
+	{"StorageClass", "storage.k8s.io/v1"},
+	{"VolumeAttachment", "storage.k8s.io/v1"},
+	{"Connector", "tailscale.com/v1alpha1"},
+	{"ProxyClass", "tailscale.com/v1alpha1"},
+	{"Audit", "warden.gke.io/v1"},
+}
 
 // LoadConfig loads the configuration file
 func LoadConfig(filename string) ([]Config, error) {
@@ -41,7 +115,10 @@ func LoadConfig(filename string) ([]Config, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	err = validateConfig(configs)
+	if err != nil {
+		return nil, err
+	}
 	return configs, nil
 }
 
@@ -209,4 +286,41 @@ func ResetTerminal() {
 			log.Errorf("Failed to make terminal raw: %v\n", err)
 		}
 	}
+}
+
+// Function to validate the configuration
+func validateConfig(configs []Config) error {
+	for _, config := range configs {
+		if config.Name == "" {
+			return fmt.Errorf("missing 'name' in config: %+v", config)
+		}
+		if config.Namespace == "" {
+			return fmt.Errorf("missing 'namespace' in config: %+v", config)
+		}
+		if config.ManifestURL == "" && config.HelmURL == "" {
+			return fmt.Errorf("either 'manifest-url' or 'helm-url' must be provided in config: %+v", config)
+		}
+		if config.HelmURL != "" {
+			if config.HelmChartName == "" {
+				return fmt.Errorf("missing 'helm-chart-name' in config with 'helm-url': %+v", config)
+			}
+			if config.HelmName == "" {
+				return fmt.Errorf("missing 'helm-name' in config with 'helm-url': %+v", config)
+			}
+			if config.Values == "" {
+				return fmt.Errorf("missing 'values' in config with 'helm-url': %+v", config)
+			}
+		}
+	}
+	return nil
+}
+
+// isClusterScoped checks if a given resource is cluster-scoped.
+func IsClusterScoped(resourceName, apiVersion string) bool {
+	for _, resource := range clusterScopedResources {
+		if strings.EqualFold(resource.Name, resourceName) && strings.EqualFold(resource.APIVersion, apiVersion) {
+			return true
+		}
+	}
+	return false
 }
