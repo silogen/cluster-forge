@@ -32,6 +32,7 @@ import (
 var tplFolder embed.FS
 var htemp *template.Template
 var ftemp *template.Template
+var cmtemp *template.Template
 
 // Declare type pointer to a template
 var temp *template.Template
@@ -42,12 +43,15 @@ func init() {
 	temp = template.Must(template.ParseFS(tplFolder, "templates/template.templ"))
 	htemp = template.Must(template.ParseFS(tplFolder, "templates/header.templ"))
 	ftemp = template.Must(template.ParseFS(tplFolder, "templates/footer.templ"))
+	cmtemp = template.Must(template.ParseFS(tplFolder, "templates/configmapheader.templ"))
 }
 
 type platformpackage struct {
 	Name    string
 	Kind    string
 	Content bytes.Buffer
+	Index   int
+	Type    string
 }
 
 func shouldSkipFile(file os.DirEntry, dirPath string) bool {
@@ -72,61 +76,129 @@ func shouldSkipFile(file os.DirEntry, dirPath string) bool {
 // CreateCrossplaneObject reads the output of the SplitYAML function and writes it to a file
 func CreateCrossplaneObject(config Config) {
 	// read a command line argument and assign it to a variable
+	const maxFileSize = 300 * 1024 // 300KB
+
 	platformpackage := new(platformpackage)
 	platformpackage.Name = config.Name
-	objectFile, err := os.OpenFile("output/"+platformpackage.Name+"-object.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+
+	createNewFile := func(baseName, suffix string, index int) (*os.File, error) {
+		return os.OpenFile(fmt.Sprintf("output/%s-%s-%d.yaml", baseName, suffix, index), os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+	}
+
+	objectFileIndex, crdFileIndex, secretFileIndex, externalsecretFileIndex := 1, 1, 1, 1
+	objectFile, err := createNewFile(platformpackage.Name, "object", objectFileIndex)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	defer objectFile.Close()
-	crdFile, err := os.OpenFile("output/"+platformpackage.Name+"-crd.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+
+	crdFile, err := createNewFile(platformpackage.Name, "crd", crdFileIndex)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	defer crdFile.Close()
-	secretFile, err := os.OpenFile("output/"+platformpackage.Name+"-secret.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+
+	secretFile, err := createNewFile(platformpackage.Name, "secret", secretFileIndex)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	defer secretFile.Close()
+
+	externalSecretFile, err := createNewFile(platformpackage.Name, "externalsecret", externalsecretFileIndex)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer externalSecretFile.Close()
 
 	files, _ := os.ReadDir("working/" + platformpackage.Name)
 	for _, file := range files {
 		if shouldSkipFile(file, "working/"+platformpackage.Name) {
 			continue
 		}
-		// split the file name to get the kind
 		platformpackage.Kind = strings.Split(file.Name(), "_")[0] + "-" + strings.Split(file.Name(), "_")[1]
-		// strip the .yaml extension
 		platformpackage.Kind = strings.TrimSuffix(platformpackage.Kind, ".yaml")
-		// Read the content of the file
 		content, err := os.ReadFile("working/" + platformpackage.Name + "/" + file.Name())
 		if err != nil {
 			log.Fatalln(err)
 		}
 		lines := strings.Split(string(content), "\n")
 
-		// Indent each line and write it to the buffer
 		for _, line := range lines {
-			platformpackage.Content.WriteString(fmt.Sprintf("                %s\n", line))
+			// Line Indenting
+			platformpackage.Content.WriteString(fmt.Sprintf("          %s\n", line))
 		}
-		// Convert the content to a string and pass it to the template
-		if strings.Contains(platformpackage.Kind, "CustomResourceDefinition") {
-			err = temp.Execute(crdFile, platformpackage)
-		} else if strings.Contains(platformpackage.Kind, "Secret") {
-			err = temp.Execute(secretFile, platformpackage)
-		} else {
-			err = temp.Execute(objectFile, platformpackage)
+
+		var currentFile *os.File
+		var currentFileSize int64
+		var currentFileIndex *int
+		var currentFileType string
+
+		switch {
+		case strings.Contains(platformpackage.Kind, "CustomResourceDefinition"):
+			currentFile = crdFile
+			currentFileSize, _ = crdFile.Seek(0, os.SEEK_END)
+			currentFileIndex = &crdFileIndex
+			currentFileType = "crd"
+		case strings.Contains(platformpackage.Kind, "ExternalSecret"):
+			currentFile = externalSecretFile
+			currentFileSize, _ = externalSecretFile.Seek(0, os.SEEK_END)
+			currentFileIndex = &externalsecretFileIndex
+			currentFileType = "externalsecret"
+		case strings.Contains(platformpackage.Kind, "Secret"):
+			currentFile = secretFile
+			currentFileSize, _ = secretFile.Seek(0, os.SEEK_END)
+			currentFileIndex = &secretFileIndex
+			currentFileType = "secret"
+		default:
+			currentFile = objectFile
+			currentFileSize, _ = objectFile.Seek(0, os.SEEK_END)
+			currentFileIndex = &objectFileIndex
+			currentFileType = "object"
 		}
+
+		if currentFileSize == 0 {
+			// Write the header to the file
+			platformpackage.Index = *currentFileIndex
+			platformpackage.Type = currentFileType
+			err = cmtemp.Execute(currentFile, platformpackage)
+			if err != nil {
+				log.Fatalln(err)
+			}
+		}
+
+		if currentFileSize+int64(platformpackage.Content.Len()) > maxFileSize {
+			*currentFileIndex++
+			currentFile, err = createNewFile(platformpackage.Name, currentFileType, *currentFileIndex)
+			if err != nil {
+				log.Fatalln(err)
+			}
+			defer currentFile.Close() // Ensure the new file is closed after use
+			// Write the header to the file
+			platformpackage.Index = *currentFileIndex
+			platformpackage.Type = currentFileType
+			err = cmtemp.Execute(currentFile, platformpackage)
+			if err != nil {
+				log.Fatalln(err)
+			}
+		}
+		platformpackage.Type = strings.ToLower(strings.ReplaceAll(strings.TrimSuffix(file.Name(), ".yaml"), "_", "-"))
+		err = temp.Execute(currentFile, platformpackage)
 		if err != nil {
 			log.Fatalln(err)
 		}
-		// Clear the buffer
 		platformpackage.Content.Reset()
 	}
-	removeEmptyLines("output/" + platformpackage.Name + "-object.yaml")
-	removeEmptyLines("output/" + platformpackage.Name + "-crd.yaml")
-	removeEmptyLines("output/" + platformpackage.Name + "-secret.yaml")
+
+	// Close the initial files explicitly after the loop
+	objectFile.Close()
+	crdFile.Close()
+	secretFile.Close()
+	externalSecretFile.Close()
+	removeEmptyLines(objectFile.Name())
+	removeEmptyLines(crdFile.Name())
+	removeEmptyLines(secretFile.Name())
+	removeEmptyLines(externalSecretFile.Name())
+
 }
 
 // CreatePackage reads the output of the SplitYAML function and writes it to a file

@@ -222,7 +222,7 @@ func Cast(configs []utils.Config) {
 						}
 						crdFilesContent = append(crdFilesContent, string(content))
 					}
-					crdFilesStr := strings.Join(crdFilesContent, "\n---\n") // Use "---" to separate YAML documents
+					crdFilesStr := strings.Join(crdFilesContent, "\n    ---\n") // Use "---" to separate YAML documents
 					utils.CreatePackage(config, "crds", crdFilesStr)
 				}
 				if len(config.ObjectFiles) != 0 {
@@ -235,7 +235,7 @@ func Cast(configs []utils.Config) {
 						}
 						objectFilesContent = append(objectFilesContent, string(content))
 					}
-					objectFilesStr := strings.Join(objectFilesContent, "\n---\n") // Use "---" to separate YAML documents
+					objectFilesStr := strings.Join(objectFilesContent, "\n    ---\n") // Use "---" to separate YAML documents
 					utils.CreatePackage(config, "objects", objectFilesStr)
 				}
 
@@ -261,7 +261,7 @@ func Cast(configs []utils.Config) {
 							secretFilesContent = append(secretFilesContent, string(content))
 						}
 					}
-					secretFilesStr := strings.Join(secretFilesContent, "\n---\n") // Use "---" to separate YAML documents
+					secretFilesStr := strings.Join(secretFilesContent, "\n    ---\n") // Use "---" to separate YAML documents
 					utils.CreatePackage(config, "secrets", secretFilesStr)
 				}
 			}
