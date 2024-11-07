@@ -82,7 +82,7 @@ func CreateCrossplaneObject(config Config) {
 	platformpackage.Name = config.Name
 
 	createNewFile := func(baseName, suffix string, index int) (*os.File, error) {
-		return os.OpenFile(fmt.Sprintf("output/%s-%s-%d.yaml", baseName, suffix, index), os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+		return os.OpenFile(fmt.Sprintf("output/cm-%s-%s-%d.yaml", baseName, suffix, index), os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	}
 
 	objectFileIndex, crdFileIndex, secretFileIndex, externalsecretFileIndex := 1, 1, 1, 1
@@ -181,7 +181,7 @@ func CreateCrossplaneObject(config Config) {
 				log.Fatalln(err)
 			}
 		}
-		platformpackage.Type = strings.ToLower(strings.ReplaceAll(strings.TrimSuffix(file.Name(), ".yaml"), "_", "-"))
+		platformpackage.Type = strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(strings.TrimSuffix(file.Name(), ".yaml"), "_", "-"), ":", ""))
 		err = temp.Execute(currentFile, platformpackage)
 		if err != nil {
 			log.Fatalln(err)

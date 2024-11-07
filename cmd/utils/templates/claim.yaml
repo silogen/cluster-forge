@@ -1,0 +1,7 @@
+apiVersion: forge.silogen.ai/v1alpha1
+kind: XForge
+metadata:
+  name: test
+  namespace: crossplane-system
+spec:
+  domain: demo.silogen.ai

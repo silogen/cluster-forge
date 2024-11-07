@@ -109,6 +109,10 @@ func Cast(configs []utils.Config) {
 		log.Errorf("Failed to read directory: %v\n", err)
 		return
 	}
+	err = utils.RemoveYAMLFiles("output")
+	if err != nil {
+		log.Fatalf("failed to remove YAML files: %s", err)
+	}
 
 	// Filter all .yaml files and ensure names are unique
 	uniqueNames := make(map[string]struct{})
@@ -209,67 +213,18 @@ func Cast(configs []utils.Config) {
 				log.Fatal("Fix secrets and try again...")
 			}
 		}
-		for _, tool := range names {
-			if config, exists := configMap[tool]; exists {
-				config.CastName = castname
-				if len(config.CRDFiles) != 0 {
-					var crdFilesContent []string
-					for _, file := range config.CRDFiles {
-						filePath := filepath.Join("output", file)
-						content, err := os.ReadFile(filePath)
-						if err != nil {
-							log.Fatal("Error reading file:", err)
-						}
-						crdFilesContent = append(crdFilesContent, string(content))
-					}
-					crdFilesStr := strings.Join(crdFilesContent, "\n    ---\n") // Use "---" to separate YAML documents
-					utils.CreatePackage(config, "crds", crdFilesStr)
-				}
-				if len(config.ObjectFiles) != 0 {
-					var objectFilesContent []string
-					for _, file := range config.ObjectFiles {
-						filePath := filepath.Join("output", file)
-						content, err := os.ReadFile(filePath)
-						if err != nil {
-							log.Fatal("Error reading file:", err)
-						}
-						objectFilesContent = append(objectFilesContent, string(content))
-					}
-					objectFilesStr := strings.Join(objectFilesContent, "\n    ---\n") // Use "---" to separate YAML documents
-					utils.CreatePackage(config, "objects", objectFilesStr)
-				}
-
-				if len(config.SecretFiles) != 0 || len(config.ExternalSecretFiles) != 0 {
-					var secretFilesContent []string
-					if len(config.SecretFiles) != 0 {
-						for _, file := range config.SecretFiles {
-							filePath := filepath.Join("output", file)
-							content, err := os.ReadFile(filePath)
-							if err != nil {
-								log.Fatal("Error reading file:", err)
-							}
-							secretFilesContent = append(secretFilesContent, string(content))
-						}
-					}
-					if len(config.ExternalSecretFiles) != 0 {
-						for _, file := range config.ExternalSecretFiles {
-							filePath := filepath.Join("output", file)
-							content, err := os.ReadFile(filePath)
-							if err != nil {
-								log.Fatal("Error reading file:", err)
-							}
-							secretFilesContent = append(secretFilesContent, string(content))
-						}
-					}
-					secretFilesStr := strings.Join(secretFilesContent, "\n    ---\n") // Use "---" to separate YAML documents
-					utils.CreatePackage(config, "secrets", secretFilesStr)
-				}
-			}
-
-		}
 	}
 
 	_ = spinner.New().Title("Preparing your tools...").Accessible(accessible).Action(prepareTool).Run()
+	utils.GenerateFunctionTemplates("output", "output/function-templates.yaml")
+	err = utils.CopyYAMLFiles("cmd/utils/templates", "output")
+	if err != nil {
+		log.Fatalf("failed to copy YAML files: %s", err)
+	}
+	// err = utils.RemoveYAMLFiles("output")
+	// if err != nil {
+	// 	log.Fatalf("failed to remove YAML files: %s", err)
+	// }
 
 	// Print toolbox summary.
 

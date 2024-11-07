@@ -1,6 +1,54 @@
 {
   "lockfile_version": "1",
   "packages": {
+    "crossplane-cli@1.17.1": {
+      "last_modified": "2024-10-13T23:44:06Z",
+      "resolved": "github:NixOS/nixpkgs/d4f247e89f6e10120f911e2e2d2254a050d0f732#crossplane-cli",
+      "source": "devbox-search",
+      "version": "1.17.1",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/lzlz0ywv8xf8jx0ar1v2ddx34xpx8kiz-crossplane-cli-1.17.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/lzlz0ywv8xf8jx0ar1v2ddx34xpx8kiz-crossplane-cli-1.17.1"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/2yq7dkcg6ky54sc13jpwlpmqi5zr0s2k-crossplane-cli-1.17.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/2yq7dkcg6ky54sc13jpwlpmqi5zr0s2k-crossplane-cli-1.17.1"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/48aifqd0dpds955wh6yxx62dmgrz5ayc-crossplane-cli-1.17.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/48aifqd0dpds955wh6yxx62dmgrz5ayc-crossplane-cli-1.17.1"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/iyay70gbkd11hp109qyixqzxfgzvc17q-crossplane-cli-1.17.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/iyay70gbkd11hp109qyixqzxfgzvc17q-crossplane-cli-1.17.1"
+        }
+      }
+    },
     "go-licenses@1.6.0": {
       "last_modified": "2024-10-13T23:44:06Z",
       "resolved": "github:NixOS/nixpkgs/d4f247e89f6e10120f911e2e2d2254a050d0f732#go-licenses",
