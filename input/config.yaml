@@ -12,3 +12,10 @@
 - name: cnpg-operator
   namespace: cnpg-system
   sourcefile: cnpg-operator.yaml
+- name: kyverno
+  namespace: kyverno
+  helm-chart-name: kyverno
+  helm-name: kyverno
+  helm-url: https://kyverno.github.io/kyverno/
+  values: values.yaml
+  secrets: false
