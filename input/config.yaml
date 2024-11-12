@@ -19,3 +19,10 @@
   helm-url: https://kyverno.github.io/kyverno/
   values: values.yaml
   secrets: false
+- helm-chart-name: "prometheus"
+  helm-name: prometheus
+  helm-url: "https://prometheus-community.github.io/helm-charts"
+  namespace: "monitoring"
+  values: prometheus-values.yaml
+  secrets: false
+  name: prometheus
