@@ -218,6 +218,7 @@ func Cast(configs []utils.Config) {
 	_ = spinner.New().Title("Preparing your tools...").Accessible(accessible).Action(prepareTool).Run()
 	utils.GenerateFunctionTemplates("output", "output/function-templates.yaml")
 	err = utils.CopyYAMLFiles("cmd/utils/templates", "output")
+	utils.CopyFile("cmd/utils/templates/deploy.sh", "output/deploy.sh")
 	if err != nil {
 		log.Fatalf("failed to copy YAML files: %s", err)
 	}

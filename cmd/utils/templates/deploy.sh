@@ -15,7 +15,7 @@ for file in "$DIRECTORY"/cm*.yaml; do
 done
 kubectl apply -f crossplane.yaml
 sleep 20
-kubectl apply -f function-templates.yaml  
+kubectl apply -f function-templates.yaml
 kubectl apply -f crossplane_provider.yaml
 kubectl apply -f composition.yaml
 kubectl delete pods --all -n crossplane-system

@@ -133,6 +133,7 @@ type Config struct {
 	ManifestURL         string `yaml:"manifest-url"`
 	HelmVersion         string `yaml:"helm-version"`
 	Namespace           string `yaml:"namespace"`
+	SourceFile          string `yaml:"sourcefile"`
 	Filename            string
 	CRDFiles            []string
 	SecretFiles         []string
@@ -227,6 +228,20 @@ func Templatehelm(config Config) {
 				log.Fatal(err)
 			}
 		}
+	} else if config.SourceFile != "" {
+		log.Debugf("Using " + config.SourceFile)
+		// Construct the source and destination file paths
+		inputDir := "input"
+		workingDir := "working/pre"
+		srcFilePath := filepath.Join(inputDir, config.SourceFile)
+		dstFilePath := filepath.Join(workingDir, config.SourceFile)
+
+		// Copy the file from input directory to working directory
+		err := CopyFile(srcFilePath, dstFilePath)
+		config.Filename = config.SourceFile
+		if err != nil {
+			log.Fatalf("Failed to copy file: %s", err)
+		}
 	} else if config.ManifestURL != "" {
 		log.Debugf("looking for " + config.ManifestURL)
 		err := downloadFile(config.Filename, config.ManifestURL)
@@ -236,6 +251,23 @@ func Templatehelm(config Config) {
 	}
 }
 
+// Function to copy a file from source to destination
+func CopyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	destinationFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destinationFile.Close()
+
+	_, err = io.Copy(destinationFile, sourceFile)
+	return err
+}
 func downloadFile(filepath string, url string) error {
 
 	// Get the data
@@ -302,7 +334,7 @@ func validateConfig(configs []Config) error {
 		if config.Namespace == "" {
 			return fmt.Errorf("missing 'namespace' in config: %+v", config)
 		}
-		if config.ManifestURL == "" && config.HelmURL == "" {
+		if config.ManifestURL == "" && config.HelmURL == "" && config.SourceFile == "" {
 			return fmt.Errorf("either 'manifest-url' or 'helm-url' must be provided in config: %+v", config)
 		}
 		if config.HelmURL != "" {

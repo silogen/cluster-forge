@@ -50,4 +50,3 @@ spec:
                   description: Domain used by the cluster
               required:
                 - domain
-          
