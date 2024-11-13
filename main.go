@@ -65,6 +65,7 @@ func main() {
 	log.Info("starting up...")
 	configs, err := utils.LoadConfig("input/config.yaml")
 	if err != nil {
+		fmt.Printf("Failed to read config: %v", err)
 		log.Fatalf("Failed to read config: %v", err)
 	}
 	for _, config := range configs {

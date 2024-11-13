@@ -167,7 +167,7 @@ func Cast(configs []utils.Config) {
 	}
 	filesDir := "./output"
 	//remove 'all' from the toolbox.Targettool.Type array
-	names = removeElement(names, "all")
+	toolbox.Targettool.Type = removeElement(toolbox.Targettool.Type, "all")
 	secretFiles := []string{}
 	prepareTool := func() {
 		configMap := make(map[string]utils.Config)
@@ -176,7 +176,7 @@ func Cast(configs []utils.Config) {
 			configMap[config.Name] = config
 		}
 
-		for _, tool := range names {
+		for _, tool := range toolbox.Targettool.Type {
 			if config, exists := configMap[tool]; exists {
 				utils.CreateCrossplaneObject(config)
 				utils.RemoveEmptyYAMLFiles("output")
