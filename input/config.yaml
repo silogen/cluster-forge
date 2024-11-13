@@ -33,6 +33,14 @@
   secrets: false
   name: promtail
   namespace: "monitoring"
-- name: dummy-secret-promtail
+- name: dummy-secret-monitoring-tools
   namespace: monitoring
-  sourcefile: dummy-secret-promtail.yaml
+  sourcefile: dummy-secret-monitoring-tools.yaml
+- helm-chart-name: "grafana"
+  helm-name: grafana
+  helm-url: "https://grafana.github.io/helm-charts"
+  values: grafana-values.yaml
+  secrets: false
+  name: grafana
+  namespace: "grafana"
+  helm-version: "8.4.6"
