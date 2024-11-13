@@ -26,3 +26,13 @@
   values: prometheus-values.yaml
   secrets: false
   name: prometheus
+- helm-chart-name: "promtail"
+  helm-name: promtail
+  helm-url: "https://grafana.github.io/helm-charts"
+  values: promtail-values.yaml
+  secrets: false
+  name: promtail
+  namespace: "monitoring"
+- name: dummy-secret-promtail
+  namespace: monitoring
+  sourcefile: dummy-secret-promtail.yaml
