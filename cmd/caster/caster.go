@@ -166,6 +166,9 @@ func Cast(configs []utils.Config) {
 		log.Fatal("Uh oh:", err)
 	}
 	filesDir := "./output"
+	if toolbox.Targettool.Type[0] == "all" {
+		toolbox.Targettool.Type = append(toolbox.Targettool.Type, names...)
+	}
 	//remove 'all' from the toolbox.Targettool.Type array
 	toolbox.Targettool.Type = removeElement(toolbox.Targettool.Type, "all")
 	secretFiles := []string{}
@@ -222,11 +225,29 @@ func Cast(configs []utils.Config) {
 	if err != nil {
 		log.Fatalf("failed to copy YAML files: %s", err)
 	}
-	// err = utils.RemoveYAMLFiles("output")
-	// if err != nil {
-	// 	log.Fatalf("failed to remove YAML files: %s", err)
-	// }
+	// Create the subdirectory in /packages with the name of castname
+	packageDir := filepath.Join("packages", castname)
+	err = os.MkdirAll(packageDir, 0755)
+	if err != nil {
+		log.Fatalf("failed to create package directory: %s", err)
+	}
+	// Move files from /output to the new subdirectory
+	outputDir = "output"
+	files, err = os.ReadDir(outputDir)
+	if err != nil {
+		log.Fatalf("failed to read output directory: %s", err)
+	}
 
+	for _, file := range files {
+		if !file.IsDir() && !strings.HasPrefix(file.Name(), ".") {
+			srcPath := filepath.Join(outputDir, file.Name())
+			dstPath := filepath.Join(packageDir, file.Name())
+			err = os.Rename(srcPath, dstPath)
+			if err != nil {
+				log.Fatalf("failed to move file %s: %s", file.Name(), err)
+			}
+		}
+	}
 	// Print toolbox summary.
 
 	{

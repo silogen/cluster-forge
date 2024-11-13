@@ -82,7 +82,11 @@ func CreateCrossplaneObject(config Config) {
 	platformpackage.Name = config.Name
 
 	createNewFile := func(baseName, suffix string, index int) (*os.File, error) {
-		return os.OpenFile(fmt.Sprintf("output/cm-%s-%s-%d.yaml", baseName, suffix, index), os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+		if suffix == "crd" {
+			return os.OpenFile(fmt.Sprintf("output/crd-%s-%d.yaml", baseName, index), os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+		} else {
+			return os.OpenFile(fmt.Sprintf("output/cm-%s-%s-%d.yaml", baseName, suffix, index), os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+		}
 	}
 
 	objectFileIndex, crdFileIndex, secretFileIndex, externalsecretFileIndex := 1, 1, 1, 1
@@ -160,9 +164,11 @@ func CreateCrossplaneObject(config Config) {
 			// Write the header to the file
 			platformpackage.Index = *currentFileIndex
 			platformpackage.Type = currentFileType
-			err = cmtemp.Execute(currentFile, platformpackage)
-			if err != nil {
-				log.Fatalln(err)
+			if currentFileType != "crd" {
+				err = cmtemp.Execute(currentFile, platformpackage)
+				if err != nil {
+					log.Fatalln(err)
+				}
 			}
 		}
 
@@ -176,15 +182,25 @@ func CreateCrossplaneObject(config Config) {
 			// Write the header to the file
 			platformpackage.Index = *currentFileIndex
 			platformpackage.Type = currentFileType
-			err = cmtemp.Execute(currentFile, platformpackage)
+			if currentFileType != "crd" {
+				err = cmtemp.Execute(currentFile, platformpackage)
+				if err != nil {
+					log.Fatalln(err)
+				}
+			}
+		}
+
+		if currentFileType == "crd" {
+			_, err = currentFile.Write(platformpackage.Content.Bytes())
 			if err != nil {
 				log.Fatalln(err)
 			}
-		}
-		platformpackage.Type = strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(strings.TrimSuffix(file.Name(), ".yaml"), "_", "-"), ":", ""))
-		err = temp.Execute(currentFile, platformpackage)
-		if err != nil {
-			log.Fatalln(err)
+		} else {
+			platformpackage.Type = strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(strings.TrimSuffix(file.Name(), ".yaml"), "_", "-"), ":", ""))
+			err = temp.Execute(currentFile, platformpackage)
+			if err != nil {
+				log.Fatalln(err)
+			}
 		}
 		platformpackage.Content.Reset()
 	}
