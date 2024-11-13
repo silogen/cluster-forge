@@ -259,6 +259,13 @@ func CopyFile(src, dst string) error {
 	}
 	defer sourceFile.Close()
 
+	// Ensure the destination directory exists
+	dstDir := filepath.Dir(dst)
+	err = os.MkdirAll(dstDir, 0755)
+	if err != nil {
+		return err
+	}
+
 	destinationFile, err := os.Create(dst)
 	if err != nil {
 		return err

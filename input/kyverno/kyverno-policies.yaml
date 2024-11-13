@@ -1,0 +1,125 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-image-registries
+  annotations:
+    policies.kyverno.io/title: Restrict Image Registries
+    policies.kyverno.io/category: Best Practices, EKS Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/minversion: 1.6.0
+    kyverno.io/kubernetes-version: "1.26"
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Images from unknown, public registries can be of dubious quality and may not be
+      scanned and secured, representing a high degree of risk. Requiring use of known, approved
+      registries helps reduce threat exposure by ensuring image pulls only come from them. This
+      policy validates that container images only originate from the registry `eu.foo.io` or
+      `bar.io`. Use of this policy requires customization to define your allowable registries.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+  - name: validate-registries
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          operations:
+          - CREATE
+          - UPDATE
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - cert-manager
+          - kube-system
+          - trivy-system
+    validate:
+      message: "Unknown image registry."
+      pattern:
+        spec:
+          =(ephemeralContainers):
+          - image: docker.io/istio* | ghcr.io/cloudnative-pg*"
+          =(initContainers):
+          - image: docker.io/istio* | ghcr.io/cloudnative-pg* | percona/* | cr.weaviate.io/semitechnologies/*"
+          containers:
+          - image: docker.io/istio* | docker.io/semitechnologies* | docker.io*redis* | ghcr.io/cloudnative-pg* | gcr.io/knative-releases* | percona/* | cr.weaviate.io/semitechnologies/*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-requests-limits
+  annotations:
+    policies.kyverno.io/title: Require Limits and Requests
+    policies.kyverno.io/category: Best Practices, EKS Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/minversion: 1.6.0
+    policies.kyverno.io/description: >-
+      As application workloads share cluster resources, it is important to limit resources
+      requested and consumed by each Pod. It is recommended to require resource requests and
+      limits per Pod, especially for memory and CPU. If a Namespace level request or limit is specified,
+      defaults will automatically be applied to each Pod based on the LimitRange configuration.
+      This policy validates that all containers have something specified for memory and CPU
+      requests and memory limits.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+  - name: validate-resources
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          operations:
+          - CREATE
+          - UPDATE
+    exclude:
+        any:
+        - resources:
+            namespaces:
+          - cert-manager
+          - kube-system
+          - trivy-system
+      mutate:
+        foreach:
+          - list: "request.object.spec.containers"
+            patchStrategicMerge:
+              spec:
+                containers:
+                  - (name): "{{ element.name }}"
+                    securityContext:
+                      +(allowPrivilegeEscalation): false
+                      +(runAsNonRoot): true
+                      +(runAsUser): 1000
+                      +(runAsGroup): 3000
+                      +(seccompProfile):
+                          type: RuntimeDefault
+                      +(capabilities):
+                          drop:
+                          - ALL
+            preconditions:
+              all:
+                - key: "{{ element.image }}"
+                  operator: NotEquals
+                  value: "docker.io/istio*"
+                - key: "{{ element.image }}"
+                  operator: NotEquals
+                  value: "docker.io/semitechnologies*"
+                - key: "{{ element.image }}"
+                  operator: NotEquals
+                  value: "percona/*"
+                - key: "{{ element.image }}"
+                  operator: NotEquals
+                  value: "ghcr.io/cloudnative-pg*"
+                - key: "{{ element.image }}"
+                  operator: NotEquals
+                  value: "gcr.io/knative-releases*"
+
+          - list: "request.object"
+            patchStrategicMerge:
+              spec:
+                securityContext:
+                  +(fsGroup): 2000

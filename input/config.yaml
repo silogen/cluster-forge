@@ -11,7 +11,10 @@
   manifest-url: https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml
 - name: cnpg-operator
   namespace: cnpg-system
-  sourcefile: cnpg-operator.yaml
+  sourcefile: cnpg/cnpg-operator.yaml
+- name: kyverno-policies
+  namespace: default
+  sourcefile: kyverno/kyverno-policies.yaml
 - name: kyverno
   namespace: kyverno
   helm-chart-name: kyverno
