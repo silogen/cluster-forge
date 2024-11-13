@@ -36,9 +36,6 @@
   secrets: false
   name: promtail
   namespace: "monitoring"
-- name: dummy-secret-promtail
-  namespace: monitoring
-  sourcefile: promtail/dummy-secret-promtail.yaml
 - name: trivy
   namespace: trivy-system
   helm-chart-name: trivy-operator
@@ -46,3 +43,14 @@
   helm-url: https://aquasecurity.github.io/helm-charts
   values: values.yaml
   secrets: false
+- name: dummy-secret-monitoring-tools
+  namespace: monitoring
+  sourcefile: dummy-secret/dummy-secret-monitoring-tools.yaml
+- helm-chart-name: "grafana"
+  helm-name: grafana
+  helm-url: "https://grafana.github.io/helm-charts"
+  values: grafana-values.yaml
+  secrets: false
+  name: grafana
+  namespace: "grafana"
+  helm-version: "8.4.6"
