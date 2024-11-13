@@ -1,0 +1,58 @@
+namespace: monitoring
+
+configmap:
+  enabled: true
+
+nodeSelector:
+  kubernetes.io/os: linux
+
+tolerations:
+  - key: node-role.kubernetes.io/master
+    operator: Exists
+    effect: NoSchedule
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+  - effect: NoSchedule # Add this to deploy promtail pod to GPU node by
+    operator: Exists # Daemonset
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+
+config:
+  clients:
+    - url: http://central-loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push ##
+      tenant_id: silogen-omni-devenv ##
+      basic_auth:
+        username: loki-omni-devenv-tenant ##
+        password: ${LOKI_TENANT_PW_OMNI_DEVENV} ##
+      external_labels:
+        cluster: "this-is-wrong-cluster-value-to-be-replaced" ##
+  snippets:
+    extraRelabelConfigs:
+      - source_labels:
+          - __meta_kubernetes_pod_label_componentId
+        regex: (.+)
+        action: replace
+        replacement: $1
+        target_label: componentId
+      - source_labels:
+          - __meta_kubernetes_pod_label_componentType
+        regex: (.+)
+        action: replace
+        replacement: $1
+        target_label: componentType
+      - source_labels:
+          - __meta_kubernetes_pod_label_usesInferenceModel
+        regex: (.+)
+        action: replace
+        replacement: $1
+        target_label: usesInferenceModel
+
+extraEnv:
+  - name: LOKI_TENANT_PW_OMNI_DEVENV ##
+    valueFrom:
+      secretKeyRef:
+        name: promtail-loki-tenant-credentials
+        key: loki-tenant-pw-omni-devenv
