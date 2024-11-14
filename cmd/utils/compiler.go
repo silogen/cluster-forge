@@ -140,11 +140,6 @@ func CreateCrossplaneObject(config Config) {
 			}
 		}
 
-		// for _, line := range lines {
-		//	// Line Indenting
-		//	platformpackage.Content.WriteString(fmt.Sprintf("          %s\n", line))
-		// }
-
 		var currentFile *os.File
 		var currentFileSize int64
 		var currentFileIndex *int
