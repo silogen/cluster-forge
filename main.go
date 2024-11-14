@@ -80,7 +80,7 @@ func main() {
 		caster.Cast(configs)
 	case "forge":
 		fmt.Println("Forging")
-		forger.Forge(configs)
+		forger.Forge()
 
 	}
 	// utils.ResetTerminal()
