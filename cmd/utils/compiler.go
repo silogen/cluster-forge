@@ -126,11 +126,24 @@ func CreateCrossplaneObject(config Config) {
 			log.Fatalln(err)
 		}
 		lines := strings.Split(string(content), "\n")
+		kindParts := strings.Split(platformpackage.Kind, "-")
 
-		for _, line := range lines {
-			// Line Indenting
-			platformpackage.Content.WriteString(fmt.Sprintf("          %s\n", line))
+		if kindParts[0] == "CustomResourceDefinition" {
+			platformpackage.Content.WriteString("---\n")
+			for _, line := range lines {
+				platformpackage.Content.WriteString(fmt.Sprintf("%s\n", line))
+			}
+		} else {
+			for _, line := range lines {
+				// Line Indenting
+				platformpackage.Content.WriteString(fmt.Sprintf("          %s\n", line))
+			}
 		}
+
+		// for _, line := range lines {
+		//	// Line Indenting
+		//	platformpackage.Content.WriteString(fmt.Sprintf("          %s\n", line))
+		// }
 
 		var currentFile *os.File
 		var currentFileSize int64
