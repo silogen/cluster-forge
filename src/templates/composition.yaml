@@ -1,0 +1,52 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: cluster-forge-demo.silogen.ai
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: forge.silogen.ai/v1alpha1
+    kind: XForge
+  mode: Pipeline
+  pipeline:
+    - step: render-templates
+      functionRef:
+        name: function-go-templating
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: FileSystem
+        fileSystem:
+          dirPath: /templates
+    - step: ready
+      functionRef:
+        name: function-auto-ready
+---
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xforges.forge.silogen.ai
+spec:
+  group: forge.silogen.ai
+  names:
+    kind: XForge
+    plural: xforges
+  claimNames:
+    kind: ForgeClaim
+    plural: forgeclaims
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                domain:
+                  type: string
+                  description: Domain used by the cluster
+              required:
+                - domain

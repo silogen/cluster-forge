@@ -1,0 +1,13 @@
+    ---
+    apiVersion: kubernetes.crossplane.io/v1alpha1
+    kind: Object
+    metadata:
+      name: {{ .Type }}
+      annotations:
+        gotemplating.fn.crossplane.io/composition-resource-name: {{ .Type }}
+    spec:
+      providerConfigRef:
+        name: kubernetes-provider
+      forProvider:
+        manifest:
+{{ .Content }}
