@@ -23,6 +23,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"text/template"
@@ -273,4 +274,29 @@ func removeEmptyLines(filename string) error {
 	}
 
 	return nil
+}
+
+// Function to copy a file from source to destination
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	// Ensure the destination directory exists
+	dstDir := filepath.Dir(dst)
+	err = os.MkdirAll(dstDir, 0755)
+	if err != nil {
+		return err
+	}
+
+	destinationFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destinationFile.Close()
+
+	_, err = io.Copy(destinationFile, sourceFile)
+	return err
 }

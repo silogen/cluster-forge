@@ -1,0 +1,11 @@
+services:
+  forge:
+    image: dummy:latest
+    container_name: forge
+    volumes:
+      - $PWD/input:/input
+      - $PWD/logs:/logs
+      - $PWD/working:/working
+      - $PWD/output:/output
+      - $PWD/packages:/packages
+    entrypoint: ["forge"]

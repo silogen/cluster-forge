@@ -243,7 +243,7 @@ func Cast(configs []utils.Config) {
 		if !file.IsDir() && !strings.HasPrefix(file.Name(), ".") {
 			srcPath := filepath.Join(outputDir, file.Name())
 			dstPath := filepath.Join(packageDir, file.Name())
-			err = os.Rename(srcPath, dstPath)
+			err = utils.CopyFile(srcPath, dstPath)
 			if err != nil {
 				log.Fatalf("failed to move file %s: %s", file.Name(), err)
 			}
