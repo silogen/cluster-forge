@@ -8,7 +8,7 @@ DIRECTORY=$PWD
 for file in "$DIRECTORY"/crd*.yaml; do
   if [ -f "$file" ]; then
     echo "Applying $file"
-    kubectl apply -f "$file"
+    kubectl apply --server-side -f "$file"
   else
     echo "No files matching crd*.yaml found in $DIRECTORY"
   fi
@@ -17,7 +17,7 @@ done
 for file in "$DIRECTORY"/cm*.yaml; do
   if [ -f "$file" ]; then
     echo "Applying $file"
-    kubectl apply -f "$file"
+    kubectl apply --server-side -f "$file"
   else
     echo "No files matching cm*.yaml found in $DIRECTORY"
   fi

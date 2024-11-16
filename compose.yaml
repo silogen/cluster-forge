@@ -1,6 +1,6 @@
 services:
   forge:
-    image: dummy:latest
+    image: forge:latest
     container_name: forge
     volumes:
       - $PWD/input:/input
