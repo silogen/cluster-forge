@@ -5,6 +5,9 @@ services:
     volumes:
       - $PWD/input:/input
       - $PWD/logs:/logs
-      - $PWD/output:/output
       - $PWD/stacks:/stacks
+      - $PWD/output:/output
+      - $PWD/working:/working
+      - $PWD/cmd/utils/templates:/cmd/utils/templates
+
     entrypoint: ["forge"]

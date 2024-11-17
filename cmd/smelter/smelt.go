@@ -96,7 +96,14 @@ func Smelt(configs []utils.Config) {
 		for _, config := range configs {
 			configMap[config.Name] = config
 		}
-
+		// Ensure the working/pre directory exists
+		preDir := "working/pre"
+		if _, err := os.Stat(preDir); os.IsNotExist(err) {
+			err := os.MkdirAll(preDir, 0755)
+			if err != nil {
+				log.Fatalf("failed to create directory %s: %s", preDir, err)
+			}
+		}
 		// Now iterate over the tools and directly access the corresponding config in the map.
 		for _, tool := range toolbox.Targettool.Type {
 			if config, exists := configMap[tool]; exists {
