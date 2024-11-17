@@ -8,8 +8,8 @@ working/pre/*
 !working/pre/.gitkeep
 output/*
 !output/.gitkeep
-packages/*
-!packages/.gitkeep
+stacks/*
+!stacks/.gitkeep
 
 Library*
 

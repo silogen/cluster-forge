@@ -26,7 +26,7 @@ or
 go run . --smelt
 ```
 
-Select the packages to include and they will be generated.
+Select the components to include and they will be generated.
 
 ### Step 1.5 (optional)
 Add any customizations needed to files in /working

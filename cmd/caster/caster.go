@@ -226,8 +226,8 @@ func Cast(configs []utils.Config) {
 		log.Fatalf("failed to copy YAML files: %s", err)
 	}
 	// TODO Need to handle namespaces better. Ignore default, and don't have duplicates. Also, create these first, along with CRDs in forge step
-	// Create the subdirectory in /packages with the name of castname
-	packageDir := filepath.Join("packages", castname)
+	// Create the subdirectory in /stacks with the name of castname
+	packageDir := filepath.Join("stacks", castname)
 	err = os.MkdirAll(packageDir, 0755)
 	if err != nil {
 		log.Fatalf("failed to create package directory: %s", err)

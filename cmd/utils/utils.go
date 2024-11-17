@@ -160,7 +160,7 @@ func Setup() {
 	// Set the output destination to a file
 	logfilename := os.Getenv("LOG_NAME")
 	if logfilename == "" {
-		logfilename = "app.log"
+		logfilename = "forge.log"
 	}
 	logfilename = "logs/" + logfilename
 	file, err := os.OpenFile(logfilename, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
