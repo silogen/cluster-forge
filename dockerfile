@@ -57,4 +57,3 @@ RUN chmod +x /entry.sh /usr/local/bin/forge /usr/local/bin/kubectl /usr/local/bi
 
 # Set ENTRYPOINT to the entry script
 ENTRYPOINT ["/entry.sh"]
-

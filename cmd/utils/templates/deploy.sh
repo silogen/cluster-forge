@@ -39,4 +39,3 @@ kubectl wait --for=condition=Ready --timeout=600s pods --all -n default
 
 echo see status with:
 echo kubectl port-forward svc/komoplane 8090:8090
-
