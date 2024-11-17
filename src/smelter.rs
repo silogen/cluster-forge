@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader};
+use std::error::Error;
+use std::path::Path;
 use serde::{Deserialize, Serialize};
 use serde_yaml;
 use log::{debug, error, info};
@@ -31,7 +33,7 @@ struct TargetTool {
 }
 
 
-pub fn smelt(configs: &Vec<Config>) {
+pub async fn smelt(configs: &Vec<Config>) {
     info!("Starting up the menu...");
 
     let mut target_tool = TargetTool { tools: Vec::new() };
@@ -55,7 +57,9 @@ pub fn smelt(configs: &Vec<Config>) {
     for tool in &target_tool.tools {
         if let Some(config) = config_map.get(tool) {
             debug!("Running setup for {}", config.name);
-            prepare_tool(config);
+            if let Err(e) = prepare_tool(config).await {
+                error!("Error preparing tool {}: {}", config.name, e);
+            }
         } else {
             error!("Config for tool {} not found", tool);
         }
@@ -64,7 +68,7 @@ pub fn smelt(configs: &Vec<Config>) {
     print_summary(&target_tool);
 }
 
-fn prepare_tool(config: &Config) {
+async fn prepare_tool(config: &Config) -> Result<(), Box<dyn Error>> {
     let namespace_template = r#"apiVersion: v1
 kind: Namespace
 metadata:
@@ -72,6 +76,7 @@ metadata:
 
     let working_dir = format!("working/pre/{}", config.name);
 
+    // Remove old files
     if let Ok(entries) = fs::read_dir(&working_dir) {
         for entry in entries {
             if let Ok(entry) = entry {
@@ -85,17 +90,20 @@ metadata:
         }
     }
 
-    if let Err(e) = template_helm(config) {
+    // Helm templating
+    if let Err(e) = template_helm(config).await {
         error!("Error templating helm for {}: {}", config.name, e);
-        return;
+        return Ok(()); // Continue with other steps
     }
 
+    // Split YAML
     if let Err(e) = split_yaml(config) {
         error!("Error splitting YAML for {}: {}", config.name, e);
-        return;
+        return Ok(()); // Continue with other steps
     }
 
-    let namespace_object = fs::read_dir(format!("working/{}", config.name))
+    // Check and create namespace object
+    let namespace_object_exists = fs::read_dir(format!("working/{}", config.name))
         .map(|entries| {
             entries
                 .filter_map(|entry| entry.ok())
@@ -103,44 +111,50 @@ metadata:
         })
         .unwrap_or(false);
 
-    if !namespace_object && config.source_file.is_none() {
-        if let Some(namespace) = &config.namespace {
-            let namespace_data = namespace_template.replace("{{ .NamespaceName }}", namespace);
+    if !namespace_object_exists && config.source_file.is_none() {
+        let namespace = &config.namespace;
+        let namespace_data = namespace_template.replace("{{ .NamespaceName }}", namespace);
 
-            let namespace_path = format!("working/{}/Namespace_{}.yaml", config.name, config.name);
+        let namespace_path = format!("working/{}/Namespace_{}.yaml", config.name, config.name);
+        
+        fs::write(&namespace_path, namespace_data)?;
 
-            fs::write(&namespace_path, namespace_data)
-                .expect("Failed to write namespace YAML file");
-        } else {
-            error!("Namespace is missing for config: {}", config.name);
-        }
     }
+
+    Ok(())
 }
 
+
 fn split_yaml(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
-    if let Some(filename) = &config.filename {
-        let data = fs::read_to_string(filename)?;
-        let documents: Vec<&str> = data.split("---").collect();
+    let filename = config.filename.clone().unwrap_or_else(|| format!("working/pre/{}.yaml", config.name));
+    if !Path::new(&filename).exists() {
+        return Err(format!("File does not exist for tool {}: {}", config.name, filename).into());
+    }
 
-        for doc in documents {
-            let cleaned = clean(doc.as_bytes())?;
-            let mut object: K8sObject = serde_yaml::from_slice(&cleaned)?;
+    let data = fs::read_to_string(&filename)?;
+    let documents: Vec<&str> = data.split("---").collect();
 
-            if object.metadata.namespace.is_none() {
-                if let Some(namespace) = &config.namespace {
-                    object.metadata.namespace = Some(namespace.clone());
-                } else {
-                    error!("Namespace is missing for config: {}", config.name);
-                }
-            }
+    for doc in documents {
+        let cleaned = clean(doc.as_bytes())?;
+        let object: K8sObject = serde_yaml::from_slice(&cleaned)?;
 
-            let filename = format!("working/{}/{}_{}.yaml", config.name, object.kind, object.metadata.name);
-            let updated_yaml = serde_yaml::to_string(&object)?;
-
-            fs::write(filename, updated_yaml)?;
+        if object.kind.is_empty() || object.api_version.is_empty() {
+            error!("YAML object missing `kind` or `apiVersion` for {}", config.name);
+            continue;
         }
-    } else {
-        error!("Filename is missing for config: {}", config.name);
+
+        let mut object = object;
+        if object.metadata.namespace.is_none() {
+            object.metadata.namespace = Some(config.namespace.clone());
+
+        }
+
+        let output_filename = format!(
+            "working/{}/{}_{}.yaml",
+            config.name, object.kind, object.metadata.name
+        );
+        let updated_yaml = serde_yaml::to_string(&object)?;
+        fs::write(output_filename, updated_yaml)?;
     }
 
     Ok(())
@@ -166,6 +180,7 @@ fn clean(input: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
 fn print_summary(toolbox: &TargetTool) {
     println!("Cluster Forge\n\nCompleted: {}.", toolbox.tools.join(", "));
 }
+
 
 
 

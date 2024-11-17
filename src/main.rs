@@ -68,6 +68,7 @@ async fn main() {
 
     info!("starting up...");
 
+
     let configs: Vec<utils::Config> = match utils::load_config("input/config.yaml") {
         Ok(configs) => configs,
         Err(e) => {
@@ -83,7 +84,7 @@ async fn main() {
     match selected_mode {
         "smelt" => {
             println!("Smelting");
-            smelter::smelt(&configs);
+            smelter::smelt(&configs).await;
         }
         "cast" => {
             println!("Casting");

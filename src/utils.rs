@@ -4,12 +4,13 @@ use std::{
 	fs::{self, File, OpenOptions},
 	io::{self, Write},
 	path::Path,
-	process::Command,
 	error::Error,
     };
-use log::{debug, info};
+use log::{info, error};
 use serde::{Deserialize, Serialize};
-use serde_yaml;
+use tokio::io::AsyncWriteExt;
+use tokio::process::Command as AsyncCommand;
+
     
 #[derive(Debug, Serialize)]
 pub struct PlatformPackage {
@@ -88,21 +89,46 @@ struct DeploymentRuntimeConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
+    #[serde(rename = "helm-chart-name")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub helm_chart_name: Option<String>,
+    #[serde(rename = "helm-url")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub helm_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub values: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub secrets: Option<bool>,
     pub name: String,
+    #[serde(rename = "helm-name")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub helm_name: Option<String>,
+    #[serde(rename = "manifest-url")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub manifest_url: Option<String>,
+    #[serde(rename = "helm-version")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub helm_version: Option<String>,
-    pub namespace: Option<String>,
+    pub namespace: String,
+    #[serde(rename = "sourcefile")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub source_file: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub filename: Option<String>,
+    #[serde(rename = "crd-files")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub crd_files: Option<Vec<String>>,
+    #[serde(rename = "secret-files")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub secret_files: Option<Vec<String>>,
+    #[serde(rename = "external-secret-files")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub external_secret_files: Option<Vec<String>>,
+    #[serde(rename = "objectfiles")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub object_files: Option<Vec<String>>,
+    #[serde(rename = "castname")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub cast_name: Option<Vec<String>>,
 }
 
@@ -277,72 +303,39 @@ pub fn setup_logging() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 
-pub fn load_config(path: &str) -> Result<Vec<Config>, Box<dyn Error>> {
-    let data = fs::read_to_string(path)?;
-    let configs: Vec<Config> = serde_yaml::from_str(&data)?;
-    validate_config(&configs)?;
-    Ok(configs)
-}
+pub async fn template_helm(config: &Config) -> Result<(), Box<dyn Error>> {
+    let filename = config.filename.clone().unwrap_or_else(|| format!("working/pre/{}.yaml", config.name));
+    let mut file = tokio::fs::File::create(&filename).await?;
 
-pub fn validate_config(configs: &[Config]) -> Result<(), Box<dyn Error>> {
-    for config in configs {
-        if config.name.is_empty() {
-            return Err(format!("Missing 'name' in config: {:?}", config).into());
-        }
-        if config.namespace.is_none() {
-            return Err(format!("Missing 'namespace' in config: {:?}", config).into());
-        }
-        if config.manifest_url.is_none()
-            && config.helm_url.is_none()
-            && config.source_file.is_none()
-        {
-            return Err(format!(
-                "Either 'manifest-url', 'helm-url', or 'source-file' must be provided in config: {:?}",
-                config
-            )
-            .into());
-        }
-        if let Some(ref helm_url) = config.helm_url {
-            if config.helm_chart_name.is_none() {
-                return Err(format!("Missing 'helm-chart-name' in config with 'helm-url': {:?}", helm_url).into());
-            }
-            if config.helm_name.is_none() {
-                return Err(format!("Missing 'helm-name' in config with 'helm-url': {:?}", helm_url).into());
-            }
-            if config.values.is_none() {
-                return Err(format!("Missing 'values' in config with 'helm-url': {:?}", helm_url).into());
-            }
-        }
-    }
-    Ok(())
-}
+    if let Some(helm_url) = &config.helm_url {
+        let helm_chart_name = config
+            .helm_chart_name
+            .as_ref()
+            .ok_or_else(|| format!("Helm chart name is missing for {}", config.name))?;
 
-pub fn template_helm(config: &Config) -> Result<(), Box<dyn Error>> {
-    let filename = config.filename.as_ref().unwrap();
-    let mut file = File::create(filename)?;
+        let helm_name = config
+            .helm_name
+            .as_ref()
+            .ok_or_else(|| format!("Helm name is missing for {}", config.name))?;
 
-    if let Some(ref helm_url) = config.helm_url {
-        let mut cmd = Command::new("helm");
+        let mut cmd = AsyncCommand::new("helm");
         cmd.arg("template")
-            .arg(config.helm_name.as_ref().unwrap())
+            .arg(helm_name)
             .arg("--repo")
             .arg(helm_url)
-            .arg(config.helm_chart_name.as_ref().unwrap());
+            .arg(helm_chart_name);
 
-        if let Some(ref version) = config.helm_version {
+        if let Some(version) = &config.helm_version {
             cmd.arg("--version").arg(version);
         }
 
-        if let Some(ref namespace) = config.namespace {
-            cmd.arg("--namespace").arg(namespace);
-        }
+        cmd.arg("--namespace").arg(&config.namespace);
 
-        if let Some(ref values) = config.values {
+        if let Some(values) = &config.values {
             cmd.arg("-f").arg(format!("input/{}/{}", config.name, values));
         }
 
-        let output = cmd.output()?;
-
+        let output = cmd.output().await?;
         if !output.status.success() {
             return Err(format!(
                 "Helm command failed: {}",
@@ -351,21 +344,14 @@ pub fn template_helm(config: &Config) -> Result<(), Box<dyn Error>> {
             .into());
         }
 
-        file.write_all(&output.stdout)?;
-    } else if let Some(ref source_file) = config.source_file {
-        debug!("Using source file: {}", source_file);
-        let src_path = Path::new("input").join(source_file);
-        let dest_path = Path::new("working/pre").join(source_file);
-        fs::copy(src_path, dest_path)?;
-    } else if let Some(ref manifest_url) = config.manifest_url {
-        debug!("Fetching manifest URL: {}", manifest_url);
-        let response = reqwest::blocking::get(manifest_url)?;
-        let mut dest = File::create(filename)?;
-        io::copy(&mut response.bytes()?.as_ref(), &mut dest)?;
+        file.write_all(&output.stdout).await?;
+    } else {
+        error!("No valid helm_url, source_file, or manifest_url for {}", config.name);
     }
 
     Ok(())
 }
+
 
 pub fn remove_empty_yaml_files(dir: &Path) -> io::Result<()> {
     for entry in fs::read_dir(dir)? {
@@ -379,3 +365,54 @@ pub fn remove_empty_yaml_files(dir: &Path) -> io::Result<()> {
     }
     Ok(())
 }
+
+
+pub fn validate_config(configs: &[Config]) -> Result<(), Box<dyn std::error::Error>> {
+    for config in configs {
+        if config.name.is_empty() {
+            return Err(format!("Missing 'name' in config: {:?}", config).into());
+        }
+
+        let ns = &config.namespace; {
+            if ns.is_empty() {
+                error!("Namespace is empty or missing for {}", config.name);
+            } else {
+                info!("Namespace is set for {}", config.name);
+            }
+        } 
+
+        if config.manifest_url.is_none()
+            && config.helm_url.is_none()
+            && config.source_file.is_none()
+        {
+            return Err(format!(
+                "Either 'manifest-url', 'helm-url', or 'source-file' must be provided in config: {:?}",
+                config
+            )
+            .into());
+        }
+    }
+    Ok(())
+}
+
+
+
+
+pub fn load_config(path: &str) -> Result<Vec<Config>, Box<dyn std::error::Error>> {
+    let file_content = fs::read_to_string(Path::new(path))?;
+
+    log::debug!("Loaded YAML content: {}", file_content);
+
+    let configs: Vec<Config> = serde_yaml::from_str(&file_content)?;
+
+    validate_config(&configs)?;
+
+    Ok(configs)
+}
+
+
+
+
+
+
+
