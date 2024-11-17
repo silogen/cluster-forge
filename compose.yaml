@@ -5,7 +5,6 @@ services:
     volumes:
       - $PWD/input:/input
       - $PWD/logs:/logs
-      - $PWD/working:/working
       - $PWD/output:/output
-      - $PWD/packages:/packages
+      - $PWD/stacks:/stacks
     entrypoint: ["forge"]

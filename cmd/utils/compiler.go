@@ -230,7 +230,7 @@ func CreateCrossplaneObject(config Config) {
 func CreatePackage(config Config, part string, content string) {
 	platformpackage := new(platformpackage)
 	platformpackage.Name = config.CastName + "-" + config.Name
-	outfile, err := os.OpenFile("packages/"+config.CastName+"-"+config.Name+"-"+part+"-packages.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+	outfile, err := os.OpenFile("stacks/"+config.CastName+"-"+config.Name+"-"+part+"-stack.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -253,7 +253,7 @@ func CreatePackage(config Config, part string, content string) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	removeEmptyLines("packages/" + config.CastName + "-" + config.Name + "-" + part + "-packages.yaml")
+	removeEmptyLines("stacks/" + config.CastName + "-" + config.Name + "-" + part + "-stacks.yaml")
 }
 
 func removeEmptyLines(filename string) error {

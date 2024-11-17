@@ -23,14 +23,13 @@ import (
 	"path/filepath"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/charmbracelet/huh"
+	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/homedir"
 )
-
 
 func Forge() {
 	log.SetOutput(os.Stdout)
@@ -39,7 +38,7 @@ func Forge() {
 	})
 	log.SetLevel(log.DebugLevel)
 	log.Info("Starting Cluster Forge...")
-	base_path := "./packages"
+	base_path := "./stacks"
 	kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
 	_, err := getKubeConfig(kubeconfig)
 	if err != nil {
@@ -49,7 +48,7 @@ func Forge() {
 	stacks := getStacks(base_path)
 	selectedStack := getUserSelection(stacks)
 
-	runStackLogic(filepath.Join(base_path,selectedStack))
+	runStackLogic(filepath.Join(base_path, selectedStack))
 }
 
 func getKubeConfig(kubeconfig string) (*rest.Config, error) {
@@ -113,7 +112,7 @@ func getStacks(baseDir string) []string {
 	var stacks []string
 	files, err := os.ReadDir(baseDir)
 	if err != nil {
-		log.Fatalf("Failed to read packages directory: %v", err)
+		log.Fatalf("Failed to read stacks directory: %v", err)
 	}
 	for _, file := range files {
 		if file.IsDir() {
@@ -203,4 +202,3 @@ func runCommand(cmd string) error {
 	log.Infof(string(output))
 	return nil
 }
-
