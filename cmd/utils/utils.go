@@ -173,7 +173,7 @@ func Setup() {
 // Templatehelm is a funciton to template from the helm values and chart
 func Templatehelm(config Config) {
 	if config.Name != "" {
-		log.Debug("templating helm for ", config.Name)
+		log.Debug("Smelting ", config.Name)
 	}
 	if config.HelmURL != "" {
 		log.Debug("   Using: ", config.HelmURL)
@@ -234,7 +234,7 @@ func Templatehelm(config Config) {
 		inputDir := "input"
 		workingDir := "working/pre"
 		srcFilePath := filepath.Join(inputDir, config.SourceFile)
-		dstFilePath := filepath.Join(workingDir, config.SourceFile)
+		dstFilePath := filepath.Join(workingDir, config.Name+".yaml")
 
 		// Copy the file from input directory to working directory
 		err := CopyFile(srcFilePath, dstFilePath)
