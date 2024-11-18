@@ -15,9 +15,9 @@
 - name: cnpg-operator
   namespace: cnpg-system
   sourcefile: cnpg/cnpg-operator.yaml
-- name: kyverno-policies
-  namespace: default
-  sourcefile: kyverno/kyverno-policies.yaml
+# - name: kyverno-policies
+#   namespace: default
+#   sourcefile: kyverno/kyverno-policies.yaml
 - name: kyverno
   namespace: kyverno
   helm-chart-name: kyverno
