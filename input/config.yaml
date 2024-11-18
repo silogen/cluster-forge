@@ -1,23 +1,30 @@
 
+- name: amd-device-plugin
+  manifest-url: https://raw.githubusercontent.com/ROCm/k8s-device-plugin/master/k8s-ds-amdgpu-dp.yaml
+  namespace: kube-system
+- name: kueue
+  namespace: kueue-system
+  manifest-url: https://github.com/kubernetes-sigs/kueue/releases/download/v0.8.4/manifests.yaml
 - name: amd-metrics-exporter
   namespace: monitoring
   sourcefile: amd-metrics-exporter/metrics-exporter.yaml
-- helm-chart-name: "prometheus-opencost-exporter"
-  helm-name: opencost
-  helm-url: "https://prometheus-community.github.io/helm-charts"
-  values: values.yaml
+- helm-chart-name: "external-secrets"
+  helm-name: external-secrets
+  helm-url: "https://charts.external-secrets.io"
+  values: external-secrets-values.yaml
   secrets: false
-  name: opencost
-  namespace: opencost
+  name: external-secrets
+  namespace: "external-secrets"
+  helm-version: "0.10.3"
 - name: certmanager
   namespace: cert-manager
   manifest-url: https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml
 - name: cnpg-operator
   namespace: cnpg-system
   sourcefile: cnpg/cnpg-operator.yaml
-# - name: kyverno-policies
-#   namespace: default
-#   sourcefile: kyverno/kyverno-policies.yaml
+- name: kyverno-policies
+  namespace: default
+  sourcefile: kyverno/kyverno-policies.yaml
 - name: kyverno
   namespace: kyverno
   helm-chart-name: kyverno
@@ -58,11 +65,10 @@
   name: grafana
   namespace: "grafana"
   helm-version: "8.4.6"
-- helm-chart-name: "external-secrets"
-  helm-name: external-secrets
-  helm-url: "https://charts.external-secrets.io"
-  values: external-secrets-values.yaml
+- helm-chart-name: "prometheus-opencost-exporter"
+  helm-name: opencost
+  helm-url: "https://prometheus-community.github.io/helm-charts"
+  values: values.yaml
   secrets: false
-  name: external-secrets
-  namespace: "external-secrets"
-  helm-version: "0.10.3"
+  name: opencost
+  namespace: opencost
