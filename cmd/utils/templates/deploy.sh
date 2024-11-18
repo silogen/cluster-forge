@@ -30,12 +30,6 @@ kubectl apply -f crossplane_provider.yaml
 kubectl apply -f composition.yaml
 kubectl delete pods --all -n crossplane-system
 kubectl wait --for=condition=Ready --timeout=600s pods --all -n crossplane-system
-kubectl apply -f claim.yaml
-helm repo add komodorio https://helm-charts.komodor.io \
-  && helm repo update komodorio \
-  && helm upgrade --install komoplane komodorio/komoplane
-kubectl wait --for=condition=Ready --timeout=600s pods --all -n default
+kubectl apply -f stack.yaml
 
-
-echo see status with:
-echo kubectl port-forward svc/komoplane 8090:8090
+echo "Stack Deployed!"
