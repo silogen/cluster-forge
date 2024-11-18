@@ -23,6 +23,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"text/template"
@@ -229,7 +230,7 @@ func CreateCrossplaneObject(config Config) {
 func CreatePackage(config Config, part string, content string) {
 	platformpackage := new(platformpackage)
 	platformpackage.Name = config.CastName + "-" + config.Name
-	outfile, err := os.OpenFile("packages/"+config.CastName+"-"+config.Name+"-"+part+"-packages.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+	outfile, err := os.OpenFile("stacks/"+config.CastName+"-"+config.Name+"-"+part+"-stack.yaml", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -252,7 +253,7 @@ func CreatePackage(config Config, part string, content string) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	removeEmptyLines("packages/" + config.CastName + "-" + config.Name + "-" + part + "-packages.yaml")
+	removeEmptyLines("stacks/" + config.CastName + "-" + config.Name + "-" + part + "-stacks.yaml")
 }
 
 func removeEmptyLines(filename string) error {
@@ -273,4 +274,29 @@ func removeEmptyLines(filename string) error {
 	}
 
 	return nil
+}
+
+// Function to copy a file from source to destination
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	// Ensure the destination directory exists
+	dstDir := filepath.Dir(dst)
+	err = os.MkdirAll(dstDir, 0755)
+	if err != nil {
+		return err
+	}
+
+	destinationFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destinationFile.Close()
+
+	_, err = io.Copy(destinationFile, sourceFile)
+	return err
 }
