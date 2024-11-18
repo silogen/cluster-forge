@@ -199,6 +199,27 @@ func Templatehelm(config Config) {
 	defer file.Close()
 
 	if config.HelmURL != "" {
+		if config.Values == "" {
+			valuesPath := fmt.Sprintf("input/%s/values.yaml", config.Name)
+			cmdFetchValues := exec.Command("helm", "show", "values", "--repo", config.HelmURL, config.HelmChartName)
+			output, err := cmdFetchValues.Output()
+			if err != nil {
+				log.Fatalf("Failed to fetch values.yaml for %s: %v", config.Name, err)
+			}
+	
+			err = os.MkdirAll(fmt.Sprintf("input/%s", config.Name), 0755)
+			if err != nil {
+				log.Fatalf("Failed to create input directory for %s: %v", config.Name, err)
+			}
+	
+			err = os.WriteFile(valuesPath, output, 0644)
+			if err != nil {
+				log.Fatalf("Failed to write values.yaml for %s: %v", config.Name, err)
+			}
+	
+			config.Values = "values.yaml"
+			log.Printf("Fetched and saved values.yaml for %s", config.Name)
+		}
 		var cmd *exec.Cmd
 		switch {
 		case config.HelmVersion != "" && config.Namespace != "":
@@ -351,9 +372,6 @@ func validateConfig(configs []Config) error {
 			}
 			if config.HelmName == "" {
 				return fmt.Errorf("missing 'helm-name' in config with 'helm-url': %+v", config)
-			}
-			if config.Values == "" {
-				return fmt.Errorf("missing 'values' in config with 'helm-url': %+v", config)
 			}
 		}
 	}

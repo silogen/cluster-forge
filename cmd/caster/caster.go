@@ -130,37 +130,37 @@ func Cast(configs []utils.Config) {
 	}
 
 	accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
-	re := regexp.MustCompile("^[a-z0-9]+$")
+	re := regexp.MustCompile("^[a-z0-9_-]+$")
 	form := huh.NewForm(
 		huh.NewGroup(huh.NewNote().
-			Title("Cluster Forge").
-			Description("TO THE FORGE!\n\nLets get started")),
+		    Title("Cluster Forge").
+		    Description("TO THE FORGE!\n\nLets get started")),
 		huh.NewGroup(huh.NewText().
-			Title("Name of this composition package").
-			CharLimit(25).
-			Validate(func(input string) error {
-				if !re.MatchString(input) {
-					return fmt.Errorf("input can only contain lowercase letters (a-z) and digits (0-9)")
-				}
-				return nil
-			}).
-			Value(&castname)),
-
+		    Title("Name of this composition package").
+		    CharLimit(25).
+		    Validate(func(input string) error {
+			if !re.MatchString(input) {
+			    return fmt.Errorf("input can only contain lowercase letters (a-z), digits (0-9), hyphens (-), and underscores (_)")
+			}
+			return nil
+		    }).
+		    Value(&castname)),
+	    
 		huh.NewGroup(
-			huh.NewMultiSelect[string]().
-				Options(huh.NewOptions(names...)...).
-				Title("Choose your target tools to setup").
-				Description("Which tools are we working with now?.").
-				Validate(func(t []string) error {
-					if len(t) <= 0 {
-						return fmt.Errorf("at least one tool is required")
-					}
-					return nil
-				}).
-				Value(&toolbox.Targettool.Type).
-				Filterable(true),
+		    huh.NewMultiSelect[string]().
+			Options(huh.NewOptions(names...)...).
+			Title("Choose your target tools to setup").
+			Description("Which tools are we working with now?.").
+			Validate(func(t []string) error {
+			    if len(t) <= 0 {
+				return fmt.Errorf("at least one tool is required")
+			    }
+			    return nil
+			}).
+			Value(&toolbox.Targettool.Type).
+			Filterable(true),
 		),
-	).WithAccessible(accessible)
+	    ).WithAccessible(accessible)
 
 	err = form.Run()
 
