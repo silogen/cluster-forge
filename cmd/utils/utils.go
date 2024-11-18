@@ -224,19 +224,19 @@ func Templatehelm(config Config) {
 		switch {
 		case config.HelmVersion != "" && config.Namespace != "":
 			// Both HelmVersion and Namespace are provided
-			cmd = exec.Command("helm", "template", config.HelmName, "--repo", config.HelmURL, "--version", config.HelmVersion, config.HelmChartName, "--namespace", config.Namespace, "-f", "input/"+config.Name+"/"+config.Values)
+			cmd = exec.Command("helm", "template", config.HelmName, "--repo", config.HelmURL, "--version", config.HelmVersion, config.HelmChartName, "--namespace", config.Namespace, "-f", "input/"+config.Name+"/"+config.Values, "--include-crds")
 
 		case config.HelmVersion != "":
 			// Only HelmVersion is provided
-			cmd = exec.Command("helm", "template", config.HelmName, "--repo", config.HelmURL, "--version", config.HelmVersion, config.HelmChartName, "-f", "input/"+config.Name+"/"+config.Values)
+			cmd = exec.Command("helm", "template", config.HelmName, "--repo", config.HelmURL, "--version", config.HelmVersion, config.HelmChartName, "-f", "input/"+config.Name+"/"+config.Values, "--include-crds")
 
 		case config.Namespace != "":
 			// Only Namespace is provided
-			cmd = exec.Command("helm", "template", config.HelmName, "--repo", config.HelmURL, config.HelmChartName, "--namespace", config.Namespace, "-f", "input/"+config.Name+"/"+config.Values)
+			cmd = exec.Command("helm", "template", config.HelmName, "--repo", config.HelmURL, config.HelmChartName, "--namespace", config.Namespace, "-f", "input/"+config.Name+"/"+config.Values, "--include-crds")
 
 		default:
 			// Neither HelmVersion nor Namespace is provided
-			cmd = exec.Command("helm", "template", config.HelmName, "--repo", config.HelmURL, config.HelmChartName, "-f", "input/"+config.Name+"/"+config.Values)
+			cmd = exec.Command("helm", "template", config.HelmName, "--repo", config.HelmURL, config.HelmChartName, "-f", "input/"+config.Name+"/"+config.Values, "--include-crds")
 		}
 		cmd.Env = append(cmd.Env, "KUBECONFIG=''")
 		var stderr bytes.Buffer
