@@ -1,7 +1,8 @@
 services:
   forge:
-    image: forge:latest
-    container_name: forge
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
       - $PWD/input:/input
       - $PWD/logs:/logs
