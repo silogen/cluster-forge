@@ -7,7 +7,8 @@
     "pre-commit":     "3.6.2",
     "go-licenses":    "1.6.0",
     "go":             "1.23.2",
-    "crossplane-cli": "1.17.1"
+    "crossplane-cli": "1.17.1",
+    "minio-client":   "2024-10-02T08-27-28Z"
   },
   "shell": {
     "init_hook": [
