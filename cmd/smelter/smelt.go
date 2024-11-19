@@ -127,7 +127,7 @@ func Smelt(configs []utils.Config) {
 						namespaceObject = true
 					}
 				}
-				if !namespaceObject && config.SourceFile == "" {
+				if !namespaceObject {
 					data := struct {
 						NamespaceName string
 					}{

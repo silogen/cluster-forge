@@ -136,6 +136,7 @@ type Config struct {
 	SourceFile          string `yaml:"sourcefile"`
 	Filename            string
 	CRDFiles            []string
+	NamespaceFiles      []string
 	SecretFiles         []string
 	ExternalSecretFiles []string
 	ObjectFiles         []string
