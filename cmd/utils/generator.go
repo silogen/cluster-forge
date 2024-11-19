@@ -11,6 +11,14 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+type Namespace struct {
+	APIVersion string `yaml:"apiVersion"`
+	Kind       string `yaml:"kind"`
+	Metadata   struct {
+		Name string `yaml:"name"`
+	} `yaml:"metadata"`
+}
+
 type ConfigMap struct {
 	APIVersion string `yaml:"apiVersion"`
 	Kind       string `yaml:"kind"`
@@ -152,7 +160,7 @@ func GenerateFunctionTemplates(outputDir string, newFilePath string) {
 		log.Fatalf("failed writing updated file: %s", err)
 	}
 
-	fmt.Printf("New volume structure written to %s\n", newFilePath)
+	log.Debug("New volume structure written to %s\n", newFilePath)
 }
 
 func CopyYAMLFiles(srcDir, destDir string) error {
@@ -194,6 +202,43 @@ func RemoveYAMLFiles(dir string) error {
 		err := os.Remove(filePath)
 		if err != nil {
 			return fmt.Errorf("failed to remove file: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func ProcessNamespaceFiles(dir string) error {
+	namespaceMap := make(map[string]struct{})
+
+	// Iterate over all files named namespace-*
+	files, err := filepath.Glob(filepath.Join(dir, "namespace-*"))
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			return err
+		}
+
+		var ns Namespace
+		err = yaml.Unmarshal(data, &ns)
+		if err != nil {
+			return err
+		}
+
+		// Check if the namespace already exists in the map
+		if _, exists := namespaceMap[ns.Metadata.Name]; exists || ns.Metadata.Name == "kube-system" || ns.Metadata.Name == "default" {
+			// Delete the duplicate file
+			err = os.Remove(file)
+			if err != nil {
+				return err
+			}
+		} else {
+			// Add the namespace name to the map
+			namespaceMap[ns.Metadata.Name] = struct{}{}
 		}
 	}
 

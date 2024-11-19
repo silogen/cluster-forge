@@ -85,12 +85,14 @@ func CreateCrossplaneObject(config Config) {
 	createNewFile := func(baseName, suffix string, index int) (*os.File, error) {
 		if suffix == "crd" {
 			return os.OpenFile(fmt.Sprintf("output/crd-%s-%d.yaml", baseName, index), os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+		} else if suffix == "namespace" {
+			return os.OpenFile(fmt.Sprintf("output/namespace-%s-%d.yaml", baseName, index), os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 		} else {
 			return os.OpenFile(fmt.Sprintf("output/cm-%s-%s-%d.yaml", baseName, suffix, index), os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 		}
 	}
 
-	objectFileIndex, crdFileIndex, secretFileIndex, externalsecretFileIndex := 1, 1, 1, 1
+	objectFileIndex, namespaceFileIndex, crdFileIndex, secretFileIndex, externalsecretFileIndex := 1, 1, 1, 1, 1
 	objectFile, err := createNewFile(platformpackage.Name, "object", objectFileIndex)
 	if err != nil {
 		log.Fatalln(err)
@@ -102,6 +104,12 @@ func CreateCrossplaneObject(config Config) {
 		log.Fatalln(err)
 	}
 	defer crdFile.Close()
+
+	namespaceFile, err := createNewFile(platformpackage.Name, "namespace", namespaceFileIndex)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer namespaceFile.Close()
 
 	secretFile, err := createNewFile(platformpackage.Name, "secret", secretFileIndex)
 	if err != nil {
@@ -129,7 +137,7 @@ func CreateCrossplaneObject(config Config) {
 		lines := strings.Split(string(content), "\n")
 		kindParts := strings.Split(platformpackage.Kind, "-")
 
-		if kindParts[0] == "CustomResourceDefinition" {
+		if kindParts[0] == "CustomResourceDefinition" || kindParts[0] == "Namespace" {
 			platformpackage.Content.WriteString("---\n")
 			for _, line := range lines {
 				platformpackage.Content.WriteString(fmt.Sprintf("%s\n", line))
@@ -157,6 +165,11 @@ func CreateCrossplaneObject(config Config) {
 			currentFileSize, _ = externalSecretFile.Seek(0, os.SEEK_END)
 			currentFileIndex = &externalsecretFileIndex
 			currentFileType = "externalsecret"
+		case strings.Contains(platformpackage.Kind, "Namespace"):
+			currentFile = namespaceFile
+			currentFileSize, _ = namespaceFile.Seek(0, os.SEEK_END)
+			currentFileIndex = &namespaceFileIndex
+			currentFileType = "namespace"
 		case strings.Contains(platformpackage.Kind, "Secret"):
 			currentFile = secretFile
 			currentFileSize, _ = secretFile.Seek(0, os.SEEK_END)
@@ -173,7 +186,7 @@ func CreateCrossplaneObject(config Config) {
 			// Write the header to the file
 			platformpackage.Index = *currentFileIndex
 			platformpackage.Type = currentFileType
-			if currentFileType != "crd" {
+			if currentFileType != "crd" && currentFileType != "namespace" {
 				err = cmtemp.Execute(currentFile, platformpackage)
 				if err != nil {
 					log.Fatalln(err)
@@ -200,6 +213,11 @@ func CreateCrossplaneObject(config Config) {
 		}
 
 		if currentFileType == "crd" {
+			_, err = currentFile.Write(platformpackage.Content.Bytes())
+			if err != nil {
+				log.Fatalln(err)
+			}
+		} else if currentFileType == "namespace" {
 			_, err = currentFile.Write(platformpackage.Content.Bytes())
 			if err != nil {
 				log.Fatalln(err)

@@ -4,13 +4,18 @@ kubectl apply -f crossplane_base.yaml
 kubectl wait --for=condition=available --timeout=600s deployments --all -n crossplane-system
 DIRECTORY=$PWD
 
+# Loop through all YAML files in the directory that start with namespace
+for file in "$DIRECTORY"/namespace*.yaml; do
+  if [ -f "$file" ]; then
+    echo "Applying $file"
+    kubectl apply --server-side -f "$file"
+  fi
+done
 # Loop through all YAML files in the directory that start with crd
 for file in "$DIRECTORY"/crd*.yaml; do
   if [ -f "$file" ]; then
     echo "Applying $file"
     kubectl apply --server-side -f "$file"
-  else
-    echo "No files matching crd*.yaml found in $DIRECTORY"
   fi
 done
 # Loop through all YAML files in the directory that start with cm_
@@ -18,8 +23,6 @@ for file in "$DIRECTORY"/cm*.yaml; do
   if [ -f "$file" ]; then
     echo "Applying $file"
     kubectl apply --server-side -f "$file"
-  else
-    echo "No files matching cm*.yaml found in $DIRECTORY"
   fi
 done
 
