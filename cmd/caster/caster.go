@@ -52,10 +52,10 @@ func removeElement(slice []string, element string) []string {
 }
 
 // FetchFilesAndCategorize fetches files with the given prefix and categorizes them
-func FetchFilesAndCategorize(dir string, prefix string) (crdFiles, secretFiles, externalSecretFiles, objectFiles []string, err error) {
+func FetchFilesAndCategorize(dir string, prefix string) (namespaceFiles, crdFiles, secretFiles, externalSecretFiles, objectFiles []string, err error) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
 	for _, file := range files {
@@ -65,6 +65,8 @@ func FetchFilesAndCategorize(dir string, prefix string) (crdFiles, secretFiles, 
 				crdFiles = append(crdFiles, fileName)
 			} else if strings.Contains(fileName, "externalsecret") {
 				externalSecretFiles = append(externalSecretFiles, fileName)
+			} else if strings.Contains(fileName, "namespace") {
+				namespaceFiles = append(namespaceFiles, fileName)
 			} else if strings.Contains(fileName, "secret") {
 				secretFiles = append(secretFiles, fileName)
 			} else if strings.Contains(fileName, "object") {
@@ -73,7 +75,7 @@ func FetchFilesAndCategorize(dir string, prefix string) (crdFiles, secretFiles, 
 		}
 	}
 
-	return crdFiles, secretFiles, externalSecretFiles, objectFiles, nil
+	return namespaceFiles, crdFiles, secretFiles, externalSecretFiles, objectFiles, nil
 }
 
 func combineFiles(files []string, filesDir string) string {
@@ -182,9 +184,10 @@ func Cast(configs []utils.Config) {
 		for _, tool := range toolbox.Targettool.Type {
 			if config, exists := configMap[tool]; exists {
 				utils.CreateCrossplaneObject(config)
+				utils.ProcessNamespaceFiles("output")
 				utils.RemoveEmptyYAMLFiles("output")
 				// fetch all files with the selected names
-				crdFile, secretFile, externalSecretFile, objectFile, err := FetchFilesAndCategorize(filesDir, tool)
+				namespaceFile, crdFile, secretFile, externalSecretFile, objectFile, err := FetchFilesAndCategorize(filesDir, tool)
 				if err != nil {
 					log.Error("Error:", err)
 					return
@@ -192,6 +195,7 @@ func Cast(configs []utils.Config) {
 
 				// Retrieve the struct, modify it, and put it back into the map
 				config.CRDFiles = append(config.CRDFiles, crdFile...)
+				config.NamespaceFiles = append(config.NamespaceFiles, namespaceFile...)
 				config.ExternalSecretFiles = append(config.ExternalSecretFiles, externalSecretFile...)
 				config.SecretFiles = append(config.SecretFiles, secretFile...)
 				config.ObjectFiles = append(config.ObjectFiles, objectFile...)
