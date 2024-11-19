@@ -21,7 +21,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/charmbracelet/huh"
@@ -54,33 +53,42 @@ func Forge() {
 	runStackLogic(filepath.Join(basePath, selectedStack))
     }
     
-func determineKubeConfigPath() string {
+    func determineKubeConfigPath() string {
 	kubeConfigPath := os.Getenv("KUBECONFIG")
+	defaultKubeConfigPath := filepath.Join(homedir.HomeDir(), ".kube", "config")
+    
 	if kubeConfigPath != "" {
-		fmt.Printf("KUBECONFIG environment variable is set to: %s\n", kubeConfigPath)
-		userConfirmed := askUserConfirmation(fmt.Sprintf("Do you want to use the KUBECONFIG environment variable path: %s?", kubeConfigPath))
-		if !userConfirmed {
-		kubeConfigPath = ""
-		}
+	    log.Infof("KUBECONFIG environment variable detected: %s", kubeConfigPath)
+    
+	    useEnvKubeconfig := false
+	    form := huh.NewForm(
+		huh.NewGroup(
+		    huh.NewConfirm().
+			Title("Use KUBECONFIG environment variable").
+			Description(fmt.Sprintf("Do you want to use the KUBECONFIG path: %s?", kubeConfigPath)).
+			Value(&useEnvKubeconfig),
+		),
+	    )
+    
+	    if err := form.Run(); err != nil {
+		log.Fatalf("Failed to get user input: %v", err)
+	    }
+    
+	    if useEnvKubeconfig {
+		log.Infof("Using KUBECONFIG environment variable path: %s", kubeConfigPath)
+		return kubeConfigPath
+	    }
 	}
-
-	if kubeConfigPath == "" {
-		kubeConfigPath = filepath.Join(homedir.HomeDir(), ".kube", "config")
-		log.Infof("Using default kubeconfig path: %s", kubeConfigPath)
+    
+	if _, err := os.Stat(defaultKubeConfigPath); os.IsNotExist(err) {
+	    log.Warnf("Kubeconfig file not found at %s. Falling back to in-cluster configuration.", defaultKubeConfigPath)
+	    return ""
 	}
-
-	return kubeConfigPath
-}
-
-func askUserConfirmation(message string) bool {
-	var response string
-	fmt.Printf("%s (y/n): ", message)
-	_, err := fmt.Scanln(&response)
-	if err != nil {
-		log.Fatalf("Failed to read user input: %v", err)
-	}
-	return strings.ToLower(response) == "y"
-}
+    
+	log.Infof("Using default kubeconfig path: %s", defaultKubeConfigPath)
+	return defaultKubeConfigPath
+    }
+    
     
 func getKubeConfigPath(defaultPath, kubeconfigEnv string) (string, error) {
 	if kubeconfigEnv != "" {
