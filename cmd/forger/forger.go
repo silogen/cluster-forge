@@ -34,37 +34,103 @@ import (
 func Forge() {
 	log.SetOutput(os.Stdout)
 	log.SetFormatter(&log.TextFormatter{
-		FullTimestamp: true,
+	    FullTimestamp: true,
 	})
 	log.SetLevel(log.DebugLevel)
 	log.Info("Starting Cluster Forge...")
-	base_path := "./stacks"
-	kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
-	_, err := getKubeConfig(kubeconfig)
+    
+	// Determine kubeconfig path
+	kubeConfigPath := determineKubeConfigPath()
+	_, err := getKubeConfig(kubeConfigPath)
 	if err != nil {
-		log.Fatalf("Failed to configure Kubernetes client: %v", err)
+	    log.Fatalf("Failed to configure Kubernetes client: %v", err)
+	}
+    
+	basePath := "./stacks"
+	stacks := getStacks(basePath)
+	selectedStack := getUserSelection(stacks)
+    
+	runStackLogic(filepath.Join(basePath, selectedStack))
+    }
+    
+    func determineKubeConfigPath() string {
+	kubeConfigPath := os.Getenv("KUBECONFIG")
+	defaultKubeConfigPath := filepath.Join(homedir.HomeDir(), ".kube", "config")
+    
+	if kubeConfigPath != "" {
+	    log.Infof("KUBECONFIG environment variable detected: %s", kubeConfigPath)
+    
+	    useEnvKubeconfig := false
+	    form := huh.NewForm(
+		huh.NewGroup(
+		    huh.NewConfirm().
+			Title("Use KUBECONFIG environment variable").
+			Description(fmt.Sprintf("Do you want to use the KUBECONFIG path: %s?", kubeConfigPath)).
+			Value(&useEnvKubeconfig),
+		),
+	    )
+    
+	    if err := form.Run(); err != nil {
+		log.Fatalf("Failed to get user input: %v", err)
+	    }
+    
+	    if useEnvKubeconfig {
+		log.Infof("Using KUBECONFIG environment variable path: %s", kubeConfigPath)
+		return kubeConfigPath
+	    }
+	}
+    
+	if _, err := os.Stat(defaultKubeConfigPath); os.IsNotExist(err) {
+	    log.Warnf("Kubeconfig file not found at %s. Falling back to in-cluster configuration.", defaultKubeConfigPath)
+	    return ""
+	}
+    
+	log.Infof("Using default kubeconfig path: %s", defaultKubeConfigPath)
+	return defaultKubeConfigPath
+    }
+    
+    
+func getKubeConfigPath(defaultPath, kubeconfigEnv string) (string, error) {
+	if kubeconfigEnv != "" {
+		log.Infof("KUBECONFIG environment variable detected: %s", kubeconfigEnv)
+
+		useEnvKubeconfig := false
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewConfirm().
+					Title("Use KUBECONFIG environment variable").
+					Description(fmt.Sprintf("Do you want to use the KUBECONFIG path: %s?", kubeconfigEnv)).
+					Value(&useEnvKubeconfig),
+			),
+		)
+
+		if err := form.Run(); err != nil {
+			log.Fatalf("Failed to get user input: %v", err)
+		}
+
+		if useEnvKubeconfig {
+			return kubeconfigEnv, nil
+		}
 	}
 
-	stacks := getStacks(base_path)
-	selectedStack := getUserSelection(stacks)
+	if _, err := os.Stat(defaultPath); os.IsNotExist(err) {
+		log.Warnf("Kubeconfig file not found at %s. Falling back to in-cluster configuration.", defaultPath)
+		return "", nil 
+	}
 
-	runStackLogic(filepath.Join(base_path, selectedStack))
+	return defaultPath, nil
 }
 
-func getKubeConfig(kubeconfig string) (*rest.Config, error) {
-	if kubeconfig == "" {
-		kubeconfig = filepath.Join(os.Getenv("HOME"), ".kube", "config")
-	}
-
-	if _, err := os.Stat(kubeconfig); os.IsNotExist(err) {
-		log.Warnf("Kubeconfig file not found at %s. Falling back to in-cluster configuration.", kubeconfig)
+func getKubeConfig(kubeconfigPath string) (*rest.Config, error) {
+	if kubeconfigPath == "" {
 		return rest.InClusterConfig()
 	}
 
 	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig},
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
 		&clientcmd.ConfigOverrides{},
 	)
+
 	rawConfig, err := configLoader.RawConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load kubeconfig: %w", err)
@@ -73,7 +139,7 @@ func getKubeConfig(kubeconfig string) (*rest.Config, error) {
 	contextName := getUserContextSelection(rawConfig.Contexts)
 	configOverrides := &clientcmd.ConfigOverrides{CurrentContext: contextName}
 	config := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig},
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
 		configOverrides,
 	)
 
@@ -100,6 +166,7 @@ func getUserContextSelection(contexts map[string]*clientcmdapi.Context) string {
 	if err := form.Run(); err != nil {
 		log.Fatalf("Failed to get user input: %v", err)
 	}
+
 	if selectedContext == "" {
 		log.Fatal("No context selected. Exiting.")
 	}
@@ -148,7 +215,7 @@ func runStackLogic(stackPath string) {
 
 	runCommand(fmt.Sprintf("kubectl apply -f %s/crossplane_base.yaml", stackPath))
 
-	runCommand("kubectl wait --for=condition=available --timeout=600s deployments --all --all-namespaces")
+	// runCommand("kubectl wait --for=condition=available --timeout=600s deployments --all --all-namespaces")
 
 	applyMatchingFiles(stackPath, "crd-*.yaml", true)
 
@@ -161,11 +228,11 @@ func runStackLogic(stackPath string) {
 	runCommand(fmt.Sprintf("kubectl apply -f %s/composition.yaml", stackPath))
 
 	runCommand("kubectl delete pods --all -n crossplane-system")
-	runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all --all-namespaces")
+	// runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all --all-namespaces")
 
-	runCommand(fmt.Sprintf("kubectl apply -f %s/claim.yaml", stackPath))
+	runCommand(fmt.Sprintf("kubectl apply -f %s/stack.yaml", stackPath))
 	installHelmChart("komodorio", "https://helm-charts.komodor.io", "komoplane", "komodorio/komoplane")
-	runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all -n default")
+	// runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all -n default")
 
 	log.Info("Deployment complete!")
 }
