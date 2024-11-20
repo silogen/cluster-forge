@@ -7,6 +7,14 @@ BUCKET_NAME="cluster-forge-loki-test-dummy"
 ALIAS_NAME="cluster-forge-minio"
 TENANT_PASSWORD="loki_tenant_pw_fake"
 
+MC_ALIAS="cluster-forge-minio"  # MinIO alias
+USER_NAME="test"                # Username
+USER_PASSWORD="test-secret"     # User password
+POLICY_FILE="loki-policy.json"  # Custom policy file path
+SERVICE_ACCOUNT_POLICY="svcacct-loki-access" # Policy for the service account
+
+
+
 # Function to cleanup port-forward
 cleanup() {
     echo "Cleaning up..."
@@ -17,18 +25,33 @@ cleanup() {
 # Set trap for cleanup on script exit
 trap cleanup EXIT INT TERM
 
+# Wait for MinIO pod to be in Running state
+echo "Waiting for MinIO pod to be in Running state..."
+for i in {1..40}; do
+    POD_STATUS=$(kubectl get pods -n minio -l app=minio -o jsonpath='{.items[0].status.phase}' 2>/dev/null)
+    if [ "$POD_STATUS" == "Running" ]; then
+        echo "MinIO pod is Running"
+        break
+    fi
+    if [ $i -eq 40 ]; then
+        echo "Timeout: MinIO pod failed to reach Running state"
+        exit 1
+    fi
+    sleep 3
+done
+
 # Start port-forward in background
 kubectl port-forward -n minio svc/minio 9000:9000 &
 PORT_FORWARD_PID=$!
 
 # Wait for port-forward to establish
 echo "Waiting for port-forward to establish..."
-for i in {1..30}; do
+for i in {1..40}; do
     if nc -z localhost 9000; then
         echo "Port-forward is ready"
         break
     fi
-    if [ $i -eq 30 ]; then
+    if [ $i -eq 40 ]; then
         echo "Port-forward failed to establish"
         exit 1
     fi
@@ -59,8 +82,46 @@ mc ls $ALIAS_NAME
 
 # 3. Run mc admin command and capture the output
 echo "Creating MinIO access key..."
-CREDENTIALS=$(mc admin accesskey create ${ALIAS_NAME})
+# Step 1: Create the test user
+echo "Creating user '$USER_NAME'..."
+mc admin user add $MC_ALIAS $USER_NAME $USER_PASSWORD
 
+# Create MinIO policy file
+cat <<EOF > loki-policy.json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::${BUCKET_NAME}/*",
+                "arn:aws:s3:::${BUCKET_NAME}"
+            ]
+        }
+    ]
+}
+EOF
+
+# Step 2: Create a policy for the bucket access
+echo "Creating policy '$SERVICE_ACCOUNT_POLICY'..."
+mc admin policy create $MC_ALIAS $SERVICE_ACCOUNT_POLICY $POLICY_FILE
+
+# Step 3: Assign the policy to the user
+echo "Assigning policy '$SERVICE_ACCOUNT_POLICY' to user '$USER_NAME'..."
+mc admin policy attach $MC_ALIAS readwrite --user $USER_NAME
+
+# Step 4: Create a service account for the test user
+echo "Creating service account under user '$USER_NAME'..."
+CREDENTIALS=$(mc admin user svcacct add $MC_ALIAS $USER_NAME --policy $POLICY_FILE)
+
+#CREDENTIALS=$(mc admin accesskey create ${ALIAS_NAME})
+echo $CREDENTIALS
 # 4. Extract Access Key and Secret Key
 ACCESS_KEY=$(echo "$CREDENTIALS" | grep "Access Key:" | awk '{print $3}')
 SECRET_KEY=$(echo "$CREDENTIALS" | grep "Secret Key:" | awk '{print $3}')
