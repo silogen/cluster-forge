@@ -3,7 +3,9 @@
 # Your MinIO root credentials (usually set during installation)
 ROOT_USER="rootuser"        # default root user
 ROOT_PASSWORD="rootpass123" # default password - replace with your actual root password
-BUCKET_NAME="cluster-forge-loki-test-dummy"
+BUCKET_NAME_1="cluster-forge-loki-test-dummy"
+BUCKET_NAME_2="cluster-forge-mimir-test-dummy"
+BUCKET_NAME_3="cluster-forge-tempo-test-dummy"
 ALIAS_NAME="cluster-forge-minio"
 TENANT_PASSWORD="loki_tenant_pw_fake"
 
@@ -69,15 +71,22 @@ fi
 
 echo "Get bucket list..."
 mc ls $ALIAS_NAME
-# 2. Create bucket
-echo "Creating bucket..."
-mc mb $ALIAS_NAME/$BUCKET_NAME >/dev/null 2>&1
-if [ $? -eq 0 ]; then
-    echo "Bucket '${BUCKET_NAME}' created successfully."
-else
-    echo "Bucket '${BUCKET_NAME}' already exists or could not be created."
-fi
+# 2. Create buckets
+echo "Creating buckets..."
+BUCKET_NAMES=("$BUCKET_NAME_1" "$BUCKET_NAME_2" "$BUCKET_NAME_3") # Array of bucket names
 
+for BUCKET in "${BUCKET_NAMES[@]}"; do
+    echo "Creating bucket '${BUCKET}'..."
+    mc mb $ALIAS_NAME/$BUCKET >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo "Bucket '${BUCKET}' created successfully."
+    else
+        echo "Bucket '${BUCKET}' already exists or could not be created."
+    fi
+done
+
+# List buckets to verify
+echo "Listing all buckets..."
 mc ls $ALIAS_NAME
 
 # 3. Run mc admin command and capture the output
@@ -100,8 +109,8 @@ cat <<EOF > loki-policy.json
                 "s3:DeleteObject"
             ],
             "Resource": [
-                "arn:aws:s3:::${BUCKET_NAME}/*",
-                "arn:aws:s3:::${BUCKET_NAME}"
+                "arn:aws:s3:::*/*",
+                "arn:aws:s3:::*"
             ]
         }
     ]
@@ -121,7 +130,6 @@ echo "Creating service account under user '$USER_NAME'..."
 CREDENTIALS=$(mc admin user svcacct add $MC_ALIAS $USER_NAME --policy $POLICY_FILE)
 
 #CREDENTIALS=$(mc admin accesskey create ${ALIAS_NAME})
-echo $CREDENTIALS
 # 4. Extract Access Key and Secret Key
 ACCESS_KEY=$(echo "$CREDENTIALS" | grep "Access Key:" | awk '{print $3}')
 SECRET_KEY=$(echo "$CREDENTIALS" | grep "Secret Key:" | awk '{print $3}')
@@ -136,10 +144,10 @@ echo "----------------------------------------"
 echo "This is a test file to verify MinIO access - $(date)" > test.txt
 # Upload the test file
 echo "Uploading test file to bucket..."
-mc cp test.txt cluster-forge-minio//$BUCKET_NAME/
+mc cp test.txt cluster-forge-minio//$BUCKET_NAME_1/
 # Verify the upload by listing bucket contents
 echo "Verifying upload - listing bucket contents:"
-mc ls cluster-forge-minio//$BUCKET_NAME/
+mc ls cluster-forge-minio//$BUCKET_NAME_1/
 
 
 # 6. Create or update Kubernetes secret
