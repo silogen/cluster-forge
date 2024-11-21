@@ -6,12 +6,14 @@ use std::{
     process::Command,
     thread,
     time::Duration,
+    error::Error,
+
 };
 use dialoguer::Select;
 use kube::config::{Config, Kubeconfig, KubeConfigOptions};
 use dirs_next;
 
-pub async fn forge() {
+pub fn forge() {
     info!("Starting Cluster Forge...");
 
     let base_path = "./packages";
@@ -19,7 +21,7 @@ pub async fn forge() {
         .expect("Failed to find home directory")
         .join(".kube/config");
 
-    match get_kube_config(&kubeconfig_path).await {
+    match get_kube_config(&kubeconfig_path) {
         Ok(_) => info!("Kubernetes client configured successfully"),
         Err(e) => error!("Failed to configure Kubernetes client: {:?}", e),
     }
@@ -30,7 +32,9 @@ pub async fn forge() {
     run_stack_logic(&format!("{}/{}", base_path, selected_stack));
 }
 
-pub async fn get_kube_config(kubeconfig_path: &Path) -> Result<Config, Box<dyn std::error::Error>> {
+fn get_kube_config(kubeconfig_path: &Path) -> Result<Config, Box<dyn Error>> {
+    let runtime = tokio::runtime::Runtime::new()?; // Create a runtime
+
     if kubeconfig_path.exists() {
         info!("Using kubeconfig file at: {}", kubeconfig_path.display());
 
@@ -49,13 +53,16 @@ pub async fn get_kube_config(kubeconfig_path: &Path) -> Result<Config, Box<dyn s
             user: None,
         };
 
-        let config = Config::from_kubeconfig(&options).await?;
+        let config = runtime.block_on(Config::from_kubeconfig(&options))?;
         Ok(config)
     } else {
         info!("Kubeconfig file not found, falling back to in-cluster configuration");
-        Config::infer().await.map_err(|e| e.into())
+        let config = runtime.block_on(Config::infer())?;
+        Ok(config)
     }
 }
+
+
 
 fn get_user_context_selection(contexts: &[String]) -> String {
     if contexts.is_empty() {
@@ -162,3 +169,4 @@ fn run_command(command: &str) {
         Err(e) => error!("Failed to execute command {}: {:?}", command, e),
     }
 }
+

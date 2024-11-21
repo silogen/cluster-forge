@@ -20,8 +20,8 @@ fn print_usage() {
     Or, to deploy to a specific cluster, use:\n\
     cluster-forge --forge --kubeconfig <KUBECONFIG>");
 }
-#[tokio::main]
-async fn main() {
+fn main() {
+
     if let Err(e) = setup_logging() {
         eprintln!("Failed to initialize logging: {}", e);
         std::process::exit(1);
@@ -84,7 +84,7 @@ async fn main() {
     match selected_mode {
         "smelt" => {
             println!("Smelting");
-            smelter::smelt(&configs).await;
+            smelter::smelt(&configs);
         }
         "cast" => {
             println!("Casting");
@@ -92,7 +92,7 @@ async fn main() {
         }
         "forge" => {
             println!("Forging");
-            forger::forge().await;
+            forger::forge();
         }
         _ => unreachable!(),
     }
