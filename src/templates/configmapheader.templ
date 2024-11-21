@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Name }}-{{ .Type }}-{{ .Index }}-configmap
+  namespace: crossplane-system
+data:
+  template: |
