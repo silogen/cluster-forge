@@ -5,6 +5,72 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Cargo launch (Smelt)",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--",
+                    "--smelt"
+                ]
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stdio": [
+                "null", 
+                "inherit", 
+                "inherit"
+            ],
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Cargo launch (Cast)",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--",
+                    "--cast"
+                ]
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stdio": [
+                "null", 
+                "inherit", 
+                "inherit"
+            ],
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Cargo launch (Forge)",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--",
+                    "--forge"
+                ]
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stdio": [
+                "null", 
+                "inherit", 
+                "inherit"
+            ],
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
             "name": "Debug Cast",
             "type": "go",
             "request": "launch",

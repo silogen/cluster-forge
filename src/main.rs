@@ -10,7 +10,7 @@ mod forger;
 use crate::utils::setup_logging; 
 
 fn print_usage() {
-    println!("Usage:\n\
+    eprintln!("Usage:\n\
     To setup components, use:\n\
     cluster-forge --smelt\n\
 \n\
@@ -54,11 +54,11 @@ fn main() {
         )
         .get_matches();
 
-    let selected_mode = if matches.contains_id("smelt") {
+    let selected_mode = if matches.get_flag("smelt") {
         "smelt"
-    } else if matches.contains_id("cast") {
+    } else if matches.get_flag("cast") {
         "cast"
-    } else if matches.contains_id("forge") {
+    } else if matches.get_flag("forge") {
         "forge"
     } else {
         print_usage();
@@ -83,15 +83,15 @@ fn main() {
 
     match selected_mode {
         "smelt" => {
-            println!("Smelting");
+            info!("Smelting");
             smelter::smelt(&configs);
         }
         "cast" => {
-            println!("Casting");
+            info!("Casting");
             caster::cast(&configs);
         }
         "forge" => {
-            println!("Forging");
+            info!("Forging");
             forger::forge();
         }
         _ => unreachable!(),

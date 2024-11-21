@@ -12,8 +12,11 @@ use crate::utils::{template_helm, Config};
 #[derive(Debug, Serialize, Deserialize)]
 struct K8sObject {
     kind: String,
+    #[serde(rename = "apiVersion")]
     api_version: String,
     metadata: Metadata,
+    #[serde(flatten)]
+    extra: HashMap<String, serde_yaml::Value>, 
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -25,6 +28,8 @@ struct Metadata {
     labels: Option<HashMap<String, String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     annotations: Option<HashMap<String, String>>,
+    #[serde(flatten)]
+    extra: HashMap<String, serde_yaml::Value>, 
 }
 
 #[derive(Debug)]
@@ -135,20 +140,22 @@ fn split_yaml(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let data = fs::read_to_string(&filename)?;
-    let documents: Vec<&str> = data.split("---").collect();
+    let documents: Vec<&str> = data.split("---").filter(|doc| !doc.trim().is_empty()).collect();
 
-    for doc in documents {
+    for (index, doc) in documents.iter().enumerate() {
         let cleaned = clean(doc.as_bytes())?;
-        if cleaned.is_empty() {
-            error!("Skipping empty YAML document for {}", config.name);
+        if cleaned.iter().all(|&b| b.is_ascii_whitespace()) {
+            error!("Skipping empty YAML document for {} at index {}", config.name, index);
             continue;
         }
 
-        let object_result: Result<K8sObject, _> = serde_yaml::from_slice(&cleaned);
-        match object_result {
+        match serde_yaml::from_slice::<K8sObject>(&cleaned) {
             Ok(mut object) => {
-                if object.kind.is_empty() || object.api_version.is_empty() {
-                    error!("YAML object missing `kind` or `apiVersion` for {}", config.name);
+                if object.metadata.name.is_empty() {
+                    error!(
+                        "YAML object missing `metadata.name` for {} at index {}",
+                        config.name, index
+                    );
                     continue;
                 }
 
@@ -156,16 +163,23 @@ fn split_yaml(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
                     object.metadata.namespace = Some(config.namespace.clone());
                 }
 
-                let output_filename = format!(
-                    "working/{}/{}_{}.yaml",
-                    config.name, object.kind, object.metadata.name
-                );
+                let output_dir = format!("working/{}", config.name);
+                fs::create_dir_all(&output_dir)?;
+
+                let output_filename = format!("{}/{}_{}.yaml", output_dir, object.kind, object.metadata.name);
+                info!("Created: {}", output_filename);
+
                 let updated_yaml = serde_yaml::to_string(&object)?;
                 fs::write(output_filename, updated_yaml)?;
             }
             Err(e) => {
-                error!("Error deserializing YAML for {}: {}", config.name, e);
-                continue;
+                error!(
+                    "Error deserializing YAML for {} at index {}: {}\nYAML:\n{}",
+                    config.name,
+                    index,
+                    e,
+                    String::from_utf8_lossy(&cleaned)
+                );
             }
         }
     }
@@ -173,15 +187,26 @@ fn split_yaml(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+
+
+
 fn clean(input: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let mut output = Vec::new();
     let reader = BufReader::new(input);
 
     for line in reader.lines() {
         let line = line?;
-        if line.contains("---") || line.starts_with('#') {
+        let trimmed = line.trim_end(); 
+
+        if trimmed.is_empty()
+            || trimmed.starts_with("---")
+            || trimmed.starts_with('#')
+            || trimmed.contains("helm.sh/chart")
+            || trimmed.contains("app.kubernetes.io/managed-by")
+        {
             continue;
         }
+
         output.extend_from_slice(line.as_bytes());
         output.push(b'\n');
     }
@@ -189,6 +214,8 @@ fn clean(input: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     Ok(output)
 }
 
+
+
 fn print_summary(toolbox: &TargetTool) {
-    println!("Cluster Forge\n\nCompleted: {}.", toolbox.tools.join(", "));
+    info!("Cluster Forge\n\nCompleted: {}.", toolbox.tools.join(", "));
 }

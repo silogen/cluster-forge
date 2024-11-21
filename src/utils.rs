@@ -1,12 +1,11 @@
 use std::{
 	collections::HashMap,
-	env,
 	fs::{self, File, OpenOptions},
-	io::{self, Write},
+	io::{self, Write, Seek, SeekFrom},
 	path::Path,
 	error::Error,
     };
-use log::{info, error};
+use log::error;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
@@ -20,9 +19,23 @@ pub struct PlatformPackage {
     pub index: usize,
     pub package_type: String,
 }
+#[derive(Debug, Serialize, Deserialize)]
+struct Namespace {
+    #[serde(rename = "apiVersion")]
+    api_version: String,
+    kind: String,
+    metadata: NamespaceMetadata,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct NamespaceMetadata {
+    #[serde(rename = "name")]
+    name: String,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ConfigMap {
+    #[serde(rename = "apiVersion")]
     api_version: String,
     kind: String,
     metadata: Metadata,
@@ -33,59 +46,65 @@ struct Metadata {
     name: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct VolumeMount {
+    #[serde(rename = "mountPath")]
     mount_path: String,
     name: String,
+    #[serde(rename = "readOnly")]
     read_only: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
+struct ConfigMapVolume {
+    name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct Volume {
     name: String,
     config_map: ConfigMapVolume,
 }
 
-#[derive(Debug, Serialize)]
-struct ConfigMapVolume {
-    name: String,
-}
-
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Container {
     name: String,
+    #[serde(rename = "volumeMounts")]
     volume_mounts: Vec<VolumeMount>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct PodSpec {
     containers: Vec<Container>,
     volumes: Vec<Volume>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct TemplateSpec {
     spec: PodSpec,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct DeploymentTemplateSpec {
     selector: HashMap<String, String>,
     template: TemplateSpec,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct DeploymentTemplate {
+    #[serde(rename = "spec")]
     spec: DeploymentTemplateSpec,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct DeploymentRuntimeConfig {
+    #[serde(rename = "apiVersion")]
     api_version: String,
     kind: String,
     metadata: Metadata,
     spec: DeploymentTemplate,
 }
+
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
@@ -130,6 +149,9 @@ pub struct Config {
     #[serde(rename = "castname")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cast_name: Option<Vec<String>>,
+    #[serde(rename = "namespace-files")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub namespace_files: Option<Vec<String>>,
 }
 
 
@@ -145,19 +167,32 @@ pub fn should_skip_file(file_path: &Path) -> bool {
     content.contains("helm.sh/hook")
 }
 
-pub fn create_crossplane_object(config: &Config) -> Result<(), Box<dyn Error>> {
+
+
+pub fn create_crossplane_object(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     const MAX_FILE_SIZE: usize = 300 * 1024; // 300 KB
 
     let mut file_indices = HashMap::new();
     file_indices.insert("crd", 1);
+    file_indices.insert("namespace", 1);
     file_indices.insert("object", 1);
     file_indices.insert("secret", 1);
     file_indices.insert("externalsecret", 1);
+    file_indices.insert("configmap", 1);
 
     let working_dir = format!("working/{}", config.name);
     let output_dir = "output";
 
     fs::create_dir_all(output_dir)?;
+
+    let mut files: HashMap<String, File> = HashMap::new();
+
+    for file_type in ["crd", "namespace", "object", "secret", "externalsecret", "configmap"] {
+        let index = file_indices[file_type];
+        let output_file = format!("{}/{}-{}-{}.yaml", output_dir, file_type, config.name, index);
+        let file = OpenOptions::new().create(true).write(true).truncate(true).open(&output_file)?;
+        files.insert(file_type.to_string(), file);
+    }
 
     for entry in fs::read_dir(&working_dir)? {
         let entry = entry?;
@@ -168,32 +203,59 @@ pub fn create_crossplane_object(config: &Config) -> Result<(), Box<dyn Error>> {
         }
 
         let file_name = file_path.file_name().unwrap().to_string_lossy();
-        let file_type = if file_name.contains("crd") {
-            "crd"
-        } else if file_name.contains("externalsecret") {
-            "externalsecret"
-        } else if file_name.contains("secret") {
-            "secret"
-        } else {
-            "object"
-        };
-
-        let index = file_indices.get_mut(file_type).unwrap();
-        let output_file = format!("{}/{}-{}-{}.yaml", output_dir, file_type, config.name, index);
-
-        let mut current_file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&output_file)?;
-
-        let current_size = current_file.metadata()?.len() as usize;
         let content = fs::read_to_string(&file_path)?;
 
-        if current_size + content.len() > MAX_FILE_SIZE {
-            *index += 1;
+        let (current_file_type, current_file_index) = if file_name.contains("ConfigMap") {
+            ("configmap", file_indices.get_mut("configmap").unwrap())
+        } else if file_name.contains("CustomResourceDefinition") {
+            ("crd", file_indices.get_mut("crd").unwrap())
+        } else if file_name.contains("Namespace") {
+            ("namespace", file_indices.get_mut("namespace").unwrap())
+        } else if file_name.contains("ExternalSecret") {
+            ("externalsecret", file_indices.get_mut("externalsecret").unwrap())
+        } else if file_name.contains("Secret") {
+            ("secret", file_indices.get_mut("secret").unwrap())
+        } else {
+            ("object", file_indices.get_mut("object").unwrap())
+        };
+
+        let current_file = files.get_mut(current_file_type).unwrap();
+        let current_file_size = current_file.metadata()?.len() as usize;
+
+        if current_file_size + content.len() > MAX_FILE_SIZE {
+            *current_file_index += 1;
+            let new_output_file = format!(
+                "{}/{}-{}-{}.yaml",
+                output_dir, current_file_type, config.name, current_file_index
+            );
+            *current_file = OpenOptions::new().create(true).write(true).truncate(true).open(&new_output_file)?;
         }
 
-        writeln!(current_file, "{}", content)?;
+        if current_file_type == "configmap" {
+            let config_map_content = format!(
+                r#"
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {}-configmap
+  namespace: crossplane-system
+data:
+  template: |
+    {}
+"#,
+                file_name.trim_end_matches(".yaml"),
+                content
+            );
+
+            writeln!(current_file, "{}", config_map_content)?;
+        } else {
+            writeln!(current_file, "---")?;
+            writeln!(current_file, "{}", content)?;
+        }
+    }
+
+    for file in files.values_mut() {
+        file.sync_all()?;
     }
 
     Ok(())
@@ -230,25 +292,42 @@ pub fn generate_function_templates(output_dir: &str, new_file_path: &str) -> Res
         if let Some(ext) = path.extension() {
             if ext == "yaml" {
                 let content = fs::read_to_string(&path)?;
-                let config_map: ConfigMap = serde_yaml::from_str(&content)?;
 
-                if config_map.kind == "ConfigMap" {
-                    let volume_mount = VolumeMount {
-                        mount_path: format!("/templates/{}", config_map.metadata.name),
-                        name: config_map.metadata.name.clone(),
-                        read_only: true,
-                    };
-                    let volume = Volume {
-                        name: config_map.metadata.name.clone(),
-                        config_map: ConfigMapVolume {
-                            name: config_map.metadata.name.clone(),
-                        },
-                    };
+                match serde_yaml::from_str::<ConfigMap>(&content) {
+                    Ok(config_map) => {
+                        if config_map.kind == "ConfigMap" {
+                            let volume_mount = VolumeMount {
+                                mount_path: format!("/templates/{}", config_map.metadata.name),
+                                name: config_map.metadata.name.clone(),
+                                read_only: true,
+                            };
+                            let volume = Volume {
+                                name: config_map.metadata.name.clone(),
+                                config_map: ConfigMapVolume {
+                                    name: config_map.metadata.name.clone(),
+                                },
+                            };
 
-                    if let Some(container) = deployment_runtime_config.spec.spec.template.spec.containers.first_mut() {
-                        container.volume_mounts.push(volume_mount);
+                            if let Some(container) = deployment_runtime_config
+                                .spec
+                                .spec
+                                .template
+                                .spec
+                                .containers
+                                .first_mut()
+                            {
+                                container.volume_mounts.push(volume_mount);
+                            }
+                            deployment_runtime_config
+                                .spec
+                                .spec
+                                .template
+                                .spec
+                                .volumes
+                                .push(volume);
+                        }
                     }
-                    deployment_runtime_config.spec.spec.template.spec.volumes.push(volume);
+                    Err(e) => eprintln!("Error parsing ConfigMap file {:?}: {}", path, e),
                 }
             }
         }
@@ -256,10 +335,11 @@ pub fn generate_function_templates(output_dir: &str, new_file_path: &str) -> Res
 
     let yaml_content = serde_yaml::to_string(&deployment_runtime_config)?;
     fs::write(new_file_path, yaml_content)?;
-    info!("New volume structure written to {}", new_file_path);
 
     Ok(())
 }
+
+
 
 pub fn copy_yaml_files(src_dir: &str, dest_dir: &str) -> Result<(), Box<dyn std::error::Error>> {
     for entry in fs::read_dir(src_dir)? {
@@ -289,18 +369,14 @@ pub fn remove_yaml_files(dir: &str) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn setup_logging() -> Result<(), Box<dyn std::error::Error>> {
-    let log_level = env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string());
     env_logger::Builder::new()
-        .filter(None, log_level.parse()?)
+        .filter_level(log::LevelFilter::Info)
+        .format(|buf, record| writeln!(buf, "{}: {}", record.level(), record.args()))
+        .target(env_logger::Target::Stderr)
         .init();
-    
-    let log_file = env::var("LOG_NAME").unwrap_or_else(|_| "app.log".to_string());
-    let log_path = Path::new("logs").join(log_file);
-
-    let _ = File::create(&log_path)?;
-
     Ok(())
 }
+
 
 
 pub fn template_helm(config: &Config) -> Result<(), Box<dyn Error>> {
@@ -407,7 +483,6 @@ pub fn load_config(path: &str) -> Result<Vec<Config>, Box<dyn std::error::Error>
 
     Ok(configs)
 }
-
 
 
 
