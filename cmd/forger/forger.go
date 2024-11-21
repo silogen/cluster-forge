@@ -215,7 +215,17 @@ func runStackLogic(stackPath string) {
 
 	runCommand(fmt.Sprintf("kubectl apply -f %s/crossplane_base.yaml", stackPath))
 
-	// runCommand("kubectl wait --for=condition=available --timeout=600s deployments --all --all-namespaces")
+	runCommand("kubectl wait --for=condition=available --timeout=600s deployments --all -n crossplane-system")
+
+	applyMatchingFiles(stackPath, "namespace-*.yaml", false)
+
+	// temporary hack. Will be replaced by External Secrets and 1Password
+	runCommand("kubectl create secret docker-registry regcred   \
+	--docker-server https://europe-west4-docker.pkg.dev   --docker-username _json_key  \
+        --docker-email av@silo.ai   --docker-password='$(cat silogen-dev-078758c85af2.json)'")
+
+	// imagePullSecrets are not propagated from RayCluster to RayJob pod
+	runCommand("kubectl patch serviceaccount default -p '{"imagePullSecrets": [{"name": "regcred"}]}'") 
 
 	applyMatchingFiles(stackPath, "crd-*.yaml", true)
 
@@ -228,11 +238,15 @@ func runStackLogic(stackPath string) {
 	runCommand(fmt.Sprintf("kubectl apply -f %s/composition.yaml", stackPath))
 
 	runCommand("kubectl delete pods --all -n crossplane-system")
-	// runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all --all-namespaces")
+
+	runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all -n crossplane-system")
 
 	runCommand(fmt.Sprintf("kubectl apply -f %s/stack.yaml", stackPath))
+
+	// imagePullSecrets are not propagated from RayCluster to RayJob pod. Patching this SA also just in case
+	runCommand("kubectl patch serviceaccount kuberay-operator -p '{"imagePullSecrets": [{"name": "regcred"}]}'") 
+
 	installHelmChart("komodorio", "https://helm-charts.komodor.io", "komoplane", "komodorio/komoplane")
-	// runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all -n default")
 
 	log.Info("Deployment complete!")
 }

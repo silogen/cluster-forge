@@ -1,0 +1,154 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ray-job-code-sample
+data:
+  sample_code.py: |
+    import os
+    import evaluate
+    import numpy as np
+
+    os.environ["HIP_VISIBLE_DEVICES"] = os.popen("rocm-smi --showuniqueid | grep -Eo 'GPU\[[0-9]+\]' | grep -Eo '[0-9]+' | tr '\\n' ',' | sed 's/,$//'").read().strip()
+
+    import torch
+    import torch.distributed as dist
+
+    from datasets import load_dataset
+    from transformers import (
+        AutoModelForSequenceClassification,
+        AutoTokenizer,
+        Trainer,
+        TrainingArguments,
+    )
+
+    from ray.train import ScalingConfig
+    from ray.train.huggingface.transformers import RayTrainReportCallback, prepare_trainer
+    from ray.train.torch import TorchTrainer
+
+    dist.init_process_group(backend="gloo") 
+
+    def train_func(config):
+        # Datasets
+        dataset = load_dataset("yelp_review_full")
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+
+        def tokenize_function(examples):
+            return tokenizer(examples["text"], padding="max_length", truncation=True)
+
+        tokenized_ds = dataset.map(tokenize_function, batched=True)
+
+        small_train_ds = tokenized_ds["train"].shuffle(seed=42).select(range(1000))
+        small_eval_ds = tokenized_ds["test"].shuffle(seed=42).select(range(1000))
+
+        model = AutoModelForSequenceClassification.from_pretrained(
+            "bert-base-cased", num_labels=5
+        )
+
+        metric = evaluate.load("accuracy")
+
+        def compute_metrics(eval_pred):
+            logits, labels = eval_pred
+            predictions = np.argmax(logits, axis=-1)
+            return metric.compute(predictions=predictions, references=labels)
+
+        training_args = TrainingArguments(
+            output_dir="test_trainer", evaluation_strategy="epoch", report_to="none"
+        )
+
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=small_train_ds,
+            eval_dataset=small_eval_ds,
+            compute_metrics=compute_metrics,
+        )
+
+        trainer.add_callback(RayTrainReportCallback())
+
+        trainer = prepare_trainer(trainer)
+
+        trainer.train()
+
+
+    trainer = TorchTrainer(
+        train_func, scaling_config=ScalingConfig(num_workers=torch.cuda.device_count(), use_gpu=True)
+    )
+
+    trainer.fit()
+
+---
+
+apiVersion: ray.io/v1
+kind: RayJob
+metadata:
+  name: rayjob-pytorch-text-classifier
+  # labels: 
+  #   kueue.x-k8s.io/queue-name: gpu-queue
+spec:
+  shutdownAfterJobFinishes: true
+  entrypoint: torchrun /home/ray/samples/sample_code.py
+  # runtimeEnvYAML: |
+  #   pip:
+  #     - datasets==2.21.0
+  rayClusterSpec:
+    rayVersion: '2.9.0'
+    enableInTreeAutoscaling: true
+    headGroupSpec:
+      rayStartParams: {}
+      template:
+        spec:
+          imagePullSecrets:
+            - name: regcred
+          containers:
+            - name: ray-head
+              image: europe-west4-docker.pkg.dev/silogen-dev/silogen-dev/rocm6.2-ray-ml:latest
+              imagePullPolicy: Always
+              ports:
+                - containerPort: 6379
+                  name: gcs-server
+                - containerPort: 8265
+                  name: dashboard
+                - containerPort: 10001
+                  name: client
+              resources:
+                limits:
+                  cpu: "10"
+                  memory: "100Gi"
+                  amd.com/gpu: "8"
+                requests:
+                  cpu: "10"
+                  memory: "100Gi"
+                  amd.com/gpu: "8"
+              volumeMounts:
+                - mountPath: /home/ray/samples
+                  name: code-sample
+          volumes:
+              - name: code-sample
+                configMap:
+                  name: ray-job-code-sample
+                  items:
+                    - key: sample_code.py
+                      path: sample_code.py
+    workerGroupSpecs:
+      - replicas: 0
+        minReplicas: 0
+        maxReplicas: 2
+        groupName: small-group
+        rayStartParams: {}
+        template:
+          spec:
+            imagePullSecrets:
+            - name: regcred
+            containers:
+              - name: ray-worker
+                image: europe-west4-docker.pkg.dev/silogen-dev/silogen-dev/rocm6.2-ray-ml:latest
+                imagePullPolicy: Always
+                resources:
+                  limits:
+                    cpu: "10"
+                    memory: "100Gi"
+                    amd.com/gpu: "8"
+                  requests:
+                    cpu: "10"
+                    memory: "100Gi"
+                    amd.com/gpu: "8"

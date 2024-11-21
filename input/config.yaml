@@ -46,14 +46,13 @@
   secrets: false
   name: promtail
   namespace: "monitoring"
-## TODO Trivy Fails to install crds
-# - name: trivy
-#   namespace: trivy-system
-#   helm-chart-name: trivy-operator
-#   helm-name: trivy-operator
-#   helm-url: https://aquasecurity.github.io/helm-charts
-#   values: values.yaml
-#   secrets: false
+- name: trivy
+  namespace: trivy-system
+  helm-chart-name: trivy-operator
+  helm-name: trivy-operator
+  helm-url: https://aquasecurity.github.io/helm-charts
+  values: values.yaml
+  secrets: false
 - name: dummy-secret-monitoring-tools
   namespace: monitoring
   sourcefile: dummy-secret/dummy-secret-monitoring-tools.yaml
@@ -78,3 +77,9 @@
   secrets: false
   name: kuberay-operator
   namespace: "default"
+# - name: kueue-components
+#   sourcefile: kueue-components/kueue-components.yaml
+#   namespace: default
+# - name: ray-cluster
+#   sourcefile: ray-cluster/ray-cluster.yaml
+#   namespace: default
