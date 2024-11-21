@@ -8,8 +8,8 @@ use std::{
     };
 use log::{info, error};
 use serde::{Deserialize, Serialize};
-use tokio::io::AsyncWriteExt;
-use tokio::process::Command as AsyncCommand;
+use std::process::Command;
+
 
     
 #[derive(Debug, Serialize)]
@@ -303,9 +303,9 @@ pub fn setup_logging() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 
-pub async fn template_helm(config: &Config) -> Result<(), Box<dyn Error>> {
+pub fn template_helm(config: &Config) -> Result<(), Box<dyn Error>> {
     let filename = config.filename.clone().unwrap_or_else(|| format!("working/pre/{}.yaml", config.name));
-    let mut file = tokio::fs::File::create(&filename).await?;
+    let mut file = File::create(&filename)?;
 
     if let Some(helm_url) = &config.helm_url {
         let helm_chart_name = config
@@ -318,7 +318,7 @@ pub async fn template_helm(config: &Config) -> Result<(), Box<dyn Error>> {
             .as_ref()
             .ok_or_else(|| format!("Helm name is missing for {}", config.name))?;
 
-        let mut cmd = AsyncCommand::new("helm");
+        let mut cmd = Command::new("helm"); // Ensure `cmd` is of type `Command`
         cmd.arg("template")
             .arg(helm_name)
             .arg("--repo")
@@ -335,7 +335,8 @@ pub async fn template_helm(config: &Config) -> Result<(), Box<dyn Error>> {
             cmd.arg("-f").arg(format!("input/{}/{}", config.name, values));
         }
 
-        let output = cmd.output().await?;
+        let output = cmd.output()?;
+
         if !output.status.success() {
             return Err(format!(
                 "Helm command failed: {}",
@@ -344,7 +345,7 @@ pub async fn template_helm(config: &Config) -> Result<(), Box<dyn Error>> {
             .into());
         }
 
-        file.write_all(&output.stdout).await?;
+        file.write_all(&output.stdout)?;
     } else {
         error!("No valid helm_url, source_file, or manifest_url for {}", config.name);
     }
@@ -373,13 +374,9 @@ pub fn validate_config(configs: &[Config]) -> Result<(), Box<dyn std::error::Err
             return Err(format!("Missing 'name' in config: {:?}", config).into());
         }
 
-        let ns = &config.namespace; {
-            if ns.is_empty() {
-                error!("Namespace is empty or missing for {}", config.name);
-            } else {
-                info!("Namespace is set for {}", config.name);
-            }
-        } 
+        if config.namespace.is_empty() {
+            return Err(format!("Missing 'namespace' in config: {:?}", config).into());
+        }
 
         if config.manifest_url.is_none()
             && config.helm_url.is_none()
@@ -394,6 +391,7 @@ pub fn validate_config(configs: &[Config]) -> Result<(), Box<dyn std::error::Err
     }
     Ok(())
 }
+
 
 
 

@@ -10,6 +10,7 @@ output/*
 !output/.gitkeep
 stacks/*
 !stacks/.gitkeep
+target/debug/*
 
 Library*
 
