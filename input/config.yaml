@@ -93,3 +93,11 @@
   name: grafana-loki
   namespace: "grafana-loki"
   helm-version: "6.15.0"
+- helm-chart-name: "mimir-distributed"
+  helm-name: mimir
+  helm-url: "https://grafana.github.io/helm-charts"
+  values: grafana-mimir-values.yaml
+  secrets: false
+  name: grafana-mimir
+  namespace: "grafana-mimir"
+  helm-version: "5.2.1"

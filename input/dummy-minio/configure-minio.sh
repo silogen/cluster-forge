@@ -8,6 +8,7 @@ BUCKET_NAME_2="cluster-forge-mimir-test-dummy"
 BUCKET_NAME_3="cluster-forge-tempo-test-dummy"
 ALIAS_NAME="cluster-forge-minio"
 TENANT_PASSWORD="loki_tenant_pw_fake"
+MIMIR_PASSWORD="cluster-forge-mimir-test-user:\$apr1\$mszGHRfu\$fDCiA32oRdtP8tXGTTn2M0"
 
 MC_ALIAS="cluster-forge-minio"  # MinIO alias
 USER_NAME="test"                # Username
@@ -164,7 +165,20 @@ type: Opaque
 data:
   access_key_id: $(echo -n $ACCESS_KEY | base64)
   secret_access_key: $(echo -n $SECRET_KEY | base64)
-  loki_tenant_pw_fake: $(echo ${TENANT_PASSWORD} | base64)
+  loki_tenant_pw_fake: $(echo -n ${TENANT_PASSWORD} | base64)
+EOF
+
+cat <<EOF > mimir-minio-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mimir-minio-creds
+  namespace: grafana-mimir
+type: Opaque
+data:
+  access_key_id: $(echo -n $ACCESS_KEY | base64)
+  secret_access_key: $(echo -n $SECRET_KEY | base64)
+  .htpasswd: $(echo -n ${MIMIR_PASSWORD} | base64 -w 0)
 EOF
 
 cat <<EOF > namespace-grafana-loki.yaml
@@ -176,6 +190,17 @@ metadata:
     pod-security.kubernetes.io/enforce: privileged
 EOF
 
+cat <<EOF > namespace-grafana-mimir.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: grafana-mimir
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+EOF
+
 # Apply the secret manifest
 kubectl apply -f namespace-grafana-loki.yaml
+kubectl apply -f namespace-grafana-mimir.yaml
 kubectl apply -f loki-minio-secret.yaml
+kubectl apply -f mimir-minio-secret.yaml
