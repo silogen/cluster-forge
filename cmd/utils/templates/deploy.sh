@@ -36,3 +36,16 @@ kubectl wait --for=condition=Ready --timeout=600s pods --all -n crossplane-syste
 kubectl apply -f stack.yaml
 
 echo "Stack Deployed!"
+
+sleep 5
+# Check if there are any resources in the 'minio' namespace
+echo "Configure dummy-minio if it exists in the 'minio' namespace..."
+if kubectl get all -n minio 2>&1 | grep -q -v "No resources found"; then
+    echo "Resources found in 'minio' namespace. Executing 'configure-minio.sh'..."
+    # Make the script executable if not already
+    chmod +x ../../input/dummy-minio/configure-minio.sh
+    # Run the configure-minio.sh script
+    ../../input/dummy-minio/configure-minio.sh
+else
+    echo "No resources found in 'minio' namespace. Skipping 'configure-minio.sh' execution."
+fi

@@ -361,6 +361,54 @@
         }
       }
     },
+    "minio-client@2024-10-02T08-27-28Z": {
+      "last_modified": "2024-11-16T04:25:12Z",
+      "resolved": "github:NixOS/nixpkgs/34a626458d686f1b58139620a8b2793e9e123bba#minio-client",
+      "source": "devbox-search",
+      "version": "2024-10-02T08-27-28Z",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/slg4z94vjabb5zmdfmyzv4sznbbba15x-minio-client-2024-10-02T08-27-28Z",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/slg4z94vjabb5zmdfmyzv4sznbbba15x-minio-client-2024-10-02T08-27-28Z"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/vbpyzfz6znbbda6fwxs8fh3kfis6n6dr-minio-client-2024-10-02T08-27-28Z",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/vbpyzfz6znbbda6fwxs8fh3kfis6n6dr-minio-client-2024-10-02T08-27-28Z"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/xn1ks5d4r1508kif7372d3pmjqzrcj34-minio-client-2024-10-02T08-27-28Z",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/xn1ks5d4r1508kif7372d3pmjqzrcj34-minio-client-2024-10-02T08-27-28Z"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/sd7iqfw21yzgripicqvg1768nzdzdxzi-minio-client-2024-10-02T08-27-28Z",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/sd7iqfw21yzgripicqvg1768nzdzdxzi-minio-client-2024-10-02T08-27-28Z"
+        }
+      }
+    },
     "pre-commit@3.6.2": {
       "last_modified": "2024-04-02T02:53:36Z",
       "resolved": "github:NixOS/nixpkgs/080a4a27f206d07724b88da096e27ef63401a504#pre-commit",
