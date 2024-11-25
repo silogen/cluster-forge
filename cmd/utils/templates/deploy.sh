@@ -33,6 +33,5 @@ kubectl apply -f crossplane_provider.yaml
 kubectl apply -f composition.yaml
 kubectl delete pods --all -n crossplane-system
 kubectl wait --for=condition=Ready --timeout=600s pods --all -n crossplane-system
-kubectl apply -f stack.yaml
 
-echo "Stack Deployed!"
+echo "Stack can now be deployed with kubectl apply -f stack.yaml"

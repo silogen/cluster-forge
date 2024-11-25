@@ -8,15 +8,6 @@ case "$TASK" in
     echo "Executing forge"
     /usr/local/bin/forge "$@"
     ;;
-  kubectl)
-    echo "Executing kubectl"
-    /usr/local/bin/kubectl "$@"
-    ;;
-  pods)
-    echo "Executing pods"
-    /usr/local/bin/kubectl get pods "$@"
-    ;;
-  *)
     echo "Unknown task: $TASK"
     exit 1
     ;;

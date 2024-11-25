@@ -37,6 +37,13 @@ type ClusterScopedResource struct {
 	APIVersion string
 }
 
+var ForgeLogo = "  ____ _           _              _____                    \n" +
+	" / ___| |_   _ ___| |_ ___ _ __  |  ___|__  _ __ __ _  ___ \n" +
+	"| |   | | | | / __| __/ _ \\ '__| | |_ / _ \\| '__/ _` |/ _ \\\n" +
+	"| |___| | |_| \\__ \\ ||  __/ |    |  _| (_) | | | (_| |  __/\n" +
+	" \\____|_|\\__,_|___/\\__\\___|_|    |_|  \\___/|_|  \\__, |\\___|\n" +
+	"                                                |___/      \n"
+
 // clusterScopedResources holds a list of known cluster-scoped resources.
 var clusterScopedResources = []ClusterScopedResource{
 	{"ComponentStatus", "v1"},
@@ -206,17 +213,17 @@ func Templatehelm(config Config) {
 			if err != nil {
 				log.Fatalf("Failed to fetch values.yaml for %s: %v", config.Name, err)
 			}
-	
+
 			err = os.MkdirAll(fmt.Sprintf("input/%s", config.Name), 0755)
 			if err != nil {
 				log.Fatalf("Failed to create input directory for %s: %v", config.Name, err)
 			}
-	
+
 			err = os.WriteFile(valuesPath, output, 0644)
 			if err != nil {
 				log.Fatalf("Failed to write values.yaml for %s: %v", config.Name, err)
 			}
-	
+
 			config.Values = "values.yaml"
 			log.Printf("Fetched and saved values.yaml for %s", config.Name)
 		}

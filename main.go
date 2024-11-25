@@ -71,6 +71,7 @@ func main() {
 	for _, config := range configs {
 		log.Debugf("Read config for : %+v", config.Name)
 	}
+	fmt.Print(utils.ForgeLogo)
 	switch selectedMode {
 	case "smelt":
 		fmt.Println("Smelting")

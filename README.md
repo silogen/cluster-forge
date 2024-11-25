@@ -9,7 +9,7 @@ This is not necessarily meant to replace 'helm install' and 'kubectl apply' for 
 It is designed with the idea of 'ephemeral clusters' and easily reproducable clusters in mind.
 
 ## Usage
-First, ensure you have [devbox](https://www.jetify.com/devbox) installed. Nothing will work out of the box, and it will be painful (yet possible) to do without.
+Ensure golang v1.23, kubectl, and helm are installed. For convenience, it can also be run with docker. 
 
 To create a package, there are 3 (or up to 5 depending on how we count) steps.
 
@@ -19,12 +19,12 @@ If the tool needed is not already included, add it to input/config.yaml
 ### Step 1 (SMELT)
 Run 'smelt', which will generate formatted (yaml) configs which will be used.
 ```sh
-devbox debug-smelt
-```
-or
-```sh
 go run . --smelt
 ```
+
+
+![Smest Demo](docs/demoSmelt.gif)
+
 
 Select the components to include and they will be generated.
 
@@ -36,19 +36,14 @@ Likely not needed, and instructions to come here.
 Compile the components into a stack
 
 ```sh
-devbox debug-cast
-```
-or
-```sh
 go run . --cast
 ```
 
+
+![Cast Demo](docs/demoCast.gif)
+
 ### Step 3 (FORGE)
 This step deploys a stack to a cluster
-```sh
-devbox debug-forge
-```
-or
 ```sh
 go run . --forge
 ```
