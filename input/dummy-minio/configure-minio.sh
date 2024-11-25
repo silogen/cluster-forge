@@ -181,6 +181,18 @@ data:
   .htpasswd: $(echo -n ${MIMIR_PASSWORD} | base64 -w 0)
 EOF
 
+cat <<EOF > tempo-minio-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tempo-minio-creds
+  namespace: grafana-tempo
+type: Opaque
+data:
+  access_key_id: $(echo -n $ACCESS_KEY | base64)
+  secret_access_key: $(echo -n $SECRET_KEY | base64)
+EOF
+
 cat <<EOF > namespace-grafana-loki.yaml
 apiVersion: v1
 kind: Namespace
@@ -199,8 +211,20 @@ metadata:
     pod-security.kubernetes.io/enforce: privileged
 EOF
 
+cat <<EOF > namespace-grafana-tempo.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: grafana-tempo
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+EOF
+
+
 # Apply the secret manifest
 kubectl apply -f namespace-grafana-loki.yaml
 kubectl apply -f namespace-grafana-mimir.yaml
+kubectl apply -f namespace-grafana-tempo.yaml
 kubectl apply -f loki-minio-secret.yaml
 kubectl apply -f mimir-minio-secret.yaml
+kubectl apply -f tempo-minio-secret.yaml

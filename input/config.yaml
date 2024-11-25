@@ -101,3 +101,11 @@
   name: grafana-mimir
   namespace: "grafana-mimir"
   helm-version: "5.2.1"
+- helm-chart-name: "tempo-distributed"
+  helm-name: tempo
+  helm-url: "https://grafana.github.io/helm-charts"
+  values: grafana-tempo-values.yaml
+  secrets: false
+  name: grafana-tempo
+  namespace: "grafana-tempo"
+  helm-version: "1.8.1"

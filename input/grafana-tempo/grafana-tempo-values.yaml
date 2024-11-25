@@ -1,0 +1,165 @@
+multitenancyEnabled: true
+
+traces:
+  jaeger:
+    grpc:
+      # -- Enable Tempo to ingest Jaeger GRPC traces
+      enabled: false
+      # -- Jaeger GRPC receiver config
+      receiverConfig: {}
+    thriftBinary:
+      # -- Enable Tempo to ingest Jaeger Thrift Binary traces
+      enabled: false
+      # -- Jaeger Thrift Binary receiver config
+      receiverConfig: {}
+    thriftCompact:
+      # -- Enable Tempo to ingest Jaeger Thrift Compact traces
+      enabled: false
+      # -- Jaeger Thrift Compact receiver config
+      receiverConfig: {}
+    thriftHttp:
+      # -- Enable Tempo to ingest Jaeger Thrift HTTP traces
+      enabled: false
+      # -- Jaeger Thrift HTTP receiver config
+      receiverConfig: {}
+  otlp:
+    http:
+      # -- Enable Tempo to ingest Open Telemetry HTTP traces
+      enabled: true
+      # -- HTTP receiver advanced config
+      receiverConfig: {}
+    grpc:
+      # -- Enable Tempo to ingest Open Telemetry GRPC traces
+      enabled: true
+      # -- GRPC receiver advanced config
+      receiverConfig: {}
+
+storage:
+  trace:
+    block:
+      v2_encoding: zstd ## zstd will cut your storage costs to ~15%
+                        ## of the uncompressed amount
+    wal:
+      v2_encoding: snappy
+    backend: s3
+    s3:
+      endpoint: minio.minio.svc.cluster.local:9000
+      access_key: ${ACCESS_KEY_ID}
+      secret_key: ${SECRET_ACCESS_KEY}
+      bucket: cluster-forge-tempo-test-dummy
+      insecure: true 
+      tls_insecure_skip_verify: true
+
+global_overrides:
+  per_tenant_override_config: /runtime-config/overrides.yaml
+  # -- List of enabled metrics generator processors ([service-graphs, span-metrics])
+  metrics_generator_processors:
+    - service-graphs
+    - span-metrics
+
+
+metricsGenerator:
+  # -- Specifies whether a metrics-generator should be deployed
+  enabled: true
+  config:
+    storage:
+      remote_write: ##
+        - url: http://grafana-mimir-gateway.grafana-mimir.svc.cluster.local/api/v1/push ##
+          name: mimir-cluster-forge
+          basic_auth:
+            username: cluster-forge-mimir-test-user
+            password: cluster-forge-mimir-test-pass
+          headers:
+            "X-Scope-OrgID": tempo-tenant-cluster-forge
+  extraArgs:
+    - '-config.expand-env=true'
+  extraEnv:
+    - name: ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: tempo-minio-creds
+          key: access_key_id
+    - name: SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: tempo-minio-creds
+          key: secret_access_key
+
+distributor:
+  extraArgs:
+    - '-config.expand-env=true'
+  extraEnv:
+    - name: ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: tempo-minio-creds
+          key: access_key_id
+    - name: SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: tempo-minio-creds
+          key: secret_access_key
+  config:
+    log_received_spans:
+      enabled: true
+
+ingester:
+  extraArgs:
+    - '-config.expand-env=true'
+  extraEnv:
+    - name: ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: tempo-minio-creds
+          key: access_key_id
+    - name: SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: tempo-minio-creds
+          key: secret_access_key
+compactor:
+  extraArgs:
+    - '-config.expand-env=true'
+  extraEnv:
+    - name: ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: tempo-minio-creds
+          key: access_key_id
+    - name: SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: tempo-minio-creds
+          key: secret_access_key
+  compaction:
+    block_retention: 48h
+
+querier:
+  extraArgs:
+    - '-config.expand-env=true'
+  extraEnv:
+    - name: ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: tempo-minio-creds
+          key: access_key_id
+    - name: SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: tempo-minio-creds
+          key: secret_access_key
+
+queryFrontend:
+  extraArgs:
+    - '-config.expand-env=true'
+  extraEnv:
+    - name: ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: tempo-minio-creds
+          key: access_key_id
+    - name: SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: tempo-minio-creds
+          key: secret_access_key
