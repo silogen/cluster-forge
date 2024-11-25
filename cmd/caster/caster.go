@@ -132,35 +132,32 @@ func Cast(configs []utils.Config) {
 	accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
 	re := regexp.MustCompile("^[a-z0-9_-]+$")
 	form := huh.NewForm(
-		huh.NewGroup(huh.NewNote().
-		    Title("Cluster Forge").
-		    Description("TO THE FORGE!\n\nLets get started")),
 		huh.NewGroup(huh.NewText().
-		    Title("Name of this composition package").
-		    CharLimit(25).
-		    Validate(func(input string) error {
-			if !re.MatchString(input) {
-			    return fmt.Errorf("input can only contain lowercase letters (a-z), digits (0-9), hyphens (-), and underscores (_)")
-			}
-			return nil
-		    }).
-		    Value(&castname)),
-	    
-		huh.NewGroup(
-		    huh.NewMultiSelect[string]().
-			Options(huh.NewOptions(names...)...).
-			Title("Choose your target tools to setup").
-			Description("Which tools are we working with now?.").
-			Validate(func(t []string) error {
-			    if len(t) <= 0 {
-				return fmt.Errorf("at least one tool is required")
-			    }
-			    return nil
+			Title("Name of this composition package").
+			CharLimit(25).
+			Validate(func(input string) error {
+				if !re.MatchString(input) {
+					return fmt.Errorf("input can only contain lowercase letters (a-z), digits (0-9), hyphens (-), and underscores (_)")
+				}
+				return nil
 			}).
-			Value(&toolbox.Targettool.Type).
-			Filterable(true),
+			Value(&castname)),
+
+		huh.NewGroup(
+			huh.NewMultiSelect[string]().
+				Options(huh.NewOptions(names...)...).
+				Title("Choose the tools to cast into the stack").
+				// Description("Which tools are we working with now?.").
+				Validate(func(t []string) error {
+					if len(t) <= 0 {
+						return fmt.Errorf("at least one tool is required")
+					}
+					return nil
+				}).
+				Value(&toolbox.Targettool.Type).
+				Filterable(true),
 		),
-	    ).WithAccessible(accessible)
+	).WithAccessible(accessible)
 
 	err = form.Run()
 
@@ -222,7 +219,7 @@ func Cast(configs []utils.Config) {
 		}
 	}
 
-	_ = spinner.New().Title("Preparing your tools...").Accessible(accessible).Action(prepareTool).Run()
+	_ = spinner.New().Title("Preparing your stack...").Accessible(accessible).Action(prepareTool).Run()
 	utils.GenerateFunctionTemplates("output", "output/function-templates.yaml")
 	err = utils.CopyYAMLFiles("cmd/utils/templates", "output")
 	utils.CopyFile("cmd/utils/templates/deploy.sh", "output/deploy.sh")

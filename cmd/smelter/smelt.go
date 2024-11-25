@@ -59,15 +59,10 @@ func Smelt(configs []utils.Config) {
 	accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
 
 	form := huh.NewForm(
-		huh.NewGroup(huh.NewNote().
-			Title("Cluster Forge").
-			Description("TO THE FORGE!\n\nLets get started")),
-
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Options(huh.NewOptions(names...)...).
-				Title("Choose your target tools to setup").
-				Description("Which tools are we working with now?.").
+				Title("Choose your target tools to smelt").
 				Validate(func(t []string) error {
 					if len(t) <= 0 {
 						return fmt.Errorf("at least one tool is required")
