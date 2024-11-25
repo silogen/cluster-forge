@@ -31,7 +31,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// ClusterScopedResource represents a Kubernetes cluster-scoped resource.
 type ClusterScopedResource struct {
 	Name       string
 	APIVersion string
@@ -110,7 +109,6 @@ var clusterScopedResources = []ClusterScopedResource{
 	{"Audit", "warden.gke.io/v1"},
 }
 
-// LoadConfig loads the configuration file
 func LoadConfig(filename string) ([]Config, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
@@ -129,7 +127,6 @@ func LoadConfig(filename string) ([]Config, error) {
 	return configs, nil
 }
 
-// Config is the struct for the an individual tool config
 type Config struct {
 	HelmChartName       string `yaml:"helm-chart-name"`
 	HelmURL             string `yaml:"helm-url"`
@@ -150,9 +147,7 @@ type Config struct {
 	CastName            string
 }
 
-// Setup sets up the logging
 func Setup() {
-	// Get the log level from the environment variable
 	logLevelStr := os.Getenv("LOG_LEVEL")
 	if logLevelStr == "" {
 		logLevelStr = "DEFAULT"
@@ -162,10 +157,8 @@ func Setup() {
 		logLevel = log.InfoLevel
 	}
 
-	// Set the log level
 	log.SetLevel(logLevel)
 
-	// Set the output destination to a file
 	logfilename := os.Getenv("LOG_NAME")
 	if logfilename == "" {
 		logfilename = "forge.log"
@@ -178,30 +171,31 @@ func Setup() {
 	log.SetOutput(file)
 }
 
-// Templatehelm is a funciton to template from the helm values and chart
-func Templatehelm(config Config) {
-	if config.Name != "" {
-		log.Debug("Smelting ", config.Name)
-	}
-	if config.HelmURL != "" {
-		log.Debug("   Using: ", config.HelmURL)
-	}
-	if config.HelmChartName != "" {
-		log.Debug("   Using: ", config.HelmChartName)
-	}
-	if config.Values != "" {
-		log.Debug("   Using: ", config.Values)
-	}
-	if config.Filename != "" {
-		log.Debug("   Using: ", config.Filename)
-	}
-	if config.ManifestURL != "" {
-		log.Debug("   Using: ", config.ManifestURL)
+type HelmExecutor interface {
+	RunHelmCommand(args []string, stdout io.Writer, stderr io.Writer) error
+}
+
+type DefaultHelmExecutor struct{}
+
+func (e *DefaultHelmExecutor) RunHelmCommand(args []string, stdout io.Writer, stderr io.Writer) error {
+	cmd := exec.Command("helm", args...)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	cmd.Env = append(os.Environ(), "KUBECONFIG=''")
+	return cmd.Run()
+}
+
+func Templatehelm(config Config, helmExec HelmExecutor) error {
+	if config.HelmURL == "" && config.SourceFile == "" && config.ManifestURL == "" {
+		return fmt.Errorf("invalid configuration: at least one of HelmURL, SourceFile, or ManifestURL must be provided")
 	}
 
+	if config.Namespace == "" {
+		return fmt.Errorf("invalid configuration: Namespace must not be empty")
+	}
 	file, err := os.Create(config.Filename)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to create file: %w", err)
 	}
 	defer file.Close()
 
@@ -211,76 +205,52 @@ func Templatehelm(config Config) {
 			cmdFetchValues := exec.Command("helm", "show", "values", "--repo", config.HelmURL, config.HelmChartName)
 			output, err := cmdFetchValues.Output()
 			if err != nil {
-				log.Fatalf("Failed to fetch values.yaml for %s: %v", config.Name, err)
+				return fmt.Errorf("failed to fetch values.yaml for %s: %w", config.Name, err)
 			}
 
 			err = os.MkdirAll(fmt.Sprintf("input/%s", config.Name), 0755)
 			if err != nil {
-				log.Fatalf("Failed to create input directory for %s: %v", config.Name, err)
+				return fmt.Errorf("failed to create input directory for %s: %w", config.Name, err)
 			}
 
 			err = os.WriteFile(valuesPath, output, 0644)
 			if err != nil {
-				log.Fatalf("Failed to write values.yaml for %s: %v", config.Name, err)
+				return fmt.Errorf("failed to write values.yaml for %s: %w", config.Name, err)
 			}
 
 			config.Values = "values.yaml"
-			log.Printf("Fetched and saved values.yaml for %s", config.Name)
 		}
-		var cmd *exec.Cmd
-		switch {
-		case config.HelmVersion != "" && config.Namespace != "":
-			// Both HelmVersion and Namespace are provided
-			cmd = exec.Command("helm", "template", config.HelmName, "--repo", config.HelmURL, "--version", config.HelmVersion, config.HelmChartName, "--namespace", config.Namespace, "-f", "input/"+config.Name+"/"+config.Values, "--include-crds")
 
-		case config.HelmVersion != "":
-			// Only HelmVersion is provided
-			cmd = exec.Command("helm", "template", config.HelmName, "--repo", config.HelmURL, "--version", config.HelmVersion, config.HelmChartName, "-f", "input/"+config.Name+"/"+config.Values, "--include-crds")
-
-		case config.Namespace != "":
-			// Only Namespace is provided
-			cmd = exec.Command("helm", "template", config.HelmName, "--repo", config.HelmURL, config.HelmChartName, "--namespace", config.Namespace, "-f", "input/"+config.Name+"/"+config.Values, "--include-crds")
-
-		default:
-			// Neither HelmVersion nor Namespace is provided
-			cmd = exec.Command("helm", "template", config.HelmName, "--repo", config.HelmURL, config.HelmChartName, "-f", "input/"+config.Name+"/"+config.Values, "--include-crds")
+		args := []string{"template", config.HelmName, "--repo", config.HelmURL, config.HelmChartName, "-f", "input/" + config.Name + "/" + config.Values, "--include-crds"}
+		if config.HelmVersion != "" {
+			args = append(args, "--version", config.HelmVersion)
 		}
-		cmd.Env = append(cmd.Env, "KUBECONFIG=''")
+		if config.Namespace != "" {
+			args = append(args, "--namespace", config.Namespace)
+		}
+
 		var stderr bytes.Buffer
-		cmd.Stderr = &stderr
-		cmd.Stdout = file
-		err = cmd.Run()
+		err = helmExec.RunHelmCommand(args, file, &stderr)
 		if err != nil {
-			if exitError, ok := err.(*exec.ExitError); ok {
-				log.Fatalf("Command exited with error code %d and stderr: %s", exitError.ExitCode(), stderr.String())
-			} else {
-				log.Fatal(err)
-			}
+			return fmt.Errorf("helm command failed: %s: %w", stderr.String(), err)
 		}
 	} else if config.SourceFile != "" {
-		log.Debugf("Using " + config.SourceFile)
-		// Construct the source and destination file paths
-		inputDir := "input"
-		workingDir := "working/pre"
-		srcFilePath := filepath.Join(inputDir, config.SourceFile)
-		dstFilePath := filepath.Join(workingDir, config.Name+".yaml")
-
-		// Copy the file from input directory to working directory
+		srcFilePath := filepath.Join("input", config.SourceFile)
+		dstFilePath := filepath.Join("working/pre", config.Name+".yaml")
 		err := CopyFile(srcFilePath, dstFilePath)
-		config.Filename = config.SourceFile
 		if err != nil {
-			log.Fatalf("Failed to copy file: %s", err)
+			return fmt.Errorf("failed to copy file: %w", err)
 		}
 	} else if config.ManifestURL != "" {
-		log.Debugf("looking for " + config.ManifestURL)
 		err := downloadFile(config.Filename, config.ManifestURL)
 		if err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("failed to download manifest: %w", err)
 		}
 	}
+
+	return nil
 }
 
-// Function to copy a file from source to destination
 func CopyFile(src, dst string) error {
 	sourceFile, err := os.Open(src)
 	if err != nil {
@@ -288,7 +258,6 @@ func CopyFile(src, dst string) error {
 	}
 	defer sourceFile.Close()
 
-	// Ensure the destination directory exists
 	dstDir := filepath.Dir(dst)
 	err = os.MkdirAll(dstDir, 0755)
 	if err != nil {
@@ -325,7 +294,6 @@ func downloadFile(filepath string, url string) error {
 	return err
 }
 
-// RemoveEmptyYAMLFiles removes empty .yaml files in the specified directory
 func RemoveEmptyYAMLFiles(dir string) error {
 	files, err := os.ReadDir(dir)
 	if err != nil {
@@ -361,7 +329,6 @@ func ResetTerminal() {
 	}
 }
 
-// Function to validate the configuration
 func validateConfig(configs []Config) error {
 	for _, config := range configs {
 		if config.Name == "" {

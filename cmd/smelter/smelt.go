@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"html/template"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -75,7 +76,6 @@ func Smelt(configs []utils.Config) {
 	).WithAccessible(accessible)
 
 	err := form.Run()
-
 	if err != nil {
 		log.Fatal("Uh oh:", err)
 	}
@@ -85,67 +85,18 @@ func Smelt(configs []utils.Config) {
 		}
 	}
 
-	prepareTool := func() {
-		configMap := make(map[string]utils.Config)
-
-		for _, config := range configs {
-			configMap[config.Name] = config
-		}
-		// Ensure the working/pre directory exists
-		preDir := "working/pre"
-		if _, err := os.Stat(preDir); os.IsNotExist(err) {
-			err := os.MkdirAll(preDir, 0755)
-			if err != nil {
-				log.Fatalf("failed to create directory %s: %s", preDir, err)
+	err = spinner.New().
+		Title("Preparing your tools...").
+		Accessible(accessible).
+		Action(func() {
+			if err := PrepareTool(configs, toolbox.Targettool.Type, "working"); err != nil {
+				log.Errorf("Error during tool preparation: %v", err)
 			}
-		}
-		// Now iterate over the tools and directly access the corresponding config in the map.
-		for _, tool := range toolbox.Targettool.Type {
-			if config, exists := configMap[tool]; exists {
-				namespaceObject := false
-				log.Debug("running setup for ", config.Name)
-				config.Filename = "working/pre/" + config.Name + ".yaml"
-				files, _ := os.ReadDir("working/pre/" + config.Name)
-				for _, file := range files {
-					if !file.IsDir() && !strings.Contains(file.Name(), "ExternalSecret") {
-						err := os.Remove("working/" + config.Name + "/" + file.Name())
-						if err != nil {
-							log.Error("Error deleting file:", err)
-						}
-					}
-				}
-				utils.Templatehelm(config)
-				SplitYAML(config)
-				files, _ = os.ReadDir("working/" + config.Name)
-				for _, file := range files {
-					if !file.IsDir() && strings.Contains(file.Name(), "Namespace") {
-						namespaceObject = true
-					}
-				}
-				if !namespaceObject {
-					data := struct {
-						NamespaceName string
-					}{
-						NamespaceName: config.Namespace,
-					}
-					tmpl, err := template.New("namespace").Parse(namespaceTemplate)
-					if err != nil {
-						log.Fatal(err)
-					}
-					var rendered bytes.Buffer
-					if err := tmpl.Execute(&rendered, data); err != nil {
-						panic(err)
-					}
-					if err := os.WriteFile("working/"+config.Name+"/Namespace_"+config.Name+".yaml", rendered.Bytes(), 0644); err != nil {
-						log.Fatal(err)
-					}
-				}
-			}
-		}
-
+		}).
+		Run()
+	if err != nil {
+		log.Fatalf("Tool preparation failed: %v", err)
 	}
-
-	_ = spinner.New().Title("Preparing your tools...").Accessible(accessible).Action(prepareTool).Run()
 
 	// Print toolbox summary.
 	{
@@ -168,4 +119,82 @@ func Smelt(configs []utils.Config) {
 				Render(sb.String()),
 		)
 	}
+}
+
+func PrepareTool(configs []utils.Config, targetTools []string, toolBaseDir string) error {
+	configMap := make(map[string]utils.Config)
+
+	for _, config := range configs {
+		configMap[config.Name] = config
+	}
+
+	preDir := filepath.Join(toolBaseDir, "pre")
+	if err := os.MkdirAll(preDir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", preDir, err)
+	}
+
+	for _, tool := range targetTools {
+		if config, exists := configMap[tool]; exists {
+			namespaceObject := false
+			log.Debug("running setup for ", config.Name)
+			config.Filename = filepath.Join(preDir, config.Name+".yaml")
+
+			toolDir := filepath.Join(toolBaseDir, config.Name)
+			files, _ := os.ReadDir(toolDir)
+			for _, file := range files {
+				if !file.IsDir() && !strings.Contains(file.Name(), "ExternalSecret") {
+					_ = os.Remove(filepath.Join(toolDir, file.Name()))
+				}
+			}
+
+			utils.Templatehelm(config, &utils.DefaultHelmExecutor{})
+			SplitYAML(config)
+
+			files, _ = os.ReadDir(toolDir)
+			for _, file := range files {
+				if !file.IsDir() && strings.Contains(file.Name(), "Namespace") {
+					namespaceObject = true
+					break
+				}
+			}
+
+			if !namespaceObject {
+				if err := createNamespaceFile(config, toolBaseDir); err != nil {
+					return fmt.Errorf("failed to create namespace file: %w", err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func createNamespaceFile(config utils.Config, toolBaseDir string) error {
+	data := struct {
+		NamespaceName string
+	}{
+		NamespaceName: config.Namespace,
+	}
+
+	tmpl, err := template.New("namespace").Parse(namespaceTemplate)
+	if err != nil {
+		return fmt.Errorf("failed to parse namespace template: %w", err)
+	}
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data); err != nil {
+		return fmt.Errorf("failed to execute namespace template: %w", err)
+	}
+
+	namespaceDir := filepath.Join(toolBaseDir, config.Name)
+	if err := os.MkdirAll(namespaceDir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", namespaceDir, err)
+	}
+
+	namespaceFilePath := filepath.Join(namespaceDir, "Namespace_"+config.Name+".yaml")
+	if err := os.WriteFile(namespaceFilePath, rendered.Bytes(), 0644); err != nil {
+		return fmt.Errorf("failed to write namespace file: %w", err)
+	}
+
+	return nil
 }

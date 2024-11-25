@@ -40,7 +40,6 @@ type targettool struct {
 	Type []string
 }
 
-// Function to remove a specific element from a slice
 func removeElement(slice []string, element string) []string {
 	result := []string{}
 	for _, v := range slice {
@@ -51,8 +50,7 @@ func removeElement(slice []string, element string) []string {
 	return result
 }
 
-// FetchFilesAndCategorize fetches files with the given prefix and categorizes them
-func FetchFilesAndCategorize(dir string, prefix string) (namespaceFiles, crdFiles, secretFiles, externalSecretFiles, objectFiles []string, err error) {
+func FetchFilesAndCategorizeByPrefix(dir string, prefix string) (namespaceFiles, crdFiles, secretFiles, externalSecretFiles, objectFiles []string, err error) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
@@ -81,16 +79,13 @@ func FetchFilesAndCategorize(dir string, prefix string) (namespaceFiles, crdFile
 func combineFiles(files []string, filesDir string) string {
 	var combinedText string
 	for _, file := range files {
-		// Construct the file path
 		filePath := filepath.Join(filesDir, file)
 
-		// Read the content of the file
 		content, err := os.ReadFile(filePath)
 		if err != nil {
 			log.Fatalf("Failed to read file %s: %v", filePath, err)
 		}
 
-		// Append the content to the combinedText
 		combinedText += string(content)
 	}
 	return combinedText
@@ -102,10 +97,8 @@ func Cast(configs []utils.Config) {
 	var toolbox = toolbox{Targettool: targettool}
 	names := []string{"all"}
 
-	// Directory to search for .yaml files
 	outputDir := "./working"
 
-	// List all files in the output directory
 	files, err := os.ReadDir(outputDir)
 	if err != nil {
 		log.Errorf("Failed to read directory: %v\n", err)
@@ -116,7 +109,6 @@ func Cast(configs []utils.Config) {
 		log.Fatalf("failed to remove YAML files: %s", err)
 	}
 
-	// Filter all .yaml files and ensure names are unique
 	uniqueNames := make(map[string]struct{})
 	castname := ""
 	for _, file := range files {
@@ -168,58 +160,21 @@ func Cast(configs []utils.Config) {
 	if toolbox.Targettool.Type[0] == "all" {
 		toolbox.Targettool.Type = append(toolbox.Targettool.Type, names...)
 	}
-	//remove 'all' from the toolbox.Targettool.Type array
 	toolbox.Targettool.Type = removeElement(toolbox.Targettool.Type, "all")
-	secretFiles := []string{}
-	prepareTool := func() {
-		configMap := make(map[string]utils.Config)
 
-		for _, config := range configs {
-			configMap[config.Name] = config
-		}
-
-		for _, tool := range toolbox.Targettool.Type {
-			if config, exists := configMap[tool]; exists {
-				utils.CreateCrossplaneObject(config)
-				utils.ProcessNamespaceFiles("output")
-				utils.RemoveEmptyYAMLFiles("output")
-				// fetch all files with the selected names
-				namespaceFile, crdFile, secretFile, externalSecretFile, objectFile, err := FetchFilesAndCategorize(filesDir, tool)
-				if err != nil {
-					log.Error("Error:", err)
-					return
-				}
-
-				// Retrieve the struct, modify it, and put it back into the map
-				config.CRDFiles = append(config.CRDFiles, crdFile...)
-				config.NamespaceFiles = append(config.NamespaceFiles, namespaceFile...)
-				config.ExternalSecretFiles = append(config.ExternalSecretFiles, externalSecretFile...)
-				config.SecretFiles = append(config.SecretFiles, secretFile...)
-				config.ObjectFiles = append(config.ObjectFiles, objectFile...)
-
-				configMap[tool] = config
-
-				secretFiles = append(secretFiles, secretFile...)
+	err = spinner.New().
+		Title("Preparing your stack...").
+		Accessible(accessible).
+		Action(func() {
+			if err := CastTool(configs, toolbox.Targettool.Type, filesDir, outputDir); err != nil {
+				log.Fatalf("Error during preparation: %v", err)
 			}
-		}
-		if len(secretFiles) != 0 {
-			rawsecrets := false
-			form := huh.NewForm(
-				huh.NewGroup(
-					huh.NewConfirm().
-						Title("You have secrets which are not converted to ExternalSecrets.\nAre you sure you want to continue?").
-						Value(&rawsecrets)))
-			err = form.Run()
-			if err != nil {
-				log.Fatal("Uh oh:", err)
-			}
-			if !rawsecrets {
-				log.Fatal("Fix secrets and try again...")
-			}
-		}
+		}).
+		Run()
+	if err != nil {
+		log.Fatalf("Error during preparation: %v", err)
 	}
 
-	_ = spinner.New().Title("Preparing your stack...").Accessible(accessible).Action(prepareTool).Run()
 	utils.GenerateFunctionTemplates("output", "output/function-templates.yaml")
 	err = utils.CopyYAMLFiles("cmd/utils/templates", "output")
 	utils.CopyFile("cmd/utils/templates/deploy.sh", "output/deploy.sh")
@@ -233,7 +188,6 @@ func Cast(configs []utils.Config) {
 	if err != nil {
 		log.Fatalf("failed to create package directory: %s", err)
 	}
-	// Move files from /output to the new subdirectory
 	outputDir = "output"
 	files, err = os.ReadDir(outputDir)
 	if err != nil {
@@ -250,7 +204,6 @@ func Cast(configs []utils.Config) {
 			}
 		}
 	}
-	// Print toolbox summary.
 
 	{
 		var sb strings.Builder
@@ -272,4 +225,69 @@ func Cast(configs []utils.Config) {
 				Render(sb.String()),
 		)
 	}
+}
+
+func CastTool(configs []utils.Config, toolTypes []string, filesDir, outputDir string) error {
+	// Initialize the configuration map
+	configMap := make(map[string]utils.Config)
+	for _, config := range configs {
+		configMap[config.Name] = config
+	}
+
+	var secretFiles []string
+	for _, tool := range toolTypes {
+		config, exists := configMap[tool]
+		if !exists {
+			return fmt.Errorf("tool %s not found in config map", tool)
+		}
+
+		utils.CreateCrossplaneObject(config, filesDir, outputDir)
+
+		err := utils.ProcessNamespaceFiles(outputDir)
+		if err != nil {
+			log.Fatalf("Failed to process namespace files for %s: %v", config.Name, err)
+		}
+
+		err = utils.RemoveEmptyYAMLFiles(outputDir)
+		if err != nil {
+			return fmt.Errorf("failed to remove empty YAML files for %s: %v", config.Name, err)
+		}
+
+		namespaceFile, crdFile, secretFile, externalSecretFile, objectFile, err := FetchFilesAndCategorizeByPrefix(filesDir, tool)
+		if err != nil {
+			return fmt.Errorf("failed to fetch and categorize files for %s: %v", config.Name, err)
+		}
+
+		config.CRDFiles = append(config.CRDFiles, crdFile...)
+		config.NamespaceFiles = append(config.NamespaceFiles, namespaceFile...)
+		config.ExternalSecretFiles = append(config.ExternalSecretFiles, externalSecretFile...)
+		config.SecretFiles = append(config.SecretFiles, secretFile...)
+		config.ObjectFiles = append(config.ObjectFiles, objectFile...)
+
+		configMap[tool] = config
+
+		secretFiles = append(secretFiles, secretFile...)
+	}
+
+	if len(secretFiles) != 0 {
+		var rawSecrets bool
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewConfirm().
+					Title("You have secrets which are not converted to ExternalSecrets.\nAre you sure you want to continue?").
+					Value(&rawSecrets),
+			),
+		)
+
+		err := form.Run()
+		if err != nil {
+			return fmt.Errorf("error during secrets confirmation: %v", err)
+		}
+
+		if !rawSecrets {
+			return fmt.Errorf("fix secrets and try again")
+		}
+	}
+
+	return nil
 }

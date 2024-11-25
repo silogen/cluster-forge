@@ -80,7 +80,6 @@ func GenerateFunctionTemplates(outputDir string, newFilePath string) {
 		log.Fatalf("failed reading directory: %s", err)
 	}
 
-	// Initialize DeploymentRuntimeConfig structure
 	deploymentRuntimeConfig := &DeploymentRuntimeConfig{
 		APIVersion: "pkg.crossplane.io/v1beta1",
 		Kind:       "DeploymentRuntimeConfig",
@@ -110,7 +109,6 @@ func GenerateFunctionTemplates(outputDir string, newFilePath string) {
 		},
 	}
 
-	// Iterate over files in the directory and create volume mounts and volumes as needed
 	for _, file := range files {
 		if strings.HasSuffix(file.Name(), ".yaml") {
 			filePath := filepath.Join(outputDir, file.Name())
@@ -122,45 +120,45 @@ func GenerateFunctionTemplates(outputDir string, newFilePath string) {
 			var configMap ConfigMap
 			err = yaml.Unmarshal(content, &configMap)
 			if err != nil {
-				log.Fatalf("failed unmarshalling yaml: %s", err)
+				log.Printf("Skipping invalid YAML file '%s': %s", file.Name(), err)
+				continue
 			}
 
-			if configMap.Kind == "ConfigMap" {
-				// Create a specific volume mount and volume for each discovered configMap
-				volumeMount := VolumeMount{
-					MountPath: fmt.Sprintf("/templates/%s", configMap.Metadata.Name),
-					Name:      configMap.Metadata.Name,
-					ReadOnly:  true,
-				}
-				volume := Volume{
+			if configMap.Kind != "ConfigMap" || configMap.Metadata.Name == "" {
+				log.Printf("Skipping invalid ConfigMap in file '%s': missing or empty metadata.name", file.Name())
+				continue
+			}
+
+			volumeMount := VolumeMount{
+				MountPath: fmt.Sprintf("/templates/%s", configMap.Metadata.Name),
+				Name:      configMap.Metadata.Name,
+				ReadOnly:  true,
+			}
+			volume := Volume{
+				Name: configMap.Metadata.Name,
+				ConfigMap: struct {
+					Name string `yaml:"name"`
+				}{
 					Name: configMap.Metadata.Name,
-					ConfigMap: struct {
-						Name string `yaml:"name"`
-					}{
-						Name: configMap.Metadata.Name,
-					},
-				}
-
-				// Append the volume mount and volume to the spec
-				deploymentRuntimeConfig.Spec.DeploymentTemplate.Spec.Template.Spec.Containers[0].VolumeMounts = append(deploymentRuntimeConfig.Spec.DeploymentTemplate.Spec.Template.Spec.Containers[0].VolumeMounts, volumeMount)
-				deploymentRuntimeConfig.Spec.DeploymentTemplate.Spec.Template.Spec.Volumes = append(deploymentRuntimeConfig.Spec.DeploymentTemplate.Spec.Template.Spec.Volumes, volume)
+				},
 			}
+
+			deploymentRuntimeConfig.Spec.DeploymentTemplate.Spec.Template.Spec.Containers[0].VolumeMounts = append(deploymentRuntimeConfig.Spec.DeploymentTemplate.Spec.Template.Spec.Containers[0].VolumeMounts, volumeMount)
+			deploymentRuntimeConfig.Spec.DeploymentTemplate.Spec.Template.Spec.Volumes = append(deploymentRuntimeConfig.Spec.DeploymentTemplate.Spec.Template.Spec.Volumes, volume)
 		}
 	}
 
-	// Marshal the deploymentRuntimeConfig to YAML
 	updatedContent, err := yaml.Marshal(deploymentRuntimeConfig)
 	if err != nil {
 		log.Fatalf("failed marshalling updated spec: %s", err)
 	}
 
-	// Write the updated YAML to a new file
 	err = os.WriteFile(newFilePath, updatedContent, os.ModePerm)
 	if err != nil {
 		log.Fatalf("failed writing updated file: %s", err)
 	}
 
-	log.Debug("New volume structure written to %s\n", newFilePath)
+	log.Debugf("New volume structure written to %s\n", newFilePath)
 }
 
 func CopyYAMLFiles(srcDir, destDir string) error {
@@ -192,6 +190,7 @@ func CopyYAMLFiles(srcDir, destDir string) error {
 
 	return nil
 }
+
 func RemoveYAMLFiles(dir string) error {
 	files, err := filepath.Glob(filepath.Join(dir, "*.yaml"))
 	if err != nil {
@@ -211,7 +210,6 @@ func RemoveYAMLFiles(dir string) error {
 func ProcessNamespaceFiles(dir string) error {
 	namespaceMap := make(map[string]struct{})
 
-	// Iterate over all files named namespace-*
 	files, err := filepath.Glob(filepath.Join(dir, "namespace-*"))
 	if err != nil {
 		return err
