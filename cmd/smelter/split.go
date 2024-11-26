@@ -55,7 +55,6 @@ func splitYAML(resources []byte) ([][]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		// Skip empty documents
 		if value == nil {
 			continue
 		}
@@ -75,7 +74,6 @@ func clean(input []byte) ([]byte, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// Skip lines containing '---', starting with '#', or containing helm data
 		if strings.Contains(line, "---") || strings.HasPrefix(strings.TrimSpace(line), "#") ||
 			strings.Contains(line, "helm.sh/chart") || strings.Contains(line, "app.kubernetes.io/managed-by") {
 			continue
@@ -94,14 +92,12 @@ func clean(input []byte) ([]byte, error) {
 	return output.Bytes(), nil
 }
 
-// SplitYAML splits a YAML file into multiple documents.
 func SplitYAML(config utils.Config) {
 	data, err := os.ReadFile(config.Filename)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Call the SplitYAML function
 	result, err := splitYAML(data)
 	if err != nil {
 		log.Fatal(err)
@@ -113,7 +109,6 @@ func SplitYAML(config utils.Config) {
 			log.Fatal(err)
 		}
 
-		// Unmarshal the cleaned data into a map to check and update the namespace
 		var objectMap map[string]interface{}
 		err = yaml.Unmarshal(cleanres, &objectMap)
 		if err != nil {
@@ -125,7 +120,6 @@ func SplitYAML(config utils.Config) {
 			log.Fatal(err)
 		}
 		if !utils.IsClusterScoped(metadataObject.Kind, metadataObject.APIVersion) {
-			// Check and set the namespace if it's empty
 			if metadataObject.Metadata.Namespace == "" {
 				metadataObject.Metadata.Namespace = config.Namespace // Set your default namespace here
 				objectMap["metadata"] = metadataObject.Metadata
@@ -133,21 +127,17 @@ func SplitYAML(config utils.Config) {
 
 		}
 
-		// Marshal the updated object back to YAML
 		updatedCleanres, err := yaml.Marshal(&objectMap)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		// Use the kind and name to construct the output file name
-		// create the directory if it doesn't exist
 		err = os.MkdirAll(fmt.Sprintf("working/%s", config.Name), 0755)
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		filename := fmt.Sprintf("working/%s/%s_%s.yaml", config.Name, metadataObject.Kind, metadataObject.Metadata.Name)
-		// Write the updated cleaned data to the output file
 		err = os.WriteFile(filename, updatedCleanres, 0644)
 		if err != nil {
 			log.Fatal(err)

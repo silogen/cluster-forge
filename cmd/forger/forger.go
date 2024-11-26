@@ -34,62 +34,60 @@ import (
 func Forge() {
 	log.SetOutput(os.Stdout)
 	log.SetFormatter(&log.TextFormatter{
-	    FullTimestamp: true,
+		FullTimestamp: true,
 	})
 	log.SetLevel(log.DebugLevel)
 	log.Info("Starting Cluster Forge...")
-    
-	// Determine kubeconfig path
+
 	kubeConfigPath := determineKubeConfigPath()
 	_, err := getKubeConfig(kubeConfigPath)
 	if err != nil {
-	    log.Fatalf("Failed to configure Kubernetes client: %v", err)
+		log.Fatalf("Failed to configure Kubernetes client: %v", err)
 	}
-    
+
 	basePath := "./stacks"
 	stacks := getStacks(basePath)
 	selectedStack := getUserSelection(stacks)
-    
+
 	runStackLogic(filepath.Join(basePath, selectedStack))
-    }
-    
-    func determineKubeConfigPath() string {
+}
+
+func determineKubeConfigPath() string {
 	kubeConfigPath := os.Getenv("KUBECONFIG")
 	defaultKubeConfigPath := filepath.Join(homedir.HomeDir(), ".kube", "config")
-    
+
 	if kubeConfigPath != "" {
-	    log.Infof("KUBECONFIG environment variable detected: %s", kubeConfigPath)
-    
-	    useEnvKubeconfig := false
-	    form := huh.NewForm(
-		huh.NewGroup(
-		    huh.NewConfirm().
-			Title("Use KUBECONFIG environment variable").
-			Description(fmt.Sprintf("Do you want to use the KUBECONFIG path: %s?", kubeConfigPath)).
-			Value(&useEnvKubeconfig),
-		),
-	    )
-    
-	    if err := form.Run(); err != nil {
-		log.Fatalf("Failed to get user input: %v", err)
-	    }
-    
-	    if useEnvKubeconfig {
-		log.Infof("Using KUBECONFIG environment variable path: %s", kubeConfigPath)
-		return kubeConfigPath
-	    }
+		log.Infof("KUBECONFIG environment variable detected: %s", kubeConfigPath)
+
+		useEnvKubeconfig := false
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewConfirm().
+					Title("Use KUBECONFIG environment variable").
+					Description(fmt.Sprintf("Do you want to use the KUBECONFIG path: %s?", kubeConfigPath)).
+					Value(&useEnvKubeconfig),
+			),
+		)
+
+		if err := form.Run(); err != nil {
+			log.Fatalf("Failed to get user input: %v", err)
+		}
+
+		if useEnvKubeconfig {
+			log.Infof("Using KUBECONFIG environment variable path: %s", kubeConfigPath)
+			return kubeConfigPath
+		}
 	}
-    
+
 	if _, err := os.Stat(defaultKubeConfigPath); os.IsNotExist(err) {
-	    log.Warnf("Kubeconfig file not found at %s. Falling back to in-cluster configuration.", defaultKubeConfigPath)
-	    return ""
+		log.Warnf("Kubeconfig file not found at %s. Falling back to in-cluster configuration.", defaultKubeConfigPath)
+		return ""
 	}
-    
+
 	log.Infof("Using default kubeconfig path: %s", defaultKubeConfigPath)
 	return defaultKubeConfigPath
-    }
-    
-    
+}
+
 func getKubeConfigPath(defaultPath, kubeconfigEnv string) (string, error) {
 	if kubeconfigEnv != "" {
 		log.Infof("KUBECONFIG environment variable detected: %s", kubeconfigEnv)
@@ -115,7 +113,7 @@ func getKubeConfigPath(defaultPath, kubeconfigEnv string) (string, error) {
 
 	if _, err := os.Stat(defaultPath); os.IsNotExist(err) {
 		log.Warnf("Kubeconfig file not found at %s. Falling back to in-cluster configuration.", defaultPath)
-		return "", nil 
+		return "", nil
 	}
 
 	return defaultPath, nil
@@ -215,7 +213,6 @@ func runStackLogic(stackPath string) {
 
 	runCommand(fmt.Sprintf("kubectl apply -f %s/crossplane_base.yaml", stackPath))
 
-	// runCommand("kubectl wait --for=condition=available --timeout=600s deployments --all --all-namespaces")
 
 	applyMatchingFiles(stackPath, "crd-*.yaml", true)
 
@@ -228,11 +225,10 @@ func runStackLogic(stackPath string) {
 	runCommand(fmt.Sprintf("kubectl apply -f %s/composition.yaml", stackPath))
 
 	runCommand("kubectl delete pods --all -n crossplane-system")
-	// runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all --all-namespaces")
 
 	runCommand(fmt.Sprintf("kubectl apply -f %s/stack.yaml", stackPath))
 	installHelmChart("komodorio", "https://helm-charts.komodor.io", "komoplane", "komodorio/komoplane")
-	// runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all -n default")
+	// runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all -n crossplane-system")
 
 	log.Info("Deployment complete!")
 }
