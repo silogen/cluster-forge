@@ -91,7 +91,7 @@ runtimeClassName: ""
 ## Distributed MinIO ref: https://min.io/docs/minio/linux/operations/install-deploy-manage/deploy-minio-multi-node-multi-drive.html
 ##
 rootUser: "rootuser"
-rootPassword: "rootpass123"
+rootPassword: "rootpass"
 
 ## Use existing Secret that store following variables:
 ##
@@ -162,7 +162,7 @@ persistence:
   storageClass: ""
   volumeName: ""
   accessMode: ReadWriteOnce
-  size: 10Gi
+  size: 30Gi
 
   ## If subPath is set mount a sub folder of a volume instead of the root of the volume.
   ## This is especially handy for volume plugins that don't natively support sub mounting (like glusterfs).
@@ -296,30 +296,22 @@ resources:
 ##
 ## In addition to default policies [readonly|readwrite|writeonly|consoleAdmin|diagnostics]
 ## you can define additional policies with custom supported actions and resources
-policies: []
+policies: 
 ## writeexamplepolicy policy grants creation or deletion of buckets with name
 ## starting with example. In addition, grants objects write permissions on buckets starting with
 ## example.
-# - name: writeexamplepolicy
-#   statements:
-#     - effect: Allow  # this is the default
-#       resources:
-#         - 'arn:aws:s3:::example*/*'
-#       actions:
-#         - "s3:AbortMultipartUpload"
-#         - "s3:GetObject"
-#         - "s3:DeleteObject"
-#         - "s3:PutObject"
-#         - "s3:ListMultipartUploadParts"
-#     - resources:
-#         - 'arn:aws:s3:::example*'
-#       actions:
-#         - "s3:CreateBucket"
-#         - "s3:DeleteBucket"
-#         - "s3:GetBucketLocation"
-#         - "s3:ListBucket"
-#         - "s3:ListBucketMultipartUploads"
-## readonlyexamplepolicy policy grants access to buckets with name starting with example.
+ - name: sample-policy
+   statements:
+     - effect: Allow  # this is the default
+       resources:
+         - 'arn:aws:s3:::*/*'
+         - 'arn:aws:s3:::*'
+       actions:
+         - "s3:ListBucket"
+         - "s3:GetObject"
+         - "s3:DeleteObject"
+         - "s3:PutObject"
+# readonlyexamplepolicy policy grants access to buckets with name starting with example.
 ## In addition, grants objects read permissions on buckets starting with example.
 # - name: readonlyexamplepolicy
 #   statements:
@@ -368,9 +360,9 @@ users:
   ## Add new policies as explained here https://min.io/docs/minio/kubernetes/upstream/administration/identity-access-management.html#access-management
   ## NOTE: this will fail if LDAP is enabled in your MinIO deployment
   ## make sure to disable this if you are using LDAP.
-  - accessKey: console
-    secretKey: console123
-    policy: consoleAdmin
+  - accessKey: monitoring-backend-user 
+    secretKey: monitoring-backend-pass
+    policy: sample-policy
   # Or you can refer to specific secret
   #- accessKey: externalSecret
   #  existingSecret: my-secret
@@ -430,28 +422,23 @@ makeServiceAccountJob:
 
 ## List of buckets to be created after minio install
 ##
-buckets: []
+buckets:
   #   # Name of the bucket
-  # - name: bucket1
-  #   # Policy to be set on the
-  #   # bucket [none|download|upload|public]
-  #   policy: none
-  #   # Purge if bucket exists already
-  #   purge: false
-  #   # set versioning for
-  #   # bucket [true|false]
-  #   versioning: false # remove this key if you do not want versioning feature
-  #   # set objectlocking for
-  #   # bucket [true|false] NOTE: versioning is enabled by default if you use locking
-  #   objectlocking: false
-  # - name: bucket2
-  #   policy: none
-  #   purge: false
-  #   versioning: true
-  #   # set objectlocking for
-  #   # bucket [true|false] NOTE: versioning is enabled by default if you use locking
-  #   objectlocking: false
-
+  - name: cluster-forge-loki-test-dummy
+    policy: none
+    purge: false
+    versioning: true # remove this key if you do not want versioning feature
+    objectlocking: true
+  - name: cluster-forge-mimir-test-dummy
+    policy: none
+    purge: false
+    versioning: true
+    objectlocking: true
+  - name: cluster-forge-tempo-test-dummy
+    policy: none
+    purge: false
+    versioning: true
+    objectlocking: true
 ## Additional Annotations for the Kubernetes Job makeBucketJob
 makeBucketJob:
   securityContext:
