@@ -360,14 +360,14 @@ users:
   ## Add new policies as explained here https://min.io/docs/minio/kubernetes/upstream/administration/identity-access-management.html#access-management
   ## NOTE: this will fail if LDAP is enabled in your MinIO deployment
   ## make sure to disable this if you are using LDAP.
-  - accessKey: monitoring-backend-user 
-    secretKey: monitoring-backend-pass
-    policy: sample-policy
+#  - accessKey: monitoring-backend-user 
+#    secretKey: monitoring-backend-pass
+#    policy: sample-policy
   # Or you can refer to specific secret
-  #- accessKey: externalSecret
-  #  existingSecret: my-secret
-  #  existingSecretKey: password
-  #  policy: readonly
+  - accessKey: externalSecret
+    existingSecret: minio-user-credential 
+    existingSecretKey: password
+    policy: sample-policy
 
 ## Additional Annotations for the Kubernetes Job makeUserJob
 makeUserJob:
