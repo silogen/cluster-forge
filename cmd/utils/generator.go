@@ -124,41 +124,38 @@ func GenerateFunctionTemplates(outputDir string, newFilePath string) {
 				continue
 			}
 
-			if configMap.Kind != "ConfigMap" || configMap.Metadata.Name == "" {
-				log.Printf("Skipping invalid ConfigMap in file '%s': missing or empty metadata.name", file.Name())
-				continue
-			}
-
-			volumeMount := VolumeMount{
-				MountPath: fmt.Sprintf("/templates/%s", configMap.Metadata.Name),
-				Name:      configMap.Metadata.Name,
-				ReadOnly:  true,
-			}
-			volume := Volume{
-				Name: configMap.Metadata.Name,
-				ConfigMap: struct {
-					Name string `yaml:"name"`
-				}{
+			if configMap.Kind == "ConfigMap" {
+				volumeMount := VolumeMount{
+					MountPath: fmt.Sprintf("/templates/%s", configMap.Metadata.Name),
+					Name:      configMap.Metadata.Name,
+					ReadOnly:  true,
+				}
+				volume := Volume{
 					Name: configMap.Metadata.Name,
-				},
+					ConfigMap: struct {
+						Name string `yaml:"name"`
+					}{
+						Name: configMap.Metadata.Name,
+					},
+				}
+
+				deploymentRuntimeConfig.Spec.DeploymentTemplate.Spec.Template.Spec.Containers[0].VolumeMounts = append(deploymentRuntimeConfig.Spec.DeploymentTemplate.Spec.Template.Spec.Containers[0].VolumeMounts, volumeMount)
+				deploymentRuntimeConfig.Spec.DeploymentTemplate.Spec.Template.Spec.Volumes = append(deploymentRuntimeConfig.Spec.DeploymentTemplate.Spec.Template.Spec.Volumes, volume)
 			}
-
-			deploymentRuntimeConfig.Spec.DeploymentTemplate.Spec.Template.Spec.Containers[0].VolumeMounts = append(deploymentRuntimeConfig.Spec.DeploymentTemplate.Spec.Template.Spec.Containers[0].VolumeMounts, volumeMount)
-			deploymentRuntimeConfig.Spec.DeploymentTemplate.Spec.Template.Spec.Volumes = append(deploymentRuntimeConfig.Spec.DeploymentTemplate.Spec.Template.Spec.Volumes, volume)
 		}
-	}
 
-	updatedContent, err := yaml.Marshal(deploymentRuntimeConfig)
-	if err != nil {
-		log.Fatalf("failed marshalling updated spec: %s", err)
-	}
+		updatedContent, err := yaml.Marshal(deploymentRuntimeConfig)
+		if err != nil {
+			log.Fatalf("failed marshalling updated spec: %s", err)
+		}
 
-	err = os.WriteFile(newFilePath, updatedContent, os.ModePerm)
-	if err != nil {
-		log.Fatalf("failed writing updated file: %s", err)
-	}
+		err = os.WriteFile(newFilePath, updatedContent, os.ModePerm)
+		if err != nil {
+			log.Fatalf("failed writing updated file: %s", err)
+		}
 
-	log.Debugf("New volume structure written to %s\n", newFilePath)
+		log.Debugf("New volume structure written to %s\n", newFilePath)
+	}
 }
 
 func CopyYAMLFiles(srcDir, destDir string) error {

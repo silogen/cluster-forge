@@ -10,5 +10,9 @@ services:
       - $PWD/output:/output
       - $PWD/working:/working
       - $PWD/cmd/utils/templates:/cmd/utils/templates
+      - ${HOME}/.kube/config:/root/.kube/config:ro
+      - ${KUBECONFIG}:${KUBECONFIG}:ro
+    environment:
+      - KUBECONFIG=${KUBECONFIG}
 
     entrypoint: ["forge"]

@@ -27,7 +27,6 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/charmbracelet/lipgloss"
-	xstrings "github.com/charmbracelet/x/exp/strings"
 	"github.com/silogen/cluster-forge/cmd/utils"
 	log "github.com/sirupsen/logrus"
 )
@@ -40,76 +39,26 @@ type targettool struct {
 	Type []string
 }
 
-func removeElement(slice []string, element string) []string {
-	result := []string{}
-	for _, v := range slice {
-		if v != element {
-			result = append(result, v)
-		}
-	}
-	return result
-}
-
-func FetchFilesAndCategorizeByPrefix(dir string, prefix string) (namespaceFiles, crdFiles, secretFiles, externalSecretFiles, objectFiles []string, err error) {
-	files, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
-
-	for _, file := range files {
-		if !file.IsDir() && strings.HasPrefix(file.Name(), prefix) {
-			fileName := file.Name()
-			if strings.Contains(fileName, "crd") {
-				crdFiles = append(crdFiles, fileName)
-			} else if strings.Contains(fileName, "externalsecret") {
-				externalSecretFiles = append(externalSecretFiles, fileName)
-			} else if strings.Contains(fileName, "namespace") {
-				namespaceFiles = append(namespaceFiles, fileName)
-			} else if strings.Contains(fileName, "secret") {
-				secretFiles = append(secretFiles, fileName)
-			} else if strings.Contains(fileName, "object") {
-				objectFiles = append(objectFiles, fileName)
-			}
-		}
-	}
-
-	return namespaceFiles, crdFiles, secretFiles, externalSecretFiles, objectFiles, nil
-}
-
-func combineFiles(files []string, filesDir string) string {
-	var combinedText string
-	for _, file := range files {
-		filePath := filepath.Join(filesDir, file)
-
-		content, err := os.ReadFile(filePath)
-		if err != nil {
-			log.Fatalf("Failed to read file %s: %v", filePath, err)
-		}
-
-		combinedText += string(content)
-	}
-	return combinedText
-}
-
-func Cast(configs []utils.Config) {
+func Cast(configs []utils.Config, filesDir string, workingDir string, stacksDir string) {
 	log.Info("starting up the menu...")
 	var targettool targettool
 	var toolbox = toolbox{Targettool: targettool}
 	names := []string{"all"}
 
-	outputDir := "./working"
-
-	files, err := os.ReadDir(outputDir)
+	files, err := os.ReadDir(workingDir)
+	log.Debugf("Reading files from output directory: %s", workingDir)
 	if err != nil {
 		log.Errorf("Failed to read directory: %v\n", err)
 		return
 	}
-	err = utils.RemoveYAMLFiles("output")
+	err = utils.RemoveYAMLFiles(filesDir)
 	if err != nil {
 		log.Fatalf("failed to remove YAML files: %s", err)
 	}
+	log.Debugf("Files in output directory: %v", files)
 
 	uniqueNames := make(map[string]struct{})
+	log.Debug("Filtering unique tools from the directory...")
 	castname := ""
 	for _, file := range files {
 		if file.IsDir() && file.Name() != "pre" {
@@ -117,9 +66,11 @@ func Cast(configs []utils.Config) {
 			if _, exists := uniqueNames[file.Name()]; !exists {
 				names = append(names, file.Name())
 				uniqueNames[file.Name()] = struct{}{}
+				log.Debugf("Added tool: %s", file.Name())
 			}
 		}
 	}
+	log.Debugf("Final list of tools: %v", names)
 
 	accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
 	re := regexp.MustCompile("^[a-z0-9_-]+$")
@@ -156,7 +107,7 @@ func Cast(configs []utils.Config) {
 	if err != nil {
 		log.Fatal("Uh oh:", err)
 	}
-	filesDir := "./output"
+
 	if toolbox.Targettool.Type[0] == "all" {
 		toolbox.Targettool.Type = append(toolbox.Targettool.Type, names...)
 	}
@@ -166,7 +117,7 @@ func Cast(configs []utils.Config) {
 		Title("Preparing your stack...").
 		Accessible(accessible).
 		Action(func() {
-			if err := CastTool(configs, toolbox.Targettool.Type, filesDir, outputDir); err != nil {
+			if err := CastTool(configs, toolbox.Targettool.Type, filesDir, workingDir); err != nil {
 				log.Fatalf("Error during preparation: %v", err)
 			}
 		}).
@@ -175,28 +126,27 @@ func Cast(configs []utils.Config) {
 		log.Fatalf("Error during preparation: %v", err)
 	}
 
-	utils.GenerateFunctionTemplates("output", "output/function-templates.yaml")
-	err = utils.CopyYAMLFiles("cmd/utils/templates", "output")
-	utils.CopyFile("cmd/utils/templates/deploy.sh", "output/deploy.sh")
+	utils.GenerateFunctionTemplates(filesDir, filepath.Join(filesDir, "function-templates.yaml"))
+	err = utils.CopyYAMLFiles("cmd/utils/templates", filesDir)
 	if err != nil {
 		log.Fatalf("failed to copy YAML files: %s", err)
 	}
 	// TODO Need to handle namespaces better. Ignore default, and don't have duplicates. Also, create these first, along with CRDs in forge step
 	// Create the subdirectory in /stacks with the name of castname
-	packageDir := filepath.Join("stacks", castname)
+	packageDir := filepath.Join(stacksDir, castname)
 	err = os.MkdirAll(packageDir, 0755)
 	if err != nil {
 		log.Fatalf("failed to create package directory: %s", err)
 	}
-	outputDir = "output"
-	files, err = os.ReadDir(outputDir)
+
+	files, err = os.ReadDir(filesDir)
 	if err != nil {
 		log.Fatalf("failed to read output directory: %s", err)
 	}
 
 	for _, file := range files {
 		if !file.IsDir() && !strings.HasPrefix(file.Name(), ".") {
-			srcPath := filepath.Join(outputDir, file.Name())
+			srcPath := filepath.Join(filesDir, file.Name())
 			dstPath := filepath.Join(packageDir, file.Name())
 			err = utils.CopyFile(srcPath, dstPath)
 			if err != nil {
@@ -207,13 +157,11 @@ func Cast(configs []utils.Config) {
 
 	{
 		var sb strings.Builder
-		keyword := func(s string) string {
-			return lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Render(s)
-		}
+
 		fmt.Fprintf(&sb,
-			"%s\n\nCompleted: %s.",
+			"%s\n\nCompleted stack: %s.",
 			lipgloss.NewStyle().Bold(true).Render("Cluster Forge"),
-			keyword(xstrings.EnglishJoin(toolbox.Targettool.Type, true)),
+			castname,
 		)
 
 		fmt.Println(
@@ -227,7 +175,17 @@ func Cast(configs []utils.Config) {
 	}
 }
 
-func CastTool(configs []utils.Config, toolTypes []string, filesDir, outputDir string) error {
+func removeElement(slice []string, element string) []string {
+	result := []string{}
+	for _, v := range slice {
+		if v != element {
+			result = append(result, v)
+		}
+	}
+	return result
+}
+
+func CastTool(configs []utils.Config, toolTypes []string, filesDir, workingDir string) error {
 	// Initialize the configuration map
 	configMap := make(map[string]utils.Config)
 	for _, config := range configs {
@@ -241,14 +199,17 @@ func CastTool(configs []utils.Config, toolTypes []string, filesDir, outputDir st
 			return fmt.Errorf("tool %s not found in config map", tool)
 		}
 
-		utils.CreateCrossplaneObject(config, filesDir, outputDir)
+		err := utils.CreateCrossplaneObject(config, filesDir, workingDir)
+		if err != nil {
+			return fmt.Errorf("failed to create crossplane object for %s: %v", config.Name, err)
+		}
 
-		err := utils.ProcessNamespaceFiles(outputDir)
+		err = utils.ProcessNamespaceFiles(filesDir)
 		if err != nil {
 			log.Fatalf("Failed to process namespace files for %s: %v", config.Name, err)
 		}
 
-		err = utils.RemoveEmptyYAMLFiles(outputDir)
+		err = utils.RemoveEmptyYAMLFiles(filesDir)
 		if err != nil {
 			return fmt.Errorf("failed to remove empty YAML files for %s: %v", config.Name, err)
 		}
@@ -290,4 +251,30 @@ func CastTool(configs []utils.Config, toolTypes []string, filesDir, outputDir st
 	}
 
 	return nil
+}
+
+func FetchFilesAndCategorizeByPrefix(dir string, prefix string) (namespaceFiles, crdFiles, secretFiles, externalSecretFiles, objectFiles []string, err error) {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
+	}
+
+	for _, file := range files {
+		if !file.IsDir() && strings.HasPrefix(file.Name(), prefix) {
+			fileName := file.Name()
+			if strings.Contains(fileName, "crd") {
+				crdFiles = append(crdFiles, fileName)
+			} else if strings.Contains(fileName, "externalsecret") {
+				externalSecretFiles = append(externalSecretFiles, fileName)
+			} else if strings.Contains(fileName, "namespace") {
+				namespaceFiles = append(namespaceFiles, fileName)
+			} else if strings.Contains(fileName, "secret") {
+				secretFiles = append(secretFiles, fileName)
+			} else if strings.Contains(fileName, "object") {
+				objectFiles = append(objectFiles, fileName)
+			}
+		}
+	}
+
+	return namespaceFiles, crdFiles, secretFiles, externalSecretFiles, objectFiles, nil
 }

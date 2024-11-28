@@ -48,7 +48,7 @@ type targettool struct {
 	Type []string
 }
 
-func Smelt(configs []utils.Config) {
+func Smelt(configs []utils.Config, workingDir string) {
 	log.Info("starting up the menu...")
 	var targettool targettool
 	var toolbox = toolbox{Targettool: targettool}
@@ -89,7 +89,7 @@ func Smelt(configs []utils.Config) {
 		Title("Preparing your tools...").
 		Accessible(accessible).
 		Action(func() {
-			if err := PrepareTool(configs, toolbox.Targettool.Type, "working"); err != nil {
+			if err := PrepareTool(configs, toolbox.Targettool.Type, workingDir); err != nil {
 				log.Errorf("Error during tool preparation: %v", err)
 			}
 		}).
