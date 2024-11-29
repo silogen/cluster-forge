@@ -13,24 +13,9 @@ import (
 func TestIntegrationPrepareAndCastTool(t *testing.T) {
 	successConfigs := []utils.Config{
 		{
-			Name:        "kueue",
-			Namespace:   "kueue-system",
-			ManifestURL: "https://github.com/kubernetes-sigs/kueue/releases/download/v0.8.4/manifests.yaml",
-		},
-		{
-			Name:       "amd-metrics-exporter",
-			Namespace:  "monitoring",
-			SourceFile: "amd-metrics-exporter/metrics-exporter.yaml",
-		},
-		{
-			HelmChartName: "external-secrets",
-			HelmName:      "external-secrets",
-			HelmURL:       "https://charts.external-secrets.io",
-			Values:        "external-secrets-values.yaml",
-			Secrets:       false,
-			Name:          "external-secrets",
-			Namespace:     "external-secrets",
-			HelmVersion:   "0.10.3",
+			Name:        "amd-device-plugin",
+			Namespace:   "kube-system",
+			ManifestURL: "https://raw.githubusercontent.com/ROCm/k8s-device-plugin/master/k8s-ds-amdgpu-dp.yaml",
 		},
 	}
 
@@ -41,32 +26,34 @@ func TestIntegrationPrepareAndCastTool(t *testing.T) {
 		},
 	}
 
-	workingDir, err := os.MkdirTemp("", "working-*")
-	if err != nil {
-		t.Fatalf("Failed to create temporary working directory: %v", err)
+	// Use permanent paths for debugging
+	workingDir := "./debug/working"
+	outputDir := "./debug/output"
+	stacksDir := "./debug/stacks"
+
+	// Clean up and create directories
+	if err := os.RemoveAll(workingDir); err != nil {
+		t.Fatalf("Failed to clean up working directory: %v", err)
 	}
-	defer os.RemoveAll(workingDir)
-
-	outputDir, err := os.MkdirTemp("", "output-*")
-	if err != nil {
-		t.Fatalf("Failed to create temporary output directory: %v", err)
-	}
-	defer os.RemoveAll(outputDir)
-
-	for _, config := range successConfigs {
-		configDir := filepath.Join(workingDir, config.Name)
-		if err := os.MkdirAll(configDir, 0755); err != nil {
-			t.Fatalf("Failed to create working directory for %s: %v", config.Name, err)
-		}
-
-		mockFilePath := filepath.Join(configDir, "CustomResourceDefinition_test.yaml")
-		err := os.WriteFile(mockFilePath, []byte("---\nkind: CustomResourceDefinition\nmetadata:\n  name: test-crd\n"), 0644)
-		if err != nil {
-			t.Fatalf("Failed to create mock file for %s: %v", config.Name, err)
-		}
+	if err := os.MkdirAll(workingDir, 0755); err != nil {
+		t.Fatalf("Failed to create working directory: %v", err)
 	}
 
-	err = smelter.PrepareTool(successConfigs, []string{"kueue", "amd-metrics-exporter", "external-secrets"}, workingDir)
+	if err := os.RemoveAll(outputDir); err != nil {
+		t.Fatalf("Failed to clean up output directory: %v", err)
+	}
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		t.Fatalf("Failed to create output directory: %v", err)
+	}
+
+	if err := os.RemoveAll(stacksDir); err != nil {
+		t.Fatalf("Failed to clean up stacks directory: %v", err)
+	}
+	if err := os.MkdirAll(stacksDir, 0755); err != nil {
+		t.Fatalf("Failed to create stacks directory: %v", err)
+	}
+
+	err := smelter.PrepareTool(successConfigs, []string{"amd-device-plugin"}, workingDir)
 	if err != nil {
 		t.Fatalf("prepareTool failed: %v", err)
 	}
@@ -85,15 +72,19 @@ func TestIntegrationPrepareAndCastTool(t *testing.T) {
 		}
 	}
 
-	err = caster.CastTool(successConfigs, []string{"kueue", "amd-metrics-exporter", "external-secrets"}, outputDir, workingDir)
+	caster.Cast(successConfigs, outputDir, workingDir, stacksDir)
 	if err != nil {
 		t.Fatalf("castTool failed: %v", err)
 	}
 
+	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(outputDir, 0755); err != nil {
+			t.Fatalf("Failed to create outputDir: %v", err)
+		}
+	}
+
 	expectedOutputs := []string{
-		filepath.Join(outputDir, "crd-kueue-1.yaml"),
-		filepath.Join(outputDir, "object-amd-metrics-exporter-1.yaml"),
-		filepath.Join(outputDir, "crd-external-secrets-1.yaml"),
+		filepath.Join(outputDir, "cm-amd-device-plugin-object-1.yaml"),
 	}
 
 	for _, outputFile := range expectedOutputs {

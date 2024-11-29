@@ -1,10 +1,16 @@
 
+- name: certmanager
+  namespace: cert-manager
+  manifest-url: https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml
 - name: amd-device-plugin
   manifest-url: https://raw.githubusercontent.com/ROCm/k8s-device-plugin/master/k8s-ds-amdgpu-dp.yaml
   namespace: kube-system
+- name: amd-gpu-node-labeller
+  manifest-url: https://raw.githubusercontent.com/ROCm/k8s-device-plugin/master/k8s-ds-amdgpu-labeller.yaml
+  namespace: kube-system
 - name: kueue
   namespace: kueue-system
-  manifest-url: https://github.com/kubernetes-sigs/kueue/releases/download/v0.8.4/manifests.yaml
+  sourcefile: kueue/manifests.yaml
 - name: amd-metrics-exporter
   namespace: monitoring
   sourcefile: amd-metrics-exporter/metrics-exporter.yaml
@@ -16,15 +22,13 @@
   name: external-secrets
   namespace: "external-secrets"
   helm-version: "0.10.3"
-- name: certmanager
-  namespace: cert-manager
-  manifest-url: https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml
 - name: cnpg-operator
   namespace: cnpg-system
   sourcefile: cnpg/cnpg-operator.yaml
-- name: kyverno-policies
-  namespace: default
-  sourcefile: kyverno/kyverno-policies.yaml
+  ## TODO: Fix broken manifest
+# - name: kyverno-policies
+#   namespace: default
+#   sourcefile: kyverno/kyverno-policies.yaml
 - name: kyverno
   namespace: kyverno
   helm-chart-name: kyverno
@@ -46,14 +50,13 @@
   secrets: false
   name: promtail
   namespace: "monitoring"
-## TODO Trivy Fails to install crds
-# - name: trivy
-#   namespace: trivy-system
-#   helm-chart-name: trivy-operator
-#   helm-name: trivy-operator
-#   helm-url: https://aquasecurity.github.io/helm-charts
-#   values: values.yaml
-#   secrets: false
+- name: trivy
+  namespace: trivy-system
+  helm-chart-name: trivy-operator
+  helm-name: trivy-operator
+  helm-url: https://aquasecurity.github.io/helm-charts
+  values: values.yaml
+  secrets: false
 - name: dummy-secret-monitoring-tools
   namespace: monitoring
   sourcefile: dummy-secret/dummy-secret-monitoring-tools.yaml

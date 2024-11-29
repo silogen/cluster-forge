@@ -21,7 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"time"
+	"sort"
 
 	"github.com/charmbracelet/huh"
 	log "github.com/sirupsen/logrus"
@@ -31,7 +31,7 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
-func Forge() {
+func Forge(stacksPath string) {
 	log.SetOutput(os.Stdout)
 	log.SetFormatter(&log.TextFormatter{
 		FullTimestamp: true,
@@ -45,11 +45,10 @@ func Forge() {
 		log.Fatalf("Failed to configure Kubernetes client: %v", err)
 	}
 
-	basePath := "./stacks"
-	stacks := getStacks(basePath)
+	stacks := getStacks(stacksPath)
 	selectedStack := getUserSelection(stacks)
 
-	runStackLogic(filepath.Join(basePath, selectedStack))
+	runStackLogic(filepath.Join(stacksPath, selectedStack))
 }
 
 func determineKubeConfigPath() string {
@@ -174,17 +173,42 @@ func getUserContextSelection(contexts map[string]*clientcmdapi.Context) string {
 }
 
 func getStacks(baseDir string) []string {
-	var stacks []string
+	var stacks []struct {
+		name    string
+		modTime int64
+	}
+
 	files, err := os.ReadDir(baseDir)
 	if err != nil {
 		log.Fatalf("Failed to read stacks directory: %v", err)
 	}
+
 	for _, file := range files {
 		if file.IsDir() {
-			stacks = append(stacks, file.Name())
+			info, err := file.Info()
+			if err != nil {
+				log.Fatalf("Failed to get file info for %s: %v", file.Name(), err)
+			}
+			stacks = append(stacks, struct {
+				name    string
+				modTime int64
+			}{
+				name:    file.Name(),
+				modTime: info.ModTime().Unix(),
+			})
 		}
 	}
-	return stacks
+
+	sort.Slice(stacks, func(i, j int) bool {
+		return stacks[i].modTime > stacks[j].modTime
+	})
+
+	var result []string
+	for _, stack := range stacks {
+		result = append(result, stack.name)
+	}
+
+	return result
 }
 
 func getUserSelection(stacks []string) string {
@@ -213,22 +237,25 @@ func runStackLogic(stackPath string) {
 
 	runCommand(fmt.Sprintf("kubectl apply -f %s/crossplane_base.yaml", stackPath))
 
+	applyMatchingFiles(stackPath, "namespace-*.yaml", false)
 
 	applyMatchingFiles(stackPath, "crd-*.yaml", true)
 
 	applyMatchingFiles(stackPath, "cm-*.yaml", false)
 
 	runCommand(fmt.Sprintf("kubectl apply -f %s/crossplane.yaml", stackPath))
-	time.Sleep(20 * time.Second)
+
+	runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all -n crossplane-system")
+
 	runCommand(fmt.Sprintf("kubectl apply -f %s/function-templates.yaml", stackPath))
 	runCommand(fmt.Sprintf("kubectl apply -f %s/crossplane_provider.yaml", stackPath))
 	runCommand(fmt.Sprintf("kubectl apply -f %s/composition.yaml", stackPath))
 
 	runCommand("kubectl delete pods --all -n crossplane-system")
 
+	runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all -n crossplane-system")
+
 	runCommand(fmt.Sprintf("kubectl apply -f %s/stack.yaml", stackPath))
-	installHelmChart("komodorio", "https://helm-charts.komodor.io", "komoplane", "komodorio/komoplane")
-	// runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all -n crossplane-system")
 
 	log.Info("Deployment complete!")
 }

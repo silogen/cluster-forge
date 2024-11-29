@@ -22,6 +22,15 @@ Run 'smelt', which will generate formatted (yaml) configs which will be used.
 go run . --smelt
 ```
 
+Or alternatively with Docker
+
+```sh
+alias xforge="docker compose run forge"
+xforge --smelt
+```
+
+
+
 
 ![Smest Demo](docs/demoSmelt.gif)
 

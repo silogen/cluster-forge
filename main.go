@@ -40,6 +40,11 @@ func printUsage() {
 }
 
 func main() {
+
+	filesDir := "./output"
+	workingDir := "./working"
+	stacksDir := "./stacks"
+
 	// Define command-line flags for the two modes
 	smelt := flag.Bool("smelt", false, "Run smelt")
 	cast := flag.Bool("cast", false, "Run cast")
@@ -75,13 +80,13 @@ func main() {
 	switch selectedMode {
 	case "smelt":
 		fmt.Println("Smelting")
-		smelter.Smelt(configs)
+		smelter.Smelt(configs, workingDir)
 	case "cast":
 		fmt.Println("Casting")
-		caster.Cast(configs)
+		caster.Cast(configs, filesDir, workingDir, stacksDir)
 	case "forge":
 		fmt.Println("Forging")
-		forger.Forge()
+		forger.Forge(stacksDir)
 
 	}
 	// utils.ResetTerminal()
