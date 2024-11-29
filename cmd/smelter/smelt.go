@@ -148,7 +148,7 @@ func PrepareTool(configs []utils.Config, targetTools []string, toolBaseDir strin
 			}
 
 			utils.Templatehelm(config, &utils.DefaultHelmExecutor{})
-			SplitYAML(config)
+			SplitYAML(config, toolBaseDir)
 
 			files, _ = os.ReadDir(toolDir)
 			for _, file := range files {

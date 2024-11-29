@@ -23,6 +23,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	goyaml "github.com/go-yaml/yaml"
@@ -92,7 +93,7 @@ func clean(input []byte) ([]byte, error) {
 	return output.Bytes(), nil
 }
 
-func SplitYAML(config utils.Config) {
+func SplitYAML(config utils.Config, workingDir string) {
 	data, err := os.ReadFile(config.Filename)
 	if err != nil {
 		log.Fatal(err)
@@ -132,12 +133,12 @@ func SplitYAML(config utils.Config) {
 			log.Fatal(err)
 		}
 
-		err = os.MkdirAll(fmt.Sprintf("working/%s", config.Name), 0755)
+		err = os.MkdirAll(filepath.Join(workingDir, config.Name), 0755)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		filename := fmt.Sprintf("working/%s/%s_%s.yaml", config.Name, metadataObject.Kind, metadataObject.Metadata.Name)
+		filename := filepath.Join(workingDir, config.Name, fmt.Sprintf("%s_%s.yaml", metadataObject.Kind, metadataObject.Metadata.Name))
 		err = os.WriteFile(filename, updatedCleanres, 0644)
 		if err != nil {
 			log.Fatal(err)

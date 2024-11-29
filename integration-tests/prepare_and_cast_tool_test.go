@@ -18,44 +18,57 @@ func TestIntegrationPrepareAndCastTool(t *testing.T) {
 			ManifestURL: "https://raw.githubusercontent.com/ROCm/k8s-device-plugin/master/k8s-ds-amdgpu-dp.yaml",
 		},
 	}
+	const usePermanentPaths = false
 
-	failureConfigs := []utils.Config{
-		{
-			Name:      "certmanager",
-			Namespace: "cert-manager",
-		},
-	}
-
-	// Use permanent paths for debugging
 	workingDir := "./debug/working"
 	outputDir := "./debug/output"
 	stacksDir := "./debug/stacks"
 
-	// Clean up and create directories
-	if err := os.RemoveAll(workingDir); err != nil {
-		t.Fatalf("Failed to clean up working directory: %v", err)
-	}
-	if err := os.MkdirAll(workingDir, 0755); err != nil {
-		t.Fatalf("Failed to create working directory: %v", err)
-	}
+	if !usePermanentPaths {
+		var err error
+		workingDir, err = os.MkdirTemp("", "working-*")
+		if err != nil {
+			t.Fatalf("Failed to create temporary working directory: %v", err)
+		}
+		defer os.RemoveAll(workingDir)
 
-	if err := os.RemoveAll(outputDir); err != nil {
-		t.Fatalf("Failed to clean up output directory: %v", err)
-	}
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		t.Fatalf("Failed to create output directory: %v", err)
-	}
+		outputDir, err = os.MkdirTemp("", "output-*")
+		if err != nil {
+			t.Fatalf("Failed to create temporary output directory: %v", err)
+		}
+		defer os.RemoveAll(outputDir)
 
-	if err := os.RemoveAll(stacksDir); err != nil {
-		t.Fatalf("Failed to clean up stacks directory: %v", err)
-	}
-	if err := os.MkdirAll(stacksDir, 0755); err != nil {
-		t.Fatalf("Failed to create stacks directory: %v", err)
+		stacksDir, err = os.MkdirTemp("", "stacks-*")
+		if err != nil {
+			t.Fatalf("Failed to create temporary stacks directory: %v", err)
+		}
+		defer os.RemoveAll(stacksDir)
+	} else {
+		if err := os.RemoveAll(workingDir); err != nil {
+			t.Fatalf("Failed to clean up working directory: %v", err)
+		}
+		if err := os.MkdirAll(workingDir, 0755); err != nil {
+			t.Fatalf("Failed to create working directory: %v", err)
+		}
+
+		if err := os.RemoveAll(outputDir); err != nil {
+			t.Fatalf("Failed to clean up output directory: %v", err)
+		}
+		if err := os.MkdirAll(outputDir, 0755); err != nil {
+			t.Fatalf("Failed to create output directory: %v", err)
+		}
+
+		if err := os.RemoveAll(stacksDir); err != nil {
+			t.Fatalf("Failed to clean up stacks directory: %v", err)
+		}
+		if err := os.MkdirAll(stacksDir, 0755); err != nil {
+			t.Fatalf("Failed to create stacks directory: %v", err)
+		}
 	}
 
 	err := smelter.PrepareTool(successConfigs, []string{"amd-device-plugin"}, workingDir)
 	if err != nil {
-		t.Fatalf("prepareTool failed: %v", err)
+		t.Fatalf("PrepareTool failed: %v", err)
 	}
 
 	for _, config := range successConfigs {
@@ -65,23 +78,17 @@ func TestIntegrationPrepareAndCastTool(t *testing.T) {
 		}
 	}
 
-	for _, config := range failureConfigs {
-		namespaceFile := filepath.Join(workingDir, config.Name, "Namespace_"+config.Name+".yaml")
-		if _, err := os.Stat(namespaceFile); err == nil {
-			t.Errorf("Namespace file '%s' should not be created for a failing case", namespaceFile)
-		}
-	}
+	castname := "test-stack"
+	toolTypes := []string{"amd-device-plugin"}
 
-	caster.Cast(successConfigs, outputDir, workingDir, stacksDir)
+	err = caster.CastTool(successConfigs, toolTypes, outputDir, workingDir)
 	if err != nil {
-		t.Fatalf("castTool failed: %v", err)
+		t.Fatalf("CastTool failed: %v", err)
 	}
 
-	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
-			t.Fatalf("Failed to create outputDir: %v", err)
-		}
-	}
+	caster.PreparePackageDirectory(stacksDir, castname)
+
+	caster.CopyFilesWithSpinner(outputDir, filepath.Join(stacksDir, castname))
 
 	expectedOutputs := []string{
 		filepath.Join(outputDir, "cm-amd-device-plugin-object-1.yaml"),
@@ -91,5 +98,10 @@ func TestIntegrationPrepareAndCastTool(t *testing.T) {
 		if _, err := os.Stat(outputFile); os.IsNotExist(err) {
 			t.Errorf("Expected output file '%s' to be created", outputFile)
 		}
+	}
+
+	expectedStackFile := filepath.Join(stacksDir, castname, "cm-amd-device-plugin-object-1.yaml")
+	if _, err := os.Stat(expectedStackFile); os.IsNotExist(err) {
+		t.Errorf("Expected stack file '%s' to be created", expectedStackFile)
 	}
 }
