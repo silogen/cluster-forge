@@ -245,9 +245,12 @@ func runStackLogic(stackPath string) {
 
 	runCommand(fmt.Sprintf("kubectl apply -f %s/crossplane.yaml", stackPath))
 
-	runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all -n crossplane-system")
+	runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all -A")
 
 	runCommand(fmt.Sprintf("kubectl apply -f %s/function-templates.yaml", stackPath))
+
+	runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all -A")
+
 	runCommand(fmt.Sprintf("kubectl apply -f %s/crossplane_provider.yaml", stackPath))
 	runCommand(fmt.Sprintf("kubectl apply -f %s/composition.yaml", stackPath))
 

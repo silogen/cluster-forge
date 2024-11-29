@@ -40,40 +40,52 @@ type targettool struct {
 }
 
 func Cast(configs []utils.Config, filesDir string, workingDir string, stacksDir string) {
-	log.Info("starting up the menu...")
-	var targettool targettool
-	var toolbox = toolbox{Targettool: targettool}
-	names := []string{"all"}
+	log.Info("Starting up the menu...")
 
+	castname, toolTypes := handleInteractiveForm(workingDir)
+
+	accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
+	err := spinner.New().
+		Title("Preparing your stack...").
+		Accessible(accessible).
+		Action(func() {
+			if err := CastTool(configs, toolTypes, filesDir, workingDir); err != nil {
+				log.Fatalf("Error during preparation: %v", err)
+			}
+		}).
+		Run()
+	if err != nil {
+		log.Fatalf("Error during preparation: %v", err)
+	}
+
+	packageDir := PreparePackageDirectory(stacksDir, castname)
+	CopyFilesWithSpinner(filesDir, packageDir)
+
+	displaySuccessMessage(castname)
+}
+
+func handleInteractiveForm(workingDir string) (string, []string) {
 	files, err := os.ReadDir(workingDir)
-	log.Debugf("Reading files from output directory: %s", workingDir)
 	if err != nil {
-		log.Errorf("Failed to read directory: %v\n", err)
-		return
+		log.Fatalf("Failed to read working directory: %v", err)
 	}
-	err = utils.RemoveYAMLFiles(filesDir)
-	if err != nil {
-		log.Fatalf("failed to remove YAML files: %s", err)
-	}
-	log.Debugf("Files in output directory: %v", files)
 
+	names := []string{"all"}
 	uniqueNames := make(map[string]struct{})
-	log.Debug("Filtering unique tools from the directory...")
-	castname := ""
 	for _, file := range files {
 		if file.IsDir() && file.Name() != "pre" {
-
 			if _, exists := uniqueNames[file.Name()]; !exists {
 				names = append(names, file.Name())
 				uniqueNames[file.Name()] = struct{}{}
-				log.Debugf("Added tool: %s", file.Name())
 			}
 		}
 	}
-	log.Debugf("Final list of tools: %v", names)
+	log.Debugf("Options for multi-select: %v", names)
 
-	accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
+	var castname string
+	var toolTypes []string
 	re := regexp.MustCompile("^[a-z0-9_-]+$")
+
 	form := huh.NewForm(
 		huh.NewGroup(huh.NewText().
 			Title("Name of this composition package").
@@ -90,89 +102,28 @@ func Cast(configs []utils.Config, filesDir string, workingDir string, stacksDir 
 			huh.NewMultiSelect[string]().
 				Options(huh.NewOptions(names...)...).
 				Title("Choose the tools to cast into the stack").
-				// Description("Which tools are we working with now?.").
 				Validate(func(t []string) error {
 					if len(t) <= 0 {
 						return fmt.Errorf("at least one tool is required")
 					}
 					return nil
 				}).
-				Value(&toolbox.Targettool.Type).
+				Value(&toolTypes).
 				Filterable(true),
 		),
-	).WithAccessible(accessible)
+	)
 
-	err = form.Run()
-
-	if err != nil {
-		log.Fatal("Uh oh:", err)
+	if err := form.Run(); err != nil {
+		log.Fatalf("Interactive form failed: %v", err)
 	}
 
-	if toolbox.Targettool.Type[0] == "all" {
-		toolbox.Targettool.Type = append(toolbox.Targettool.Type, names...)
-	}
-	toolbox.Targettool.Type = removeElement(toolbox.Targettool.Type, "all")
-
-	err = spinner.New().
-		Title("Preparing your stack...").
-		Accessible(accessible).
-		Action(func() {
-			if err := CastTool(configs, toolbox.Targettool.Type, filesDir, workingDir); err != nil {
-				log.Fatalf("Error during preparation: %v", err)
-			}
-		}).
-		Run()
-	if err != nil {
-		log.Fatalf("Error during preparation: %v", err)
+	// Handle "all" selection
+	if len(toolTypes) > 0 && toolTypes[0] == "all" {
+		toolTypes = append(toolTypes, names...)
+		toolTypes = removeElement(toolTypes, "all")
 	}
 
-	utils.GenerateFunctionTemplates(filesDir, filepath.Join(filesDir, "function-templates.yaml"))
-	err = utils.CopyYAMLFiles("cmd/utils/templates", filesDir)
-	if err != nil {
-		log.Fatalf("failed to copy YAML files: %s", err)
-	}
-	// TODO Need to handle namespaces better. Ignore default, and don't have duplicates. Also, create these first, along with CRDs in forge step
-	// Create the subdirectory in /stacks with the name of castname
-	packageDir := filepath.Join(stacksDir, castname)
-	err = os.MkdirAll(packageDir, 0755)
-	if err != nil {
-		log.Fatalf("failed to create package directory: %s", err)
-	}
-
-	files, err = os.ReadDir(filesDir)
-	if err != nil {
-		log.Fatalf("failed to read output directory: %s", err)
-	}
-
-	for _, file := range files {
-		if !file.IsDir() && !strings.HasPrefix(file.Name(), ".") {
-			srcPath := filepath.Join(filesDir, file.Name())
-			dstPath := filepath.Join(packageDir, file.Name())
-			err = utils.CopyFile(srcPath, dstPath)
-			if err != nil {
-				log.Fatalf("failed to move file %s: %s", file.Name(), err)
-			}
-		}
-	}
-
-	{
-		var sb strings.Builder
-
-		fmt.Fprintf(&sb,
-			"%s\n\nCompleted stack: %s.",
-			lipgloss.NewStyle().Bold(true).Render("Cluster Forge"),
-			castname,
-		)
-
-		fmt.Println(
-			lipgloss.NewStyle().
-				Width(40).
-				BorderStyle(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("63")).
-				Padding(1, 2).
-				Render(sb.String()),
-		)
-	}
+	return castname, toolTypes
 }
 
 func removeElement(slice []string, element string) []string {
@@ -251,6 +202,63 @@ func CastTool(configs []utils.Config, toolTypes []string, filesDir, workingDir s
 	}
 
 	return nil
+}
+
+func PreparePackageDirectory(stacksDir, castname string) string {
+	packageDir := filepath.Join(stacksDir, castname)
+	err := os.MkdirAll(packageDir, 0755)
+	if err != nil {
+		log.Fatalf("Failed to create package directory: %s", err)
+	}
+	return packageDir
+}
+
+func CopyFilesWithSpinner(filesDir, packageDir string) {
+	err := spinner.New().
+		Title("Copying files to package...").
+		Action(func() {
+			utils.GenerateFunctionTemplates(filesDir, filepath.Join(filesDir, "function-templates.yaml"))
+			err := utils.CopyYAMLFiles("cmd/utils/templates", filesDir)
+			if err != nil {
+				log.Fatalf("failed to copy YAML files: %s", err)
+			}
+			files, err := os.ReadDir(filesDir)
+			if err != nil {
+				log.Fatalf("Failed to read files directory: %v", err)
+			}
+
+			for _, file := range files {
+				if !file.IsDir() && !strings.HasPrefix(file.Name(), ".") {
+					srcPath := filepath.Join(filesDir, file.Name())
+					dstPath := filepath.Join(packageDir, file.Name())
+					err = utils.CopyFile(srcPath, dstPath)
+					if err != nil {
+						log.Fatalf("Failed to copy file %s: %v", file.Name(), err)
+					}
+				}
+			}
+		}).
+		Run()
+	if err != nil {
+		log.Fatalf("Failed to copy files to package directory: %v", err)
+	}
+}
+
+func displaySuccessMessage(castname string) {
+	var sb strings.Builder
+	fmt.Fprintf(&sb,
+		"%s\n\nCompleted stack: %s.",
+		lipgloss.NewStyle().Bold(true).Render("Cluster Forge"),
+		castname,
+	)
+	fmt.Println(
+		lipgloss.NewStyle().
+			Width(40).
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("63")).
+			Padding(1, 2).
+			Render(sb.String()),
+	)
 }
 
 func FetchFilesAndCategorizeByPrefix(dir string, prefix string) (namespaceFiles, crdFiles, secretFiles, externalSecretFiles, objectFiles []string, err error) {
