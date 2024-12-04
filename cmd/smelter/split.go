@@ -68,6 +68,17 @@ func splitYAML(resources []byte) ([][]byte, error) {
 	return res, nil
 }
 
+func preclean(data []byte) []byte {
+    // Convert byte slice to string
+    dataStr := string(data)
+
+    // Remove tab characters
+    cleanedStr := strings.ReplaceAll(dataStr, "\t", "  ")
+
+    // Convert back to byte slice
+    return []byte(cleanedStr)
+}
+
 func clean(input []byte) ([]byte, error) {
 	var output bytes.Buffer
 	scanner := bufio.NewScanner(bytes.NewReader(input))
@@ -99,7 +110,10 @@ func SplitYAML(config utils.Config, workingDir string) {
 		log.Fatal(err)
 	}
 
-	result, err := splitYAML(data)
+  // Use the preclean function
+  preCleanedData := preclean(data)
+
+	result, err := splitYAML(preCleanedData)
 	if err != nil {
 		log.Fatal(err)
 	}
