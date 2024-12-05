@@ -51,16 +51,15 @@ deploymentStrategy:
 #      name: grafana-user-credentials ###
 #      key: mimir-basic-password
 
-#datasources:
-#  datasources.yaml:
-#    apiVersion: 1
-#    datasources:
-#    # DEV ###
-#    - name: Loki_for_Dev ###
-#      type: loki
-#      url: http://loki-gateway.monitoring-services-log.svc:80 ###
-#      orgId: 1
-#      uid: loki_for_logs
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: Prometheus ###
+      type: prometheus
+      url: http://prometheus-server.monitoring.svc.cluster.local:80 ###
+      orgId: 1
+      uid: prometheus_for_metrics
 #      basicAuth: true
 #      basicAuthUser: loki-dev-tenant
 #      secureJsonData:
