@@ -126,25 +126,25 @@ datasources:
 #      jsonData:
 #        httpHeaderName1: 'X-Scope-OrgID'
 
-dashboardProviders:
-  dashboardproviders.yaml:
-    apiVersion: 1
-    providers:
-    - name: 'default'
-      orgId: 1
-      folder: ''
-      type: file
-      disableDeletion: false
-      editable: true
-      updateIntervalSeconds: 10
-      allowUiUpdates: true
-      options:
-        path: /var/lib/grafana/dashboards/default
+#dashboardProviders:
+#  dashboardproviders.yaml:
+#    apiVersion: 1
+#    providers:
+#    - name: 'default'
+#      orgId: 1
+#      folder: ''
+#      type: file
+#      disableDeletion: false
+#      editable: true
+#      updateIntervalSeconds: 10
+#      allowUiUpdates: true
+#      options:
+#        path: /var/lib/grafana/dashboards/default
 
-#sidecar:
-#  dashboards:
-#    enabled: true
-#    label: grafana_dashboard
-#    folderAnnotation: grafana_folder
-#    provider:
-#      foldersFromFilesStructure: true
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    folderAnnotation: grafana_folder
+    provider:
+      foldersFromFilesStructure: true
