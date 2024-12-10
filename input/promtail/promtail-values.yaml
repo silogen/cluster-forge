@@ -22,7 +22,7 @@ podAnnotations:
 
 config:
   clients:
-    - url: http://central-loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push ##
+    - url: http://loki-gateway.grafana-loki.svc.cluster.local/loki/api/v1/push ##
       tenant_id: silogen-omni-devenv ##
       basic_auth:
         username: loki-omni-devenv-tenant ##
