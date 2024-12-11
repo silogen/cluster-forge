@@ -23,9 +23,9 @@ podAnnotations:
 config:
   clients:
     - url: http://loki-gateway.grafana-loki.svc.cluster.local/loki/api/v1/push ##
-      tenant_id: silogen-omni-devenv ##
+      tenant_id: loki-tenant-demo ##
       basic_auth:
-        username: loki-omni-devenv-tenant ##
+        username: loki-tenant-demo ##
         password: ${LOKI_TENANT_PW_OMNI_DEVENV} ##
       external_labels:
         cluster: "this-is-wrong-cluster-value-to-be-replaced" ##
