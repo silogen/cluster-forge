@@ -22,6 +22,14 @@
   name: external-secrets
   namespace: "external-secrets"
   helm-version: "0.10.3"
+- helm-chart-name: "psmdb-operator"
+  helm-name: psmdb-operator
+  helm-url: "https://percona.github.io/percona-helm-charts"
+  values: psmdb-operator-values.yaml
+  secrets: false
+  name: psmdb-operator
+  namespace: "psmdb"
+  helm-version: "1.17.0"
 - name: cnpg-operator
   namespace: cnpg-system
   sourcefile: cnpg/cnpg-operator.yaml
