@@ -141,18 +141,9 @@ func CreateCrossplaneObject(config Config, filesDir string, workingDir string) e
 			log.Fatalln(err)
 		}
 		lines := strings.Split(string(content), "\n")
-		kindParts := strings.Split(platformpackage.Kind, "-")
-
-		if kindParts[0] == "CustomResourceDefinition" || kindParts[0] == "Namespace" {
-			platformpackage.Content.WriteString("---\n")
-			for _, line := range lines {
-				platformpackage.Content.WriteString(fmt.Sprintf("%s\n", line))
-			}
-		} else {
-			for _, line := range lines {
-				// Line Indenting
-				platformpackage.Content.WriteString(fmt.Sprintf("          %s\n", line))
-			}
+		for _, line := range lines {
+			// Line Indenting
+			platformpackage.Content.WriteString(fmt.Sprintf("      %s\n", line))
 		}
 
 		var currentFile *os.File
@@ -192,12 +183,6 @@ func CreateCrossplaneObject(config Config, filesDir string, workingDir string) e
 			// Write the header to the file
 			platformpackage.Index = *currentFileIndex
 			platformpackage.Type = currentFileType
-			if currentFileType != "crd" && currentFileType != "namespace" {
-				err = cmtemp.Execute(currentFile, platformpackage)
-				if err != nil {
-					log.Fatalln(err)
-				}
-			}
 		}
 
 		if currentFileSize+int64(platformpackage.Content.Len()) > maxFileSize {
@@ -210,30 +195,12 @@ func CreateCrossplaneObject(config Config, filesDir string, workingDir string) e
 			// Write the header to the file
 			platformpackage.Index = *currentFileIndex
 			platformpackage.Type = currentFileType
-			if currentFileType != "crd" {
-				err = cmtemp.Execute(currentFile, platformpackage)
-				if err != nil {
-					log.Fatalln(err)
-				}
-			}
 		}
 
-		if currentFileType == "crd" {
-			_, err = currentFile.Write(platformpackage.Content.Bytes())
-			if err != nil {
-				log.Fatalln(err)
-			}
-		} else if currentFileType == "namespace" {
-			_, err = currentFile.Write(platformpackage.Content.Bytes())
-			if err != nil {
-				log.Fatalln(err)
-			}
-		} else {
-			platformpackage.Type = strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(strings.TrimSuffix(file.Name(), ".yaml"), "_", "-"), ":", ""))
-			err = temp.Execute(currentFile, platformpackage)
-			if err != nil {
-				log.Fatalln(err)
-			}
+		platformpackage.Type = strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(strings.TrimSuffix(file.Name(), ".yaml"), "_", "-"), ":", ""))
+		err = temp.Execute(currentFile, platformpackage)
+		if err != nil {
+			log.Fatalln(err)
 		}
 		platformpackage.Content.Reset()
 	}
