@@ -60,23 +60,15 @@ datasources:
       url: http://prometheus-server.monitoring.svc.cluster.local:80 ###
       orgId: 1
       uid: prometheus_for_metrics
-#      basicAuth: true
-#      basicAuthUser: loki-dev-tenant
-#      secureJsonData:
-#        basicAuthPassword: ${TENANT_PW_DEV} ###
-#    - name: Tempo_for_Dev ###
-#      type: tempo
-#      url: http://grafana-tempo-query-frontend.monitoring-services-trace.svc:3100 ###
-#      orgId: 1
-#      uid: tempo_for_traces
-#      jsonData:
-#        httpHeaderName1: 'X-Scope-OrgID'
-#        serviceMap:
-#          datasourceUid: 'mimir_service_graphs'
-#        nodeGraph:
-#          enabled: true
-#      secureJsonData:
-#        httpHeaderValue1: 'tempo-tenant-dev' ###
+    - name: Loki
+      type: loki
+      url: http://loki-gateway.grafana-loki.svc.cluster.local:80
+      orgId: 1
+      uid: loki_for_logs
+      basicAuth: true
+      basicAuthUser: loki-tenant-demo
+      secureJsonData:
+        basicAuthPassword: A123examplesecretpassword ###
 #    - name: Mimir_for_Dev ###
 #      type: prometheus
 #      url: http://grafana-mimir-gateway.monitoring-services-metric.svc:8080/prometheus ###
