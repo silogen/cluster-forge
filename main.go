@@ -17,77 +17,110 @@
 package main
 
 import (
-	"flag"
 	"fmt"
+	"os"
 
 	"github.com/silogen/cluster-forge/cmd/caster"
 	"github.com/silogen/cluster-forge/cmd/forger"
 	"github.com/silogen/cluster-forge/cmd/smelter"
 	"github.com/silogen/cluster-forge/cmd/utils"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 )
 
-func printUsage() {
-	fmt.Println(`Usage:
-	To setup components, use:
-    cluster-forge --smelt
+func main() {
+	var rootCmd = &cobra.Command{Use: "app"}
 
-	Or to combine components for deployment, use:
- 	cluster-forge --cast
+	var smeltCmd = &cobra.Command{
+		Use:   "smelt",
+		Short: "Run smelt",
+		Long: `The smelt command processes the input configuration and performs the smelting operation.
+It reads the configuration from the input directory and generates normalized yaml in the working directory.
+This output can then be edited or customized if needed before casting.
 
-	Or, to deploy to a specific cluster, use:
-	cluster-forge --forge --kubeconfig <KUBECONFIG>`)
+The reason for customizing is to create cluster specific configurations. 
+For example, you could template a 'baseDomain' which could then be input and templated at the forge step.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			runSmelt()
+		},
+	}
+
+	var castCmd = &cobra.Command{
+		Use:   "cast",
+		Short: "Run cast",
+		Long: `The cast command processes the normalized (and possibly custom templated) yaml from the working directory and performs the casting operation.
+
+This step creates a container image which can be used during forge step to deploy all the components in a stack to a cluster.`,
+
+		Run: func(cmd *cobra.Command, args []string) {
+			runCast()
+		},
+	}
+
+	var forgeCmd = &cobra.Command{
+		Use:   "forge",
+		Short: "Run forge",
+		Long: `The forge command deploys a stack from the cast phase into a cluster.
+It reads the KUBECONFIG env variable to find a destination, and deploys the stack.`,
+
+		Run: func(cmd *cobra.Command, args []string) {
+			runForge()
+		},
+	}
+
+	rootCmd.AddCommand(smeltCmd, castCmd, forgeCmd)
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
 
-func main() {
-
-	filesDir := "./output"
+func runSmelt() {
 	workingDir := "./working"
-	stacksDir := "./stacks"
-
-	// Define command-line flags for the two modes
-	smelt := flag.Bool("smelt", false, "Run smelt")
-	cast := flag.Bool("cast", false, "Run cast")
-	forge := flag.Bool("forge", false, "Run forge")
-
-	// Parse the command-line flags
-	flag.Parse()
-
-	// Determine the selected mode
-	selectedMode := ""
-	if *smelt {
-		selectedMode = "smelt"
-	} else if *cast {
-		selectedMode = "cast"
-	} else if *forge {
-		selectedMode = "forge"
-	} else {
-		// Default mode if neither is chosen
-		printUsage()
-		log.Fatal("No mode selected")
-	}
 	utils.Setup()
-	log.Info("starting up...")
+	log.Println("starting up...")
 	configs, err := utils.LoadConfig("input/config.yaml")
 	if err != nil {
-		fmt.Printf("Failed to read config: %v", err)
 		log.Fatalf("Failed to read config: %v", err)
 	}
 	for _, config := range configs {
-		log.Debugf("Read config for : %+v", config.Name)
+		log.Printf("Read config for : %+v", config.Name)
 	}
 	fmt.Print(utils.ForgeLogo)
-	switch selectedMode {
-	case "smelt":
-		fmt.Println("Smelting")
-		smelter.Smelt(configs, workingDir)
-	case "cast":
-		fmt.Println("Casting")
-		caster.Cast(configs, filesDir, workingDir, stacksDir)
-	case "forge":
-		fmt.Println("Forging")
-		forger.Forge(stacksDir)
+	fmt.Println("Smelting")
+	smelter.Smelt(configs, workingDir)
+}
 
+func runCast() {
+	workingDir := "./working"
+	stacksDir := "./stacks"
+	filesDir := "./files"
+	utils.Setup()
+	log.Println("starting up...")
+	configs, err := utils.LoadConfig("input/config.yaml")
+	if err != nil {
+		log.Fatalf("Failed to read config: %v", err)
 	}
-	// utils.ResetTerminal()
+	for _, config := range configs {
+		log.Printf("Read config for : %+v", config.Name)
+	}
+	fmt.Print(utils.ForgeLogo)
+	fmt.Println("Casting")
+	caster.Cast(configs, filesDir, workingDir, stacksDir)
+}
+
+func runForge() {
+	stacksDir := "./stacks"
+	utils.Setup()
+	log.Println("starting up...")
+	configs, err := utils.LoadConfig("input/config.yaml")
+	if err != nil {
+		log.Fatalf("Failed to read config: %v", err)
+	}
+	for _, config := range configs {
+		log.Printf("Read config for : %+v", config.Name)
+	}
+	fmt.Print(utils.ForgeLogo)
+	fmt.Println("Forging")
+	forger.Forge(stacksDir)
 }
