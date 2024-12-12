@@ -94,7 +94,7 @@ func runSmelt() {
 func runCast() {
 	workingDir := "./working"
 	stacksDir := "./stacks"
-	filesDir := "./files"
+	filesDir := "./output"
 	utils.Setup()
 	log.Println("starting up...")
 	configs, err := utils.LoadConfig("input/config.yaml")
