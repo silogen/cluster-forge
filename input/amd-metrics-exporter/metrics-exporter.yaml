@@ -145,3 +145,6 @@ spec:
           path: /var/lib/kubelet/pod-resources
           type: Directory
         name: pod-resources
+      tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
