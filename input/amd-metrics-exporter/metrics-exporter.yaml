@@ -1,5 +1,5 @@
 ---
-# Source: amdgpu-metrics-exporter-charts/templates/metrics-exporter-rbac.yaml
+# Source: device-metrics-exporter-charts/templates/metrics-exporter-rbac.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -7,22 +7,22 @@ metadata:
   labels:
     app.kubernetes.io/component: amd-gpu
     app.kubernetes.io/part-of: amd-gpu
-    helm.sh/chart: amdgpu-metrics-exporter-charts-v1.0.0
-    app.kubernetes.io/name: amdgpu-metrics-exporter-charts
+    helm.sh/chart: device-metrics-exporter-charts-v1.0.0
+    app.kubernetes.io/name: device-metrics-exporter-charts
     app.kubernetes.io/instance: metrics-exporter
     app.kubernetes.io/version: "v1.0.0"
     app.kubernetes.io/managed-by: Helm
 ---
-# Source: amdgpu-metrics-exporter-charts/templates/metrics-exporter-rbac.yaml
+# Source: device-metrics-exporter-charts/templates/metrics-exporter-rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: metrics-exporter-amdgpu-metrics-exporter-charts-metrics-exporter
+  name: metrics-exporter-device-metrics-exporter-charts-metrics-exporter
   labels:
     app.kubernetes.io/component: amd-gpu
     app.kubernetes.io/part-of: amd-gpu
-    helm.sh/chart: amdgpu-metrics-exporter-charts-v1.0.0
-    app.kubernetes.io/name: amdgpu-metrics-exporter-charts
+    helm.sh/chart: device-metrics-exporter-charts-v1.0.0
+    app.kubernetes.io/name: device-metrics-exporter-charts
     app.kubernetes.io/instance: metrics-exporter
     app.kubernetes.io/version: "v1.0.0"
     app.kubernetes.io/managed-by: Helm
@@ -37,29 +37,29 @@ rules:
   - list
   - update
 ---
-# Source: amdgpu-metrics-exporter-charts/templates/metrics-exporter-rbac.yaml
+# Source: device-metrics-exporter-charts/templates/metrics-exporter-rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: metrics-exporter-amdgpu-metrics-exporter-charts-metrics-exporter
+  name: metrics-exporter-device-metrics-exporter-charts-metrics-exporter
   labels:
     app.kubernetes.io/component: amd-gpu
     app.kubernetes.io/part-of: amd-gpu
-    helm.sh/chart: amdgpu-metrics-exporter-charts-v1.0.0
-    app.kubernetes.io/name: amdgpu-metrics-exporter-charts
+    helm.sh/chart: device-metrics-exporter-charts-v1.0.0
+    app.kubernetes.io/name: device-metrics-exporter-charts
     app.kubernetes.io/instance: metrics-exporter
     app.kubernetes.io/version: "v1.0.0"
     app.kubernetes.io/managed-by: Helm
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: 'metrics-exporter-amdgpu-metrics-exporter-charts-metrics-exporter'
+  name: 'metrics-exporter-device-metrics-exporter-charts-metrics-exporter'
 subjects:
 - kind: ServiceAccount
   name: amdgpu-metrics-exporter
   namespace: 'default'
 ---
-# Source: amdgpu-metrics-exporter-charts/templates/metrics-exporter-service.yaml
+# Source: device-metrics-exporter-charts/templates/metrics-exporter-service.yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -73,15 +73,15 @@ spec:
     - protocol: "TCP"
       port: 5000
 ---
-# Source: amdgpu-metrics-exporter-charts/templates/daemonsets.yaml
+# Source: device-metrics-exporter-charts/templates/daemonsets.yaml
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: metrics-exporter-amdgpu-metrics-exporter
   labels:
     app: amdgpu-metrics-exporter
-    helm.sh/chart: amdgpu-metrics-exporter-charts-v1.0.0
-    app.kubernetes.io/name: amdgpu-metrics-exporter-charts
+    helm.sh/chart: device-metrics-exporter-charts-v1.0.0
+    app.kubernetes.io/name: device-metrics-exporter-charts
     app.kubernetes.io/instance: metrics-exporter
     app.kubernetes.io/version: "v1.0.0"
     app.kubernetes.io/managed-by: Helm
@@ -110,7 +110,7 @@ spec:
           name: sys-volume
       containers:
         - name: amdgpu-metrics-exporter-container
-          image: "registry.test.pensando.io:5000/device-metrics-exporter/exporter:latest"
+          image: "docker.io/rocm/device-metrics-exporter:v1.0.0"
           imagePullPolicy: Always
           env:
           - name: NODE_NAME
