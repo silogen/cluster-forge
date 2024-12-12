@@ -83,42 +83,42 @@ spec:
             - cert-manager
             - kube-system
             - trivy-system
-        mutate:
-          foreach:
-            - list: "request.object.spec.containers"
-              patchStrategicMerge:
-                spec:
-                  containers:
-                    - (name): "{{ element.name }}"
-                      securityContext:
-                        +(allowPrivilegeEscalation): false
-                        +(runAsNonRoot): true
-                        +(runAsUser): 1000
-                        +(runAsGroup): 3000
-                        +(seccompProfile):
-                            type: RuntimeDefault
-                        +(capabilities):
-                            drop:
-                            - ALL
-              preconditions:
-                all:
-                  - key: "{{ element.image }}"
-                    operator: NotEquals
-                    value: "docker.io/istio*"
-                  - key: "{{ element.image }}"
-                    operator: NotEquals
-                    value: "docker.io/semitechnologies*"
-                  - key: "{{ element.image }}"
-                    operator: NotEquals
-                    value: "percona/*"
-                  - key: "{{ element.image }}"
-                    operator: NotEquals
-                    value: "ghcr.io/cloudnative-pg*"
-                  - key: "{{ element.image }}"
-                    operator: NotEquals
-                    value: "gcr.io/knative-releases*"
-            - list: "request.object"
-              patchStrategicMerge:
-                spec:
+    mutate:
+      foreach:
+        - list: "request.object.spec.containers"
+          patchStrategicMerge:
+            spec:
+              containers:
+                - (name): "{{ element.name }}"
                   securityContext:
-                    +(fsGroup): 2000
+                    +(allowPrivilegeEscalation): false
+                    +(runAsNonRoot): true
+                    +(runAsUser): 1000
+                    +(runAsGroup): 3000
+                    +(seccompProfile):
+                        type: RuntimeDefault
+                    +(capabilities):
+                        drop:
+                        - ALL
+          preconditions:
+            all:
+              - key: "{{ element.image }}"
+                operator: NotEquals
+                value: "docker.io/istio*"
+              - key: "{{ element.image }}"
+                operator: NotEquals
+                value: "docker.io/semitechnologies*"
+              - key: "{{ element.image }}"
+                operator: NotEquals
+                value: "percona/*"
+              - key: "{{ element.image }}"
+                operator: NotEquals
+                value: "ghcr.io/cloudnative-pg*"
+              - key: "{{ element.image }}"
+                operator: NotEquals
+                value: "gcr.io/knative-releases*"
+        - list: "request.object"
+          patchStrategicMerge:
+            spec:
+              securityContext:
+                +(fsGroup): 2000
