@@ -1,0 +1,2 @@
+[External Secrets](https://external-secrets.io/latest/) is used to populate secrets into cluster without directly applying secrets. The cluster store backend can be (for example) AWS Secrets, Google Secrets Manager, 1Password, Vault, etc. 
+This default installation uses local kubernetes secrets as a backend to ensure applications are configured properly to use External Secrets. In non-demo/test use the backend must be switched to a production quality secure location. 

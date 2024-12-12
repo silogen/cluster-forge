@@ -8,9 +8,9 @@
 - name: amd-gpu-node-labeller
   manifest-url: https://raw.githubusercontent.com/ROCm/k8s-device-plugin/master/k8s-ds-amdgpu-labeller.yaml
   namespace: kube-system
-- name: kueue
-  namespace: kueue-system
-  sourcefile: kueue/manifests.yaml
+# - name: kueue
+#   namespace: kueue-system
+#   sourcefile: kueue/manifests.yaml
 - name: amd-metrics-exporter
   namespace: monitoring
   sourcefile: amd-metrics-exporter/metrics-exporter.yaml
@@ -36,10 +36,9 @@
 - name: cnpg-operator
   namespace: cnpg-system
   sourcefile: cnpg/cnpg-operator.yaml
-  ## TODO: Fix broken manifest
-# - name: kyverno-policies
-#   namespace: default
-#   sourcefile: kyverno/kyverno-policies.yaml
+- name: kyverno-policies
+  namespace: default
+  sourcefile: kyverno/kyverno-policies.yaml
 - name: kyverno
   namespace: kyverno
   helm-chart-name: kyverno
@@ -79,26 +78,26 @@
   name: grafana
   namespace: "grafana"
   helm-version: "8.4.6"
-- helm-chart-name: "prometheus-opencost-exporter"
-  helm-name: opencost
-  helm-url: "https://prometheus-community.github.io/helm-charts"
-  values: values.yaml
-  secrets: false
-  name: opencost
-  namespace: opencost
+# - helm-chart-name: "prometheus-opencost-exporter"
+#   helm-name: opencost
+#   helm-url: "https://prometheus-community.github.io/helm-charts"
+#   values: values.yaml
+#   secrets: false
+#   name: opencost
+#   namespace: opencost
 - helm-chart-name: "kuberay-operator"
   helm-name: kuberay-operator
   helm-url: "https://ray-project.github.io/kuberay-helm/"
   secrets: false
   name: kuberay-operator
   namespace: "default"
-- helm-chart-name: "minio"
-  helm-name: minio
-  helm-url: "https://charts.min.io/"
-  namespace: "minio"
-  values: minio-values.yaml
-  secrets: false
-  name: minio
+# - helm-chart-name: "minio"
+#   helm-name: minio
+#   helm-url: "https://charts.min.io/"
+#   namespace: "minio"
+#   values: minio-values.yaml
+#   secrets: false
+#   name: minio
 - helm-chart-name: "loki"
   helm-name: loki
   helm-url: "https://grafana.github.io/helm-charts"
