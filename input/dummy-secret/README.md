@@ -1,1 +1,3 @@
-These secrets are used for demo or ephemeral testing cluster needs, when no real security is needed, and external secrets does not have a production quality backend available. 
+# Note
+- A secret deployed in default namespace will work as a source or backend
+- Then external-secrets will fetch value from the secret in default namespace
