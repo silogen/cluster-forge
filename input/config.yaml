@@ -67,9 +67,12 @@
   helm-url: https://aquasecurity.github.io/helm-charts
   values: values.yaml
   secrets: false
-- name: dummy-secret-monitoring-tools
+- name: external-secrets-monitoring-tools
   namespace: monitoring
-  sourcefile: dummy-secret/dummy-secret-monitoring-tools.yaml
+  sourcefile: dummy-secret/external-secrets-monitoring-tools.yaml
+- name: deploy-backend-k8s-secret
+  namespace: default
+  sourcefile: dummy-secret/backend-k8s-secret.yaml
 - helm-chart-name: "grafana"
   helm-name: grafana
   helm-url: "https://grafana.github.io/helm-charts"
