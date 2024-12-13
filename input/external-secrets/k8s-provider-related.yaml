@@ -62,4 +62,3 @@ spec:
           name: external-secrets-readonly
           namespace: external-secrets
       remoteNamespace: default
-

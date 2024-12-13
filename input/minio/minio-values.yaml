@@ -296,7 +296,7 @@ resources:
 ##
 ## In addition to default policies [readonly|readwrite|writeonly|consoleAdmin|diagnostics]
 ## you can define additional policies with custom supported actions and resources
-policies: 
+policies:
 ## writeexamplepolicy policy grants creation or deletion of buckets with name
 ## starting with example. In addition, grants objects write permissions on buckets starting with
 ## example.
@@ -360,12 +360,12 @@ users:
   ## Add new policies as explained here https://min.io/docs/minio/kubernetes/upstream/administration/identity-access-management.html#access-management
   ## NOTE: this will fail if LDAP is enabled in your MinIO deployment
   ## make sure to disable this if you are using LDAP.
-#  - accessKey: monitoring-backend-user 
+#  - accessKey: monitoring-backend-user
 #    secretKey: monitoring-backend-pass
 #    policy: sample-policy
   # Or you can refer to specific secret
   - accessKey: externalSecret
-    existingSecret: minio-user-credential 
+    existingSecret: minio-user-credential
     existingSecretKey: password
     policy: sample-policy
 

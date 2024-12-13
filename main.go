@@ -38,7 +38,7 @@ func main() {
 It reads the configuration from the input directory and generates normalized yaml in the working directory.
 This output can then be edited or customized if needed before casting.
 
-The reason for customizing is to create cluster specific configurations. 
+The reason for customizing is to create cluster specific configurations.
 For example, you could template a 'baseDomain' which could then be input and templated at the forge step.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			runSmelt()

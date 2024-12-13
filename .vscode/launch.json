@@ -13,7 +13,7 @@
             "console": "integratedTerminal",
             "outputCapture": "std",
             "internalConsoleOptions": "neverOpen",
-            "args": ["--cast"]
+            "args": ["cast"]
         },
         {
             "name": "Debug Smelt",
@@ -24,7 +24,7 @@
             "console": "integratedTerminal",
             "outputCapture": "std",
             "internalConsoleOptions": "neverOpen",
-            "args": ["--smelt"]
+            "args": ["smelt"]
         },
         {
             "name": "Debug Forge",
@@ -35,7 +35,7 @@
             "console": "integratedTerminal",
             "outputCapture": "std",
             "internalConsoleOptions": "neverOpen",
-            "args": ["--forge"]
+            "args": ["forge"]
         }
     ]
 }

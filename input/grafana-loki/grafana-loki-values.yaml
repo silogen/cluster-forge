@@ -156,4 +156,4 @@ read: ##
           key: loki_tenant_pw_demo
 
 minio:
-  enabled: false 
+  enabled: false
