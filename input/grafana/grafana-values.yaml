@@ -16,9 +16,9 @@ grafana.ini:
 #    auto_assign_org_id: 1
 #    auto_assign_org_role: Viewer
 #    viewers_can_edit: true
-#  auth.anonymous:
-#    enabled: false
-#    org_role: Viewer
+  auth.anonymous:
+    enabled: true
+    org_role: Viewer
 #  auth:
 #    disable_login_form: false
 #  auth.proxy:
