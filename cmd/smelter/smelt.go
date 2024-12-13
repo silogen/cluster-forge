@@ -91,6 +91,10 @@ func Smelt(configs []utils.Config) {
 		for _, config := range configs {
 			configMap[config.Name] = config
 		}
+		// cleanup any previous smelts
+		if err := utils.cleanupDir("working"); err != nil {
+			log.Fatal(err)
+		}
 		// Ensure the working/pre directory exists
 		preDir := "working/pre"
 		if _, err := os.Stat(preDir); os.IsNotExist(err) {
