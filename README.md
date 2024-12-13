@@ -9,7 +9,7 @@ This is not necessarily meant to replace 'helm install' and 'kubectl apply' for 
 It is designed with the idea of 'ephemeral clusters' and easily reproducable clusters in mind.
 
 ## Usage
-Ensure golang v1.23, kubectl, and helm are installed. For convenience, it can also be run with docker. 
+Ensure golang v1.23, kubectl, and helm are installed. For convenience, it can also be run with docker.
 
 To create a package, there are 3 (or up to 5 depending on how we count) steps.
 

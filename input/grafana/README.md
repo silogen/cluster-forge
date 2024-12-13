@@ -1,1 +1,1 @@
-[Grafana](https://grafana.com/oss/grafana/) is THE dashboard tool. 
+[Grafana](https://grafana.com/oss/grafana/) is THE dashboard tool.

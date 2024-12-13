@@ -50,7 +50,7 @@ podAnnotations: {}
 
 # labels to the operator pod
 podLabels: {}
-  
+
 podSecurityContext: {}
   # runAsNonRoot: true
   # runAsUser: 2

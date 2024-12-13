@@ -1,5 +1,5 @@
 # Minio
-For refrence, on how to install [Minio](https://min.io) for S3 compatible bucket storage locally. 
+For refrence, on how to install [Minio](https://min.io) for S3 compatible bucket storage locally.
 
 ## Order
 - go run . --smelt
