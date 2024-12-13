@@ -394,3 +394,27 @@ func IsClusterScoped(resourceName, apiVersion string) bool {
 	}
 	return false
 }
+
+func CleanupDir(dir string) error {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return nil
+	}
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && info.Name() != ".gitkeep" {
+			err := os.Remove(path)
+			if err != nil {
+				log.Errorf("Error deleting file %s: %v", path, err)
+			} else {
+				log.Debugf("Deleted file %s", path)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("error cleaning %s directory: %v", dir, err)
+	}
+	return nil
+}
