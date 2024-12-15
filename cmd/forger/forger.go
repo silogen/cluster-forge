@@ -22,8 +22,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
+	"time"
 
 	"github.com/charmbracelet/huh"
+	"github.com/silogen/cluster-forge/cmd/utils"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -235,30 +238,51 @@ func getUserSelection(stacks []string) string {
 func runStackLogic(stackPath string) {
 	log.Infof("Deploying stack from: %s", stackPath)
 
-	runCommand(fmt.Sprintf("kubectl apply -f %s/crossplane_base.yaml", stackPath))
+	// Helper function to apply YAML files
+	applyFile := func(filename string) {
+		utils.RunCommand(fmt.Sprintf("kubectl apply -f %s/%s", stackPath, filename))
+	}
 
-	applyMatchingFiles(stackPath, "namespace-*.yaml", false)
+	// Helper function to wait for a CRD
+	waitForCRDWithError := func(crdName string) error {
+		if err := waitForCRD(crdName); err != nil {
+			log.Errorf("Error waiting for CRD %s: %v", crdName, err)
+			return err
+		}
+		return nil
+	}
 
-	applyMatchingFiles(stackPath, "crd-*.yaml", true)
+	// Apply base Crossplane YAML
+	applyFile("crossplane_base.yaml")
 
-	applyMatchingFiles(stackPath, "cm-*.yaml", false)
+	// Wait for required CRDs
+	requiredCRDs := []string{
+		"providers.pkg.crossplane.io",
+		"functions.pkg.crossplane.io",
+		"deploymentruntimeconfigs.pkg.crossplane.io",
+		"compositions.apiextensions.crossplane.io",
+		"compositeresourcedefinitions.apiextensions.crossplane.io",
+	}
 
-	runCommand(fmt.Sprintf("kubectl apply -f %s/crossplane.yaml", stackPath))
+	for _, crd := range requiredCRDs {
+		if err := waitForCRDWithError(crd); err != nil {
+			return
+		}
+	}
 
-	runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all -A")
+	// Apply Crossplane and provider YAML files
+	applyFile("crossplane.yaml")
+	utils.RunCommand("kubectl wait --for=condition=Healthy providers/provider-kubernetes --timeout=60s")
+	applyFile("crossplane_provider.yaml")
 
-	runCommand(fmt.Sprintf("kubectl apply -f %s/function-templates.yaml", stackPath))
+	// Apply composition and stack YAML files
+	applyFile("composition.yaml")
 
-	runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all -A")
+	// Restart Crossplane pods and wait for readiness
+	utils.RunCommand("kubectl delete pods --all -n crossplane-system")
+	utils.RunCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all -n crossplane-system")
 
-	runCommand(fmt.Sprintf("kubectl apply -f %s/crossplane_provider.yaml", stackPath))
-	runCommand(fmt.Sprintf("kubectl apply -f %s/composition.yaml", stackPath))
-
-	runCommand("kubectl delete pods --all -n crossplane-system")
-
-	runCommand("kubectl wait --for=condition=Ready --timeout=600s pods --all -n crossplane-system")
-
-	runCommand(fmt.Sprintf("kubectl apply -f %s/stack.yaml", stackPath))
+	applyFile("stack.yaml")
 
 	log.Info("Deployment complete!")
 }
@@ -274,7 +298,7 @@ func applyMatchingFiles(dir string, pattern string, server_side bool) {
 		if server_side {
 			command += " --server-side"
 		}
-		runCommand(command)
+		utils.RunCommand(command)
 	}
 }
 
@@ -284,14 +308,33 @@ func installHelmChart(repoName, repoURL, releaseName, chartName string) {
 		"helm repo add %s %s && helm repo update && helm upgrade --install %s %s",
 		repoName, repoURL, releaseName, chartName,
 	)
-	runCommand(cmd)
+	utils.RunCommand(cmd)
 }
 
-func runCommand(cmd string) error {
-	output, err := exec.Command("sh", "-c", cmd).CombinedOutput()
-	if err != nil {
-		log.Fatalf("Command %s failed: %v\nOutput: %s", cmd, err, string(output))
+// waitForCRD waits for a specific CRD to be available and in Established condition
+func waitForCRD(crdName string) error {
+	fmt.Printf("Waiting for CRD: %s to become available...\n", crdName)
+
+	for {
+		// Check if the CRD exists
+		if err := exec.Command("kubectl", "get", "crd", crdName).Run(); err != nil {
+			fmt.Printf("CRD %s is not found. Retrying in 5 seconds...\n", crdName)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		// Wait for the CRD to reach the Established condition
+		cmd := exec.Command("kubectl", "wait", "--for=condition=Established", "crd/"+crdName, "--timeout=60s")
+		if output, err := cmd.CombinedOutput(); err != nil {
+			fmt.Printf("CRD %s is not ready: %s. Retrying in 5 seconds...\n", crdName, strings.TrimSpace(string(output)))
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		// CRD is ready
+		fmt.Printf("CRD %s is now ready!\n", crdName)
+		break
 	}
-	log.Infof(string(output))
+
 	return nil
 }

@@ -19,6 +19,7 @@ package caster
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -27,6 +28,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/google/uuid"
 	"github.com/silogen/cluster-forge/cmd/utils"
 	log "github.com/sirupsen/logrus"
 )
@@ -42,7 +44,7 @@ type targettool struct {
 func Cast(configs []utils.Config, filesDir string, workingDir string, stacksDir string) {
 	log.Info("Starting up the menu...")
 
-	castname, toolTypes := handleInteractiveForm(workingDir)
+	castname, imagename, toolTypes := handleInteractiveForm(workingDir)
 
 	accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
 	err := spinner.New().
@@ -59,12 +61,12 @@ func Cast(configs []utils.Config, filesDir string, workingDir string, stacksDir 
 	}
 
 	packageDir := PreparePackageDirectory(stacksDir, castname)
-	CopyFilesWithSpinner(filesDir, packageDir)
-
+	CopyFilesWithSpinner(filesDir, packageDir, imagename)
+	AppendStringToYAMLFile(filepath.Join(packageDir, "crossplane.yaml"), fmt.Sprintf("  package: %s", imagename))
 	displaySuccessMessage(castname)
 }
 
-func handleInteractiveForm(workingDir string) (string, []string) {
+func handleInteractiveForm(workingDir string) (string, string, []string) {
 	files, err := os.ReadDir(workingDir)
 	if err != nil {
 		log.Fatalf("Failed to read working directory: %v", err)
@@ -83,10 +85,20 @@ func handleInteractiveForm(workingDir string) (string, []string) {
 	log.Debugf("Options for multi-select: %v", names)
 
 	var castname string
+	var imagename string
 	var toolTypes []string
+	domainRe := regexp.MustCompile(`^(?:[a-zA-Z0-9.-]+)(?:/[a-zA-Z0-9-_]+)*(?::[a-zA-Z0-9._-]+)?$`)
 	re := regexp.MustCompile("^[a-z0-9_-]+$")
 
-	form := huh.NewForm(
+	// Check if PUBLISH_IMAGE is set
+	publishImage := os.Getenv("PUBLISH_IMAGE") == "true"
+
+	if !publishImage {
+		// Set default image name
+		imagename = "ttl.sh/" + strings.ToLower(uuid.New().String()) + ":12h"
+	}
+
+	form := []*huh.Group{
 		huh.NewGroup(huh.NewText().
 			Title("Name of this composition package").
 			CharLimit(25).
@@ -97,23 +109,36 @@ func handleInteractiveForm(workingDir string) (string, []string) {
 				return nil
 			}).
 			Value(&castname)),
+	}
 
-		huh.NewGroup(
-			huh.NewMultiSelect[string]().
-				Options(huh.NewOptions(names...)...).
-				Title("Choose the tools to cast into the stack").
-				Validate(func(t []string) error {
-					if len(t) <= 0 {
-						return fmt.Errorf("at least one tool is required")
-					}
-					return nil
-				}).
-				Value(&toolTypes).
-				Filterable(true),
-		),
-	)
+	if publishImage {
+		form = append(form, huh.NewGroup(huh.NewText().
+			Title("Container Registry and Package name (URL of the registry entry, i.e. ghcr.io/silogen/clusterforge)").
+			CharLimit(65).
+			Validate(func(input string) error {
+				if !domainRe.MatchString(input) {
+					return fmt.Errorf("input must be a valid URL domain and tag")
+				}
+				return nil
+			}).
+			Value(&imagename)))
+	}
 
-	if err := form.Run(); err != nil {
+	form = append(form, huh.NewGroup(
+		huh.NewMultiSelect[string]().
+			Options(huh.NewOptions(names...)...).
+			Title("Choose the tools to cast into the stack").
+			Validate(func(t []string) error {
+				if len(t) <= 0 {
+					return fmt.Errorf("at least one tool is required")
+				}
+				return nil
+			}).
+			Value(&toolTypes).
+			Filterable(true),
+	))
+
+	if err := huh.NewForm(form...).Run(); err != nil {
 		log.Fatalf("Interactive form failed: %v", err)
 	}
 
@@ -123,7 +148,7 @@ func handleInteractiveForm(workingDir string) (string, []string) {
 		toolTypes = removeElement(toolTypes, "all")
 	}
 
-	return castname, toolTypes
+	return castname, imagename, toolTypes
 }
 
 func removeElement(slice []string, element string) []string {
@@ -210,33 +235,29 @@ func PreparePackageDirectory(stacksDir, castname string) string {
 	if err != nil {
 		log.Fatalf("Failed to create package directory: %s", err)
 	}
+	utils.RunCommand("find working -type f -name \"*.yaml\" ! -path \"working/pre/*\" | tar -czvf stacks/" + castname + "/src-yamls.tar.gz -T -")
+
 	return packageDir
 }
 
-func CopyFilesWithSpinner(filesDir, packageDir string) {
+func CopyFilesWithSpinner(filesDir, packageDir string, imagename string) {
 	err := spinner.New().
-		Title("Copying files to package...").
+		Title("Compiling files and creating image...").
 		Action(func() {
-			utils.GenerateFunctionTemplates(filesDir, filepath.Join(filesDir, "function-templates.yaml"))
-			err := utils.CopyYAMLFiles("cmd/utils/templates", filesDir)
+			err := utils.CopyYAMLFiles("cmd/utils/templates", packageDir)
 			if err != nil {
 				log.Fatalf("failed to copy YAML files: %s", err)
 			}
-			files, err := os.ReadDir(filesDir)
-			if err != nil {
-				log.Fatalf("Failed to read files directory: %v", err)
-			}
 
-			for _, file := range files {
-				if !file.IsDir() && !strings.HasPrefix(file.Name(), ".") {
-					srcPath := filepath.Join(filesDir, file.Name())
-					dstPath := filepath.Join(packageDir, file.Name())
-					err = utils.CopyFile(srcPath, dstPath)
-					if err != nil {
-						log.Fatalf("Failed to copy file %s: %v", file.Name(), err)
-					}
-				}
+			err = utils.CopyYAMLFiles("templates", packageDir)
+			if err != nil {
+				log.Fatalf("failed to copy YAML files: %s", err)
 			}
+			err = utils.CopyFile("cmd/utils/templates/deploy.sh", packageDir+"/deploy.sh")
+			if err != nil {
+				log.Fatalf("failed to copy deploy.sh : %s", err)
+			}
+			BuildAndPushImage(imagename)
 		}).
 		Run()
 	if err != nil {
@@ -285,4 +306,34 @@ func FetchFilesAndCategorizeByPrefix(dir string, prefix string) (namespaceFiles,
 	}
 
 	return namespaceFiles, crdFiles, secretFiles, externalSecretFiles, objectFiles, nil
+}
+
+func BuildAndPushImage(imageName string) error {
+	cmd := exec.Command("docker", "buildx", "build", "-t", imageName, "--platform", "linux/amd64,linux/arm64", "-f", "docker_forge", "--push", ".")
+
+	// Run the command
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
+	return nil
+}
+
+func AppendStringToYAMLFile(filePath string, appendString string) error {
+	// Read the existing content of the file
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Append the string to the content
+	updatedContent := append(content, []byte("\n"+appendString)...)
+
+	// Write the updated content back to the file
+	err = os.WriteFile(filePath, updatedContent, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
 }

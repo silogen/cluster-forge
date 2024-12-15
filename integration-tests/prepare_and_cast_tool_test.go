@@ -3,8 +3,10 @@ package integration_tests
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/silogen/cluster-forge/cmd/caster"
 	"github.com/silogen/cluster-forge/cmd/smelter"
 	"github.com/silogen/cluster-forge/cmd/utils"
@@ -80,6 +82,7 @@ func TestIntegrationPrepareAndCastTool(t *testing.T) {
 
 	castname := "test-stack"
 	toolTypes := []string{"amd-device-plugin"}
+	imagename := "ttl.sh/" + strings.ToLower(uuid.New().String()) + ":10m"
 
 	err = caster.CastTool(successConfigs, toolTypes, outputDir, workingDir)
 	if err != nil {
@@ -88,7 +91,7 @@ func TestIntegrationPrepareAndCastTool(t *testing.T) {
 
 	caster.PreparePackageDirectory(stacksDir, castname)
 
-	caster.CopyFilesWithSpinner(outputDir, filepath.Join(stacksDir, castname))
+	caster.CopyFilesWithSpinner(outputDir, filepath.Join(stacksDir, castname), imagename)
 
 	expectedOutputs := []string{
 		filepath.Join(outputDir, "cm-amd-device-plugin-object-1.yaml"),

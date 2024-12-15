@@ -3,7 +3,7 @@ kind: Provider
 metadata:
   name: provider-kubernetes
 spec:
-  package: xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v0.14.1
+  package: xpkg.upbound.io/upbound/provider-kubernetes:v0.16.0
   runtimeConfigRef:
     apiVersion: pkg.crossplane.io/v1beta1
     kind: DeploymentRuntimeConfig
@@ -14,16 +14,18 @@ kind: DeploymentRuntimeConfig
 metadata:
   name: provider-kubernetes
 spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          containers:
+            - name: package-runtime
+              args:
+                - --enable-server-side-apply
   serviceAccountTemplate:
     metadata:
       name: provider-kubernetes
----
-apiVersion: pkg.crossplane.io/v1alpha1
-kind: ControllerConfig
-metadata:
-  name: crossplane-provider-kubernetes
-spec:
-  serviceAccountName: crossplane-provider-kubernetes
 ---
 apiVersion: pkg.crossplane.io/v1beta1
 kind: Function
@@ -37,6 +39,3 @@ kind: Function
 metadata:
   name: function-go-templating
 spec:
-  package: xpkg.upbound.io/crossplane-contrib/function-go-templating:v0.7.0
-  runtimeConfigRef:
-    name: mount-templates

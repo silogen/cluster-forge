@@ -48,5 +48,8 @@ spec:
                 domain:
                   type: string
                   description: Domain used by the cluster
+                storageClass:
+                  type: string
+                  description: storageclass used by the cluster
               required:
                 - domain
