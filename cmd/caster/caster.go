@@ -17,7 +17,9 @@
 package caster
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -311,9 +313,45 @@ func FetchFilesAndCategorizeByPrefix(dir string, prefix string) (namespaceFiles,
 func BuildAndPushImage(imageName string) error {
 	cmd := exec.Command("docker", "buildx", "build", "-t", imageName, "--platform", "linux/amd64,linux/arm64", "-f", "docker_forge", "--push", ".")
 
+	// Capture stdout and stderr
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to get stdout pipe: %w", err)
+	}
+
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to get stderr pipe: %w", err)
+	}
+
+	// Buffers to capture stderr and stdout for later inspection
+	var stderrBuffer bytes.Buffer
+	var stdoutBuffer bytes.Buffer
+
+	// Log stdout in a goroutine
+	go func() {
+		_, err := io.Copy(io.MultiWriter(log.WithField("stream", "stdout").WriterLevel(log.DebugLevel), &stdoutBuffer), stdoutPipe)
+		if err != nil {
+			log.Errorf("error capturing stdout: %v", err)
+		}
+	}()
+
+	// Log stderr to both logrus and os.Stdout in a goroutine
+	go func() {
+		_, err := io.Copy(io.MultiWriter(log.WithField("stream", "stderr").WriterLevel(log.ErrorLevel), os.Stdout, &stderrBuffer), stderrPipe)
+		if err != nil {
+			log.Errorf("error capturing stderr: %v", err)
+		}
+	}()
+
 	// Run the command
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
+	// Check stderr for errors
+	if stderrBuffer.Len() > 0 {
+		return fmt.Errorf("command returned errors: %s", stderrBuffer.String())
 	}
 
 	return nil
