@@ -259,7 +259,10 @@ func CopyFilesWithSpinner(filesDir, packageDir string, imagename string) {
 			if err != nil {
 				log.Fatalf("failed to copy deploy.sh : %s", err)
 			}
-			BuildAndPushImage(imagename)
+			err = BuildAndPushImage(imagename)
+			if err != nil {
+				log.Fatalf("failed to build image : %s", err)
+			}
 		}).
 		Run()
 	if err != nil {
@@ -336,9 +339,9 @@ func BuildAndPushImage(imageName string) error {
 		}
 	}()
 
-	// Log stderr to both logrus and os.Stdout in a goroutine
+	// Log stderr in a goroutine
 	go func() {
-		_, err := io.Copy(io.MultiWriter(log.WithField("stream", "stderr").WriterLevel(log.ErrorLevel), os.Stdout, &stderrBuffer), stderrPipe)
+		_, err := io.Copy(io.MultiWriter(log.WithField("stream", "stderr").WriterLevel(log.InfoLevel), &stderrBuffer), stderrPipe)
 		if err != nil {
 			log.Errorf("error capturing stderr: %v", err)
 		}
@@ -347,11 +350,6 @@ func BuildAndPushImage(imageName string) error {
 	// Run the command
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
-	}
-
-	// Check stderr for errors
-	if stderrBuffer.Len() > 0 {
-		return fmt.Errorf("command returned errors: %s", stderrBuffer.String())
 	}
 
 	return nil
