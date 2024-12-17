@@ -2,7 +2,6 @@
 
 for dir in "working"/*; do
   if [ -d "$dir" ] && [ "$(basename "$dir")" != "pre" ]; then
-    echo "Deleting directory: $dir"
     rm -rf "$dir"
   fi
 done

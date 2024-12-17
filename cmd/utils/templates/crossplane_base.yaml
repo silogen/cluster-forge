@@ -768,6 +768,7 @@ spec:
         args:
         - core
         - start
+        - --enable-ssa-claims
         imagePullPolicy: IfNotPresent
         name: crossplane
         resources:

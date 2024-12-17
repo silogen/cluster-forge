@@ -1,0 +1,11 @@
+# syntax=docker/dockerfile:1
+FROM ubuntu:20.04 AS copier
+RUN mkdir -p /templates
+COPY output/*.yaml /templates/
+
+FROM xpkg.upbound.io/crossplane-contrib/function-go-templating:v0.8.0
+COPY --from=copier /templates/ /templates/
+WORKDIR /
+EXPOSE 9443
+USER nonroot:nonroot
+ENTRYPOINT ["/function"]

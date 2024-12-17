@@ -5,14 +5,14 @@ demo:
   @echo "now I'm running the demo"
 
 debug-smelt:
-  @LOG_LEVEL=debug go run . -smelt
+  @LOG_LEVEL=debug go run . smelt
   @rm -rf Library
 
 debug-cast:
-  @LOG_LEVEL=debug go run . -cast
+  @LOG_LEVEL=debug go run . cast
 
 debug-forge:
-  @LOG_LEVEL=debug go run . -forge
+  @LOG_LEVEL=debug go run . forge
 
 build:
   @go build

@@ -361,3 +361,12 @@ func IsClusterScoped(resourceName, apiVersion string) bool {
 	}
 	return false
 }
+
+func RunCommand(cmd string) error {
+	output, err := exec.Command("sh", "-c", cmd).CombinedOutput()
+	if err != nil {
+		log.Fatalf("Command %s failed: %v\nOutput: %s", cmd, err, string(output))
+	}
+	log.Infof(string(output))
+	return nil
+}

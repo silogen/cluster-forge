@@ -5,3 +5,4 @@ metadata:
   namespace: crossplane-system
 spec:
   domain: demo.silogen.ai
+  storageClass: directpv-min-io
