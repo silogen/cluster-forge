@@ -19,14 +19,14 @@ If the tool needed is not already included, add it to input/config.yaml
 ### Step 1 (SMELT)
 Run 'smelt', which will generate formatted (yaml) configs which will be used.
 ```sh
-go run . --smelt
+go run . smelt
 ```
 
 Or alternatively with Docker
 
 ```sh
 alias xforge="docker compose run forge"
-xforge --smelt
+xforge smelt
 ```
 
 
@@ -45,14 +45,19 @@ Likely not needed, and instructions to come here.
 Compile the components into a stack
 
 ```sh
-go run . --cast
+go run . cast
 ```
 
+> [!IMPORTANT] 
+> If you encounter build errors during the `cast` process, you may need to enable `multi-architecture` docker builds on your machine using the following command:
+```sh
+docker buildx create --name multiarch-builder --use
+```
 
 ![Cast Demo](docs/demoCast.gif)
 
 ### Step 3 (FORGE)
 This step deploys a stack to a cluster
 ```sh
-go run . --forge
+go run . forge
 ```

@@ -2,18 +2,15 @@
 - name: certmanager
   namespace: cert-manager
   manifest-url: https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml
-- name: amd-device-plugin
-  manifest-url: https://raw.githubusercontent.com/ROCm/k8s-device-plugin/master/k8s-ds-amdgpu-dp.yaml
-  namespace: kube-system
-- name: amd-gpu-node-labeller
-  manifest-url: https://raw.githubusercontent.com/ROCm/k8s-device-plugin/master/k8s-ds-amdgpu-labeller.yaml
-  namespace: kube-system
+- helm-chart-name: "gpu-operator-charts"
+  helm-name: amd-gpu-operator
+  helm-url: "https://rocm.github.io/gpu-operator"
+  namespace: "kube-amd-gpu"
+  name: amd-gpu-operator
+  helm-version: "1.0.0"
 # - name: kueue
 #   namespace: kueue-system
 #   sourcefile: kueue/manifests.yaml
-- name: amd-metrics-exporter
-  namespace: monitoring
-  sourcefile: amd-metrics-exporter/metrics-exporter.yaml
 - helm-chart-name: "external-secrets"
   helm-name: external-secrets
   helm-url: "https://charts.external-secrets.io"
