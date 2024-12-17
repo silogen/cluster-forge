@@ -92,12 +92,12 @@
   name: kuberay-operator
   namespace: "default"
 # - helm-chart-name: "minio"
-#   helm-name: minio
-#   helm-url: "https://charts.min.io/"
-#   namespace: "minio"
-#   values: minio-values.yaml
-#   secrets: false
-#   name: minio
+#  helm-name: minio
+#  helm-url: "https://charts.min.io/"
+#  namespace: "minio"
+#  values: minio-values.yaml
+#  secrets: false
+#  name: minio
 - helm-chart-name: "loki"
   helm-name: loki
   helm-url: "https://grafana.github.io/helm-charts"
@@ -106,3 +106,11 @@
   name: grafana-loki
   namespace: "grafana-loki"
   helm-version: "6.15.0"
+- helm-chart-name: "mimir-distributed"
+  helm-name: mimir
+  helm-url: "https://grafana.github.io/helm-charts"
+  values: grafana-mimir-values.yaml
+  secrets: false
+  name: grafana-mimir
+  namespace: "grafana-mimir"
+  helm-version: "5.2.1"
