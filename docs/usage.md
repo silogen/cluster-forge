@@ -22,7 +22,7 @@ go run . smelt
 
 This will generate formatted YAML configs based on your selections.
 
-![Smelt Demo](docs/gifs/demoSmelt.gif)
+![Smelt Demo](gifs/demoSmelt.gif)
 
 ---
 
@@ -31,11 +31,15 @@ This will generate formatted YAML configs based on your selections.
 To tailor your configuration, edit files under the `/working` directory.  
 While this step is optional for basic testing, it is essential to unlock the full benefits of Cluster-Forge. Detailed instructions will be provided in a future release.
 
+![Customization Demo](gifs/demoCustomize.gif)
+
 ---
 
 ### Step 3: Cast
 
-The `cast` step compiles the components into a deployable stack image.
+The `cast` step compiles the components into a deployable stack image. By default, an image is created and pushed to an [ephemeral registry](ttl.sh) where it will be available for 12 hours. 
+
+To push the image instead to a registry of your choice, set env variable PUBLISH_IMAGE=true and you will be given the option to specify the registry, image name and tag. 
 
 Run the following command:
 
@@ -43,13 +47,20 @@ Run the following command:
 go run . cast
 ```
 
+Or, to run with a non-ephemeral registry, run the following command:
+
+```sh
+PUBLISH_IMAGE=true go run . cast
+```
+
+
 > **Important:**  
 > If you encounter build errors during the `cast` process, you may need to enable **multi-architecture Docker builds** with the following command:
 > ```sh
 > docker buildx create --name multiarch-builder --use
 > ```
 
-![Cast Demo](docs/gifs/demoCast.gif)
+![Cast Demo](gifs/demoCast.gif)
 
 ---
 
