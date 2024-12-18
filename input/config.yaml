@@ -88,13 +88,13 @@
   secrets: false
   name: kuberay-operator
   namespace: "default"
-# - helm-chart-name: "minio"
-#  helm-name: minio
-#  helm-url: "https://charts.min.io/"
-#  namespace: "minio"
-#  values: minio-values.yaml
-#  secrets: false
-#  name: minio
+- helm-chart-name: "minio"
+  helm-name: minio
+  helm-url: "https://charts.min.io/"
+  namespace: "minio"
+  values: minio-values.yaml
+  secrets: false
+  name: minio
 - helm-chart-name: "loki"
   helm-name: loki
   helm-url: "https://grafana.github.io/helm-charts"

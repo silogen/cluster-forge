@@ -1,13 +1,13 @@
 server:
   remoteWrite:
-    - url: http://central-mimir-gateway.monitoring.svc.cluster.local/api/v1/push
+    - url: http://mimir-gateway.grafana-mimir.svc.cluster.local/api/v1/push
       basic_auth: ## <-- username and password could be updated by tanuu-operator later
-        username: mimir-user ##
-        password: mimir-pw ##
+        username: cluster-forge-mimir-test-user ##
+        password: cluster-forge-mimir-test-pass ##
         #username: ${MIMIR_USERNAME} Passing credentials from env doesn't work
         #password: ${MIMIR_PASSWORD}
       headers:
-        "X-Scope-OrgID": "this-is-wrong-cluster-value-to-be-replaced" ## <-- Be updated by go-templating and input from XR
+        "X-Scope-OrgID": "mimir-tenant" ## <-- Be updated by go-templating and input from XR
   service:
     ## Enable gRPC port on service to allow auto discovery with thanos-querier
     gRPC:

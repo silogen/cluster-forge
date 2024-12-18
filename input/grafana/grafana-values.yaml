@@ -69,19 +69,19 @@ datasources:
       basicAuthUser: loki-tenant-demo
       secureJsonData:
         basicAuthPassword: A123examplesecretpassword ###
-#    - name: Mimir_for_Dev ###
-#      type: prometheus
-#      url: http://grafana-mimir-gateway.monitoring-services-metric.svc:8080/prometheus ###
-#      orgId: 1
-#      uid: mimir_for_metrics
-#      isDefault: true
-#      basicAuth: true
-#      basicAuthUser: mimir-user
-#      secureJsonData:
-#        basicAuthPassword: ${MIMIR_PASSWORD} ###
-#        httpHeaderValue1: 'mimir-tenant-dev' ###
-#      jsonData:
-#        httpHeaderName1: 'X-Scope-OrgID'
+    - name: Mimir ###
+      type: prometheus
+      url: http://mimir-gateway.grafana-mimir.svc:8080/prometheus ###
+      orgId: 1
+      uid: mimir_for_metrics
+ #     isDefault: true
+      basicAuth: true
+      basicAuthUser: cluster-forge-mimir-test-user
+      secureJsonData:
+        basicAuthPassword:  cluster-forge-mimir-test-pass ###
+        httpHeaderValue1: 'mimir-tenant' ###
+      jsonData:
+        httpHeaderName1: 'X-Scope-OrgID'
 #    - name: Mimir_for_Service_Graph ###
 #      type: prometheus
 #      url: http://grafana-mimir-gateway.monitoring-services-metric.svc:8080/prometheus
