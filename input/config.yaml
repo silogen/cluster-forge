@@ -111,3 +111,10 @@
   name: grafana-mimir
   namespace: "grafana-mimir"
   helm-version: "5.2.1"
+- helm-chart-name: "redis"
+  helm-name: redis
+  helm-url: "https://charts.bitnami.com/bitnami"
+  namespace: "redis"
+  name: redis
+  helm-version: "20.3.0"
+  values: redis-dev-values.yaml # Insecure
