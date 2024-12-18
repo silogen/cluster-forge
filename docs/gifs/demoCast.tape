@@ -3,7 +3,7 @@ Set Height 800
 Set WindowBar Colorful
 Set Shell zsh
 Sleep 1s
-Type "go run . --cast"
+Type "go run . cast"
 Enter
 Sleep 4s
 Type "demo"
@@ -29,4 +29,4 @@ Type " "
 Sleep 500ms
 Enter
 Set PlaybackSpeed 3.0
-Sleep 11s
+Sleep 30s

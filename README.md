@@ -1,63 +1,70 @@
-# cluster-forge
-Kuberentes operator which sets up all platform tools to have a cluster ready for applications to run.
+# Cluster-Forge
+
+**A helper tool that sets up all essential platform tools to prepare a Kubernetes cluster for running applications.**
 
 ## Overview
-Cluster-Forge is a tool used to includes various components based on 3rd party/community tools or components along with in-house deployments into a single stack (packaged set of ready components) to be deployed in a kubernetes cluster.
 
-This is not necessarily meant to replace 'helm install' and 'kubectl apply' for a single use dev cluster. It is meant to wrap all those together for the use of repeated kubernetes cluster deployments. Test clusters, ephemeral pipeline clusters, or just scaling multiple clusters.
+**Cluster-Forge** is a tool designed to bundle various third-party, community, and in-house components into a single, streamlined stack that can be deployed in Kubernetes clusters. By automating the process, Cluster-Forge simplifies the repeated creation of consistent, ready-to-use clusters.
 
-It is designed with the idea of 'ephemeral clusters' and easily reproducable clusters in mind.
+This tool is not meant to replace simple `helm install` or `kubectl apply` commands for single-use development clusters. Instead, it wraps these workflows into a robust process tailored for scenarios such as:
 
-## Usage
-Ensure golang v1.23, kubectl, and helm are installed. For convenience, it can also be run with docker.
+- **Ephemeral test clusters**  
+- **CI/CD pipeline clusters**  
+- **Scaling and managing multiple clusters efficiently**
 
-To create a package, there are 3 (or up to 5 depending on how we count) steps.
+Cluster-Forge is built with the idea of **ephemeral and reproducible clusters**, enabling you to spin up identical environments quickly and reliably.
 
-### Step 0
-If the tool needed is not already included, add it to input/config.yaml
+### Workflow Steps
 
-### Step 1 (SMELT)
-Run 'smelt', which will generate formatted (yaml) configs which will be used.
-```sh
-go run . smelt
-```
+Cluster-Forge operates through a sequence of well-defined steps:
 
-Or alternatively with Docker
+1. **(Optional)** Update `input/config.yaml` with any required tools or configurations.  
+2. **Smelt**: Normalize YAML configurations.  
+3. **Customize**: Add optional template-based customizations.  
+4. **Cast**: Package the software stack into a deployable image.  
+5. **Temper**: Verify cluster readiness for the Forge step.  
+6. **Forge**: Deploy the image and start up the software stack in your cluster.  
 
-```sh
-alias xforge="docker compose run forge"
-xforge smelt
-```
+---
+
+## Prerequisites
+
+Ensure the following tools are installed:
+
+- **Golang** (v1.23 or higher)  
+- **kubectl**  
+- **Helm**  
 
 
 
+[Usage](docs/usage.md)
 
-![Smest Demo](docs/demoSmelt.gif)
+
+---
 
 
-Select the components to include and they will be generated.
 
-### Step 1.5 (optional)
-Add any customizations needed to files in /working
-Likely not needed, and instructions to come here.
+## Known Issues
 
-### Step 2 (CAST)
-Compile the components into a stack
+Cluster-Forge is still a work in progress, and the following issues are currently known:
 
-```sh
-go run . cast
-```
+1. **Kyverno Policies**: There are known issues when smelting Kyverno configurations. Avoid using Kyverno policies for now.  
+2. **Size Limitations**: Selecting "all" components may exceed configuration limits and cause failures. A reasonable subset should work fine.  
+3. **Terminal Line Handling**: Errors occurring alongside the progress spinner may cause terminal formatting issues. To restore the terminal, run:  
+   ```sh
+   reset
+   ```
 
-> [!IMPORTANT] 
-> If you encounter build errors during the `cast` process, you may need to enable `multi-architecture` docker builds on your machine using the following command:
-```sh
-docker buildx create --name multiarch-builder --use
-```
+---
 
-![Cast Demo](docs/demoCast.gif)
+## Future Improvements
 
-### Step 3 (FORGE)
-This step deploys a stack to a cluster
-```sh
-go run . forge
-```
+We are actively working on resolving the known issues and improving the overall functionality of Cluster-Forge. Your feedback is always welcome!
+
+---
+
+## Conclusion
+
+Cluster-Forge is designed to simplify Kubernetes cluster management, especially when dealing with ephemeral, test, or pipeline clusters. By combining multiple tools and workflows into a repeatable process, Cluster-Forge saves time and ensures consistency across deployments.
+
+Give it a try, and let us know how it works for you!

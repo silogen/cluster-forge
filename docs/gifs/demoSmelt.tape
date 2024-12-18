@@ -3,7 +3,7 @@ Set Height 800
 Set WindowBar Colorful
 Set Shell zsh
 Sleep 1s
-Type "go run . --smelt"
+Type "go run . smelt"
 Enter
 Sleep 2s
 Type " "
