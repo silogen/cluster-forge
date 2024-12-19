@@ -25,6 +25,9 @@ Cluster-Forge operates through a sequence of well-defined steps:
 5. **Temper**: Verify cluster readiness for the Forge step.  
 6. **Forge**: Deploy the image and start up the software stack in your cluster.  
 
+**NOTE**: The casted SW stack can also be deployed with a shell script (deploy.sh) found in stacks/\<stackname\> directory.
+An uninstall script is also found the the same directory which should uninstall all components installed by a stack deployment. 
+
 ---
 
 ## Prerequisites

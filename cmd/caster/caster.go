@@ -259,6 +259,10 @@ func CopyFilesWithSpinner(filesDir, packageDir string, imagename string) {
 			if err != nil {
 				log.Fatalf("failed to copy deploy.sh : %s", err)
 			}
+			err = utils.CopyFile("cmd/utils/templates/uninstall.sh", packageDir+"/uninstall.sh")
+			if err != nil {
+				log.Fatalf("failed to copy uninstall.sh : %s", err)
+			}
 			err = BuildAndPushImage(imagename)
 			if err != nil {
 				log.Fatalf("failed to build image : %s", err)
