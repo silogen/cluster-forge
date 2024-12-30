@@ -1,0 +1,175 @@
+apiVersion: ray.io/v1
+kind: RayJob
+metadata:
+  name: llama3-70b-inference
+  namespace: my-namespace
+  labels:
+    kueue.x-k8s.io/queue-name: gpu-queue
+spec:
+  shutdownAfterJobFinishes: true
+  entrypoint: >
+    /bin/bash -c "
+    git clone https://github.com/opendatahub-io/distributed-workloads.git &&
+    cd distributed-workloads/examples/ray-finetune-llm-deepspeed &&
+    cp /home/ray/samples/sample_code.py . &&
+    python sample_code.py
+    --model-name=meta-llama/Llama-3.1-8B-Instruct
+    --ds-config=./deepspeed_configs/zero_3_offload_optim_param.json
+    --bucket=silogen-dev-ray
+    --num-epochs=2
+    --num-devices=16
+    --lora
+    --batch-size-per-device=32
+    --eval-batch-size-per-device=32
+    --ctx-len=1024"
+  rayClusterSpec:
+    rayVersion: "2.9.0"
+    enableInTreeAutoscaling: false #cannot be true when using Kueue
+    headGroupSpec:
+      rayStartParams: {}
+      template:
+        spec:
+          containers:
+            - name: ray-head
+              image: ghcr.io/silogen/rocm-ray:v0.1
+              imagePullPolicy: Always
+              env:
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: gcs-credentials
+                      key: access_key
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: gcs-credentials
+                      key: secret_key
+                - name: HF_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: hf-token
+                      key: hf-token
+                - name: GOOGLE_APPLICATION_CREDENTIALS
+                  value: "/etc/gcp/credentials.json"
+                - name: TORCH_NCCL_HIGH_PRIORITY
+                  value: "1"
+              ports:
+                - containerPort: 6379
+                  name: gcs-server
+                - containerPort: 8265
+                  name: dashboard
+                - containerPort: 10001
+                  name: client
+              resources:
+                limits:
+                  cpu: "32"
+                  memory: "300Gi"
+                  amd.com/gpu: "8"
+                requests:
+                  cpu: "32"
+                  memory: "300Gi"
+                  amd.com/gpu: "8"
+              volumeMounts:
+                - mountPath: /home/ray/samples
+                  name: code-sample
+                - mountPath: /home/ray/debug
+                  name: debug-script
+                - mountPath: /dev/shm
+                  name: dshm
+                - mountPath: /etc/gcp/credentials.json
+                  name: gcp-credentials-volume
+                  subPath: credentials.json
+                - mountPath: "/mnt"
+                  name: test-volume
+          volumes:
+            - name: code-sample
+              configMap:
+                name: ray-llama3-ds-zero3-example
+                items:
+                  - key: sample_code.py
+                    path: sample_code.py
+            - name: gcp-credentials-volume
+              secret:
+                secretName: gcs-credentials
+                items:
+                  - key: gcs-credentials-json
+                    path: credentials.json
+            - name: dshm
+              emptyDir:
+                medium: Memory
+                sizeLimit: 200Gi
+            - name: debug-script
+              configMap:
+                name: ray-job-debug
+                items:
+                  - key: debug_script.sh
+                    path: debug_script.sh
+            - name: test-volume
+              persistentVolumeClaim:
+                claimName: test-pvc
+    workerGroupSpecs:
+      - replicas: 1
+        minReplicas: 1
+        maxReplicas: 1
+        groupName: small-group
+        rayStartParams: {}
+        template:
+          spec:
+            containers:
+              - name: ray-worker
+                image: ghcr.io/silogen/rocm-ray:v0.1
+                imagePullPolicy: Always
+                env:
+                  - name: AWS_ACCESS_KEY_ID
+                    valueFrom:
+                      secretKeyRef:
+                        name: gcs-credentials
+                        key: access_key
+                  - name: AWS_SECRET_ACCESS_KEY
+                    valueFrom:
+                      secretKeyRef:
+                        name: gcs-credentials
+                        key: secret_key
+                  - name: HF_TOKEN
+                    valueFrom:
+                      secretKeyRef:
+                        name: hf-token
+                        key: hf-token
+                  - name: GOOGLE_APPLICATION_CREDENTIALS
+                    value: "/etc/gcp/credentials.json"
+                  - name: TORCH_NCCL_HIGH_PRIORITY
+                    value: "1"
+                resources:
+                  limits:
+                    cpu: "32"
+                    memory: "300Gi"
+                    amd.com/gpu: "8"
+                  requests:
+                    cpu: "32"
+                    memory: "300Gi"
+                    amd.com/gpu: "8"
+                volumeMounts:
+                  - mountPath: /home/ray/samples
+                    name: code-sample
+                  - mountPath: /dev/shm
+                    name: dshm
+                  - mountPath: /etc/gcp/credentials.json
+                    name: gcp-credentials-volume
+                    subPath: credentials.json
+            volumes:
+              - name: code-sample
+                configMap:
+                  name: ray-llama3-ds-zero3-example
+                  items:
+                    - key: sample_code.py
+                      path: sample_code.py
+              - name: gcp-credentials-volume
+                secret:
+                  secretName: gcs-credentials
+                  items:
+                    - key: gcs-credentials-json
+                      path: credentials.json
+              - name: dshm
+                emptyDir:
+                  medium: Memory
+                  sizeLimit: 200Gi
