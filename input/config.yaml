@@ -8,9 +8,9 @@
   namespace: "kube-amd-gpu"
   name: amd-gpu-operator
   helm-version: "1.0.0"
-# - name: kueue
-#   namespace: kueue-system
-#   sourcefile: kueue/manifests.yaml
+- name: kueue
+  namespace: kueue-system
+  sourcefile: kueue/manifests.yaml
 - helm-chart-name: "external-secrets"
   helm-name: external-secrets
   helm-url: "https://charts.external-secrets.io"
@@ -88,13 +88,13 @@
   secrets: false
   name: kuberay-operator
   namespace: "default"
-# - helm-chart-name: "minio"
-#   helm-name: minio
-#   helm-url: "https://charts.min.io/"
-#   namespace: "minio"
-#   values: minio-values.yaml
-#   secrets: false
-#   name: minio
+- helm-chart-name: "minio"
+  helm-name: minio
+  helm-url: "https://charts.min.io/"
+  namespace: "minio"
+  values: minio-values.yaml
+  secrets: false
+  name: minio
 - helm-chart-name: "loki"
   helm-name: loki
   helm-url: "https://grafana.github.io/helm-charts"
@@ -118,3 +118,11 @@
   name: redis
   helm-version: "20.3.0"
   values: redis-dev-values.yaml # Insecure
+- name: minio-tenant
+  namespace: tenant
+  helm-chart-name: "tenant"
+  helm-name: tenant
+  helm-url: "https://operator.min.io"
+  secrets: true
+  values: values.yaml 
+  helm-version: "6.0.4"

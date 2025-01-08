@@ -1,5 +1,15 @@
 #!/bin/bash
 
+
+# function to delete all deployed resources
+delete_deployed_resources() {
+kubectl delete $(kubectl get managed -o name)\n
+kubectl delete $(kubectl get xrds -o name)
+kubectl delete $(kubectl get providers -o name)
+kubectl delete $(kubectl get DeploymentRuntimeConfig -o name)
+kubectl delete $(kubectl get functions -o name)
+}
+
 # Function to delete a YAML file
 action_delete_file() {
   local file="$1"
@@ -28,18 +38,12 @@ uninstall_stack_logic() {
 
   # Delete stack YAML file
   action_delete_file "$stack_path/stack.yaml"
+  delete_deployed_resources
 
   # Delete composition YAML file
   action_delete_file "$stack_path/composition.yaml"
 
-  # Delete Crossplane provider YAML file
-  action_delete_file "$stack_path/crossplane_provider.yaml"
-
-  # Wait for Crossplane provider to be removed
-  kubectl wait --for=delete providers/provider-kubernetes --timeout=60s || echo "Provider may already be deleted."
-
   # Delete Crossplane YAML files
-  action_delete_file "$stack_path/crossplane.yaml"
   action_delete_file "$stack_path/crossplane_base.yaml"
 
   # List of required CRDs to delete
