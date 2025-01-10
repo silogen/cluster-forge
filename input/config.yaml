@@ -8,6 +8,9 @@
   namespace: "kube-amd-gpu"
   name: amd-gpu-operator
   helm-version: "1.0.0"
+- name: amd-device-config
+  namespace: kube-amd-gpu
+  sourcefile: amd-device-config/deviceconfig_example.yaml
 - name: kueue
   namespace: kueue-system
   sourcefile: kueue/manifests.yaml
