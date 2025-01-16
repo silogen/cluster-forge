@@ -132,3 +132,6 @@
   secrets: true
   values: values.yaml 
   helm-version: "6.0.4"
+- name: kube-prometheus-stack
+  namespace: "prometheus-system"
+  sourcefile: kube-prometheus-stack/kube-prometheus-stack-manifests.yaml
