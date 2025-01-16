@@ -11,6 +11,9 @@
 - name: amd-device-config
   namespace: kube-amd-gpu
   sourcefile: amd-device-config/deviceconfig_example.yaml
+- name: grafana-gpu-dashboard
+  namespace: grafana
+  sourcefile: dummy-grafana-dashboard/gpu-metrics-dashboard.yaml
 - name: kueue
   namespace: kueue-system
   sourcefile: kueue/manifests.yaml
