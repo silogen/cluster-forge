@@ -135,3 +135,17 @@
 - name: kube-prometheus-stack
   namespace: "prometheus-system"
   sourcefile: kube-prometheus-stack/kube-prometheus-stack-manifests.yaml
+- name: opentelemetry-operator
+  namespace: opentelemetry-operator-system
+  manifest-url: https://github.com/open-telemetry/opentelemetry-operator/releases/latest/download/opentelemetry-operator.yaml
+- helm-chart-name: "openobserve-standalone"
+  helm-name: o2
+  helm-url: "https://charts.openobserve.ai"
+  values: openobserve-standalone-values.yaml
+  secrets: true
+  name: openobserve
+  namespace: "openobserve"
+  helm-version: "0.14.1"
+- name: openobserve-collector
+  namespace: "openobserve-collector"
+  sourcefile: openobserve-collector/manifests.yaml
