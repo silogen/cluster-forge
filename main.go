@@ -21,7 +21,6 @@ import (
 	"os"
 
 	"github.com/silogen/cluster-forge/cmd/caster"
-	"github.com/silogen/cluster-forge/cmd/forger"
 	"github.com/silogen/cluster-forge/cmd/smelter"
 	"github.com/silogen/cluster-forge/cmd/utils"
 	log "github.com/sirupsen/logrus"
@@ -53,15 +52,14 @@ For example, you could template a 'baseDomain' which could then be input and tem
 This step creates a container image which can be used during forge step to deploy all the components in a stack to a cluster.`,
 
 		Run: func(cmd *cobra.Command, args []string) {
-			runCast()
+			runCast(false)
 		},
 	}
 
 	var forgeCmd = &cobra.Command{
 		Use:   "forge",
 		Short: "Run forge",
-		Long: `The forge command deploys a stack from the cast phase into a cluster.
-It reads the KUBECONFIG env variable to find a destination, and deploys the stack.`,
+		Long:  `The forge command will run both smelt and cast, and create ephemeral image.`,
 
 		Run: func(cmd *cobra.Command, args []string) {
 			runForge()
@@ -77,6 +75,7 @@ It reads the KUBECONFIG env variable to find a destination, and deploys the stac
 
 func runSmelt() {
 	workingDir := "./working"
+	filesDir := "./output"
 	utils.Setup()
 	log.Println("starting up...")
 	configs, err := utils.LoadConfig("input/config.yaml")
@@ -88,10 +87,10 @@ func runSmelt() {
 	}
 	fmt.Print(utils.ForgeLogo)
 	fmt.Println("Smelting")
-	smelter.Smelt(configs, workingDir)
+	smelter.Smelt(configs, workingDir, filesDir)
 }
 
-func runCast() {
+func runCast(publishImage bool) {
 	workingDir := "./working"
 	stacksDir := "./stacks"
 	filesDir := "./output"
@@ -106,21 +105,10 @@ func runCast() {
 	}
 	fmt.Print(utils.ForgeLogo)
 	fmt.Println("Casting")
-	caster.Cast(configs, filesDir, workingDir, stacksDir)
+	caster.Cast(configs, filesDir, workingDir, stacksDir, publishImage)
 }
 
 func runForge() {
-	stacksDir := "./stacks"
-	utils.Setup()
-	log.Println("starting up...")
-	configs, err := utils.LoadConfig("input/config.yaml")
-	if err != nil {
-		log.Fatalf("Failed to read config: %v", err)
-	}
-	for _, config := range configs {
-		log.Printf("Read config for : %+v", config.Name)
-	}
-	fmt.Print(utils.ForgeLogo)
-	fmt.Println("Forging")
-	forger.Forge(stacksDir)
+	runSmelt()
+	runCast(true)
 }

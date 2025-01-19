@@ -25,6 +25,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/term"
@@ -368,5 +369,53 @@ func RunCommand(cmd string) error {
 		log.Fatalf("Command %s failed: %v\nOutput: %s", cmd, err, string(output))
 	}
 	log.Infof(string(output))
+	return nil
+}
+
+const applicationTemplate = `---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: test
+  namespace: argocd
+spec:
+  destination:
+    namespace: argocd
+    server: 'https://kubernetes.default.svc'
+  source:
+    path: '{{ .Name }}'
+    repoURL: 'http://gitea-http.default.svc:3000/forge/clusterforge.git'
+    targetRevision: ''
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+`
+
+func CreateApplicationFile(config Config, outputPath string) error {
+	// Parse the template
+	tmpl, err := template.New("application").Parse(applicationTemplate)
+	if err != nil {
+		return fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	// Execute the template with the config data
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, config); err != nil {
+		return fmt.Errorf("failed to execute template: %w", err)
+	}
+	// create the directory
+	if err := os.MkdirAll(outputPath, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	// Write the output to a file
+	if err := os.WriteFile(outputPath+"/"+config.Name+".yaml", rendered.Bytes(), 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
 	return nil
 }

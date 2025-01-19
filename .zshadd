@@ -1,0 +1,3 @@
+alias clean='devbox run clean'
+alias smelt='devbox run clean && go run . smelt'
+alias cast='go run . cast'

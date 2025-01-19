@@ -22,7 +22,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -43,10 +42,10 @@ type targettool struct {
 	Type []string
 }
 
-func Cast(configs []utils.Config, filesDir string, workingDir string, stacksDir string) {
+func Cast(configs []utils.Config, filesDir string, workingDir string, stacksDir string, publishImage bool) {
 	log.Info("Starting up the menu...")
 
-	castname, imagename, toolTypes := handleInteractiveForm(workingDir)
+	castname, _, toolTypes := handleInteractiveForm(workingDir, publishImage)
 
 	accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
 	err := spinner.New().
@@ -62,13 +61,10 @@ func Cast(configs []utils.Config, filesDir string, workingDir string, stacksDir 
 		log.Fatalf("Error during preparation: %v", err)
 	}
 
-	packageDir := PreparePackageDirectory(stacksDir, castname)
-	CopyFilesWithSpinner(filesDir, packageDir, imagename)
-	AppendStringToYAMLFile(filepath.Join(packageDir, "crossplane.yaml"), fmt.Sprintf("  package: %s", imagename))
 	displaySuccessMessage(castname)
 }
 
-func handleInteractiveForm(workingDir string) (string, string, []string) {
+func handleInteractiveForm(workingDir string, publishImage bool) (string, string, []string) {
 	files, err := os.ReadDir(workingDir)
 	if err != nil {
 		log.Fatalf("Failed to read working directory: %v", err)
@@ -91,9 +87,6 @@ func handleInteractiveForm(workingDir string) (string, string, []string) {
 	var toolTypes []string
 	domainRe := regexp.MustCompile(`^(?:[a-zA-Z0-9.-]+)(?:/[a-zA-Z0-9-_]+)*(?::[a-zA-Z0-9._-]+)?$`)
 	re := regexp.MustCompile("^[a-z0-9_-]+$")
-
-	// Check if PUBLISH_IMAGE is set
-	publishImage := os.Getenv("PUBLISH_IMAGE") == "true"
 
 	if !publishImage {
 		// Set default image name
@@ -145,133 +138,14 @@ func handleInteractiveForm(workingDir string) (string, string, []string) {
 	}
 
 	// Handle "all" selection
-	if len(toolTypes) > 0 && toolTypes[0] == "all" {
-		toolTypes = append(toolTypes, names...)
-		toolTypes = removeElement(toolTypes, "all")
-	}
 
 	return castname, imagename, toolTypes
 }
 
-func removeElement(slice []string, element string) []string {
-	result := []string{}
-	for _, v := range slice {
-		if v != element {
-			result = append(result, v)
-		}
-	}
-	return result
-}
-
 func CastTool(configs []utils.Config, toolTypes []string, filesDir, workingDir string) error {
 	// Initialize the configuration map
-	configMap := make(map[string]utils.Config)
-	for _, config := range configs {
-		configMap[config.Name] = config
-	}
-
-	var secretFiles []string
-	for _, tool := range toolTypes {
-		config, exists := configMap[tool]
-		if !exists {
-			return fmt.Errorf("tool %s not found in config map", tool)
-		}
-
-		err := utils.CreateCrossplaneObject(config, filesDir, workingDir)
-		if err != nil {
-			return fmt.Errorf("failed to create crossplane object for %s: %v", config.Name, err)
-		}
-
-		err = utils.ProcessNamespaceFiles(filesDir)
-		if err != nil {
-			log.Fatalf("Failed to process namespace files for %s: %v", config.Name, err)
-		}
-
-		err = utils.RemoveEmptyYAMLFiles(filesDir)
-		if err != nil {
-			return fmt.Errorf("failed to remove empty YAML files for %s: %v", config.Name, err)
-		}
-
-		namespaceFile, crdFile, secretFile, externalSecretFile, objectFile, err := FetchFilesAndCategorizeByPrefix(filesDir, tool)
-		if err != nil {
-			return fmt.Errorf("failed to fetch and categorize files for %s: %v", config.Name, err)
-		}
-
-		config.CRDFiles = append(config.CRDFiles, crdFile...)
-		config.NamespaceFiles = append(config.NamespaceFiles, namespaceFile...)
-		config.ExternalSecretFiles = append(config.ExternalSecretFiles, externalSecretFile...)
-		config.SecretFiles = append(config.SecretFiles, secretFile...)
-		config.ObjectFiles = append(config.ObjectFiles, objectFile...)
-
-		configMap[tool] = config
-
-		secretFiles = append(secretFiles, secretFile...)
-	}
-
-	if len(secretFiles) != 0 {
-		var rawSecrets bool
-		form := huh.NewForm(
-			huh.NewGroup(
-				huh.NewConfirm().
-					Title("You have secrets which are not converted to ExternalSecrets.\nAre you sure you want to continue?").
-					Value(&rawSecrets),
-			),
-		)
-
-		err := form.Run()
-		if err != nil {
-			return fmt.Errorf("error during secrets confirmation: %v", err)
-		}
-
-		if !rawSecrets {
-			return fmt.Errorf("fix secrets and try again")
-		}
-	}
 
 	return nil
-}
-
-func PreparePackageDirectory(stacksDir, castname string) string {
-	packageDir := filepath.Join(stacksDir, castname)
-	err := os.MkdirAll(packageDir, 0755)
-	if err != nil {
-		log.Fatalf("Failed to create package directory: %s", err)
-	}
-	utils.RunCommand("find working -type f -name \"*.yaml\" ! -path \"working/pre/*\" | tar -czvf stacks/" + castname + "/src-yamls.tar.gz -T -")
-
-	return packageDir
-}
-
-func CopyFilesWithSpinner(filesDir, packageDir string, imagename string) {
-	err := spinner.New().
-		Title("Compiling files and creating image...").
-		Action(func() {
-			err := utils.CopyYAMLFiles("cmd/utils/templates", packageDir)
-			if err != nil {
-				log.Fatalf("failed to copy YAML files: %s", err)
-			}
-
-			err = utils.CopyYAMLFiles("templates", packageDir)
-			if err != nil {
-				log.Fatalf("failed to copy YAML files: %s", err)
-			}
-			err = utils.CopyFile("cmd/utils/templates/deploy.sh", packageDir+"/deploy.sh")
-			if err != nil {
-				log.Fatalf("failed to copy deploy.sh : %s", err)
-			}
-			err = utils.CopyFile("cmd/utils/templates/uninstall.sh", packageDir+"/uninstall.sh")
-			if err != nil {
-				log.Fatalf("failed to copy uninstall.sh : %s", err)
-			}
-			err = BuildAndPushImage(imagename)
-			if err != nil {
-				log.Fatalf("failed to build image : %s", err)
-			}
-		}).
-		Run()
-	if err != nil {
-		log.Fatalf("Failed to copy files to package directory: %v", err)
-	}
 }
 
 func displaySuccessMessage(castname string) {
@@ -289,32 +163,6 @@ func displaySuccessMessage(castname string) {
 			Padding(1, 2).
 			Render(sb.String()),
 	)
-}
-
-func FetchFilesAndCategorizeByPrefix(dir string, prefix string) (namespaceFiles, crdFiles, secretFiles, externalSecretFiles, objectFiles []string, err error) {
-	files, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
-
-	for _, file := range files {
-		if !file.IsDir() && strings.HasPrefix(file.Name(), prefix) {
-			fileName := file.Name()
-			if strings.Contains(fileName, "crd") {
-				crdFiles = append(crdFiles, fileName)
-			} else if strings.Contains(fileName, "externalsecret") {
-				externalSecretFiles = append(externalSecretFiles, fileName)
-			} else if strings.Contains(fileName, "namespace") {
-				namespaceFiles = append(namespaceFiles, fileName)
-			} else if strings.Contains(fileName, "secret") {
-				secretFiles = append(secretFiles, fileName)
-			} else if strings.Contains(fileName, "object") {
-				objectFiles = append(objectFiles, fileName)
-			}
-		}
-	}
-
-	return namespaceFiles, crdFiles, secretFiles, externalSecretFiles, objectFiles, nil
 }
 
 func BuildAndPushImage(imageName string) error {
@@ -354,25 +202,6 @@ func BuildAndPushImage(imageName string) error {
 	// Run the command
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
-	}
-
-	return nil
-}
-
-func AppendStringToYAMLFile(filePath string, appendString string) error {
-	// Read the existing content of the file
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to read file: %w", err)
-	}
-
-	// Append the string to the content
-	updatedContent := append(content, []byte("\n"+appendString)...)
-
-	// Write the updated content back to the file
-	err = os.WriteFile(filePath, updatedContent, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to write file: %w", err)
 	}
 
 	return nil

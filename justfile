@@ -21,7 +21,7 @@ pre-commit:
   @pre-commit run --all-files
 
 clean-all:
-  @sh scripts/clean.sh
+  @devbox run clean
 
 gen-doc-vids:
   @vhs docs/demoSmelt.tape -o docs/demoSmelt.gif

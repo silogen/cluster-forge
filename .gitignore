@@ -4,12 +4,12 @@ logs/*
 working/*
 !working/.gitkeep
 !working/pre
-working/pre/*
-!working/pre/.gitkeep
 output/*
 !output/.gitkeep
-stacks/*
-!stacks/.gitkeep
+stacks
+
+.krew
+devbox.lock
 
 Library*
 
