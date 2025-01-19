@@ -34,25 +34,18 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type toolbox struct {
-	Targettool targettool
-}
+func Cast(filesDir string, stacksDir string, publishImage bool) string {
 
-type targettool struct {
-	Type []string
-}
-
-func Cast(configs []utils.Config, filesDir string, workingDir string, stacksDir string, publishImage bool) {
 	log.Info("Starting up the menu...")
 
-	castname, _, toolTypes := handleInteractiveForm(workingDir, publishImage)
+	stackname, imagename := handleInteractiveForm(publishImage)
 
 	accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
 	err := spinner.New().
 		Title("Preparing your stack...").
 		Accessible(accessible).
 		Action(func() {
-			if err := CastTool(configs, toolTypes, filesDir, workingDir); err != nil {
+			if err := CastTool(filesDir, imagename, publishImage, stackname); err != nil {
 				log.Fatalf("Error during preparation: %v", err)
 			}
 		}).
@@ -61,35 +54,17 @@ func Cast(configs []utils.Config, filesDir string, workingDir string, stacksDir 
 		log.Fatalf("Error during preparation: %v", err)
 	}
 
-	displaySuccessMessage(castname)
+	displaySuccessMessage(stackname, imagename)
+	return stackname
 }
 
-func handleInteractiveForm(workingDir string, publishImage bool) (string, string, []string) {
-	files, err := os.ReadDir(workingDir)
-	if err != nil {
-		log.Fatalf("Failed to read working directory: %v", err)
-	}
-
-	names := []string{"all"}
-	uniqueNames := make(map[string]struct{})
-	for _, file := range files {
-		if file.IsDir() && file.Name() != "pre" {
-			if _, exists := uniqueNames[file.Name()]; !exists {
-				names = append(names, file.Name())
-				uniqueNames[file.Name()] = struct{}{}
-			}
-		}
-	}
-	log.Debugf("Options for multi-select: %v", names)
-
-	var castname string
+func handleInteractiveForm(publishImage bool) (string, string) {
+	var stackname string
 	var imagename string
-	var toolTypes []string
 	domainRe := regexp.MustCompile(`^(?:[a-zA-Z0-9.-]+)(?:/[a-zA-Z0-9-_]+)*(?::[a-zA-Z0-9._-]+)?$`)
 	re := regexp.MustCompile("^[a-z0-9_-]+$")
 
 	if !publishImage {
-		// Set default image name
 		imagename = "ttl.sh/" + strings.ToLower(uuid.New().String()) + ":12h"
 	}
 
@@ -103,7 +78,7 @@ func handleInteractiveForm(workingDir string, publishImage bool) (string, string
 				}
 				return nil
 			}).
-			Value(&castname)),
+			Value(&stackname)),
 	}
 
 	if publishImage {
@@ -119,41 +94,46 @@ func handleInteractiveForm(workingDir string, publishImage bool) (string, string
 			Value(&imagename)))
 	}
 
-	form = append(form, huh.NewGroup(
-		huh.NewMultiSelect[string]().
-			Options(huh.NewOptions(names...)...).
-			Title("Choose the tools to cast into the stack").
-			Validate(func(t []string) error {
-				if len(t) <= 0 {
-					return fmt.Errorf("at least one tool is required")
-				}
-				return nil
-			}).
-			Value(&toolTypes).
-			Filterable(true),
-	))
-
 	if err := huh.NewForm(form...).Run(); err != nil {
 		log.Fatalf("Interactive form failed: %v", err)
 	}
 
-	// Handle "all" selection
-
-	return castname, imagename, toolTypes
+	return stackname, imagename
 }
 
-func CastTool(configs []utils.Config, toolTypes []string, filesDir, workingDir string) error {
-	// Initialize the configuration map
+func CastTool(filesDir, imagename string, publishImage bool, stackname string) error {
+	// TODO From the repo,  create the image and push it to the registry
+	// TODO Create the install scripts for the tools
+	// Create a temporary directory
+	tempDir, err := os.MkdirTemp("", "forger")
+	if err != nil {
+		fmt.Printf("Failed to create temporary directory: %v\n", err)
+		return err
+	}
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			fmt.Printf("Failed to remove temporary directory: %v\n", err)
+		}
+	}()
+	utils.CopyDir("cmd/utils/templates/data", tempDir)
+	os.RemoveAll(tempDir + "/git/gitea-repositories/forge/clusterforge.git")
+	os.MkdirAll(tempDir+"/git/gitea-repositories/forge/clusterforge.git", 0755)
+	utils.CopyDir(filesDir+"/.git", tempDir+"/git/gitea-repositories/forge/clusterforge.git")
+	utils.CopyDir(tempDir, "stacks/latest")
+	if publishImage {
+		utils.CopyDir("stacks/latest", "stacks/"+stackname)
+	}
+	BuildAndPushImage(imagename)
 
 	return nil
 }
 
-func displaySuccessMessage(castname string) {
+func displaySuccessMessage(stackname string, imagename string) {
 	var sb strings.Builder
 	fmt.Fprintf(&sb,
-		"%s\n\nCompleted stack: %s.",
+		"%s\n\nCompleted stack: %s.\nStack image: %s\n",
 		lipgloss.NewStyle().Bold(true).Render("Cluster Forge"),
-		castname,
+		stackname, imagename,
 	)
 	fmt.Println(
 		lipgloss.NewStyle().
@@ -166,7 +146,7 @@ func displaySuccessMessage(castname string) {
 }
 
 func BuildAndPushImage(imageName string) error {
-	cmd := exec.Command("docker", "buildx", "build", "-t", imageName, "--platform", "linux/amd64,linux/arm64", "-f", "docker_forge", "--push", ".")
+	cmd := exec.Command("docker", "buildx", "build", "-t", imageName, "--platform", "linux/amd64,linux/arm64", "-f", "Dockerfile", "--push", ".")
 
 	// Capture stdout and stderr
 	stdoutPipe, err := cmd.StdoutPipe()

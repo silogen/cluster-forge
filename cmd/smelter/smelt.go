@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -94,20 +93,13 @@ func Smelt(configs []utils.Config, workingDir string, filesDir string) {
 		Action(func() {
 			if err := PrepareTool(configs, toolbox.Targettool.Type, workingDir); err != nil {
 				log.Errorf("Error during tool preparation: %v", err)
+
 			}
 		}).
 		Run()
 	if err != nil {
 		log.Fatalf("Tool preparation failed: %v", err)
 	}
-	// remove the working/pre directory if not debugging
-	if !log.IsLevelEnabled(log.DebugLevel) {
-		if err := os.RemoveAll(filepath.Join(workingDir, "pre")); err != nil {
-			log.Errorf("failed to remove pre directory: %v", err)
-		}
-	}
-
-	CreateAndCommitRepo(workingDir, filepath.Join(filesDir, "repo"), "Initial commit")
 
 	// Print toolbox summary.
 	{
@@ -143,10 +135,6 @@ func PrepareTool(configs []utils.Config, targetTools []string, toolBaseDir strin
 	if err := os.MkdirAll(preDir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", preDir, err)
 	}
-	//create the manifests directory if it doesn't exist
-	if err := os.MkdirAll(filepath.Join(toolBaseDir, "manifests"), 0755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %w", filepath.Join(toolBaseDir, "manifests"), err)
-	}
 
 	for _, tool := range targetTools {
 		if config, exists := configMap[tool]; exists {
@@ -180,6 +168,14 @@ func PrepareTool(configs []utils.Config, targetTools []string, toolBaseDir strin
 			}
 		}
 	}
+	// remove the working/pre directory if not debugging
+	if !log.IsLevelEnabled(log.DebugLevel) {
+		if err := os.RemoveAll(filepath.Join(toolBaseDir, "pre")); err != nil {
+			log.Errorf("failed to remove pre directory: %v", err)
+		}
+	}
+
+	CreateAndCommitRepo(toolBaseDir, "Smelted commit")
 
 	return nil
 }
@@ -215,14 +211,14 @@ func createNamespaceFile(config utils.Config, toolBaseDir string) error {
 }
 
 // CreateAndCommitRepo creates a new Git repository and commits all files and directories from the specified path.
-func CreateAndCommitRepo(path string, repoPath string, commitMessage string) error {
+func CreateAndCommitRepo(path string, commitMessage string) error {
 	// Ensure the path exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return fmt.Errorf("specified path does not exist: %s", path)
 	}
 
-	// Initialize a new Git repository at the repoPath
-	repo, err := git.PlainInit(repoPath, false)
+	// Initialize a new Git repository at the specified path
+	repo, err := git.PlainInit(path, false)
 	if err != nil {
 		return fmt.Errorf("failed to initialize repository: %v", err)
 	}
@@ -233,7 +229,7 @@ func CreateAndCommitRepo(path string, repoPath string, commitMessage string) err
 		return fmt.Errorf("failed to get worktree: %v", err)
 	}
 
-	// Copy all files and directories from the specified path to the repository
+	// Add all files and directories to the Git index
 	err = filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -251,15 +247,6 @@ func CreateAndCommitRepo(path string, repoPath string, commitMessage string) err
 		// If it's a directory, skip it
 		if info.IsDir() {
 			return nil
-		}
-
-		// Copy the file to the repository
-		newFilePath := filepath.Join(repoPath, relPath)
-		if err := os.MkdirAll(filepath.Dir(newFilePath), 0755); err != nil {
-			return err
-		}
-		if err := copyFile(filePath, newFilePath); err != nil {
-			return err
 		}
 
 		// Add the file to the Git index
@@ -285,22 +272,4 @@ func CreateAndCommitRepo(path string, repoPath string, commitMessage string) err
 	}
 
 	return nil
-}
-
-// copyFile copies a file from src to dst
-func copyFile(src, dst string) error {
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer srcFile.Close()
-
-	dstFile, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer dstFile.Close()
-
-	_, err = io.Copy(dstFile, srcFile)
-	return err
 }

@@ -52,7 +52,7 @@ For example, you could template a 'baseDomain' which could then be input and tem
 This step creates a container image which can be used during forge step to deploy all the components in a stack to a cluster.`,
 
 		Run: func(cmd *cobra.Command, args []string) {
-			runCast(false)
+			runCast(true)
 		},
 	}
 
@@ -90,10 +90,9 @@ func runSmelt() {
 	smelter.Smelt(configs, workingDir, filesDir)
 }
 
-func runCast(publishImage bool) {
-	workingDir := "./working"
+func runCast(publishImage bool) string {
 	stacksDir := "./stacks"
-	filesDir := "./output"
+	filesDir := "./working"
 	utils.Setup()
 	log.Println("starting up...")
 	configs, err := utils.LoadConfig("input/config.yaml")
@@ -105,10 +104,13 @@ func runCast(publishImage bool) {
 	}
 	fmt.Print(utils.ForgeLogo)
 	fmt.Println("Casting")
-	caster.Cast(configs, filesDir, workingDir, stacksDir, publishImage)
+	stackname := caster.Cast(filesDir, stacksDir, publishImage)
+	return stackname
 }
 
 func runForge() {
 	runSmelt()
-	runCast(true)
+	stackname := runCast(false)
+	log.Printf("Stackname: %s", stackname)
+	//TODO run the install scripts for currently selected kubeconfig
 }

@@ -145,7 +145,7 @@ type Config struct {
 	SecretFiles         []string
 	ExternalSecretFiles []string
 	ObjectFiles         []string
-	CastName            string
+	StackName           string
 }
 
 func Setup() {
@@ -273,6 +273,56 @@ func CopyFile(src, dst string) error {
 
 	_, err = io.Copy(destinationFile, sourceFile)
 	return err
+}
+func CopyDir(src string, dst string) error {
+	// Get properties of the source directory
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("failed to get source directory info: %w", err)
+	}
+
+	// Create the destination directory
+	err = os.MkdirAll(dst, srcInfo.Mode())
+	if err != nil {
+		return fmt.Errorf("failed to create destination directory: %w", err)
+	}
+
+	// Walk through the source directory
+	err = filepath.Walk(src, func(srcPath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Create the destination path
+		relPath, err := filepath.Rel(src, srcPath)
+		if err != nil {
+			return err
+		}
+		dstPath := filepath.Join(dst, relPath)
+
+		// If it's a directory, create it
+		if info.IsDir() {
+			err = os.MkdirAll(dstPath, info.Mode())
+			if err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", dstPath, err)
+			}
+			return nil
+		}
+
+		// If it's a file, copy it
+		err = CopyFile(srcPath, dstPath)
+		if err != nil {
+			return fmt.Errorf("failed to copy file %s to %s: %w", srcPath, dstPath, err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to walk source directory: %w", err)
+	}
+
+	return nil
 }
 func downloadFile(filepath string, url string) error {
 

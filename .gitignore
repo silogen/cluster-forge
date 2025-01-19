@@ -2,8 +2,6 @@
 logs/*
 !logs/.gitkeep
 working/*
-!working/.gitkeep
-!working/pre
 output/*
 !output/.gitkeep
 stacks

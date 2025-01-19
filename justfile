@@ -1,10 +1,8 @@
 default:
   @just --list --list-prefix " - "
 
-demo:
-  @echo "now I'm running the demo"
-
 debug-smelt:
+  @devbox run clean
   @LOG_LEVEL=debug go run . smelt
   @rm -rf Library
 
