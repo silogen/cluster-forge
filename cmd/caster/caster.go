@@ -66,22 +66,22 @@ func handleInteractiveForm(publishImage bool) (string, string) {
 
 	if !publishImage {
 		imagename = "ttl.sh/" + strings.ToLower(uuid.New().String()) + ":12h"
+		stackname = "ephemeral-stack"
 	}
-
-	form := []*huh.Group{
-		huh.NewGroup(huh.NewText().
-			Title("Name of this composition package").
-			CharLimit(25).
-			Validate(func(input string) error {
-				if !re.MatchString(input) {
-					return fmt.Errorf("input can only contain lowercase letters (a-z), digits (0-9), hyphens (-), and underscores (_)")
-				}
-				return nil
-			}).
-			Value(&stackname)),
-	}
-
 	if publishImage {
+		form := []*huh.Group{
+			huh.NewGroup(huh.NewText().
+				Title("Name of this composition package").
+				CharLimit(25).
+				Validate(func(input string) error {
+					if !re.MatchString(input) {
+						return fmt.Errorf("input can only contain lowercase letters (a-z), digits (0-9), hyphens (-), and underscores (_)")
+					}
+					return nil
+				}).
+				Value(&stackname)),
+		}
+
 		form = append(form, huh.NewGroup(huh.NewText().
 			Title("Container Registry and Package name (URL of the registry entry, i.e. ghcr.io/silogen/clusterforge)").
 			CharLimit(65).
@@ -92,10 +92,10 @@ func handleInteractiveForm(publishImage bool) (string, string) {
 				return nil
 			}).
 			Value(&imagename)))
-	}
 
-	if err := huh.NewForm(form...).Run(); err != nil {
-		log.Fatalf("Interactive form failed: %v", err)
+		if err := huh.NewForm(form...).Run(); err != nil {
+			log.Fatalf("Interactive form failed: %v", err)
+		}
 	}
 
 	return stackname, imagename
@@ -112,32 +112,38 @@ func CastTool(filesDir, imagename string, publishImage bool, stackname string) e
 			fmt.Printf("Failed to remove temporary directory: %v\n", err)
 		}
 	}()
-	utils.CopyDir("cmd/utils/templates/data", tempDir)
+	utils.CopyDir("cmd/utils/templates/data", tempDir, false)
 	os.RemoveAll(tempDir + "/git/gitea-repositories/forge/clusterforge.git")
 	os.MkdirAll(tempDir+"/git/gitea-repositories/forge/clusterforge.git", 0755)
-	utils.CopyDir(filesDir+"/.git", tempDir+"/git/gitea-repositories/forge/clusterforge.git")
-	utils.CopyDir(tempDir, "stacks/latest")
-	if publishImage {
-		utils.CopyDir("stacks/latest", "stacks/"+stackname)
-	}
+	utils.CopyDir(filesDir+"/.git", tempDir+"/git/gitea-repositories/forge/clusterforge.git", false)
+	utils.CopyDir(tempDir, "stacks/latest", false)
 	BuildAndPushImage(imagename)
-
+	os.RemoveAll("stacks/latest")
+	utils.CopyDir(filesDir, "stacks/latest", false)
+	utils.CopyFile("cmd/utils/templates/argoapp.yaml", "stacks/latest/argoapp.yaml")
+	utils.CopyFile("cmd/utils/templates/argocd.yaml", "stacks/latest/argocd.yaml")
+	utils.CopyFile("cmd/utils/templates/gitea.yaml", "stacks/latest/gitea.yaml")
+	utils.CopyFile("cmd/utils/templates/deploy.sh", "stacks/latest/deploy.sh")
+	utils.ReplaceStringInFile("stacks/latest/gitea.yaml", "GENERATED_IMAGE", imagename)
+	if publishImage {
+		utils.CopyDir("stacks/latest", "stacks/"+stackname, false)
+	}
 	return nil
 }
 
 func displaySuccessMessage(stackname string, imagename string) {
 	var sb strings.Builder
 	fmt.Fprintf(&sb,
-		"%s\n\nCompleted stack: %s.\nStack image: %s\n",
+		"%s\n\nCompleted stack: %s\n\nStack image: %s\n",
 		lipgloss.NewStyle().Bold(true).Render("Cluster Forge"),
 		stackname, imagename,
 	)
 	fmt.Println(
 		lipgloss.NewStyle().
-			Width(40).
+			Width(80).
 			BorderStyle(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("63")).
-			Padding(1, 2).
+			Padding(1, 1).
 			Render(sb.String()),
 	)
 }

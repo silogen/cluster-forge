@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/exec"
@@ -274,7 +275,25 @@ func CopyFile(src, dst string) error {
 	_, err = io.Copy(destinationFile, sourceFile)
 	return err
 }
-func CopyDir(src string, dst string) error {
+func ReplaceStringInFile(filePath, originalString, desiredString string) error {
+	// Read the file content
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Replace the original string with the desired string
+	updatedContent := strings.ReplaceAll(string(content), originalString, desiredString)
+
+	// Write the updated content back to the file
+	err = os.WriteFile(filePath, []byte(updatedContent), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
+}
+func CopyDir(src string, dst string, copydotfiles bool) error {
 	// Get properties of the source directory
 	srcInfo, err := os.Stat(src)
 	if err != nil {
@@ -292,7 +311,15 @@ func CopyDir(src string, dst string) error {
 		if err != nil {
 			return err
 		}
-
+		if copydotfiles {
+			// Skip .git, .DS_Store, and .gitkeep
+			if info.IsDir() && info.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			if info.Name() == ".DS_Store" || info.Name() == ".gitkeep" {
+				return nil
+			}
+		}
 		// Create the destination path
 		relPath, err := filepath.Rel(src, srcPath)
 		if err != nil {
@@ -468,4 +495,67 @@ func CreateApplicationFile(config Config, outputPath string) error {
 	}
 
 	return nil
+}
+func CleanCRDDesc(dir string) {
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && strings.HasPrefix(d.Name(), "CustomResourceDefinition") && strings.HasSuffix(d.Name(), ".yaml") {
+			err := processFile(path)
+			if err != nil {
+				log.Printf("Error processing file %s: %v\n", path, err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Fatalf("Error walking directory: %v\n", err)
+	}
+}
+func processFile(filePath string) error {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %v", err)
+	}
+	var content map[string]interface{}
+	err = yaml.Unmarshal(data, &content)
+	if err != nil {
+		return fmt.Errorf("failed to parse YAML: %v", err)
+	}
+	removeDescription(content)
+	updatedData, err := yaml.Marshal(content)
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated YAML: %v", err)
+	}
+	err = os.WriteFile(filePath, updatedData, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write updated YAML to file: %v", err)
+	}
+	return nil
+}
+
+func removeDescription(node interface{}) {
+	switch node := node.(type) {
+	case map[interface{}]interface{}:
+		for key, value := range node {
+			if key == "description" {
+				delete(node, key)
+				continue
+			}
+			removeDescription(value)
+		}
+	case map[string]interface{}:
+		for key, value := range node {
+			if key == "description" {
+				delete(node, key)
+				continue
+			}
+			removeDescription(value)
+		}
+	case []interface{}:
+		for _, item := range node {
+			removeDescription(item)
+		}
+	}
 }
