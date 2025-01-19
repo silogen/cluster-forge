@@ -102,9 +102,6 @@ func handleInteractiveForm(publishImage bool) (string, string) {
 }
 
 func CastTool(filesDir, imagename string, publishImage bool, stackname string) error {
-	// TODO From the repo,  create the image and push it to the registry
-	// TODO Create the install scripts for the tools
-	// Create a temporary directory
 	tempDir, err := os.MkdirTemp("", "forger")
 	if err != nil {
 		fmt.Printf("Failed to create temporary directory: %v\n", err)

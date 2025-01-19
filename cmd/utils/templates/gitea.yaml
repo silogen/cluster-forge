@@ -60,7 +60,8 @@ spec:
         fsGroup: 1000
       initContainers:
               - name: init-data
-                image: ttl.sh/133fa41d-8710-4bec-8d72-28cb43bd7daa:12h
+                image: ttl.sh/b57e34b2-63c6-4ec9-9b19-bd8e7956bb04:12h
+                # image: ttl.sh/8eaa88ab-0c08-4071-86e9-4280b3232088:12h
                 command: ["sh", "-c", "cp -r /prepopulated/* /data && chown -R 1000:1000 /data"]
                 volumeMounts:
                   - name: data

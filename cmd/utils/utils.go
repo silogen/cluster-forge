@@ -426,16 +426,16 @@ const applicationTemplate = `---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: test
+  name: {{ .Name }}
   namespace: argocd
 spec:
   destination:
     namespace: argocd
     server: 'https://kubernetes.default.svc'
   source:
-    path: '{{ .Name }}'
+    path: {{ .Name }}
     repoURL: 'http://gitea-http.default.svc:3000/forge/clusterforge.git'
-    targetRevision: ''
+    targetRevision: HEAD
   project: default
   syncPolicy:
     automated:
