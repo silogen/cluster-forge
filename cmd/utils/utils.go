@@ -470,6 +470,7 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - ServerSideApply=true
 `
 
 func CreateApplicationFile(config Config, outputPath string) error {
