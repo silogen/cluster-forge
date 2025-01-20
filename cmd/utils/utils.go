@@ -445,7 +445,7 @@ func RunCommand(cmd string) error {
 	if err != nil {
 		log.Fatalf("Command %s failed: %v\nOutput: %s", cmd, err, string(output))
 	}
-	log.Infof(string(output))
+	log.Info(string(output))
 	return nil
 }
 

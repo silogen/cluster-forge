@@ -104,12 +104,12 @@ func handleInteractiveForm(publishImage bool) (string, string) {
 func CastTool(filesDir, imagename string, publishImage bool, stackname string) error {
 	tempDir, err := os.MkdirTemp("", "forger")
 	if err != nil {
-		fmt.Printf("Failed to create temporary directory: %v\n", err)
+		log.Error("Failed to create temporary directory: %v\n", err)
 		return err
 	}
 	defer func() {
 		if err := os.RemoveAll(tempDir); err != nil {
-			fmt.Printf("Failed to remove temporary directory: %v\n", err)
+			log.Error("Failed to remove temporary directory: %v\n", err)
 		}
 	}()
 	utils.CopyDir("cmd/utils/templates/data", tempDir, false)
