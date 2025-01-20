@@ -49,7 +49,7 @@ Ensure the following tools are installed:
 ---
 ## Instruction of deploying monitoring tools
 - [OpenObserve](input/openobserve/README.md)
-
+- [Prometheus-Operator](input/kube-prometheus-stack/README.md)
 
 ## Known Issues
 
