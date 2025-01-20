@@ -47,7 +47,8 @@ Ensure the following tools are installed:
 
 
 ---
-
+## Instruction of deploy monitoring tools
+- [OpenObserve](input/openobserve/README.md)
 
 
 ## Known Issues
