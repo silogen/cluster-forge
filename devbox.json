@@ -1,0 +1,31 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.13.7/.schema/devbox.schema.json",
+  "packages": [
+    "go@1.23",
+    "ansible@latest",
+    "kubectl@latest",
+    "kubernetes-helm@latest",
+    "krew@latest",
+    "kubecolor@latest",
+    "kubelogin-oidc@latest",
+    "k9s@latest"
+  ],
+  "env": {
+    "KREW_ROOT": "$DEVBOX_PROJECT_ROOT/.krew"
+  },
+  "shell": {
+    "init_hook": [
+      "source $DEVBOX_PROJECT_ROOT/.zshadd"
+    ],
+    "scripts": {
+      "clean": [
+        "rm -rf working/*",
+        "rm -rf working/.git",
+        "rm -rf output/*",
+        "rm -rf stacks/latest",
+        "rm -rf Library",
+        "rm -rf logs/*.log"
+      ]
+    }
+  }
+}

@@ -24,14 +24,16 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/charmbracelet/lipgloss"
 	xstrings "github.com/charmbracelet/x/exp/strings"
-	log "github.com/sirupsen/logrus"
-
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/silogen/cluster-forge/cmd/utils"
+	log "github.com/sirupsen/logrus"
 )
 
 const namespaceTemplate = `apiVersion: v1
@@ -48,7 +50,7 @@ type targettool struct {
 	Type []string
 }
 
-func Smelt(configs []utils.Config, workingDir string) {
+func Smelt(configs []utils.Config, workingDir string, filesDir string) {
 	log.Info("starting up the menu...")
 	var targettool targettool
 	var toolbox = toolbox{Targettool: targettool}
@@ -91,6 +93,7 @@ func Smelt(configs []utils.Config, workingDir string) {
 		Action(func() {
 			if err := PrepareTool(configs, toolbox.Targettool.Type, workingDir); err != nil {
 				log.Errorf("Error during tool preparation: %v", err)
+
 			}
 		}).
 		Run()
@@ -121,14 +124,14 @@ func Smelt(configs []utils.Config, workingDir string) {
 	}
 }
 
-func PrepareTool(configs []utils.Config, targetTools []string, toolBaseDir string) error {
+func PrepareTool(configs []utils.Config, targetTools []string, workingDir string) error {
 	configMap := make(map[string]utils.Config)
 
 	for _, config := range configs {
 		configMap[config.Name] = config
 	}
 
-	preDir := filepath.Join(toolBaseDir, "pre")
+	preDir := filepath.Join(workingDir, "pre")
 	if err := os.MkdirAll(preDir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", preDir, err)
 	}
@@ -139,7 +142,7 @@ func PrepareTool(configs []utils.Config, targetTools []string, toolBaseDir strin
 			log.Debug("running setup for ", config.Name)
 			config.Filename = filepath.Join(preDir, config.Name+".yaml")
 
-			toolDir := filepath.Join(toolBaseDir, config.Name)
+			toolDir := filepath.Join(workingDir, config.Name)
 			files, _ := os.ReadDir(toolDir)
 			for _, file := range files {
 				if !file.IsDir() && !strings.Contains(file.Name(), "ExternalSecret") {
@@ -148,8 +151,8 @@ func PrepareTool(configs []utils.Config, targetTools []string, toolBaseDir strin
 			}
 
 			utils.Templatehelm(config, &utils.DefaultHelmExecutor{})
-			SplitYAML(config, toolBaseDir)
-
+			SplitYAML(config, workingDir)
+			utils.CreateApplicationFile(config, filepath.Join(workingDir, "argo-apps"))
 			files, _ = os.ReadDir(toolDir)
 			for _, file := range files {
 				if !file.IsDir() && strings.Contains(file.Name(), "Namespace") {
@@ -159,17 +162,26 @@ func PrepareTool(configs []utils.Config, targetTools []string, toolBaseDir strin
 			}
 
 			if !namespaceObject {
-				if err := createNamespaceFile(config, toolBaseDir); err != nil {
+				if err := createNamespaceFile(config, workingDir); err != nil {
 					return fmt.Errorf("failed to create namespace file: %w", err)
 				}
 			}
+			utils.CleanCRDDesc(toolDir)
 		}
 	}
+	// remove the working/pre directory if not debugging
+	if !log.IsLevelEnabled(log.DebugLevel) {
+		if err := os.RemoveAll(filepath.Join(workingDir, "pre")); err != nil {
+			log.Errorf("failed to remove pre directory: %v", err)
+		}
+	}
+
+	CreateAndCommitRepo(workingDir, "Smelted commit")
 
 	return nil
 }
 
-func createNamespaceFile(config utils.Config, toolBaseDir string) error {
+func createNamespaceFile(config utils.Config, workingDir string) error {
 	data := struct {
 		NamespaceName string
 	}{
@@ -186,7 +198,7 @@ func createNamespaceFile(config utils.Config, toolBaseDir string) error {
 		return fmt.Errorf("failed to execute namespace template: %w", err)
 	}
 
-	namespaceDir := filepath.Join(toolBaseDir, config.Name)
+	namespaceDir := filepath.Join(workingDir, config.Name)
 	if err := os.MkdirAll(namespaceDir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", namespaceDir, err)
 	}
@@ -194,6 +206,68 @@ func createNamespaceFile(config utils.Config, toolBaseDir string) error {
 	namespaceFilePath := filepath.Join(namespaceDir, "Namespace_"+config.Name+".yaml")
 	if err := os.WriteFile(namespaceFilePath, rendered.Bytes(), 0644); err != nil {
 		return fmt.Errorf("failed to write namespace file: %w", err)
+	}
+
+	return nil
+}
+
+// CreateAndCommitRepo creates a new Git repository and commits all files and directories from the specified path.
+func CreateAndCommitRepo(path string, commitMessage string) error {
+	repo, err := git.PlainInit(path, false)
+	if err != nil {
+		return fmt.Errorf("failed to initialize repository: %v", err)
+	}
+	worktree, err := repo.Worktree()
+	if err != nil {
+		return fmt.Errorf("failed to get worktree: %v", err)
+	}
+	err = filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		// Skip the root directory
+		if filePath == path {
+			return nil
+		}
+
+		// Skip .git, .DS_Store, and .gitkeep
+		if info.IsDir() && info.Name() == ".git" {
+			return filepath.SkipDir
+		}
+		if info.Name() == ".DS_Store" || info.Name() == ".gitkeep" {
+			return nil
+		}
+
+		relPath, err := filepath.Rel(path, filePath)
+		if err != nil {
+			return err
+		}
+
+		// If it's a directory, skip it
+		if info.IsDir() {
+			return nil
+		}
+
+		// Add the file to the Git index
+		if _, err := worktree.Add(relPath); err != nil {
+			return fmt.Errorf("failed to add file to worktree: %v", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to walk directory: %v", err)
+	}
+
+	// Commit the changes
+	_, err = worktree.Commit(commitMessage, &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "ClusterForge",
+			Email: "cluster@forge.com",
+			When:  time.Now(),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to commit changes: %v", err)
 	}
 
 	return nil

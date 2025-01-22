@@ -1,10 +1,8 @@
 default:
   @just --list --list-prefix " - "
 
-demo:
-  @echo "now I'm running the demo"
-
 debug-smelt:
+  @devbox run clean
   @LOG_LEVEL=debug go run . smelt
   @rm -rf Library
 
@@ -21,7 +19,7 @@ pre-commit:
   @pre-commit run --all-files
 
 clean-all:
-  @sh scripts/clean.sh
+  @devbox run clean
 
 gen-doc-vids:
   @vhs docs/demoSmelt.tape -o docs/demoSmelt.gif

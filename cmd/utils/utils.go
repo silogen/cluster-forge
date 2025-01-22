@@ -20,11 +20,13 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/term"
@@ -144,7 +146,7 @@ type Config struct {
 	SecretFiles         []string
 	ExternalSecretFiles []string
 	ObjectFiles         []string
-	CastName            string
+	StackName           string
 }
 
 func Setup() {
@@ -273,6 +275,82 @@ func CopyFile(src, dst string) error {
 	_, err = io.Copy(destinationFile, sourceFile)
 	return err
 }
+func ReplaceStringInFile(filePath, originalString, desiredString string) error {
+	// Read the file content
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Replace the original string with the desired string
+	updatedContent := strings.ReplaceAll(string(content), originalString, desiredString)
+
+	// Write the updated content back to the file
+	err = os.WriteFile(filePath, []byte(updatedContent), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
+}
+func CopyDir(src string, dst string, copydotfiles bool) error {
+	// Get properties of the source directory
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("failed to get source directory info: %w", err)
+	}
+
+	// Create the destination directory
+	err = os.MkdirAll(dst, srcInfo.Mode())
+	if err != nil {
+		return fmt.Errorf("failed to create destination directory: %w", err)
+	}
+
+	// Walk through the source directory
+	err = filepath.Walk(src, func(srcPath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if copydotfiles {
+			// Skip .git, .DS_Store, and .gitkeep
+			if info.IsDir() && info.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			if info.Name() == ".DS_Store" || info.Name() == ".gitkeep" {
+				return nil
+			}
+		}
+		// Create the destination path
+		relPath, err := filepath.Rel(src, srcPath)
+		if err != nil {
+			return err
+		}
+		dstPath := filepath.Join(dst, relPath)
+
+		// If it's a directory, create it
+		if info.IsDir() {
+			err = os.MkdirAll(dstPath, info.Mode())
+			if err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", dstPath, err)
+			}
+			return nil
+		}
+
+		// If it's a file, copy it
+		err = CopyFile(srcPath, dstPath)
+		if err != nil {
+			return fmt.Errorf("failed to copy file %s to %s: %w", srcPath, dstPath, err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to walk source directory: %w", err)
+	}
+
+	return nil
+}
 func downloadFile(filepath string, url string) error {
 
 	// Get the data
@@ -367,6 +445,118 @@ func RunCommand(cmd string) error {
 	if err != nil {
 		log.Fatalf("Command %s failed: %v\nOutput: %s", cmd, err, string(output))
 	}
-	log.Infof(string(output))
+	log.Info(string(output))
 	return nil
+}
+
+const applicationTemplate = `---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .Name }}
+  namespace: argocd
+spec:
+  destination:
+    namespace: argocd
+    server: 'https://kubernetes.default.svc'
+  source:
+    path: {{ .Name }}
+    repoURL: 'http://gitea-http.default.svc:3000/forge/clusterforge.git'
+    targetRevision: HEAD
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+`
+
+func CreateApplicationFile(config Config, outputPath string) error {
+	// Parse the template
+	tmpl, err := template.New("application").Parse(applicationTemplate)
+	if err != nil {
+		return fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	// Execute the template with the config data
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, config); err != nil {
+		return fmt.Errorf("failed to execute template: %w", err)
+	}
+	// create the directory
+	if err := os.MkdirAll(outputPath, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	// Write the output to a file
+	if err := os.WriteFile(outputPath+"/"+config.Name+".yaml", rendered.Bytes(), 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
+}
+func CleanCRDDesc(dir string) {
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && strings.HasPrefix(d.Name(), "CustomResourceDefinition") && strings.HasSuffix(d.Name(), ".yaml") {
+			err := processFile(path)
+			if err != nil {
+				log.Printf("Error processing file %s: %v\n", path, err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Fatalf("Error walking directory: %v\n", err)
+	}
+}
+func processFile(filePath string) error {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %v", err)
+	}
+	var content map[string]interface{}
+	err = yaml.Unmarshal(data, &content)
+	if err != nil {
+		return fmt.Errorf("failed to parse YAML: %v", err)
+	}
+	removeDescription(content)
+	updatedData, err := yaml.Marshal(content)
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated YAML: %v", err)
+	}
+	err = os.WriteFile(filePath, updatedData, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write updated YAML to file: %v", err)
+	}
+	return nil
+}
+
+func removeDescription(node interface{}) {
+	switch node := node.(type) {
+	case map[interface{}]interface{}:
+		for key, value := range node {
+			if key == "description" {
+				delete(node, key)
+				continue
+			}
+			removeDescription(value)
+		}
+	case map[string]interface{}:
+		for key, value := range node {
+			if key == "description" {
+				delete(node, key)
+				continue
+			}
+			removeDescription(value)
+		}
+	case []interface{}:
+		for _, item := range node {
+			removeDescription(item)
+		}
+	}
 }
