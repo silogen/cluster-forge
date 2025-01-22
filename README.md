@@ -40,6 +40,9 @@ Ensure the following tools are installed:
 - **Golang** (v1.23 or higher)  
 - **kubectl**  
 - **Helm**  
+- **docker**
+- **multi-architecture Docker builds**
+  - run `docker buildx create --name multiarch-builder --use`
 
 
 
