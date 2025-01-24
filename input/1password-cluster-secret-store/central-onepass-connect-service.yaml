@@ -1,0 +1,11 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    tailscale.com/tailnet-ip: 100.83.181.82
+  name: central-onepass-connect
+  namespace: external-secrets
+spec:
+  externalName: placeholder
+  type: ExternalName
