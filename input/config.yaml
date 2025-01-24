@@ -152,3 +152,6 @@
 - name: prometheus-crds
   namespace: prometheus-system
   manifest-url: https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.79.2/stripped-down-crds.yaml
+- name: 1password-cluster-secret-store
+  namespace: external-secrets
+  sourcefile: 1password-cluster-secret-store/manifests.yaml 
