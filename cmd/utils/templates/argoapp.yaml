@@ -17,7 +17,7 @@ status: {}
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: test2
+  name: clusterforge
   namespace: argocd
 spec:
   destination:
