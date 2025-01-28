@@ -158,3 +158,6 @@
 - name: 1password-cluster-secret-store
   namespace: external-secrets
   sourcefile: 1password-cluster-secret-store/manifests.yaml
+- name: kaiwo-cluster-config
+  namespace: kaiwo
+  sourcefile: kaiwo-cluster-config/manifests.yaml
