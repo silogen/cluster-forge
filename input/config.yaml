@@ -94,13 +94,18 @@
   secrets: false
   name: kuberay-operator
   namespace: "default"
-- helm-chart-name: "minio"
-  helm-name: minio
-  helm-url: "https://charts.min.io/"
-  namespace: "minio"
+- helm-chart-name: "operator"
+  helm-name: minio-operator
+  helm-url: "https://operator.min.io"
+  namespace: "minio-operator"
   values: minio-values.yaml
-  secrets: false
-  name: minio
+  name: minio-operator
+- name: minio-tenant
+  namespace: minio-tenant-default
+  helm-chart-name: "tenant"
+  helm-name: minio-tenant
+  helm-url: "https://operator.min.io"
+  values: values.yaml 
 - helm-chart-name: "loki"
   helm-name: loki
   helm-url: "https://grafana.github.io/helm-charts"
@@ -124,14 +129,6 @@
   name: redis
   helm-version: "20.3.0"
   values: redis-dev-values.yaml # Insecure
-- name: minio-tenant
-  namespace: tenant
-  helm-chart-name: "tenant"
-  helm-name: tenant
-  helm-url: "https://operator.min.io"
-  secrets: true
-  values: values.yaml 
-  helm-version: "6.0.4"
 - name: kube-prometheus-stack
   namespace: "prometheus-system"
   sourcefile: kube-prometheus-stack/kube-prometheus-stack-manifests.yaml
