@@ -2,13 +2,13 @@
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.13.7/.schema/devbox.schema.json",
   "packages": [
     "go@1.23",
-    "ansible@latest",
-    "kubectl@latest",
-    "kubernetes-helm@latest",
-    "krew@latest",
-    "kubecolor@latest",
-    "kubelogin-oidc@latest",
-    "k9s@latest"
+    "ansible@2.18.1",
+    "kubectl@1.32.1",
+    "kubernetes-helm@3.17.0",
+    "krew@0.4.4",
+    "kubecolor@0.5.0",
+    "kubelogin-oidc@1.31.1",
+    "k9s@0.32.7"
   ],
   "env": {
     "KREW_ROOT": "$DEVBOX_PROJECT_ROOT/.krew"
@@ -25,6 +25,11 @@
         "rm -rf stacks/latest",
         "rm -rf Library",
         "rm -rf logs/*.log"
+      ],
+      "resetKind": [
+        "kind delete cluster -n forgetest",
+        "kind create cluster -n forgetest",
+        "kind export kubeconfig -n forgetest --kubeconfig forgetest.yaml"
       ]
     }
   }

@@ -37,16 +37,26 @@ Cluster-Forge operates through a sequence of well-defined steps:
 
 Ensure the following tools are installed:
 
-- **Golang** (v1.23 or higher)  
-- **kubectl**  
-- **Helm**  
+- **[Devbox](docs/DEVBOX.md)** 
 - **docker**
 - **multi-architecture Docker builds**
   - run `docker buildx create --name multiarch-builder --use`
 
+> **Important:**  
+> If you don't use devbox, some commands in docs may not work directly. The steps will still work, but aliases and helper scripts won't be available. 
+> Additionally, the following must also be installed:
+> - **Golang** (v1.23 or higher)  
+> - **kubectl**  
+> - **Helm**  
 
 
-[Usage](docs/usage.md)
+## [Usage](docs/usage.md)
+
+To deploy a released stack, download from the GitHub releases page, extract, and run deploy.sh.
+
+For ease of testing ClusterForge compnents, the command ```forge``` run inside a devbox shell will run a smelt step, and immediately run cast, publishing an ephemeral image as described in [Usage](docs/usage.md).
+
+To create a stack without the forge command, or for further instructions and options, see [Usage](docs/usage.md).
 
 
 ---
@@ -59,8 +69,7 @@ Ensure the following tools are installed:
 Cluster-Forge is still a work in progress, and the following issues are currently known:
 
 1. **Kyverno Policies**: There are known issues when smelting Kyverno configurations. Avoid using Kyverno policies for now.  
-2. **Size Limitations**: Selecting "all" components may exceed configuration limits and cause failures. A reasonable subset should work fine.  
-3. **Terminal Line Handling**: Errors occurring alongside the progress spinner may cause terminal formatting issues. To restore the terminal, run:  
+2. **Terminal Line Handling**: Errors occurring alongside the progress spinner may cause terminal formatting issues. To restore the terminal, run:  
    ```sh
    reset
    ```

@@ -19,19 +19,20 @@ Run the following command:
 ```sh
 go run . smelt
 ```
+or if using Devbox
+```sh
+smelt
+```
 
 This will generate formatted YAML configs based on your selections.
 
-![Smelt Demo](gifs/demoSmelt.gif)
 
 ---
 
 ### Step 2: Customize (Optional)
 
 To tailor your configuration, edit files under the `/working` directory.  
-While this step is optional for basic testing, it is essential to unlock the full benefits of Cluster-Forge. Detailed instructions will be provided in a future release.
-
-![Customization Demo](gifs/demoCustomize.gif)
+This step is optional.
 
 ---
 
@@ -46,13 +47,10 @@ Run the following command:
 ```sh
 go run . cast
 ```
-
-Or, to run with a non-ephemeral registry, run the following command:
-
+or if using Devbox
 ```sh
-PUBLISH_IMAGE=true go run . cast
+cast
 ```
-
 
 > **Important:**  
 > If you encounter build errors during the `cast` process, you may need to enable **multi-architecture Docker builds** with the following command:
@@ -60,7 +58,6 @@ PUBLISH_IMAGE=true go run . cast
 > docker buildx create --name multiarch-builder --use
 > ```
 
-![Cast Demo](gifs/demoCast.gif)
 
 ---
 
@@ -68,22 +65,3 @@ PUBLISH_IMAGE=true go run . cast
 
 **(Work in Progress)**  
 
-This step ensures critical resources are available in the target environment, including:
-
-- A storage class  
-- An external-secrets backend  
-- S3-compatible bucket storage  
-
-If any of these components are unavailable, Cluster-Forge will identify the gaps and allow you to make tradeoff decisions as needed. More instructions for this step will be added in future releases.
-
----
-
-### Step 5: Forge
-
-The `forge` step deploys the compiled stack to your Kubernetes cluster.
-
-Run the following command:
-
-```sh
-go run . forge
-```
