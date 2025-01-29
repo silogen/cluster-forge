@@ -29,7 +29,7 @@ import (
 
 func main() {
 	var rootCmd = &cobra.Command{Use: "app"}
-
+	var configFile string
 	var smeltCmd = &cobra.Command{
 		Use:   "smelt",
 		Short: "Run smelt",
@@ -40,7 +40,11 @@ This output can then be edited or customized if needed before casting.
 The reason for customizing is to create cluster specific configurations.
 For example, you could template a 'baseDomain' which could then be input and templated at the forge step.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			runSmelt()
+			if configFile != "" {
+				runSmelt("input/" + configFile)
+			} else {
+				runSmelt("input/config.yaml")
+			}
 		},
 	}
 
@@ -52,7 +56,11 @@ For example, you could template a 'baseDomain' which could then be input and tem
 This step creates a container image which can be used during forge step to deploy all the components in a stack to a cluster.`,
 
 		Run: func(cmd *cobra.Command, args []string) {
-			runCast(true)
+			if configFile != "" {
+				runCast(true, "input/"+configFile)
+			} else {
+				runCast(true, "input/config.yaml")
+			}
 		},
 	}
 
@@ -67,18 +75,20 @@ This step creates a container image which can be used during forge step to deplo
 	}
 
 	rootCmd.AddCommand(smeltCmd, castCmd, forgeCmd)
+	smeltCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
+	castCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 }
 
-func runSmelt() {
+func runSmelt(configFile string) {
 	workingDir := "./working"
 	filesDir := "./output"
 	utils.Setup()
 	log.Println("starting up...")
-	configs, err := utils.LoadConfig("input/config.yaml")
+	configs, err := utils.LoadConfig(configFile)
 	if err != nil {
 		log.Fatalf("Failed to read config: %v", err)
 	}
@@ -87,15 +97,15 @@ func runSmelt() {
 	}
 	fmt.Print(utils.ForgeLogo)
 	fmt.Println("Smelting")
-	smelter.Smelt(configs, workingDir, filesDir)
+	smelter.Smelt(configs, workingDir, filesDir, configFile)
 }
 
-func runCast(publishImage bool) string {
+func runCast(publishImage bool, configFile string) string {
 	stacksDir := "./stacks"
 	filesDir := "./working"
 	utils.Setup()
 	log.Println("starting up...")
-	configs, err := utils.LoadConfig("input/config.yaml")
+	configs, err := utils.LoadConfig(configFile)
 	if err != nil {
 		log.Fatalf("Failed to read config: %v", err)
 	}
@@ -109,8 +119,7 @@ func runCast(publishImage bool) string {
 }
 
 func runForge() {
-	runSmelt()
-	stackname := runCast(false)
+	runSmelt("input/config.yaml")
+	stackname := runCast(false, "input/config.yaml")
 	log.Printf("Stackname: %s", stackname)
-	//TODO run the install scripts for currently selected kubeconfig
 }
