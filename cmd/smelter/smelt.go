@@ -50,7 +50,7 @@ type targettool struct {
 	Type []string
 }
 
-func Smelt(configs []utils.Config, workingDir string, filesDir string) {
+func Smelt(configs []utils.Config, workingDir string, filesDir string, configFile string) {
 	log.Info("starting up the menu...")
 	var targettool targettool
 	var toolbox = toolbox{Targettool: targettool}
@@ -61,25 +61,29 @@ func Smelt(configs []utils.Config, workingDir string, filesDir string) {
 	}
 	accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
 
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewMultiSelect[string]().
-				Options(huh.NewOptions(names...)...).
-				Title("Choose your target tools to smelt").
-				Validate(func(t []string) error {
-					if len(t) <= 0 {
-						return fmt.Errorf("at least one tool is required")
-					}
-					return nil
-				}).
-				Value(&toolbox.Targettool.Type).
-				Filterable(true),
-		),
-	).WithAccessible(accessible)
+	if configFile != "input/config.yaml" {
+		toolbox.Targettool.Type = append(toolbox.Targettool.Type, "all")
+	} else {
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewMultiSelect[string]().
+					Options(huh.NewOptions(names...)...).
+					Title("Choose your target tools to smelt").
+					Validate(func(t []string) error {
+						if len(t) <= 0 {
+							return fmt.Errorf("at least one tool is required")
+						}
+						return nil
+					}).
+					Value(&toolbox.Targettool.Type).
+					Filterable(true),
+			),
+		).WithAccessible(accessible)
 
-	err := form.Run()
-	if err != nil {
-		log.Fatal("Uh oh:", err)
+		err := form.Run()
+		if err != nil {
+			log.Fatal("Uh oh:", err)
+		}
 	}
 	if toolbox.Targettool.Type[0] == "all" {
 		for _, config := range configs {
@@ -87,7 +91,7 @@ func Smelt(configs []utils.Config, workingDir string, filesDir string) {
 		}
 	}
 
-	err = spinner.New().
+	err := spinner.New().
 		Title("Preparing your tools...").
 		Accessible(accessible).
 		Action(func() {
@@ -138,6 +142,9 @@ func PrepareTool(configs []utils.Config, targetTools []string, workingDir string
 
 	for _, tool := range targetTools {
 		if config, exists := configMap[tool]; exists {
+			if config.SyncWave == "" {
+				config.SyncWave = "0"
+			}
 			namespaceObject := false
 			log.Debug("running setup for ", config.Name)
 			config.Filename = filepath.Join(preDir, config.Name+".yaml")

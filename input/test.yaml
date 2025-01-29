@@ -1,0 +1,8 @@
+
+- name: certmanager
+  namespace: cert-manager
+  syncwave: 1
+  manifest-url: https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml 
+- name: external-secrets-cluster-secret-store
+  namespace: external-secrets
+  sourcefile: external-secrets/k8s-provider-related.yaml

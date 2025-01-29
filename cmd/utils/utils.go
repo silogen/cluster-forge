@@ -133,13 +133,13 @@ type Config struct {
 	HelmChartName       string `yaml:"helm-chart-name"`
 	HelmURL             string `yaml:"helm-url"`
 	Values              string `yaml:"values"`
-	Secrets             bool   `yaml:"secrets"`
 	Name                string `yaml:"name"`
 	HelmName            string `yaml:"helm-name"`
 	ManifestURL         string `yaml:"manifest-url"`
 	HelmVersion         string `yaml:"helm-version"`
 	Namespace           string `yaml:"namespace"`
 	SourceFile          string `yaml:"sourcefile"`
+	SyncWave            string `yaml:"syncwave"`
 	Filename            string
 	CRDFiles            []string
 	NamespaceFiles      []string
@@ -453,6 +453,8 @@ const applicationTemplate = `---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: {{ .SyncWave }}
   name: {{ .Name }}
   namespace: argocd
 spec:
@@ -560,3 +562,95 @@ func removeDescription(node interface{}) {
 		}
 	}
 }
+
+func InjectSyncWaveDynamic(filename, value string) error {
+	// Read the YAML file
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Parse the YAML into a generic map
+	var yamlData map[interface{}]interface{}
+	if err := yaml.Unmarshal(data, &yamlData); err != nil {
+		return fmt.Errorf("failed to parse YAML: %w", err)
+	}
+
+	// Navigate to metadata.annotations dynamically
+	metadata, ok := yamlData["metadata"].(map[interface{}]interface{})
+	if !ok {
+		metadata = make(map[interface{}]interface{})
+		yamlData["metadata"] = metadata
+	}
+
+	annotations, ok := metadata["annotations"].(map[interface{}]interface{})
+	if !ok {
+		annotations = make(map[interface{}]interface{})
+		metadata["annotations"] = annotations
+	}
+
+	// Add or update the annotation
+	fixedKey := "argocd.argoproj.io/sync-wave"
+	annotations[fixedKey] = value
+
+	// Marshal the updated YAML back
+	updatedData, err := yaml.Marshal(&yamlData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated YAML: %w", err)
+	}
+
+	// Write the updated YAML back to the file
+	if err := os.WriteFile(filename, updatedData, os.ModePerm); err != nil {
+		return fmt.Errorf("failed to write updated YAML to file: %w", err)
+	}
+
+	return nil
+}
+
+// type Metadata struct {
+// 	Annotations map[string]string `yaml:"annotations,omitempty"`
+// }
+
+// type YamlFile struct {
+// 	Metadata Metadata `yaml:"metadata"`
+// }
+
+// func InjectSyncWave(filename, value string) error {
+// 	// Read the YAML file
+// 	data, err := os.ReadFile(filename)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to read file: %w", err)
+// 	}
+
+// 	// Parse the YAML into a struct
+// 	var yamlFile YamlFile
+// 	if err := yaml.Unmarshal(data, &yamlFile); err != nil {
+// 		return fmt.Errorf("failed to parse YAML: %w", err)
+// 	}
+
+// 	// Log the initial structure
+// 	fmt.Printf("Initial YAML structure: %+v\n", yamlFile)
+
+// 	// Ensure annotations map exists and inject the sync-wave annotation
+// 	fixedKey := "argocd.argoproj.io/sync-wave"
+// 	if yamlFile.Metadata.Annotations == nil {
+// 		yamlFile.Metadata.Annotations = make(map[string]string)
+// 	}
+// 	yamlFile.Metadata.Annotations[fixedKey] = value
+
+// 	// Log the updated structure
+// 	fmt.Printf("Updated YAML structure: %+v\n", yamlFile)
+
+// 	// Marshal the struct back into YAML
+// 	updatedData, err := yaml.Marshal(&yamlFile)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to marshal updated YAML: %w", err)
+// 	}
+
+// 	// Write the updated YAML back to the file
+// 	if err := os.WriteFile(filename, updatedData, os.ModePerm); err != nil {
+// 		return fmt.Errorf("failed to write updated YAML to file: %w", err)
+// 	}
+
+// 	return nil
+// }
