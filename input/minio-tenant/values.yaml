@@ -47,7 +47,7 @@ extraResources:
       length: 24
       digits: 5
       symbols: 5
-      symbolCharacters: "-_$@"
+      symbolCharacters: "_/"
       noUpper: false
       allowRepeat: true
  - |
@@ -63,6 +63,8 @@ extraResources:
         template:
           data:
             config.env: |
+                export MINIO_SERVER_URL="https://minio.minio-tenant-default.svc.cluster.local:443"
+                export MINIO_API_ROOT_ACCESS="on"
                 export MINIO_ROOT_USER="minioroot"
                 export MINIO_ROOT_PASSWORD="{{"{{"}} .password {{"}}"}}"
       dataFrom:
@@ -75,7 +77,7 @@ extraResources:
     apiVersion: external-secrets.io/v1beta1
     kind: ExternalSecret
     metadata:
-      name: default-user
+      name: default-minio-user
       namespace: minio-tenant-default
     spec:
       refreshInterval: "30m"
@@ -85,9 +87,54 @@ extraResources:
           data:
             CONSOLE_ACCESS_KEY: default-user
             CONSOLE_SECRET_KEY: "{{"{{"}} .password {{"}}"}}"
+            API_ACCESS_KEY: api-default-user
+            API_SECRET_KEY: "{{"{{"}} .password {{"}}"}}"
       dataFrom:
       - sourceRef:
           generatorRef:
             apiVersion: generators.external-secrets.io/v1alpha1
             kind: Password
             name: "tenant-password"
+ - |
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: mc
+      namespace: minio-tenant-default
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 300
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: mc
+            image: minio/mc:latest
+            command: ["/bin/sh", "-c"]
+            args:
+              - source /tmp/minio-config/config.env;
+                false; until [ $? -eq 0 ]; do sleep 5; mc alias set init "$MINIO_SERVER_URL" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; done;
+                false; until [ $? -eq 0 ]; do sleep 5; mc admin accesskey create init/ default-user --access-key "$API_ACCESS_KEY" --secret-key "$API_SECRET_KEY" ; done;
+            env:
+            - name: API_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: default-user
+                  key: API_ACCESS_KEY
+            - name: API_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: default-user
+                  key: API_SECRET_KEY
+            - name: MINIO_URL
+              value: https://default-minio-tenant-console.minio-tenant-default.srv.cluster.local
+            volumeMounts:
+            - mountPath: /tmp/minio-config
+              name: configuration
+          volumes:
+          - name: configuration
+            projected:
+              defaultMode: 420
+              sources:
+              - secret:
+                  name: default-minio-tenant-env-configuration
