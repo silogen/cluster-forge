@@ -120,11 +120,26 @@ spec:
           volumeMounts:
             - name: temp
               mountPath: /tmp
-            - name: data
+            - name: persistent-data
               mountPath: /data
       volumes:
         - name: temp
           emptyDir: {}
-        - name: data
-          emptyDir: {}
+        - name: persistent-data
+          persistentVolumeClaim:
+            claimName: gitea-data
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gitea-data
+  namespace: cf-gitea
+  labels:
+    app: gitea
+    created-by: cluster-forge
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

@@ -30,6 +30,7 @@ import (
 func main() {
 	var rootCmd = &cobra.Command{Use: "app"}
 	var configFile string
+	var persistentGitea bool
 	var smeltCmd = &cobra.Command{
 		Use:   "smelt",
 		Short: "Run smelt",
@@ -57,9 +58,9 @@ This step creates a container image which can be used during forge step to deplo
 
 		Run: func(cmd *cobra.Command, args []string) {
 			if configFile != "" {
-				runCast(true, "input/"+configFile)
+				runCast(true, "input/"+configFile, persistentGitea)
 			} else {
-				runCast(true, "input/config.yaml")
+				runCast(true, "input/config.yaml", persistentGitea)
 			}
 		},
 	}
@@ -77,6 +78,7 @@ This step creates a container image which can be used during forge step to deplo
 	rootCmd.AddCommand(smeltCmd, castCmd, forgeCmd)
 	smeltCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
 	castCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
+	castCmd.Flags().BoolVarP(&persistentGitea, "persistent", "p", false, "If set to true, gitea will use a pvc for its data")
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -100,7 +102,7 @@ func runSmelt(configFile string) {
 	smelter.Smelt(configs, workingDir, filesDir, configFile)
 }
 
-func runCast(publishImage bool, configFile string) string {
+func runCast(publishImage bool, configFile string, persistentGitea bool) string {
 	stacksDir := "./stacks"
 	filesDir := "./working"
 	utils.Setup()
@@ -114,12 +116,12 @@ func runCast(publishImage bool, configFile string) string {
 	}
 	fmt.Print(utils.ForgeLogo)
 	fmt.Println("Casting")
-	stackname := caster.Cast(filesDir, stacksDir, publishImage)
+	stackname := caster.Cast(filesDir, stacksDir, publishImage, persistentGitea)
 	return stackname
 }
 
 func runForge() {
 	runSmelt("input/config.yaml")
-	stackname := runCast(false, "input/config.yaml")
+	stackname := runCast(false, "input/config.yaml", false)
 	log.Printf("Stackname: %s", stackname)
 }
