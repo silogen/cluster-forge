@@ -1,10 +1,19 @@
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: cf-gitea
+  labels:
+    app: gitea
+    created-by: cluster-forge
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: gitea-http
-  namespace: default
+  namespace: cf-gitea
   labels:
     app: gitea
+    created-by: cluster-forge
     app.kubernetes.io/name: gitea
     app.kubernetes.io/instance: gitea
     app.kubernetes.io/version: "1.22.3"
@@ -26,10 +35,11 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gitea
-  namespace: default
+  namespace: cf-gitea
   annotations:
   labels:
     app: gitea
+    created-by: cluster-forge
     app.kubernetes.io/name: gitea
     app.kubernetes.io/instance: gitea
     app.kubernetes.io/version: "1.22.3"
@@ -51,6 +61,7 @@ spec:
         checksum/config: 912e9bf3e62c8221c3eaac824c583c0ef29a17817c3a4da97c3c20eec6b8fa95
       labels:
         app: gitea
+        created-by: cluster-forge
         app.kubernetes.io/name: gitea
         app.kubernetes.io/instance: gitea
         app.kubernetes.io/version: "1.22.3"

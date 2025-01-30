@@ -463,7 +463,7 @@ spec:
     server: 'https://kubernetes.default.svc'
   source:
     path: {{ .Name }}
-    repoURL: 'http://gitea-http.default.svc:3000/forge/clusterforge.git'
+    repoURL: 'http://gitea-http.cf-gitea.svc:3000/forge/clusterforge.git'
     targetRevision: HEAD
   project: default
   syncPolicy:
