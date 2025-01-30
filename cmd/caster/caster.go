@@ -34,7 +34,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Cast(filesDir string, stacksDir string, publishImage bool) string {
+func Cast(filesDir string, stacksDir string, publishImage bool, persistentGitea bool) string {
 
 	log.Info("Starting up the menu...")
 
@@ -45,7 +45,7 @@ func Cast(filesDir string, stacksDir string, publishImage bool) string {
 		Title("Preparing your stack...").
 		Accessible(accessible).
 		Action(func() {
-			if err := CastTool(filesDir, imagename, publishImage, stackname); err != nil {
+			if err := CastTool(filesDir, imagename, publishImage, stackname, persistentGitea); err != nil {
 				log.Fatalf("Error during preparation: %v", err)
 			}
 		}).
@@ -101,7 +101,7 @@ func handleInteractiveForm(publishImage bool) (string, string) {
 	return stackname, imagename
 }
 
-func CastTool(filesDir, imagename string, publishImage bool, stackname string) error {
+func CastTool(filesDir, imagename string, publishImage bool, stackname string, persistentGitea bool) error {
 	tempDir, err := os.MkdirTemp("", "forger")
 	if err != nil {
 		log.Error("Failed to create temporary directory: %v\n", err)
@@ -122,7 +122,11 @@ func CastTool(filesDir, imagename string, publishImage bool, stackname string) e
 	utils.CopyDir(filesDir, "stacks/latest", false)
 	utils.CopyFile("cmd/utils/templates/argoapp.yaml", "stacks/latest/argoapp.yaml")
 	utils.CopyFile("cmd/utils/templates/argocd.yaml", "stacks/latest/argocd.yaml")
-	utils.CopyFile("cmd/utils/templates/gitea.yaml", "stacks/latest/gitea.yaml")
+	if persistentGitea {
+		utils.CopyFile("cmd/utils/templates/gitea_pvc.yaml", "stacks/latest/gitea.yaml")
+	} else {
+		utils.CopyFile("cmd/utils/templates/gitea.yaml", "stacks/latest/gitea.yaml")
+	}
 	utils.CopyFile("cmd/utils/templates/deploy.sh", "stacks/latest/deploy.sh")
 	utils.ReplaceStringInFile("stacks/latest/gitea.yaml", "GENERATED_IMAGE", imagename)
 	if publishImage {
