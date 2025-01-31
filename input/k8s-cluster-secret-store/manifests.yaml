@@ -74,7 +74,6 @@ kind: Password
 metadata:
   name: tenant-password
   namespace: cf-es-backend
-    #namespace: minio-dummy
 spec:
   length: 24
   digits: 5
@@ -90,7 +89,6 @@ kind: ExternalSecret
 metadata:
   name: config-env
   namespace: cf-es-backend 
-    #namespace: minio-dummy
 spec:
   refreshInterval: "30m"
   target:
@@ -115,7 +113,6 @@ kind: ExternalSecret
 metadata:
   name: default-minio-user
   namespace: cf-es-backend
-    #namespace: minio-dummy
 spec:
   refreshInterval: "30m"
   target:
