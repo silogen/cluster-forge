@@ -25,7 +25,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
@@ -204,8 +203,7 @@ func BuildAndPushImage(imageName string) error {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 	// Verify, that image exists in registry
-	time.Sleep(time.Second)
-	checkCmd := exec.Command("docker", "manifest", "inspect", "-t", imageName)
+	checkCmd := exec.Command("docker", "manifest", "inspect", imageName)
 	if err := checkCmd.Run(); err != nil {
 		if _, ok := err.(*exec.ExitError); ok {
 			log.Println("Build failed, image " + imageName + " not found in registry: ")
