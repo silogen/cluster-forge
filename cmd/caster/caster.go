@@ -34,18 +34,20 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Cast(filesDir string, stacksDir string, publishImage bool, persistentGitea bool) string {
+func Cast(filesDir string, stacksDir string, publishImage bool, imageName string, stackName string, persistentGitea bool) string {
 
 	log.Info("Starting up the menu...")
 
-	stackname, imagename := handleInteractiveForm(publishImage)
+	if imageName == "" || stackName == "" {
+		stackName, imageName = handleInteractiveForm(publishImage)
+	}
 
 	accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
 	err := spinner.New().
 		Title("Preparing your stack...").
 		Accessible(accessible).
 		Action(func() {
-			if err := CastTool(filesDir, imagename, publishImage, stackname, persistentGitea); err != nil {
+			if err := CastTool(filesDir, imageName, publishImage, stackName, persistentGitea); err != nil {
 				log.Fatalf("Error during preparation: %v", err)
 			}
 		}).
@@ -54,19 +56,19 @@ func Cast(filesDir string, stacksDir string, publishImage bool, persistentGitea 
 		log.Fatalf("Error during preparation: %v", err)
 	}
 
-	displaySuccessMessage(stackname, imagename)
-	return stackname
+	displaySuccessMessage(stackName, imageName)
+	return stackName
 }
 
 func handleInteractiveForm(publishImage bool) (string, string) {
-	var stackname string
-	var imagename string
+	var stackName string
+	var imageName string
 	domainRe := regexp.MustCompile(`^(?:[a-zA-Z0-9.-]+)(?:/[a-zA-Z0-9-_]+)*(?::[a-zA-Z0-9._-]+)?$`)
 	re := regexp.MustCompile("^[a-z0-9_-]+$")
 
 	if !publishImage {
-		imagename = "ttl.sh/" + strings.ToLower(uuid.New().String()) + ":12h"
-		stackname = "ephemeral-stack"
+		imageName = "ttl.sh/" + strings.ToLower(uuid.New().String()) + ":12h"
+		stackName = "ephemeral-stack"
 	}
 	if publishImage {
 		form := []*huh.Group{
@@ -79,7 +81,7 @@ func handleInteractiveForm(publishImage bool) (string, string) {
 					}
 					return nil
 				}).
-				Value(&stackname)),
+				Value(&stackName)),
 		}
 
 		form = append(form, huh.NewGroup(huh.NewText().
@@ -91,17 +93,17 @@ func handleInteractiveForm(publishImage bool) (string, string) {
 				}
 				return nil
 			}).
-			Value(&imagename)))
+			Value(&imageName)))
 
 		if err := huh.NewForm(form...).Run(); err != nil {
 			log.Fatalf("Interactive form failed: %v", err)
 		}
 	}
 
-	return stackname, imagename
+	return stackName, imageName
 }
 
-func CastTool(filesDir, imagename string, publishImage bool, stackname string, persistentGitea bool) error {
+func CastTool(filesDir, imageName string, publishImage bool, stackName string, persistentGitea bool) error {
 	tempDir, err := os.MkdirTemp("", "forger")
 	if err != nil {
 		log.Error("Failed to create temporary directory: %v\n", err)
@@ -117,7 +119,7 @@ func CastTool(filesDir, imagename string, publishImage bool, stackname string, p
 	os.MkdirAll(tempDir+"/git/gitea-repositories/forge/clusterforge.git", 0755)
 	utils.CopyDir(filesDir+"/.git", tempDir+"/git/gitea-repositories/forge/clusterforge.git", false)
 	utils.CopyDir(tempDir, "stacks/latest", false)
-	BuildAndPushImage(imagename)
+	BuildAndPushImage(imageName)
 	os.RemoveAll("stacks/latest")
 	utils.CopyDir(filesDir, "stacks/latest", false)
 	utils.CopyFile("cmd/utils/templates/argoapp.yaml", "stacks/latest/argoapp.yaml")
@@ -128,19 +130,19 @@ func CastTool(filesDir, imagename string, publishImage bool, stackname string, p
 		utils.CopyFile("cmd/utils/templates/gitea.yaml", "stacks/latest/gitea.yaml")
 	}
 	utils.CopyFile("cmd/utils/templates/deploy.sh", "stacks/latest/deploy.sh")
-	utils.ReplaceStringInFile("stacks/latest/gitea.yaml", "GENERATED_IMAGE", imagename)
+	utils.ReplaceStringInFile("stacks/latest/gitea.yaml", "GENERATED_IMAGE", imageName)
 	if publishImage {
-		utils.CopyDir("stacks/latest", "stacks/"+stackname, false)
+		utils.CopyDir("stacks/latest", "stacks/"+stackName, false)
 	}
 	return nil
 }
 
-func displaySuccessMessage(stackname string, imagename string) {
+func displaySuccessMessage(stackName string, imageName string) {
 	var sb strings.Builder
 	fmt.Fprintf(&sb,
 		"%s\n\nCompleted stack: %s\n\nStack image: %s\n",
 		lipgloss.NewStyle().Bold(true).Render("Cluster Forge"),
-		stackname, imagename,
+		stackName, imageName,
 	)
 	fmt.Println(
 		lipgloss.NewStyle().

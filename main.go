@@ -30,6 +30,8 @@ import (
 func main() {
 	var rootCmd = &cobra.Command{Use: "app"}
 	var configFile string
+	var imageName string
+	var stackName string
 	var persistentGitea bool
 	var smeltCmd = &cobra.Command{
 		Use:   "smelt",
@@ -41,11 +43,7 @@ This output can then be edited or customized if needed before casting.
 The reason for customizing is to create cluster specific configurations.
 For example, you could template a 'baseDomain' which could then be input and templated at the forge step.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			if configFile != "" {
-				runSmelt("input/" + configFile)
-			} else {
-				runSmelt("input/config.yaml")
-			}
+			runSmelt(configFile)
 		},
 	}
 
@@ -57,11 +55,7 @@ For example, you could template a 'baseDomain' which could then be input and tem
 This step creates a container image which can be used during forge step to deploy all the components in a stack to a cluster.`,
 
 		Run: func(cmd *cobra.Command, args []string) {
-			if configFile != "" {
-				runCast(true, "input/"+configFile, persistentGitea)
-			} else {
-				runCast(true, "input/config.yaml", persistentGitea)
-			}
+			runCast(true, configFile, imageName, stackName, persistentGitea)
 		},
 	}
 
@@ -76,9 +70,13 @@ This step creates a container image which can be used during forge step to deplo
 	}
 
 	rootCmd.AddCommand(smeltCmd, castCmd, forgeCmd)
-	smeltCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
-	castCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
+	smeltCmd.Flags().StringVarP(&configFile, "config", "c", "input/config.yaml", "Path to the config file")
+	castCmd.Flags().StringVarP(&configFile, "config", "c", "input/config.yaml", "Path to the config file")
 	castCmd.Flags().BoolVarP(&persistentGitea, "persistent", "p", false, "If set to true, gitea will use a pvc for its data")
+	castCmd.Flags().StringVarP(&imageName, "imageName", "i", "", "Name of docker image to push, you need either both stackName and imageName or neither")
+	castCmd.Flags().StringVarP(&stackName, "stackName", "s", "", "Name of stack, you need either both stackName and imageName or neither")
+	castCmd.MarkFlagsRequiredTogether("imageName", "stackName")
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -102,7 +100,7 @@ func runSmelt(configFile string) {
 	smelter.Smelt(configs, workingDir, filesDir, configFile)
 }
 
-func runCast(publishImage bool, configFile string, persistentGitea bool) string {
+func runCast(publishImage bool, configFile string, imageName string, stackName string, persistentGitea bool) string {
 	stacksDir := "./stacks"
 	filesDir := "./working"
 	utils.Setup()
@@ -116,12 +114,12 @@ func runCast(publishImage bool, configFile string, persistentGitea bool) string 
 	}
 	fmt.Print(utils.ForgeLogo)
 	fmt.Println("Casting")
-	stackname := caster.Cast(filesDir, stacksDir, publishImage, persistentGitea)
-	return stackname
+	stack := caster.Cast(filesDir, stacksDir, publishImage, imageName, stackName, persistentGitea)
+	return stack
 }
 
 func runForge() {
 	runSmelt("input/config.yaml")
-	stackname := runCast(false, "input/config.yaml", false)
-	log.Printf("Stackname: %s", stackname)
+	stack := runCast(false, "input/config.yaml", "", "", false)
+	log.Printf("Stackname: %s", stack)
 }
