@@ -170,7 +170,8 @@ func Setup() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.SetOutput(file)
+	// log.SetOutput(file)
+	log.SetOutput(os.Stdout)
 }
 
 type HelmExecutor interface {
