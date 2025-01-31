@@ -54,7 +54,12 @@ For example, you could template a 'baseDomain' which could then be input and tem
 		Long: `The cast command processes the normalized (and possibly custom templated) yaml from the working directory and performs the casting operation.
 
 This step creates a container image which can be used during forge step to deploy all the components in a stack to a cluster.`,
-
+		PreRun: func(cmd *cobra.Command, args []string) {
+			if nonInteractive {
+				cmd.MarkFlagRequired("imageName")
+				cmd.MarkFlagRequired("stackName")
+			}
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			runCast(true, configFile, imageName, stackName, persistentGitea, nonInteractive)
 		},
@@ -119,9 +124,13 @@ func runCast(publishImage bool, configFile string, imageName string, stackName s
 	for _, config := range configs {
 		log.Printf("Read config for : %+v", config.Name)
 	}
-	fmt.Print(utils.ForgeLogo)
-	fmt.Println("Casting")
-	stack := caster.Cast(filesDir, stacksDir, publishImage, imageName, stackName, persistentGitea)
+	if !nonInteractive {
+		fmt.Print(utils.ForgeLogo)
+		fmt.Println("Casting")
+	} else {
+		log.Println("Config: " + configFile + " image: " + imageName + " stack: " + stackName)
+	}
+	stack := caster.Cast(filesDir, stacksDir, publishImage, imageName, stackName, persistentGitea, nonInteractive)
 	return stack
 }
 
