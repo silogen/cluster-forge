@@ -34,29 +34,39 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Cast(filesDir string, stacksDir string, publishImage bool, imageName string, stackName string, persistentGitea bool) string {
+func Cast(filesDir string, stacksDir string, publishImage bool, imageName string, stackName string, persistentGitea bool, nonInteractive bool) string {
 
 	log.Info("Starting up the menu...")
 
-	if imageName == "" || stackName == "" {
-		stackName, imageName = handleInteractiveForm(publishImage)
+	if nonInteractive {
+		if err := CastTool(filesDir, imageName, publishImage, stackName, persistentGitea); err != nil {
+			log.Fatalf("Error during preparation: %v", err)
+		}
+	} else {
+		if imageName == "" || stackName == "" {
+			stackName, imageName = handleInteractiveForm(publishImage)
+		}
+
+		accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
+		err := spinner.New().
+			Title("Preparing your stack...").
+			Accessible(accessible).
+			Action(func() {
+				if err := CastTool(filesDir, imageName, publishImage, stackName, persistentGitea); err != nil {
+					log.Fatalf("Error during preparation: %v", err)
+				}
+			}).
+			Run()
+		if err != nil {
+			log.Fatalf("Error during preparation: %v", err)
+		}
 	}
 
-	accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
-	err := spinner.New().
-		Title("Preparing your stack...").
-		Accessible(accessible).
-		Action(func() {
-			if err := CastTool(filesDir, imageName, publishImage, stackName, persistentGitea); err != nil {
-				log.Fatalf("Error during preparation: %v", err)
-			}
-		}).
-		Run()
-	if err != nil {
-		log.Fatalf("Error during preparation: %v", err)
+	if nonInteractive {
+		log.Println("Completed stack: " + stackName + " image: " + imageName)
+	} else {
+		displaySuccessMessage(stackName, imageName)
 	}
-
-	displaySuccessMessage(stackName, imageName)
 	return stackName
 }
 

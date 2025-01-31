@@ -20,5 +20,8 @@ jobs:
       with:
         go-version: '1.23.2'
 
-    - name: Build
+    - name: Smelt
       run: go run . smelt --config release-configs/config.yaml --non-interactive
+
+    - name: Cast
+      run: go run . cast --config release-configs/config.yaml --imageName ttl.sh/$(uuidgen):1h --stackName test2 --non-interactive
