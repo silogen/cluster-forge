@@ -10,6 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
+        default: "test3"
         required: true
 
 permissions:
@@ -41,8 +42,11 @@ jobs:
     - name: Clean stack
       run: rm -r stacks/${{ github.event.inputs.version }}/.git stacks/${{ github.event.inputs.version }}/.gitkeep
       
+    - name: Set up tarball
+      run: cp -r ansible-reference stacks/ansible
+
     - name: Create tarball
-      run: tar -C stacks/ -zcvf stacks/release-${{ github.event.inputs.version }}.tar.gz ${{ github.event.inputs.version }}/
+      run: tar -C stacks/ -zcvf stacks/release-${{ github.event.inputs.version }}.tar.gz ${{ github.event.inputs.version }}/ ansible/
 
     - name: Create release
       env:
