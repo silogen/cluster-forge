@@ -1799,3 +1799,18 @@ spec:
           sourceLabels:
             - __meta_kubernetes_pod_label_ray_io_cluster
           targetLabel: ray_io_cluster
+---
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+ name: amd-gpu-metrics-scrape-config
+ namespace: prometheus-system
+ labels:
+   release: "prometheus"
+spec:
+ staticConfigs:
+   - labels:
+       job: prometheus
+     targets:
+       - 10.216.106.114:32500 #static one
+       - 10.216.106.118:32500 #static one
