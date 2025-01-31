@@ -25,9 +25,6 @@
   name: external-secrets
   namespace: "external-secrets"
   helm-version: "0.10.3"
-- name: external-secrets-cluster-secret-store
-  namespace: external-secrets
-  sourcefile: external-secrets/k8s-provider-related.yaml
 - helm-chart-name: "psmdb-operator"
   helm-name: psmdb-operator
   helm-url: "https://percona.github.io/percona-helm-charts"
@@ -158,6 +155,9 @@
 - name: 1password-cluster-secret-store
   namespace: external-secrets
   sourcefile: 1password-cluster-secret-store/manifests.yaml
+- name: k8s-cluster-secret-store
+  namespace: cf-es-backend
+  sourcefile: k8s-cluster-secret-store/manifests.yaml
 - name: kaiwo-cluster-config
   namespace: kaiwo
   sourcefile: kaiwo-cluster-config/manifests.yaml
