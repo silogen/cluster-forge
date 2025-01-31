@@ -1,0 +1,134 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cf-es-backend
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: external-secrets-readonly
+  namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: external-secrets-readonly
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - external-secrets.io
+  resources:
+  - secretstores
+  - clustersecretstores
+  - externalsecrets
+  - clusterexternalsecrets
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: external-secrets-readonly-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: external-secrets-readonly
+subjects:
+- kind: ServiceAccount
+  name: external-secrets-readonly
+  namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ClusterSecretStore
+metadata:
+  name: k8s-secret-store
+spec:
+  provider:
+    kubernetes:
+      server:
+        url: https://kubernetes.default.svc
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          namespace: default
+          key: ca.crt
+      auth:
+        serviceAccount:
+          name: external-secrets-readonly
+          namespace: external-secrets
+      remoteNamespace: cf-es-backend
+---
+# Source: tenant/templates/extra-resources.yaml
+apiVersion: generators.external-secrets.io/v1alpha1
+kind: Password
+metadata:
+  name: tenant-password
+  namespace: cf-es-backend
+    #namespace: minio-dummy
+spec:
+  length: 24
+  digits: 5
+  symbols: 5
+  symbolCharacters: "_/"
+  noUpper: false
+  allowRepeat: true
+#### Actual external secrets creation ####
+---
+# Source: tenant/templates/extra-resources.yaml
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: config-env
+  namespace: cf-es-backend 
+    #namespace: minio-dummy
+spec:
+  refreshInterval: "30m"
+  target:
+    name: default-minio-tenant-env-configuration
+    template:
+      data:
+        config.env: |
+            export MINIO_SERVER_URL="https://minio.minio-tenant-default.svc.cluster.local:443"
+            export MINIO_API_ROOT_ACCESS="on"
+            export MINIO_ROOT_USER="minioroot"
+            export MINIO_ROOT_PASSWORD="{{ .password }}"
+  dataFrom:
+  - sourceRef:
+      generatorRef:
+        apiVersion: generators.external-secrets.io/v1alpha1
+        kind: Password
+        name: "tenant-password"
+---
+# Source: tenant/templates/extra-resources.yaml
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: default-minio-user
+  namespace: cf-es-backend
+    #namespace: minio-dummy
+spec:
+  refreshInterval: "30m"
+  target:
+    name: default-user
+    template:
+      data:
+        CONSOLE_ACCESS_KEY: default-user
+        CONSOLE_SECRET_KEY: "{{ .password }}"
+        API_ACCESS_KEY: api-default-user
+        API_SECRET_KEY: "{{ .password }}"
+  dataFrom:
+  - sourceRef:
+      generatorRef:
+        apiVersion: generators.external-secrets.io/v1alpha1
+        kind: Password
+        name: "tenant-password"
