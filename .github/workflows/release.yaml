@@ -8,6 +8,9 @@ on:
     branches:
       - "74-create-a-release-pipeline-for-cluster-forge"
   workflow_dispatch:
+    inputs:
+      version:
+        required: true
 
 permissions:
   contents: write
@@ -33,19 +36,19 @@ jobs:
       uses: docker/setup-buildx-action@v3
 
     - name: Cast
-      run: go run . cast --config release-configs/externalsecrets.yaml --imageName ttl.sh/$(uuidgen):1h --stackName test2 --non-interactive
+      run: go run . cast --config release-configs/externalsecrets.yaml --imageName ttl.sh/$(uuidgen):1h --stackName ${{ github.event.inputs.version }} --non-interactive
 
     - name: Clean stack
-      run: rm -r stacks/test2/.git stacks/test2/.gitkeep
+      run: rm -r stacks/${{ github.event.inputs.version }}/.git stacks/${{ github.event.inputs.version }}/.gitkeep
       
     - name: Create tarball
-      run: tar -C stacks/ -zcvf stacks/release-test2.tar.gz test2/
+      run: tar -C stacks/ -zcvf stacks/release-${{ github.event.inputs.version }}.tar.gz ${{ github.event.inputs.version }}/
 
     - name: Create release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        gh release create "test0.1" \
+        gh release create "${{ github.event.inputs.version }}" \
             --repo="$GITHUB_REPOSITORY" \
             --generate-notes    \
-            stacks/release-test2.tar.gz
+            stacks/release-${{ github.event.inputs.version }}.tar.gz
