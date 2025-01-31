@@ -93,6 +93,9 @@ func Smelt(configs []utils.Config, workingDir string, filesDir string, configFil
 	}
 
 	if nonInteractive {
+		if err := PrepareTool(configs, toolbox.Targettool.Type, workingDir); err != nil {
+			log.Errorf("Error during tool preparation: %v", err)
+		}
 		log.Println("Completed: " + xstrings.EnglishJoin(toolbox.Targettool.Type, true))
 	} else {
 		err := spinner.New().
