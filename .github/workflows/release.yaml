@@ -23,5 +23,11 @@ jobs:
     - name: Smelt
       run: go run . smelt --config release-configs/config.yaml --non-interactive
 
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
     - name: Cast
       run: go run . cast --config release-configs/config.yaml --imageName ttl.sh/$(uuidgen):1h --stackName test2 --non-interactive
