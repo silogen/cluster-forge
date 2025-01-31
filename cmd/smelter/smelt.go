@@ -50,8 +50,8 @@ type targettool struct {
 	Type []string
 }
 
-func Smelt(configs []utils.Config, workingDir string, filesDir string, configFile string) {
-	log.Info("starting up the menu...")
+func Smelt(configs []utils.Config, workingDir string, filesDir string, configFile string, nonInteractive bool) {
+	log.Info("Smelt starting...")
 	var targettool targettool
 	var toolbox = toolbox{Targettool: targettool}
 	var names []string
@@ -61,9 +61,10 @@ func Smelt(configs []utils.Config, workingDir string, filesDir string, configFil
 	}
 	accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
 
-	if configFile != "input/config.yaml" {
+	if configFile != "input/config.yaml" || nonInteractive {
 		toolbox.Targettool.Type = append(toolbox.Targettool.Type, "all")
 	} else {
+		log.Info("starting up the menu...")
 		form := huh.NewForm(
 			huh.NewGroup(
 				huh.NewMultiSelect[string]().
@@ -91,40 +92,44 @@ func Smelt(configs []utils.Config, workingDir string, filesDir string, configFil
 		}
 	}
 
-	err := spinner.New().
-		Title("Preparing your tools...").
-		Accessible(accessible).
-		Action(func() {
-			if err := PrepareTool(configs, toolbox.Targettool.Type, workingDir); err != nil {
-				log.Errorf("Error during tool preparation: %v", err)
+	if nonInteractive {
+		log.Println("Completed: " + xstrings.EnglishJoin(toolbox.Targettool.Type, true))
+	} else {
+		err := spinner.New().
+			Title("Preparing your tools...").
+			Accessible(accessible).
+			Action(func() {
+				if err := PrepareTool(configs, toolbox.Targettool.Type, workingDir); err != nil {
+					log.Errorf("Error during tool preparation: %v", err)
 
-			}
-		}).
-		Run()
-	if err != nil {
-		log.Fatalf("Tool preparation failed: %v", err)
-	}
-
-	// Print toolbox summary.
-	{
-		var sb strings.Builder
-		keyword := func(s string) string {
-			return lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Render(s)
+				}
+			}).
+			Run()
+		if err != nil {
+			log.Fatalf("Tool preparation failed: %v", err)
 		}
-		fmt.Fprintf(&sb,
-			"%s\n\nCompleted: %s.",
-			lipgloss.NewStyle().Bold(true).Render("Cluster Forge"),
-			keyword(xstrings.EnglishJoin(toolbox.Targettool.Type, true)),
-		)
 
-		fmt.Println(
-			lipgloss.NewStyle().
-				Width(40).
-				BorderStyle(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("63")).
-				Padding(1, 2).
-				Render(sb.String()),
-		)
+		// Print toolbox summary.
+		{
+			var sb strings.Builder
+			keyword := func(s string) string {
+				return lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Render(s)
+			}
+			fmt.Fprintf(&sb,
+				"%s\n\nCompleted: %s.",
+				lipgloss.NewStyle().Bold(true).Render("Cluster Forge"),
+				keyword(xstrings.EnglishJoin(toolbox.Targettool.Type, true)),
+			)
+
+			fmt.Println(
+				lipgloss.NewStyle().
+					Width(40).
+					BorderStyle(lipgloss.RoundedBorder()).
+					BorderForeground(lipgloss.Color("63")).
+					Padding(1, 2).
+					Render(sb.String()),
+			)
+		}
 	}
 }
 
