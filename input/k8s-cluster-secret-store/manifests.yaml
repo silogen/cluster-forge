@@ -68,7 +68,6 @@ spec:
           namespace: external-secrets
       remoteNamespace: cf-es-backend
 ---
-# Source: tenant/templates/extra-resources.yaml
 apiVersion: generators.external-secrets.io/v1alpha1
 kind: Password
 metadata:
@@ -83,7 +82,6 @@ spec:
   allowRepeat: true
 #### Actual external secrets creation ####
 ---
-# Source: tenant/templates/extra-resources.yaml
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
@@ -107,7 +105,6 @@ spec:
         kind: Password
         name: "tenant-password"
 ---
-# Source: tenant/templates/extra-resources.yaml
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
