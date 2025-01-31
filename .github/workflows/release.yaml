@@ -1,16 +1,9 @@
-# This workflow will build a golang project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
-
-name: Go
+name: Externalsecrets release
 
 on:
-  push:
-    branches:
-      - "74-create-a-release-pipeline-for-cluster-forge"
   workflow_dispatch:
     inputs:
       version:
-        default: "test3"
         required: true
 
 permissions:
