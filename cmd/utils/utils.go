@@ -149,7 +149,7 @@ type Config struct {
 	StackName           string
 }
 
-func Setup() {
+func Setup(nonInteractive bool) {
 	logLevelStr := os.Getenv("LOG_LEVEL")
 	if logLevelStr == "" {
 		logLevelStr = "DEFAULT"
@@ -170,7 +170,11 @@ func Setup() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.SetOutput(file)
+	if nonInteractive {
+		log.SetOutput(os.Stdout)
+	} else {
+		log.SetOutput(file)
+	}
 }
 
 type HelmExecutor interface {
