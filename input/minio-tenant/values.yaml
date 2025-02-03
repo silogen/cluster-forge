@@ -38,19 +38,6 @@ tenant:
     - name: default-user
 extraResources:
  - |
-    apiVersion: generators.external-secrets.io/v1alpha1
-    kind: Password
-    metadata:
-      name: tenant-password
-      namespace: minio-tenant-default
-    spec:
-      length: 24
-      digits: 5
-      symbols: 5
-      symbolCharacters: "_/"
-      noUpper: false
-      allowRepeat: true
- - |
     apiVersion: external-secrets.io/v1beta1
     kind: ExternalSecret
     metadata:
@@ -58,21 +45,16 @@ extraResources:
       namespace: minio-tenant-default
     spec:
       refreshInterval: "30m"
+      secretStoreRef:
+        name: k8s-secret-store
+        kind: ClusterSecretStore
       target:
         name: default-minio-tenant-env-configuration
-        template:
-          data:
-            config.env: |
-                export MINIO_SERVER_URL="https://minio.minio-tenant-default.svc.cluster.local:443"
-                export MINIO_API_ROOT_ACCESS="on"
-                export MINIO_ROOT_USER="minioroot"
-                export MINIO_ROOT_PASSWORD="{{"{{"}} .password {{"}}"}}"
-      dataFrom:
-      - sourceRef:
-          generatorRef:
-            apiVersion: generators.external-secrets.io/v1alpha1
-            kind: Password
-            name: "tenant-password"
+      data:
+        - secretKey: config.env
+          remoteRef:
+            key: default-minio-tenant-env-configuration
+            property: config.env
  - |
     apiVersion: external-secrets.io/v1beta1
     kind: ExternalSecret
@@ -81,25 +63,33 @@ extraResources:
       namespace: minio-tenant-default
     spec:
       refreshInterval: "30m"
+      secretStoreRef:
+        name: k8s-secret-store
+        kind: ClusterSecretStore
       target:
         name: default-user
-        template:
-          data:
-            CONSOLE_ACCESS_KEY: default-user
-            CONSOLE_SECRET_KEY: "{{"{{"}} .password {{"}}"}}"
-            API_ACCESS_KEY: api-default-user
-            API_SECRET_KEY: "{{"{{"}} .password {{"}}"}}"
-      dataFrom:
-      - sourceRef:
-          generatorRef:
-            apiVersion: generators.external-secrets.io/v1alpha1
-            kind: Password
-            name: "tenant-password"
+      data:
+        - secretKey: CONSOLE_ACCESS_KEY
+          remoteRef:
+            key: default-user
+            property: CONSOLE_ACCESS_KEY
+        - secretKey: CONSOLE_SECRET_KEY
+          remoteRef:
+            key: default-user
+            property: CONSOLE_SECRET_KEY
+        - secretKey: API_ACCESS_KEY
+          remoteRef:
+            key: default-user
+            property: API_ACCESS_KEY
+        - secretKey: API_SECRET_KEY
+          remoteRef:
+            key: default-user
+            property: API_SECRET_KEY
  - |
     apiVersion: batch/v1
     kind: Job
     metadata:
-      name: mc
+      name: mc-post-job
       namespace: minio-tenant-default
     spec:
       backoffLimit: 1
@@ -127,7 +117,7 @@ extraResources:
                   name: default-user
                   key: API_SECRET_KEY
             - name: MINIO_URL
-              value: https://default-minio-tenant-console.minio-tenant-default.srv.cluster.local
+              value: https://default-minio-tenant-console.minio-tenant-default.svc.cluster.local
             volumeMounts:
             - mountPath: /tmp/minio-config
               name: configuration

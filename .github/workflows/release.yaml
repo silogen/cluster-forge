@@ -1,0 +1,51 @@
+name: Externalsecrets release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23.2'
+
+    - name: Smelt
+      run: go run . smelt --config release-configs/externalsecrets.yaml --non-interactive
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Cast
+      run: go run . cast --config release-configs/externalsecrets.yaml --imageName ttl.sh/$(uuidgen):1h --stackName ${{ github.event.inputs.version }} --non-interactive
+
+    - name: Clean stack
+      run: rm -r stacks/${{ github.event.inputs.version }}/.git stacks/${{ github.event.inputs.version }}/.gitkeep
+      
+    - name: Set up tarball
+      run: cp -r ansible-reference stacks/ansible
+
+    - name: Create tarball
+      run: tar -C stacks/ -zcvf stacks/release-${{ github.event.inputs.version }}.tar.gz ${{ github.event.inputs.version }}/ ansible/
+
+    - name: Create release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release create "${{ github.event.inputs.version }}" \
+            --repo="$GITHUB_REPOSITORY" \
+            --generate-notes    \
+            stacks/release-${{ github.event.inputs.version }}.tar.gz

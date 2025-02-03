@@ -64,6 +64,9 @@ To create a stack without the forge command, or for further instructions and opt
 - [OpenObserve](input/openobserve/README.md)
 - [Prometheus-Operator](input/kube-prometheus-stack/README.md)
 
+## Instruction of other tools
+- [k8s-cluster-secret-store](input/k8s-cluster-secret-store/README.md)
+
 ## Known Issues
 
 Cluster-Forge is still a work in progress, and the following issues are currently known:

@@ -30,7 +30,10 @@ import (
 func main() {
 	var rootCmd = &cobra.Command{Use: "app"}
 	var configFile string
+	var imageName string
+	var stackName string
 	var persistentGitea bool
+	var nonInteractive bool
 	var smeltCmd = &cobra.Command{
 		Use:   "smelt",
 		Short: "Run smelt",
@@ -41,11 +44,7 @@ This output can then be edited or customized if needed before casting.
 The reason for customizing is to create cluster specific configurations.
 For example, you could template a 'baseDomain' which could then be input and templated at the forge step.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			if configFile != "" {
-				runSmelt("input/" + configFile)
-			} else {
-				runSmelt("input/config.yaml")
-			}
+			runSmelt(configFile, nonInteractive)
 		},
 	}
 
@@ -55,13 +54,14 @@ For example, you could template a 'baseDomain' which could then be input and tem
 		Long: `The cast command processes the normalized (and possibly custom templated) yaml from the working directory and performs the casting operation.
 
 This step creates a container image which can be used during forge step to deploy all the components in a stack to a cluster.`,
-
-		Run: func(cmd *cobra.Command, args []string) {
-			if configFile != "" {
-				runCast(true, "input/"+configFile, persistentGitea)
-			} else {
-				runCast(true, "input/config.yaml", persistentGitea)
+		PreRun: func(cmd *cobra.Command, args []string) {
+			if nonInteractive {
+				cmd.MarkFlagRequired("imageName")
+				cmd.MarkFlagRequired("stackName")
 			}
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			runCast(true, configFile, imageName, stackName, persistentGitea, nonInteractive)
 		},
 	}
 
@@ -76,19 +76,25 @@ This step creates a container image which can be used during forge step to deplo
 	}
 
 	rootCmd.AddCommand(smeltCmd, castCmd, forgeCmd)
-	smeltCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
-	castCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
+	smeltCmd.Flags().StringVarP(&configFile, "config", "c", "input/config.yaml", "Path to the config file")
+	smeltCmd.Flags().BoolVarP(&nonInteractive, "non-interactive", "n", false, "Non-interactive, fail if information is missing.")
+	castCmd.Flags().StringVarP(&configFile, "config", "c", "input/config.yaml", "Path to the config file")
 	castCmd.Flags().BoolVarP(&persistentGitea, "persistent", "p", false, "If set to true, gitea will use a pvc for its data")
+	castCmd.Flags().StringVarP(&imageName, "imageName", "i", "", "Name of docker image to push, you need either both stackName and imageName or neither")
+	castCmd.Flags().StringVarP(&stackName, "stackName", "s", "", "Name of stack, you need either both stackName and imageName or neither")
+	castCmd.MarkFlagsRequiredTogether("imageName", "stackName")
+	castCmd.Flags().BoolVarP(&nonInteractive, "non-interactive", "n", false, "Non-interactive, fail if information is missing.")
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 }
 
-func runSmelt(configFile string) {
+func runSmelt(configFile string, nonInteractive bool) {
 	workingDir := "./working"
 	filesDir := "./output"
-	utils.Setup()
+	utils.Setup(nonInteractive)
 	log.Println("starting up...")
 	configs, err := utils.LoadConfig(configFile)
 	if err != nil {
@@ -97,15 +103,19 @@ func runSmelt(configFile string) {
 	for _, config := range configs {
 		log.Printf("Read config for : %+v", config.Name)
 	}
-	fmt.Print(utils.ForgeLogo)
-	fmt.Println("Smelting")
-	smelter.Smelt(configs, workingDir, filesDir, configFile)
+	if !nonInteractive {
+		fmt.Print(utils.ForgeLogo)
+		fmt.Println("Smelting")
+	} else {
+		log.Println("Config: " + configFile)
+	}
+	smelter.Smelt(configs, workingDir, filesDir, configFile, nonInteractive)
 }
 
-func runCast(publishImage bool, configFile string, persistentGitea bool) string {
+func runCast(publishImage bool, configFile string, imageName string, stackName string, persistentGitea bool, nonInteractive bool) string {
 	stacksDir := "./stacks"
 	filesDir := "./working"
-	utils.Setup()
+	utils.Setup(nonInteractive)
 	log.Println("starting up...")
 	configs, err := utils.LoadConfig(configFile)
 	if err != nil {
@@ -114,14 +124,18 @@ func runCast(publishImage bool, configFile string, persistentGitea bool) string 
 	for _, config := range configs {
 		log.Printf("Read config for : %+v", config.Name)
 	}
-	fmt.Print(utils.ForgeLogo)
-	fmt.Println("Casting")
-	stackname := caster.Cast(filesDir, stacksDir, publishImage, persistentGitea)
-	return stackname
+	if !nonInteractive {
+		fmt.Print(utils.ForgeLogo)
+		fmt.Println("Casting")
+	} else {
+		log.Println("Config: " + configFile + " image: " + imageName + " stack: " + stackName)
+	}
+	stack := caster.Cast(filesDir, stacksDir, publishImage, imageName, stackName, persistentGitea, nonInteractive)
+	return stack
 }
 
 func runForge() {
-	runSmelt("input/config.yaml")
-	stackname := runCast(false, "input/config.yaml", false)
-	log.Printf("Stackname: %s", stackname)
+	runSmelt("input/config.yaml", false)
+	stack := runCast(false, "input/config.yaml", "", "", false, false)
+	log.Printf("Stackname: %s", stack)
 }
