@@ -197,16 +197,16 @@ func BuildAndPushImage(imageName string) error {
 			log.Errorf("error capturing stderr: %v", err)
 		}
 	}()
-
 	// Run the command
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to build and push image: %w", err)
+		log.Fatalf("failed to build and push image: %v", err)
+		os.Exit(1)
 	}
 	// Verify, that image exists in registry
 	checkCmd := exec.Command("docker", "manifest", "inspect", imageName)
 	if err := checkCmd.Run(); err != nil {
 		if _, ok := err.(*exec.ExitError); ok {
-			log.Println("Build failed, image " + imageName + " not found in registry: ")
+			log.Fatalf("Build failed, image " + imageName + " not found in registry: ")
 			os.Exit(1)
 		}
 	}
