@@ -142,7 +142,7 @@ HW nodes, with a Linux operating system such as Ubuntu 22.04 installed.
 -   The IP addresses/FQDNs of the GPU servers are updated in an
     inventory.ini file, example is provided in the ansible directory of
     the release package
-
+```
 +-----------------------------------------------------------------------+
 | \[master\]                                                            |
 |                                                                       |
@@ -152,6 +152,8 @@ HW nodes, with a Linux operating system such as Ubuntu 22.04 installed.
 |                                                                       |
 | mi300-node2 ansible_host=mi300-node2 internal_ip=10.0.0.142           |
 +=======================================================================+
+```
+
 +-----------------------------------------------------------------------+
 
 The ansible scripts are provided in a ClusterForge release package.
