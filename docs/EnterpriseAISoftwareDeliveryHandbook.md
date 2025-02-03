@@ -143,15 +143,10 @@ HW nodes, with a Linux operating system such as Ubuntu 22.04 installed.
     inventory.ini file, example is provided in the ansible directory of
     the release package
 ```
-+-----------------------------------------------------------------------+
-| \[master\]                                                            |
-|                                                                       |
-| mi300-node1 ansible_host=mi300-node1 internal_ip=10.0.0.141           |
-|                                                                       |
-| \[worker\]                                                            |
-|                                                                       |
-| mi300-node2 ansible_host=mi300-node2 internal_ip=10.0.0.142           |
-+=======================================================================+
+[master]
+mi300-node1 ansible_host=mi300-node1 internal_ip=10.0.0.141
+[worker]
+mi300-node2 ansible_host=mi300-node2 internal_ip=10.0.0.142
 ```
 
 +-----------------------------------------------------------------------+
