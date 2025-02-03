@@ -165,22 +165,18 @@ unzipped package.
 In clusterforge/ansible directory of the release run the following
 command:
 
-  -----------------------------------------------------------------------
-  \$ ansible-playbook -i inventory.ini install-rocm-host-driver.yaml
-  -----------------------------------------------------------------------
-
-  -----------------------------------------------------------------------
+```
+ansible-playbook -i inventory.ini install-rocm-host-driver.yaml
+```
 
 ## Deploy a high-availability RKE2 cluster using Ansible
 
 In clusterforge/ansible directory of the ClusterForge package, run the
 following command:
 
-  -----------------------------------------------------------------------
-  \$ ansible-playbook -i inventory.ini rke2_single_master.yaml
-  -----------------------------------------------------------------------
-
-  -----------------------------------------------------------------------
+```
+ansible-playbook -i inventory.ini rke2_single_master.yaml
+```
 
 The playbook will install RKE2 on the servers and configure a
 high-availability cluster. It will also fetch the kubeconfig file from
@@ -198,11 +194,9 @@ machine.
 Edit the server: <https://127.0.0.1:6443> to the hostname of the
 master:6443
 
-  -----------------------------------------------------------------------
-  \$ export KUBECONFIG=kubeconfig_rke2.yaml
-  -----------------------------------------------------------------------
-
-  -----------------------------------------------------------------------
+```
+export KUBECONFIG=kubeconfig_rke2.yaml
+```
 
 # Installing Components on the Kubernetes Cluster
 
@@ -210,12 +204,14 @@ This section gives instructions for installing desired components on a
 Kubernetes (K8s) cluster using the SiloGen Enterprise AI
 **ClusterForge** tool**.**
 
-<figure>
-<img src="media/image1.png" style="width:3.33351in;height:0.69448in"
-alt="A digital numbers on a black background Description automatically generated" />
-<figcaption><p><strong>Figure 1</strong>. ClusterForge
-logo.</p></figcaption>
-</figure>
+```
+  ____ _           _              _____
+ / ___| |_   _ ___| |_ ___ _ __  |  ___|__  _ __ __ _  ___
+| |   | | | | / __| __/ _ \ '__| | |_ / _ \| '__/ _` |/ _ \
+| |___| | |_| \__ \ ||  __/ |    |  _| (_) | | | (_| |  __/
+ \____|_|\__,_|___/\__\___|_|    |_|  \___/|_|  \__, |\___|
+                                                |___/
+```
 
 ClusterForge is designed to be an easy way to install a stack of
 components into a K8s cluster with a couple of commands.
@@ -262,12 +258,11 @@ from <https://github.com/silogen/cluster-forge/releases>. As of 2025 Jan
 After decompressing the ClusterForge package, run the following command
 to install all the components into the K8s cluster:
 
-+-----------------------------------------------------------------------+
-| \$ cd clusterforge                                                    |
-|                                                                       |
-| \$ bash deploy.sh                                                     |
-+=======================================================================+
-+-----------------------------------------------------------------------+
+```
+cd clusterforge
+
+bash deploy.sh
+```
 
 Finally, a notification as shown in **Figure 2** should be seen.
 
@@ -320,21 +315,13 @@ the default location \~/.kube/config.
 To do both steps in one command for Linux (AMD64), edit v.x.x.x in the
 following and run it
 
-+-----------------------------------------------------------------------+
-| \$ wget                                                               |
-| https:/                                                               |
-| /github.com/silogen/kaiwo/releases/download/v.x.x.x/kaiwo_linux_amd64 |
-| && \\                                                                 |
-|                                                                       |
-| mv kaiwo_linux_amd64 kaiwo && \\                                      |
-|                                                                       |
-| chmod +x kaiwo && \\                                                  |
-|                                                                       |
-| sudo mv kaiwo /usr/local/bin/                                         |
-|                                                                       |
-| \$ kaiwo \--help                                                      |
-+=======================================================================+
-+-----------------------------------------------------------------------+
+```
+wget https://github.com/silogen/kaiwo/releases/download/v.x.x.x/kaiwo_linux_amd64 && \\                                    mv kaiwo_linux_amd64 kaiwo && \\
+chmod +x kaiwo &&
+sudo mv kaiwo /usr/local/bin/
+
+kaiwo \--help
+```
 
 3.  You\'re off to the races!
 
@@ -368,54 +355,33 @@ Kaiwo:
 
 **Deploy with Kaiwo**:
 
-  -----------------------------------------------------------------------
-  \$ kaiwo serve \--image rocm/vllm-dev:20241205-tuned \--path
-  llm-inference-vllm/kaiwo/ \--gpus 1
-  -----------------------------------------------------------------------
-
-  -----------------------------------------------------------------------
+```
+kaiwo serve \--image rocm/vllm-dev:20241205-tuned \--path llm-inference-vllm/kaiwo/ \--gpus 1
+```
 
 **To Verify Deployment:** Check the deployment status:
 
-  -----------------------------------------------------------------------
-  \$ kubectl get deployment -n kaiwo
-  -----------------------------------------------------------------------
-
-  -----------------------------------------------------------------------
+```
+kubectl get deployment -n kaiwo
+```
 
 **Port Forwarding:** Forward the port to access the service (assuming
 the deployment is named ubuntu-kaiwo):
 
-  -----------------------------------------------------------------------
-  \$ kubectl port-forward deployments/ubuntu-kaiwo 8080:8080 -n kaiwo
-  -----------------------------------------------------------------------
-
-  -----------------------------------------------------------------------
+```
+kubectl port-forward deployments/ubuntu-kaiwo 8080:8080 -n kaiwo
+```
 
 **Test the Deployment:** Send a test request to verify the service:
 
-+-----------------------------------------------------------------------+
-| \$ curl <http://localhost:8080/v1/chat/completions> \\                |
-|                                                                       |
-|       -H \"Con-Type: application/json\" \\                            |
-|                                                                       |
-|       -d \'{                                                          |
-|                                                                       |
-| \"model\": \"meta-llama/Llama-3.1-8B-Instruct\",                      |
-|                                                                       |
-|          \"messages\": \[                                             |
-|                                                                       |
-|              {\"role\": \"system\", \"content\": \"You are a helpful  |
-| assistant.\"},                                                        |
-|                                                                       |
-|              {\"role\": \"user\", \"content\": \"Who won the world    |
-| series in 2020?\"}                                                    |
-|                                                                       |
-|          \]                                                           |
-|                                                                       |
-|         }\'                                                           |
-+=======================================================================+
-+-----------------------------------------------------------------------+
+```
+curl <http://localhost:8080/v1/chat/completions> \\
+    -H \"Con-Type: application/json\" \\
+    -d \'{\"model\": \"meta-llama/Llama-3.1-8B-Instruct\",
+    \"messages\": \[{\"role\": \"system\", \"content\": \"You are a helpful
+ assistant.\"},{\"role\": \"user\", \"content\": \"Who won the world
+ series in 2020?\"} \]}\'
+```
 
 ### vLLM-Based Offline Batch Inference
 
@@ -435,23 +401,14 @@ variables.
 
 Run with:
 
-  -------------------------------------------------------------------------
-  \$ kaiwo submit -p
-  workloads/inference/LLMs/offline-inference/vllm-batch-single-multinode/
-  -g 16 --ray
-  -------------------------------------------------------------------------
-
-  -------------------------------------------------------------------------
+```
+kaiwo submit -p workloads/inference/LLMs/offline-inference/vllm-batch-single-multinode/ -g 16 --ray
+```
 
 Or set these variables yourself with the following command:
 
-  -------------------------------------------------------------------------
-  \$ kaiwo submit -p
-  workloads/inference/LLMs/offline-inference/vllm-batch-single-multinode/
-  \--replicas 2 \--gpus-per-replica 8 \--ray
-  -------------------------------------------------------------------------
-
-  -------------------------------------------------------------------------
+```kaiwo submit -p workloads/inference/LLMs/offline-inference/vllm-batch-single-multinode/ --replicas 2 --gpus-per-replica 8 --ray
+```
 
 ### vLLM-Based Online Batch Inference
 
@@ -474,23 +431,14 @@ variables.
 
 Run with:
 
-  ------------------------------------------------------------------------
-  \$ kaiwo serve -p
-  workloads/inference/LLMs/online-inference/vllm-online-single-multinode
-  -g 16 --ray
-  ------------------------------------------------------------------------
-
-  ------------------------------------------------------------------------
+```
+kaiwo serve -p workloads/inference/LLMs/online-inference/vllm-online-single-multinode -g 16 --ray
+```
 
 Or set these variables yourself with the following command:
 
-  ------------------------------------------------------------------------
-  \$ kaiwo serve -p
-  workloads/inference/LLMs/online-inference/vllm-online-single-multinode
-  \--replicas 2 \--gpus-per-replica 8 \--ray
-  ------------------------------------------------------------------------
-
-  ------------------------------------------------------------------------
+```kaiwo serve -p workloads/inference/LLMs/online-inference/vllm-online-single-multinode --replicas 2 \--gpus-per-replica 8 --ray
+```
 
 ## 
 
@@ -507,12 +455,9 @@ when adding GPUs for training.
 
 To run on 4 GPUs:
 
-  -----------------------------------------------------------------------
-  \$ kaiwo submit -p
-  workloads/training/LLMs/jobs/single-node-bert-train-classification -g 4
-  -----------------------------------------------------------------------
-
-  -----------------------------------------------------------------------
+```
+kaiwo submit -p workloads/training/LLMs/jobs/single-node-bert-train-classification -g 4
+```
 
 ### 
 
@@ -542,14 +487,11 @@ secret in a similar way as the Hugging Face token is applied.
 To run this workload on 16 GPUs in kaiwo namespace, set num_devices in
 entrypoint to 16 and use the following command:
 
-+-----------------------------------------------------------------------+
-| \$ kaiwo submit -p workloads/training/LLMs/ \\                        |
-|                                                                       |
-| full-parameter-pretraining/ \\                                        |
-|                                                                       |
-| full-param-zero3-single-multinode -g 16 --ray                         |
-+=======================================================================+
-+-----------------------------------------------------------------------+
+```
+kaiwo submit -p workloads/training/LLMs/ \\
+    full-parameter-pretraining/ \\
+    full-param-zero3-single-multinode -g 16 --ray
+```
 
 ### Lora supervised fine-tuning
 
@@ -577,13 +519,9 @@ choose to use either one. Remember to refactor your code accordingly.
 To run this workload on 16 GPUs in kaiwo namespace, set num_devices in
 entrypoint to 16 and use the following command:
 
-  ------------------------------------------------------------------------------------
-  \$ kaiwo submit -p
-  workloads/training/LLMs/lora-supervised-finetuning/lora-sft-zero3-single-multinode
-  -g 16 --ray
-  ------------------------------------------------------------------------------------
-
-  ------------------------------------------------------------------------------------
+```
+kaiwo submit -p workloads/training/LLMs/lora-supervised-finetuning/lora-sft-zero3-single-multinode -g 16 --ray
+```
 
 #  {#section-2 .Appendix}
 
@@ -596,12 +534,10 @@ components to a K8s cluster using the ClusterForge tool.
 
 First, run the following command to download the ClusterForge tool:
 
-+-----------------------------------------------------------------------+
-| \$ git clone https://github.com/silogen/cluster-forge                 |
-|                                                                       |
-| \$ cd cluster-forge                                                   |
-+=======================================================================+
-+-----------------------------------------------------------------------+
+```
+git clone https://github.com/silogen/cluster-forge
+cd cluster-forge
+```
 
 ClusterForge needs the following software to be installed and functional
 before proceeding:
@@ -681,11 +617,9 @@ script shown below can be run to delete all previous prepared
 configurations and log files. The script does not delete already
 prepared, i.e. "cast" stacks.
 
-  -----------------------------------------------------------------------
-  \$ sh cluster-forge/scripts/clean.sh
-  -----------------------------------------------------------------------
-
-  -----------------------------------------------------------------------
+```
+sh cluster-forge/scripts/clean.sh
+```
 
 ### Adding new components to install with ClusterForge
 
@@ -694,6 +628,7 @@ about the Helm source of the service must first be added into the file
 /cluster-forge/input/ config.yaml. An example is given in Figure 4, and
 you can see more examples in the actual file.
 
+```
 ![A close-up of a computer screen Description automatically
 generated](media/image4.png){width="6.5in"
 height="1.3215299650043744in"}
@@ -721,7 +656,9 @@ cluster-forge/working/**.**
 To do the "smelt" step, run the following command in the ClusterForge
 root directory cluster-forge/:
 
-\$ go run . smelt
+```
+go run . smelt
+```
 
 <figure>
 <img src="media/image5.png" style="width:4.71841in;height:2.8365in"
@@ -782,11 +719,9 @@ cluster-forge/stacks/\<stack-name\>/.
 To run this step, enter the following command in the ClusterForge root
 directory cluster-forge/:
 
-  -----------------------------------------------------------------------
-  \$ go run . cast
-  -----------------------------------------------------------------------
-
-  -----------------------------------------------------------------------
+```
+go run . cast
+```
 
 By default, this stack image will be available for 12 hours in a
 [ttl.sh](https://ttl.sh/) image registry as shown in Figure 7:
@@ -800,11 +735,9 @@ stack</p></figcaption>
 To publish the stack image to the registry of your choice, include the
 flag PUBLISH_IMAGE=true as:
 
-  -----------------------------------------------------------------------
-  \$ PUBLISH_IMAGE=true go run . cast
-  -----------------------------------------------------------------------
-
-  -----------------------------------------------------------------------
+```
+PUBLISH_IMAGE=true go run . cast
+```
 
 As shown in Figure 8, the terminal will prompt for giving a name for the
 composition package to be made, i.e. "cast". Please type the name of
@@ -876,11 +809,9 @@ ClusterForge and store the resulting image in the ephemeral image
 registry. Simply run the following command in the ClusterForge root
 directory cluster-forge/ to run both smelt and cast
 
-  -----------------------------------------------------------------------
-  \$ go run . forge
-  -----------------------------------------------------------------------
-
-  -----------------------------------------------------------------------
+```
+go run . forge
+```
 
 This will prompt the component selection as shown in Figure 5, and these
 components are automatically then casted into a stack with the name
@@ -939,11 +870,9 @@ your code (e.g. finetuning script) works with the number of GPUs that
 you request via kaiwo submit/serve. For example, the following command
 will run the code found in path as a RayJob on 16 GPUs.
 
-  -----------------------------------------------------------------------
-  \$ kaiwo submit -p path/to/workload/directory -g 16 \--ray
-  -----------------------------------------------------------------------
-
-  -----------------------------------------------------------------------
+```
+kaiwo submit -p path/to/workload/directory -g 16 \--ray
+```
 
 By default, this will run in kaiwo namespace unless another namespace is
 provided with -n or \--namespace option. If the provided namespace
@@ -951,23 +880,18 @@ doesn\'t exist, use \--create-namespace flag.
 
 You can also run a workload by just passing \--image or -i flag.
 
-  -----------------------------------------------------------------------
-  \$ kaiwo submit -i my-registry/my_image -g 8
-  -----------------------------------------------------------------------
-
-  -----------------------------------------------------------------------
+```
+kaiwo submit -i my-registry/my_image -g 8
+```
 
 Or, you may want to mount code from a github repo at runtime and only
 modify the entrypoint for the running container. In such a case and when
 submitting a standard Kubernetes Job, add entrypoint file to \--path
 directory and submit your workload like so
 
-  -----------------------------------------------------------------------
-  \$ kaiwo submit -i my-registry/my_image -p path_to_entrypoint_directory
-  -g 8
-  -----------------------------------------------------------------------
-
-  -----------------------------------------------------------------------
+```
+kaiwo submit -i my-registry/my_image -p path_to_entrypoint_directory -g 8
+```
 
 One important note about GPU requests: it is up to the user to ensure
 that the code can run on the requested number of GPUs. If the code is
@@ -997,7 +921,7 @@ To pass environment variables (from secrets or otherwise) into your
 workload, you can add env file to the \--path directory. The file format
 follows YAML syntax and looks something like this:
 
-  -----------------------------------------------------------------------
+```
   envVars:\
   - name: MY_VAR\
   value: \"my_value\"\
@@ -1018,9 +942,7 @@ follows YAML syntax and looks something like this:
   secret: \"gcs-credentials\"\
   key: \"gcs-credentials-json\"\
   path: \"/etc/gcp/credentials.json\"
-  -----------------------------------------------------------------------
-
-  -----------------------------------------------------------------------
+```
 
 #### Enabling auto-completion for Kaiwo
 
@@ -1029,13 +951,10 @@ of terminal. See help with kaiwo completion \--help
 
 For bash, you can run the following
 
-  -----------------------------------------------------------------------
-  \$ sudo apt update && sudo apt install bash-completion && \\\
+``` sudo apt update && sudo apt install bash-completion && \\\
   kaiwo completion bash \| sudo tee /etc/bash_completion.d/kaiwo \>
   /dev/null
-  -----------------------------------------------------------------------
-
-  -----------------------------------------------------------------------
+```
 
 You have to restart your terminal for auto-completion to take effect.
 
@@ -1110,9 +1029,6 @@ On Kubernetes
 
 Save the token in an environment variable in your terminal:
 
-  -----------------------------------------------------------------------
-  \$ kubectl create secret generic hf-token
-  \--from-literal=hf-token=my_super_secret_token -n my_namespace
-  -----------------------------------------------------------------------
-
-  -----------------------------------------------------------------------
+```
+kubectl create secret generic hf-token --from-literal=hf-token=my_super_secret_token -n my_namespace
+```
