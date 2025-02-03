@@ -5,6 +5,9 @@ on:
     inputs:
       version:
         required: true
+      image_name:
+        default: ghcr.io/silogen/clusterforge
+
 
 permissions:
   contents: write
@@ -30,7 +33,7 @@ jobs:
       uses: docker/setup-buildx-action@v3
 
     - name: Cast
-      run: go run . cast --config release-configs/externalsecrets.yaml --imageName ttl.sh/$(uuidgen):1h --stackName ${{ github.event.inputs.version }} --non-interactive
+      run: go run . cast --config release-configs/externalsecrets.yaml --imageName ${{ github.event.inputs.image_name }}:${{ github.event.inputs.version }} --stackName ${{ github.event.inputs.version }} --non-interactive
 
     - name: Clean stack
       run: rm -r stacks/${{ github.event.inputs.version }}/.git stacks/${{ github.event.inputs.version }}/.gitkeep
