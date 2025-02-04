@@ -458,7 +458,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/sync-wave: {{ .SyncWave }}
+    argocd.argoproj.io/sync-wave: "{{ .SyncWave }}"
   name: {{ .Name }}
   namespace: argocd
 spec:
