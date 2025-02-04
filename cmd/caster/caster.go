@@ -206,7 +206,7 @@ func BuildAndPushImage(imageName string) error {
 	checkCmd := exec.Command("docker", "manifest", "inspect", imageName)
 	if err := checkCmd.Run(); err != nil {
 		if _, ok := err.(*exec.ExitError); ok {
-			log.Fatalf("Build failed, image " + imageName + " not found in registry: ")
+			log.Fatalf("Build failed, image %s not found in registry: ", imageName)
 			os.Exit(1)
 		}
 	}

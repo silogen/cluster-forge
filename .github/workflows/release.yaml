@@ -1,4 +1,4 @@
-name: Externalsecrets release
+name: Silogen core release
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
       version:
         required: true
       image_name:
-        default: ghcr.io/silogen/clusterforge-test
+        default: ghcr.io/silogen/clusterforge-core
 
 
 permissions:
@@ -25,7 +25,7 @@ jobs:
         go-version: '1.23.2'
 
     - name: Smelt
-      run: go run . smelt --config release-configs/externalsecrets.yaml --non-interactive
+      run: go run . smelt --config release-configs/config-silogen-core.yaml --non-interactive
 
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
@@ -41,7 +41,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Cast
-      run: go run . cast --config release-configs/externalsecrets.yaml --imageName ${{ github.event.inputs.image_name }}:${{ github.event.inputs.version }} --stackName ${{ github.event.inputs.version }} --non-interactive
+      run: go run . cast --config release-configs/config-silogen-core.yaml --imageName ${{ github.event.inputs.image_name }}:${{ github.event.inputs.version }} --stackName ${{ github.event.inputs.version }} --non-interactive
 
     - name: Clean stack
       run: rm -r stacks/${{ github.event.inputs.version }}/.git stacks/${{ github.event.inputs.version }}/.gitkeep
