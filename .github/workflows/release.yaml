@@ -1,4 +1,4 @@
-name: Silogen core release
+name: ClusterForge Core release
 
 on:
   workflow_dispatch:
@@ -25,7 +25,7 @@ jobs:
         go-version: '1.23.2'
 
     - name: Smelt
-      run: go run . smelt --config release-configs/config-silogen-core.yaml --non-interactive
+      run: go run . smelt --config release-configs/config-core.yaml --non-interactive
 
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
@@ -41,7 +41,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Cast
-      run: go run . cast --config release-configs/config-silogen-core.yaml --imageName ${{ github.event.inputs.image_name }}:${{ github.event.inputs.version }} --stackName ${{ github.event.inputs.version }} --non-interactive
+      run: go run . cast --config release-configs/config-core.yaml --imageName ${{ github.event.inputs.image_name }}:${{ github.event.inputs.version }} --stackName ${{ github.event.inputs.version }} --non-interactive
 
     - name: Clean stack
       run: rm -r stacks/${{ github.event.inputs.version }}/.git stacks/${{ github.event.inputs.version }}/.gitkeep
@@ -57,6 +57,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         gh release create "${{ github.event.inputs.version }}" \
+            --title="ClusterForge Core ${{ github.event.inputs.version }}" \
             --repo="$GITHUB_REPOSITORY" \
             --generate-notes    \
             stacks/release-${{ github.event.inputs.version }}.tar.gz
