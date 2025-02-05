@@ -55,8 +55,8 @@ jobs:
       - name: Cast
         run: |
           go run . cast --config input/config-silogen-${{ matrix.release.type }}.yaml \
-            --imageName ${{ github.event.inputs.image_name }}:${{ github.event.inputs.version }} \
-            --stackName ${{ github.event.inputs.version }} \
+            --imageName ${{ github.event.inputs.image_name }}:${{ github.event.inputs.version }}-${{ matrix.release.type }} \
+            --stackName ${{ github.event.inputs.version }}-${{ matrix.release.type }} \
             --non-interactive
 
       - name: Clean stack
