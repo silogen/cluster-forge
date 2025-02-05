@@ -16,7 +16,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Define a matrix with three release types.
+    # Define a matrix for the three release types
     strategy:
       matrix:
         release:
@@ -63,13 +63,20 @@ jobs:
         run: |
           rm -rf stacks/${{ github.event.inputs.version }}/.git stacks/${{ github.event.inputs.version }}/.gitkeep
 
-      - name: Set up tarball
-        run: cp -r ansible-reference stacks/ansible
+      - name: Create release package directory
+        run: |
+          # Create the desired top-level directory that will appear when unzipped
+          PACKAGE_DIR="clusterforge-${{ matrix.release.type }}-${{ github.event.inputs.version }}"
+          mkdir -p stacks/${PACKAGE_DIR}
+          
+          # Move the stack directory and ansible directory into the package directory
+          mv stacks/${{ github.event.inputs.version }} stacks/${PACKAGE_DIR}/
+          mv stacks/ansible stacks/${PACKAGE_DIR}/
 
       - name: Create tarball
         run: |
-          tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz \
-            ${{ github.event.inputs.version }}/ ansible/
+          PACKAGE_DIR="clusterforge-${{ matrix.release.type }}-${{ github.event.inputs.version }}"
+          tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz ${PACKAGE_DIR}
 
       - name: Create release
         env:
