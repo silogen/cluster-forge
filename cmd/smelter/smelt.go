@@ -94,7 +94,7 @@ func Smelt(configs []utils.Config, workingDir string, filesDir string, configFil
 
 	if nonInteractive {
 		if err := PrepareTool(configs, toolbox.Targettool.Type, workingDir); err != nil {
-			log.Errorf("Error during tool preparation: %v", err)
+			log.Fatalf("Error during tool preparation: %v", err)
 		}
 		log.Println("Completed: " + xstrings.EnglishJoin(toolbox.Targettool.Type, true))
 	} else {
@@ -165,7 +165,10 @@ func PrepareTool(configs []utils.Config, targetTools []string, workingDir string
 				}
 			}
 
-			utils.Templatehelm(config, &utils.DefaultHelmExecutor{})
+			err := utils.Templatehelm(config, &utils.DefaultHelmExecutor{})
+			if err != nil {
+				return fmt.Errorf("failed to parse config: %w", err)
+			}
 			SplitYAML(config, workingDir)
 			utils.CreateApplicationFile(config, filepath.Join(workingDir, "argo-apps"))
 			files, _ = os.ReadDir(toolDir)
@@ -177,7 +180,7 @@ func PrepareTool(configs []utils.Config, targetTools []string, workingDir string
 			}
 
 			if !namespaceObject {
-				if err := createNamespaceFile(config, workingDir); err != nil {
+				if err = createNamespaceFile(config, workingDir); err != nil {
 					return fmt.Errorf("failed to create namespace file: %w", err)
 				}
 			}

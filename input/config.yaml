@@ -10,13 +10,13 @@
   helm-version: "1.0.0"
 - name: amd-device-config
   namespace: kube-amd-gpu
-  sourcefile: amd-device-config/deviceconfig_example.yaml
+  manifestpath: amd-device-config/deviceconfig_example.yaml
 - name: grafana-gpu-dashboard
   namespace: grafana
-  sourcefile: dummy-grafana-dashboard/gpu-metrics-dashboard.yaml
+  manifestpath: dummy-grafana-dashboard/gpu-metrics-dashboard.yaml
 - name: kueue
   namespace: kueue-system
-  sourcefile: kueue/manifests.yaml
+  manifestpath: kueue/manifests.yaml
 - helm-chart-name: "external-secrets"
   helm-name: external-secrets
   helm-url: "https://charts.external-secrets.io"
@@ -35,10 +35,10 @@
   helm-version: "1.17.0"
 - name: cnpg-operator
   namespace: cnpg-system
-  sourcefile: cnpg/cnpg-operator.yaml
+  manifestpath: cnpg/cnpg-operator.yaml
 - name: kyverno-policies
   namespace: default
-  sourcefile: kyverno/kyverno-policies.yaml
+  manifestpath: kyverno/kyverno-policies.yaml
 - name: kyverno
   namespace: kyverno
   helm-chart-name: kyverno
@@ -69,7 +69,7 @@
   secrets: false
 - name: dummy-secret-monitoring-tools
   namespace: monitoring
-  sourcefile: dummy-secret/dummy-secret-monitoring-tools.yaml
+  manifestpath: dummy-secret/dummy-secret-monitoring-tools.yaml
 - helm-chart-name: "grafana"
   helm-name: grafana
   helm-url: "https://grafana.github.io/helm-charts"
@@ -134,7 +134,7 @@
   values: redis-dev-values.yaml # Insecure
 - name: kube-prometheus-stack
   namespace: "prometheus-system"
-  sourcefile: kube-prometheus-stack/kube-prometheus-stack-manifests.yaml
+  manifestpath: kube-prometheus-stack/kube-prometheus-stack-manifests.yaml
 - name: opentelemetry-operator
   namespace: opentelemetry-operator-system
   manifest-url: https://github.com/open-telemetry/opentelemetry-operator/releases/latest/download/opentelemetry-operator.yaml
@@ -148,16 +148,16 @@
   helm-version: "0.14.1"
 - name: openobserve-collector
   namespace: "openobserve-collector"
-  sourcefile: openobserve-collector/manifests.yaml
+  manifestpath: openobserve-collector/manifests.yaml
 - name: prometheus-crds
   namespace: prometheus-system
   manifest-url: https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.79.2/stripped-down-crds.yaml
 - name: 1password-cluster-secret-store
   namespace: external-secrets
-  sourcefile: 1password-cluster-secret-store/manifests.yaml
+  manifestpath: 1password-cluster-secret-store/manifests.yaml
 - name: k8s-cluster-secret-store
   namespace: cf-es-backend
-  sourcefile: k8s-cluster-secret-store/manifests.yaml
+  manifestpath: k8s-cluster-secret-store/manifests.yaml
 - name: kaiwo-cluster-config
   namespace: kaiwo
-  sourcefile: kaiwo-cluster-config/manifests.yaml
+  manifestpath: kaiwo-cluster-config/manifests.yaml
