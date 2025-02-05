@@ -161,3 +161,6 @@
 - name: kaiwo-cluster-config
   namespace: kaiwo
   manifestpath: kaiwo-cluster-config/manifests.yaml
+- name: otel-lgtm-stack
+  namespace: otel-lgtm-stack
+  manifestpath: otel-lgtm-stack/otel-lgtm-manifests.yaml
