@@ -63,6 +63,9 @@ jobs:
         run: |
           rm -rf stacks/${{ github.event.inputs.version }}/.git stacks/${{ github.event.inputs.version }}/.gitkeep
 
+      - name: Set up tarball
+        run: cp -r ansible-reference stacks/ansible
+
       - name: Create release package directory
         run: |
           # Create the desired top-level directory that will appear when unzipped
