@@ -63,6 +63,7 @@ To create a stack without the forge command, or for further instructions and opt
 ## Instruction of deploying monitoring tools
 - [OpenObserve](input/openobserve/README.md)
 - [Prometheus-Operator](input/kube-prometheus-stack/README.md)
+- [otel-lgtm-stack](input/otel-lgtm-stack/README.md)
 
 ## Instruction of other tools
 - [k8s-cluster-secret-store](input/k8s-cluster-secret-store/README.md)
