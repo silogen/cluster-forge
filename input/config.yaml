@@ -97,6 +97,13 @@
   namespace: "minio"
   values: minio-values.yaml
   name: minio
+- name: longhorn
+  namespace: "longhorn"
+  helm-chart-name: "longhorn"
+  helm-name: longhorn
+  helm-url: "https://charts.longhorn.io"
+  values: values.yaml
+  # manifestpath: longhorn/manifests
 - helm-chart-name: "operator"
   helm-name: minio-operator
   helm-url: "https://operator.min.io"
