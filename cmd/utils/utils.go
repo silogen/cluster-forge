@@ -111,17 +111,68 @@ var clusterScopedResources = []ClusterScopedResource{
 	{"Audit", "warden.gke.io/v1"},
 }
 
+type ConfigAsMap map[string]interface{}
+
 func LoadConfig(filename string) ([]Config, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-
 	var configs []Config
-	err = yaml.Unmarshal(data, &configs)
-	if err != nil {
-		return nil, err
+
+	if filename == "input/config.yaml" {
+		// Using input/config.yaml, no logic needed
+		err = yaml.Unmarshal(data, &configs)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// If a config file is given, merge missing values from input/config.yaml
+		defaultData, err := os.ReadFile("input/config.yaml")
+		if err != nil {
+			return nil, err
+		}
+
+		var defaultMap []ConfigAsMap
+		var configMap []ConfigAsMap
+		var allDefaults = make(map[string]ConfigAsMap)
+
+		err = yaml.Unmarshal(data, &configMap)
+		if err != nil {
+			return nil, err
+		}
+		err = yaml.Unmarshal(defaultData, &defaultMap)
+		if err != nil {
+			return nil, err
+		}
+		// Put the values in input/config.yaml into a map
+		// map[toolname] -> toolconfig, so that we can fetch them easily
+		for _, v := range defaultMap {
+			name := string(v["name"].(string))
+			allDefaults[name] = v
+		}
+		// For each tool defined, use defaults as a base and overwrite values
+		// that have been defined in config
+		for k, v := range configMap {
+			name := v["name"].(string)
+			defaultValues := allDefaults[name]
+			for key, val := range v {
+				defaultValues[key] = val
+			}
+			configMap[k] = defaultValues
+		}
+
+		// The marshaling tools seemes the safest way of going from map to struct, so here we are.
+		combinedYaml, err := yaml.Marshal(configMap)
+		if err != nil {
+			return nil, err
+		}
+		err = yaml.Unmarshal(combinedYaml, &configs)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	err = validateConfig(configs)
 	if err != nil {
 		return nil, err
