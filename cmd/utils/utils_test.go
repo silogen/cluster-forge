@@ -67,7 +67,7 @@ func TestTemplatehelm(t *testing.T) {
 		}
 
 		err := Templatehelm(config, mockExecutor)
-		expectedError := "invalid configuration: at least one of HelmURL, SourceFile, or ManifestURL must be provided"
+		expectedError := "invalid configuration: at least one of HelmURL, ManifestPath, or ManifestURL must be provided"
 
 		if err == nil || err.Error() != expectedError {
 			t.Errorf("expected error: %q, got: %v", expectedError, err)
