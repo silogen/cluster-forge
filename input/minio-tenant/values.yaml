@@ -22,7 +22,7 @@ tenant:
       volumesPerServer: 2
       ###
       # The capacity per volume requested per MinIO Tenant Pod.
-      size: 10Gi
+      size: 30Gi
       ###
       # The `storageClass <https://kubernetes.io/docs/concepts/storage/storage-classes/>`__ to associate with volumes generated for this pool.
       #
@@ -34,6 +34,9 @@ tenant:
         # processor-type: cpu
   buckets: 
     - name: default-bucket
+    - name: cluster-forge-loki
+    - name: cluster-forge-mimir
+    - name: cluster-forge-tempo
   users:
     - name: default-user
 extraResources:
@@ -44,7 +47,7 @@ extraResources:
       name: config-env
       namespace: minio-tenant-default
     spec:
-      refreshInterval: "30m"
+      refreshInterval: "0"
       secretStoreRef:
         name: k8s-secret-store
         kind: ClusterSecretStore
@@ -62,7 +65,7 @@ extraResources:
       name: default-minio-user
       namespace: minio-tenant-default
     spec:
-      refreshInterval: "30m"
+      refreshInterval: "0"
       secretStoreRef:
         name: k8s-secret-store
         kind: ClusterSecretStore
