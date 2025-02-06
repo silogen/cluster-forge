@@ -34,6 +34,9 @@ tenant:
         # processor-type: cpu
   buckets: 
     - name: default-bucket
+    - name: cluster-forge-loki
+    - name: cluster-forge-mimir
+    - name: cluster-forge-tempo
   users:
     - name: default-user
 extraResources:
@@ -44,7 +47,7 @@ extraResources:
       name: config-env
       namespace: minio-tenant-default
     spec:
-      refreshInterval: "30m"
+      refreshInterval: "0"
       secretStoreRef:
         name: k8s-secret-store
         kind: ClusterSecretStore
@@ -62,7 +65,7 @@ extraResources:
       name: default-minio-user
       namespace: minio-tenant-default
     spec:
-      refreshInterval: "30m"
+      refreshInterval: "0"
       secretStoreRef:
         name: k8s-secret-store
         kind: ClusterSecretStore
