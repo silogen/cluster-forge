@@ -10,3 +10,9 @@ password:
 ```
 kubectl -n minio-tenant-default get secrets/default-user --template={{.data.CONSOLE_SECRET_KEY}} | base64 -d
 ```
+
+Four buckets are going to be created as default at the moment
+- default-bucket
+- cluster-forge-loki
+- cluster-forge-mimir
+- cluster-forge-tempo
