@@ -181,16 +181,16 @@ func LoadConfig(filename string) ([]Config, error) {
 }
 
 type Config struct {
-	HelmChartName       string `yaml:"helm-chart-name"`
-	HelmURL             string `yaml:"helm-url"`
-	Values              string `yaml:"values"`
-	Name                string `yaml:"name"`
-	HelmName            string `yaml:"helm-name"`
-	ManifestURL         string `yaml:"manifest-url"`
-	HelmVersion         string `yaml:"helm-version"`
-	Namespace           string `yaml:"namespace"`
-	ManifestPath        string `yaml:"manifestpath"`
-	SyncWave            string `yaml:"syncwave"`
+	HelmChartName       string   `yaml:"helm-chart-name"`
+	HelmURL             string   `yaml:"helm-url"`
+	Values              string   `yaml:"values"`
+	Name                string   `yaml:"name"`
+	HelmName            string   `yaml:"helm-name"`
+	ManifestURL         string   `yaml:"manifest-url"`
+	HelmVersion         string   `yaml:"helm-version"`
+	Namespace           string   `yaml:"namespace"`
+	ManifestPath        []string `yaml:"manifestpath"`
+	SyncWave            string   `yaml:"syncwave"`
 	Filename            string
 	CRDFiles            []string
 	NamespaceFiles      []string
@@ -243,7 +243,7 @@ func (e *DefaultHelmExecutor) RunHelmCommand(args []string, stdout io.Writer, st
 }
 
 func Templatehelm(config Config, helmExec HelmExecutor) error {
-	if config.HelmURL == "" && config.ManifestPath == "" && config.ManifestURL == "" {
+	if config.HelmURL == "" && len(config.ManifestPath) == 0 && config.ManifestURL == "" {
 		return fmt.Errorf("invalid configuration: at least one of HelmURL, ManifestPath, or ManifestURL must be provided")
 	}
 
@@ -291,16 +291,20 @@ func Templatehelm(config Config, helmExec HelmExecutor) error {
 		if err != nil {
 			return fmt.Errorf("helm command failed: %s: %w", stderr.String(), err)
 		}
-	} else if config.ManifestPath != "" {
-		srcPath := filepath.Join("input", config.ManifestPath)
+	} else if len(config.ManifestPath) > 0 {
+		files := make([]string, 0)
 		dstFilePath := filepath.Join("working/pre", config.Name+".yaml")
+		for _, manifestPath := range config.ManifestPath {
+			srcPath := filepath.Join("input", manifestPath)
 
-		files, err := FindManifests(srcPath)
-		if err != nil {
-			return fmt.Errorf("error finding manifests: %w", err)
+			foundFiles, err := FindManifests(srcPath)
+			if err != nil {
+				return fmt.Errorf("error finding manifests: %w", err)
+			}
+			files = append(files, foundFiles...)
 		}
 		if len(files) < 1 {
-			return fmt.Errorf("no manifests found: %s", srcPath)
+			return fmt.Errorf("no manifests found: %s", config.ManifestPath)
 		}
 		// Copy the first file
 		err = CopyFile(files[0], dstFilePath)
@@ -504,7 +508,7 @@ func validateConfig(configs []Config) error {
 		if config.Namespace == "" {
 			return fmt.Errorf("missing 'namespace' in config: %+v", config)
 		}
-		if config.ManifestURL == "" && config.HelmURL == "" && config.ManifestPath == "" {
+		if config.ManifestURL == "" && config.HelmURL == "" && len(config.ManifestPath) == 0 {
 			return fmt.Errorf("either 'manifest-url' or 'helm-url' must be provided in config: %+v", config)
 		}
 		if config.HelmURL != "" {
