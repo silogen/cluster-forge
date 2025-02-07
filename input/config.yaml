@@ -100,6 +100,7 @@
 - name: longhorn
   namespace: "longhorn"
   manifestpath: longhorn/manifests
+  syncwave: -100
   # helm-chart-name: "longhorn"
   # helm-name: longhorn
   # helm-url: "https://charts.longhorn.io"
