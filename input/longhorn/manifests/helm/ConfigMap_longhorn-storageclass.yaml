@@ -6,7 +6,7 @@ data:
     metadata:
       name: longhorn
       annotations:
-        storageclass.kubernetes.io/is-default-class: "true"
+        storageclass.kubernetes.io/is-default-class: "false"
     provisioner: driver.longhorn.io
     allowVolumeExpansion: true
     reclaimPolicy: "Delete"

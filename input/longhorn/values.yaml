@@ -4,3 +4,6 @@ preUpgradeChecker:
 defaultSettings:
   allowCollectingLonghornUsageMetrics: false
   createDefaultDiskLabeledNodes: true
+persistence:
+  defaultClass: false
+  defaultClassReplicaCount: 2
