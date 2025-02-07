@@ -68,6 +68,21 @@ spec:
           namespace: external-secrets
       remoteNamespace: cf-es-backend
 ---
+apiVersion: external-secrets.io/v1beta1
+kind: ClusterSecretStore
+metadata:
+  name: fake-secret-store
+spec:
+  provider:
+    fake:
+      data:
+      - key: loki_tenant_name
+        value: loki_tenant_demo
+        version: v1
+      - key: loki_tenant_password
+        value: loki-tenant-demo-password
+        version: v1
+---
 apiVersion: generators.external-secrets.io/v1alpha1
 kind: Password
 metadata:

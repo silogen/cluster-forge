@@ -11,8 +11,8 @@ loki:
       heartbeat_timeout: "10m"
   auth_enabled: true
   tenants: ## promtail
-    - name: loki-tenant-demo
-      password: ${TENANT_PW_OMNI_DEVENV}
+    - name: ${TENANT_NAME_DEMO} 
+      password: ${TENANT_PW_DEMO}
   limits_config:
     index_gateway_shard_size: 1
     retention_period: 168h # Retation period configuration
@@ -23,35 +23,32 @@ loki:
     autoforget_unhealthy: true
     chunk_encoding: snappy
 
-  schemaConfig: #### Mandatory <-- https://grafana.com/docs/loki/latest/operations/storage/tsdb/
-    configs: ## <--if deployed loki is new, item down below is ok. If loki is updated
-      # , then two schemas (old and new might be needed)
-      - from: "2024-01-01" # <---- A date in the future
+  schemaConfig: 
+    configs: 
+      - from: "2024-01-01"
         index:
           period: 24h
           prefix: index_
         object_store: s3
         schema: v13
         store: tsdb
-  storage: ####
+  storage:
     bucketNames:
       chunks: chunks
-      ruler: ruler ## <-- Mandatory. There could be an error if this is not passed
+      ruler: ruler
   storage_config:
     tsdb_shipper:
       active_index_directory: /var/loki/data/tsdb-index
       cache_location: /var/loki/data/tsdb-cache
     aws:
-      # s3: https://${LOKI_MINIO_ACCESS_KEY_ID}:${LOKI_MINIO_SECRET_ACCESS_KEY}@storage.googleapis.com # This works. But got error during parsing
-      # when the value of access_key_id has "/" value
-      endpoint: http://minio.minio.svc.cluster.local:9000
-      access_key_id: ${ACCESS_KEY_ID}
-      secret_access_key: ${SECRET_ACCESS_KEY}
-      bucketnames: cluster-forge-loki-test-dummy ## <--for test
+      endpoint: https://minio.minio-tenant-default.svc.cluster.local:443
+      access_key_id: ${API_ACCESS_KEY}
+      secret_access_key: ${API_SECRET_KEY}
+      bucketnames: cluster-forge-loki
       s3forcepathstyle: true
       insecure: true
       http_config:
-        insecure_skip_verify: true #
+        insecure_skip_verify: true
 
   compactor: # Compactor configuration for retention
     working_directory: /var/loki/data/retention
@@ -88,7 +85,6 @@ gateway:
 sidecar:
   rules:
     enabled: true
-    #enabled: false
     logLevel: debug
 
 chunksCache:
@@ -96,64 +92,122 @@ chunksCache:
 resultsCache:
   enabled: true
 
-## confirmed down below ##
+extraObjects:
+  - apiVersion: external-secrets.io/v1beta1
+    kind: ExternalSecret
+    metadata:
+      name: loki-minio-creds
+      namespace: grafana-loki
+    spec:
+      refreshInterval: "30m"
+      secretStoreRef:
+        name: k8s-secret-store
+        kind: ClusterSecretStore
+      target:
+        name: loki-minio-creds
+      data:
+        - secretKey: API_ACCESS_KEY
+          remoteRef:
+            key: default-user
+            property: API_ACCESS_KEY
+        - secretKey: API_SECRET_KEY
+          remoteRef:
+            key: default-user
+            property: API_SECRET_KEY
+  - apiVersion: external-secrets.io/v1beta1
+    kind: ExternalSecret
+    metadata:
+      name: loki-tenant-creds-from-fake
+      namespace: grafana-loki
+    spec:
+      refreshInterval: "30m"
+      secretStoreRef:
+        name: fake-secret-store
+        kind: ClusterSecretStore
+      target:
+        name: loki-tenant-creds
+      data:
+        - secretKey: loki_tenant_name
+          remoteRef:
+            key: loki_tenant_name
+            version: v1
+        - secretKey: loki_tenant_password
+          remoteRef:
+            key: loki_tenant_password
+            version: v1
+
 backend: ##
   extraArgs:
     - '-config.expand-env=true'
   extraEnv:
-    - name: ACCESS_KEY_ID
+    - name: API_ACCESS_KEY
       valueFrom:
         secretKeyRef:
           name: loki-minio-creds
-          key: access_key_id
-    - name: SECRET_ACCESS_KEY
+          key: API_ACCESS_KEY
+    - name: API_SECRET_KEY
       valueFrom:
         secretKeyRef:
           name: loki-minio-creds
-          key: secret_access_key
-    - name: TENANT_PW_OMNI_DEVENV
+          key: API_SECRET_KEY
+    - name: TENANT_NAME_DEMO
       valueFrom:
         secretKeyRef:
-          name: loki-minio-creds
-          key: loki_tenant_pw_demo
+          name: loki-tenant-creds
+          key: loki_tenant_name
+    - name: TENANT_PW_DEMO
+      valueFrom:
+        secretKeyRef:
+          name: loki-tenant-creds
+          key: loki_tenant_password
 write: ##
   extraArgs:
     - '-config.expand-env=true'
   extraEnv:
-    - name: ACCESS_KEY_ID
+    - name: API_ACCESS_KEY
       valueFrom:
         secretKeyRef:
           name: loki-minio-creds
-          key: access_key_id
-    - name: SECRET_ACCESS_KEY
+          key: API_ACCESS_KEY
+    - name: API_SECRET_KEY
       valueFrom:
         secretKeyRef:
           name: loki-minio-creds
-          key: secret_access_key
-    - name: TENANT_PW_OMNI_DEVENV
+          key: API_SECRET_KEY
+    - name: TENANT_NAME_DEMO
       valueFrom:
         secretKeyRef:
-          name: loki-minio-creds
-          key: loki_tenant_pw_demo
+          name: loki-tenant-creds
+          key: loki_tenant_name
+    - name: TENANT_PW_DEMO
+      valueFrom:
+        secretKeyRef:
+          name: loki-tenant-creds
+          key: loki_tenant_password
 read: ##
   extraArgs:
     - '-config.expand-env=true'
   extraEnv:
-    - name: ACCESS_KEY_ID
+    - name: API_ACCESS_KEY
       valueFrom:
         secretKeyRef:
           name: loki-minio-creds
-          key: access_key_id
-    - name: SECRET_ACCESS_KEY
+          key: API_ACCESS_KEY
+    - name: API_SECRET_KEY
       valueFrom:
         secretKeyRef:
           name: loki-minio-creds
-          key: secret_access_key
-    - name: TENANT_PW_OMNI_DEVENV
+          key: API_SECRET_KEY
+    - name: TENANT_NAME_DEMO
       valueFrom:
         secretKeyRef:
-          name: loki-minio-creds
-          key: loki_tenant_pw_demo
+          name: loki-tenant-creds
+          key: loki_tenant_name
+    - name: TENANT_PW_DEMO
+      valueFrom:
+        secretKeyRef:
+          name: loki-tenant-creds
+          key: loki_tenant_password
 
 minio:
   enabled: false
