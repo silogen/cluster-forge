@@ -105,7 +105,8 @@
   name: minio
 - name: longhorn
   namespace: "longhorn"
-  manifestpath: longhorn/manifests
+  manifestpath: 
+  - longhorn/manifests
   syncwave: -100
   # helm-chart-name: "longhorn"
   # helm-name: longhorn
