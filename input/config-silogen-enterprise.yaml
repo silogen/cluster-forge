@@ -1,3 +1,4 @@
+- name: longhorn
 - name: certmanager
 - name: amd-gpu-operator
 - name: amd-device-config

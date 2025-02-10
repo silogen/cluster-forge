@@ -10,13 +10,16 @@
   helm-version: "1.0.0"
 - name: amd-device-config
   namespace: kube-amd-gpu
-  manifestpath: amd-device-config/deviceconfig_example.yaml
+  manifestpath: 
+  - amd-device-config/deviceconfig_example.yaml
 - name: grafana-gpu-dashboard
   namespace: grafana
-  manifestpath: dummy-grafana-dashboard/gpu-metrics-dashboard.yaml
+  manifestpath: 
+  - dummy-grafana-dashboard/gpu-metrics-dashboard.yaml
 - name: kueue
   namespace: kueue-system
-  manifestpath: kueue/manifests.yaml
+  manifestpath: 
+  - kueue/manifests.yaml
 - helm-chart-name: "external-secrets"
   helm-name: external-secrets
   helm-url: "https://charts.external-secrets.io"
@@ -36,10 +39,12 @@
   helm-version: "1.17.0"
 - name: cnpg-operator
   namespace: cnpg-system
-  manifestpath: cnpg/cnpg-operator.yaml
+  manifestpath: 
+  - cnpg/cnpg-operator.yaml
 - name: kyverno-policies
   namespace: default
-  manifestpath: kyverno/kyverno-policies.yaml
+  manifestpath: 
+  - kyverno/kyverno-policies.yaml
 - name: kyverno
   namespace: kyverno
   helm-chart-name: kyverno
@@ -70,7 +75,8 @@
   secrets: false
 - name: dummy-secret-monitoring-tools
   namespace: monitoring
-  manifestpath: dummy-secret/dummy-secret-monitoring-tools.yaml
+  manifestpath: 
+  - dummy-secret/dummy-secret-monitoring-tools.yaml
 - helm-chart-name: "grafana"
   helm-name: grafana
   helm-url: "https://grafana.github.io/helm-charts"
@@ -92,6 +98,15 @@
   secrets: false
   name: kuberay-operator
   namespace: "default"
+- name: longhorn
+  namespace: "longhorn"
+  manifestpath: 
+  - longhorn/manifests
+  syncwave: -100
+  # helm-chart-name: "longhorn"
+  # helm-name: longhorn
+  # helm-url: "https://charts.longhorn.io"
+  # values: values.yaml
 - helm-chart-name: "operator"
   helm-name: minio-operator
   helm-url: "https://operator.min.io"
@@ -131,7 +146,8 @@
   values: redis-dev-values.yaml # Insecure
 - name: kube-prometheus-stack
   namespace: "prometheus-system"
-  manifestpath: kube-prometheus-stack/kube-prometheus-stack-manifests.yaml
+  manifestpath: 
+  - kube-prometheus-stack/kube-prometheus-stack-manifests.yaml
 - name: opentelemetry-operator
   namespace: opentelemetry-operator-system
   manifest-url: https://github.com/open-telemetry/opentelemetry-operator/releases/latest/download/opentelemetry-operator.yaml
@@ -145,19 +161,24 @@
   helm-version: "0.14.1"
 - name: openobserve-collector
   namespace: "openobserve-collector"
-  manifestpath: openobserve-collector/manifests.yaml
+  manifestpath: 
+  - openobserve-collector/manifests.yaml
 - name: prometheus-crds
   namespace: prometheus-system
   manifest-url: https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.79.2/stripped-down-crds.yaml
 - name: 1password-cluster-secret-store
   namespace: external-secrets
-  manifestpath: 1password-cluster-secret-store/manifests.yaml
+  manifestpath: 
+  - 1password-cluster-secret-store/manifests.yaml
 - name: k8s-cluster-secret-store
   namespace: cf-es-backend
-  manifestpath: k8s-cluster-secret-store/manifests.yaml
+  manifestpath: 
+  - k8s-cluster-secret-store/manifests.yaml
 - name: kaiwo-cluster-config
   namespace: kaiwo
-  manifestpath: kaiwo-cluster-config/manifests.yaml
+  manifestpath: 
+  - kaiwo-cluster-config/manifests.yaml
 - name: otel-lgtm-stack
   namespace: otel-lgtm-stack
-  manifestpath: otel-lgtm-stack/otel-lgtm-manifests.yaml
+  manifestpath: 
+  - otel-lgtm-stack/otel-lgtm-manifests.yaml
