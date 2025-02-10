@@ -25,6 +25,7 @@
   name: external-secrets
   namespace: "external-secrets"
   helm-version: "0.10.3"
+  syncwave: -1
 - helm-chart-name: "psmdb-operator"
   helm-name: psmdb-operator
   helm-url: "https://percona.github.io/percona-helm-charts"
@@ -103,6 +104,7 @@
   namespace: "minio-operator"
   values: minio-values.yaml
   name: minio-operator
+  syncwave: -1
 - name: minio-tenant
   namespace: minio-tenant-default
   helm-chart-name: "tenant"
@@ -117,6 +119,7 @@
   name: grafana-loki
   namespace: "grafana-loki"
   helm-version: "6.15.0"
+  syncwave: 1
 - helm-chart-name: "mimir-distributed"
   helm-name: mimir
   helm-url: "https://grafana.github.io/helm-charts"
