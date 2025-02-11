@@ -136,7 +136,9 @@ extraObjects:
             key: loki_tenant_password
             version: v1
 
-backend: ##
+backend:
+  persistence:
+    storageClass: longhorn-cf-noreplicas
   extraArgs:
     - '-config.expand-env=true'
   extraEnv:
@@ -160,7 +162,9 @@ backend: ##
         secretKeyRef:
           name: loki-tenant-creds
           key: loki_tenant_password
-write: ##
+write:
+  persistence:
+    storageClass: longhorn-cf-noreplicas
   extraArgs:
     - '-config.expand-env=true'
   extraEnv:
@@ -184,7 +188,9 @@ write: ##
         secretKeyRef:
           name: loki-tenant-creds
           key: loki_tenant_password
-read: ##
+read:
+  persistence:
+    storageClass: longhorn-cf-noreplicas
   extraArgs:
     - '-config.expand-env=true'
   extraEnv:
