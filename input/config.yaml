@@ -28,6 +28,7 @@
   name: external-secrets
   namespace: "external-secrets"
   helm-version: "0.10.3"
+  syncwave: -1
 - helm-chart-name: "psmdb-operator"
   helm-name: psmdb-operator
   helm-url: "https://percona.github.io/percona-helm-charts"
@@ -97,12 +98,6 @@
   secrets: false
   name: kuberay-operator
   namespace: "default"
-- helm-chart-name: "minio"
-  helm-name: minio
-  helm-url: "https://charts.min.io/"
-  namespace: "minio"
-  values: minio-values.yaml
-  name: minio
 - name: longhorn
   namespace: "longhorn"
   manifestpath: 
@@ -118,6 +113,7 @@
   namespace: "minio-operator"
   values: minio-values.yaml
   name: minio-operator
+  syncwave: -1
 - name: minio-tenant
   namespace: minio-tenant-default
   helm-chart-name: "tenant"
@@ -132,6 +128,7 @@
   name: grafana-loki
   namespace: "grafana-loki"
   helm-version: "6.15.0"
+  syncwave: 1
 - helm-chart-name: "mimir-distributed"
   helm-name: mimir
   helm-url: "https://grafana.github.io/helm-charts"
