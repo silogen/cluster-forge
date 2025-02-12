@@ -107,8 +107,13 @@ extraResources:
             args:
               - source /tmp/minio-config/config.env;
                 false; until [ $? -eq 0 ]; do sleep 5; mc alias set init "$MINIO_SERVER_URL" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; done;
-                false; until [ $? -eq 0 ]; do sleep 5; mc admin accesskey create init/ default-user --access-key "$API_ACCESS_KEY" --secret-key "$API_SECRET_KEY" ; done;
+                false; until [ $? -eq 0 ]; do sleep 5; mc admin accesskey create init/ "$CONSOLE_ACCESS_KEY" --access-key "$API_ACCESS_KEY" --secret-key "$API_SECRET_KEY" ; done;
             env:
+            - name: CONSOLE_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: default-user
+                  key: CONSOLE_ACCESS_KEY
             - name: API_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
