@@ -64,12 +64,12 @@
 
     - name: Download AMD GPU installer
       get_url:
-        url: "https://repo.radeon.com/amdgpu-install/6.2.4/ubuntu/{{ ubuntu_version }}/amdgpu-install_6.2.60204-1_all.deb"
-        dest: "/tmp/amdgpu-install_6.2.60204-1_all.deb"
+        url: "https://repo.radeon.com/amdgpu-install/6.3.2/ubuntu/{{ ubuntu_version }}/amdgpu-install_6.3.60302-1_all.deb"
+        dest: "/tmp/amdgpu-install_6.3.60302-1_all.deb"
 
     - name: Install AMD GPU package
       apt:
-        deb: "/tmp/amdgpu-install_6.2.60204-1_all.deb"
+        deb: "/tmp/amdgpu-install_6.3.60302-1_all.deb"
 
 
     - name: Install Rocm and additional single packages

@@ -1,0 +1,78 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.15.0
+  labels:
+    app.kubernetes.io/instance: longhorn
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/version: v1.8.0
+    longhorn-manager: ""
+  name: orphans.longhorn.io
+spec:
+  group: longhorn.io
+  names:
+    kind: Orphan
+    listKind: OrphanList
+    plural: orphans
+    shortNames:
+    - lho
+    singular: orphan
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.orphanType
+      name: Type
+      type: string
+    - jsonPath: .spec.nodeID
+      name: Node
+      type: string
+    name: v1beta2
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              nodeID:
+                type: string
+              orphanType:
+                type: string
+              parameters:
+                additionalProperties:
+                  type: string
+                type: object
+            type: object
+          status:
+            properties:
+              conditions:
+                items:
+                  properties:
+                    lastProbeTime:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      type: string
+                  type: object
+                nullable: true
+                type: array
+              ownerID:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

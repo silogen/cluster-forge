@@ -12,7 +12,7 @@ metadata:
   name: config-env
   namespace: cf-es-backend 
 spec:
-  refreshInterval: "30m"
+  refreshInterval: "0"
   target:
     name: default-minio-tenant-env-configuration
     template:
@@ -37,7 +37,7 @@ metadata:
   name: config-env
   namespace: minio-tenant-default
 spec:
-  refreshInterval: "30m"
+  refreshInterval: "0"
   secretStoreRef:
     name: k8s-secret-store
     kind: ClusterSecretStore

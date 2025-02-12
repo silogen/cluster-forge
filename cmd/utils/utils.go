@@ -111,17 +111,68 @@ var clusterScopedResources = []ClusterScopedResource{
 	{"Audit", "warden.gke.io/v1"},
 }
 
+type ConfigAsMap map[string]interface{}
+
 func LoadConfig(filename string) ([]Config, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-
 	var configs []Config
-	err = yaml.Unmarshal(data, &configs)
-	if err != nil {
-		return nil, err
+
+	if filename == "input/config.yaml" {
+		// Using input/config.yaml, no logic needed
+		err = yaml.Unmarshal(data, &configs)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// If a config file is given, merge missing values from input/config.yaml
+		defaultData, err := os.ReadFile("input/config.yaml")
+		if err != nil {
+			return nil, err
+		}
+
+		var defaultMap []ConfigAsMap
+		var configMap []ConfigAsMap
+		var allDefaults = make(map[string]ConfigAsMap)
+
+		err = yaml.Unmarshal(data, &configMap)
+		if err != nil {
+			return nil, err
+		}
+		err = yaml.Unmarshal(defaultData, &defaultMap)
+		if err != nil {
+			return nil, err
+		}
+		// Put the values in input/config.yaml into a map
+		// map[toolname] -> toolconfig, so that we can fetch them easily
+		for _, v := range defaultMap {
+			name := string(v["name"].(string))
+			allDefaults[name] = v
+		}
+		// For each tool defined, use defaults as a base and overwrite values
+		// that have been defined in config
+		for k, v := range configMap {
+			name := v["name"].(string)
+			defaultValues := allDefaults[name]
+			for key, val := range v {
+				defaultValues[key] = val
+			}
+			configMap[k] = defaultValues
+		}
+
+		// The marshaling tools seemes the safest way of going from map to struct, so here we are.
+		combinedYaml, err := yaml.Marshal(configMap)
+		if err != nil {
+			return nil, err
+		}
+		err = yaml.Unmarshal(combinedYaml, &configs)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	err = validateConfig(configs)
 	if err != nil {
 		return nil, err
@@ -130,16 +181,16 @@ func LoadConfig(filename string) ([]Config, error) {
 }
 
 type Config struct {
-	HelmChartName       string `yaml:"helm-chart-name"`
-	HelmURL             string `yaml:"helm-url"`
-	Values              string `yaml:"values"`
-	Name                string `yaml:"name"`
-	HelmName            string `yaml:"helm-name"`
-	ManifestURL         string `yaml:"manifest-url"`
-	HelmVersion         string `yaml:"helm-version"`
-	Namespace           string `yaml:"namespace"`
-	SourceFile          string `yaml:"sourcefile"`
-	SyncWave            string `yaml:"syncwave"`
+	HelmChartName       string   `yaml:"helm-chart-name"`
+	HelmURL             string   `yaml:"helm-url"`
+	Values              string   `yaml:"values"`
+	Name                string   `yaml:"name"`
+	HelmName            string   `yaml:"helm-name"`
+	ManifestURL         string   `yaml:"manifest-url"`
+	HelmVersion         string   `yaml:"helm-version"`
+	Namespace           string   `yaml:"namespace"`
+	ManifestPath        []string `yaml:"manifestpath"`
+	SyncWave            string   `yaml:"syncwave"`
 	Filename            string
 	CRDFiles            []string
 	NamespaceFiles      []string
@@ -192,8 +243,8 @@ func (e *DefaultHelmExecutor) RunHelmCommand(args []string, stdout io.Writer, st
 }
 
 func Templatehelm(config Config, helmExec HelmExecutor) error {
-	if config.HelmURL == "" && config.SourceFile == "" && config.ManifestURL == "" {
-		return fmt.Errorf("invalid configuration: at least one of HelmURL, SourceFile, or ManifestURL must be provided")
+	if config.HelmURL == "" && len(config.ManifestPath) == 0 && config.ManifestURL == "" {
+		return fmt.Errorf("invalid configuration: at least one of HelmURL, ManifestPath, or ManifestURL must be provided")
 	}
 
 	if config.Namespace == "" {
@@ -240,12 +291,37 @@ func Templatehelm(config Config, helmExec HelmExecutor) error {
 		if err != nil {
 			return fmt.Errorf("helm command failed: %s: %w", stderr.String(), err)
 		}
-	} else if config.SourceFile != "" {
-		srcFilePath := filepath.Join("input", config.SourceFile)
+	} else if len(config.ManifestPath) > 0 {
+		files := make([]string, 0)
 		dstFilePath := filepath.Join("working/pre", config.Name+".yaml")
-		err := CopyFile(srcFilePath, dstFilePath)
+		for _, manifestPath := range config.ManifestPath {
+			srcPath := filepath.Join("input", manifestPath)
+
+			foundFiles, err := FindManifests(srcPath)
+			if err != nil {
+				return fmt.Errorf("error finding manifests: %w", err)
+			}
+			files = append(files, foundFiles...)
+		}
+		if len(files) < 1 {
+			return fmt.Errorf("no manifests found: %s", config.ManifestPath)
+		}
+		// Copy the first file
+		err = CopyFile(files[0], dstFilePath)
 		if err != nil {
 			return fmt.Errorf("failed to copy file: %w", err)
+		}
+		// Append the rest
+		dstFile, err := os.OpenFile(dstFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0)
+		if err != nil {
+			return fmt.Errorf("error opening file: %w", err)
+		}
+		defer dstFile.Close()
+		for _, value := range files[1:] {
+			// add separator
+			dstFile.WriteString("\n---\n")
+			data, _ := os.ReadFile(value)
+			dstFile.Write(data)
 		}
 	} else if config.ManifestURL != "" {
 		err := downloadFile(config.Filename, config.ManifestURL)
@@ -255,6 +331,19 @@ func Templatehelm(config Config, helmExec HelmExecutor) error {
 	}
 
 	return nil
+}
+
+func FindManifests(startPath string) ([]string, error) {
+
+	files := make([]string, 0)
+	err := filepath.Walk(startPath, func(path string, info os.FileInfo, err error) error {
+		if filepath.Ext(path) == ".yaml" {
+			files = append(files, path)
+		}
+		return nil
+	})
+
+	return files, err
 }
 
 func CopyFile(src, dst string) error {
@@ -419,7 +508,7 @@ func validateConfig(configs []Config) error {
 		if config.Namespace == "" {
 			return fmt.Errorf("missing 'namespace' in config: %+v", config)
 		}
-		if config.ManifestURL == "" && config.HelmURL == "" && config.SourceFile == "" {
+		if config.ManifestURL == "" && config.HelmURL == "" && len(config.ManifestPath) == 0 {
 			return fmt.Errorf("either 'manifest-url' or 'helm-url' must be provided in config: %+v", config)
 		}
 		if config.HelmURL != "" {
