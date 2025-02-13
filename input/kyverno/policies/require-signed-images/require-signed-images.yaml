@@ -1,0 +1,29 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-image
+spec:
+  validationFailureAction: Audit
+  background: false
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail
+  rules:
+    - name: check-image
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      verifyImages:
+      - imageReferences:
+        - "europe-west4-docker.pkg.dev/silogen-dev*"
+        mutateDigest: false # set to true when switching to "Enforce" mode
+        attestors:
+        - count: 1
+          entries:
+          - keys:
+              publicKeys: |-
+                -----BEGIN PUBLIC KEY-----
+                MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEPM60XLJFbieMF/zunDBxLEqDqlm+
+                CWQkmz5BVrHi/GV4V8kcWm0CXbYIOM09yho36JyP/pbdo2VUfP1rJwt8fA==
+                -----END PUBLIC KEY-----

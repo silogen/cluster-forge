@@ -1,0 +1,146 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: podsecurity-subrule-restricted
+  annotations:
+    policies.kyverno.io/title: Restricted Pod Security Standards
+    policies.kyverno.io/category: Pod Security, EKS Best Practices
+    policies.kyverno.io/severity: medium
+    kyverno.io/kyverno-version: 1.8.0
+    policies.kyverno.io/minversion: 1.8.0
+    kyverno.io/kubernetes-version: "1.24"
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      The restricted profile of the Pod Security Standards, which is inclusive of
+      the baseline profile, is a collection of all the most common configurations
+      that can be taken to secure Pods. Beginning with Kyverno 1.8, an entire profile
+      may be assigned to the cluster through a single rule. This policy configures the
+      restricted profile through the latest version of the Pod Security Standards cluster wide.
+spec:
+  background: true
+  validationFailureAction: Enforce
+  rules:
+  - name: restricted
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          operations:
+          - CREATE
+          - UPDATE
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - longhorn
+    validate:
+      podSecurity:
+        level: restricted
+        version: latest
+        exclude:
+        - controlName: Sysctls
+        - controlName: Volume Types
+        - controlName: Host Namespaces
+        - controlName: HostPath Volumes
+        - controlName: AppArmor
+        - controlName: HostProcess
+          images:
+          - docker.io*redis*
+          - docker.io/semitechnologies*
+          - docker.io/liquibase*
+          - percona/*
+          - rabbitmq*
+          - docker.io/istio*
+          - ghcr.io/cloudnative-pg*
+          - gcr.io/knative-releases*
+        - controlName: Privileged Containers
+          images:
+          - docker.io*redis*
+          - docker.io/semitechnologies*
+          - docker.io/liquibase*
+          - percona/*
+          - rabbitmq*
+          - docker.io/istio*
+          - ghcr.io/cloudnative-pg*
+          - gcr.io/knative-releases*
+        - controlName: Capabilities
+          images:
+          - docker.io*redis*
+          - docker.io/semitechnologies*
+          - docker.io/liquibase*
+          - percona/*
+          - rabbitmq*
+          - docker.io/istio*
+          - ghcr.io/cloudnative-pg*
+          - gcr.io/knative-releases*
+        - controlName: Host Ports
+          images:
+          - docker.io*redis*
+          - docker.io/semitechnologies*
+          - docker.io/liquibase*
+          - percona/*
+          - rabbitmq*
+          - docker.io/istio*
+          - ghcr.io/cloudnative-pg*
+          - gcr.io/knative-releases*
+        - controlName: SELinux
+          images:
+          - docker.io*redis*
+          - docker.io/semitechnologies*
+          - docker.io/liquibase*
+          - percona/*
+          - rabbitmq*
+          - docker.io/istio*
+          - ghcr.io/cloudnative-pg*
+          - gcr.io/knative-releases*
+        - controlName: /proc Mount Type
+          images:
+          - docker.io*redis*
+          - docker.io/semitechnologies*
+          - docker.io/liquibase*
+          - percona/*
+          - rabbitmq*
+          - docker.io/istio*
+          - ghcr.io/cloudnative-pg*
+          - gcr.io/knative-releases*
+        - controlName: Seccomp
+          images:
+          - docker.io*redis*
+          - docker.io/semitechnologies*
+          - docker.io/liquibase*
+          - percona/*
+          - rabbitmq*
+          - docker.io/istio*
+          - ghcr.io/cloudnative-pg*
+          - gcr.io/knative-releases*
+        - controlName: Privilege Escalation
+          images:
+          - docker.io*redis*
+          - docker.io/semitechnologies*
+          - docker.io/liquibase*
+          - percona/*
+          - rabbitmq*
+          - docker.io/istio*
+          - ghcr.io/cloudnative-pg*
+          - gcr.io/knative-releases*
+        - controlName: Running as Non-root
+          images:
+          - docker.io*redis*
+          - docker.io/semitechnologies*
+          - docker.io/liquibase*
+          - percona/*
+          - rabbitmq*
+          - docker.io/istio*
+          - ghcr.io/cloudnative-pg*
+          - gcr.io/knative-releases*
+        - controlName: Running as Non-root user
+          images:
+          - docker.io*redis*
+          - docker.io/semitechnologies*
+          - docker.io/liquibase*
+          - percona/*
+          - rabbitmq*
+          - docker.io/istio*
+          - ghcr.io/cloudnative-pg*
+          - gcr.io/knative-releases*
