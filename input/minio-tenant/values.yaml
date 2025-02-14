@@ -22,14 +22,14 @@ tenant:
       volumesPerServer: 2
       ###
       # The capacity per volume requested per MinIO Tenant Pod.
-      size: 10Gi
+      size: 500Gi
       ###
       # The `storageClass <https://kubernetes.io/docs/concepts/storage/storage-classes/>`__ to associate with volumes generated for this pool.
       #
       # If using Amazon Elastic Block Store (EBS) CSI driver
       # Please make sure to set xfs for "csi.storage.k8s.io/fstype" parameter under StorageClass.parameters.
       # Docs: https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/master/docs/parameters.md
-      storageClassName: longhorn-cf-noreplicas
+      storageClassName: longhorn-default
       nodeSelector: {}
         # processor-type: cpu
   buckets: 
@@ -37,6 +37,7 @@ tenant:
     - name: cluster-forge-loki
     - name: cluster-forge-mimir
     - name: cluster-forge-tempo
+    - name: models
   users:
     - name: default-user
 extraResources:
@@ -107,8 +108,13 @@ extraResources:
             args:
               - source /tmp/minio-config/config.env;
                 false; until [ $? -eq 0 ]; do sleep 5; mc alias set init "$MINIO_SERVER_URL" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; done;
-                false; until [ $? -eq 0 ]; do sleep 5; mc admin accesskey create init/ default-user --access-key "$API_ACCESS_KEY" --secret-key "$API_SECRET_KEY" ; done;
+                false; until [ $? -eq 0 ]; do sleep 5; mc admin accesskey create init/ "$CONSOLE_ACCESS_KEY" --access-key "$API_ACCESS_KEY" --secret-key "$API_SECRET_KEY" ; done;
             env:
+            - name: CONSOLE_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: default-user
+                  key: CONSOLE_ACCESS_KEY
             - name: API_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
