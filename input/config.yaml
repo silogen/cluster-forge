@@ -166,14 +166,18 @@
 - name: prometheus-crds
   namespace: prometheus-system
   manifest-url: https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.79.2/stripped-down-crds.yaml
+- name: clusterforge-secret-store
+  namespace: external-secrets
+  manifestpath: 
+  - clusterforge-secret-store/manifests
 - name: 1password-cluster-secret-store
   namespace: external-secrets
   manifestpath: 
-  - 1password-cluster-secret-store/manifests.yaml
+  - 1password-cluster-secret-store/manifests
 - name: k8s-cluster-secret-store
   namespace: cf-es-backend
   manifestpath: 
-  - k8s-cluster-secret-store/manifests.yaml
+  - k8s-cluster-secret-store/manifests
 - name: kaiwo-cluster-config
   namespace: kaiwo
   manifestpath: 
