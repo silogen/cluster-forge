@@ -27,7 +27,7 @@
   secrets: false
   name: external-secrets
   namespace: "external-secrets"
-  helm-version: "0.10.3"
+  helm-version: "0.14.2"
   syncwave: -1
 - helm-chart-name: "psmdb-operator"
   helm-name: psmdb-operator
