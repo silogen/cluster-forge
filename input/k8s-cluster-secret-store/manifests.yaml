@@ -119,25 +119,25 @@ spec:
         apiVersion: generators.external-secrets.io/v1alpha1
         kind: Password
         name: "tenant-password"
-          #---
-          #apiVersion: external-secrets.io/v1beta1
-          #kind: ExternalSecret
-          #metadata:
-          #  name: default-minio-user
-          #  namespace: cf-es-backend
-          #spec:
-          #  refreshInterval: "0"
-          #  target:
-          #    name: default-user
-          #    template:
-          #      data:
-          #        CONSOLE_ACCESS_KEY: default-user
-          #        CONSOLE_SECRET_KEY: "{{ .password }}"
-          #        API_ACCESS_KEY: api-default-user
-          #        API_SECRET_KEY: "{{ .password }}"
-          #  dataFrom:
-          #  - sourceRef:
-          #      generatorRef:
-          #        apiVersion: generators.external-secrets.io/v1alpha1
-          #        kind: Password
-          #        name: "tenant-password"
+          ---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: default-minio-user
+  namespace: cf-es-backend
+spec:
+  refreshInterval: "0"
+  target:
+    name: default-user
+    template:
+      data:
+        CONSOLE_ACCESS_KEY: default-user
+        CONSOLE_SECRET_KEY: "{{ .password }}"
+        API_ACCESS_KEY: api-default-user
+        API_SECRET_KEY: "{{ .password }}"
+  dataFrom:
+  - sourceRef:
+      generatorRef:
+        apiVersion: generators.external-secrets.io/v1alpha1
+        kind: Password
+        name: "tenant-password"
