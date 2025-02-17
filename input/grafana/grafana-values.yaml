@@ -37,8 +37,8 @@ service:
   port: 3000
 admin:
   existingSecret: "grafana-user-credentials" ###
-  userKey: grafana-admin-id
-  passwordKey: grafana-admin-pw
+  userKey: grafana-admin-id ###
+  passwordKey: grafana-admin-pw ###
 
 deploymentStrategy:
   type: Recreate
@@ -147,3 +147,26 @@ sidecar:
     folderAnnotation: grafana_folder
     provider:
       foldersFromFilesStructure: true
+
+extraObjects: ###
+  - apiVersion: external-secrets.io/v1beta1
+    kind: ExternalSecret
+    metadata:
+      name: grafana-user-credentials
+      namespace: grafana
+    spec:
+      refreshInterval: "30m"
+      secretStoreRef:
+        name: fake-secret-store
+        kind: ClusterSecretStore
+      target:
+        name: grafana-user-credentials 
+      data:
+        - secretKey: grafana-admin-id
+          remoteRef:
+            key: grafana-admin-id 
+            version: v1
+        - secretKey: grafana-admin-pw 
+          remoteRef:
+            key: grafana-admin-pw
+            version: v1
