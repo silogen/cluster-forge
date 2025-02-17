@@ -137,6 +137,7 @@
   name: grafana-mimir
   namespace: "grafana-mimir"
   helm-version: "5.2.1"
+  syncwave: 1
 - helm-chart-name: "redis"
   helm-name: redis
   helm-url: "https://charts.bitnami.com/bitnami"

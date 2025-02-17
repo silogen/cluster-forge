@@ -25,16 +25,16 @@
 global:
   extraEnv:
 ## Access buckets
-    - name: ACCESS_KEY_ID
+    - name: API_ACCESS_KEY
       valueFrom:
         secretKeyRef:
           name: mimir-minio-creds
-          key: access_key_id
-    - name: SECRET_ACCESS_KEY
+          key: API_ACCESS_KEY
+    - name: API_SECRET_KEY
       valueFrom:
         secretKeyRef:
           name: mimir-minio-creds
-          key: secret_access_key
+          key: API_SECRET_KEY
 
 mimir:
   structuredConfig:
@@ -42,27 +42,26 @@ mimir:
       storage:
         backend: s3
         s3:
-          #endpoint: http://minio.minio.svc.cluster.local:9000
-          endpoint: minio.minio.svc.cluster.local:9000
-          secret_access_key: "${SECRET_ACCESS_KEY}" # This is a secret injected via an environment variable ###
-          access_key_id: "${ACCESS_KEY_ID}" # This is a secret injected via an environment variable ###
-          insecure: true ## for toy minio 
+          endpoint: minio.minio-tenant-default.svc.cluster.local:443 ####
+          secret_access_key: "${API_SECRET_KEY}" ####
+          access_key_id: "${API_ACCESS_KEY}" ####
+          insecure: false ## for toy minio #########
           http:
             insecure_skip_verify: true
 
     blocks_storage:
       backend: s3
       s3:
-        bucket_name: cluster-forge-mimir-test-dummy ###
-        insecure: true ##
+        bucket_name: cluster-forge-mimir
+        insecure: false ##
     alertmanager_storage: ##
       s3:
-        bucket_name: cluster-forge-mimir-test-dummy ###
-        insecure: true ##
+        bucket_name: cluster-forge-mimir
+        insecure: false ##
     ruler_storage: ##
       s3:
-        bucket_name: cluster-forge-mimir-test-dummy ###
-        insecure: true ##
+        bucket_name: cluster-forge-mimir
+        insecure: false ##
     limits:
       max_label_names_per_series: 50
       max_global_series_per_user: 1000000
@@ -84,6 +83,7 @@ alertmanager:
 compactor:
   persistentVolume:
     size: 5Gi
+    storageClass: longhorn-default 
     #size: 20Gi
   resources:
     limits:
@@ -104,6 +104,7 @@ distributor:
 ingester:
   persistentVolume:
     size: 5Gi
+    storageClass: longhorn-default
     #size: 50Gi
   replicas: 3
   resources:
@@ -240,7 +241,7 @@ gateway:
       #username: ${BASICAUTH_USERNAME} #Passing basic auth info doesn't work
       #password: ${BASICAUTH_PASSWORD} #Passing .htpasswd via existingSecret works
       #existingSecret: mimir-credentials ###
-      existingSecret: mimir-minio-creds  ###
+      existingSecret: mimir-minio-creds ##nginx  htpasswd
 
 query_scheduler:
   enabled: true
@@ -261,3 +262,25 @@ query_scheduler:
 nginx:
   enabled: false
 
+extraObjects:
+  - apiVersion: external-secrets.io/v1beta1
+    kind: ExternalSecret
+    metadata:
+      name: mimir-minio-creds
+      namespace: grafana-mimir
+    spec:
+      refreshInterval: "30m"
+      secretStoreRef:
+        name: k8s-secret-store
+        kind: ClusterSecretStore
+      target:
+        name: mimir-minio-creds
+      data:
+        - secretKey: API_ACCESS_KEY
+          remoteRef:
+            key: default-user
+            property: API_ACCESS_KEY
+        - secretKey: API_SECRET_KEY
+          remoteRef:
+            key: default-user
+            property: API_SECRET_KEY

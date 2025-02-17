@@ -82,6 +82,9 @@ spec:
       - key: loki_tenant_password
         value: loki-tenant-demo-password
         version: v1
+      - key: .htpasswd
+        value: cluster-forge-mimir-test-user:$apr1$mszGHRfu$fDCiA32oRdtP8tXGTTn2M0 #Created from "htpasswd -cb htpasswd cluster-forge-mimir-test-user cluster-forge-mimir-test-pass"
+        version: v1
 ---
 apiVersion: generators.external-secrets.io/v1alpha1
 kind: Password
