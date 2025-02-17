@@ -6,6 +6,67 @@ metadata:
     pod-security.kubernetes.io/enforce: privileged
   name: otel-lgtm-stack
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tempo-pvc
+  namespace: otel-lgtm-stack
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: loki-data-pvc
+  namespace: otel-lgtm-stack
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: loki-storage-pvc
+  namespace: otel-lgtm-stack
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-pvc
+  namespace: otel-lgtm-stack
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: p8s-pvc
+  namespace: otel-lgtm-stack
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+
+---
 ## lgtm-collector
 # Source: openobserve-collector/templates/serviceaccount.yaml
 apiVersion: v1
@@ -588,12 +649,17 @@ spec:
               mountPath: /data/prometheus
       volumes:
         - name: tempo-data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: tempo-pvc
         - name: loki-data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: loki-data-pvc
         - name: grafana-data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: grafana-pvc
         - name: loki-storage
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: loki-storage-pvc
         - name: p8s-storage
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: p8s-pvc
