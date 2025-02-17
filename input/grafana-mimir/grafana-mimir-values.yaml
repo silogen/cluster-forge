@@ -83,7 +83,7 @@ alertmanager:
 compactor:
   persistentVolume:
     size: 5Gi
-    storageClass: standard 
+    storageClass: longhorn-default 
     #size: 20Gi
   resources:
     limits:
@@ -104,7 +104,7 @@ distributor:
 ingester:
   persistentVolume:
     size: 5Gi
-    storageClass: standard
+    storageClass: longhorn-default
     #size: 50Gi
   replicas: 3
   resources:
