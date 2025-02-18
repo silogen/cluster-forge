@@ -73,7 +73,7 @@ spec:
 ```
 This creates an external-secret in "minio-tenant-default". The external-secert
 creates a k8s secerts having name "default-minio-tenant-env-configuration".
-- data[0].remoteRef.key points the name of a k8s secret in "cf-es-backend" namespace.
-- data[0].remoteRef.property points the name of key in the k8s secret.
+- data[0].remoteRef.key points the name of a k8s secret in "cf-es-backend" namespace
+- data[0].remoteRef.property points the name of key in the k8s secret
 - data[0].secretKey defines the name of key in the k8s secret going be created 
-by this external-secret.
+by this external-secret
