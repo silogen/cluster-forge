@@ -1,4 +1,3 @@
-- name: longhorn
 - name: certmanager
 - name: amd-gpu-operator
 - name: amd-device-config
@@ -9,3 +8,5 @@
 - name: kuberay-operator
 - name: k8s-cluster-secret-store
 - name: kaiwo-cluster-config
+- name: kyverno
+- name: kyverno-policies
