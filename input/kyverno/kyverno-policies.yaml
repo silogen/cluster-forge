@@ -1,54 +1,6 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: restrict-image-registries
-  annotations:
-    policies.kyverno.io/title: Restrict Image Registries
-    policies.kyverno.io/category: Best Practices, EKS Best Practices
-    policies.kyverno.io/severity: medium
-    policies.kyverno.io/minversion: 1.6.0
-    kyverno.io/kubernetes-version: "1.26"
-    policies.kyverno.io/subject: Pod
-    policies.kyverno.io/description: >-
-      Images from unknown, public registries can be of dubious quality and may not be
-      scanned and secured, representing a high degree of risk. Requiring use of known, approved
-      registries helps reduce threat exposure by ensuring image pulls only come from them. This
-      policy validates that container images only originate from the registry `eu.foo.io` or
-      `bar.io`. Use of this policy requires customization to define your allowable registries.
-spec:
-  validationFailureAction: Enforce
-  background: true
-  rules:
-  - name: validate-registries
-    match:
-      any:
-      - resources:
-          kinds:
-          - Pod
-          operations:
-          - CREATE
-          - UPDATE
-    exclude:
-      any:
-      - resources:
-          namespaces:
-          - cert-manager
-          - kube-system
-          - trivy-system
-    validate:
-      message: "Unknown image registry."
-      pattern:
-        spec:
-          =(ephemeralContainers):
-          - image: docker.io/istio* | ghcr.io/cloudnative-pg*"
-          =(initContainers):
-          - image: docker.io/istio* | ghcr.io/cloudnative-pg* | percona/* | cr.weaviate.io/semitechnologies/*"
-          containers:
-          - image: docker.io/istio* | docker.io/semitechnologies* | docker.io*redis* | ghcr.io/cloudnative-pg* | gcr.io/knative-releases* | percona/* | cr.weaviate.io/semitechnologies/*"
----
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
   name: require-requests-limits
   annotations:
     policies.kyverno.io/title: Require Limits and Requests
@@ -80,45 +32,88 @@ spec:
         any:
         - resources:
             namespaces:
+            - argocd
+            - cf-gitea
+            - longhorn
+            - minio-operator
+            - external-secrets
+            - kueue-system
+            - minio-tenant-default
             - cert-manager
-            - kube-system
-            - trivy-system
-    mutate:
+            - kuberay-operator
+    validate:
+      message: "Memory resource limits and CPU and memory resource requests are required."
       foreach:
         - list: "request.object.spec.containers"
-          patchStrategicMerge:
-            spec:
-              containers:
-                - (name): "{{ element.name }}"
-                  securityContext:
-                    +(allowPrivilegeEscalation): false
-                    +(runAsNonRoot): true
-                    +(runAsUser): 1000
-                    +(runAsGroup): 3000
-                    +(seccompProfile):
-                        type: RuntimeDefault
-                    +(capabilities):
-                        drop:
-                        - ALL
+          pattern:
+            resources:
+              requests:
+                memory: "?*"
+                cpu: "?*"
+              limits:
+                memory: "?*"
           preconditions:
-            all:
-              - key: "{{ element.image }}"
-                operator: NotEquals
-                value: "docker.io/istio*"
-              - key: "{{ element.image }}"
-                operator: NotEquals
-                value: "docker.io/semitechnologies*"
-              - key: "{{ element.image }}"
-                operator: NotEquals
-                value: "percona/*"
-              - key: "{{ element.image }}"
-                operator: NotEquals
-                value: "ghcr.io/cloudnative-pg*"
-              - key: "{{ element.image }}"
-                operator: NotEquals
-                value: "gcr.io/knative-releases*"
-        - list: "request.object"
-          patchStrategicMerge:
-            spec:
-              securityContext:
-                +(fsGroup): 2000
+                all:
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "docker.io/istio*"
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "docker.io/semitechnologies*"
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "docker.io/liquibase*"
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "percona/*"
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "rabbitmq*"
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "ghcr.io/cloudnative-pg*"
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "gcr.io/knative-releases*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-emptydir-sizelimit
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+    policies.kyverno.io/title: Add emptyDir sizeLimit
+    policies.kyverno.io/category: Other
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/minversion: 1.6.0
+    kyverno.io/kyverno-version: 1.7.3,1.8.0-rc2
+    kyverno.io/kubernetes-version: "1.24"
+    policies.kyverno.io/description: >-
+      When a Pod requests an emptyDir, by default it does not have a size limit which
+      may allow it to consume excess or all of the space in the medium backing the volume.
+      This can quickly overrun a Node and may result in a denial of service for other
+      workloads. This policy adds a sizeLimit field to all Pods mounting emptyDir
+      volumes, if not present, and sets it to 100Mi.
+spec:
+  rules:
+  - name: mutate-emptydir
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    mutate:
+      foreach:
+      - list: "request.object.spec.volumes[]"
+        preconditions:
+          all:
+          - key: "{{element.keys(@)}}"
+            operator: AnyIn
+            value: emptyDir
+          - key: "{{element.emptyDir.sizeLimit || ''}}"
+            operator: Equals
+            value: ''
+        patchesJson6902: |-
+          - path: "/spec/volumes/{{elementIndex}}/emptyDir/sizeLimit"
+            op: add
+            value: 100Mi
