@@ -50,7 +50,7 @@ namespace. The created external-secret will create a k8s secret having name
 "default-minio-tenant-env-configuration". The value of refreshInterval is "0" 
 not to have random secret every interval.
 
-## Example of patching secrets from "cf-es-backend" to any namespaces
+## Example of patching secrets from "cf-es-backend" namespace to any namespaces
 To patch this secret in another namespace, please see below.
 ```
 apiVersion: external-secrets.io/v1beta1
