@@ -10,3 +10,5 @@
 - name: k8s-cluster-secret-store
 - name: kaiwo-cluster-config
 - name: 1password-cluster-secret-store
+- name: kyverno
+- name: kyverno-policies
