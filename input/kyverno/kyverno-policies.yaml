@@ -34,6 +34,7 @@ spec:
             namespaces:
             - argocd
             - cf-gitea
+            - kube-amd-gpu  
             - longhorn
             - minio-operator
             - external-secrets
