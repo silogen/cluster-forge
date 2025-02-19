@@ -184,4 +184,3 @@
   collection: 
   - minio-operator
   - minio-tenant
-  namespace: placeholder
