@@ -180,3 +180,8 @@
   namespace: otel-lgtm-stack
   manifestpath: 
   - otel-lgtm-stack/otel-lgtm-manifests.yaml
+- name: minio-all-together
+  collection: 
+  - minio-operator
+  - minio-tenant
+  namespace: placeholder
