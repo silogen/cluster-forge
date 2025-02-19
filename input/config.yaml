@@ -73,10 +73,6 @@
   helm-url: https://aquasecurity.github.io/helm-charts
   values: values.yaml
   secrets: false
-- name: dummy-secret-monitoring-tools
-  namespace: monitoring
-  manifestpath: 
-  - dummy-secret/dummy-secret-monitoring-tools.yaml
 - helm-chart-name: "grafana"
   helm-name: grafana
   helm-url: "https://grafana.github.io/helm-charts"
@@ -85,6 +81,7 @@
   name: grafana
   namespace: "grafana"
   helm-version: "8.4.6"
+  syncwave: 1
 # - helm-chart-name: "prometheus-opencost-exporter"
 #   helm-name: opencost
 #   helm-url: "https://prometheus-community.github.io/helm-charts"
