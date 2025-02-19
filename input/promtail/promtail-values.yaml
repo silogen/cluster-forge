@@ -24,9 +24,10 @@ config:
   clients:
     - url: http://loki-gateway.grafana-loki.svc.cluster.local/loki/api/v1/push ##
       tenant_id: loki-tenant-demo ##
+      #tenant_id: ${LOKI_TENANT_NAME} ##
       basic_auth:
         username: loki-tenant-demo ##
-        password: ${LOKI_TENANT_PW_OMNI_DEVENV} ##
+        password: ${LOKI_TENANT_PW} ##
       external_labels:
         cluster: "this-is-wrong-cluster-value-to-be-replaced" ##
   snippets:
@@ -51,8 +52,37 @@ config:
         target_label: usesInferenceModel
 
 extraEnv:
-  - name: LOKI_TENANT_PW_OMNI_DEVENV ##
+  - name: LOKI_TENANT_PW ##
     valueFrom:
       secretKeyRef:
-        name: promtail-loki-tenant-credentials
-        key: loki-tenant-pw-omni-devenv
+        name: loki-tenant-creds
+        key: loki_tenant_password
+  - name: LOKI_TENANT_NAME ##
+    valueFrom:
+      secretKeyRef:
+        name: loki-tenant-creds
+        key: loki_tenant_name
+
+extraObjects:
+  - apiVersion: external-secrets.io/v1beta1
+    kind: ExternalSecret
+    metadata:
+      name: loki-tenant-creds-from-fake
+      namespace: monitoring
+    spec:
+      refreshInterval: "30m"
+      secretStoreRef:
+        name: fake-secret-store
+        kind: ClusterSecretStore
+      target:
+        name: loki-tenant-creds
+      data:
+        - secretKey: loki_tenant_name
+          remoteRef:
+            key: loki_tenant_name
+            version: v1
+        - secretKey: loki_tenant_password
+          remoteRef:
+            key: loki_tenant_password
+            version: v1
+
