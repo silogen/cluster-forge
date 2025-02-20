@@ -12,6 +12,7 @@ metadata:
   name: tempo-pvc
   namespace: otel-lgtm-stack
 spec:
+  storageClassName: default
   accessModes:
     - ReadWriteOnce
   resources:
@@ -24,6 +25,7 @@ metadata:
   name: loki-data-pvc
   namespace: otel-lgtm-stack
 spec:
+  storageClassName: default
   accessModes:
     - ReadWriteOnce
   resources:
@@ -36,6 +38,7 @@ metadata:
   name: loki-storage-pvc
   namespace: otel-lgtm-stack
 spec:
+  storageClassName: default
   accessModes:
     - ReadWriteOnce
   resources:
@@ -48,6 +51,7 @@ metadata:
   name: grafana-pvc
   namespace: otel-lgtm-stack
 spec:
+  storageClassName: default
   accessModes:
     - ReadWriteOnce
   resources:
@@ -60,6 +64,7 @@ metadata:
   name: p8s-pvc
   namespace: otel-lgtm-stack
 spec:
+  storageClassName: default
   accessModes:
     - ReadWriteOnce
   resources:
