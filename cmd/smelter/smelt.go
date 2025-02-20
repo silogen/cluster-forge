@@ -86,11 +86,26 @@ func Smelt(configs []utils.Config, workingDir string, filesDir string, configFil
 			log.Fatal("Uh oh:", err)
 		}
 	}
-	if toolbox.Targettool.Type[0] == "all" {
-		for _, config := range configs {
-			toolbox.Targettool.Type = append(toolbox.Targettool.Type, config.Name)
+	// Create a map for quick config lookup
+	configMap := make(map[string]utils.Config)
+	for _, config := range configs {
+		configMap[config.Name] = config
+	}
+
+	// Process selections and remove duplicates
+	expandedSelections := expandSelections(toolbox.Targettool.Type, configs, configMap)
+
+	// Remove duplicates while preserving order
+	seen := make(map[string]bool)
+	var uniqueSelections []string
+	for _, selection := range expandedSelections {
+		if !seen[selection] {
+			seen[selection] = true
+			uniqueSelections = append(uniqueSelections, selection)
 		}
 	}
+
+	toolbox.Targettool.Type = uniqueSelections
 
 	if nonInteractive {
 		if err := PrepareTool(configs, toolbox.Targettool.Type, workingDir); err != nil {
@@ -134,6 +149,44 @@ func Smelt(configs []utils.Config, workingDir string, filesDir string, configFil
 			)
 		}
 	}
+}
+
+// expandSelections processes tool selections and returns expanded list including collection members
+func expandSelections(selections []string, configs []utils.Config, configMap map[string]utils.Config) []string {
+	// Handle "all" selection
+	if len(selections) > 0 && selections[0] == "all" {
+		var allTools []string
+		for _, config := range configs {
+			allTools = append(allTools, config.Name)
+		}
+		return allTools
+	}
+
+	// Process individual selections and collections
+	var expandedSelections []string
+	for _, selection := range selections {
+		config, exists := configMap[selection]
+		if !exists {
+			continue
+		}
+
+		// Handle collections
+		if len(config.Collection) > 0 {
+			for _, member := range config.Collection {
+				if _, exists := configMap[member]; exists {
+					expandedSelections = append(expandedSelections, member)
+				} else {
+					log.Warnf("Collection member %s not found in configs", member)
+				}
+			}
+			continue
+		}
+
+		// Add individual tool selection
+		expandedSelections = append(expandedSelections, selection)
+	}
+
+	return expandedSelections
 }
 
 func PrepareTool(configs []utils.Config, targetTools []string, workingDir string) error {

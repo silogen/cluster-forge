@@ -191,6 +191,7 @@ type Config struct {
 	Namespace           string   `yaml:"namespace"`
 	ManifestPath        []string `yaml:"manifestpath"`
 	SyncWave            string   `yaml:"syncwave"`
+	Collection          []string `yaml:"collection"`
 	Filename            string
 	CRDFiles            []string
 	NamespaceFiles      []string
@@ -502,6 +503,14 @@ func ResetTerminal() {
 
 func validateConfig(configs []Config) error {
 	for _, config := range configs {
+		// Skip validation for collection entries
+		if len(config.Collection) > 0 {
+			// Only validate that name is present for collections
+			if config.Name == "" {
+				return fmt.Errorf("missing 'name' in collection config: %+v", config)
+			}
+			continue
+		}
 		if config.Name == "" {
 			return fmt.Errorf("missing 'name' in config: %+v", config)
 		}
