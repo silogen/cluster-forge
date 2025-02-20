@@ -257,8 +257,9 @@ main() {
     MAIN_IP=$(ip route get 1.1.1.1 | awk '{print $7; exit}')
     gum log --structured --level info 'Here is the KUBECONFIG file.' 
     gum log --structured --level info 'For reference it was taken from /etc/rancher/rke2/rke2.yaml and IP changed from 127.0.0.1 the servers IP.'
-    KUBE_CONFIG=sudo sed "s/127\.0\.0\.1/$MAIN_IP/g" /etc/rancher/rke2/rke2.yaml
-    gum log --structured --level info $KUBE_CONFIG
+    echo ---
+    sudo sed "s/127\.0\.0\.1/$MAIN_IP/g" /etc/rancher/rke2/rke2.yaml
+    echo ---
     gum log --structured --level info "Server setup successfully!"
 
 }
