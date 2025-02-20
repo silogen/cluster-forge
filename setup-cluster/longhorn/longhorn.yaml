@@ -246,7 +246,7 @@ data:
     kind: StorageClass
     apiVersion: storage.k8s.io/v1
     metadata:
-      name: longhorn
+      name: ml-storage
       annotations:
         storageclass.kubernetes.io/is-default-class: "false"
     provisioner: driver.longhorn.io
@@ -4294,7 +4294,7 @@ kind: StorageClass
 metadata:
   annotations:
     storageclass.kubernetes.io/is-default-class: "true"
-  name: longhorn-default
+  name: default
 parameters:
   dataEngine: v1
   dataLocality: best-effort
@@ -4313,7 +4313,7 @@ apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   annotations:
-  name: longhorn-minio
+  name: direct
 parameters:
   dataEngine: v1
   dataLocality: strict-local
@@ -4332,7 +4332,7 @@ apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   annotations:
-  name: longhorn-rwx
+  name: multinode
 parameters:
   dataEngine: v1
   dataLocality: disabled
