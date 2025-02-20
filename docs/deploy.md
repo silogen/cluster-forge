@@ -1,8 +1,13 @@
 ---
 layout: null
 permalink: /deploy
-content-type: text/plain
 ---
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/plain; charset=UTF-8">
+</head>
+<body>
 wget https://github.com/silogen/cluster-forge/releases/download/1.0.8-core/release-core-1.0.8.tar.gz
 tar xfz release-core-1.0.8.tar.gz
 cd clusterforge-core-1.0.8
@@ -11,3 +16,6 @@ INFO=$(gum style --padding "1 4" --border double --border-foreground 57 'Kuberne
 gum join --align center --vertical $INFO
 cd 1.0.8-core
 KUBECONFIG=/etc/rancher/rke2/rke2.yaml deploy.sh
+</body>
+</html>
+
