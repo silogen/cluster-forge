@@ -78,7 +78,7 @@ jobs:
       - name: Create tarball
         run: |
           PACKAGE_DIR="clusterforge-${{ matrix.release.type }}-${{ github.event.inputs.version }}"
-          tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz ${PACKAGE_DIR} stacks/longhorn/ stacks/setup-forge.sh
+          tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz ${PACKAGE_DIR} longhorn/ setup-forge.sh
 
       - name: Create release
         env:
