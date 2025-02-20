@@ -64,7 +64,9 @@ jobs:
           rm -rf stacks/${{ github.event.inputs.version }}/.git stacks/${{ github.event.inputs.version }}/.gitkeep
 
       - name: Set up tarball
-        run: cp -r setup-cluster stacks/
+        run: |
+          cp -r setup-cluster/longhorn/ stacks/longhorn
+          cp setup-cluster/setup-forge.sh stacks/
 
       - name: Create release package directory
         run: |
