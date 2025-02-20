@@ -63,10 +63,11 @@ jobs:
         run: |
           rm -rf stacks/${{ github.event.inputs.version }}/.git stacks/${{ github.event.inputs.version }}/.gitkeep
 
-      # - name: Set up tarball
-      #   run: |
-      #     cp -r setup-cluster/longhorn/ stacks/longhorn
-      #     cp setup-cluster/setup-forge.sh stacks/
+      - name: Set up tarball
+        run: |
+          mkdir -p stacks/longhorn
+          cp -r setup-cluster/longhorn/ stacks/longhorn/
+          cp setup-cluster/setup-forge.sh stacks/
 
       - name: Create release package directory
         run: |
@@ -76,8 +77,8 @@ jobs:
           
           # Move the stack directory and ansible directory into the package directory
           mv stacks/${{ github.event.inputs.version }}-${{ matrix.release.type }} stacks/${PACKAGE_DIR}/
-          mv setup-cluster/longhorn stacks/
-          mv setup-cluster/setup-forge.sh stacks/
+          # mv setup-cluster/longhorn stacks/
+          # mv setup-cluster/setup-forge.sh stacks/
 
       - name: Create tarball
         run: |
