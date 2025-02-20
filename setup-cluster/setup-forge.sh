@@ -65,8 +65,7 @@ mount_disks() {
     local mount_point
     local i=1
     lsblk
-    DISK_INFO=$(gum style --padding "1 4" --border double --border-foreground 57 'Look above to see available disks.' 'Scroll back to see them all.' 'nvmeXnY for example which is not mounted could be used for local kubernetes storage.')
-    gum join --align center --vertical $DISK_INFO
+    gum log --structured --level info "Check for unmounted disks which can be used."
     gum log --structured --level info "Select disks to mount."
     available_disks=$(lsblk -nd -o NAME | gum choose --no-limit)
 
@@ -209,8 +208,8 @@ EOF
 select_mounted_disks() {
     local disks=($(mount | grep -oP '/mnt/disk\d+'))
     [[ ${#disks[@]} -eq 0 ]] && echo "No /mnt/disk{x} drives found." >&2 && return 1
-    DISK_SEL=$(gum style --padding "1 4" --border double --border-foreground 57 'Select which mounts should be auto-configured into kubernetes storage.' 'Practically this means they will be longhorn volumes available in the storage classes.')
-    gum join --align center --vertical $DISK_SEL
+    gum log --structured --level info 'Select which mounts should be auto-configured into kubernetes storage.'
+    gum log --structured --level info 'Practically this means they will be longhorn volumes available in the storage classes.')
     mapfile -t selected_disks < <(printf "%s\n" "${disks[@]}" | gum choose --no-limit)
     [[ ${#selected_disks[@]} -eq 0 ]] && echo "No disks selected." >&2 && return 1
     echo "${selected_disks[@]}"
@@ -232,8 +231,8 @@ generate_longhorn_disk_string() {
 
 main() {
     ensure_gum_installed
-    TYPE_INFO=$(gum style --padding "1 4" --border double --border-foreground 57 'Select if this is the first installed node, configured as controller' 'or an additional node, joining an existing cluster/controller as a worker.')
-    gum join --align center --vertical $TYPE_INFO
+    gum log --structured --level info 'Select if this is the first installed node, configured as controller' 
+    gum log --structured --level info 'or an additional node, joining an existing cluster/controller as a worker.'
     NODE_TYPE=$(gum choose "First Node" "Additional Node")
     gum log --structured --level info "Setting up server..."
     ensure_dependancies_installed
@@ -256,9 +255,10 @@ main() {
     KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl apply -f longhorn/namespace.yaml
     KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl apply -f longhorn/longhorn.yaml
     MAIN_IP=$(ip route get 1.1.1.1 | awk '{print $7; exit}')
-    KUBE_INFO=$(gum style --padding "1 4" --border double --border-foreground 57 'Here is the KUBECONFIG file.' 'For reference it was taken from /etc/rancher/rke2/rke2.yaml and IP changed from 127.0.0.1 the servers IP.')
+    gum log --structured --level info 'Here is the KUBECONFIG file.' 
+    gum log --structured --level info 'For reference it was taken from /etc/rancher/rke2/rke2.yaml and IP changed from 127.0.0.1 the servers IP.'
     KUBE_CONFIG=sudo sed "s/127\.0\.0\.1/$MAIN_IP/g" /etc/rancher/rke2/rke2.yaml
-    gum join --align center --vertical $KUBE_INFO $KUBE_CONFIG
+    gum log --structured --level info $KUBE_CONFIG
     gum log --structured --level info "Server setup successfully!"
 
 }
