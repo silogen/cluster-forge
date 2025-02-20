@@ -1,0 +1,139 @@
+# Root key for MinIO Tenant Chart
+tenant:
+  name: default-minio-tenant
+  configuration:
+    name: default-minio-tenant-env-configuration
+  configSecret: 
+    name: example-minio-config-secret
+    # accessKey: minio
+    # secretKey: minio123
+    # existingSecret: true
+  pools:
+    ###
+    # The number of MinIO Tenant Pods / Servers in this pool.
+    # For standalone mode, supply 1. For distributed mode, supply 4 or more.
+    # Note that the operator does not support upgrading from standalone to distributed mode.
+    - servers: 1
+      ###
+      # Custom name for the pool
+      name: pool-0
+      ###
+      # The number of volumes attached per MinIO Tenant Pod / Server.
+      volumesPerServer: 1
+      ###
+      # The capacity per volume requested per MinIO Tenant Pod.
+      size: 500Gi
+      ###
+      # The `storageClass <https://kubernetes.io/docs/concepts/storage/storage-classes/>`__ to associate with volumes generated for this pool.
+      #
+      # If using Amazon Elastic Block Store (EBS) CSI driver
+      # Please make sure to set xfs for "csi.storage.k8s.io/fstype" parameter under StorageClass.parameters.
+      # Docs: https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/master/docs/parameters.md
+      storageClassName: longhorn-minio
+      nodeSelector: {}
+        # processor-type: cpu
+  buckets: 
+    - name: default-bucket
+    - name: cluster-forge-loki
+    - name: cluster-forge-mimir
+    - name: cluster-forge-tempo
+    - name: models
+  users:
+    - name: default-user
+extraResources:
+ - |
+    apiVersion: external-secrets.io/v1beta1
+    kind: ExternalSecret
+    metadata:
+      name: config-env
+      namespace: minio-tenant-default
+    spec:
+      refreshInterval: "0"
+      secretStoreRef:
+        name: k8s-secret-store
+        kind: ClusterSecretStore
+      target:
+        name: default-minio-tenant-env-configuration
+      data:
+        - secretKey: config.env
+          remoteRef:
+            key: default-minio-tenant-env-configuration
+            property: config.env
+ - |
+    apiVersion: external-secrets.io/v1beta1
+    kind: ExternalSecret
+    metadata:
+      name: default-minio-user
+      namespace: minio-tenant-default
+    spec:
+      refreshInterval: "0"
+      secretStoreRef:
+        name: k8s-secret-store
+        kind: ClusterSecretStore
+      target:
+        name: default-user
+      data:
+        - secretKey: CONSOLE_ACCESS_KEY
+          remoteRef:
+            key: default-user
+            property: CONSOLE_ACCESS_KEY
+        - secretKey: CONSOLE_SECRET_KEY
+          remoteRef:
+            key: default-user
+            property: CONSOLE_SECRET_KEY
+        - secretKey: API_ACCESS_KEY
+          remoteRef:
+            key: default-user
+            property: API_ACCESS_KEY
+        - secretKey: API_SECRET_KEY
+          remoteRef:
+            key: default-user
+            property: API_SECRET_KEY
+ - |
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: mc-post-job
+      namespace: minio-tenant-default
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 300
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: mc
+            image: minio/mc:latest
+            command: ["/bin/sh", "-c"]
+            args:
+              - source /tmp/minio-config/config.env;
+                false; until [ $? -eq 0 ]; do sleep 5; mc alias set init "$MINIO_SERVER_URL" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; done;
+                false; until [ $? -eq 0 ]; do sleep 5; mc admin accesskey create init/ "$CONSOLE_ACCESS_KEY" --access-key "$API_ACCESS_KEY" --secret-key "$API_SECRET_KEY" ; done;
+            env:
+            - name: CONSOLE_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: default-user
+                  key: CONSOLE_ACCESS_KEY
+            - name: API_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: default-user
+                  key: API_ACCESS_KEY
+            - name: API_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: default-user
+                  key: API_SECRET_KEY
+            - name: MINIO_URL
+              value: https://default-minio-tenant-console.minio-tenant-default.svc.cluster.local
+            volumeMounts:
+            - mountPath: /tmp/minio-config
+              name: configuration
+          volumes:
+          - name: configuration
+            projected:
+              defaultMode: 420
+              sources:
+              - secret:
+                  name: default-minio-tenant-env-configuration
