@@ -72,7 +72,7 @@ jobs:
           # Move the stack directory and ansible directory into the package directory
           mv stacks/${{ github.event.inputs.version }}-${{ matrix.release.type }} stacks/${PACKAGE_DIR}/
           mkdir -p stacks/longhorn
-          cp -r setup-cluster/longhorn/ stacks/longhorn/
+          cp -r setup-cluster/longhorn/ stacks/
           cp setup-cluster/setup-forge.sh stacks/
 
       - name: Create tarball
