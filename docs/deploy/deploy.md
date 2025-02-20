@@ -1,6 +1,6 @@
 ---
 layout: null
-permalink: /
+permalink: /deploy
 content-type: text/plain
 ---
 wget https://github.com/silogen/cluster-forge/releases/download/1.0.8-core/release-core-1.0.8.tar.gz
