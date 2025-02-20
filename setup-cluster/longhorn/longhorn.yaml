@@ -4313,11 +4313,29 @@ apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   annotations:
-    storageclass.kubernetes.io/is-default-class: "true"
-  name: longhorn-default
+  name: longhorn-minio
 parameters:
   dataEngine: v1
   dataLocality: strict-local
+  disableRevisionCounter: "true"
+  fromBackup: ""
+  fsType: ext4
+  numberOfReplicas: "1"
+  staleReplicaTimeout: "30"
+  unmapMarkSnapChainRemoved: ignored
+provisioner: driver.longhorn.io
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+---
+allowVolumeExpansion: true
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  annotations:
+  name: longhorn-rwx
+parameters:
+  dataEngine: v1
+  dataLocality: disabled
   disableRevisionCounter: "true"
   fromBackup: ""
   fsType: ext4
