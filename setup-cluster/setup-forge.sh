@@ -209,7 +209,7 @@ select_mounted_disks() {
     local disks=($(mount | grep -oP '/mnt/disk\d+'))
     [[ ${#disks[@]} -eq 0 ]] && echo "No /mnt/disk{x} drives found." >&2 && return 1
     gum log --structured --level info 'Select which mounts should be auto-configured into kubernetes storage.'
-    gum log --structured --level info 'Practically this means they will be longhorn volumes available in the storage classes.')
+    gum log --structured --level info 'Practically this means they will be longhorn volumes available in the storage classes.'
     mapfile -t selected_disks < <(printf "%s\n" "${disks[@]}" | gum choose --no-limit)
     [[ ${#selected_disks[@]} -eq 0 ]] && echo "No disks selected." >&2 && return 1
     echo "${selected_disks[@]}"
