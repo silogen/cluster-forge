@@ -20,7 +20,7 @@ To deploy a ClusterForge SW stack, download a release package, and run 'deploy.s
 While ClusterForge does not in any way require AMD Instinct GPU's, this was a primary use case during intial development. 
 For ease of use in such a server, a helper script is available to deploy RKE2 kubernetes, install rocm, and then setup ClusterForge. It can be found in the setup.sh file. It can also be run with:
 ```bash
-wget https://github.com/silogen/cluster-forge/blob/main/setup.sh | sudo bash
+curl https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/main/setup.sh | sudo bash
 ```
 
 ## Storage Classes
