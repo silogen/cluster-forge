@@ -12,7 +12,7 @@ Cluster-Forge operates through a sequence of well-defined steps:
 **NOTES**: 
 
 1. The casted SW stack can also be deployed with a shell script (deploy.sh) found in stacks/\<stackname\> directory.
-2. An uninstall script is also found the the same directory which should uninstall tools installed by a stack deployment; forged crossplane objects will remain on your cluster for subsequent deployments. 
+2. An uninstall script is also found the the same directory which should uninstall tools installed by a stack deployment; forged objects will remain on your cluster for subsequent deployments. 
 3. A helper script for cleaning your smelts and casts is available scripts/clean.sh
 
 ---
@@ -38,7 +38,7 @@ Ensure the following tools are installed:
 
 To deploy a released stack, download from the GitHub releases page, extract, and run deploy.sh.
 
-For ease of testing ClusterForge compnents, the command ```forge``` run inside a devbox shell will run a smelt step, and immediately run cast, publishing an ephemeral image as described in [Usage](docs/usage.md).
+For ease of testing ClusterForge components, the command ```forge``` run inside a devbox shell will run a smelt step, and immediately run cast, publishing an ephemeral image as described in [Usage](docs/usage.md).
 
 To create a stack without the forge command, or for further instructions and options, see [Usage](docs/usage.md).
 
