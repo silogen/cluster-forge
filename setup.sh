@@ -5,4 +5,4 @@ sudo setup-forge.sh
 INFO=$(gum style --padding "1 4" --border double --border-foreground 57 'Kubernetes has been installed and configured' 'Now ClusterForge will install the stack to enable running workloads')
 gum join --align center --vertical $INFO
 cd 1.0.8-core
-KUBECONFIG=/etc/rancher/rke2/rke2.yaml deploy.sh
+KUBECONFIG=/etc/rancher/rke2/rke2.yaml && bash deploy.sh
