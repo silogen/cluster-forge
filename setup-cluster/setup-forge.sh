@@ -15,11 +15,6 @@ ensure_dependancies_installed() {
 }
 
 open_ports() {
-  if [[ $EUID -ne 0 ]]; then
-    gum log --structured --level ERROR "Error: open_ports must be run as root. Try using sudo." >&2
-    return 1
-  fi
-
   local ports=(
     "22;tcp"
     "80;tcp"
@@ -39,7 +34,7 @@ open_ports() {
   for entry in "${ports[@]}"; do
     IFS=';' read -r port protocol <<< "$entry"
     gum log --structured --level debug "Opening port ${port}/${protocol}"
-    iptables -A INPUT -p "$protocol" \
+    sudo iptables -A INPUT -p "$protocol" \
              -m state --state NEW \
              -m "$protocol" --dport "$port" \
              -j ACCEPT
@@ -52,13 +47,13 @@ install_k8s_tools() {
     sudo apt update && sudo apt install -y curl
     if ! command -v kubectl &>/dev/null; then
         echo "Installing kubectl..."
-        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-        chmod +x kubectl
+        sudo curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        sudo chmod +x kubectl
         sudo mv kubectl /usr/local/bin/
     fi
     if ! command -v k9s &>/dev/null; then
         echo "Installing k9s..."
-        curl -sS https://webinstall.dev/k9s | bash
+        sudo curl -sS https://webinstall.dev/k9s | bash
         sudo mv $HOME/.local/bin/k9s /usr/local/bin/
     fi
 }
@@ -86,13 +81,23 @@ mount_disks() {
         while [[ -d "/mnt/disk$i" ]]; do
             ((i++))
         done
+        
         mount_point="/mnt/disk$i"
         sudo mkdir -p "$mount_point"
         sudo chmod 755 "$mount_point"
+        
+        # Check if the disk has partitions
+        if ! lsblk -no PARTTYPE "/dev/$disk" | grep -q .; then
+            echo "Disk /dev/$disk is not partitioned. Formatting with ext4..."
+            sudo mkfs.ext4 -F "/dev/$disk"
+        fi
+        
         sudo mount "/dev/$disk" "$mount_point"
         gum log --structured --level debug "Mounted /dev/$disk at $mount_point"
         ((i++))
+        
     done
+
 
     gum log --structured --level info "Mounted Disks:"
     lsblk -o NAME,MOUNTPOINT
@@ -181,7 +186,6 @@ setup_rke2_first() {
   curl -sfL $RKE2_SERVER_URL | sh -
   systemctl enable rke2-server.service
   systemctl start rke2-server.service
-  cp .forge/*.yaml /var/lib/rancher/rke2/server/manifests/
 }
 
 setup_rke2_additional() {
@@ -253,12 +257,10 @@ main() {
     KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl apply -f longhorn/longhorn.yaml
     MAIN_IP=$(ip route get 1.1.1.1 | awk '{print $7; exit}')
     KUBE_INFO=$(gum style --padding "1 4" --border double --border-foreground 57 'Here is the KUBECONFIG file.' 'For reference it was taken from /etc/rancher/rke2/rke2.yaml and IP changed from 127.0.0.1 the servers IP.')
-    KUBE_CONFIG=sed "s/127\.0\.0\.1/$MAIN_IP/g" /etc/rancher/rke2/rke2.yaml
+    KUBE_CONFIG=sudo sed "s/127\.0\.0\.1/$MAIN_IP/g" /etc/rancher/rke2/rke2.yaml
     gum join --align center --vertical $KUBE_INFO $KUBE_CONFIG
     gum log --structured --level info "Server setup successfully!"
 
 }
-
-
 
 main
