@@ -23,6 +23,18 @@ For ease of use in such a server, a helper script is available to deploy RKE2 ku
 wget https://github.com/silogen/cluster-forge/blob/main/setup.sh | sudo bash
 ```
 
+## Storage Classes
+Storage classes are provided by default with Longhorn. These can be changed or customized as needed. 
+
+Out of the box, these are the storage classes and purposes:
+
+| Purpose                      | storageclass | Type | Locality     |     |
+| ---------------------------- | ------------ | ---- | ------------ | --- |
+| GPU Job                      | mlstorage    | RWO  | LOCAL/remote |     |
+| GPU Job                      | default      | RWO  | LOCAL/remote |     |
+| Ask / know what you're doing | direct       | RWO  | LOCAL        |     |
+| Multi-container              | multinode    | RWX  | ANYWHERE     |     |
+
 ## Known Issues
 
 Cluster-Forge is still a work in progress, and the following issues are currently known:
