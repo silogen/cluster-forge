@@ -63,12 +63,6 @@ jobs:
         run: |
           rm -rf stacks/${{ github.event.inputs.version }}/.git stacks/${{ github.event.inputs.version }}/.gitkeep
 
-      - name: Set up tarball
-        run: |
-          mkdir -p stacks/longhorn
-          cp -r setup-cluster/longhorn/ stacks/longhorn/
-          cp setup-cluster/setup-forge.sh stacks/
-
       - name: Create release package directory
         run: |
           # Create the desired top-level directory that will appear when unzipped
@@ -77,13 +71,14 @@ jobs:
           
           # Move the stack directory and ansible directory into the package directory
           mv stacks/${{ github.event.inputs.version }}-${{ matrix.release.type }} stacks/${PACKAGE_DIR}/
-          # mv setup-cluster/longhorn stacks/
-          # mv setup-cluster/setup-forge.sh stacks/
+          mkdir -p stacks/longhorn
+          cp -r setup-cluster/longhorn/ stacks/longhorn/
+          cp setup-cluster/setup-forge.sh stacks/
 
       - name: Create tarball
         run: |
           PACKAGE_DIR="clusterforge-${{ matrix.release.type }}-${{ github.event.inputs.version }}"
-          tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz ${PACKAGE_DIR}
+          tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz ${PACKAGE_DIR} stacks/longhorn/ stacks/setup-forge.sh
 
       - name: Create release
         env:
@@ -91,6 +86,16 @@ jobs:
         run: |
           gh release create "${{ github.event.inputs.version }}-${{ matrix.release.type }}" \
               --title="ClusterForge ${{ matrix.release.name }} release ${{ github.event.inputs.version }}" \
+              --repo="$GITHUB_REPOSITORY" \
+              --generate-notes \
+              stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz
+      - name: Mark latest release
+        if: matrix.release.type == 'core'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "latest" \
+              --title="ClusterForge Latest Release" \
               --repo="$GITHUB_REPOSITORY" \
               --generate-notes \
               stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz
