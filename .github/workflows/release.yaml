@@ -94,8 +94,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "latest" \
-              --title="ClusterForge Latest Release" \
+          gh release create "deploy" \
+              --title="ClusterForge Deploy Release" \
               --repo="$GITHUB_REPOSITORY" \
               --generate-notes \
-              stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz
+              stacks/release-deploy.tar.gz
