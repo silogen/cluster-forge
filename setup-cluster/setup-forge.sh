@@ -225,7 +225,7 @@ generate_longhorn_disk_string() {
 
 main() {
     ensure_gum_installed
-    [[ -n "$SERVER_IP" && -n "$JOIN_TOKEN" ]] && NODE_TYPE="additional" || NODE_TYPE="first"
+    [[ -n "$SERVER_IP" && -n "$JOIN_TOKEN" ]] && NODE_TYPE="additional" || NODE_TYPE="First"
     gum log --structured --level info "Setting up server..."
     ensure_dependancies_installed
     open_ports
