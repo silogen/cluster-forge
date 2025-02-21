@@ -175,6 +175,24 @@ setup_rke2_first() {
   systemctl start rke2-server.service
 }
 
+wait_for_api_server() {
+    gum log --structured --level info "Waiting for Kubernetes API server to be ready..."
+    local max_attempts=30
+    local attempt=1
+    
+    while ! KUBECONFIG=$HOME/.kube/config kubectl get --raw "/healthz" &>/dev/null; do
+        if [ $attempt -ge $max_attempts ]; then
+            gum log --structured --level error "Timeout waiting for API server to become ready"
+            exit 1
+        fi
+        gum log --structured --level debug "Waiting for API server (attempt $attempt/$max_attempts)..."
+        sleep 10
+        ((attempt++))
+    done
+    
+    gum log --structured --level info "Kubernetes API server is ready"
+}
+
 setup_rke2_additional() {
   RKE2_SERVER_URL="https://get.rke2.io"
   RKE2_CONFIG_PATH="/etc/rancher/rke2/config.yaml"
@@ -251,17 +269,19 @@ main() {
         cd "$(ls --color=never -d */ | head -n 1)"
         gum log --structured --level info 'Kubernetes has been installed and configured' 
         gum log --structured --level info 'Now ClusterForge will install the stack to enable running workloads'
-        KUBECONFIG=/etc/rancher/rke2/rke2.yaml && bash deploy.sh
-        gum log --structured --level info 'ClusterForge installed'
-        MAIN_IP=$(ip route get 1.1.1.1 | awk '{print $7; exit}')
-        gum log --structured --level info 'Here is the KUBECONFIG file.' 
-        gum log --structured --level info 'For reference it was taken from /etc/rancher/rke2/rke2.yaml and IP changed from 127.0.0.1 the servers IP.'
         echo ---
+        MAIN_IP=$(ip route get 1.1.1.1 | awk '{print $7; exit}')
         sudo sed "s/127\.0\.0\.1/$MAIN_IP/g" /etc/rancher/rke2/rke2.yaml
         echo ---
         mkdir -p $HOME/.kube
         sudo sed "s/127\.0\.0\.1/$MAIN_IP/g" /etc/rancher/rke2/rke2.yaml | tee $HOME/.kube/config
         chmod 600 $HOME/.kube/config
+        wait_for_api_server 
+        KUBECONFIG=$HOME/.kube/config && bash deploy.sh
+        gum log --structured --level info 'ClusterForge installed'
+        
+        gum log --structured --level info 'Here is the KUBECONFIG file.' 
+        gum log --structured --level info 'For reference it was taken from /etc/rancher/rke2/rke2.yaml and IP changed from 127.0.0.1 the servers IP.'
         gum log --structured --level info 'To setup additional nodes to join the cluster, run the following:' 
         echo ---
         TOKEN=$(< /var/lib/rancher/rke2/server/node-token)
