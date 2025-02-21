@@ -10,7 +10,6 @@ ensure_gum_installed() {
 }
 
 ensure_dependancies_installed() {
-    sudo apt update
     sudo apt install -y jq nfs-common open-iscsi
 }
 
@@ -44,18 +43,8 @@ open_ports() {
 }
 
 install_k8s_tools() {
-    sudo apt update && sudo apt install -y curl
-    if ! command -v kubectl &>/dev/null; then
-        echo "Installing kubectl..."
-        sudo curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-        sudo chmod +x kubectl
-        sudo mv kubectl /usr/local/bin/
-    fi
-    if ! command -v k9s &>/dev/null; then
-        echo "Installing k9s..."
-        sudo curl -sS https://webinstall.dev/k9s | bash
-        sudo mv $HOME/.local/bin/k9s /usr/local/bin/
-    fi
+    sudo snap install kubectl --classic
+    sudo snap install k9s
 }
 
 
@@ -85,7 +74,6 @@ mount_disks() {
         sudo mkdir -p "$mount_point"
         sudo chmod 755 "$mount_point"
         
-        # Check if the disk has partitions
         if ! lsblk -no PARTTYPE "/dev/$disk" | grep -q .; then
             echo "Disk /dev/$disk is not partitioned. Formatting with ext4..."
             sudo mkfs.ext4 -F "/dev/$disk"
@@ -121,7 +109,7 @@ verify_inotify_instances() {
 
 persist_mnt_disks() {
     local mounted_disks
-    mounted_disks=$(mount | awk '/\/mnt\/disk[0-9]+/ {print $1, $3}') # Get device and mount point
+    mounted_disks=$(mount | awk '/\/mnt\/disk[0-9]+/ {print $1, $3}')
 
     if [[ -z "$mounted_disks" ]]; then
         return
@@ -197,11 +185,12 @@ setup_rke2_additional() {
 server: https://$SERVER_IP:9345
 token: $JOIN_TOKEN
 EOF
-  gum log --structured --level info "Configuration file written to $RKE2_CONFIG_PATH"
+  modprobe iscsi_tcp
+  modprobe dm_mod
   /usr/local/bin/rke2-uninstall.sh || true
   curl -sfL $RKE2_SERVER_URL | INSTALL_RKE2_TYPE="agent" sh -
-  systemctl enable rke2-agent.service && systemctl start rke2-agent.service
-  gum log --structured --level info "RKE2 agent setup complete!"
+  systemctl enable rke2-agent.service
+  systemctl start rke2-agent.service
 }
 
 
@@ -225,15 +214,18 @@ generate_longhorn_disk_string() {
         json+="{\\\"path\\\":\\\"$disk\\\",\\\"allowScheduling\\\":true},"
     done
     json="${json%,}]"
-
+    if [[ "$NODE_TYPE" == "First" ]]; then
     KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl patch node $HOSTNAME --type='merge' -p "{\"metadata\": {\"labels\": {\"node.longhorn.io/create-default-disk\": \"config\", \"node.longhorn.io/instance-manager\": \"true\"}, \"annotations\": {\"node.longhorn.io/default-disks-config\": \"${json}\"}}}"
+    else
+    gum log --structured --level info 'This command must be run on controller node!'
+    echo KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl patch node $HOSTNAME --type='merge' -p "{\"metadata\": {\"labels\": {\"node.longhorn.io/create-default-disk\": \"config\", \"node.longhorn.io/instance-manager\": \"true\"}, \"annotations\": {\"node.longhorn.io/default-disks-config\": \"${json}\"}}}"
+
+    fi
 }
 
 main() {
     ensure_gum_installed
-    gum log --structured --level info 'Select if this is the first installed node, configured as controller' 
-    gum log --structured --level info 'or an additional node, joining an existing cluster/controller as a worker.'
-    NODE_TYPE=$(gum choose "First Node" "Additional Node")
+    [[ -n "$SERVER_IP" && -n "$JOIN_TOKEN" ]] && NODE_TYPE="additional" || NODE_TYPE="first"
     gum log --structured --level info "Setting up server..."
     ensure_dependancies_installed
     open_ports
@@ -243,23 +235,39 @@ main() {
     gum log --structured --level info "ROCm version: $rocmversion"
     gpucount=$(count_rocm_devices)
     gum log --structured --level debug "GPU count: $gpucount"
-    if [[ "$NODE_TYPE" == "First Node" ]]; then
+    if [[ "$NODE_TYPE" == "First" ]]; then
         gum log --structured --level info "Configuring as the first node..."
         setup_rke2_first
     else
         gum log --structured --level info "Configuring as an additional node..."
-        # Instructions for other nodes
+        setup_rke2_additional
     fi
     mount_disks
     generate_longhorn_disk_string
-    KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl apply -f longhorn/namespace.yaml
-    KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl apply -f longhorn/longhorn.yaml
-    MAIN_IP=$(ip route get 1.1.1.1 | awk '{print $7; exit}')
-    gum log --structured --level info 'Here is the KUBECONFIG file.' 
-    gum log --structured --level info 'For reference it was taken from /etc/rancher/rke2/rke2.yaml and IP changed from 127.0.0.1 the servers IP.'
-    echo ---
-    sudo sed "s/127\.0\.0\.1/$MAIN_IP/g" /etc/rancher/rke2/rke2.yaml
-    echo ---
+    if [[ "$NODE_TYPE" == "First" ]]; then
+        KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl apply -f longhorn/namespace.yaml
+        KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl apply -f longhorn/longhorn.yaml
+        cd cluster*
+        cd "$(ls --color=never -d */ | head -n 1)"
+        gum log --structured --level info 'Kubernetes has been installed and configured' 
+        gum log --structured --level info 'Now ClusterForge will install the stack to enable running workloads'
+        KUBECONFIG=/etc/rancher/rke2/rke2.yaml && bash deploy.sh
+        gum log --structured --level info 'ClusterForge installed'
+        MAIN_IP=$(ip route get 1.1.1.1 | awk '{print $7; exit}')
+        gum log --structured --level info 'Here is the KUBECONFIG file.' 
+        gum log --structured --level info 'For reference it was taken from /etc/rancher/rke2/rke2.yaml and IP changed from 127.0.0.1 the servers IP.'
+        echo ---
+        sudo sed "s/127\.0\.0\.1/$MAIN_IP/g" /etc/rancher/rke2/rke2.yaml
+        echo ---
+        mkdir -p $HOME/.kube
+        sudo sed "s/127\.0\.0\.1/$MAIN_IP/g" /etc/rancher/rke2/rke2.yaml | tee $HOME/.kube/config
+        chmod 600 $HOME/.kube/config
+        gum log --structured --level info 'To setup additional nodes to join the cluster, run the following:' 
+        echo ---
+        TOKEN=$(< /var/lib/rancher/rke2/server/node-token)
+        echo "export TOKEN=$TOKEN; export SERVER_IP=$MAIN_IP; curl https://silogen.github.io/cluster-forge/deploy.sh | sudo bash"
+        echo ---
+    fi
     gum log --structured --level info "Server setup successfully!"
 
 }
