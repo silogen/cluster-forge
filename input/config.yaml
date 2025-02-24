@@ -3,12 +3,16 @@
   namespace: cert-manager
   manifest-url: https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml
   syncwave: -1
-- helm-chart-name: "gpu-operator-charts"
-  helm-name: amd-gpu-operator
-  helm-url: "https://rocm.github.io/gpu-operator"
+- name: amd-gpu-operator
   namespace: "kube-amd-gpu"
-  name: amd-gpu-operator
-  helm-version: "1.0.0"
+  manifestpath: 
+  - amd-gpu-operator/manifests/helm
+  - amd-gpu-operator/manifests/additions
+  # helm-chart-name: "gpu-operator-charts"
+  # helm-name: amd-gpu-operator
+  # helm-url: "https://rocm.github.io/gpu-operator"
+  # helm-version: "1.0.0"
+  # values: values.yaml
 - name: amd-device-config
   namespace: kube-amd-gpu
   manifestpath: 

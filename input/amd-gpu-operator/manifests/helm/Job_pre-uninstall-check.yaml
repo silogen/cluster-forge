@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-delete-policy: before-hook-creation, hook-succeeded, hook-failed
+  name: pre-uninstall-check
+  namespace: kube-amd-gpu
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      containers:
+      - command:
+        - /bin/sh
+        - -c
+        - |
+          if kubectl get deviceconfigs -n kube-amd-gpu --no-headers | grep -q .; then
+            echo "DeviceConfigs resources exist. Stop uninstallation."
+            exit 1
+          else
+            echo "No DeviceConfigs resources found. Proceeding with uninstallation."
+            exit 0
+          fi
+        image: docker.io/rocm/gpu-operator:v1.1.0
+        name: pre-uninstall-check
+      restartPolicy: Never
+      serviceAccountName: amd-gpu-operator-gpu-operator-charts-controller-manager
+  ttlSecondsAfterFinished: 60
