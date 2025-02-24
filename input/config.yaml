@@ -2,6 +2,7 @@
 - name: certmanager
   namespace: cert-manager
   manifest-url: https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml
+  syncwave: -1
 - helm-chart-name: "gpu-operator-charts"
   helm-name: amd-gpu-operator
   helm-url: "https://rocm.github.io/gpu-operator"
@@ -164,6 +165,7 @@
 - name: prometheus-crds
   namespace: prometheus-system
   manifest-url: https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.79.2/stripped-down-crds.yaml
+  syncwave: -1
 - name: 1password-cluster-secret-store
   namespace: external-secrets
   manifestpath: 
@@ -180,7 +182,14 @@
   namespace: otel-lgtm-stack
   manifestpath: 
   - otel-lgtm-stack/otel-lgtm-manifests.yaml
+  syncwave: 1
 - name: minio-all-together
   collection: 
   - minio-operator
   - minio-tenant
+- name: monitoring-with-pv
+  collection:
+  - certmanager
+  - opentelemetry-operator
+  - prometheus-crds
+  - otel-lgtm-stack

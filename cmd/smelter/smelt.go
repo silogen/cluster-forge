@@ -92,7 +92,7 @@ func Smelt(configs []utils.Config, workingDir string, filesDir string, configFil
 		configMap[config.Name] = config
 	}
 
-	// Process selections and remove duplicates
+	// Process selections
 	expandedSelections := expandSelections(toolbox.Targettool.Type, configs, configMap)
 
 	// Remove duplicates while preserving order
