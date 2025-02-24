@@ -1,0 +1,164 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kube-amd-gpu/amd-gpu-operator-kmm-serving-cert
+    controller-gen.kubebuilder.io/version: v0.16.1
+  labels:
+    app.kubernetes.io/component: kmm
+    app.kubernetes.io/instance: amd-gpu-operator
+    app.kubernetes.io/name: kmm
+    app.kubernetes.io/part-of: kmm
+    app.kubernetes.io/version: v20240618-v2.1.1
+  name: preflightvalidations.kmm.sigs.x-k8s.io
+spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: amd-gpu-operator-kmm-webhook-service
+          namespace: kube-amd-gpu
+          path: /convert
+      conversionReviewVersions:
+      - v1beta2
+      - v1beta1
+  group: kmm.sigs.x-k8s.io
+  names:
+    kind: PreflightValidation
+    listKind: PreflightValidationList
+    plural: preflightvalidations
+    shortNames:
+    - pfv
+    singular: preflightvalidation
+  scope: Cluster
+  versions:
+  - deprecated: true
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              kernelVersion:
+                type: string
+              pushBuiltImage:
+                type: boolean
+            required:
+            - kernelVersion
+            type: object
+          status:
+            properties:
+              crStatuses:
+                additionalProperties:
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    statusReason:
+                      type: string
+                    verificationStage:
+                      enum:
+                      - Image
+                      - Build
+                      - Sign
+                      - Requeued
+                      - Done
+                      type: string
+                    verificationStatus:
+                      enum:
+                      - "True"
+                      - "False"
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - verificationStage
+                  - verificationStatus
+                  type: object
+                type: object
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: false
+    subresources:
+      status: {}
+  - name: v1beta2
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              kernelVersion:
+                type: string
+              pushBuiltImage:
+                type: boolean
+            required:
+            - kernelVersion
+            type: object
+          status:
+            properties:
+              modules:
+                items:
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                    statusReason:
+                      type: string
+                    verificationStage:
+                      enum:
+                      - Image
+                      - Build
+                      - Sign
+                      - Requeued
+                      - Done
+                      type: string
+                    verificationStatus:
+                      enum:
+                      - "True"
+                      - "False"
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - name
+                  - namespace
+                  - verificationStage
+                  - verificationStatus
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - namespace
+                - name
+                x-kubernetes-list-type: map
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

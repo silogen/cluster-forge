@@ -1,0 +1,17 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: amd-gpu-operator-kmm-serving-cert
+  namespace: kube-amd-gpu
+  labels:
+    app.kubernetes.io/instance: amd-gpu-operator
+    app.kubernetes.io/name: kmm
+    app.kubernetes.io/version: v20240618-v2.1.1
+spec:
+  dnsNames:
+  - amd-gpu-operator-kmm-webhook-service.kube-amd-gpu.svc
+  - amd-gpu-operator-kmm-webhook-service.kube-amd-gpu.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: amd-gpu-operator-kmm-selfsigned-issuer
+  secretName: kmm-operator-webhook-server-cert
