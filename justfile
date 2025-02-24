@@ -25,7 +25,3 @@ gen-doc-vids:
   @vhs docs/demoSmelt.tape -o docs/demoSmelt.gif
   @vhs docs/demoCast.tape -o docs/demoCast.gif
   
-restart:
-  kind delete cluster -n forgedemo
-  kind create cluster -n forgedemo
-  kind export kubeconfig -n forgedemo --kubeconfig forgedemo.yaml
