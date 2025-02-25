@@ -185,7 +185,8 @@
 - name: otel-lgtm-stack
   namespace: otel-lgtm-stack
   manifestpath: 
-  - otel-lgtm-stack/otel-lgtm-manifests.yaml
+  - /otel-lgtm-stack/otel-collector-agent/collector-manifests.yaml 
+  - /otel-lgtm-stack/otel-lgtm/modified-manifests.yaml
   syncwave: 1
 - name: minio-all-together
   collection: 
