@@ -109,8 +109,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cp stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz stacks/{{ github.event.inputs.version }}-test.tar.gz
+          cp stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz stacks/${{ github.event.inputs.version }}-test.tar.gz
           gh release create {{ github.event.inputs.version }}-test \
               --title="ClusterForge Test Release" \
               --repo="$GITHUB_REPOSITORY" \
-              stacks/{{ github.event.inputs.version }}-test.tar.gz
+              stacks/${{ github.event.inputs.version }}-test.tar.gz
