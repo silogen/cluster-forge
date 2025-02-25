@@ -4331,7 +4331,7 @@ allowVolumeExpansion: true
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: default
+  name: multinode
 parameters:
   dataEngine: v1
   dataLocality: disabled
@@ -4344,3 +4344,4 @@ parameters:
 provisioner: driver.longhorn.io
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
+
