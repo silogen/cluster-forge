@@ -12,7 +12,7 @@ metadata:
   name: tempo-pvc
   namespace: otel-lgtm-stack
 spec:
-  storageClassName: standard #### 
+  storageClassName: default 
   accessModes:
     - ReadWriteOnce
   resources:
@@ -25,7 +25,7 @@ metadata:
   name: loki-data-pvc
   namespace: otel-lgtm-stack
 spec:
-  storageClassName: standard ####
+  storageClassName: default
   accessModes:
     - ReadWriteOnce
   resources:
@@ -38,7 +38,7 @@ metadata:
   name: loki-storage-pvc
   namespace: otel-lgtm-stack
 spec:
-  storageClassName: standard ####
+  storageClassName: default
   accessModes:
     - ReadWriteOnce
   resources:
@@ -51,7 +51,7 @@ metadata:
   name: grafana-pvc
   namespace: otel-lgtm-stack
 spec:
-  storageClassName: standard ####
+  storageClassName: default
   accessModes:
     - ReadWriteOnce
   resources:
@@ -64,7 +64,7 @@ metadata:
   name: p8s-pvc
   namespace: otel-lgtm-stack
 spec:
-  storageClassName: standard #### 
+  storageClassName: default
   accessModes:
     - ReadWriteOnce
   resources:
@@ -173,23 +173,15 @@ spec:
             - name: LABEL
               value: "grafana_dashboard"
             - name: FOLDER
-              value: "/tmp/dashboards" ######
+              value: "/tmp/dashboards" ##
             - name: RESOURCE
               value: "both"
             - name: FOLDER_ANNOTATION
               value: "grafana_folder"
-            - name: REQ_USERNAME ######
+            - name: REQ_USERNAME
               value: admin
-              #valueFrom:
-              #  secretKeyRef:
-              #    name: grafana-user-credentials
-              #    key: grafana-admin-id
-            - name: REQ_PASSWORD ######
+            - name: REQ_PASSWORD
               value: admin
-              #valueFrom:
-              #  secretKeyRef:
-              #    name: grafana-user-credentials
-              #    key: grafana-admin-pw
             - name: REQ_URL
               value: http://localhost:3000/api/admin/provisioning/dashboards/reload
             - name: REQ_METHOD
@@ -201,7 +193,7 @@ spec:
               - ALL
             seccompProfile:
               type: RuntimeDefault
-          volumeMounts: ######
+          volumeMounts: ##
             - name: sc-dashboard-volume
               mountPath: "/tmp/dashboards"
         - name: lgtm
@@ -230,9 +222,9 @@ spec:
               mountPath: /loki
             - name: p8s-storage
               mountPath: /data/prometheus
-            - name: sc-dashboard-volume ######
+            - name: sc-dashboard-volume ##
               mountPath: "/tmp/dashboards"
-            - name: sc-dashboard-provider ######
+            - name: sc-dashboard-provider ##
               mountPath: "/otel-lgtm/grafana/conf/provisioning/dashboards/sc-dashboardproviders.yaml"
               subPath: provider.yaml
       volumes:
@@ -251,9 +243,9 @@ spec:
         - name: p8s-storage
           persistentVolumeClaim:
             claimName: p8s-pvc
-        - name: sc-dashboard-volume ######
+        - name: sc-dashboard-volume ##
           emptyDir:
             {}
-        - name: sc-dashboard-provider ######
+        - name: sc-dashboard-provider ##
           configMap:
             name: grafana-config-dashboards
