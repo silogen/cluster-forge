@@ -187,6 +187,7 @@
   manifestpath: 
   - /otel-lgtm-stack/otel-collector-agent/collector-manifests.yaml 
   - /otel-lgtm-stack/otel-lgtm/modified-manifests.yaml
+  - /otel-lgtm-stack/dashboards/dummy-grafana-dashboards.yaml
   syncwave: 1
 - name: minio-all-together
   collection: 
