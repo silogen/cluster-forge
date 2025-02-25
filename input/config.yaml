@@ -109,19 +109,24 @@
   # helm-name: longhorn
   # helm-url: "https://charts.longhorn.io"
   # values: values.yaml
-- helm-chart-name: "operator"
+- name: minio-operator
+  namespace: "minio-operator"
+  syncwave: -1
+  # manifestpath:
+  # - minio-operator/manifests
+  helm-chart-name: "operator"
   helm-name: minio-operator
   helm-url: "https://operator.min.io"
-  namespace: "minio-operator"
   values: minio-values.yaml
-  name: minio-operator
-  syncwave: -1
 - name: minio-tenant
   namespace: minio-tenant-default
-  helm-chart-name: "tenant"
-  helm-name: minio-tenant
-  helm-url: "https://operator.min.io"
-  values: values.yaml 
+  manifestpath:
+  - minio-tenant/manifests/base
+  - minio-tenant/manifests/clustersecretstore
+- name: minio-tenant-k8s-secret
+  namespace: minio-tenant-default
+  manifestpath:
+  - minio-tenant/manifests/k8s-secret
 - helm-chart-name: "loki"
   helm-name: loki
   helm-url: "https://grafana.github.io/helm-charts"
@@ -173,7 +178,7 @@
 - name: 1password-cluster-secret-store
   namespace: external-secrets
   manifestpath: 
-  - 1password-cluster-secret-store/manifests.yaml
+  - 1password-cluster-secret-store/manifests
 - name: k8s-cluster-secret-store
   namespace: cf-es-backend
   manifestpath: 

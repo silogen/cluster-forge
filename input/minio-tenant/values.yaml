@@ -42,54 +42,6 @@ tenant:
     - name: default-user
 extraResources:
  - |
-    apiVersion: external-secrets.io/v1beta1
-    kind: ExternalSecret
-    metadata:
-      name: config-env
-      namespace: minio-tenant-default
-    spec:
-      refreshInterval: "0"
-      secretStoreRef:
-        name: k8s-secret-store
-        kind: ClusterSecretStore
-      target:
-        name: default-minio-tenant-env-configuration
-      data:
-        - secretKey: config.env
-          remoteRef:
-            key: default-minio-tenant-env-configuration
-            property: config.env
- - |
-    apiVersion: external-secrets.io/v1beta1
-    kind: ExternalSecret
-    metadata:
-      name: default-minio-user
-      namespace: minio-tenant-default
-    spec:
-      refreshInterval: "0"
-      secretStoreRef:
-        name: k8s-secret-store
-        kind: ClusterSecretStore
-      target:
-        name: default-user
-      data:
-        - secretKey: CONSOLE_ACCESS_KEY
-          remoteRef:
-            key: default-user
-            property: CONSOLE_ACCESS_KEY
-        - secretKey: CONSOLE_SECRET_KEY
-          remoteRef:
-            key: default-user
-            property: CONSOLE_SECRET_KEY
-        - secretKey: API_ACCESS_KEY
-          remoteRef:
-            key: default-user
-            property: API_ACCESS_KEY
-        - secretKey: API_SECRET_KEY
-          remoteRef:
-            key: default-user
-            property: API_SECRET_KEY
- - |
     apiVersion: batch/v1
     kind: Job
     metadata:
@@ -107,8 +59,9 @@ extraResources:
             command: ["/bin/sh", "-c"]
             args:
               - source /tmp/minio-config/config.env;
-                false; until [ $? -eq 0 ]; do sleep 5; mc alias set init "$MINIO_SERVER_URL" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; done;
-                false; until [ $? -eq 0 ]; do sleep 5; mc admin accesskey create init/ "$CONSOLE_ACCESS_KEY" --access-key "$API_ACCESS_KEY" --secret-key "$API_SECRET_KEY" ; done;
+                until mc alias set init "$MINIO_SERVER_URL" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do sleep 5; done;
+                mc admin accesskey create init/ "$CONSOLE_ACCESS_KEY" --access-key "$API_ACCESS_KEY" --secret-key "$API_SECRET_KEY";
+                until mc admin accesskey edit init/ "$API_ACCESS_KEY" --secret-key "$API_SECRET_KEY"; do sleep 5; done;
             env:
             - name: CONSOLE_ACCESS_KEY
               valueFrom:
