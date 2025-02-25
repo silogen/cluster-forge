@@ -97,8 +97,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cp stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz stacks/deploy-release.tar.gz
-          if gh release view "deploy" --repo "$GITHUB_REPOSITORY"; then
-            gh release delete "deploy" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+          if gh release view "deploy" --repo="$GITHUB_REPOSITORY"; then
+            gh release delete "deploy" --repo="$GITHUB_REPOSITORY" --cleanup-tag --yes
           fi
           gh release create "deploy" \
               --title="ClusterForge Deploy Release" \
