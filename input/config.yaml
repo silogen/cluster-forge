@@ -2,12 +2,17 @@
 - name: certmanager
   namespace: cert-manager
   manifest-url: https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml
-- helm-chart-name: "gpu-operator-charts"
-  helm-name: amd-gpu-operator
-  helm-url: "https://rocm.github.io/gpu-operator"
+  syncwave: -1
+- name: amd-gpu-operator
   namespace: "kube-amd-gpu"
-  name: amd-gpu-operator
-  helm-version: "1.0.0"
+  manifestpath: 
+  - amd-gpu-operator/manifests/helm
+  - amd-gpu-operator/manifests/additions
+  # helm-chart-name: "gpu-operator-charts"
+  # helm-name: amd-gpu-operator
+  # helm-url: "https://rocm.github.io/gpu-operator"
+  # helm-version: "1.0.0"
+  # values: values.yaml
 - name: amd-device-config
   namespace: kube-amd-gpu
   manifestpath: 
@@ -164,6 +169,7 @@
 - name: prometheus-crds
   namespace: prometheus-system
   manifest-url: https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.79.2/stripped-down-crds.yaml
+  syncwave: -1
 - name: 1password-cluster-secret-store
   namespace: external-secrets
   manifestpath: 
@@ -179,4 +185,17 @@
 - name: otel-lgtm-stack
   namespace: otel-lgtm-stack
   manifestpath: 
-  - otel-lgtm-stack/otel-lgtm-manifests.yaml
+  - /otel-lgtm-stack/otel-collector-agent/collector-manifests.yaml 
+  - /otel-lgtm-stack/otel-lgtm/modified-manifests.yaml
+  - /otel-lgtm-stack/dashboards/dummy-grafana-dashboards.yaml
+  syncwave: 1
+- name: minio-all-together
+  collection: 
+  - minio-operator
+  - minio-tenant
+- name: monitoring-with-pv
+  collection:
+  - certmanager
+  - opentelemetry-operator
+  - prometheus-crds
+  - otel-lgtm-stack

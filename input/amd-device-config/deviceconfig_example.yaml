@@ -87,6 +87,8 @@ spec:
     #config:
     #  # example configmap is in example/metricsExporter/configmap.yaml
     #  name: gpu-config
+    configMap:
+      name: "gpu-config"
     
     ## Specify the kube-rbac-proxy config
     #rbacConfig:

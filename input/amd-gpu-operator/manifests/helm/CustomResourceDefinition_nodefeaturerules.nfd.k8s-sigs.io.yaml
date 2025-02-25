@@ -1,0 +1,200 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: nodefeaturerules.nfd.k8s-sigs.io
+spec:
+  group: nfd.k8s-sigs.io
+  names:
+    kind: NodeFeatureRule
+    listKind: NodeFeatureRuleList
+    plural: nodefeaturerules
+    shortNames:
+    - nfr
+    singular: nodefeaturerule
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              rules:
+                items:
+                  properties:
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    extendedResources:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    labels:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    labelsTemplate:
+                      type: string
+                    matchAny:
+                      items:
+                        properties:
+                          matchFeatures:
+                            items:
+                              properties:
+                                feature:
+                                  type: string
+                                matchExpressions:
+                                  additionalProperties:
+                                    properties:
+                                      op:
+                                        enum:
+                                        - In
+                                        - NotIn
+                                        - InRegexp
+                                        - Exists
+                                        - DoesNotExist
+                                        - Gt
+                                        - Lt
+                                        - GtLt
+                                        - IsTrue
+                                        - IsFalse
+                                        type: string
+                                      value:
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - op
+                                    type: object
+                                  type: object
+                                matchName:
+                                  properties:
+                                    op:
+                                      enum:
+                                      - In
+                                      - NotIn
+                                      - InRegexp
+                                      - Exists
+                                      - DoesNotExist
+                                      - Gt
+                                      - Lt
+                                      - GtLt
+                                      - IsTrue
+                                      - IsFalse
+                                      type: string
+                                    value:
+                                      items:
+                                        type: string
+                                      type: array
+                                  required:
+                                  - op
+                                  type: object
+                              required:
+                              - feature
+                              type: object
+                            type: array
+                        required:
+                        - matchFeatures
+                        type: object
+                      type: array
+                    matchFeatures:
+                      items:
+                        properties:
+                          feature:
+                            type: string
+                          matchExpressions:
+                            additionalProperties:
+                              properties:
+                                op:
+                                  enum:
+                                  - In
+                                  - NotIn
+                                  - InRegexp
+                                  - Exists
+                                  - DoesNotExist
+                                  - Gt
+                                  - Lt
+                                  - GtLt
+                                  - IsTrue
+                                  - IsFalse
+                                  type: string
+                                value:
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - op
+                              type: object
+                            type: object
+                          matchName:
+                            properties:
+                              op:
+                                enum:
+                                - In
+                                - NotIn
+                                - InRegexp
+                                - Exists
+                                - DoesNotExist
+                                - Gt
+                                - Lt
+                                - GtLt
+                                - IsTrue
+                                - IsFalse
+                                type: string
+                              value:
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - op
+                            type: object
+                        required:
+                        - feature
+                        type: object
+                      type: array
+                    name:
+                      type: string
+                    taints:
+                      items:
+                        properties:
+                          effect:
+                            type: string
+                          key:
+                            type: string
+                          timeAdded:
+                            format: date-time
+                            type: string
+                          value:
+                            type: string
+                        required:
+                        - effect
+                        - key
+                        type: object
+                      type: array
+                    vars:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    varsTemplate:
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+            required:
+            - rules
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
