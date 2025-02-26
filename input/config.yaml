@@ -97,6 +97,7 @@
 - helm-chart-name: "kuberay-operator"
   helm-name: kuberay-operator
   helm-url: "https://ray-project.github.io/kuberay-helm/"
+  values: values.yaml
   secrets: false
   name: kuberay-operator
   namespace: "default"
