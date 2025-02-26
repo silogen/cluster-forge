@@ -26,9 +26,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	goyaml "github.com/go-yaml/yaml"
 	"github.com/silogen/cluster-forge/cmd/utils"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 type k8sObject struct {
@@ -44,7 +43,7 @@ type k8sObject struct {
 
 func splitYAML(resources []byte) ([][]byte, error) {
 
-	dec := goyaml.NewDecoder(bytes.NewReader(resources))
+	dec := yaml.NewDecoder(bytes.NewReader(resources))
 
 	var res [][]byte
 	for {
@@ -59,7 +58,7 @@ func splitYAML(resources []byte) ([][]byte, error) {
 		if value == nil {
 			continue
 		}
-		valueBytes, err := goyaml.Marshal(value)
+		valueBytes, err := yaml.Marshal(value)
 		if err != nil {
 			return nil, err
 		}
@@ -69,14 +68,14 @@ func splitYAML(resources []byte) ([][]byte, error) {
 }
 
 func preclean(data []byte) []byte {
-    // Convert byte slice to string
-    dataStr := string(data)
+	// Convert byte slice to string
+	dataStr := string(data)
 
-    // Remove tab characters
-    cleanedStr := strings.ReplaceAll(dataStr, "\t", "  ")
+	// Remove tab characters
+	cleanedStr := strings.ReplaceAll(dataStr, "\t", "  ")
 
-    // Convert back to byte slice
-    return []byte(cleanedStr)
+	// Convert back to byte slice
+	return []byte(cleanedStr)
 }
 
 func clean(input []byte) ([]byte, error) {
@@ -110,8 +109,8 @@ func SplitYAML(config utils.Config, workingDir string) {
 		log.Fatal(err)
 	}
 
-  // Use the preclean function
-  preCleanedData := preclean(data)
+	// Use the preclean function
+	preCleanedData := preclean(data)
 
 	result, err := splitYAML(preCleanedData)
 	if err != nil {
