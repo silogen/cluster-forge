@@ -101,7 +101,7 @@ extraObjects:
     spec:
       refreshInterval: "30m"
       secretStoreRef:
-        name: k8s-secret-store
+        name: minio-secret-store
         kind: ClusterSecretStore
       target:
         name: loki-minio-creds

@@ -1,0 +1,51 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mc-post-job
+  namespace: minio-tenant-default
+spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 1
+  template:
+    spec:
+      containers:
+      - args:
+        - source /tmp/minio-config/config.env; until mc alias set init "$MINIO_SERVER_URL"
+          "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do sleep 5; done; until mc admin 
+          accesskey edit init/ "$API_ACCESS_KEY" --secret-key "$API_SECRET_KEY"; do 
+          mc admin accesskey create init/ "$CONSOLE_ACCESS_KEY" --access-key "$API_ACCESS_KEY" 
+          --secret-key "$API_SECRET_KEY"; sleep 1; done;
+        command:
+        - /bin/sh
+        - -c
+        env:
+        - name: CONSOLE_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              key: CONSOLE_ACCESS_KEY
+              name: default-user
+        - name: API_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              key: API_ACCESS_KEY
+              name: default-user
+        - name: API_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              key: API_SECRET_KEY
+              name: default-user
+        - name: MINIO_URL
+          value: https://default-minio-tenant-console.minio-tenant-default.svc.cluster.local
+        image: minio/mc:latest
+        name: mc
+        volumeMounts:
+        - mountPath: /tmp/minio-config
+          name: configuration
+      restartPolicy: Never
+      volumes:
+      - name: configuration
+        projected:
+          defaultMode: 420
+          sources:
+          - secret:
+              name: default-minio-tenant-env-configuration
