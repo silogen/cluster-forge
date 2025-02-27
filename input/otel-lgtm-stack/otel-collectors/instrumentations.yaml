@@ -1,0 +1,105 @@
+---
+# Source: openobserve-collector/templates/instrumentation-dotnet.yaml
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: lgtm-dotnet
+  namespace: otel-lgtm-stack
+spec:
+  exporter:
+    endpoint: http://lgtm.lgtm-stack.svc.cluster.local:4318 ###
+  propagators:
+    - tracecontext
+    - baggage
+  sampler:
+    type: parentbased_traceidratio
+    argument: "1"
+  dotnet:
+    env:
+      - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+        value: http/protobuf
+      - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
+        value: http/protobuf
+---
+# Source: openobserve-collector/templates/instrumentation-go.yaml
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: lgtm-go
+  namespace: otel-lgtm-stack
+spec:
+  go:
+    # image: ghcr.io/openobserve/opentelemetry-go-instrumentation/autoinstrumentation-go:v0.7.0-alpha-5
+    image: ghcr.io/open-telemetry/opentelemetry-go-instrumentation/autoinstrumentation-go:v0.19.0-alpha
+  exporter:
+    endpoint: http://lgtm.lgtm-stack.svc.cluster.local:4318 ##
+  propagators:
+    - tracecontext
+    - baggage
+  sampler:
+    type: parentbased_traceidratio
+    argument: "1"
+---
+# Source: openobserve-collector/templates/instrumentation-java.yaml
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: lgtm-java
+  namespace: otel-lgtm-stack
+spec:
+  exporter:
+    endpoint: http://lgtm.lgtm-stack.svc.cluster.local:4318 ###
+  propagators:
+    - tracecontext
+    - baggage
+  sampler:
+    type: parentbased_traceidratio
+    argument: "1"
+  java:
+    env:
+      - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+        value: http/protobuf
+      - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
+        value: http/protobuf
+---
+# Source: openobserve-collector/templates/instrumentation-nodejs.yaml
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: lgtm-nodejs
+  namespace: otel-lgtm-stack
+spec:
+  exporter:
+    endpoint: http://lgtm.lgtm-stack.svc.cluster.local:4318 ###
+  propagators:
+    - tracecontext
+    - baggage
+  sampler:
+    type: parentbased_traceidratio
+    argument: "1"
+---
+# Source: openobserve-collector/templates/instrumentation-python.yaml
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: lgtm-python
+  namespace: otel-lgtm-stack
+spec:
+  exporter:
+    endpoint: http://lgtm.lgtm-stack.svc.cluster.local:4318 ###
+  propagators:
+    - tracecontext
+    - baggage
+  sampler:
+    type: parentbased_traceidratio
+    argument: "1"
+  python:
+    env:
+      - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+        value: http/protobuf
+      - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
+        value: http/protobuf
+      - name: OTEL_LOGS_EXPORTER
+        value: otlp_proto_http
+      - name: OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED
+        value: "false" # set to true to enable auto instrumentation for logs
