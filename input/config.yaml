@@ -191,7 +191,8 @@
 - name: otel-lgtm-stack
   namespace: otel-lgtm-stack
   manifestpath: 
-  - /otel-lgtm-stack/otel-collector-agent/collector-manifests.yaml 
+  - /otel-lgtm-stack/kube-state-metrics/kube-state-metrics-manifests.yaml
+  - /otel-lgtm-stack/otel-collectors/collector-manifests.yaml 
   - /otel-lgtm-stack/otel-lgtm/modified-manifests.yaml
   - /otel-lgtm-stack/dashboards/dummy-grafana-dashboards.yaml
   syncwave: 1
