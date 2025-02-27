@@ -91,19 +91,19 @@ jobs:
               --generate-notes \
               stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz
 
-      - name: Make deploy package
-        if: github.ref == 'refs/heads/main' && matrix.release.type == 'core'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cp stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz stacks/deploy-release.tar.gz
-          # gh release delete "deploy" --repo="$GITHUB_REPOSITORY" --yes
-          # gh tag delete "deploy" --repo="$GITHUB_REPOSITORY"
-          gh release create "deploy" \
-              --title="ClusterForge Deploy Release" \
-              --repo="$GITHUB_REPOSITORY" \
-              --generate-notes \
-              stacks/deploy-release.tar.gz
+      # - name: Make deploy package
+      #   if: github.ref == 'refs/heads/main' && matrix.release.type == 'core'
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: |
+      #     cp stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz stacks/deploy-release.tar.gz
+      #     # gh release delete "deploy" --repo="$GITHUB_REPOSITORY" --yes
+      #     # gh tag delete "deploy" --repo="$GITHUB_REPOSITORY"
+      #     gh release create "deploy" \
+      #         --title="ClusterForge Deploy Release" \
+      #         --repo="$GITHUB_REPOSITORY" \
+      #         --generate-notes \
+      #         stacks/deploy-release.tar.gz
       - name: Make test package
         if: github.ref != 'refs/heads/main' && matrix.release.type == 'core'
         env:
