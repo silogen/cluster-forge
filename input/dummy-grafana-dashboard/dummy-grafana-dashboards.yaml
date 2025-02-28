@@ -76,7 +76,7 @@ data:
           "collapsed": false,
           "datasource": {
             "type": "prometheus",
-            "uid": "promethues"
+            "uid": "prometheus"
           },
           "gridPos": {
             "h": 1,
