@@ -32,6 +32,9 @@ func main() {
 	var configFile string
 	var imageName string
 	var stackName string
+	var gitopsUrl string
+	var gitopsBranch string
+	var gitopsPathPrefix string
 	var persistentGitea bool
 	var nonInteractive bool
 	var smeltCmd = &cobra.Command{
@@ -44,7 +47,8 @@ This output can then be edited or customized if needed before casting.
 The reason for customizing is to create cluster specific configurations.
 For example, you could template a 'baseDomain' which could then be input and templated at the forge step.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			runSmelt(configFile, nonInteractive)
+			gitops := utils.GitopsParameters{Url: gitopsUrl, Branch: gitopsBranch, PathPrefix: gitopsPathPrefix}
+			runSmelt(configFile, nonInteractive, gitops)
 		},
 	}
 
@@ -61,7 +65,8 @@ This step creates a container image which can be used during forge step to deplo
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			runCast(true, configFile, imageName, stackName, persistentGitea, nonInteractive)
+			gitops := utils.GitopsParameters{Url: gitopsUrl, Branch: gitopsBranch, PathPrefix: gitopsPathPrefix}
+			runCast(true, configFile, imageName, stackName, persistentGitea, nonInteractive, gitops)
 		},
 	}
 
@@ -71,19 +76,27 @@ This step creates a container image which can be used during forge step to deplo
 		Long:  `The forge command will run both smelt and cast, and create ephemeral image.`,
 
 		Run: func(cmd *cobra.Command, args []string) {
-			runForge()
+			gitops := utils.GitopsParameters{Url: gitopsUrl, Branch: gitopsBranch, PathPrefix: gitopsPathPrefix}
+			runForge(gitops)
 		},
 	}
+	defaultConfigfile := "input/config.yaml"
+	defaultGitopsUrl := "http://gitea-http.cf-gitea.svc:3000/forge/clusterforge.git"
+	defaultGitopsBranch := "HEAD"
+	defaultGitopsPathPrefix := ""
 
 	rootCmd.AddCommand(smeltCmd, castCmd, forgeCmd)
-	smeltCmd.Flags().StringVarP(&configFile, "config", "c", "input/config.yaml", "Path to the config file")
-	smeltCmd.Flags().BoolVarP(&nonInteractive, "non-interactive", "n", false, "Non-interactive, fail if information is missing.")
-	castCmd.Flags().StringVarP(&configFile, "config", "c", "input/config.yaml", "Path to the config file")
+
+	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", defaultConfigfile, "Path to the config file")
+	rootCmd.PersistentFlags().BoolVarP(&nonInteractive, "non-interactive", "n", false, "Non-interactive, fail if information is missing.")
+	rootCmd.PersistentFlags().StringVarP(&gitopsUrl, "gitopsUrl", "", defaultGitopsUrl, "Url target for Argocd app")
+	rootCmd.PersistentFlags().StringVarP(&gitopsBranch, "gitopsBranch", "", defaultGitopsBranch, "Url target for Argocd app")
+	rootCmd.PersistentFlags().StringVarP(&gitopsPathPrefix, "gitopsPathPrefix", "", defaultGitopsPathPrefix, "Prefix for Argocd app target path")
+
 	castCmd.Flags().BoolVarP(&persistentGitea, "persistent", "p", false, "If set to true, gitea will use a pvc for its data")
 	castCmd.Flags().StringVarP(&imageName, "imageName", "i", "", "Name of docker image to push, you need either both stackName and imageName or neither")
 	castCmd.Flags().StringVarP(&stackName, "stackName", "s", "", "Name of stack, you need either both stackName and imageName or neither")
 	castCmd.MarkFlagsRequiredTogether("imageName", "stackName")
-	castCmd.Flags().BoolVarP(&nonInteractive, "non-interactive", "n", false, "Non-interactive, fail if information is missing.")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -91,12 +104,12 @@ This step creates a container image which can be used during forge step to deplo
 	}
 }
 
-func runSmelt(configFile string, nonInteractive bool) {
+func runSmelt(configFile string, nonInteractive bool, gitops utils.GitopsParameters) {
 	workingDir := "./working"
 	filesDir := "./output"
 	utils.Setup(nonInteractive)
 	log.Println("starting up...")
-	configs, err := utils.LoadConfig(configFile)
+	configs, err := utils.LoadConfig(configFile, gitops)
 	if err != nil {
 		log.Fatalf("Failed to read config: %v", err)
 	}
@@ -112,12 +125,13 @@ func runSmelt(configFile string, nonInteractive bool) {
 	smelter.Smelt(configs, workingDir, filesDir, configFile, nonInteractive)
 }
 
-func runCast(publishImage bool, configFile string, imageName string, stackName string, persistentGitea bool, nonInteractive bool) string {
+func runCast(publishImage bool, configFile string, imageName string, stackName string, persistentGitea bool, nonInteractive bool, gitops utils.GitopsParameters) string {
 	stacksDir := "./stacks"
 	filesDir := "./working"
 	utils.Setup(nonInteractive)
 	log.Println("starting up...")
-	configs, err := utils.LoadConfig(configFile)
+	configs, err := utils.LoadConfig(configFile, gitops)
+
 	if err != nil {
 		log.Fatalf("Failed to read config: %v", err)
 	}
@@ -134,8 +148,8 @@ func runCast(publishImage bool, configFile string, imageName string, stackName s
 	return stack
 }
 
-func runForge() {
-	runSmelt("input/config.yaml", false)
-	stack := runCast(false, "input/config.yaml", "", "", false, false)
+func runForge(gitops utils.GitopsParameters) {
+	runSmelt("input/config.yaml", false, gitops)
+	stack := runCast(false, "input/config.yaml", "", "", false, false, gitops)
 	log.Printf("Stackname: %s", stack)
 }

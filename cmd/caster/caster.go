@@ -133,14 +133,17 @@ func CastTool(filesDir, imageName string, publishImage bool, stackName string, p
 	os.RemoveAll("stacks/latest")
 	utils.CopyDir(filesDir, "stacks/latest", false)
 	utils.CopyFile("cmd/utils/templates/argoapp.yaml", "stacks/latest/argoapp.yaml")
+	utils.ReplaceStringInFile("stacks/latest/argoapp.yaml", "GITOPS_URL", imageName)
+	utils.ReplaceStringInFile("stacks/latest/argoapp.yaml", "GITOPS_BRANCH", imageName)
+	utils.ReplaceStringInFile("stacks/latest/argoapp.yaml", "GITOPS_PATH_PREFIX", imageName)
 	utils.CopyFile("cmd/utils/templates/argocd.yaml", "stacks/latest/argocd.yaml")
 	if persistentGitea {
 		utils.CopyFile("cmd/utils/templates/gitea_pvc.yaml", "stacks/latest/gitea.yaml")
 	} else {
 		utils.CopyFile("cmd/utils/templates/gitea.yaml", "stacks/latest/gitea.yaml")
 	}
-	utils.CopyFile("cmd/utils/templates/deploy.sh", "stacks/latest/deploy.sh")
 	utils.ReplaceStringInFile("stacks/latest/gitea.yaml", "GENERATED_IMAGE", imageName)
+	utils.CopyFile("cmd/utils/templates/deploy.sh", "stacks/latest/deploy.sh")
 	if publishImage {
 		utils.CopyDir("stacks/latest", "stacks/"+stackName, false)
 	}

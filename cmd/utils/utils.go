@@ -111,9 +111,15 @@ var clusterScopedResources = []ClusterScopedResource{
 	{"Audit", "warden.gke.io/v1"},
 }
 
+type GitopsParameters struct {
+	Url        string
+	Branch     string
+	PathPrefix string
+}
+
 type ConfigAsMap map[string]interface{}
 
-func LoadConfig(filename string) ([]Config, error) {
+func LoadConfig(filename string, gitops GitopsParameters) ([]Config, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -177,6 +183,13 @@ func LoadConfig(filename string) ([]Config, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	for i := range configs {
+		configs[i].GitopsUrl = gitops.Url
+		configs[i].GitopsBranch = gitops.Branch
+		configs[i].GitopsPathPrefix = gitops.PathPrefix
+	}
+
 	return configs, nil
 }
 
@@ -199,6 +212,9 @@ type Config struct {
 	ExternalSecretFiles []string
 	ObjectFiles         []string
 	StackName           string
+	GitopsUrl           string
+	GitopsBranch        string
+	GitopsPathPrefix    string
 }
 
 func Setup(nonInteractive bool) {
@@ -564,9 +580,9 @@ spec:
     namespace: argocd
     server: 'https://kubernetes.default.svc'
   source:
-    path: {{ .Name }}
-    repoURL: 'http://gitea-http.cf-gitea.svc:3000/forge/clusterforge.git'
-    targetRevision: HEAD
+    path: {{ .GitopsPathPrefix }}{{ .Name }}
+    repoURL: '{{ .GitopsUrl }}'
+    targetRevision: {{ .GitopsBranch }}
   project: default
   syncPolicy:
     automated:
