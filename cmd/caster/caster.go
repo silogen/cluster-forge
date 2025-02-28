@@ -34,12 +34,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Cast(filesDir string, stacksDir string, publishImage bool, imageName string, stackName string, persistentGitea bool, nonInteractive bool) string {
+func Cast(filesDir string, stacksDir string, publishImage bool, imageName string, stackName string, persistentGitea bool, nonInteractive bool, gitops utils.GitopsParameters) string {
 
 	log.Info("Starting up the menu...")
 
 	if nonInteractive {
-		if err := CastTool(filesDir, imageName, publishImage, stackName, persistentGitea); err != nil {
+		if err := CastTool(filesDir, imageName, publishImage, stackName, persistentGitea, gitops); err != nil {
 			log.Fatalf("Error during preparation: %v", err)
 		}
 	} else {
@@ -52,7 +52,7 @@ func Cast(filesDir string, stacksDir string, publishImage bool, imageName string
 			Title("Preparing your stack...").
 			Accessible(accessible).
 			Action(func() {
-				if err := CastTool(filesDir, imageName, publishImage, stackName, persistentGitea); err != nil {
+				if err := CastTool(filesDir, imageName, publishImage, stackName, persistentGitea, gitops); err != nil {
 					log.Fatalf("Error during preparation: %v", err)
 				}
 			}).
@@ -113,7 +113,7 @@ func handleInteractiveForm(publishImage bool) (string, string) {
 	return stackName, imageName
 }
 
-func CastTool(filesDir, imageName string, publishImage bool, stackName string, persistentGitea bool) error {
+func CastTool(filesDir, imageName string, publishImage bool, stackName string, persistentGitea bool, gitops utils.GitopsParameters) error {
 	tempDir, err := os.MkdirTemp("", "forger")
 	if err != nil {
 		log.Error("Failed to create temporary directory: %v\n", err)
@@ -133,14 +133,17 @@ func CastTool(filesDir, imageName string, publishImage bool, stackName string, p
 	os.RemoveAll("stacks/latest")
 	utils.CopyDir(filesDir, "stacks/latest", false)
 	utils.CopyFile("cmd/utils/templates/argoapp.yaml", "stacks/latest/argoapp.yaml")
+	utils.ReplaceStringInFile("stacks/latest/argoapp.yaml", "GITOPS_URL", gitops.Url)
+	utils.ReplaceStringInFile("stacks/latest/argoapp.yaml", "GITOPS_BRANCH", gitops.Branch)
+	utils.ReplaceStringInFile("stacks/latest/argoapp.yaml", "GITOPS_PATH_PREFIX", gitops.PathPrefix)
 	utils.CopyFile("cmd/utils/templates/argocd.yaml", "stacks/latest/argocd.yaml")
 	if persistentGitea {
 		utils.CopyFile("cmd/utils/templates/gitea_pvc.yaml", "stacks/latest/gitea.yaml")
 	} else {
 		utils.CopyFile("cmd/utils/templates/gitea.yaml", "stacks/latest/gitea.yaml")
 	}
-	utils.CopyFile("cmd/utils/templates/deploy.sh", "stacks/latest/deploy.sh")
 	utils.ReplaceStringInFile("stacks/latest/gitea.yaml", "GENERATED_IMAGE", imageName)
+	utils.CopyFile("cmd/utils/templates/deploy.sh", "stacks/latest/deploy.sh")
 	if publishImage {
 		utils.CopyDir("stacks/latest", "stacks/"+stackName, false)
 	}
