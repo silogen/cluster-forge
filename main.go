@@ -139,7 +139,7 @@ func runCast(publishImage bool, configFile string, imageName string, stackName s
 	} else {
 		log.Println("Config: " + configFile + " image: " + imageName + " stack: " + stackName)
 	}
-	stack := caster.Cast(filesDir, stacksDir, publishImage, imageName, stackName, persistentGitea, nonInteractive)
+	stack := caster.Cast(filesDir, stacksDir, publishImage, imageName, stackName, persistentGitea, nonInteractive, gitops)
 	return stack
 }
 
