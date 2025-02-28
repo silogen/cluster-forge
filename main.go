@@ -32,11 +32,9 @@ func main() {
 	var configFile string
 	var imageName string
 	var stackName string
-	var gitopsUrl string
-	var gitopsBranch string
-	var gitopsPathPrefix string
 	var persistentGitea bool
 	var nonInteractive bool
+	gitops := utils.GitopsParameters{}
 	var smeltCmd = &cobra.Command{
 		Use:   "smelt",
 		Short: "Run smelt",
@@ -47,7 +45,6 @@ This output can then be edited or customized if needed before casting.
 The reason for customizing is to create cluster specific configurations.
 For example, you could template a 'baseDomain' which could then be input and templated at the forge step.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			gitops := utils.GitopsParameters{Url: gitopsUrl, Branch: gitopsBranch, PathPrefix: gitopsPathPrefix}
 			runSmelt(configFile, nonInteractive, gitops)
 		},
 	}
@@ -65,7 +62,6 @@ This step creates a container image which can be used during forge step to deplo
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			gitops := utils.GitopsParameters{Url: gitopsUrl, Branch: gitopsBranch, PathPrefix: gitopsPathPrefix}
 			runCast(true, configFile, imageName, stackName, persistentGitea, nonInteractive, gitops)
 		},
 	}
@@ -76,7 +72,6 @@ This step creates a container image which can be used during forge step to deplo
 		Long:  `The forge command will run both smelt and cast, and create ephemeral image.`,
 
 		Run: func(cmd *cobra.Command, args []string) {
-			gitops := utils.GitopsParameters{Url: gitopsUrl, Branch: gitopsBranch, PathPrefix: gitopsPathPrefix}
 			runForge(gitops)
 		},
 	}
@@ -89,9 +84,9 @@ This step creates a container image which can be used during forge step to deplo
 
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", defaultConfigfile, "Path to the config file")
 	rootCmd.PersistentFlags().BoolVarP(&nonInteractive, "non-interactive", "n", false, "Non-interactive, fail if information is missing.")
-	rootCmd.PersistentFlags().StringVarP(&gitopsUrl, "gitopsUrl", "", defaultGitopsUrl, "Url target for Argocd app")
-	rootCmd.PersistentFlags().StringVarP(&gitopsBranch, "gitopsBranch", "", defaultGitopsBranch, "Url target for Argocd app")
-	rootCmd.PersistentFlags().StringVarP(&gitopsPathPrefix, "gitopsPathPrefix", "", defaultGitopsPathPrefix, "Prefix for Argocd app target path")
+	rootCmd.PersistentFlags().StringVarP(&gitops.Url, "gitopsUrl", "", defaultGitopsUrl, "Url target for Argocd app")
+	rootCmd.PersistentFlags().StringVarP(&gitops.Branch, "gitopsBranch", "", defaultGitopsBranch, "Url target for Argocd app")
+	rootCmd.PersistentFlags().StringVarP(&gitops.PathPrefix, "gitopsPathPrefix", "", defaultGitopsPathPrefix, "Prefix for Argocd app target path")
 
 	castCmd.Flags().BoolVarP(&persistentGitea, "persistent", "p", false, "If set to true, gitea will use a pvc for its data")
 	castCmd.Flags().StringVarP(&imageName, "imageName", "i", "", "Name of docker image to push, you need either both stackName and imageName or neither")
