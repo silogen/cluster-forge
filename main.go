@@ -27,14 +27,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type CastParameters struct {
+	Persistent bool
+	Private    bool
+	ImageName  string
+	StackName  string
+}
+
 func main() {
 	var rootCmd = &cobra.Command{Use: "app"}
 	var configFile string
-	var imageName string
-	var stackName string
-	var persistentGitea bool
+	var privateImage bool
 	var nonInteractive bool
 	gitops := utils.GitopsParameters{}
+	castParameters := CastParameters{}
 	var smeltCmd = &cobra.Command{
 		Use:   "smelt",
 		Short: "Run smelt",
@@ -56,13 +62,13 @@ For example, you could template a 'baseDomain' which could then be input and tem
 
 This step creates a container image which can be used during forge step to deploy all the components in a stack to a cluster.`,
 		PreRun: func(cmd *cobra.Command, args []string) {
-			if nonInteractive {
+			if nonInteractive && !privateImage {
 				cmd.MarkFlagRequired("imageName")
 				cmd.MarkFlagRequired("stackName")
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			runCast(true, configFile, imageName, stackName, persistentGitea, nonInteractive, gitops)
+			runCast(castParameters, configFile, nonInteractive, gitops)
 		},
 	}
 
@@ -72,7 +78,7 @@ This step creates a container image which can be used during forge step to deplo
 		Long:  `The forge command will run both smelt and cast, and create ephemeral image.`,
 
 		Run: func(cmd *cobra.Command, args []string) {
-			runForge(gitops)
+			runForge(castParameters, configFile, nonInteractive, gitops)
 		},
 	}
 	defaultConfigfile := "input/config.yaml"
@@ -88,10 +94,14 @@ This step creates a container image which can be used during forge step to deplo
 	rootCmd.PersistentFlags().StringVarP(&gitops.Branch, "gitopsBranch", "", defaultGitopsBranch, "Url target for Argocd app")
 	rootCmd.PersistentFlags().StringVarP(&gitops.PathPrefix, "gitopsPathPrefix", "", defaultGitopsPathPrefix, "Prefix for Argocd app target path")
 
-	castCmd.Flags().BoolVarP(&persistentGitea, "persistent", "p", false, "If set to true, gitea will use a pvc for its data")
-	castCmd.Flags().StringVarP(&imageName, "imageName", "i", "", "Name of docker image to push, you need either both stackName and imageName or neither")
-	castCmd.Flags().StringVarP(&stackName, "stackName", "s", "", "Name of stack, you need either both stackName and imageName or neither")
-	castCmd.MarkFlagsRequiredTogether("imageName", "stackName")
+	castCmd.Flags().BoolVarP(&castParameters.Persistent, "persistent", "p", false, "If set to true, gitea will use a pvc for its data")
+	forgeCmd.Flags().BoolVarP(&castParameters.Persistent, "persistent", "p", false, "If set to true, gitea will use a pvc for its data")
+	castCmd.Flags().StringVarP(&castParameters.ImageName, "imageName", "i", "", "Name of docker image to push, you need either both stackName and imageName or neither")
+	forgeCmd.Flags().StringVarP(&castParameters.ImageName, "imageName", "i", "", "Name of docker image to push, you need either both stackName and imageName or neither")
+	castCmd.Flags().StringVarP(&castParameters.StackName, "stackName", "s", "", "Name of stack, you need either both stackName and imageName or neither")
+	forgeCmd.Flags().StringVarP(&castParameters.StackName, "stackName", "s", "", "Name of stack, you need either both stackName and imageName or neither")
+	castCmd.Flags().BoolVarP(&castParameters.Private, "private", "", false, "If set to true, gitea image will not be public")
+	forgeCmd.Flags().BoolVarP(&castParameters.Private, "private", "", false, "If set to true, gitea image will not be public")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -120,7 +130,7 @@ func runSmelt(configFile string, nonInteractive bool, gitops utils.GitopsParamet
 	smelter.Smelt(configs, workingDir, filesDir, configFile, nonInteractive)
 }
 
-func runCast(publishImage bool, configFile string, imageName string, stackName string, persistentGitea bool, nonInteractive bool, gitops utils.GitopsParameters) string {
+func runCast(params CastParameters, configFile string, nonInteractive bool, gitops utils.GitopsParameters) string {
 	stacksDir := "./stacks"
 	filesDir := "./working"
 	utils.Setup(nonInteractive)
@@ -137,14 +147,15 @@ func runCast(publishImage bool, configFile string, imageName string, stackName s
 		fmt.Print(utils.ForgeLogo)
 		fmt.Println("Casting")
 	} else {
-		log.Println("Config: " + configFile + " image: " + imageName + " stack: " + stackName)
+		log.Println("Config: " + configFile + " image: " + params.ImageName + " stack: " + params.StackName)
 	}
-	stack := caster.Cast(filesDir, stacksDir, publishImage, imageName, stackName, persistentGitea, nonInteractive, gitops)
+	stack := caster.Cast(filesDir, stacksDir, !params.Private, params.ImageName, params.StackName, params.Persistent, nonInteractive, gitops)
 	return stack
 }
 
-func runForge(gitops utils.GitopsParameters) {
-	runSmelt("input/config.yaml", false, gitops)
-	stack := runCast(false, "input/config.yaml", "", "", false, false, gitops)
+func runForge(params CastParameters, configFile string, nonInteractive bool, gitops utils.GitopsParameters) {
+	params.Private = true
+	runSmelt(configFile, nonInteractive, gitops)
+	stack := runCast(params, configFile, nonInteractive, gitops)
 	log.Printf("Stackname: %s", stack)
 }

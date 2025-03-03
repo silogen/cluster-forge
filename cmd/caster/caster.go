@@ -38,15 +38,13 @@ func Cast(filesDir string, stacksDir string, publishImage bool, imageName string
 
 	log.Info("Starting up the menu...")
 
+	stackName, imageName = handleInteractiveForm(publishImage, imageName, stackName)
+
 	if nonInteractive {
 		if err := CastTool(filesDir, imageName, publishImage, stackName, persistentGitea, gitops); err != nil {
 			log.Fatalf("Error during preparation: %v", err)
 		}
 	} else {
-		if imageName == "" || stackName == "" {
-			stackName, imageName = handleInteractiveForm(publishImage)
-		}
-
 		accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
 		err := spinner.New().
 			Title("Preparing your stack...").
@@ -70,19 +68,22 @@ func Cast(filesDir string, stacksDir string, publishImage bool, imageName string
 	return stackName
 }
 
-func handleInteractiveForm(publishImage bool) (string, string) {
-	var stackName string
-	var imageName string
+func handleInteractiveForm(publishImage bool, imageName string, stackName string) (string, string) {
 	domainRe := regexp.MustCompile(`^(?:[a-zA-Z0-9.-]+)(?:/[a-zA-Z0-9-_]+)*(?::[a-zA-Z0-9._-]+)?$`)
 	re := regexp.MustCompile("^[a-z0-9_-]+$")
 
-	if !publishImage {
-		imageName = "ttl.sh/" + strings.ToLower(uuid.New().String()) + ":12h"
-		stackName = "ephemeral-stack"
+	if imageName != "" && stackName != "" {
+		return stackName, imageName
 	}
-	if publishImage {
-		form := []*huh.Group{
-			huh.NewGroup(huh.NewText().
+
+	if !publishImage {
+		if imageName == "" {
+			imageName = "ttl.sh/" + strings.ToLower(uuid.New().String()) + ":12h"
+		}
+	} else {
+		form := []*huh.Group{}
+		if stackName == "" {
+			form = append(form, huh.NewGroup(huh.NewText().
 				Title("Name of this composition package").
 				CharLimit(25).
 				Validate(func(input string) error {
@@ -91,19 +92,21 @@ func handleInteractiveForm(publishImage bool) (string, string) {
 					}
 					return nil
 				}).
-				Value(&stackName)),
+				Value(&stackName)))
 		}
 
-		form = append(form, huh.NewGroup(huh.NewText().
-			Title("Container Registry and Package name (URL of the registry entry, i.e. ghcr.io/silogen/clusterforge)").
-			CharLimit(65).
-			Validate(func(input string) error {
-				if !domainRe.MatchString(input) {
-					return fmt.Errorf("input must be a valid URL domain and tag")
-				}
-				return nil
-			}).
-			Value(&imageName)))
+		if imageName == "" {
+			form = append(form, huh.NewGroup(huh.NewText().
+				Title("Container Registry and Package name (URL of the registry entry, i.e. ghcr.io/silogen/clusterforge)").
+				CharLimit(65).
+				Validate(func(input string) error {
+					if !domainRe.MatchString(input) {
+						return fmt.Errorf("input must be a valid URL domain and tag")
+					}
+					return nil
+				}).
+				Value(&imageName)))
+		}
 
 		if err := huh.NewForm(form...).Run(); err != nil {
 			log.Fatalf("Interactive form failed: %v", err)
@@ -144,7 +147,7 @@ func CastTool(filesDir, imageName string, publishImage bool, stackName string, p
 	}
 	utils.ReplaceStringInFile("stacks/latest/gitea.yaml", "GENERATED_IMAGE", imageName)
 	utils.CopyFile("cmd/utils/templates/deploy.sh", "stacks/latest/deploy.sh")
-	if publishImage {
+	if publishImage || stackName != "" {
 		utils.CopyDir("stacks/latest", "stacks/"+stackName, false)
 	}
 	return nil
