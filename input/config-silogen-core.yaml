@@ -5,7 +5,7 @@
 - name: external-secrets
 - name: minio-operator
 - name: minio-tenant
-  values: values-core.yaml
+- name: minio-tenant-k8s-secret
 - name: kuberay-operator
 - name: k8s-cluster-secret-store
 - name: kaiwo-cluster-config
