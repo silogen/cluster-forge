@@ -33,6 +33,7 @@ func main() {
 	var imageName string
 	var stackName string
 	var persistentGitea bool
+	var privateImage bool
 	var nonInteractive bool
 	gitops := utils.GitopsParameters{}
 	var smeltCmd = &cobra.Command{
@@ -56,13 +57,13 @@ For example, you could template a 'baseDomain' which could then be input and tem
 
 This step creates a container image which can be used during forge step to deploy all the components in a stack to a cluster.`,
 		PreRun: func(cmd *cobra.Command, args []string) {
-			if nonInteractive {
+			if nonInteractive && !privateImage {
 				cmd.MarkFlagRequired("imageName")
 				cmd.MarkFlagRequired("stackName")
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			runCast(true, configFile, imageName, stackName, persistentGitea, nonInteractive, gitops)
+			runCast(!privateImage, configFile, imageName, stackName, persistentGitea, nonInteractive, gitops)
 		},
 	}
 
@@ -91,7 +92,7 @@ This step creates a container image which can be used during forge step to deplo
 	castCmd.Flags().BoolVarP(&persistentGitea, "persistent", "p", false, "If set to true, gitea will use a pvc for its data")
 	castCmd.Flags().StringVarP(&imageName, "imageName", "i", "", "Name of docker image to push, you need either both stackName and imageName or neither")
 	castCmd.Flags().StringVarP(&stackName, "stackName", "s", "", "Name of stack, you need either both stackName and imageName or neither")
-	castCmd.MarkFlagsRequiredTogether("imageName", "stackName")
+	castCmd.Flags().BoolVarP(&privateImage, "private", "", false, "If set to true, gitea image will not be public")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
