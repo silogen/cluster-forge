@@ -14,7 +14,7 @@ spec:
           "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do sleep 5; done; until mc admin 
           accesskey edit init/ "$API_ACCESS_KEY" --secret-key "$API_SECRET_KEY"; do 
           mc admin accesskey create init/ "$CONSOLE_ACCESS_KEY" --access-key "$API_ACCESS_KEY" 
-          --secret-key "$API_SECRET_KEY"; sleep 1; done;
+          --secret-key "$API_SECRET_KEY" > /dev/null; sleep 1; done;
         command:
         - /bin/sh
         - -c
