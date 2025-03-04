@@ -276,8 +276,8 @@ main() {
         mkdir -p $HOME/.kube
         sudo sed "s/127\.0\.0\.1/$MAIN_IP/g" /etc/rancher/rke2/rke2.yaml | tee $HOME/.kube/config
         chmod 600 $HOME/.kube/config
-		sudo sed -i "s/{{CONTROL_IP}}/$MAIN_IP/g" ingress/ingress.yaml
-		KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl apply -f ingress/ingress.yaml
+        sudo sed -i "s/{{CONTROL_IP}}/$MAIN_IP/g" ingress/ingress.yaml
+        KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl apply -f ingress/ingress.yaml
         wait_for_api_server 
         KUBECONFIG=$HOME/.kube/config && bash deploy.sh
         gum log --structured --level info 'ClusterForge installed'
