@@ -33,10 +33,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - longhorn.app.10.7.125.221.nip.io
+        - longhorn.app.{{LONGHORN_IP}}.nip.io
       secretName: selfsigned-tls  # Use cert-manager self-signed certificate
   rules:
-    - host: longhorn.app.10.7.125.221.nip.io
+    - host: longhorn.app.{{LONGHORN_IP}}.nip.io
       http:
         paths:
           - path: /
