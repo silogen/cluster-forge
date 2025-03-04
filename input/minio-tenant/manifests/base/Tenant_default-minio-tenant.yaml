@@ -32,7 +32,7 @@ spec:
         resources:
           requests:
             storage: 10Gi
-        storageClassName: longhorn-cf-noreplicas
+        storageClassName: direct
     volumesPerServer: 2
   poolsMetadata:
     annotations: {}
