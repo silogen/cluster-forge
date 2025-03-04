@@ -27,9 +27,9 @@ spec:
     directory:
       jsonnet: {}
       recurse: true
-    path: argo-apps
-    repoURL: http://gitea-http.cf-gitea.svc:3000/forge/clusterforge.git
-    targetRevision: HEAD
+    path: GITOPS_PATH_PREFIXargo-apps
+    repoURL: GITOPS_URL
+    targetRevision: GITOPS_BRANCH
   syncPolicy:
     automated:
       prune: true
