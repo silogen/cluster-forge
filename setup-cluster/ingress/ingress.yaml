@@ -58,10 +58,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - grafana.app.10.7.125.221.nip.io
+        - grafana.app.{{CONTROL_IP}}.nip.io
       secretName: selfsigned-tls  # Use cert-manager self-signed certificate
   rules:
-    - host: grafana.app.10.7.125.221.nip.io
+    - host: grafana.app.{{CONTROL_IP}}.nip.io
       http:
         paths:
           - path: /
