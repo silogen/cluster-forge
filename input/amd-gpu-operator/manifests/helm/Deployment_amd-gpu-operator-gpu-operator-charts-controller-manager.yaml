@@ -50,7 +50,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: cluster.local
-        image: docker.io/rocm/gpu-operator:v1.1.0
+        image: docker.io/rocm/gpu-operator:v1.2.0
         imagePullPolicy: Always
         livenessProbe:
           httpGet:

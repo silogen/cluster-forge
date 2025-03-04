@@ -34,25 +34,23 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Cast(filesDir string, stacksDir string, publishImage bool, imageName string, stackName string, persistentGitea bool, nonInteractive bool) string {
+func Cast(filesDir string, stacksDir string, publishImage bool, imageName string, stackName string, persistentGitea bool, nonInteractive bool, gitops utils.GitopsParameters) string {
 
 	log.Info("Starting up the menu...")
 
+	stackName, imageName = handleInteractiveForm(publishImage, imageName, stackName)
+
 	if nonInteractive {
-		if err := CastTool(filesDir, imageName, publishImage, stackName, persistentGitea); err != nil {
+		if err := CastTool(filesDir, imageName, publishImage, stackName, persistentGitea, gitops); err != nil {
 			log.Fatalf("Error during preparation: %v", err)
 		}
 	} else {
-		if imageName == "" || stackName == "" {
-			stackName, imageName = handleInteractiveForm(publishImage)
-		}
-
 		accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
 		err := spinner.New().
 			Title("Preparing your stack...").
 			Accessible(accessible).
 			Action(func() {
-				if err := CastTool(filesDir, imageName, publishImage, stackName, persistentGitea); err != nil {
+				if err := CastTool(filesDir, imageName, publishImage, stackName, persistentGitea, gitops); err != nil {
 					log.Fatalf("Error during preparation: %v", err)
 				}
 			}).
@@ -70,19 +68,22 @@ func Cast(filesDir string, stacksDir string, publishImage bool, imageName string
 	return stackName
 }
 
-func handleInteractiveForm(publishImage bool) (string, string) {
-	var stackName string
-	var imageName string
+func handleInteractiveForm(publishImage bool, imageName string, stackName string) (string, string) {
 	domainRe := regexp.MustCompile(`^(?:[a-zA-Z0-9.-]+)(?:/[a-zA-Z0-9-_]+)*(?::[a-zA-Z0-9._-]+)?$`)
 	re := regexp.MustCompile("^[a-z0-9_-]+$")
 
-	if !publishImage {
-		imageName = "ttl.sh/" + strings.ToLower(uuid.New().String()) + ":12h"
-		stackName = "ephemeral-stack"
+	if imageName != "" && stackName != "" {
+		return stackName, imageName
 	}
-	if publishImage {
-		form := []*huh.Group{
-			huh.NewGroup(huh.NewText().
+
+	if !publishImage {
+		if imageName == "" {
+			imageName = "ttl.sh/" + strings.ToLower(uuid.New().String()) + ":12h"
+		}
+	} else {
+		form := []*huh.Group{}
+		if stackName == "" {
+			form = append(form, huh.NewGroup(huh.NewText().
 				Title("Name of this composition package").
 				CharLimit(25).
 				Validate(func(input string) error {
@@ -91,19 +92,21 @@ func handleInteractiveForm(publishImage bool) (string, string) {
 					}
 					return nil
 				}).
-				Value(&stackName)),
+				Value(&stackName)))
 		}
 
-		form = append(form, huh.NewGroup(huh.NewText().
-			Title("Container Registry and Package name (URL of the registry entry, i.e. ghcr.io/silogen/clusterforge)").
-			CharLimit(65).
-			Validate(func(input string) error {
-				if !domainRe.MatchString(input) {
-					return fmt.Errorf("input must be a valid URL domain and tag")
-				}
-				return nil
-			}).
-			Value(&imageName)))
+		if imageName == "" {
+			form = append(form, huh.NewGroup(huh.NewText().
+				Title("Container Registry and Package name (URL of the registry entry, i.e. ghcr.io/silogen/clusterforge)").
+				CharLimit(65).
+				Validate(func(input string) error {
+					if !domainRe.MatchString(input) {
+						return fmt.Errorf("input must be a valid URL domain and tag")
+					}
+					return nil
+				}).
+				Value(&imageName)))
+		}
 
 		if err := huh.NewForm(form...).Run(); err != nil {
 			log.Fatalf("Interactive form failed: %v", err)
@@ -113,7 +116,7 @@ func handleInteractiveForm(publishImage bool) (string, string) {
 	return stackName, imageName
 }
 
-func CastTool(filesDir, imageName string, publishImage bool, stackName string, persistentGitea bool) error {
+func CastTool(filesDir, imageName string, publishImage bool, stackName string, persistentGitea bool, gitops utils.GitopsParameters) error {
 	tempDir, err := os.MkdirTemp("", "forger")
 	if err != nil {
 		log.Error("Failed to create temporary directory: %v\n", err)
@@ -133,15 +136,18 @@ func CastTool(filesDir, imageName string, publishImage bool, stackName string, p
 	os.RemoveAll("stacks/latest")
 	utils.CopyDir(filesDir, "stacks/latest", false)
 	utils.CopyFile("cmd/utils/templates/argoapp.yaml", "stacks/latest/argoapp.yaml")
+	utils.ReplaceStringInFile("stacks/latest/argoapp.yaml", "GITOPS_URL", gitops.Url)
+	utils.ReplaceStringInFile("stacks/latest/argoapp.yaml", "GITOPS_BRANCH", gitops.Branch)
+	utils.ReplaceStringInFile("stacks/latest/argoapp.yaml", "GITOPS_PATH_PREFIX", gitops.PathPrefix)
 	utils.CopyFile("cmd/utils/templates/argocd.yaml", "stacks/latest/argocd.yaml")
 	if persistentGitea {
 		utils.CopyFile("cmd/utils/templates/gitea_pvc.yaml", "stacks/latest/gitea.yaml")
 	} else {
 		utils.CopyFile("cmd/utils/templates/gitea.yaml", "stacks/latest/gitea.yaml")
 	}
-	utils.CopyFile("cmd/utils/templates/deploy.sh", "stacks/latest/deploy.sh")
 	utils.ReplaceStringInFile("stacks/latest/gitea.yaml", "GENERATED_IMAGE", imageName)
-	if publishImage {
+	utils.CopyFile("cmd/utils/templates/deploy.sh", "stacks/latest/deploy.sh")
+	if publishImage || stackName != "" {
 		utils.CopyDir("stacks/latest", "stacks/"+stackName, false)
 	}
 	return nil
