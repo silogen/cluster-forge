@@ -84,9 +84,9 @@ metadata:
 spec:
   tls:
     - hosts:
-        - minio.app.10.7.125.221.nip.io
+        - minio.app.{{CONTROL_IP}}.nip.io
   rules:
-    - host: minio.app.10.7.125.221.nip.io
+    - host: minio.app.{{CONTROL_IP}}.nip.io
       http:
         paths:
           - path: /
