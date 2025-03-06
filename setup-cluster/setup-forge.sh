@@ -299,7 +299,7 @@ main() {
         sudo sed "s/127\.0\.0\.1/$MAIN_IP/g" /etc/rancher/rke2/rke2.yaml | tee $HOME/.kube/config
         chmod 600 $HOME/.kube/config
         wait_for_api_server 
-				sudo sed -i "s/{{CONTROL_IP}}/$MAIN_IP/g" ingress/ingress.yaml
+		sudo sed -i "s/{{CONTROL_IP}}/$MAIN_IP/g" ingress/ingress.yaml
         KUBECONFIG=$HOME/.kube/config && bash deploy.sh
         gum log --structured --level info 'ClusterForge installed'
         
@@ -311,7 +311,7 @@ main() {
         echo "export TOKEN=$TOKEN; export SERVER_IP=$MAIN_IP; curl https://silogen.github.io/cluster-forge/deploy.sh | sudo bash"
         echo ---
     fi
-		wait_for_namespaces
+	wait_for_namespaces
     KUBECONFIG==$HOME/.kube/config kubectl apply -f ingress/ingress.yaml
     gum log --structured --level info "Server setup successfully!"
 
