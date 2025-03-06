@@ -18,10 +18,6 @@ Cluster-Forge is built with the idea of **ephemeral and reproducible clusters**,
 To deploy a ClusterForge SW stack, download a release package, and run 'deploy.sh'. This assumes there is a working kubernetes cluster to deploy into, and the current KUBECONFIG context refers to that cluster. 
 
 While ClusterForge does not in any way require AMD Instinct GPU's, this was a primary use case during intial development. 
-For ease of use in such a server, a helper script is available to deploy RKE2 kubernetes, install rocm, and then setup ClusterForge. It can be found in the setup.sh file. It can also be run with:
-```bash
-curl https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/main/setup.sh | sudo bash
-```
 
 ## Storage Classes
 Storage classes are provided by default with Longhorn. These can be changed or customized as needed. 
