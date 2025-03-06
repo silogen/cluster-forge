@@ -73,12 +73,14 @@ jobs:
           mv stacks/${{ github.event.inputs.version }}-${{ matrix.release.type }} stacks/${PACKAGE_DIR}/
           mkdir -p stacks/longhorn
           cp -r setup-cluster/longhorn/ stacks/
+          mkdir -p stacks/ingress
+          cp -r setup-cluster/ingress stacks/
           cp setup-cluster/setup-forge.sh stacks/
 
       - name: Create tarball
         run: |
           PACKAGE_DIR="clusterforge-${{ matrix.release.type }}-${{ github.event.inputs.version }}"
-          tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz ${PACKAGE_DIR} longhorn/ setup-forge.sh
+          tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz ${PACKAGE_DIR} longhorn/ ingress/ setup-forge.sh
 
       - name: Create release
         if: github.ref == 'refs/heads/main'
