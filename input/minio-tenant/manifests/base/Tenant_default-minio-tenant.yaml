@@ -22,7 +22,7 @@ spec:
   podManagementPolicy: Parallel
   pools:
   - name: pool-0
-    servers: 2
+    servers: 1
     volumeClaimTemplate:
       metadata:
         name: data
@@ -33,7 +33,7 @@ spec:
           requests:
             storage: 10Gi
         storageClassName: direct
-    volumesPerServer: 2
+    volumesPerServer: 1
   poolsMetadata:
     annotations: {}
     labels: {}
