@@ -58,12 +58,8 @@ clean_disks() {
 
     DRIVES=$(lsblk -nd -o NAME,TYPE,MOUNTPOINT | awk '$1 ~ /^sd/ && $2=="disk" && $3=="" {print "/dev/"$1}')
 
-    if [[ -z "$DRIVES" ]]; then
-        exit 0
-    fi
     for DRIVE in $DRIVES; do
-        wipefs -a $DRIVE
-        dd if=/dev/zero of=$DRIVE bs=1M count=10 status=progress
+        echo 1 | sudo tee /sys/block/$(basename $DRIVE)/device/delete
     done
 
 }
