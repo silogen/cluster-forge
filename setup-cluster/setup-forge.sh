@@ -47,7 +47,26 @@ install_k8s_tools() {
     sudo snap install k9s
 }
 
+clean_disks() {
+    mount | grep "kubernetes.io/csi/driver.longhorn.io" | awk '{print $3}' | while read -r mount_point; do
+        umount -lf "$mount_point" || echo "Failed to unmount $mount_point"
+    done
+    lsblk -o NAME,MOUNTPOINT | grep "kubernetes.io/csi/driver.longhorn.io" | awk '{print "/dev/" $1}' | while read -r dev; do
+        wipefs -a "$dev" || echo "Failed to wipe $dev"
+    done
+    rm -rf /var/lib/kubelet/plugins/kubernetes.io/csi/driver.longhorn.io/*
 
+    DRIVES=$(lsblk -nd -o NAME,TYPE,MOUNTPOINT | awk '$1 ~ /^sd/ && $2=="disk" && $3=="" {print "/dev/"$1}')
+
+    if [[ -z "$DRIVES" ]]; then
+        exit 0
+    fi
+    for DRIVE in $DRIVES; do
+        wipefs -a $DRIVE
+        dd if=/dev/zero of=$DRIVE bs=1M count=10 status=progress
+    done
+
+}
 
 mount_disks() {
     local available_disks
@@ -168,6 +187,7 @@ setup_rke2_first() {
   modprobe iscsi_tcp
   modprobe dm_mod
   /usr/local/bin/rke2-uninstall.sh || true
+  clean_disks
   mkdir -p /etc/rancher/rke2
   chmod 0755 /etc/rancher/rke2
   curl -sfL $RKE2_SERVER_URL | sh -
