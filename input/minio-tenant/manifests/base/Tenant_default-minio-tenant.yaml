@@ -31,7 +31,7 @@ spec:
         - ReadWriteOnce
         resources:
           requests:
-            storage: 10Gi
+            storage: 499Gi
         storageClassName: direct
     volumesPerServer: 1
   poolsMetadata:
