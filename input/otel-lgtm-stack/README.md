@@ -15,13 +15,13 @@ There are two otel-collectors for lgtm-stack, otel-collector-metrics and otel-co
 
 Node level and cluster level metrics are collected and exposed by "node-exporter" 
 and "kube-state-metrics", respectively. Otel-collector-metrics pod is a dedicated collector 
-controled by deployment to scrape metrics. So "scrape_configs" and 
+controlled by deployment to scrape metrics. So "scrape_configs" and 
 giving annotation like "prometheus.io/scrape: 'true'", prometheus.io/path: '/metrics'  to pods
 is the key to control what metrics should be scraped.
 ref: https://grafana.com/docs/grafana-cloud/monitor-infrastructure/kubernetes-monitoring/configuration/helm-chart-config/otel-collector/
 
 Node level and cluster level logs are collected by "otel-collector-logs" pods which are 
-controled by daemonset to collect logs.
+controlled by daemonset to collect logs.
 
 This otel-collector-logs manifest is created from the modification of openobserve-collector manifests. 
 
