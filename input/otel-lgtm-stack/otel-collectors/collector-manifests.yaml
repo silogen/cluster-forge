@@ -401,7 +401,8 @@ spec:
         logs:
           receivers: [filelog/std]
           processors: [batch, attributes, k8sattributes]
-          exporters: [otlp, debug]
+          exporters: [otlp]
+          #exporters: [otlp, debug]
   volumes:
     - name: varlog
       hostPath:
@@ -884,4 +885,5 @@ spec:
         metrics:
           receivers: [prometheus]
           processors: [memory_limiter, batch]
-          exporters: [otlp, debug]
+          exporters: [otlp]
+          #exporters: [otlp, debug]
