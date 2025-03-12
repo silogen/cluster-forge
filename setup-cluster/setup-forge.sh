@@ -210,6 +210,28 @@ wait_for_api_server() {
     gum log --structured --level info "Kubernetes API server is ready"
 }
 
+wait_for_namespaces() {
+    local max_attempts=30
+    local attempt=1
+    local namespaces=("longhorn" "cf-gitea" "minio-tenant-default" "otel-lgtm-stack")
+
+    for ns in "${namespaces[@]}"; do
+        gum log --structured --level info "Waiting for namespace $ns to be ready..."
+
+        while ! kubectl get namespace "$ns" &>/dev/null; do
+            if [ $attempt -ge $max_attempts ]; then
+                gum log --structured --level error "Timeout waiting for namespace $ns to become ready"
+                return 1
+            fi
+            gum log --structured --level debug "Waiting for namespace $ns (attempt $attempt/$max_attempts)..."
+            sleep 10 
+            ((attempt++))
+        done
+        gum log --structured --level info "Namespace $ns is ready"
+    done
+    return 0
+}
+
 setup_rke2_additional() {
   RKE2_SERVER_URL="https://get.rke2.io"
   RKE2_CONFIG_PATH="/etc/rancher/rke2/config.yaml"
@@ -295,9 +317,8 @@ main() {
         mkdir -p $HOME/.kube
         sudo sed "s/127\.0\.0\.1/$MAIN_IP/g" /etc/rancher/rke2/rke2.yaml | tee $HOME/.kube/config
         chmod 600 $HOME/.kube/config
-        sudo sed -i "s/{{CONTROL_IP}}/$MAIN_IP/g" ingress/ingress.yaml
-        KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl apply -f ingress/ingress.yaml
         wait_for_api_server 
+        sudo sed -i "s/{{CONTROL_IP}}/$MAIN_IP/g" ingress/ingress.yaml
         KUBECONFIG=$HOME/.kube/config && bash deploy.sh
         gum log --structured --level info 'ClusterForge installed'
         
@@ -309,6 +330,8 @@ main() {
         echo "export JOIN_TOKEN=$TOKEN; export SERVER_IP=$MAIN_IP; curl https://silogen.github.io/cluster-forge/deploy.sh | sudo bash"
         echo ---
     fi
+    wait_for_namespaces
+    KUBECONFIG==$HOME/.kube/config kubectl apply -f ingress/ingress.yaml
     gum log --structured --level info "Server setup successfully!"
 
 }
