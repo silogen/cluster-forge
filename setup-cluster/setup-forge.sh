@@ -24,6 +24,7 @@ open_ports() {
     "6443;tcp"
     "8472;udp"
     "9099;tcp"
+    "9345;tcp"
     "10250;tcp"
     "10254;tcp"
     "30000:32767;tcp"
@@ -212,8 +213,8 @@ wait_for_api_server() {
 setup_rke2_additional() {
   RKE2_SERVER_URL="https://get.rke2.io"
   RKE2_CONFIG_PATH="/etc/rancher/rke2/config.yaml"
-  SERVER_IP=$(gum input --placeholder "Enter the RKE2 server IP" --value "192.168.x.x")
-  JOIN_TOKEN=$(gum input --password --placeholder "Enter the RKE2 join token")
+  [[ -n "$SERVER_IP"  ]] || SERVER_IP=$(gum input --placeholder "Enter the RKE2 server IP" --value "192.168.x.x")
+  [[ -n "$JOIN_TOKEN"  ]] || JOIN_TOKEN=$(gum input --password --placeholder "Enter the RKE2 join token")
   mkdir -p /etc/rancher/rke2 && chmod 0755 /etc/rancher/rke2
   cat > $RKE2_CONFIG_PATH <<EOF
 server: https://$SERVER_IP:9345
@@ -252,7 +253,7 @@ generate_longhorn_disk_string() {
     KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl patch node $HOSTNAME --type='merge' -p "{\"metadata\": {\"labels\": {\"node.longhorn.io/create-default-disk\": \"config\", \"node.longhorn.io/instance-manager\": \"true\"}, \"annotations\": {\"node.longhorn.io/default-disks-config\": \"${json}\"}}}"
     else
     gum log --structured --level info 'This command must be run on controller node!'
-    echo KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl patch node $HOSTNAME --type='merge' -p "{\"metadata\": {\"labels\": {\"node.longhorn.io/create-default-disk\": \"config\", \"node.longhorn.io/instance-manager\": \"true\"}, \"annotations\": {\"node.longhorn.io/default-disks-config\": \"${json}\"}}}"
+    echo KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl patch node $HOSTNAME --type='merge' -p "'{\"metadata\": {\"labels\": {\"node.longhorn.io/create-default-disk\": \"config\", \"node.longhorn.io/instance-manager\": \"true\"}, \"annotations\": {\"node.longhorn.io/default-disks-config\": \"${json}\"}}}'"
 
     fi
 }
@@ -265,10 +266,12 @@ main() {
     open_ports
     install_k8s_tools
     verify_inotify_instances
-    rocmversion=$(rocm_installed)
-    gum log --structured --level info "ROCm version: $rocmversion"
-    gpucount=$(count_rocm_devices)
-    gum log --structured --level debug "GPU count: $gpucount"
+    if [[ ! -v NO_GPU ]]; then
+        rocmversion=$(rocm_installed)
+        gum log --structured --level info "ROCm version: $rocmversion"
+        gpucount=$(count_rocm_devices)
+        gum log --structured --level debug "GPU count: $gpucount"
+    fi
     if [[ "$NODE_TYPE" == "First" ]]; then
         gum log --structured --level info "Configuring as the first node..."
         setup_rke2_first
@@ -303,7 +306,7 @@ main() {
         gum log --structured --level info 'To setup additional nodes to join the cluster, run the following:' 
         echo ---
         TOKEN=$(< /var/lib/rancher/rke2/server/node-token)
-        echo "export TOKEN=$TOKEN; export SERVER_IP=$MAIN_IP; curl https://silogen.github.io/cluster-forge/deploy.sh | sudo bash"
+        echo "export JOIN_TOKEN=$TOKEN; export SERVER_IP=$MAIN_IP; curl https://silogen.github.io/cluster-forge/deploy.sh | sudo bash"
         echo ---
     fi
     gum log --structured --level info "Server setup successfully!"
