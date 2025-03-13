@@ -1803,14 +1803,33 @@ spec:
 apiVersion: monitoring.coreos.com/v1alpha1
 kind: ScrapeConfig
 metadata:
- name: amd-gpu-metrics-scrape-config
- namespace: prometheus-system
- labels:
-   release: "prometheus"
+  name: gpu-operator-metrics
+  namespace: prometheus-system
 spec:
- staticConfigs:
-   - labels:
-       job: prometheus
-     targets:
-       - 10.216.106.114:32500 #static one
-       - 10.216.106.118:32500 #static one
+  jobName: gpu-operator-metrics-exporter
+  kubernetesSDConfigs:
+    - role: node  # Discover all cluster nodes dynamically
+  relabelings:
+    - sourceLabels: [__meta_kubernetes_node_role]
+      action: keep
+      regex: worker  # Ensure only worker nodes are scraped
+    - sourceLabels: [__address__]
+      regex: (.+):.*
+      replacement: ${1}:32500  # Append NodePort 32500 to each node's address
+      targetLabel: __address__
+  metricsPath: /metrics
+
+#apiVersion: monitoring.coreos.com/v1alpha1
+#kind: ScrapeConfig
+#metadata:
+# name: amd-gpu-metrics-scrape-config
+# namespace: prometheus-system
+# labels:
+#   release: "prometheus"
+#spec:
+# staticConfigs:
+#   - labels:
+#       job: prometheus
+#     targets:
+#       - 10.216.106.114:32500 #static one
+#       - 10.216.106.118:32500 #static one
