@@ -42,6 +42,7 @@ spec:
             - minio-tenant-default
             - cert-manager
             - kuberay-operator
+            - otel-lgtm-stack
     validate:
       message: "Memory resource limits and CPU and memory resource requests are required."
       foreach:
