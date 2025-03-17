@@ -41,6 +41,18 @@ type k8sObject struct {
 	} `yaml:"metadata"`
 }
 
+func structToYAML(value interface{}) ([]byte, error) {
+	var valueBuffer bytes.Buffer
+	yamlEncoder := yaml.NewEncoder(&valueBuffer)
+	yamlEncoder.SetIndent(2)
+	err := yamlEncoder.Encode(&value)
+	if err != nil {
+		return nil, err
+	}
+	return valueBuffer.Bytes(), nil
+
+}
+
 func splitYAML(resources []byte) ([][]byte, error) {
 
 	dec := yaml.NewDecoder(bytes.NewReader(resources))
@@ -58,7 +70,7 @@ func splitYAML(resources []byte) ([][]byte, error) {
 		if value == nil {
 			continue
 		}
-		valueBytes, err := yaml.Marshal(value)
+		valueBytes, err := structToYAML(value)
 		if err != nil {
 			return nil, err
 		}
@@ -141,7 +153,7 @@ func SplitYAML(config utils.Config, workingDir string) {
 
 		}
 
-		updatedCleanres, err := yaml.Marshal(&objectMap)
+		updatedCleanres, err := structToYAML(&objectMap)
 		if err != nil {
 			log.Fatal(err)
 		}
