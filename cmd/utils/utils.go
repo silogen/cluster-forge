@@ -161,7 +161,10 @@ func LoadConfig(filename string, gitops GitopsParameters) ([]Config, error) {
 		// that have been defined in config
 		for k, v := range configMap {
 			name := v["name"].(string)
-			defaultValues := allDefaults[name]
+			defaultValues, ok := allDefaults[name]
+			if !ok {
+				defaultValues = make(ConfigAsMap)
+			}
 			for key, val := range v {
 				defaultValues[key] = val
 			}
