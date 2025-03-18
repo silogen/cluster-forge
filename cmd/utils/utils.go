@@ -648,7 +648,7 @@ func processFile(filePath string) error {
 		return fmt.Errorf("failed to parse YAML: %v", err)
 	}
 	removeDescription(content)
-	updatedData, err := yaml.Marshal(content)
+	updatedData, err := StructToYAML(content)
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated YAML: %v", err)
 	}
@@ -726,4 +726,18 @@ func InjectSyncWaveDynamic(filename, value string) error {
 	}
 
 	return nil
+}
+
+func StructToYAML(value interface{}) ([]byte, error) {
+	var valueBuffer bytes.Buffer
+	// valueBuffer.Write([]byte("---\n"))
+	yamlEncoder := yaml.NewEncoder(&valueBuffer)
+	yamlEncoder.SetIndent(2)
+	err := yamlEncoder.Encode(&value)
+	if err != nil {
+		return nil, err
+	}
+	validYAML := append([]byte("---\n"), valueBuffer.Bytes()...)
+	return validYAML, nil
+
 }
