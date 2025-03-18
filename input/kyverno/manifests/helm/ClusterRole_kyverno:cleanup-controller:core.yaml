@@ -1,0 +1,88 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: 3.3.7
+  name: kyverno:cleanup-controller:core
+rules:
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
+  - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - validatingwebhookconfigurations
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - clustercleanuppolicies
+      - cleanuppolicies
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - globalcontextentries
+      - globalcontextentries/status
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - clustercleanuppolicies/status
+      - cleanuppolicies/status
+    verbs:
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+      - events.k8s.io
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+      - update
+  - apiGroups:
+      - authorization.k8s.io
+    resources:
+      - subjectaccessreviews
+    verbs:
+      - create
