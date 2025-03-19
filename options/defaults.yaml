@@ -1,0 +1,12 @@
+argocdui: "false"
+config: input/config.yaml
+gitea: ephemeral
+gitopsbranch: HEAD
+gitopspathprefix: ""
+gitopsurl: http://gitea-http.cf-gitea.svc:3000/forge/clusterforge.git
+help: "false"
+imagename: ""
+non-interactive: "false"
+options: ""
+private: "false"
+stackname: ""

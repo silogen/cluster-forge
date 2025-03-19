@@ -25,15 +25,17 @@
   namespace: kueue-system
   manifestpath: 
   - kueue/manifests.yaml
-- helm-chart-name: "external-secrets"
-  helm-name: external-secrets
-  helm-url: "https://charts.external-secrets.io"
-  values: external-secrets-values.yaml
-  secrets: false
-  name: external-secrets
+- name: external-secrets
   namespace: "external-secrets"
-  helm-version: "0.14.2"
   syncwave: -1
+  manifestpath: 
+  - external-secrets/manifests/helm
+  # helm-chart-name: "external-secrets"
+  # helm-name: external-secrets
+  # helm-url: "https://charts.external-secrets.io"
+  # values: external-secrets-values.yaml
+  # secrets: false
+  # helm-version: "0.14.2"
 - helm-chart-name: "psmdb-operator"
   helm-name: psmdb-operator
   helm-url: "https://percona.github.io/percona-helm-charts"
@@ -52,11 +54,13 @@
   - kyverno/kyverno-policies.yaml
 - name: kyverno
   namespace: kyverno
-  helm-chart-name: kyverno
-  helm-name: kyverno
-  helm-url: https://kyverno.github.io/kyverno/
-  values: values.yaml
-  secrets: false
+  manifestpath: 
+  - kyverno/manifests/helm
+  # helm-chart-name: kyverno
+  # helm-name: kyverno
+  # helm-url: https://kyverno.github.io/kyverno/
+  # values: values.yaml
+  # secrets: false
 - helm-chart-name: "prometheus"
   helm-name: prometheus
   helm-url: "https://prometheus-community.github.io/helm-charts"
@@ -94,13 +98,15 @@
 #   secrets: false
 #   name: opencost
 #   namespace: opencost
-- helm-chart-name: "kuberay-operator"
-  helm-name: kuberay-operator
-  helm-url: "https://ray-project.github.io/kuberay-helm/"
-  values: values.yaml
-  secrets: false
-  name: kuberay-operator
+- name: kuberay-operator
   namespace: "default"
+  manifestpath: 
+  - kuberay-operator/manifests/helm
+  # helm-chart-name: "kuberay-operator"
+  # helm-name: kuberay-operator
+  # helm-url: "https://ray-project.github.io/kuberay-helm/"
+  # values: values.yaml
+  # secrets: false
 - name: longhorn
   namespace: "longhorn"
   manifestpath: 
@@ -113,12 +119,12 @@
 - name: minio-operator
   namespace: "minio-operator"
   syncwave: -1
-  # manifestpath:
-  # - minio-operator/manifests
-  helm-chart-name: "operator"
-  helm-name: minio-operator
-  helm-url: "https://operator.min.io"
-  values: minio-values.yaml
+  manifestpath:
+  - minio-operator/manifests
+  # helm-chart-name: "operator"
+  # helm-name: minio-operator
+  # helm-url: "https://operator.min.io"
+  # values: minio-values.yaml
 - name: minio-tenant
   namespace: minio-tenant-default
   manifestpath:
@@ -192,6 +198,7 @@
   namespace: otel-lgtm-stack
   manifestpath: 
   - /otel-lgtm-stack/kube-state-metrics/kube-state-metrics-manifests.yaml
+  - /otel-lgtm-stack/node-exporter/node-exporter-manifests.yaml
   - /otel-lgtm-stack/otel-collectors/collector-manifests.yaml 
   - /otel-lgtm-stack/otel-lgtm/modified-manifests.yaml
   - /otel-lgtm-stack/dashboards/dummy-grafana-dashboards.yaml
