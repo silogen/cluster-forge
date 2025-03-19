@@ -1,0 +1,18 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  labels:
+    app.kubernetes.io/instance: kgateway
+    app.kubernetes.io/name: kgateway
+    app.kubernetes.io/version: 1.16.0
+    kgateway: kgateway
+  name: kgateway
+  namespace: kgateway-system
+spec:
+  controllerName: kgateway.dev/kgateway
+  parametersRef:
+    group: gateway.kgateway.dev
+    kind: GatewayParameters
+    name: kgateway
+    namespace: kgateway-system

@@ -1,0 +1,6 @@
+# podTemplate breaks with no labels
+gatewayClass:
+  parametersRef:
+    podTemplate:
+      extraLabels:
+        cf-default: "true"
