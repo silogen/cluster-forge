@@ -238,7 +238,7 @@ func PrepareTool(configs []utils.Config, targetTools []string, workingDir string
 					return fmt.Errorf("failed to create namespace file: %w", err)
 				}
 			}
-			utils.CleanCRDDesc(toolDir)
+			utils.CleanDescFromResources(toolDir)
 		}
 	}
 	// remove the working/pre directory if not debugging
