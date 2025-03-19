@@ -233,7 +233,7 @@ func PrepareTool(configs []utils.Config, targetTools []string, workingDir string
 				}
 			}
 
-			if !namespaceObject {
+			if !namespaceObject && config.Namespace != "default" {
 				if err = createNamespaceFile(config, workingDir); err != nil {
 					return fmt.Errorf("failed to create namespace file: %w", err)
 				}
