@@ -312,13 +312,12 @@ main() {
         gum log --structured --level info 'Now ClusterForge will install the stack to enable running workloads'
         echo ---
         MAIN_IP=$(ip route get 1.1.1.1 | awk '{print $7; exit}')
-        sudo sed "s/127\.0\.0\.1/$MAIN_IP/g" /etc/rancher/rke2/rke2.yaml
         echo ---
         mkdir -p $HOME/.kube
         sudo sed "s/127\.0\.0\.1/$MAIN_IP/g" /etc/rancher/rke2/rke2.yaml | tee $HOME/.kube/config
         chmod 600 $HOME/.kube/config
         wait_for_api_server 
-        sudo sed -i "s/{{CONTROL_IP}}/$MAIN_IP/g" ingress/ingress.yaml
+        sudo sed -i "s/{{CONTROL_IP}}/$MAIN_IP/g" ../../ingress/ingress.yaml
         KUBECONFIG=$HOME/.kube/config && bash deploy.sh
         gum log --structured --level info 'ClusterForge installed'
         
@@ -331,7 +330,7 @@ main() {
         echo ---
     fi
     wait_for_namespaces
-    KUBECONFIG==$HOME/.kube/config kubectl apply -f ingress/ingress.yaml
+    KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl apply -f ../../ingress/ingress.yaml
     gum log --structured --level info "Server setup successfully!"
 
 }
