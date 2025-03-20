@@ -1,0 +1,23 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: 3.3.7
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+  name: kyverno:rbac:view:policies
+rules:
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - cleanuppolicies
+      - clustercleanuppolicies
+      - policies
+      - clusterpolicies
+    verbs:
+      - get
+      - list
+      - watch

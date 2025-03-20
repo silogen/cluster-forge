@@ -1,0 +1,537 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.1
+  labels:
+    app.kubernetes.io/component: crds
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno-crds
+    app.kubernetes.io/version: 3.3.7
+  name: updaterequests.kyverno.io
+spec:
+  group: kyverno.io
+  names:
+    categories:
+      - kyverno
+    kind: UpdateRequest
+    listKind: UpdateRequestList
+    plural: updaterequests
+    shortNames:
+      - ur
+    singular: updaterequest
+  scope: Namespaced
+  versions:
+    - additionalPrinterColumns:
+        - jsonPath: .spec.policy
+          name: Policy
+          type: string
+        - jsonPath: .spec.rule
+          name: Rule
+          type: string
+        - jsonPath: .spec.requestType
+          name: RuleType
+          type: string
+        - jsonPath: .spec.resource.kind
+          name: ResourceKind
+          type: string
+        - jsonPath: .spec.resource.name
+          name: ResourceName
+          type: string
+        - jsonPath: .spec.resource.namespace
+          name: ResourceNamespace
+          type: string
+        - jsonPath: .status.state
+          name: status
+          type: string
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      deprecated: true
+      name: v1beta1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              properties:
+                context:
+                  properties:
+                    admissionRequestInfo:
+                      properties:
+                        admissionRequest:
+                          properties:
+                            dryRun:
+                              type: boolean
+                            kind:
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                                - group
+                                - kind
+                                - version
+                              type: object
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                            object:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            oldObject:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            operation:
+                              type: string
+                            options:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            requestKind:
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                                - group
+                                - kind
+                                - version
+                              type: object
+                            requestResource:
+                              properties:
+                                group:
+                                  type: string
+                                resource:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                                - group
+                                - resource
+                                - version
+                              type: object
+                            requestSubResource:
+                              type: string
+                            resource:
+                              properties:
+                                group:
+                                  type: string
+                                resource:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                                - group
+                                - resource
+                                - version
+                              type: object
+                            subResource:
+                              type: string
+                            uid:
+                              type: string
+                            userInfo:
+                              properties:
+                                extra:
+                                  additionalProperties:
+                                    items:
+                                      type: string
+                                    type: array
+                                  type: object
+                                groups:
+                                  items:
+                                    type: string
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                uid:
+                                  type: string
+                                username:
+                                  type: string
+                              type: object
+                          required:
+                            - kind
+                            - operation
+                            - resource
+                            - uid
+                            - userInfo
+                          type: object
+                        operation:
+                          type: string
+                      type: object
+                    userInfo:
+                      properties:
+                        clusterRoles:
+                          items:
+                            type: string
+                          nullable: true
+                          type: array
+                        roles:
+                          items:
+                            type: string
+                          nullable: true
+                          type: array
+                        userInfo:
+                          properties:
+                            extra:
+                              additionalProperties:
+                                items:
+                                  type: string
+                                type: array
+                              type: object
+                            groups:
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            uid:
+                              type: string
+                            username:
+                              type: string
+                          type: object
+                      type: object
+                  type: object
+                deleteDownstream:
+                  type: boolean
+                policy:
+                  type: string
+                requestType:
+                  enum:
+                    - mutate
+                    - generate
+                  type: string
+                resource:
+                  properties:
+                    apiVersion:
+                      type: string
+                    kind:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                    uid:
+                      type: string
+                  type: object
+                rule:
+                  type: string
+                synchronize:
+                  type: boolean
+              required:
+                - context
+                - deleteDownstream
+                - policy
+                - resource
+                - rule
+              type: object
+            status:
+              properties:
+                generatedResources:
+                  items:
+                    properties:
+                      apiVersion:
+                        type: string
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                      uid:
+                        type: string
+                    type: object
+                  type: array
+                handler:
+                  type: string
+                message:
+                  type: string
+                retryCount:
+                  type: integer
+                state:
+                  type: string
+              required:
+                - state
+              type: object
+          type: object
+      served: true
+      storage: false
+      subresources:
+        status: {}
+    - additionalPrinterColumns:
+        - jsonPath: .spec.policy
+          name: Policy
+          type: string
+        - jsonPath: .spec.requestType
+          name: RuleType
+          type: string
+        - jsonPath: .spec.resource.kind
+          name: ResourceKind
+          type: string
+        - jsonPath: .spec.resource.name
+          name: ResourceName
+          type: string
+        - jsonPath: .spec.resource.namespace
+          name: ResourceNamespace
+          type: string
+        - jsonPath: .status.state
+          name: status
+          type: string
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      name: v2
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              properties:
+                context:
+                  properties:
+                    admissionRequestInfo:
+                      properties:
+                        admissionRequest:
+                          properties:
+                            dryRun:
+                              type: boolean
+                            kind:
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                                - group
+                                - kind
+                                - version
+                              type: object
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                            object:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            oldObject:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            operation:
+                              type: string
+                            options:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            requestKind:
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                                - group
+                                - kind
+                                - version
+                              type: object
+                            requestResource:
+                              properties:
+                                group:
+                                  type: string
+                                resource:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                                - group
+                                - resource
+                                - version
+                              type: object
+                            requestSubResource:
+                              type: string
+                            resource:
+                              properties:
+                                group:
+                                  type: string
+                                resource:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                                - group
+                                - resource
+                                - version
+                              type: object
+                            subResource:
+                              type: string
+                            uid:
+                              type: string
+                            userInfo:
+                              properties:
+                                extra:
+                                  additionalProperties:
+                                    items:
+                                      type: string
+                                    type: array
+                                  type: object
+                                groups:
+                                  items:
+                                    type: string
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                uid:
+                                  type: string
+                                username:
+                                  type: string
+                              type: object
+                          required:
+                            - kind
+                            - operation
+                            - resource
+                            - uid
+                            - userInfo
+                          type: object
+                        operation:
+                          type: string
+                      type: object
+                    userInfo:
+                      properties:
+                        clusterRoles:
+                          items:
+                            type: string
+                          nullable: true
+                          type: array
+                        roles:
+                          items:
+                            type: string
+                          nullable: true
+                          type: array
+                        userInfo:
+                          properties:
+                            extra:
+                              additionalProperties:
+                                items:
+                                  type: string
+                                type: array
+                              type: object
+                            groups:
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            uid:
+                              type: string
+                            username:
+                              type: string
+                          type: object
+                      type: object
+                  type: object
+                deleteDownstream:
+                  type: boolean
+                policy:
+                  type: string
+                requestType:
+                  enum:
+                    - mutate
+                    - generate
+                  type: string
+                resource:
+                  properties:
+                    apiVersion:
+                      type: string
+                    kind:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                    uid:
+                      type: string
+                  type: object
+                rule:
+                  type: string
+                ruleContext:
+                  items:
+                    properties:
+                      deleteDownstream:
+                        type: boolean
+                      rule:
+                        type: string
+                      synchronize:
+                        type: boolean
+                      trigger:
+                        properties:
+                          apiVersion:
+                            type: string
+                          kind:
+                            type: string
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                          uid:
+                            type: string
+                        type: object
+                    required:
+                      - deleteDownstream
+                      - rule
+                      - trigger
+                    type: object
+                  type: array
+                synchronize:
+                  type: boolean
+              required:
+                - context
+                - deleteDownstream
+                - policy
+                - resource
+                - rule
+              type: object
+            status:
+              properties:
+                generatedResources:
+                  items:
+                    properties:
+                      apiVersion:
+                        type: string
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                      uid:
+                        type: string
+                    type: object
+                  type: array
+                message:
+                  type: string
+                retryCount:
+                  type: integer
+                state:
+                  type: string
+              required:
+                - state
+              type: object
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}

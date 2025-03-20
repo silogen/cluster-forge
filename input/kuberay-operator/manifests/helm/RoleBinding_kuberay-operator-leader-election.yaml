@@ -1,0 +1,17 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kuberay-operator-leader-election
+  namespace: default
+  labels:
+    app.kubernetes.io/instance: kuberay-operator
+    app.kubernetes.io/name: kuberay-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kuberay-operator-leader-election
+subjects:
+  - kind: ServiceAccount
+    name: kuberay-operator
+    namespace: default
