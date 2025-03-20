@@ -184,6 +184,7 @@ setup_rke2_first() {
   modprobe iscsi_tcp
   modprobe dm_mod
   /usr/local/bin/rke2-uninstall.sh || true
+  update_proxy
   clean_disks
   mkdir -p /etc/rancher/rke2
   chmod 0755 /etc/rancher/rke2
@@ -245,6 +246,7 @@ EOF
   modprobe iscsi_tcp
   modprobe dm_mod
   /usr/local/bin/rke2-uninstall.sh || true
+  update_proxy
   curl -sfL $RKE2_SERVER_URL | INSTALL_RKE2_TYPE="agent" sh -
   systemctl enable rke2-agent.service
   systemctl start rke2-agent.service
@@ -280,6 +282,25 @@ generate_longhorn_disk_string() {
     fi
 }
 
+update_proxy() {
+	# Variables
+	source_file="proxy.txt"        
+	destination_dir="/usr/local/lib/systemd/system"
+	destination_filename="rke2-server.env"
+
+# Check if the file exists in the current directory
+if [[ -f "$source_file" ]]; then
+    # Create the destination directory if it doesn't exist
+    mkdir -p "$destination_dir"
+
+    # Copy the file
+    cp "$source_file" "$destination_dir/$destination_filename"
+    echo "File copied to $destination_dir/$destination_filename"
+else
+    echo "No $source_file found in the current directory."
+fi
+}
+
 main() {
     ensure_gum_installed
     [[ -n "$SERVER_IP" && -n "$JOIN_TOKEN" ]] && NODE_TYPE="additional" || NODE_TYPE="First"
@@ -312,13 +333,12 @@ main() {
         gum log --structured --level info 'Now ClusterForge will install the stack to enable running workloads'
         echo ---
         MAIN_IP=$(ip route get 1.1.1.1 | awk '{print $7; exit}')
-        sudo sed "s/127\.0\.0\.1/$MAIN_IP/g" /etc/rancher/rke2/rke2.yaml
         echo ---
         mkdir -p $HOME/.kube
         sudo sed "s/127\.0\.0\.1/$MAIN_IP/g" /etc/rancher/rke2/rke2.yaml | tee $HOME/.kube/config
         chmod 600 $HOME/.kube/config
         wait_for_api_server 
-        sudo sed -i "s/{{CONTROL_IP}}/$MAIN_IP/g" ingress/ingress.yaml
+        sudo sed -i "s/{{CONTROL_IP}}/$MAIN_IP/g" ../../ingress/ingress.yaml
         KUBECONFIG=$HOME/.kube/config && bash deploy.sh
         gum log --structured --level info 'ClusterForge installed'
         
@@ -331,7 +351,7 @@ main() {
         echo ---
     fi
     wait_for_namespaces
-    KUBECONFIG==$HOME/.kube/config kubectl apply -f ingress/ingress.yaml
+    KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl apply -f ../../ingress/ingress.yaml
     gum log --structured --level info "Server setup successfully!"
 
 }
