@@ -285,7 +285,7 @@ generate_longhorn_disk_string() {
 update_proxy() {
 	# Variables
 	source_file="proxy.txt"        
-	destination_dir="/usr/local/lib/systemd/system/rke2-server"
+	destination_dir="/usr/local/lib/systemd/system"
 	destination_filename="rke2-server.env"
 
 # Check if the file exists in the current directory
