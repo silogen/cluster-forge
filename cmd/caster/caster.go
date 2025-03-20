@@ -141,8 +141,9 @@ func CastTool(filesDir, imageName string, publishImage bool, stackName string, g
 	utils.ReplaceStringInFile("stacks/latest/argoapp.yaml", "GITOPS_URL", gitops.Url)
 	utils.ReplaceStringInFile("stacks/latest/argoapp.yaml", "GITOPS_BRANCH", gitops.Branch)
 	utils.ReplaceStringInFile("stacks/latest/argoapp.yaml", "GITOPS_PATH_PREFIX", gitops.PathPrefix)
-	if persistentGitea {
+	if gitea.Persistent {
 		utils.CopyFile("cmd/utils/templates/gitea_pvc.yaml", "stacks/latest/gitea.yaml")
+	}
 	if argocdui {
 		utils.CopyFile("cmd/utils/templates/argocd_full.yaml", "stacks/latest/argocd.yaml")
   } else {
