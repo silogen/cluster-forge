@@ -242,6 +242,8 @@ gateway:
       #password: ${BASICAUTH_PASSWORD} #Passing .htpasswd via existingSecret works
       #existingSecret: mimir-credentials ###
       existingSecret: mimir-minio-creds ##nginx  htpasswd
+    config:
+      resolver: rke2-coredns-rke2-coredns.kube-system.svc.cluster.local
 
 query_scheduler:
   enabled: true
