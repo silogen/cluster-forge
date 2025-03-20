@@ -294,8 +294,9 @@ if [[ -f "$source_file" ]]; then
     mkdir -p "$destination_dir"
 
     # Copy the file
-    cp "$source_file" "$destination_dir/$destination_filename"
-    echo "File copied to $destination_dir/$destination_filename"
+    touch "$destination_dir/$destination_filename"
+    cat "$source_file" >> "$destination_dir/$destination_filename"
+    echo "File appended with proxy $destination_dir/$destination_filename"
 else
     echo "No $source_file found in the current directory."
 fi
@@ -318,9 +319,11 @@ main() {
     if [[ "$NODE_TYPE" == "First" ]]; then
         gum log --structured --level info "Configuring as the first node..."
         setup_rke2_first
+	update_proxy
     else
         gum log --structured --level info "Configuring as an additional node..."
         setup_rke2_additional
+	update_proxy
     fi
     mount_disks
     generate_longhorn_disk_string
