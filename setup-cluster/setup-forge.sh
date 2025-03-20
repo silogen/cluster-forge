@@ -184,6 +184,7 @@ setup_rke2_first() {
   modprobe iscsi_tcp
   modprobe dm_mod
   /usr/local/bin/rke2-uninstall.sh || true
+  update_proxy
   clean_disks
   mkdir -p /etc/rancher/rke2
   chmod 0755 /etc/rancher/rke2
@@ -245,6 +246,7 @@ EOF
   modprobe iscsi_tcp
   modprobe dm_mod
   /usr/local/bin/rke2-uninstall.sh || true
+  update_proxy
   curl -sfL $RKE2_SERVER_URL | INSTALL_RKE2_TYPE="agent" sh -
   systemctl enable rke2-agent.service
   systemctl start rke2-agent.service
@@ -278,6 +280,25 @@ generate_longhorn_disk_string() {
     echo KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl patch node $HOSTNAME --type='merge' -p "'{\"metadata\": {\"labels\": {\"node.longhorn.io/create-default-disk\": \"config\", \"node.longhorn.io/instance-manager\": \"true\"}, \"annotations\": {\"node.longhorn.io/default-disks-config\": \"${json}\"}}}'"
 
     fi
+}
+
+update_proxy() {
+	# Variables
+	source_file="proxy.txt"        
+	destination_dir="/etc/default"
+	destination_filename="rke2-server"
+
+# Check if the file exists in the current directory
+if [[ -f "$source_file" ]]; then
+    # Create the destination directory if it doesn't exist
+    mkdir -p "$destination_dir"
+
+    # Copy the file
+    cp "$source_file" "$destination_dir/$destination_filename"
+    echo "File copied to $destination_dir/$destination_filename"
+else
+    echo "No $source_file found in the current directory."
+fi
 }
 
 main() {
