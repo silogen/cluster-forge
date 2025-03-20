@@ -19,26 +19,36 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/silogen/cluster-forge/cmd/caster"
 	"github.com/silogen/cluster-forge/cmd/smelter"
 	"github.com/silogen/cluster-forge/cmd/utils"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 type CastParameters struct {
-	Persistent bool
-	Private    bool
-	ImageName  string
-	StackName  string
+	Gitea     utils.GiteaParameters
+	Private   bool
+	ImageName string
+	StackName string
+	ArgoCDUI  bool
 }
 
 func main() {
-	var rootCmd = &cobra.Command{Use: "app"}
-	var configFile string
-	var privateImage bool
+	var optionsFile string
 	var nonInteractive bool
+
+	var rootCmd = &cobra.Command{Use: "app",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			readConfigs(cmd, optionsFile)
+		},
+	}
+	var configFile string
 	gitops := utils.GitopsParameters{}
 	castParameters := CastParameters{}
 	var smeltCmd = &cobra.Command{
@@ -62,7 +72,7 @@ For example, you could template a 'baseDomain' which could then be input and tem
 
 This step creates a container image which can be used during forge step to deploy all the components in a stack to a cluster.`,
 		PreRun: func(cmd *cobra.Command, args []string) {
-			if nonInteractive && !privateImage {
+			if nonInteractive && !castParameters.Private {
 				cmd.MarkFlagRequired("imageName")
 				cmd.MarkFlagRequired("stackName")
 			}
@@ -88,20 +98,19 @@ This step creates a container image which can be used during forge step to deplo
 
 	rootCmd.AddCommand(smeltCmd, castCmd, forgeCmd)
 
+	rootCmd.PersistentFlags().StringVarP(&optionsFile, "options", "o", "", "Path to the options file")
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", defaultConfigfile, "Path to the config file")
 	rootCmd.PersistentFlags().BoolVarP(&nonInteractive, "non-interactive", "n", false, "Non-interactive, fail if information is missing.")
 	rootCmd.PersistentFlags().StringVarP(&gitops.Url, "gitopsUrl", "", defaultGitopsUrl, "Url target for Argocd app")
 	rootCmd.PersistentFlags().StringVarP(&gitops.Branch, "gitopsBranch", "", defaultGitopsBranch, "Url target for Argocd app")
 	rootCmd.PersistentFlags().StringVarP(&gitops.PathPrefix, "gitopsPathPrefix", "", defaultGitopsPathPrefix, "Prefix for Argocd app target path")
 
-	castCmd.Flags().BoolVarP(&castParameters.Persistent, "persistent", "p", false, "If set to true, gitea will use a pvc for its data")
-	forgeCmd.Flags().BoolVarP(&castParameters.Persistent, "persistent", "p", false, "If set to true, gitea will use a pvc for its data")
-	castCmd.Flags().StringVarP(&castParameters.ImageName, "imageName", "i", "", "Name of docker image to push, you need either both stackName and imageName or neither")
-	forgeCmd.Flags().StringVarP(&castParameters.ImageName, "imageName", "i", "", "Name of docker image to push, you need either both stackName and imageName or neither")
-	castCmd.Flags().StringVarP(&castParameters.StackName, "stackName", "s", "", "Name of stack, you need either both stackName and imageName or neither")
-	forgeCmd.Flags().StringVarP(&castParameters.StackName, "stackName", "s", "", "Name of stack, you need either both stackName and imageName or neither")
-	castCmd.Flags().BoolVarP(&castParameters.Private, "private", "", false, "If set to true, gitea image will not be public")
-	forgeCmd.Flags().BoolVarP(&castParameters.Private, "private", "", false, "If set to true, gitea image will not be public")
+	castParameters.Gitea = utils.NewGiteaParameters()
+	rootCmd.PersistentFlags().VarP(&castParameters.Gitea, "gitea", "g", "How to deploy gitea, one of ['"+strings.Join(castParameters.Gitea.Allowed, "', '")+"']")
+	rootCmd.PersistentFlags().StringVarP(&castParameters.ImageName, "imageName", "i", "", "Name of docker image to push, you need either both stackName and imageName or neither")
+	rootCmd.PersistentFlags().StringVarP(&castParameters.StackName, "stackName", "s", "", "Name of stack, you need either both stackName and imageName or neither")
+	rootCmd.PersistentFlags().BoolVarP(&castParameters.Private, "private", "", false, "If set to true, gitea image will not be public")
+	rootCmd.PersistentFlags().BoolVarP(&castParameters.ArgoCDUI, "argocdui", "u", false, "Deploy Argocd with UI")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -149,7 +158,7 @@ func runCast(params CastParameters, configFile string, nonInteractive bool, gito
 	} else {
 		log.Println("Config: " + configFile + " image: " + params.ImageName + " stack: " + params.StackName)
 	}
-	stack := caster.Cast(filesDir, stacksDir, !params.Private, params.ImageName, params.StackName, params.Persistent, nonInteractive, gitops)
+	stack := caster.Cast(filesDir, stacksDir, !params.Private, params.ImageName, params.StackName, params.Gitea, nonInteractive, gitops, params.ArgoCDUI)
 	return stack
 }
 
@@ -158,4 +167,23 @@ func runForge(params CastParameters, configFile string, nonInteractive bool, git
 	runSmelt(configFile, nonInteractive, gitops)
 	stack := runCast(params, configFile, nonInteractive, gitops)
 	log.Printf("Stackname: %s", stack)
+}
+
+func readConfigs(cmd *cobra.Command, optionsFile string) {
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(filepath.Dir(optionsFile))
+	viper.SetConfigName(filepath.Base(optionsFile))
+	viper.AutomaticEnv()
+	if err := viper.ReadInConfig(); err == nil {
+		fmt.Println("Using config file: ", optionsFile)
+	}
+
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+
+		configName := f.Name
+		if !f.Changed && viper.IsSet(configName) {
+			val := viper.Get(configName)
+			cmd.Flags().Set(f.Name, fmt.Sprintf("%v", val))
+		}
+	})
 }

@@ -141,7 +141,7 @@ func SplitYAML(config utils.Config, workingDir string) {
 
 		}
 
-		updatedCleanres, err := yaml.Marshal(&objectMap)
+		updatedCleanres, err := utils.StructToYAML(&objectMap)
 		if err != nil {
 			log.Fatal(err)
 		}

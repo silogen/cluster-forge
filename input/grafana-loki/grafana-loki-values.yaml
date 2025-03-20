@@ -81,6 +81,8 @@ lokiCanary:
 gateway:
   enabled: true
   replicas: 1
+  nginxConfig: ## For RKE clusters
+    resolver: rke2-coredns-rke2-coredns.kube-system.svc.cluster.local
 
 sidecar:
   rules:
@@ -138,7 +140,7 @@ extraObjects:
 
 backend:
   persistence:
-    storageClass: longhorn-cf-noreplicas
+    storageClass: longhorn-default
   extraArgs:
     - '-config.expand-env=true'
   extraEnv:
@@ -164,7 +166,7 @@ backend:
           key: loki_tenant_password
 write:
   persistence:
-    storageClass: longhorn-cf-noreplicas
+    storageClass: longhorn-default
   extraArgs:
     - '-config.expand-env=true'
   extraEnv:
@@ -190,7 +192,7 @@ write:
           key: loki_tenant_password
 read:
   persistence:
-    storageClass: longhorn-cf-noreplicas
+    storageClass: longhorn-default
   extraArgs:
     - '-config.expand-env=true'
   extraEnv:

@@ -36,7 +36,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const namespaceTemplate = `apiVersion: v1
+const namespaceTemplate = `---
+apiVersion: v1
 kind: Namespace
 metadata:
   name: {{ .NamespaceName }}
