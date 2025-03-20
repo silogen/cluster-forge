@@ -145,9 +145,9 @@ func CastTool(filesDir, imageName string, publishImage bool, stackName string, g
 		utils.CopyFile("cmd/utils/templates/gitea_pvc.yaml", "stacks/latest/gitea.yaml")
 	if argocdui {
 		utils.CopyFile("cmd/utils/templates/argocd_full.yaml", "stacks/latest/argocd.yaml")
-  } else {
-  utils.CopyFile("cmd/utils/templates/argocd.yaml", "stacks/latest/argocd.yaml")
-	utils.CopyFile("cmd/utils/templates/argocd2.yaml", "stacks/latest/argocd2.yaml")
+  	} else {
+  		utils.CopyFile("cmd/utils/templates/argocd.yaml", "stacks/latest/argocd.yaml")
+		utils.CopyFile("cmd/utils/templates/argocd2.yaml", "stacks/latest/argocd2.yaml")
 	}
 	if gitea.Persistent {
 		utils.CopyFile("cmd/utils/templates/gitea_pvc.yaml", "stacks/latest/gitea.yaml")
