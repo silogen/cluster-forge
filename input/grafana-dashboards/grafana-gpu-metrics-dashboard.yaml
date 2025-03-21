@@ -2,14 +2,14 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: grafana-dashboard-test-1
+  name: grafana-amd-gpu-dashboard
   namespace: grafana
   labels:
      grafana_dashboard: "1"
   annotations:
      grafana_folder: "common"
 data:
-  test-1.json: |-
+  amd-gpu-dashboard.json: |-
     {
       "annotations": {
         "list": [
