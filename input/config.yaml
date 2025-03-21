@@ -213,3 +213,31 @@
   - opentelemetry-operator
   - prometheus-crds
   - otel-lgtm-stack
+- name: gateway-api
+  namespace: default
+  manifestpath: 
+  - gateway-api/manifests/url
+  # manifest-url: https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml
+- name: metallb
+  namespace: metallb-system
+  manifestpath: 
+  - metallb/manifests/url
+  # manifest-url: https://raw.githubusercontent.com/metallb/metallb/v0.14.8/config/manifests/metallb-native.yaml
+- name: kgateway-crds
+  namespace: default
+  manifestpath: 
+  - kgateway-crds/manifests/helm
+  # helm-chart-name: "oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds"
+  # helm-name: kgateway-crds
+  # helm-url: ""
+  # helm-version: "v2.0.0-main"
+  # values: values.yaml
+- name: kgateway
+  namespace: kgateway-system
+  manifestpath: 
+  - kgateway/manifests/helm
+  # helm-chart-name: "oci://cr.kgateway.dev/kgateway-dev/charts/kgateway"
+  # helm-name: kgateway
+  # helm-url: ""
+  # helm-version: "v2.0.0-main"
+  # values: values.yaml
