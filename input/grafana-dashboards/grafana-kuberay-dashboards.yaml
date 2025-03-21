@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: kuberay-data-grafana-dashboard
+  name: grafana-kuberay-data-grafana-dashboard
   namespace: grafana
   labels:
      grafana_dashboard: "1"
@@ -1564,7 +1564,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: kuberay-default-grafana-dashboard
+  name: grafana-kuberay-default-grafana-dashboard
   namespace: grafana
   labels:
      grafana_dashboard: "1"
@@ -4478,7 +4478,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: kuberay-serve-deployment-grafana-dashboard
+  name: grafana-kuberay-serve-deployment-grafana-dashboard
   namespace: grafana
   labels:
      grafana_dashboard: "1"
@@ -6791,7 +6791,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: kuberay-serve-grafana-dashboard
+  name: grafana-kuberay-serve-grafana-dashboard
   namespace: grafana
   labels:
      grafana_dashboard: "1"

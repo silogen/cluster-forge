@@ -20,7 +20,7 @@
 - name: grafana-gpu-dashboard
   namespace: grafana
   manifestpath: 
-  - dummy-grafana-dashboard/gpu-metrics-dashboard.yaml
+  - grafana-dashboards/grafana-gpu-metrics-dashboard.yaml
 - name: kueue
   namespace: kueue-system
   manifestpath: 
