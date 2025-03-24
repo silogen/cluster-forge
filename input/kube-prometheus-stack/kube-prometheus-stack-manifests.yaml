@@ -1810,13 +1810,14 @@ spec:
   kubernetesSDConfigs:
     - role: node  # Discover all cluster nodes dynamically
   relabelings:
-    - sourceLabels: [__meta_kubernetes_node_role]
+    - source_labels: [__meta_kubernetes_node_label_feature_node_kubernetes_io_amd_gpu]
       action: keep
-      regex: worker  # Ensure only worker nodes are scraped
-    - sourceLabels: [__address__]
-      regex: (.+):.*
-      replacement: ${1}:32500  # Append NodePort 32500 to each node's address
-      targetLabel: __address__
+      regex: true  # Only keep nodes with the label "feature.node.kubernetes.io/amd-gpu=true"
+# Use the node's Internal IP and set port 32500
+    - source_labels: [__meta_kubernetes_node_address_InternalIP]
+      regex: (.+)
+      replacement: "$1:32500"
+      target_label: __address__
   metricsPath: /metrics
 
 #apiVersion: monitoring.coreos.com/v1alpha1
