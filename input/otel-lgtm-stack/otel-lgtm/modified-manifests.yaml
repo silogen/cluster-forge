@@ -212,7 +212,7 @@ spec:
               cpu: "500m"
               memory: "1024Mi"
             limits:
-              memory: "2Gi"
+              memory: "6Gi"
           # NOTE: By default OpenShift does not allow writing the root directory.
           # Thats why the data dirs for grafana, prometheus and loki can not be
           # created and the pod never becomes ready.
