@@ -201,7 +201,8 @@
   - /otel-lgtm-stack/node-exporter/node-exporter-manifests.yaml
   - /otel-lgtm-stack/otel-collectors/collector-manifests.yaml 
   - /otel-lgtm-stack/otel-lgtm/modified-manifests.yaml
-  - /otel-lgtm-stack/dashboards/dummy-grafana-dashboards.yaml
+  - /otel-lgtm-stack/dashboards/lgtm-default-dashboards.yaml
+  - /otel-lgtm-stack/dashboards/lgtm-gpu-metrics-dashboard.yaml
   syncwave: 1
 - name: minio-all-together
   collection: 
