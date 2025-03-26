@@ -10,7 +10,7 @@
   syncwave: -10
 - name: amd-gpu-operator
   namespace: "kube-amd-gpu"
-  manifestpath: 
+  manifestpath:
   - amd-gpu-operator/manifests/helm
   - amd-gpu-operator/manifests/additions
   # helm-chart-name: "gpu-operator-charts"
@@ -20,15 +20,15 @@
   # values: values.yaml
 - name: amd-device-config
   namespace: kube-amd-gpu
-  manifestpath: 
+  manifestpath:
   - amd-device-config/deviceconfig_example.yaml
 - name: grafana-gpu-dashboard
   namespace: grafana
-  manifestpath: 
+  manifestpath:
   - grafana-dashboards/grafana-gpu-metrics-dashboard.yaml
 - name: kueue
   namespace: kueue-system
-  manifestpath: 
+  manifestpath:
   - kueue/manifests.yaml
 - name: external-secrets
   namespace: "external-secrets"
@@ -199,18 +199,30 @@
   namespace: kaiwo
   manifestpath: 
   - kaiwo-cluster-config/manifests.yaml
+- name: kaiwo-kueue
+  namespace: kueue-system
+  manifestpath:
+    - kaiwo-dependencies/kueue/manifest.yaml
+- name: kaiwo-appwrapper
+  namespace: kueue-system
+  manifestpath:
+    - kaiwo-dependencies/appwrapper/install.yaml
+- name: kaiwo
+  namespace: kaiwo
+  manifestpath:
+    - kaiwo/install.yaml
 - name: otel-lgtm-stack
   namespace: otel-lgtm-stack
-  manifestpath: 
+  manifestpath:
   - /otel-lgtm-stack/kube-state-metrics/kube-state-metrics-manifests.yaml
   - /otel-lgtm-stack/node-exporter/node-exporter-manifests.yaml
-  - /otel-lgtm-stack/otel-collectors/collector-manifests.yaml 
+  - /otel-lgtm-stack/otel-collectors/collector-manifests.yaml
   - /otel-lgtm-stack/otel-lgtm/modified-manifests.yaml
   - /otel-lgtm-stack/dashboards/lgtm-default-dashboards.yaml
   - /otel-lgtm-stack/dashboards/lgtm-gpu-metrics-dashboard.yaml
   syncwave: 1
 - name: minio-all-together
-  collection: 
+  collection:
   - minio-operator
   - minio-tenant
 - name: monitoring-with-pv
@@ -222,18 +234,18 @@
 - name: gateway-api
   namespace: default
   syncwave: -10
-  manifestpath: 
+  manifestpath:
   - gateway-api/manifests/url
   # manifest-url: https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml
 - name: metallb
   namespace: metallb-system
   syncwave: -10
-  manifestpath: 
+  manifestpath:
   - metallb/manifests/url
   # manifest-url: https://raw.githubusercontent.com/metallb/metallb/v0.14.8/config/manifests/metallb-native.yaml
 - name: kgateway-crds
   namespace: default
-  manifestpath: 
+  manifestpath:
   - kgateway-crds/manifests/helm
   # helm-chart-name: "oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds"
   # helm-name: kgateway-crds
@@ -242,7 +254,7 @@
   # values: values.yaml
 - name: kgateway
   namespace: kgateway-system
-  manifestpath: 
+  manifestpath:
   - kgateway/manifests/helm
   # helm-chart-name: "oci://cr.kgateway.dev/kgateway-dev/charts/kgateway"
   # helm-name: kgateway
