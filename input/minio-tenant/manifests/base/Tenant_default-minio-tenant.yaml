@@ -38,7 +38,7 @@ spec:
     annotations: {}
     labels: {}
   prometheusOperator: false
-  requestAutoCert: true
+  requestAutoCert: false
   subPath: /data
   users:
   - name: default-user
