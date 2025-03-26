@@ -59,15 +59,16 @@ func TestTemplatehelm(t *testing.T) {
 	// Failing configuration test case (Missing HelmURL)
 	t.Run("Missing HelmURL (should fail)", func(t *testing.T) {
 		config := Config{
-			Name:          "test",
-			HelmChartName: "example-chart",
-			HelmName:      "example",
-			Values:        "values.yaml",
-			Filename:      tempFile,
+			Name:      "test",
+			Namespace: "testnamespace",
+			HelmURL:   "example-url",
+			HelmName:  "example",
+			Values:    "values.yaml",
+			Filename:  tempFile,
 		}
 
 		err := Templatehelm(config, mockExecutor)
-		expectedError := "invalid configuration: at least one of HelmURL, ManifestPath, or ManifestURL must be provided"
+		expectedError := "invalid configuration: at least one of HelmChartName, ManifestPath, or ManifestURL must be provided"
 
 		if err == nil || err.Error() != expectedError {
 			t.Errorf("expected error: %q, got: %v", expectedError, err)

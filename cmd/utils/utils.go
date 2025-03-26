@@ -117,85 +117,6 @@ type GitopsParameters struct {
 	PathPrefix string
 }
 
-type ConfigAsMap map[string]interface{}
-
-func LoadConfig(filename string, gitops GitopsParameters) ([]Config, error) {
-	data, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	var configs []Config
-
-	if filename == "input/config.yaml" {
-		// Using input/config.yaml, no logic needed
-		err = yaml.Unmarshal(data, &configs)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// If a config file is given, merge missing values from input/config.yaml
-		defaultData, err := os.ReadFile("input/config.yaml")
-		if err != nil {
-			return nil, err
-		}
-
-		var defaultMap []ConfigAsMap
-		var configMap []ConfigAsMap
-		var allDefaults = make(map[string]ConfigAsMap)
-
-		err = yaml.Unmarshal(data, &configMap)
-		if err != nil {
-			return nil, err
-		}
-		err = yaml.Unmarshal(defaultData, &defaultMap)
-		if err != nil {
-			return nil, err
-		}
-		// Put the values in input/config.yaml into a map
-		// map[toolname] -> toolconfig, so that we can fetch them easily
-		for _, v := range defaultMap {
-			name := string(v["name"].(string))
-			allDefaults[name] = v
-		}
-		// For each tool defined, use defaults as a base and overwrite values
-		// that have been defined in config
-		for k, v := range configMap {
-			name := v["name"].(string)
-			defaultValues, ok := allDefaults[name]
-			if !ok {
-				defaultValues = make(ConfigAsMap)
-			}
-			for key, val := range v {
-				defaultValues[key] = val
-			}
-			configMap[k] = defaultValues
-		}
-
-		// The marshaling tools seemes the safest way of going from map to struct, so here we are.
-		combinedYaml, err := yaml.Marshal(configMap)
-		if err != nil {
-			return nil, err
-		}
-		err = yaml.Unmarshal(combinedYaml, &configs)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	err = validateConfig(configs)
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range configs {
-		configs[i].GitopsUrl = gitops.Url
-		configs[i].GitopsBranch = gitops.Branch
-		configs[i].GitopsPathPrefix = gitops.PathPrefix
-	}
-
-	return configs, nil
-}
-
 type Config struct {
 	HelmChartName       string   `yaml:"helm-chart-name"`
 	HelmURL             string   `yaml:"helm-url"`
@@ -531,34 +452,6 @@ func ResetTerminal() {
 			log.Errorf("Failed to make terminal raw: %v\n", err)
 		}
 	}
-}
-
-func validateConfig(configs []Config) error {
-	for _, config := range configs {
-		// Skip validation for collection entries
-		if len(config.Collection) > 0 {
-			// Only validate that name is present for collections
-			if config.Name == "" {
-				return fmt.Errorf("missing 'name' in collection config: %+v", config)
-			}
-			continue
-		}
-		if config.Name == "" {
-			return fmt.Errorf("missing 'name' in config: %+v", config)
-		}
-		if config.Namespace == "" {
-			return fmt.Errorf("missing 'namespace' in config: %+v", config)
-		}
-		if config.ManifestURL == "" && config.HelmChartName == "" && len(config.ManifestPath) == 0 {
-			return fmt.Errorf("either 'manifest-url', 'helm-chart-name' or 'manifestpath' must be provided in config: %+v", config)
-		}
-		if config.HelmChartName != "" {
-			if config.HelmName == "" {
-				return fmt.Errorf("missing 'helm-name' in config with 'helm-chart-name': %+v", config)
-			}
-		}
-	}
-	return nil
 }
 
 // isClusterScoped checks if a given resource is cluster-scoped.
