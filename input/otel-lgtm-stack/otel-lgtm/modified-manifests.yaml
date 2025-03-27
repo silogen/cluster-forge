@@ -197,7 +197,7 @@ spec:
             - name: sc-dashboard-volume
               mountPath: "/tmp/dashboards"
         - name: lgtm
-          image: grafana/otel-lgtm:latest
+          image: grafana/ghcr.io/silogen/otel-lgtm-custom:1.0.0
           ports:
             - containerPort: 3000
             - containerPort: 4317
@@ -212,7 +212,7 @@ spec:
               cpu: "500m"
               memory: "1024Mi"
             limits:
-              memory: "6Gi"
+              memory: "8Gi"
           # NOTE: By default OpenShift does not allow writing the root directory.
           # Thats why the data dirs for grafana, prometheus and loki can not be
           # created and the pod never becomes ready.
