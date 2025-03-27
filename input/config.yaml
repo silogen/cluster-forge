@@ -205,6 +205,7 @@
     - appwrapper/manifest.yaml
 - name: kaiwo
   namespace: kaiwo
+  syncwave: 10
   manifestpath:
     - kaiwo/install.yaml
 - name: otel-lgtm-stack
