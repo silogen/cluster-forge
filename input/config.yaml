@@ -33,7 +33,7 @@
 - name: external-secrets
   namespace: "external-secrets"
   syncwave: -10
-  manifestpath: 
+  manifestpath:
   - external-secrets/manifests/helm
   # helm-chart-name: "external-secrets"
   # helm-name: external-secrets
@@ -51,15 +51,15 @@
   helm-version: "1.17.0"
 - name: cnpg-operator
   namespace: cnpg-system
-  manifestpath: 
+  manifestpath:
   - cnpg/cnpg-operator.yaml
 - name: kyverno-policies
   namespace: default
-  manifestpath: 
+  manifestpath:
   - kyverno/kyverno-policies.yaml
 - name: kyverno
   namespace: kyverno
-  manifestpath: 
+  manifestpath:
   - kyverno/manifests/helm
   # helm-chart-name: kyverno
   # helm-name: kyverno
@@ -105,7 +105,7 @@
 #   namespace: opencost
 - name: kuberay-operator
   namespace: "default"
-  manifestpath: 
+  manifestpath:
   - kuberay-operator/manifests/helm
   # helm-chart-name: "kuberay-operator"
   # helm-name: kuberay-operator
@@ -114,7 +114,7 @@
   # secrets: false
 - name: longhorn
   namespace: "longhorn"
-  manifestpath: 
+  manifestpath:
   - longhorn/manifests
   syncwave: -100
   # helm-chart-name: "longhorn"
@@ -166,7 +166,7 @@
   values: redis-dev-values.yaml # Insecure
 - name: kube-prometheus-stack
   namespace: "prometheus-system"
-  manifestpath: 
+  manifestpath:
   - kube-prometheus-stack/kube-prometheus-stack-manifests.yaml
 - name: opentelemetry-operator
   namespace: opentelemetry-operator-system
@@ -181,7 +181,7 @@
   helm-version: "0.14.1"
 - name: openobserve-collector
   namespace: "openobserve-collector"
-  manifestpath: 
+  manifestpath:
   - openobserve-collector/manifests.yaml
 - name: prometheus-crds
   namespace: prometheus-system
@@ -189,21 +189,17 @@
   syncwave: -1
 - name: 1password-cluster-secret-store
   namespace: external-secrets
-  manifestpath: 
+  manifestpath:
   - 1password-cluster-secret-store/manifests
 - name: k8s-cluster-secret-store
   namespace: cf-es-backend
-  manifestpath: 
+  manifestpath:
   - k8s-cluster-secret-store/manifests.yaml
 - name: kaiwo-cluster-config
   namespace: kaiwo
-  manifestpath: 
-  - kaiwo-cluster-config/manifests.yaml
-- name: kaiwo-kueue
-  namespace: kueue-system
   manifestpath:
-    - kaiwo-dependencies/kueue/manifest.yaml
-- name: kaiwo-appwrapper
+  - kaiwo-cluster-config/manifests.yaml
+- name: appwrapper
   namespace: kueue-system
   manifestpath:
     - kaiwo-dependencies/appwrapper/install.yaml
@@ -231,6 +227,13 @@
   - opentelemetry-operator
   - prometheus-crds
   - otel-lgtm-stack
+- name: kaiwo-all
+  collection:
+  - certmanager
+  - kuberay-operator
+  - kueue
+  - appwrapper
+  - kaiwo
 - name: gateway-api
   namespace: default
   syncwave: -10
