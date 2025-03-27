@@ -4,6 +4,11 @@
   - external-secrets
   - gateway-api
   - metallb
+- name: routing
+  collection:
+  - hard-requirements
+  - kgateway
+  - kgateway-crds
 - name: certmanager
   namespace: cert-manager
   manifest-url: https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml
@@ -135,6 +140,7 @@
   manifestpath:
   - minio-tenant/manifests/base
   - minio-tenant/manifests/clustersecretstore
+  - minio-tenant/manifests/route
 - name: minio-tenant-k8s-secret
   namespace: minio-tenant-default
   manifestpath:
@@ -237,8 +243,8 @@
   - kaiwo
 - name: gateway-api
   namespace: default
-  syncwave: -10
-  manifestpath:
+  syncwave: -200
+  manifestpath: 
   - gateway-api/manifests/url
   # manifest-url: https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml
 - name: metallb
@@ -260,6 +266,7 @@
   namespace: kgateway-system
   manifestpath:
   - kgateway/manifests/helm
+  - kgateway/manifests/gateway
   # helm-chart-name: "oci://cr.kgateway.dev/kgateway-dev/charts/kgateway"
   # helm-name: kgateway
   # helm-url: ""
