@@ -1,0 +1,13 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kgateway-cert
+  namespace: kgateway-system
+spec:
+  dnsNames:
+    - '*'
+  issuerRef:
+    kind: Issuer
+    name: kgateway-system-selfsigned-issuer
+  secretName: kgateway-cert
