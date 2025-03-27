@@ -20,19 +20,22 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/charmbracelet/lipgloss"
 	xstrings "github.com/charmbracelet/x/exp/strings"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/silogen/cluster-forge/cmd/utils"
+	"github.com/silogen/cluster-forge/cmd/utils/configloader"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -43,82 +46,24 @@ metadata:
   name: {{ .NamespaceName }}
 `
 
-type toolbox struct {
-	Targettool targettool
-}
-
-type targettool struct {
-	Type []string
-}
-
-func Smelt(configs []utils.Config, workingDir string, filesDir string, configFile string, nonInteractive bool) {
+func Smelt(configs configloader.ToolSet, workingDir string, nonInteractive bool) {
 	log.Info("Smelt starting...")
-	var targettool targettool
-	var toolbox = toolbox{Targettool: targettool}
-	var names []string
-	names = append(names, "all")
-	for _, config := range configs {
-		names = append(names, config.Name)
-	}
-	accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
-
-	if configFile != "input/config.yaml" || nonInteractive {
-		toolbox.Targettool.Type = append(toolbox.Targettool.Type, "all")
-	} else {
-		log.Info("starting up the menu...")
-		form := huh.NewForm(
-			huh.NewGroup(
-				huh.NewMultiSelect[string]().
-					Options(huh.NewOptions(names...)...).
-					Title("Choose your target tools to smelt").
-					Validate(func(t []string) error {
-						if len(t) <= 0 {
-							return fmt.Errorf("at least one tool is required")
-						}
-						return nil
-					}).
-					Value(&toolbox.Targettool.Type).
-					Filterable(true),
-			),
-		).WithAccessible(accessible)
-
-		err := form.Run()
-		if err != nil {
-			log.Fatal("Uh oh:", err)
-		}
-	}
-	// Create a map for quick config lookup
-	configMap := make(map[string]utils.Config)
-	for _, config := range configs {
-		configMap[config.Name] = config
-	}
-
-	// Process selections
-	expandedSelections := expandSelections(toolbox.Targettool.Type, configs, configMap)
-
-	// Remove duplicates while preserving order
-	seen := make(map[string]bool)
-	var uniqueSelections []string
-	for _, selection := range expandedSelections {
-		if !seen[selection] {
-			seen[selection] = true
-			uniqueSelections = append(uniqueSelections, selection)
-		}
-	}
-
-	toolbox.Targettool.Type = uniqueSelections
-
+	tools := slices.Collect(maps.Keys(configs))
+	sort.Strings(tools)
 	if nonInteractive {
-		if err := PrepareTool(configs, toolbox.Targettool.Type, workingDir); err != nil {
+		if err := PrepareTool(configs, workingDir); err != nil {
 			log.Fatalf("Error during tool preparation: %v", err)
 		}
-		log.Println("Completed: " + xstrings.EnglishJoin(toolbox.Targettool.Type, true))
+
+		log.Println("Completed: " + xstrings.EnglishJoin(tools, true))
 	} else {
+		accessible, _ := strconv.ParseBool(os.Getenv("ACCESSIBLE"))
+
 		err := spinner.New().
 			Title("Preparing your tools...").
 			Accessible(accessible).
 			Action(func() {
-				if err := PrepareTool(configs, toolbox.Targettool.Type, workingDir); err != nil {
+				if err := PrepareTool(configs, workingDir); err != nil {
 					log.Errorf("Error during tool preparation: %v", err)
 
 				}
@@ -137,7 +82,7 @@ func Smelt(configs []utils.Config, workingDir string, filesDir string, configFil
 			fmt.Fprintf(&sb,
 				"%s\n\nCompleted: %s.",
 				lipgloss.NewStyle().Bold(true).Render("Cluster Forge"),
-				keyword(xstrings.EnglishJoin(toolbox.Targettool.Type, true)),
+				keyword(xstrings.EnglishJoin(tools, true)),
 			)
 
 			fmt.Println(
@@ -152,94 +97,49 @@ func Smelt(configs []utils.Config, workingDir string, filesDir string, configFil
 	}
 }
 
-// expandSelections processes tool selections and returns expanded list including collection members
-func expandSelections(selections []string, configs []utils.Config, configMap map[string]utils.Config) []string {
-	// Handle "all" selection
-	if len(selections) > 0 && selections[0] == "all" {
-		var allTools []string
-		for _, config := range configs {
-			allTools = append(allTools, config.Name)
-		}
-		return allTools
-	}
-
-	// Process individual selections and collections
-	var expandedSelections []string
-	for _, selection := range selections {
-		config, exists := configMap[selection]
-		if !exists {
-			continue
-		}
-
-		// Handle collections
-		if len(config.Collection) > 0 {
-			for _, member := range config.Collection {
-				if _, exists := configMap[member]; exists {
-					expandedSelections = append(expandedSelections, member)
-				} else {
-					log.Warnf("Collection member %s not found in configs", member)
-				}
-			}
-			continue
-		}
-
-		// Add individual tool selection
-		expandedSelections = append(expandedSelections, selection)
-	}
-
-	return expandedSelections
-}
-
-func PrepareTool(configs []utils.Config, targetTools []string, workingDir string) error {
-	configMap := make(map[string]utils.Config)
-
-	for _, config := range configs {
-		configMap[config.Name] = config
-	}
+func PrepareTool(configMap configloader.ToolSet, workingDir string) error {
 
 	preDir := filepath.Join(workingDir, "pre")
 	if err := os.MkdirAll(preDir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", preDir, err)
 	}
 
-	for _, tool := range targetTools {
-		if config, exists := configMap[tool]; exists {
-			if config.SyncWave == "" {
-				config.SyncWave = "0"
-			}
-			namespaceObject := false
-			log.Debug("running setup for ", config.Name)
-			config.Filename = filepath.Join(preDir, config.Name+".yaml")
-
-			toolDir := filepath.Join(workingDir, config.Name)
-			files, _ := os.ReadDir(toolDir)
-			for _, file := range files {
-				if !file.IsDir() && !strings.Contains(file.Name(), "ExternalSecret") {
-					_ = os.Remove(filepath.Join(toolDir, file.Name()))
-				}
-			}
-
-			err := utils.Templatehelm(config, &utils.DefaultHelmExecutor{})
-			if err != nil {
-				return fmt.Errorf("failed to parse config: %w", err)
-			}
-			SplitYAML(config, workingDir)
-			utils.CreateApplicationFile(config, filepath.Join(workingDir, "argo-apps"))
-			files, _ = os.ReadDir(toolDir)
-			for _, file := range files {
-				if !file.IsDir() && strings.Contains(file.Name(), "Namespace") {
-					namespaceObject = true
-					break
-				}
-			}
-
-			if !namespaceObject {
-				if err = createNamespaceFile(config, workingDir); err != nil {
-					return fmt.Errorf("failed to create namespace file: %w", err)
-				}
-			}
-			utils.CleanCRDDesc(toolDir)
+	for _, config := range configMap {
+		if config.SyncWave == "" {
+			config.SyncWave = "0"
 		}
+		namespaceObject := false
+		log.Debug("running setup for ", config.Name)
+		config.Filename = filepath.Join(preDir, config.Name+".yaml")
+
+		toolDir := filepath.Join(workingDir, config.Name)
+		files, _ := os.ReadDir(toolDir)
+		for _, file := range files {
+			if !file.IsDir() && !strings.Contains(file.Name(), "ExternalSecret") {
+				_ = os.Remove(filepath.Join(toolDir, file.Name()))
+			}
+		}
+
+		err := utils.Templatehelm(config, &utils.DefaultHelmExecutor{})
+		if err != nil {
+			return fmt.Errorf("failed to parse config: %w", err)
+		}
+		SplitYAML(config, workingDir)
+		utils.CreateApplicationFile(config, filepath.Join(workingDir, "argo-apps"))
+		files, _ = os.ReadDir(toolDir)
+		for _, file := range files {
+			if !file.IsDir() && strings.Contains(file.Name(), "Namespace") {
+				namespaceObject = true
+				break
+			}
+		}
+
+		if !namespaceObject && config.Namespace != "default" {
+			if err = createNamespaceFile(config, workingDir); err != nil {
+				return fmt.Errorf("failed to create namespace file: %w", err)
+			}
+		}
+		utils.CleanDescFromResources(toolDir)
 	}
 	// remove the working/pre directory if not debugging
 	if !log.IsLevelEnabled(log.DebugLevel) {

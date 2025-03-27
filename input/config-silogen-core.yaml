@@ -14,3 +14,8 @@
 - name: prometheus-crds
 - name: opentelemetry-operator
 - name: otel-lgtm-stack
+- name: gateway-api
+- name: metallb
+- name: kgateway-crds
+- name: kgateway
+

@@ -25,6 +25,7 @@ import (
 	"github.com/silogen/cluster-forge/cmd/caster"
 	"github.com/silogen/cluster-forge/cmd/smelter"
 	"github.com/silogen/cluster-forge/cmd/utils"
+	"github.com/silogen/cluster-forge/cmd/utils/configloader"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -120,38 +121,28 @@ This step creates a container image which can be used during forge step to deplo
 
 func runSmelt(configFile string, nonInteractive bool, gitops utils.GitopsParameters) {
 	workingDir := "./working"
-	filesDir := "./output"
 	utils.Setup(nonInteractive)
 	log.Println("starting up...")
-	configs, err := utils.LoadConfig(configFile, gitops)
+	configs, err := configloader.LoadConfig(configFile, "input/config.yaml", gitops, nonInteractive)
 	if err != nil {
 		log.Fatalf("Failed to read config: %v", err)
 	}
 	for _, config := range configs {
 		log.Printf("Read config for : %+v", config.Name)
 	}
-	if !nonInteractive {
+	if nonInteractive {
+		log.Println("Config: " + configFile)
+	} else {
 		fmt.Print(utils.ForgeLogo)
 		fmt.Println("Smelting")
-	} else {
-		log.Println("Config: " + configFile)
 	}
-	smelter.Smelt(configs, workingDir, filesDir, configFile, nonInteractive)
+	smelter.Smelt(configs, workingDir, nonInteractive)
 }
 
 func runCast(params CastParameters, configFile string, nonInteractive bool, gitops utils.GitopsParameters) string {
 	stacksDir := "./stacks"
 	filesDir := "./working"
 	utils.Setup(nonInteractive)
-	log.Println("starting up...")
-	configs, err := utils.LoadConfig(configFile, gitops)
-
-	if err != nil {
-		log.Fatalf("Failed to read config: %v", err)
-	}
-	for _, config := range configs {
-		log.Printf("Read config for : %+v", config.Name)
-	}
 	if !nonInteractive {
 		fmt.Print(utils.ForgeLogo)
 		fmt.Println("Casting")

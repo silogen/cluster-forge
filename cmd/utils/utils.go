@@ -117,85 +117,6 @@ type GitopsParameters struct {
 	PathPrefix string
 }
 
-type ConfigAsMap map[string]interface{}
-
-func LoadConfig(filename string, gitops GitopsParameters) ([]Config, error) {
-	data, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	var configs []Config
-
-	if filename == "input/config.yaml" {
-		// Using input/config.yaml, no logic needed
-		err = yaml.Unmarshal(data, &configs)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// If a config file is given, merge missing values from input/config.yaml
-		defaultData, err := os.ReadFile("input/config.yaml")
-		if err != nil {
-			return nil, err
-		}
-
-		var defaultMap []ConfigAsMap
-		var configMap []ConfigAsMap
-		var allDefaults = make(map[string]ConfigAsMap)
-
-		err = yaml.Unmarshal(data, &configMap)
-		if err != nil {
-			return nil, err
-		}
-		err = yaml.Unmarshal(defaultData, &defaultMap)
-		if err != nil {
-			return nil, err
-		}
-		// Put the values in input/config.yaml into a map
-		// map[toolname] -> toolconfig, so that we can fetch them easily
-		for _, v := range defaultMap {
-			name := string(v["name"].(string))
-			allDefaults[name] = v
-		}
-		// For each tool defined, use defaults as a base and overwrite values
-		// that have been defined in config
-		for k, v := range configMap {
-			name := v["name"].(string)
-			defaultValues, ok := allDefaults[name]
-			if !ok {
-				defaultValues = make(ConfigAsMap)
-			}
-			for key, val := range v {
-				defaultValues[key] = val
-			}
-			configMap[k] = defaultValues
-		}
-
-		// The marshaling tools seemes the safest way of going from map to struct, so here we are.
-		combinedYaml, err := yaml.Marshal(configMap)
-		if err != nil {
-			return nil, err
-		}
-		err = yaml.Unmarshal(combinedYaml, &configs)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	err = validateConfig(configs)
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range configs {
-		configs[i].GitopsUrl = gitops.Url
-		configs[i].GitopsBranch = gitops.Branch
-		configs[i].GitopsPathPrefix = gitops.PathPrefix
-	}
-
-	return configs, nil
-}
-
 type Config struct {
 	HelmChartName       string   `yaml:"helm-chart-name"`
 	HelmURL             string   `yaml:"helm-url"`
@@ -263,8 +184,8 @@ func (e *DefaultHelmExecutor) RunHelmCommand(args []string, stdout io.Writer, st
 }
 
 func Templatehelm(config Config, helmExec HelmExecutor) error {
-	if config.HelmURL == "" && len(config.ManifestPath) == 0 && config.ManifestURL == "" {
-		return fmt.Errorf("invalid configuration: at least one of HelmURL, ManifestPath, or ManifestURL must be provided")
+	if config.HelmChartName == "" && len(config.ManifestPath) == 0 && config.ManifestURL == "" {
+		return fmt.Errorf("invalid configuration: at least one of HelmChartName, ManifestPath, or ManifestURL must be provided")
 	}
 
 	if config.Namespace == "" {
@@ -276,10 +197,20 @@ func Templatehelm(config Config, helmExec HelmExecutor) error {
 	}
 	defer file.Close()
 
-	if config.HelmURL != "" {
+	if config.HelmChartName != "" {
 		if config.Values == "" {
 			valuesPath := fmt.Sprintf("input/%s/values.yaml", config.Name)
-			cmdFetchValues := exec.Command("helm", "show", "values", "--repo", config.HelmURL, config.HelmChartName)
+			fetchValuesArgs := []string{"show", "values", config.HelmChartName}
+			if config.HelmURL != "" {
+				fetchValuesArgs = append(fetchValuesArgs, "--repo", config.HelmURL)
+			}
+			if config.HelmVersion != "" {
+				fetchValuesArgs = append(fetchValuesArgs, "--version", config.HelmVersion)
+			}
+			if config.Namespace != "" {
+				fetchValuesArgs = append(fetchValuesArgs, "--namespace", config.Namespace)
+			}
+			cmdFetchValues := exec.Command("helm", fetchValuesArgs...)
 			output, err := cmdFetchValues.Output()
 			if err != nil {
 				return fmt.Errorf("failed to fetch values.yaml for %s: %w", config.Name, err)
@@ -298,7 +229,10 @@ func Templatehelm(config Config, helmExec HelmExecutor) error {
 			config.Values = "values.yaml"
 		}
 
-		args := []string{"template", config.HelmName, "--repo", config.HelmURL, config.HelmChartName, "-f", "input/" + config.Name + "/" + config.Values, "--include-crds"}
+		args := []string{"template", config.HelmName, config.HelmChartName, "-f", "input/" + config.Name + "/" + config.Values, "--include-crds"}
+		if config.HelmURL != "" {
+			args = append(args, "--repo", config.HelmURL)
+		}
 		if config.HelmVersion != "" {
 			args = append(args, "--version", config.HelmVersion)
 		}
@@ -520,37 +454,6 @@ func ResetTerminal() {
 	}
 }
 
-func validateConfig(configs []Config) error {
-	for _, config := range configs {
-		// Skip validation for collection entries
-		if len(config.Collection) > 0 {
-			// Only validate that name is present for collections
-			if config.Name == "" {
-				return fmt.Errorf("missing 'name' in collection config: %+v", config)
-			}
-			continue
-		}
-		if config.Name == "" {
-			return fmt.Errorf("missing 'name' in config: %+v", config)
-		}
-		if config.Namespace == "" {
-			return fmt.Errorf("missing 'namespace' in config: %+v", config)
-		}
-		if config.ManifestURL == "" && config.HelmURL == "" && len(config.ManifestPath) == 0 {
-			return fmt.Errorf("either 'manifest-url' or 'helm-url' must be provided in config: %+v", config)
-		}
-		if config.HelmURL != "" {
-			if config.HelmChartName == "" {
-				return fmt.Errorf("missing 'helm-chart-name' in config with 'helm-url': %+v", config)
-			}
-			if config.HelmName == "" {
-				return fmt.Errorf("missing 'helm-name' in config with 'helm-url': %+v", config)
-			}
-		}
-	}
-	return nil
-}
-
 // isClusterScoped checks if a given resource is cluster-scoped.
 func IsClusterScoped(resourceName, apiVersion string) bool {
 	for _, resource := range clusterScopedResources {
@@ -620,12 +523,12 @@ func CreateApplicationFile(config Config, outputPath string) error {
 
 	return nil
 }
-func CleanCRDDesc(dir string) {
+func CleanDescFromResources(dir string) {
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if !d.IsDir() && strings.HasPrefix(d.Name(), "CustomResourceDefinition") && strings.HasSuffix(d.Name(), ".yaml") {
+		if !d.IsDir() && (strings.HasPrefix(d.Name(), "CustomResourceDefinition") || strings.HasPrefix(d.Name(), "GatewayClass")) && strings.HasSuffix(d.Name(), ".yaml") {
 			err := processFile(path)
 			if err != nil {
 				log.Printf("Error processing file %s: %v\n", path, err)

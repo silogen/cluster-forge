@@ -40,6 +40,8 @@ tenant:
     - name: models
   users:
     - name: default-user
+  certificate:
+    requestAutoCert: false
 extraResources:
  - |
     apiVersion: batch/v1
