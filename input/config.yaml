@@ -200,9 +200,9 @@
   manifestpath:
   - kaiwo-cluster-config/manifests.yaml
 - name: appwrapper
-  namespace: kueue-system
+  namespace: appwrapper-system
   manifestpath:
-    - kaiwo-dependencies/appwrapper/install.yaml
+    - appwrapper/manifest.yaml
 - name: kaiwo
   namespace: kaiwo
   manifestpath:
