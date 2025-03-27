@@ -9,3 +9,4 @@
 - name: kuberay-operator
 - name: k8s-cluster-secret-store
 - name: kaiwo-cluster-config
+- name: kaiwo-all

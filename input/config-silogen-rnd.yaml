@@ -11,3 +11,4 @@
 - name: 1password-cluster-secret-store
 - name: kyverno
 - name: kyverno-policies
+- name: kaiwo-all
