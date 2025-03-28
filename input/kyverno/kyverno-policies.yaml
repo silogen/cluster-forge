@@ -104,6 +104,11 @@ spec:
       - resources:
           kinds:
           - Pod
+    exclude:
+        any:
+        - resources:
+            namespaces:
+            - argocd
     mutate:
       foreach:
       - list: "request.object.spec.volumes[]"
