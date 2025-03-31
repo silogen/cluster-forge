@@ -38,6 +38,7 @@ spec:
             - longhorn
             - minio-operator
             - external-secrets
+            - kgateway-system
             - kueue-system
             - metallb-system
             - minio-tenant-default
