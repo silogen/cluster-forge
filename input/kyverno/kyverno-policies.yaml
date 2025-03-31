@@ -39,6 +39,7 @@ spec:
             - minio-operator
             - external-secrets
             - kueue-system
+            - metallb-system
             - minio-tenant-default
             - cert-manager
             - kuberay-operator
