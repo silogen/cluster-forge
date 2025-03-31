@@ -13,7 +13,7 @@ spec:
         spec:
           containers:
           - args:
-            - source /tmp/minio-config/config.env; until mc alias set init "$MINIO_SERVER_URL"
+            - source /tmp/minio-config/config.env; until mc alias set init "http://minio.minio-tenant-default.svc.cluster.local"
               "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do sleep 5; done; until mc admin 
               accesskey edit init/ "$API_ACCESS_KEY" --secret-key "$API_SECRET_KEY"; do 
               mc admin user add init  "$CONSOLE_ACCESS_KEY" "$CONSOLE_SECRET_KEY";
