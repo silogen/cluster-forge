@@ -45,7 +45,7 @@
   # helm-url: "https://charts.external-secrets.io"
   # values: external-secrets-values.yaml
   # secrets: false
-  # helm-version: "0.14.2"
+  # helm-version: "0.15.1"
 - helm-chart-name: "psmdb-operator"
   helm-name: psmdb-operator
   helm-url: "https://percona.github.io/percona-helm-charts"
@@ -205,6 +205,7 @@
   namespace: kaiwo
   manifestpath:
   - kaiwo-cluster-config/manifests.yaml
+  - kaiwo-cluster-config/manifests/additional
 - name: appwrapper
   namespace: appwrapper-system
   manifestpath:
