@@ -771,6 +771,11 @@ spec:
                 - source_labels: [__meta_kubernetes_node_name]
                   target_label: hostname
               metrics_path: /metrics
+            - job_name: minio-job
+              metrics_path: /minio/v2/metrics/cluster
+              scheme: http
+              static_configs:
+              - targets: [minio.minio-tenant-default.svc.cluster.local]
     processors:
       batch:
         send_batch_size: 2000
