@@ -771,8 +771,18 @@ spec:
                 - source_labels: [__meta_kubernetes_node_name]
                   target_label: hostname
               metrics_path: /metrics
-            - job_name: minio-job
+            - job_name: minio-cluster-metrics
               metrics_path: /minio/v2/metrics/cluster
+              scheme: http
+              static_configs:
+              - targets: [minio.minio-tenant-default.svc.cluster.local]
+            - job_name: minio-bucket-metrics
+              metrics_path: /minio/v2/metrics/bucket
+              scheme: http
+              static_configs:
+              - targets: [minio.minio-tenant-default.svc.cluster.local]
+            - job_name: minio-resource-metrics
+              metrics_path: /minio/v2/metrics/resource
               scheme: http
               static_configs:
               - targets: [minio.minio-tenant-default.svc.cluster.local]
