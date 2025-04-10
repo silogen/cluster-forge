@@ -651,7 +651,7 @@ data:
         ]
       },
       "timezone": "browser",
-      "title": "MinIO dashboard 250407",
-      "uid": "cei717txmswzkd",
+      "title": "MinIO simple dashboard",
+      "uid": "minioSimple",
       "version": 5
     }
