@@ -41,7 +41,7 @@ loki:
       active_index_directory: /var/loki/data/tsdb-index
       cache_location: /var/loki/data/tsdb-cache
     aws:
-      endpoint: https://minio.minio-tenant-default.svc.cluster.local:443
+      endpoint: http://minio.minio-tenant-default.svc.cluster.local:80
       access_key_id: ${API_ACCESS_KEY}
       secret_access_key: ${API_SECRET_KEY}
       bucketnames: cluster-forge-loki

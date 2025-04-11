@@ -42,10 +42,10 @@ mimir:
       storage:
         backend: s3
         s3:
-          endpoint: minio.minio-tenant-default.svc.cluster.local:443 ####
+          endpoint: minio.minio-tenant-default.svc.cluster.local:80 ####
           secret_access_key: "${API_SECRET_KEY}" ####
           access_key_id: "${API_ACCESS_KEY}" ####
-          insecure: false ## for toy minio #########
+          insecure: true
           http:
             insecure_skip_verify: true
 
@@ -53,15 +53,15 @@ mimir:
       backend: s3
       s3:
         bucket_name: cluster-forge-mimir
-        insecure: false ##
+        insecure: true ##
     alertmanager_storage: ##
       s3:
         bucket_name: cluster-forge-mimir
-        insecure: false ##
+        insecure: true ##
     ruler_storage: ##
       s3:
         bucket_name: cluster-forge-mimir
-        insecure: false ##
+        insecure: true ##
     limits:
       max_label_names_per_series: 50
       max_global_series_per_user: 1000000
@@ -82,9 +82,8 @@ alertmanager:
 
 compactor:
   persistentVolume:
-    size: 5Gi
+    size: 20Gi
     storageClass: longhorn-default 
-    #size: 20Gi
   resources:
     limits:
       memory: 1000Mi
@@ -103,9 +102,8 @@ distributor:
 
 ingester:
   persistentVolume:
-    size: 5Gi
+    size: 50Gi
     storageClass: longhorn-default
-    #size: 50Gi
   replicas: 3
   resources:
     limits:
@@ -201,8 +199,7 @@ ruler:
 
 store_gateway:
   persistentVolume:
-    size: 5Gi
-    #size: 20Gi
+    size: 20Gi
   replicas: 3
   resources:
     limits:
