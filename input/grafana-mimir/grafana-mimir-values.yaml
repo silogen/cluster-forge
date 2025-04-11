@@ -84,7 +84,6 @@ compactor:
   persistentVolume:
     size: 20Gi
     storageClass: longhorn-default 
-    #size: 20Gi
   resources:
     limits:
       memory: 1000Mi
@@ -105,7 +104,6 @@ ingester:
   persistentVolume:
     size: 50Gi
     storageClass: longhorn-default
-    #size: 50Gi
   replicas: 3
   resources:
     limits:
@@ -202,7 +200,6 @@ ruler:
 store_gateway:
   persistentVolume:
     size: 20Gi
-    #size: 20Gi
   replicas: 3
   resources:
     limits:
