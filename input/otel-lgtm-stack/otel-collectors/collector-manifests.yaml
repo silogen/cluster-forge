@@ -811,6 +811,11 @@ spec:
         check_interval: 5s
         limit_percentage: 80
         spike_limit_percentage: 25
+      attributes:
+        actions:
+          - key: k8s_cluster_name
+            action: insert
+            value: "ociops" ### value should be updated based on cluster
 
     extensions: ##
       basicauth/mimir-tenant:
