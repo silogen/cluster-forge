@@ -68,9 +68,9 @@ datasources:
       orgId: 1
       uid: loki_for_logs
       basicAuth: true
-      basicAuthUser: loki-tenant-demo
+      basicAuthUser: loki_tenant_demo
       secureJsonData:
-        basicAuthPassword: A123examplesecretpassword ###
+        basicAuthPassword: loki-tenant-demo-password ###
     - name: Mimir ###
       type: prometheus
       url: http://mimir-gateway.grafana-mimir.svc:8080/prometheus ###
@@ -81,7 +81,7 @@ datasources:
       basicAuthUser: cluster-forge-mimir-test-user
       secureJsonData:
         basicAuthPassword:  cluster-forge-mimir-test-pass ###
-        httpHeaderValue1: 'mimir-tenant' ###
+        httpHeaderValue1: 'mimir-tenant-ociops' ###
       jsonData:
         httpHeaderName1: 'X-Scope-OrgID'
     - name: Prometheus-operator ###
