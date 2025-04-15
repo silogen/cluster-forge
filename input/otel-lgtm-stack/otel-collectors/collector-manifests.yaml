@@ -819,8 +819,9 @@ spec:
 
     extensions: ##
       basicauth/mimir-tenant:
-        htpasswd:
-          file: /etc/otel/htpasswd/.htpasswd ## volume mount
+        client_auth:
+          username: cluster-forge-mimir-test-user
+          password: cluster-forge-mimir-test-pass
 
     exporters:
       # Configure your actual backend exporters here
@@ -848,33 +849,33 @@ spec:
           processors: [memory_limiter, batch]
           exporters: [otlp, otlphttp/ops-mimir]
           #exporters: [otlp, debug]
-  volumeMounts:
-    - name: htpasswd-volume
-      mountPath: /etc/otel/htpasswd
-      readOnly: true
-
-  volumes:
-    - name: htpasswd-volume
-      secret:
-        secretName: mimir-tenant-creds
-        items:
-          - key: .htpasswd
-            path: .htpasswd
----
-apiVersion: external-secrets.io/v1beta1
-kind: ExternalSecret
-metadata:
-  name: mimir-tenant-creds-from-fake
-  namespace: otel-lgtm-stack
-spec:
-  refreshInterval: "30m"
-  secretStoreRef:
-    name: fake-secret-store
-    kind: ClusterSecretStore
-  target:
-    name: mimir-tenant-creds
-  data:
-    - secretKey: .htpasswd
-      remoteRef:
-        key: .htpasswd
-        version: v1
+          #  volumeMounts:
+          #    - name: htpasswd-volume
+          #      mountPath: /etc/otel/htpasswd
+          #      readOnly: true
+          #
+          #  volumes:
+          #    - name: htpasswd-volume
+          #      secret:
+          #        secretName: mimir-tenant-creds
+          #        items:
+          #          - key: .htpasswd
+          #            path: .htpasswd
+          #---
+          #apiVersion: external-secrets.io/v1beta1
+          #kind: ExternalSecret
+          #metadata:
+          #  name: mimir-tenant-creds-from-fake
+          #  namespace: otel-lgtm-stack
+          #spec:
+          #  refreshInterval: "30m"
+          #  secretStoreRef:
+          #    name: fake-secret-store
+          #    kind: ClusterSecretStore
+          #  target:
+          #    name: mimir-tenant-creds
+          #  data:
+          #    - secretKey: .htpasswd
+          #      remoteRef:
+          #        key: .htpasswd
+          #        version: v1
