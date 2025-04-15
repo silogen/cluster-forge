@@ -846,7 +846,7 @@ spec:
         metrics:
           receivers: [prometheus]
           processors: [memory_limiter, batch]
-          exporters: [otlp]
+          exporters: [otlp, otlphttp/ops-mimir]
           #exporters: [otlp, debug]
   volumeMounts:
     - name: htpasswd-volume
