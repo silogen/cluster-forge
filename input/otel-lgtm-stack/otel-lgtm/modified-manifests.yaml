@@ -145,7 +145,7 @@ spec:
       protocol: TCP
       port: 4318
       targetPort: 4318
-    - name: prometheys
+    - name: prometheus
       protocol: TCP
       port: 9090
       targetPort: 9090
