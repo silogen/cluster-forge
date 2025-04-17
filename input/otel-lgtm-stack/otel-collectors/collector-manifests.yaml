@@ -315,7 +315,7 @@ spec:
         actions:
           - key: k8s_cluster_name
             action: insert
-            value: "ociops" ### value should be updated based on cluster
+            value: "cluster_name" ### value should be updated based on cluster
       batch:
         send_batch_size: 2000
         timeout: 10s
@@ -398,11 +398,11 @@ spec:
         tls:
           insecure: true
       otlphttp/ops-loki: ##
-        endpoint: http://loki-gateway.grafana-loki.svc.cluster.local:80/otlp
+        endpoint: http://otel-collector-log-proxy.headscale.svc.cluster.local:80/otlp
         tls:
           insecure: true
         headers:
-          "X-Scope-OrgID": "loki-tenant-ociops"
+          "X-Scope-OrgID": "loki-tenant-cluster-name" ##
         auth: ##
           authenticator: basicauth/loki-tenant
 
@@ -815,7 +815,7 @@ spec:
         actions:
           - key: k8s_cluster_name
             action: insert
-            value: "ociops" ### value should be updated based on cluster
+            value: "cluster-name" ### value should be updated based on cluster
 
     extensions: ##
       basicauth/mimir-tenant:
@@ -830,11 +830,11 @@ spec:
         tls:
           insecure: true
       otlphttp/ops-mimir: ##
-        endpoint: http://mimir-gateway.grafana-mimir.svc.cluster.local/otlp ##
+        endpoint: http://otel-collector-metric-proxy.headscale.svc.cluster.local/otlp ##
         tls:
           insecure: true
         headers:
-          "X-Scope-OrgID": "mimir-tenant-ociops" ##
+          "X-Scope-OrgID": "mimir-tenant-cluster-name" ##
         auth: ##
           authenticator: basicauth/mimir-tenant ##
       
