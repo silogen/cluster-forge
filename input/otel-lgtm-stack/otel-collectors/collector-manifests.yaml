@@ -313,9 +313,9 @@ spec:
     processors:
       attributes:
         actions:
-          - key: k8s_cluster
+          - key: k8s_cluster_name
             action: insert
-            value: "cluster1"
+            value: "ociops" ### value should be updated based on cluster
       batch:
         send_batch_size: 2000
         timeout: 10s
@@ -385,23 +385,38 @@ spec:
         - env
         override: true
         timeout: 2s
-    
+
+    extensions: ##
+      basicauth/loki-tenant:
+        client_auth:
+          username: loki_tenant_demo
+          password: loki-tenant-demo-password
+
     exporters:
       otlp:
         endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
         tls:
           insecure: true
-      
+      otlphttp/ops-loki: ##
+        endpoint: http://loki-gateway.grafana-loki.svc.cluster.local:80/otlp
+        tls:
+          insecure: true
+        headers:
+          "X-Scope-OrgID": "loki-tenant-ociops"
+        auth: ##
+          authenticator: basicauth/loki-tenant
+
       # Debug exporter - can remove in production
       debug:
         verbosity: detailed    
 
     service:
+      extensions: [basicauth/loki-tenant]
       pipelines:
         logs:
           receivers: [filelog/std]
           processors: [batch, attributes, k8sattributes]
-          exporters: [otlp]
+          exporters: [otlp, otlphttp/ops-loki]
           #exporters: [otlp, debug]
   volumes:
     - name: varlog
@@ -796,6 +811,17 @@ spec:
         check_interval: 5s
         limit_percentage: 80
         spike_limit_percentage: 25
+      attributes:
+        actions:
+          - key: k8s_cluster_name
+            action: insert
+            value: "ociops" ### value should be updated based on cluster
+
+    extensions: ##
+      basicauth/mimir-tenant:
+        client_auth:
+          username: cluster-forge-mimir-test-user
+          password: cluster-forge-mimir-test-pass
 
     exporters:
       # Configure your actual backend exporters here
@@ -803,14 +829,22 @@ spec:
         endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
         tls:
           insecure: true
+      otlphttp/ops-mimir: ##
+        endpoint: http://mimir-gateway.grafana-mimir.svc.cluster.local/otlp ##
+        tls:
+          insecure: true
+        headers:
+          "X-Scope-OrgID": "mimir-tenant-ociops" ##
+        auth: ##
+          authenticator: basicauth/mimir-tenant ##
       
       debug:
         verbosity: detailed
     
     service:
+      extensions: [basicauth/mimir-tenant] ##
       pipelines:
         metrics:
           receivers: [prometheus]
           processors: [memory_limiter, batch]
-          exporters: [otlp]
-          #exporters: [otlp, debug]
+          exporters: [otlp, otlphttp/ops-mimir]
