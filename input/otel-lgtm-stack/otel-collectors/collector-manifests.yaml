@@ -315,7 +315,7 @@ spec:
         actions:
           - key: k8s_cluster_name
             action: insert
-            value: "cluster_name" ### value should be updated based on cluster
+            value: "cluster-name" ### value should be updated based on cluster
       batch:
         send_batch_size: 2000
         timeout: 10s
