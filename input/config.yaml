@@ -99,7 +99,7 @@
   secrets: false
   name: grafana
   namespace: "grafana"
-  helm-version: "8.4.6"
+  helm-version: "8.12.0"
   syncwave: 1
 # - helm-chart-name: "prometheus-opencost-exporter"
 #   helm-name: opencost
