@@ -6,14 +6,22 @@ metadata:
   namespace: cf-gitea
 spec:
   parentRefs:
-    - name: https
+    - group: gateway.networking.k8s.io	
+      kind: Gateway	
+      name: https
       namespace: kgateway-system
   rules:
     - backendRefs:
-        - name: gitea-http
-          port: 3000
+        - group: ''	
+          kind: Service	
+          name: argocd-server
+          port: 80
+          weight: 1	
       matches:
         - headers:
             - name: Host
               type: RegularExpression
               value: gitea\..*
+          path:	
+            type: PathPrefix	
+            value: /

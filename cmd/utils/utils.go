@@ -129,6 +129,7 @@ type Config struct {
 	ManifestPath        []string `yaml:"manifestpath"`
 	SyncWave            string   `yaml:"syncwave"`
 	Collection          []string `yaml:"collection"`
+	SkipNamespace       string   `yaml:"skip-namespace"`
 	Filename            string
 	CRDFiles            []string
 	NamespaceFiles      []string
