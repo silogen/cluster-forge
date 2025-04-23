@@ -25,6 +25,7 @@
   # values: values.yaml
 - name: amd-device-config
   namespace: kube-amd-gpu
+  skip-namespace: true
   manifestpath:
   - amd-device-config/deviceconfig_example.yaml
 - name: grafana-gpu-dashboard
@@ -145,6 +146,7 @@
   namespace: minio-tenant-default
   manifestpath:
   - minio-tenant/manifests/k8s-secret
+  skip-namespace: true
 - helm-chart-name: "loki"
   helm-name: loki
   helm-url: "https://grafana.github.io/helm-charts"
@@ -212,6 +214,7 @@
     - appwrapper/manifest.yaml
 - name: kaiwo
   namespace: kaiwo
+  skip-namespace: true
   syncwave: 10
   manifestpath:
     - kaiwo/install.yaml

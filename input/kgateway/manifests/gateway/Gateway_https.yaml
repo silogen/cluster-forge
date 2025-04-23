@@ -15,5 +15,7 @@ spec:
       protocol: HTTPS
       tls:
         certificateRefs:
-          - name: kgateway-cert
+          - group: ''	
+            kind: Secret	
+            name: kgateway-cert
         mode: Terminate

@@ -231,7 +231,7 @@ spec:
     prometheus.io/port: "8888"
   resources:
     limits:
-      cpu: 1
+      cpu: '1'
       memory: 2Gi
     requests:
       cpu: 200m
@@ -450,7 +450,7 @@ spec:
     prometheus.io/port: "8888"
   resources:
     limits:
-      cpu: 2
+      cpu: '2'
       memory: 8Gi
     requests:
       cpu: 500m

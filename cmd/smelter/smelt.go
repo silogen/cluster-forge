@@ -134,7 +134,7 @@ func PrepareTool(configMap configloader.ToolSet, workingDir string) error {
 			}
 		}
 
-		if !namespaceObject && config.Namespace != "default" {
+		if !namespaceObject && config.Namespace != "default" && config.SkipNamespace != "true" {
 			if err = createNamespaceFile(config, workingDir); err != nil {
 				return fmt.Errorf("failed to create namespace file: %w", err)
 			}
