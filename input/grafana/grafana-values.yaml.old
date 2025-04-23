@@ -57,78 +57,74 @@ datasources:
   datasources.yaml:
     apiVersion: 1
     datasources:
-    - name: oci1-loki ##
+    - name: Prometheus ###
+      type: prometheus
+      url: http://prometheus-server.monitoring.svc.cluster.local:80 ###
+      orgId: 1
+      uid: prometheus_for_metrics
+    - name: Loki
       type: loki
       url: http://loki-gateway.grafana-loki.svc.cluster.local:80
       orgId: 1
-      uid: oci1-loki ##
+      uid: loki_for_logs
       basicAuth: true
       basicAuthUser: loki_tenant_demo
       secureJsonData:
-        basicAuthPassword: loki-tenant-demo-password
-        httpHeaderValue1: 'loki-tenant-oci1' ##
-      jsonData:
-        httpHeaderName1: 'X-Scope-OrgID'
-    - name: oci1-mimir ##
+        basicAuthPassword: loki-tenant-demo-password ###
+    - name: Mimir ###
       type: prometheus
-      url: http://mimir-gateway.grafana-mimir.svc:8080/prometheus
+      url: http://mimir-gateway.grafana-mimir.svc:8080/prometheus ###
       orgId: 1
-      uid: oci1-mimir ##
+      uid: mimir_for_metrics
+ #     isDefault: true
       basicAuth: true
       basicAuthUser: cluster-forge-mimir-test-user
       secureJsonData:
-        basicAuthPassword:  cluster-forge-mimir-test-pass
-        httpHeaderValue1: 'mimir-tenant-oci1' ##
+        basicAuthPassword:  cluster-forge-mimir-test-pass ###
+        httpHeaderValue1: 'mimir-tenant-ociops' ###
       jsonData:
         httpHeaderName1: 'X-Scope-OrgID'
-    - name: oci2-loki ##
-      type: loki
-      url: http://loki-gateway.grafana-loki.svc.cluster.local:80
-      orgId: 1
-      uid: oci2-loki ##
-      basicAuth: true
-      basicAuthUser: loki_tenant_demo
-      secureJsonData:
-        basicAuthPassword: loki-tenant-demo-password
-        httpHeaderValue1: 'loki-tenant-oci2' ##
-      jsonData:
-        httpHeaderName1: 'X-Scope-OrgID'
-    - name: oci2-mimir ##
+    - name: Prometheus-operator ###
       type: prometheus
-      url: http://mimir-gateway.grafana-mimir.svc:8080/prometheus
+      url:  http://prometheus-kube-prometheus-prometheus.prometheus-system.svc.cluster.local:9090
       orgId: 1
-      uid: oci2-mimir ##
-      basicAuth: true
-      basicAuthUser: cluster-forge-mimir-test-user
-      secureJsonData:
-        basicAuthPassword:  cluster-forge-mimir-test-pass
-        httpHeaderValue1: 'mimir-tenant-oci2' ##
-      jsonData:
-        httpHeaderName1: 'X-Scope-OrgID'
-    - name: ocisilogen-loki ##
-      type: loki
-      url: http://loki-gateway.grafana-loki.svc.cluster.local:80
-      orgId: 1
-      uid: ocisilogen-loki ##
-      basicAuth: true
-      basicAuthUser: loki_tenant_demo
-      secureJsonData:
-        basicAuthPassword: loki-tenant-demo-password
-        httpHeaderValue1: 'loki-tenant-ocisilogen' ##
-      jsonData:
-        httpHeaderName1: 'X-Scope-OrgID'
-    - name: ocisilogen-mimir ##
-      type: prometheus
-      url: http://mimir-gateway.grafana-mimir.svc:8080/prometheus
-      orgId: 1
-      uid: ocisilogen-mimir ##
-      basicAuth: true
-      basicAuthUser: cluster-forge-mimir-test-user
-      secureJsonData:
-        basicAuthPassword:  cluster-forge-mimir-test-pass
-        httpHeaderValue1: 'mimir-tenant-ocisilgoen' ##
-      jsonData:
-        httpHeaderName1: 'X-Scope-OrgID'
+      uid: prometheus_operator_for_metric
+#    - name: Mimir_for_Service_Graph ###
+#      type: prometheus
+#      url: http://grafana-mimir-gateway.monitoring-services-metric.svc:8080/prometheus
+#      orgId: 1
+#      uid: mimir_service_graphs
+#      basicAuth: true
+#      basicAuthUser: mimir-user
+#      secureJsonData:
+#        basicAuthPassword: ${MIMIR_PASSWORD}
+#        httpHeaderValue1: 'tempo-tenant-dev'
+#      jsonData:
+#        httpHeaderName1: 'X-Scope-OrgID'
+##Omni Devenv
+#    - name: Loki_Omni_DevEnv ###
+#      type: loki
+#      url: http://loki-gateway.monitoring-services-log.svc:80
+#      orgId: 1
+#      uid: loki_omni_devenv_logs
+#      basicAuth: true
+#      basicAuthUser: loki-omni-devenv-tenant ##
+#      secureJsonData:
+#        basicAuthPassword: ${LOKI_TENANT_PW_OMNI_DEVENV} ##
+#    - name: Mimir_Omni_DevEnv
+#      type: prometheus
+#      url: http://grafana-mimir-gateway.monitoring-services-metric.svc:8080/prometheus
+#      orgId: 1
+#      uid: mimir_omni_devenv_metrics
+#      isDefault: false
+#      basicAuth: true
+#      basicAuthUser: mimir-user
+#      secureJsonData:
+#        basicAuthPassword: ${MIMIR_PASSWORD}
+#        httpHeaderValue1: 'omni-devenv' ##
+#      jsonData:
+#        httpHeaderName1: 'X-Scope-OrgID'
+
 #dashboardProviders:
 #  dashboardproviders.yaml:
 #    apiVersion: 1
