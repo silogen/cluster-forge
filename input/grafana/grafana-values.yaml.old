@@ -1,0 +1,172 @@
+testFramework:
+  enabled: false
+persistence:
+  type: pvc
+  enabled: true
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+  finalizers: []
+
+grafana.ini:
+#  users:
+#    allow_sign_up: false
+#    allow_org_create: false
+#    auto_assign_org: true
+#    auto_assign_org_id: 1
+#    auto_assign_org_role: Viewer
+#    viewers_can_edit: true
+  auth.anonymous:
+    enabled: true
+    org_role: Viewer
+#  auth:
+#    disable_login_form: false
+#  auth.proxy:
+#    enabled: true
+#    header_name: Tailscale-User-Name
+#    header_property: username
+#    auto_sign_up: true
+  date_formats:
+    default_timezone: UTC
+  server:
+    root_url: https://localhost
+  security: ##
+    allow_embedding: true
+
+service:
+  port: 3000
+admin:
+  existingSecret: "grafana-user-credentials" ###
+  userKey: grafana-admin-id ###
+  passwordKey: grafana-admin-pw ###
+
+deploymentStrategy:
+  type: Recreate
+
+#envValueFrom:
+#  TENANT_PW_DEV:
+#    secretKeyRef:
+#      name: grafana-user-credentials ###
+#      key: tenant-pw-dev
+#  MIMIR_PASSWORD:
+#    secretKeyRef:
+#      name: grafana-user-credentials ###
+#      key: mimir-basic-password
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: Prometheus ###
+      type: prometheus
+      url: http://prometheus-server.monitoring.svc.cluster.local:80 ###
+      orgId: 1
+      uid: prometheus_for_metrics
+    - name: Loki
+      type: loki
+      url: http://loki-gateway.grafana-loki.svc.cluster.local:80
+      orgId: 1
+      uid: loki_for_logs
+      basicAuth: true
+      basicAuthUser: loki_tenant_demo
+      secureJsonData:
+        basicAuthPassword: loki-tenant-demo-password ###
+    - name: Mimir ###
+      type: prometheus
+      url: http://mimir-gateway.grafana-mimir.svc:8080/prometheus ###
+      orgId: 1
+      uid: mimir_for_metrics
+ #     isDefault: true
+      basicAuth: true
+      basicAuthUser: cluster-forge-mimir-test-user
+      secureJsonData:
+        basicAuthPassword:  cluster-forge-mimir-test-pass ###
+        httpHeaderValue1: 'mimir-tenant-ociops' ###
+      jsonData:
+        httpHeaderName1: 'X-Scope-OrgID'
+    - name: Prometheus-operator ###
+      type: prometheus
+      url:  http://prometheus-kube-prometheus-prometheus.prometheus-system.svc.cluster.local:9090
+      orgId: 1
+      uid: prometheus_operator_for_metric
+#    - name: Mimir_for_Service_Graph ###
+#      type: prometheus
+#      url: http://grafana-mimir-gateway.monitoring-services-metric.svc:8080/prometheus
+#      orgId: 1
+#      uid: mimir_service_graphs
+#      basicAuth: true
+#      basicAuthUser: mimir-user
+#      secureJsonData:
+#        basicAuthPassword: ${MIMIR_PASSWORD}
+#        httpHeaderValue1: 'tempo-tenant-dev'
+#      jsonData:
+#        httpHeaderName1: 'X-Scope-OrgID'
+##Omni Devenv
+#    - name: Loki_Omni_DevEnv ###
+#      type: loki
+#      url: http://loki-gateway.monitoring-services-log.svc:80
+#      orgId: 1
+#      uid: loki_omni_devenv_logs
+#      basicAuth: true
+#      basicAuthUser: loki-omni-devenv-tenant ##
+#      secureJsonData:
+#        basicAuthPassword: ${LOKI_TENANT_PW_OMNI_DEVENV} ##
+#    - name: Mimir_Omni_DevEnv
+#      type: prometheus
+#      url: http://grafana-mimir-gateway.monitoring-services-metric.svc:8080/prometheus
+#      orgId: 1
+#      uid: mimir_omni_devenv_metrics
+#      isDefault: false
+#      basicAuth: true
+#      basicAuthUser: mimir-user
+#      secureJsonData:
+#        basicAuthPassword: ${MIMIR_PASSWORD}
+#        httpHeaderValue1: 'omni-devenv' ##
+#      jsonData:
+#        httpHeaderName1: 'X-Scope-OrgID'
+
+#dashboardProviders:
+#  dashboardproviders.yaml:
+#    apiVersion: 1
+#    providers:
+#    - name: 'default'
+#      orgId: 1
+#      folder: ''
+#      type: file
+#      disableDeletion: false
+#      editable: true
+#      updateIntervalSeconds: 10
+#      allowUiUpdates: true
+#      options:
+#        path: /var/lib/grafana/dashboards/default
+
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    folderAnnotation: grafana_folder
+    provider:
+      foldersFromFilesStructure: true
+
+extraObjects: ###
+  - apiVersion: external-secrets.io/v1beta1
+    kind: ExternalSecret
+    metadata:
+      name: grafana-user-credentials
+      namespace: grafana
+    spec:
+      refreshInterval: "30m"
+      secretStoreRef:
+        name: fake-secret-store
+        kind: ClusterSecretStore
+      target:
+        name: grafana-user-credentials 
+      data:
+        - secretKey: grafana-admin-id
+          remoteRef:
+            key: grafana-admin-id 
+            version: v1
+        - secretKey: grafana-admin-pw 
+          remoteRef:
+            key: grafana-admin-pw
+            version: v1
