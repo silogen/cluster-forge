@@ -76,11 +76,20 @@ spec:
   provider:
     fake:
       data:
-      - key: loki_tenant_name
-        value: loki_tenant_demo
+      - key: loki_tenant_name_oci1
+        value: loki_tenant_oci1
         version: v1
-      - key: loki_tenant_password
-        value: loki-tenant-demo-password
+      - key: loki_tenant_name_oci2
+        value: loki_tenant_oci2
+        version: v1
+      - key: loki_tenant_name_ocisilogen
+        value: loki_tenant_ocisilogen
+        version: v1
+      - key: loki_tenant_name_ociops
+        value: loki_tenant_ociops
+        version: v1
+      - key: loki_tenant_password_ociclusters
+        value: loki_tenant_password_ociclusters
         version: v1
       - key: .htpasswd
         value: cluster-forge-mimir-test-user:$apr1$mszGHRfu$fDCiA32oRdtP8tXGTTn2M0 #Created from "htpasswd -cb htpasswd cluster-forge-mimir-test-user cluster-forge-mimir-test-pass"
