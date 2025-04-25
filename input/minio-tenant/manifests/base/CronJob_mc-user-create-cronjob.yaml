@@ -1,3 +1,4 @@
+---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -12,50 +13,37 @@ spec:
       template:
         spec:
           containers:
-          - args:
-            - source /tmp/minio-config/config.env; until mc alias set init "http://minio.minio-tenant-default.svc.cluster.local"
-              "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do sleep 5; done; until mc admin 
-              accesskey edit init/ "$API_ACCESS_KEY" --secret-key "$API_SECRET_KEY"; do 
-              mc admin user add init  "$CONSOLE_ACCESS_KEY" "$CONSOLE_SECRET_KEY";
-              mc admin policy attach init consoleAdmin --user "$CONSOLE_ACCESS_KEY";
-              mc admin accesskey create init/ "$CONSOLE_ACCESS_KEY" --access-key "$API_ACCESS_KEY" 
-              --secret-key "$API_SECRET_KEY" > /dev/null; sleep 1; done;
-            command:
-            - /bin/sh
-            - -c
-            env:
-            - name: CONSOLE_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  key: CONSOLE_ACCESS_KEY
-                  name: default-user
-            - name: CONSOLE_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  key: CONSOLE_SECRET_KEY
-                  name: default-user
-            - name: API_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  key: API_ACCESS_KEY
-                  name: default-user
-            - name: API_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  key: API_SECRET_KEY
-                  name: default-user
-            - name: MINIO_URL
-              value: https://default-minio-tenant-console.minio-tenant-default.svc.cluster.local
-            image: minio/mc:latest
-            name: mc
-            volumeMounts:
-            - mountPath: /tmp/minio-config
-              name: configuration
+            - command: ["bash", "/mnt/scripts/mc-user-create.sh"]
+              image: minio/mc:latest
+              name: mc
+              resources:
+                requests:
+                  memory: "32Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "128Mi"
+                  cpu: "500m"
+              volumeMounts:
+              - mountPath: /tmp/minio-config
+                name: configuration
+              - mountPath: /tmp/minio-user
+                name: user
+              - name: script
+                mountPath: /mnt/scripts/
           restartPolicy: Never
           volumes:
+          - name: script
+            configMap:
+              name: mc-user-create-cm
           - name: configuration
             projected:
               defaultMode: 420
               sources:
               - secret:
                   name: default-minio-tenant-env-configuration
+          - name: user
+            projected:
+              defaultMode: 0700
+              sources:
+              - secret:
+                  name: default-user
