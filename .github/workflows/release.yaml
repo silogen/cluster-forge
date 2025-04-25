@@ -70,7 +70,7 @@ jobs:
           mkdir -p stacks/${PACKAGE_DIR}
           
           # Move the stack directory and ansible directory into the package directory
-          mv stacks/${{ github.event.inputs.version }}-${{ matrix.release.type }} stacks/${PACKAGE_DIR}/
+          mv stacks/${{ github.event.inputs.version }}-${{ matrix.release.type }}/* stacks/${PACKAGE_DIR}/
           mkdir -p stacks/longhorn
           cp -r setup-cluster/longhorn/ stacks/
           mkdir -p stacks/ingress
