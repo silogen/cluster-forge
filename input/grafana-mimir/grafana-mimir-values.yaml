@@ -63,7 +63,7 @@ mimir:
         bucket_name: cluster-forge-mimir
         insecure: true ##
     limits:
-      max_label_names_per_series: 140
+      max_label_names_per_series: 150
       max_global_series_per_user: 1000000
 
 alertmanager:
