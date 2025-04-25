@@ -66,7 +66,7 @@ jobs:
       - name: Create release package directory
         run: |
           # Create the desired top-level directory that will appear when unzipped
-          PACKAGE_DIR="clusterforge-${{ matrix.release.type }}-${{ github.event.inputs.version }}"
+          PACKAGE_DIR="${{ matrix.release.type }}"
           mkdir -p stacks/${PACKAGE_DIR}
           
           # Move the stack directory and ansible directory into the package directory
@@ -79,7 +79,7 @@ jobs:
 
       - name: Create tarball
         run: |
-          PACKAGE_DIR="clusterforge-${{ matrix.release.type }}-${{ github.event.inputs.version }}"
+          PACKAGE_DIR="${{ matrix.release.type }}"
           tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz ${PACKAGE_DIR} longhorn/ ingress/ setup-forge.sh
 
       - name: Create release
