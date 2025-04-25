@@ -63,9 +63,9 @@ datasources:
       orgId: 1
       uid: oci1-loki ##
       basicAuth: true
-      basicAuthUser: loki_tenant_demo
+      basicAuthUser: loki_tenant_oci1
       secureJsonData:
-        basicAuthPassword: loki-tenant-demo-password
+        basicAuthPassword: loki_tenant_password_ociclusters
         httpHeaderValue1: 'loki-tenant-oci1' ##
       jsonData:
         httpHeaderName1: 'X-Scope-OrgID'
@@ -87,9 +87,9 @@ datasources:
       orgId: 1
       uid: oci2-loki ##
       basicAuth: true
-      basicAuthUser: loki_tenant_demo
+      basicAuthUser: loki_tenant_oci2
       secureJsonData:
-        basicAuthPassword: loki-tenant-demo-password
+        basicAuthPassword: loki_tenant_password_ociclusters
         httpHeaderValue1: 'loki-tenant-oci2' ##
       jsonData:
         httpHeaderName1: 'X-Scope-OrgID'
@@ -111,9 +111,9 @@ datasources:
       orgId: 1
       uid: ocisilogen-loki ##
       basicAuth: true
-      basicAuthUser: loki_tenant_demo
+      basicAuthUser: loki_tenant_ocisilogen
       secureJsonData:
-        basicAuthPassword: loki-tenant-demo-password
+        basicAuthPassword: loki_tenant_password_ociclusters
         httpHeaderValue1: 'loki-tenant-ocisilogen' ##
       jsonData:
         httpHeaderName1: 'X-Scope-OrgID'
@@ -135,9 +135,9 @@ datasources:
       orgId: 1
       uid: ociops-loki ##
       basicAuth: true
-      basicAuthUser: loki_tenant_demo
+      basicAuthUser: loki_tenant_ociops
       secureJsonData:
-        basicAuthPassword: loki-tenant-demo-password
+        basicAuthPassword: loki_tenant_password_ociclusters
         httpHeaderValue1: 'loki-tenant-ociops' ##
       jsonData:
         httpHeaderName1: 'X-Scope-OrgID'
