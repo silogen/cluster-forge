@@ -69,18 +69,6 @@ datasources:
         httpHeaderValue1: 'loki-tenant-oci1' ##
       jsonData:
         httpHeaderName1: 'X-Scope-OrgID'
-    - name: oci1-mimir ##
-      type: prometheus
-      url: http://mimir-gateway.grafana-mimir.svc:8080/prometheus
-      orgId: 1
-      uid: oci1-mimir ##
-      basicAuth: true
-      basicAuthUser: cluster-forge-mimir-test-user
-      secureJsonData:
-        basicAuthPassword:  cluster-forge-mimir-test-pass
-        httpHeaderValue1: 'mimir-tenant-oci1' ##
-      jsonData:
-        httpHeaderName1: 'X-Scope-OrgID'
     - name: oci2-loki ##
       type: loki
       url: http://loki-gateway.grafana-loki.svc.cluster.local:80
@@ -91,18 +79,6 @@ datasources:
       secureJsonData:
         basicAuthPassword: loki_tenant_password_ociclusters
         httpHeaderValue1: 'loki-tenant-oci2' ##
-      jsonData:
-        httpHeaderName1: 'X-Scope-OrgID'
-    - name: oci2-mimir ##
-      type: prometheus
-      url: http://mimir-gateway.grafana-mimir.svc:8080/prometheus
-      orgId: 1
-      uid: oci2-mimir ##
-      basicAuth: true
-      basicAuthUser: cluster-forge-mimir-test-user
-      secureJsonData:
-        basicAuthPassword:  cluster-forge-mimir-test-pass
-        httpHeaderValue1: 'mimir-tenant-oci2' ##
       jsonData:
         httpHeaderName1: 'X-Scope-OrgID'
     - name: ocisilogen-loki ##
@@ -117,18 +93,6 @@ datasources:
         httpHeaderValue1: 'loki-tenant-ocisilogen' ##
       jsonData:
         httpHeaderName1: 'X-Scope-OrgID'
-    - name: ocisilogen-mimir ##
-      type: prometheus
-      url: http://mimir-gateway.grafana-mimir.svc:8080/prometheus
-      orgId: 1
-      uid: ocisilogen-mimir ##
-      basicAuth: true
-      basicAuthUser: cluster-forge-mimir-test-user
-      secureJsonData:
-        basicAuthPassword:  cluster-forge-mimir-test-pass
-        httpHeaderValue1: 'mimir-tenant-ocisilgoen' ##
-      jsonData:
-        httpHeaderName1: 'X-Scope-OrgID'
     - name: ociops-loki ##
       type: loki
       url: http://loki-gateway.grafana-loki.svc.cluster.local:80
@@ -141,16 +105,16 @@ datasources:
         httpHeaderValue1: 'loki-tenant-ociops' ##
       jsonData:
         httpHeaderName1: 'X-Scope-OrgID'
-    - name: ociops-mimir ##
+    - name: oci-clusters-mimir ##
       type: prometheus
       url: http://mimir-gateway.grafana-mimir.svc:8080/prometheus
       orgId: 1
-      uid: ociops-mimir ##
+      uid: oci-clusters-mimir ##
       basicAuth: true
       basicAuthUser: cluster-forge-mimir-test-user
       secureJsonData:
         basicAuthPassword:  cluster-forge-mimir-test-pass
-        httpHeaderValue1: 'mimir-tenant-ociops' ##
+        httpHeaderValue1: 'oci-clusters' ##
       jsonData:
         httpHeaderName1: 'X-Scope-OrgID'
 #dashboardProviders:
