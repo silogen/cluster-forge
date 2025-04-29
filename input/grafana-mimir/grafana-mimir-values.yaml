@@ -66,6 +66,17 @@ mimir:
       max_label_names_per_series: 150
       max_global_series_per_user: 1000000
 
+    server:  # <-- Add this section
+      grpc_server_max_recv_msg_size: 268435456  # 256 MiB ##
+      grpc_server_max_send_msg_size: 268435456  # (optional, safe to match recv)
+
+    distributor:  # <-- Add this section
+      max_recv_msg_size: 268435456  # Optional if you still support remote_write ##
+
+    ingester_client:
+      grpc_client_config:
+        max_recv_msg_size: 268435456
+        max_send_msg_size: 268435456
 alertmanager:
   enabled: false
   persistentVolume:
@@ -95,7 +106,7 @@ distributor:
   replicas: 4
   resources:
     limits:
-      memory: 1Gi
+      memory: 2Gi
     requests:
       cpu: 1
       memory: 760Mi
@@ -241,6 +252,7 @@ gateway:
       existingSecret: mimir-tenant-creds ##nginx  htpasswd
     config:
       resolver: rke2-coredns-rke2-coredns.kube-system.svc.cluster.local
+      clientMaxBodySize: 50M ##<--thid doesn't work. Update nginx configmap manually.
 
 query_scheduler:
   enabled: true
@@ -260,6 +272,10 @@ query_scheduler:
 
 nginx:
   enabled: false
+
+federation_frontend:
+  # -- Specifies whether the federation-frontend should be enabled
+  enabled: true
 
 extraObjects:
   - apiVersion: external-secrets.io/v1beta1
