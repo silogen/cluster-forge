@@ -66,16 +66,14 @@ jobs:
       - name: Create release package directory
         run: |
           # Create the desired top-level directory that will appear when unzipped
-          PACKAGE_DIR="${{ matrix.release.type }}"
-          mkdir -p stacks/${PACKAGE_DIR}
+          mkdir -p stacks/clusterforge
           
           # Move the stack directory and ansible directory into the package directory
-          mv stacks/${{ github.event.inputs.version }}-${{ matrix.release.type }}/* stacks/${PACKAGE_DIR}/
+          mv stacks/${{ github.event.inputs.version }}-${{ matrix.release.type }}/* stacks/clusterforge/
 
       - name: Create tarball
         run: |
-          PACKAGE_DIR="${{ matrix.release.type }}"
-          tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz ${PACKAGE_DIR}
+          tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz clusterforge
 
       - name: Create release
         if: github.ref == 'refs/heads/main'
