@@ -273,10 +273,6 @@ query_scheduler:
 nginx:
   enabled: false
 
-federation_frontend:
-  # -- Specifies whether the federation-frontend should be enabled
-  enabled: true
-
 extraObjects:
   - apiVersion: external-secrets.io/v1beta1
     kind: ExternalSecret
