@@ -834,7 +834,7 @@ spec:
         tls:
           insecure: true
         headers:
-          "X-Scope-OrgID": "mimir-tenant-cluster-name" ##
+          "X-Scope-OrgID": "oci-clusters" ##
         auth: ##
           authenticator: basicauth/mimir-tenant ##
       
