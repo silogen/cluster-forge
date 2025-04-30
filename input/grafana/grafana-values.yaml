@@ -139,6 +139,9 @@ sidecar:
     folderAnnotation: grafana_folder
     provider:
       foldersFromFilesStructure: true
+  alerts:
+    enabled: true
+    label: grafana_alerting
 
 extraObjects: ###
   - apiVersion: external-secrets.io/v1beta1
