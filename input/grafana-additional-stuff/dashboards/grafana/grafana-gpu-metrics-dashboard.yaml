@@ -36,7 +36,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus_for_metrics"
+            "uid": "oci-clusters-mimir"
           },
           "gridPos": {
             "h": 6,
@@ -60,7 +60,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus_for_metrics"
+            "uid": "oci-clusters-mimir"
           },
           "fieldConfig": {
             "defaults": {
@@ -114,7 +114,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "prometheus_for_metrics"
+                "uid": "oci-clusters-mimir"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -153,7 +153,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus_for_metrics"
+            "uid": "oci-clusters-mimir"
           },
           "fieldConfig": {
             "defaults": {
@@ -205,7 +205,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "prometheus_for_metrics"
+                "uid": "oci-clusters-mimir"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -245,7 +245,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus_for_metrics"
+            "uid": "oci-clusters-mimir"
           },
           "fieldConfig": {
             "defaults": {
@@ -297,7 +297,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "prometheus_for_metrics"
+                "uid": "oci-clusters-mimir"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -336,7 +336,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus_for_metrics"
+            "uid": "oci-clusters-mimir"
           },
           "fieldConfig": {
             "defaults": {
@@ -390,7 +390,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "prometheus_for_metrics"
+                "uid": "oci-clusters-mimir"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -430,7 +430,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus_for_metrics"
+            "uid": "oci-clusters-mimir"
           },
           "fieldConfig": {
             "defaults": {
@@ -483,7 +483,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "prometheus_for_metrics"
+                "uid": "oci-clusters-mimir"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -522,7 +522,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus_for_metrics"
+            "uid": "oci-clusters-mimir"
           },
           "fieldConfig": {
             "defaults": {
@@ -601,7 +601,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "prometheus_for_metrics"
+                "uid": "oci-clusters-mimir"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -623,7 +623,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus_for_metrics"
+            "uid": "oci-clusters-mimir"
           },
           "fieldConfig": {
             "defaults": {
@@ -705,7 +705,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "prometheus_for_metrics"
+                "uid": "oci-clusters-mimir"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -727,7 +727,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus_for_metrics"
+            "uid": "oci-clusters-mimir"
           },
           "fieldConfig": {
             "defaults": {
@@ -808,7 +808,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "prometheus_for_metrics"
+                "uid": "oci-clusters-mimir"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -830,7 +830,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus_for_metrics"
+            "uid": "oci-clusters-mimir"
           },
           "fieldConfig": {
             "defaults": {
@@ -887,7 +887,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "prometheus_for_metrics"
+                "uid": "oci-clusters-mimir"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -948,7 +948,7 @@ data:
             },
             "datasource": {
               "type": "prometheus",
-              "uid": "prometheus_for_metrics"
+              "uid": "oci-clusters-mimir"
             },
             "definition": "label_values(node)",
             "hide": 0,
@@ -976,7 +976,7 @@ data:
             },
             "datasource": {
               "type": "prometheus",
-              "uid": "prometheus_for_metrics"
+              "uid": "oci-clusters-mimir"
             },
             "definition": "label_values({node=\"$node\"},gpu_uuid)",
             "hide": 0,
@@ -1005,7 +1005,7 @@ data:
             },
             "datasource": {
               "type": "prometheus",
-              "uid": "prometheus_for_metrics"
+              "uid": "oci-clusters-mimir"
             },
             "definition": "label_values({gpu_uuid=\"$gpu\"},amd_com_gpu_family)",
             "hide": 2,
@@ -1037,7 +1037,7 @@ data:
             },
             "datasource": {
               "type": "prometheus",
-              "uid": "prometheus_for_metrics"
+              "uid": "oci-clusters-mimir"
             },
             "definition": "label_values({gpu_uuid=~\"$gpu\"},card_model)",
             "hide": 2,
@@ -1069,7 +1069,7 @@ data:
             },
             "datasource": {
               "type": "prometheus",
-              "uid": "prometheus_for_metrics"
+              "uid": "oci-clusters-mimir"
             },
             "definition": "label_values({gpu_uuid=~\"$gpu\"},serial_number)",
             "hide": 2,
