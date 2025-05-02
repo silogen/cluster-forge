@@ -43,11 +43,11 @@ admin:
 deploymentStrategy:
   type: Recreate
 
-#envValueFrom:
-#  TENANT_PW_DEV:
-#    secretKeyRef:
-#      name: grafana-user-credentials ###
-#      key: tenant-pw-dev
+envValueFrom:
+  SLACK_CONTACT_POINT_TEST_URL:
+    secretKeyRef:
+      name: grafana-alertmanager-creds ###
+      key: slack_contact_point_test_url
 #  MIMIR_PASSWORD:
 #    secretKeyRef:
 #      name: grafana-user-credentials ###
@@ -165,3 +165,20 @@ extraObjects: ###
           remoteRef:
             key: grafana-admin-pw
             version: v1
+
+  - apiVersion: external-secrets.io/v1beta1
+    kind: ExternalSecret
+    metadata:
+      name: grafana-alertmanager-creds
+      namespace: grafana
+    spec:
+      refreshInterval: "30m"
+      secretStoreRef:
+        name: k8s-secret-store
+        kind: ClusterSecretStore
+      target:
+        name: grafana-alertmanager-creds
+      data:
+        - secretKey: slack_contact_point_test_url
+          remoteRef:
+            key: slack_contact_point_test_url
