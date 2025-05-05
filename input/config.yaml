@@ -31,7 +31,8 @@
 - name: grafana-additional-stuff
   namespace: grafana
   manifestpath:
-  - grafana-additional-stuff/dashboards/grafana
+  - grafana-additional-stuff/dashboards/grafana/grafana-default-dashboards.yaml
+  - grafana-additional-stuff/dashboards/grafana/grafana-gpu-metrics-dashboard.yaml
   - grafana-additional-stuff/alertmanager 
 - name: kueue
   namespace: kueue-system

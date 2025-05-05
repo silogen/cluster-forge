@@ -181,4 +181,5 @@ extraObjects: ###
       data:
         - secretKey: slack_contact_point_test_url
           remoteRef:
-            key: slack_contact_point_test_url
+            key: grafana-alertmanager-contactpoint
+            property: slack_contact_point_test_url
