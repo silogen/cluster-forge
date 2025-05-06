@@ -122,39 +122,40 @@ extraObjects:
           remoteRef:
             key: default-user
             property: API_SECRET_KEY
+
   - apiVersion: external-secrets.io/v1beta1
     kind: ExternalSecret
     metadata:
-      name: loki-tenant-creds-from-fake
+      name: loki-tenant-creds
       namespace: grafana-loki
     spec:
-      refreshInterval: "30m"
+      refreshInterval: "0"
       secretStoreRef:
-        name: fake-secret-store
+        name: k8s-secret-store
         kind: ClusterSecretStore
       target:
         name: loki-tenant-creds
       data:
         - secretKey: loki_tenant_name_oci1
           remoteRef:
-            key: loki_tenant_name_oci1
-            version: v1
+            key: grafana-loki-creds
+            property: loki_tenant_name_oci1
         - secretKey: loki_tenant_name_oci2
           remoteRef:
-            key: loki_tenant_name_oci2
-            version: v1
+            key: grafana-loki-creds
+            property: loki_tenant_name_oci2
         - secretKey: loki_tenant_name_ocisilogen
           remoteRef:
-            key: loki_tenant_name_ocisilogen
-            version: v1
+            key: grafana-loki-creds
+            property: loki_tenant_name_ocisilogen
         - secretKey: loki_tenant_name_ociops
           remoteRef:
-            key: loki_tenant_name_ociops
-            version: v1
+            key: grafana-loki-creds
+            property: loki_tenant_name_ociops
         - secretKey: loki_tenant_password_ociclusters
           remoteRef:
-            key: loki_tenant_password_ociclusters
-            version: v1
+            key: grafana-loki-creds
+            property: loki_tenant_password_ociclusters
 backend:
   persistence:
     storageClass: longhorn-default
