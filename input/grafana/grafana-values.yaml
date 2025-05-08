@@ -36,9 +36,9 @@ grafana.ini:
 service:
   port: 3000
 admin:
-  existingSecret: "grafana-user-credentials" ###
-  userKey: grafana-admin-id ###
-  passwordKey: grafana-admin-pw ###
+  existingSecret: "grafana-user-credentials"
+  userKey: grafana-admin-id
+  passwordKey: grafana-admin-pw
 
 deploymentStrategy:
   type: Recreate
@@ -46,75 +46,80 @@ deploymentStrategy:
 envValueFrom:
   SLACK_CONTACT_POINT_TEST_URL:
     secretKeyRef:
-      name: grafana-alertmanager-creds ###
+      name: grafana-alertmanager-creds
       key: slack_contact_point_test_url
-#  MIMIR_PASSWORD:
-#    secretKeyRef:
-#      name: grafana-user-credentials ###
-#      key: mimir-basic-password
+  LOKI_TENANT_PASSWORD:
+    secretKeyRef:
+      name: grafana-loki-creds
+      key: loki_tenant_password_ociclusters
+  MIMIR_BASIC_AUTH_PASSWORD:
+    secretKeyRef:
+      name: grafana-mimir-creds
+      key: mimir_basic_auth_password
+
 
 datasources:
   datasources.yaml:
     apiVersion: 1
     datasources:
-    - name: oci1-loki ##
+    - name: oci1-loki
       type: loki
       url: http://loki-gateway.grafana-loki.svc.cluster.local:80
       orgId: 1
-      uid: oci1-loki ##
+      uid: oci1-loki
       basicAuth: true
       basicAuthUser: loki_tenant_oci1
       secureJsonData:
-        basicAuthPassword: loki_tenant_password_ociclusters
-        httpHeaderValue1: 'loki-tenant-oci1' ##
+        basicAuthPassword: ${LOKI_TENANT_PASSWORD}
+        httpHeaderValue1: 'loki-tenant-oci1' ## <-- This may be not needed for loki
       jsonData:
-        httpHeaderName1: 'X-Scope-OrgID'
-    - name: oci2-loki ##
+        httpHeaderName1: 'X-Scope-OrgID' ## <-- This may be not needed for loki
+    - name: oci2-loki
       type: loki
       url: http://loki-gateway.grafana-loki.svc.cluster.local:80
       orgId: 1
-      uid: oci2-loki ##
+      uid: oci2-loki
       basicAuth: true
       basicAuthUser: loki_tenant_oci2
       secureJsonData:
-        basicAuthPassword: loki_tenant_password_ociclusters
-        httpHeaderValue1: 'loki-tenant-oci2' ##
+        basicAuthPassword: ${LOKI_TENANT_PASSWORD}
+        httpHeaderValue1: 'loki-tenant-oci2'
       jsonData:
         httpHeaderName1: 'X-Scope-OrgID'
-    - name: ocisilogen-loki ##
+    - name: ocisilogen-loki
       type: loki
       url: http://loki-gateway.grafana-loki.svc.cluster.local:80
       orgId: 1
-      uid: ocisilogen-loki ##
+      uid: ocisilogen-loki
       basicAuth: true
       basicAuthUser: loki_tenant_ocisilogen
       secureJsonData:
-        basicAuthPassword: loki_tenant_password_ociclusters
-        httpHeaderValue1: 'loki-tenant-ocisilogen' ##
+        basicAuthPassword: ${LOKI_TENANT_PASSWORD}
+        httpHeaderValue1: 'loki-tenant-ocisilogen'
       jsonData:
         httpHeaderName1: 'X-Scope-OrgID'
-    - name: ociops-loki ##
+    - name: ociops-loki
       type: loki
       url: http://loki-gateway.grafana-loki.svc.cluster.local:80
       orgId: 1
-      uid: ociops-loki ##
+      uid: ociops-loki
       basicAuth: true
       basicAuthUser: loki_tenant_ociops
       secureJsonData:
-        basicAuthPassword: loki_tenant_password_ociclusters
-        httpHeaderValue1: 'loki-tenant-ociops' ##
+        basicAuthPassword: ${LOKI_TENANT_PASSWORD}
+        httpHeaderValue1: 'loki-tenant-ociops'
       jsonData:
         httpHeaderName1: 'X-Scope-OrgID'
-    - name: oci-clusters-mimir ##
+    - name: oci-clusters-mimir
       type: prometheus
       url: http://mimir-gateway.grafana-mimir.svc:8080/prometheus
       orgId: 1
-      uid: oci-clusters-mimir ##
+      uid: oci-clusters-mimir
       basicAuth: true
       basicAuthUser: cluster-forge-mimir-test-user
       secureJsonData:
-        basicAuthPassword:  cluster-forge-mimir-test-pass
-        httpHeaderValue1: 'oci-clusters' ##
+        basicAuthPassword: ${MIMIR_BASIC_AUTH_PASSWORD} ## <--
+        httpHeaderValue1: 'oci-clusters'
       jsonData:
         httpHeaderName1: 'X-Scope-OrgID'
 #dashboardProviders:
@@ -143,28 +148,80 @@ sidecar:
     enabled: true
     label: grafana_alerting
 
-extraObjects: ###
+extraObjects:
   - apiVersion: external-secrets.io/v1beta1
     kind: ExternalSecret
     metadata:
       name: grafana-user-credentials
       namespace: grafana
     spec:
-      refreshInterval: "30m"
+      refreshInterval: "0"
       secretStoreRef:
-        name: fake-secret-store
+        name: k8s-secret-store
         kind: ClusterSecretStore
       target:
         name: grafana-user-credentials 
       data:
         - secretKey: grafana-admin-id
           remoteRef:
-            key: grafana-admin-id 
-            version: v1
-        - secretKey: grafana-admin-pw 
+            key: grafana-creds
+            property: grafana-admin-id
+        - secretKey: grafana-admin-pw
           remoteRef:
-            key: grafana-admin-pw
-            version: v1
+            key: grafana-creds
+            property: grafana-admin-pw
+
+  - apiVersion: external-secrets.io/v1beta1
+    kind: ExternalSecret
+    metadata:
+      name: grafana-loki-creds
+      namespace: grafana
+    spec:
+      refreshInterval: "0"
+      secretStoreRef:
+        name: k8s-secret-store
+        kind: ClusterSecretStore
+      target:
+        name: grafana-loki-creds
+      data:
+        - secretKey: loki_tenant_name_oci1
+          remoteRef:
+            key: grafana-loki-creds
+            property: loki_tenant_name_oci1
+        - secretKey: loki_tenant_name_oci2
+          remoteRef:
+            key: grafana-loki-creds
+            property: loki_tenant_name_oci2
+        - secretKey: loki_tenant_name_ocisilogen
+          remoteRef:
+            key: grafana-loki-creds
+            property: loki_tenant_name_ocisilogen
+        - secretKey: loki_tenant_name_ociops
+          remoteRef:
+            key: grafana-loki-creds
+            property: loki_tenant_name_ociops
+        - secretKey: loki_tenant_password_ociclusters
+          remoteRef:
+            key: grafana-loki-creds
+            property: loki_tenant_password_ociclusters
+
+  - apiVersion: external-secrets.io/v1beta1
+    kind: ExternalSecret
+    metadata:
+      name: grafana-mimir-creds
+      namespace: grafana
+    spec:
+      refreshInterval: "0"
+      secretStoreRef:
+        name: k8s-secret-store
+        kind: ClusterSecretStore
+      target:
+        name: grafana-mimir-creds
+      data:
+        - secretKey: mimir_basic_auth_password
+          remoteRef:
+            key: grafana-mimir-creds
+            property: mimir_basic_auth_password
 
   - apiVersion: external-secrets.io/v1beta1
     kind: ExternalSecret
@@ -172,7 +229,7 @@ extraObjects: ###
       name: grafana-alertmanager-creds
       namespace: grafana
     spec:
-      refreshInterval: "30m"
+      refreshInterval: "0"
       secretStoreRef:
         name: k8s-secret-store
         kind: ClusterSecretStore
@@ -181,5 +238,5 @@ extraObjects: ###
       data:
         - secretKey: slack_contact_point_test_url
           remoteRef:
-            key: grafana-alertmanager-contactpoint
-            property: slack_contact_point_test_url
+            key: grafana-creds
+            property: alertmanager_contact_point_url

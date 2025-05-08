@@ -1,0 +1,18 @@
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app.kubernetes.io/component: overrides-exporter
+    app.kubernetes.io/instance: mimir
+    app.kubernetes.io/name: mimir
+    app.kubernetes.io/version: 2.11.0
+  name: mimir-overrides-exporter
+  namespace: grafana-mimir
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: overrides-exporter
+      app.kubernetes.io/instance: mimir
+      app.kubernetes.io/name: mimir
