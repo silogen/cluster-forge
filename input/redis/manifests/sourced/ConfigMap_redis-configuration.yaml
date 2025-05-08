@@ -1,0 +1,22 @@
+---
+apiVersion: v1
+data:
+  master.conf: |-
+    dir /data
+    rename-command FLUSHDB ""
+    rename-command FLUSHALL ""
+  redis.conf: |-
+    appendonly yes
+    save ""
+  replica.conf: |-
+    dir /data
+    rename-command FLUSHDB ""
+    rename-command FLUSHALL ""
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: redis
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/version: 7.4.1
+  name: redis-configuration
+  namespace: redis

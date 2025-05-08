@@ -1,0 +1,22 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/instance: trivy-operator
+    app.kubernetes.io/name: trivy-operator
+    app.kubernetes.io/version: 0.24.1
+  name: trivy-operator
+  namespace: trivy-system
+spec:
+  clusterIP: None
+  ports:
+    - appProtocol: TCP
+      name: metrics
+      port: 80
+      protocol: TCP
+      targetPort: metrics
+  selector:
+    app.kubernetes.io/instance: trivy-operator
+    app.kubernetes.io/name: trivy-operator
+  type: ClusterIP

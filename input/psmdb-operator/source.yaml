@@ -1,0 +1,7 @@
+name: psmdb-operator
+namespace: "psmdb"
+helm-chart-name: "psmdb-operator"
+helm-name: psmdb-operator
+helm-url: "https://percona.github.io/percona-helm-charts"
+values: psmdb-operator-values.yaml
+helm-version: "1.17.0"

@@ -1,0 +1,7 @@
+name: trivy
+namespace: trivy-system
+helm-chart-name: trivy-operator
+helm-name: trivy-operator
+helm-url: https://aquasecurity.github.io/helm-charts
+helm-version: "0.26.1"
+values: values.yaml

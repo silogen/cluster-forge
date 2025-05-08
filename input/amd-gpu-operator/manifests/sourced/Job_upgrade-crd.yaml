@@ -1,0 +1,50 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    helm.sh/hook: pre-upgrade,pre-rollback
+    helm.sh/hook-delete-policy: before-hook-creation, hook-succeeded
+    helm.sh/hook-weight: "3"
+  labels:
+    app.kubernetes.io/instance: amd-gpu-operator
+    app.kubernetes.io/name: gpu-operator-charts
+    app.kubernetes.io/version: v1.2.0
+  name: upgrade-crd
+  namespace: kube-amd-gpu
+spec:
+  template:
+    metadata:
+      name: upgrade-crd
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: Exists
+              weight: 1
+      containers:
+        - command:
+            - /bin/sh
+            - -c
+            - |
+              kubectl apply -f /opt/helm-charts-crds-k8s/deviceconfig-crd.yaml
+              kubectl apply -f /opt/helm-charts-crds-k8s/nfd-api-crds.yaml
+              kubectl apply -f /opt/helm-charts-crds-k8s/module-crd.yaml
+              kubectl apply -f /opt/helm-charts-crds-k8s/nodemodulesconfig-crd.yaml
+          image: docker.io/rocm/gpu-operator:v1.2.0
+          imagePullPolicy: Always
+          name: upgrade-crd
+      restartPolicy: OnFailure
+      serviceAccountName: upgrade-crd-hook-sa
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Equal
+          value: ""
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
+          operator: Equal
+          value: ""

@@ -1,0 +1,12 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clusterforge-certmanager-info
+  namespace: cert-manager
+data:
+  source.yaml: |
+    name: certmanager
+    namespace: cert-manager
+    manifest-url: https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml
+    

@@ -1,0 +1,7 @@
+name: longhorn
+namespace: "longhorn"
+helm-chart-name: "longhorn"
+helm-name: longhorn
+helm-url: "https://charts.longhorn.io"
+helm-version: "1.8.0"
+values: values.yaml

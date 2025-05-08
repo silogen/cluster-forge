@@ -1,0 +1,107 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app.kubernetes.io/instance: promtail
+    app.kubernetes.io/name: promtail
+    app.kubernetes.io/version: 3.0.0
+  name: promtail
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: promtail
+      app.kubernetes.io/name: promtail
+  template:
+    metadata:
+      annotations:
+        checksum/config: d0fbe1c759e38ba633efbf0f6044be71b415a4a451080618126c845a9be0a242
+        prometheus.io/port: "8080"
+        prometheus.io/scrape: "true"
+      labels:
+        app.kubernetes.io/instance: promtail
+        app.kubernetes.io/name: promtail
+    spec:
+      automountServiceAccountToken: true
+      containers:
+        - args:
+            - -config.file=/etc/promtail/promtail.yaml
+          env:
+            - name: HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: LOKI_TENANT_PW
+              valueFrom:
+                secretKeyRef:
+                  key: loki_tenant_password
+                  name: loki-tenant-creds
+            - name: LOKI_TENANT_NAME
+              valueFrom:
+                secretKeyRef:
+                  key: loki_tenant_name
+                  name: loki-tenant-creds
+          image: docker.io/grafana/promtail:3.0.0
+          imagePullPolicy: IfNotPresent
+          name: promtail
+          ports:
+            - containerPort: 3101
+              name: http-metrics
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /ready
+              port: http-metrics
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - mountPath: /etc/promtail
+              name: config
+            - mountPath: /run/promtail
+              name: run
+            - mountPath: /var/lib/docker/containers
+              name: containers
+              readOnly: true
+            - mountPath: /var/log/pods
+              name: pods
+              readOnly: true
+      enableServiceLinks: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      securityContext:
+        runAsGroup: 0
+        runAsUser: 0
+      serviceAccountName: promtail
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Exists
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
+          operator: Exists
+        - effect: NoSchedule
+          operator: Exists
+      volumes:
+        - configMap:
+            name: promtail
+          name: config
+        - hostPath:
+            path: /run/promtail
+          name: run
+        - hostPath:
+            path: /var/lib/docker/containers
+          name: containers
+        - hostPath:
+            path: /var/log/pods
+          name: pods
+  updateStrategy: {}

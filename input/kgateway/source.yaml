@@ -1,0 +1,7 @@
+name: kgateway
+namespace: kgateway-system
+helm-chart-name: "oci://cr.kgateway.dev/kgateway-dev/charts/kgateway"
+helm-name: kgateway
+helm-url: ""
+helm-version: "v2.0.0"
+values: values.yaml

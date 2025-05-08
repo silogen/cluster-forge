@@ -1,0 +1,7 @@
+name: promtail
+namespace: "monitoring"
+helm-chart-name: "promtail"
+helm-name: promtail
+helm-url: "https://grafana.github.io/helm-charts"
+helm-version: "6.16.6"
+values: promtail-values.yaml

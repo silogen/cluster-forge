@@ -1,0 +1,124 @@
+---
+apiVersion: aquasecurity.github.io/v1alpha1
+kind: ClusterComplianceReport
+metadata:
+  labels:
+    app.kubernetes.io/instance: trivy-operator
+    app.kubernetes.io/name: trivy-operator
+    app.kubernetes.io/version: 0.24.1
+  name: k8s-pss-restricted-0.1
+spec:
+  compliance:
+    controls:
+      - checks:
+          - id: AVD-KSV-0103
+        description: Windows pods offer the ability to run HostProcess containers which enables privileged access to the Windows node. Privileged access to the host is disallowed in the baseline policy
+        id: "1"
+        name: HostProcess
+        severity: HIGH
+      - checks:
+          - id: AVD-KSV-0008
+        description: Sharing the host namespaces must be disallowed.
+        id: "2"
+        name: Host Namespaces
+        severity: HIGH
+      - checks:
+          - id: AVD-KSV-0017
+        description: Privileged Pods disable most security mechanisms and must be disallowed.
+        id: "3"
+        name: Privileged Containers
+        severity: HIGH
+      - checks:
+          - id: AVD-KSV-0022
+        description: Adding additional capabilities beyond those listed below must be disallowed.
+        id: "4"
+        name: Capabilities
+        severity: MEDIUM
+      - checks:
+          - id: AVD-KSV-0023
+        description: HostPath volumes must be forbidden.
+        id: "5"
+        name: HostPath Volumes
+        severity: MEDIUM
+      - checks:
+          - id: avd-ksv-0024
+        description: hostports should be disallowed, or at minimum restricted to a known list.
+        id: "6"
+        name: host ports
+        severity: HIGH
+      - checks:
+          - id: avd-ksv-0002
+        description: On supported hosts, the runtime/default AppArmor profile is applied by default. The baseline policy should prevent overriding or disabling the default AppArmor profile, or restrict overrides to an allowed set of profiles.
+        id: "7"
+        name: AppArmor
+        severity: HIGH
+      - checks:
+          - id: avd-ksv-0025
+        description: Setting the SELinux type is restricted, and setting a custom SELinux user or role option is forbidden.
+        id: "8"
+        name: SELinux
+        severity: MEDIUM
+      - checks:
+          - id: avd-ksv-0027
+        description: The default /proc masks are set up to reduce attack surface, and should be required.
+        id: "9"
+        name: /proc Mount Type
+        severity: MEDIUM
+      - checks:
+          - id: avd-ksv-0104
+        description: Seccomp profile must not be explicitly set to Unconfined.
+        id: "10"
+        name: Seccomp
+        severity: MEDIUM
+      - checks:
+          - id: avd-ksv-0026
+        description: Sysctls can disable security mechanisms or affect all containers on a host, and should be disallowed except for an allowed 'safe' subset. A sysctl is considered safe if it is namespaced in the container or the Pod, and it is isolated from other Pods or processes on the same Node.
+        id: "11"
+        name: Sysctls
+        severity: MEDIUM
+      - checks:
+          - id: avd-ksv-0028
+        description: The restricted policy only permits specific volume types.
+        id: "12"
+        name: Volume Types
+        severity: LOW
+      - checks:
+          - id: avd-ksv-0001
+        description: Privilege escalation (such as via set-user-ID or set-group-ID file mode) should not be allowed.
+        id: "13"
+        name: Privilege Escalation
+        severity: MEDIUM
+      - checks:
+          - id: avd-ksv-0012
+        description: Containers must be required to run as non-root users.
+        id: "14"
+        name: Running as Non-root
+        severity: MEDIUM
+      - checks:
+          - id: avd-ksv-0105
+        description: Containers must not set runAsUser to 0
+        id: "15"
+        name: Running as Non-root user
+        severity: LOW
+      - checks:
+          - id: avd-ksv-0030
+        description: Seccomp profile must be explicitly set to one of the allowed values. Both the Unconfined profile and the absence of a profile are prohibited
+        id: "16"
+        name: Seccomp
+        severity: LOW
+      - checks:
+          - id: avd-ksv-0106
+        description: Containers must drop ALL capabilities, and are only permitted to add back the NET_BIND_SERVICE capability.
+        id: "17"
+        name: Capabilities
+        severity: LOW
+    description: Kubernetes Pod Security Standards - Restricted
+    id: k8s-pss-restricted-0.1
+    platform: k8s
+    relatedResources:
+      - https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
+    title: Kubernetes Pod Security Standards - Restricted
+    type: pss-restricted
+    version: "0.1"
+  cron: 0 */6 * * *
+  reportType: summary

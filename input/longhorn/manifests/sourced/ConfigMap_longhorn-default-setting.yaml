@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+data:
+  default-setting.yaml: |-
+    create-default-disk-labeled-nodes: true
+    priority-class: longhorn-critical
+    disable-revision-counter: true
+    allow-collecting-longhorn-usage-metrics: false
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: longhorn
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/version: v1.8.0
+  name: longhorn-default-setting
+  namespace: longhorn

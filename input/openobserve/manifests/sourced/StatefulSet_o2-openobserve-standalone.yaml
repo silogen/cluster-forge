@@ -1,0 +1,76 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app.kubernetes.io/instance: o2
+    app.kubernetes.io/name: openobserve-standalone
+    app.kubernetes.io/version: v0.14.0
+  name: o2-openobserve-standalone
+  namespace: openobserve
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: o2
+      app.kubernetes.io/name: openobserve-standalone
+  serviceName: o2-openobserve-standalone-headless
+  template:
+    metadata:
+      annotations:
+        checksum/config: bc2dbfcfe69c784a1cc74f85dc3308b26c510f7dc6cca048118f0289f7a9b3e5
+      labels:
+        app.kubernetes.io/instance: o2
+        app.kubernetes.io/name: openobserve-standalone
+    spec:
+      containers:
+        - env: null
+          envFrom:
+            - configMapRef:
+                name: o2-openobserve-standalone
+            - secretRef:
+                name: o2-openobserve-standalone
+          image: public.ecr.aws/zinclabs/openobserve:v0.14.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 5080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          name: openobserve-standalone
+          ports:
+            - containerPort: 5080
+              name: http
+            - containerPort: 5081
+              name: grpc
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 5080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources: {}
+          securityContext: {}
+          volumeMounts:
+            - mountPath: /data
+              name: data
+      initContainers: null
+      securityContext:
+        fsGroup: 2000
+        runAsGroup: 3000
+        runAsNonRoot: true
+        runAsUser: 10000
+      serviceAccountName: o2-openobserve-standalone
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 30Gi
+        storageClassName: null

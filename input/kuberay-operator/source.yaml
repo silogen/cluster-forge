@@ -1,0 +1,7 @@
+name: kuberay-operator
+namespace: "default"
+helm-chart-name: "kuberay-operator"
+helm-name: kuberay-operator
+helm-url: "https://ray-project.github.io/kuberay-helm/"
+helm-version: "v1.2.2"
+values: values.yaml

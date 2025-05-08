@@ -1,0 +1,110 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/instance: amd-gpu-operator
+    app.kubernetes.io/name: node-feature-discovery
+    app.kubernetes.io/version: v0.16.1
+    role: master
+  name: amd-gpu-operator-node-feature-discovery-master
+  namespace: kube-amd-gpu
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: amd-gpu-operator
+      app.kubernetes.io/name: node-feature-discovery
+      role: master
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: amd-gpu-operator
+        app.kubernetes.io/name: node-feature-discovery
+        role: master
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/master
+                    operator: In
+                    values:
+                      - ""
+              weight: 1
+            - preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: In
+                    values:
+                      - ""
+              weight: 1
+      containers:
+        - args:
+            - -crd-controller=true
+            - -feature-gates=NodeFeatureAPI=true
+            - -feature-gates=NodeFeatureGroupAPI=false
+            - -metrics=8081
+          command:
+            - nfd-master
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          image: registry.k8s.io/nfd/node-feature-discovery:v0.16.1
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            grpc:
+              port: 8082
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          name: master
+          ports:
+            - containerPort: 8080
+              name: grpc
+            - containerPort: 8081
+              name: metrics
+          readinessProbe:
+            failureThreshold: 10
+            grpc:
+              port: 8082
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: 4Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /etc/kubernetes/node-feature-discovery
+              name: nfd-master-conf
+              readOnly: true
+      enableServiceLinks: false
+      securityContext: {}
+      serviceAccountName: amd-gpu-operator-node-feature-discovery
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Equal
+          value: ""
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
+          operator: Equal
+          value: ""
+      volumes:
+        - configMap:
+            items:
+              - key: nfd-master.conf
+                path: nfd-master.conf
+            name: amd-gpu-operator-node-feature-discovery-master-conf
+          name: nfd-master-conf

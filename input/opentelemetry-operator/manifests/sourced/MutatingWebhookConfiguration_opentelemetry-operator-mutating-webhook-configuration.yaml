@@ -1,0 +1,109 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: opentelemetry-operator-system/opentelemetry-operator-serving-cert
+  labels:
+    app.kubernetes.io/name: opentelemetry-operator
+  name: opentelemetry-operator-mutating-webhook-configuration
+webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: opentelemetry-operator-webhook-service
+        namespace: opentelemetry-operator-system
+        path: /mutate-opentelemetry-io-v1beta1-opentelemetrycollector
+    failurePolicy: Fail
+    name: mopentelemetrycollectorbeta.kb.io
+    rules:
+      - apiGroups:
+          - opentelemetry.io
+        apiVersions:
+          - v1beta1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - opentelemetrycollectors
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: opentelemetry-operator-webhook-service
+        namespace: opentelemetry-operator-system
+        path: /mutate-opentelemetry-io-v1alpha1-instrumentation
+    failurePolicy: Fail
+    name: minstrumentation.kb.io
+    rules:
+      - apiGroups:
+          - opentelemetry.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - instrumentations
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: opentelemetry-operator-webhook-service
+        namespace: opentelemetry-operator-system
+        path: /mutate-opentelemetry-io-v1alpha1-opampbridge
+    failurePolicy: Fail
+    name: mopampbridge.kb.io
+    rules:
+      - apiGroups:
+          - opentelemetry.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - opampbridges
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: opentelemetry-operator-webhook-service
+        namespace: opentelemetry-operator-system
+        path: /mutate-opentelemetry-io-v1beta1-targetallocator
+    failurePolicy: Fail
+    name: mtargetallocatorbeta.kb.io
+    rules:
+      - apiGroups:
+          - opentelemetry.io
+        apiVersions:
+          - v1beta1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - targetallocators
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: opentelemetry-operator-webhook-service
+        namespace: opentelemetry-operator-system
+        path: /mutate-v1-pod
+    failurePolicy: Ignore
+    name: mpod.kb.io
+    rules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+        resources:
+          - pods
+    sideEffects: None

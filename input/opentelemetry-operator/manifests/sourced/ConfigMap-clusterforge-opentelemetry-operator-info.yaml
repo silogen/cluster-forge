@@ -1,0 +1,12 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clusterforge-opentelemetry-operator-info
+  namespace: opentelemetry-operator-system
+data:
+  source.yaml: |
+    name: opentelemetry-operator
+    namespace: opentelemetry-operator-system
+    manifest-url: https://github.com/open-telemetry/opentelemetry-operator/releases/latest/download/opentelemetry-operator.yaml
+    

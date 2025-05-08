@@ -12,7 +12,7 @@ kmm:
 installdefaultNFDRule: true
 
 # -- CRD will be patched as pre-upgrade/pre-rollback hook when doing helm upgrade/rollback to current helm chart
-upgradeCRD: true
+upgradeCRD: false
 
 # AMD GPU operator controller related configs
 controllerManager:

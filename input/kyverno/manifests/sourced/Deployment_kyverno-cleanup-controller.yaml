@@ -1,0 +1,139 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: 3.4.1
+  name: kyverno-cleanup-controller
+  namespace: kyverno
+spec:
+  replicas: null
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: cleanup-controller
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 40%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: cleanup-controller
+        app.kubernetes.io/instance: kyverno
+        app.kubernetes.io/part-of: kyverno
+        app.kubernetes.io/version: 3.4.1
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/component
+                      operator: In
+                      values:
+                        - cleanup-controller
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+      containers:
+        - args:
+            - --caSecretName=kyverno-cleanup-controller.kyverno.svc.kyverno-tls-ca
+            - --tlsSecretName=kyverno-cleanup-controller.kyverno.svc.kyverno-tls-pair
+            - --servicePort=443
+            - --cleanupServerPort=9443
+            - --webhookServerPort=9443
+            - --resyncPeriod=15m
+            - --disableMetrics=false
+            - --otelConfig=prometheus
+            - --metricsPort=8000
+            - --enableDeferredLoading=true
+            - --dumpPayload=false
+            - --maxAPICallResponseLength=2000000
+            - --loggingFormat=text
+            - --v=2
+            - --protectManagedResources=false
+            - --ttlReconciliationInterval=1m
+          env:
+            - name: KYVERNO_DEPLOYMENT
+              value: kyverno-cleanup-controller
+            - name: INIT_CONFIG
+              value: kyverno
+            - name: METRICS_CONFIG
+              value: kyverno-metrics
+            - name: KYVERNO_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: KYVERNO_SERVICEACCOUNT_NAME
+              value: kyverno-cleanup-controller
+            - name: KYVERNO_ROLE_NAME
+              value: kyverno:cleanup-controller
+            - name: KYVERNO_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KYVERNO_SVC
+              value: kyverno-cleanup-controller
+          image: ghcr.io/kyverno/cleanup-controller:v1.14.1
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 2
+            httpGet:
+              path: /health/liveness
+              port: 9443
+              scheme: HTTPS
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 5
+          name: controller
+          ports:
+            - containerPort: 9443
+              name: https
+              protocol: TCP
+            - containerPort: 8000
+              name: metrics
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 6
+            httpGet:
+              path: /health/readiness
+              port: 9443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          resources:
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          startupProbe:
+            failureThreshold: 20
+            httpGet:
+              path: /health/liveness
+              port: 9443
+              scheme: HTTPS
+            initialDelaySeconds: 2
+            periodSeconds: 6
+      dnsPolicy: ClusterFirst
+      serviceAccountName: kyverno-cleanup-controller
