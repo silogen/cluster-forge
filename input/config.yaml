@@ -149,24 +149,28 @@
   manifestpath:
   - minio-tenant/manifests/k8s-secret
   skip-namespace: true
-- helm-chart-name: "loki"
-  helm-name: loki
-  helm-url: "https://grafana.github.io/helm-charts"
-  values: grafana-loki-values.yaml
-  secrets: false
-  name: grafana-loki
+- name: grafana-loki
   namespace: "grafana-loki"
-  helm-version: "6.15.0"
   syncwave: 1
-- helm-chart-name: "mimir-distributed"
-  helm-name: mimir
-  helm-url: "https://grafana.github.io/helm-charts"
-  values: grafana-mimir-values.yaml
-  secrets: false
-  name: grafana-mimir
+  manifestpath:
+  - grafana-loki/manifests
+#  helm-chart-name: "loki"
+#  helm-name: loki
+#  helm-url: "https://grafana.github.io/helm-charts"
+#  values: grafana-loki-values.yaml
+#  secrets: false
+#  helm-version: "6.15.0"
+- name: grafana-mimir
   namespace: "grafana-mimir"
-  helm-version: "5.2.1"
   syncwave: 1
+  manifestpath:
+  - grafana-mimir/manifests
+#  helm-chart-name: "mimir-distributed"
+#  helm-name: mimir
+#  helm-url: "https://grafana.github.io/helm-charts"
+#  values: grafana-mimir-values.yaml
+#  secrets: false
+#  helm-version: "5.2.1"
 - helm-chart-name: "redis"
   helm-name: redis
   helm-url: "https://charts.bitnami.com/bitnami"

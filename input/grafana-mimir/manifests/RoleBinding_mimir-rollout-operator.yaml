@@ -1,0 +1,13 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mimir-rollout-operator
+  namespace: grafana-mimir
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: mimir-rollout-operator
+subjects:
+  - kind: ServiceAccount
+    name: mimir-rollout-operator

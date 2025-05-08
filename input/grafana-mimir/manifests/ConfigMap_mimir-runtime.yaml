@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+data:
+  runtime.yaml: |
+    {}
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: mimir
+    app.kubernetes.io/name: mimir
+    app.kubernetes.io/version: 2.11.0
+  name: mimir-runtime
+  namespace: grafana-mimir
