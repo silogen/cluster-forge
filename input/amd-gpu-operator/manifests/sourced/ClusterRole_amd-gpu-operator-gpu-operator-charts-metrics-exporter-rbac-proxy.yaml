@@ -1,0 +1,33 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: amd-gpu
+    app.kubernetes.io/instance: amd-gpu-operator
+    app.kubernetes.io/name: gpu-operator-charts
+    app.kubernetes.io/part-of: amd-gpu
+    app.kubernetes.io/version: v1.2.0
+  name: amd-gpu-operator-gpu-operator-charts-metrics-exporter-rbac-proxy
+rules:
+  - apiGroups:
+      - authentication.k8s.io
+    resources:
+      - tokenreviews
+    verbs:
+      - create
+  - apiGroups:
+      - authorization.k8s.io
+    resources:
+      - subjectaccessreviews
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - watch
+      - get
+      - list
+      - update

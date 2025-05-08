@@ -1,0 +1,63 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    helm.sh/hook: post-delete
+    helm.sh/hook-delete-policy: before-hook-creation, hook-succeeded
+    helm.sh/hook-weight: "2"
+  labels:
+    app.kubernetes.io/instance: amd-gpu-operator
+    app.kubernetes.io/name: gpu-operator-charts
+    app.kubernetes.io/version: v1.2.0
+  name: delete-custom-resource-definitions
+  namespace: kube-amd-gpu
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: Exists
+              weight: 1
+      containers:
+        - command:
+            - /bin/sh
+            - -c
+            - |
+              if kubectl get crds deviceconfigs.amd.com > /dev/null 2>&1; then
+                kubectl delete crds deviceconfigs.amd.com
+              fi
+              if kubectl get crds nodefeaturegroups.nfd.k8s-sigs.io > /dev/null 2>&1; then
+                kubectl delete crds nodefeaturegroups.nfd.k8s-sigs.io
+              fi
+              if kubectl get crds nodefeaturerules.nfd.k8s-sigs.io > /dev/null 2>&1; then
+                kubectl delete crds nodefeaturerules.nfd.k8s-sigs.io
+              fi
+              if kubectl get crds nodefeatures.nfd.k8s-sigs.io > /dev/null 2>&1; then
+                kubectl delete crds nodefeatures.nfd.k8s-sigs.io
+              fi
+              if kubectl get crds modules.kmm.sigs.x-k8s.io > /dev/null 2>&1; then
+                kubectl delete crds modules.kmm.sigs.x-k8s.io
+              fi
+              if kubectl get crds nodemodulesconfigs.kmm.sigs.x-k8s.io > /dev/null 2>&1; then
+                kubectl delete crds nodemodulesconfigs.kmm.sigs.x-k8s.io
+              fi
+          image: docker.io/rocm/gpu-operator:v1.2.0
+          name: delete-custom-resource-definitions
+      restartPolicy: Never
+      serviceAccountName: amd-gpu-operator-gpu-operator-charts-prune
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Equal
+          value: ""
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
+          operator: Equal
+          value: ""
+  ttlSecondsAfterFinished: 60

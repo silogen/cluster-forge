@@ -1,0 +1,17 @@
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app.kubernetes.io/component: memcached-chunks-cache
+    app.kubernetes.io/instance: loki
+    app.kubernetes.io/name: loki
+  name: loki-memcached-chunks-cache
+  namespace: grafana-loki
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: memcached-chunks-cache
+      app.kubernetes.io/instance: loki
+      app.kubernetes.io/name: loki

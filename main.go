@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/silogen/cluster-forge/cmd/caster"
+	"github.com/silogen/cluster-forge/cmd/miner"
 	"github.com/silogen/cluster-forge/cmd/smelter"
 	"github.com/silogen/cluster-forge/cmd/utils"
 	"github.com/silogen/cluster-forge/cmd/utils/configloader"
@@ -52,6 +53,15 @@ func main() {
 	var configFile string
 	gitops := utils.GitopsParameters{}
 	castParameters := CastParameters{}
+	var mineCmd = &cobra.Command{
+		Use:   "mine",
+		Short: "Run mine",
+		Long: `The mine command processes the input configuration  generates normalized yaml in the input directory.
+It is used to update of configure the manifests used by the smelt operation.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			runMine()
+		},
+	}
 	var smeltCmd = &cobra.Command{
 		Use:   "smelt",
 		Short: "Run smelt",
@@ -97,7 +107,7 @@ This step creates a container image which can be used during forge step to deplo
 	defaultGitopsBranch := "HEAD"
 	defaultGitopsPathPrefix := ""
 
-	rootCmd.AddCommand(smeltCmd, castCmd, forgeCmd)
+	rootCmd.AddCommand(mineCmd, smeltCmd, castCmd, forgeCmd)
 
 	rootCmd.PersistentFlags().StringVarP(&optionsFile, "options", "o", "", "Path to the options file")
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", defaultConfigfile, "Path to the config file")
@@ -117,6 +127,15 @@ This step creates a container image which can be used during forge step to deplo
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+func runMine() {
+	utils.Setup(true)
+	configs, err := configloader.LoadConfig("input/config.yaml", "input/config.yaml", utils.GitopsParameters{}, true)
+	if err != nil {
+		log.Fatalf("Failed to read config: %v", err)
+	}
+	miner.Mine(configs)
 }
 
 func runSmelt(configFile string, nonInteractive bool, gitops utils.GitopsParameters) {

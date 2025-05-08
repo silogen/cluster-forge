@@ -1,0 +1,96 @@
+---
+apiVersion: v1
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+    - basicAuth: true
+      basicAuthUser: loki_tenant_oci1
+      jsonData:
+        httpHeaderName1: X-Scope-OrgID
+      name: oci1-loki
+      orgId: 1
+      secureJsonData:
+        basicAuthPassword: loki_tenant_password_ociclusters
+        httpHeaderValue1: loki-tenant-oci1
+      type: loki
+      uid: oci1-loki
+      url: http://loki-gateway.grafana-loki.svc.cluster.local:80
+    - basicAuth: true
+      basicAuthUser: loki_tenant_oci2
+      jsonData:
+        httpHeaderName1: X-Scope-OrgID
+      name: oci2-loki
+      orgId: 1
+      secureJsonData:
+        basicAuthPassword: loki_tenant_password_ociclusters
+        httpHeaderValue1: loki-tenant-oci2
+      type: loki
+      uid: oci2-loki
+      url: http://loki-gateway.grafana-loki.svc.cluster.local:80
+    - basicAuth: true
+      basicAuthUser: loki_tenant_ocisilogen
+      jsonData:
+        httpHeaderName1: X-Scope-OrgID
+      name: ocisilogen-loki
+      orgId: 1
+      secureJsonData:
+        basicAuthPassword: loki_tenant_password_ociclusters
+        httpHeaderValue1: loki-tenant-ocisilogen
+      type: loki
+      uid: ocisilogen-loki
+      url: http://loki-gateway.grafana-loki.svc.cluster.local:80
+    - basicAuth: true
+      basicAuthUser: loki_tenant_ociops
+      jsonData:
+        httpHeaderName1: X-Scope-OrgID
+      name: ociops-loki
+      orgId: 1
+      secureJsonData:
+        basicAuthPassword: loki_tenant_password_ociclusters
+        httpHeaderValue1: loki-tenant-ociops
+      type: loki
+      uid: ociops-loki
+      url: http://loki-gateway.grafana-loki.svc.cluster.local:80
+    - basicAuth: true
+      basicAuthUser: cluster-forge-mimir-test-user
+      jsonData:
+        httpHeaderName1: X-Scope-OrgID
+      name: oci-clusters-mimir
+      orgId: 1
+      secureJsonData:
+        basicAuthPassword: cluster-forge-mimir-test-pass
+        httpHeaderValue1: oci-clusters
+      type: prometheus
+      uid: oci-clusters-mimir
+      url: http://mimir-gateway.grafana-mimir.svc:8080/prometheus
+  grafana.ini: |
+    [analytics]
+    check_for_updates = true
+    [auth.anonymous]
+    enabled = true
+    org_role = Viewer
+    [date_formats]
+    default_timezone = UTC
+    [grafana_net]
+    url = https://grafana.net
+    [log]
+    mode = console
+    [paths]
+    data = /var/lib/grafana/
+    logs = /var/log/grafana
+    plugins = /var/lib/grafana/plugins
+    provisioning = /etc/grafana/provisioning
+    [security]
+    allow_embedding = true
+    [server]
+    domain = ''
+    root_url = https://localhost
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: grafana
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/version: 11.6.0
+  name: grafana
+  namespace: grafana

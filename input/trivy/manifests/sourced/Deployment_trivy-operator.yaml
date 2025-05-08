@@ -1,0 +1,83 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/instance: trivy-operator
+    app.kubernetes.io/name: trivy-operator
+    app.kubernetes.io/version: 0.24.1
+  name: trivy-operator
+  namespace: trivy-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: trivy-operator
+      app.kubernetes.io/name: trivy-operator
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8080"
+        prometheus.io/scrape: "true"
+      labels:
+        app.kubernetes.io/instance: trivy-operator
+        app.kubernetes.io/name: trivy-operator
+    spec:
+      automountServiceAccountToken: true
+      containers:
+        - env:
+            - name: OPERATOR_NAMESPACE
+              value: trivy-system
+            - name: OPERATOR_TARGET_NAMESPACES
+              value: ""
+            - name: OPERATOR_EXCLUDE_NAMESPACES
+              value: ""
+            - name: OPERATOR_TARGET_WORKLOADS
+              value: pod,replicaset,replicationcontroller,statefulset,daemonset,cronjob,job
+            - name: OPERATOR_SERVICE_ACCOUNT
+              value: trivy-operator
+          envFrom:
+            - configMapRef:
+                name: trivy-operator-config
+          image: mirror.gcr.io/aquasec/trivy-operator:0.24.1
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 10
+            httpGet:
+              path: /healthz/
+              port: probes
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+          name: trivy-operator
+          ports:
+            - containerPort: 8080
+              name: metrics
+            - containerPort: 9090
+              name: probes
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz/
+              port: probes
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: cache-policies
+              readOnly: false
+      serviceAccountName: trivy-operator
+      volumes:
+        - emptyDir: {}
+          name: cache-policies

@@ -1,0 +1,12 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clusterforge-kueue-info
+  namespace: kueue-system
+data:
+  source.yaml: |
+    name: kueue
+    namespace: kueue-system
+    manifest-url: https://github.com/kubernetes-sigs/kueue/releases/download/v0.11.0/manifests.yaml
+    

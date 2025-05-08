@@ -1,0 +1,21 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  annotations:
+    helm.sh/hook: post-delete
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    helm.sh/hook-weight: "1"
+  labels:
+    app.kubernetes.io/instance: amd-gpu-operator
+    app.kubernetes.io/name: gpu-operator-charts
+    app.kubernetes.io/version: v1.2.0
+  name: amd-gpu-operator-gpu-operator-charts-prune
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: amd-gpu-operator-gpu-operator-charts-prune
+subjects:
+  - kind: ServiceAccount
+    name: amd-gpu-operator-gpu-operator-charts-prune
+    namespace: kube-amd-gpu

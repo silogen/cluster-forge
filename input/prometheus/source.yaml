@@ -1,0 +1,7 @@
+name: prometheus
+namespace: "monitoring"
+helm-chart-name: "prometheus"
+helm-name: prometheus
+helm-url: "https://prometheus-community.github.io/helm-charts"
+helm-version: "27.12.1"
+values: prometheus-values.yaml

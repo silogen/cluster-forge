@@ -42,53 +42,6 @@ tenant:
     - name: default-user
   certificate:
     requestAutoCert: false
-extraResources:
- - |
-    apiVersion: batch/v1
-    kind: Job
-    metadata:
-      name: mc-post-job
-      namespace: minio-tenant-default
-    spec:
-      backoffLimit: 1
-      activeDeadlineSeconds: 300
-      template:
-        spec:
-          restartPolicy: Never
-          containers:
-          - name: mc
-            image: minio/mc:latest
-            command: ["/bin/sh", "-c"]
-            args:
-              - source /tmp/minio-config/config.env;
-                until mc alias set init "$MINIO_SERVER_URL" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do sleep 5; done;
-                mc admin accesskey create init/ "$CONSOLE_ACCESS_KEY" --access-key "$API_ACCESS_KEY" --secret-key "$API_SECRET_KEY";
-                until mc admin accesskey edit init/ "$API_ACCESS_KEY" --secret-key "$API_SECRET_KEY"; do sleep 5; done;
-            env:
-            - name: CONSOLE_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: default-user
-                  key: CONSOLE_ACCESS_KEY
-            - name: API_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: default-user
-                  key: API_ACCESS_KEY
-            - name: API_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: default-user
-                  key: API_SECRET_KEY
-            - name: MINIO_URL
-              value: https://default-minio-tenant-console.minio-tenant-default.svc.cluster.local
-            volumeMounts:
-            - mountPath: /tmp/minio-config
-              name: configuration
-          volumes:
-          - name: configuration
-            projected:
-              defaultMode: 420
-              sources:
-              - secret:
-                  name: default-minio-tenant-env-configuration
+  env: 
+    - name: MINIO_PROMETHEUS_AUTH_TYPE
+      value: "public"

@@ -124,7 +124,7 @@ func PrepareTool(configMap configloader.ToolSet, workingDir string) error {
 		if err != nil {
 			return fmt.Errorf("failed to parse config: %w", err)
 		}
-		SplitYAML(config, workingDir)
+		utils.SplitYAML(config, filepath.Join(workingDir, config.Name))
 		utils.CreateApplicationFile(config, filepath.Join(workingDir, "argo-apps"))
 		files, _ = os.ReadDir(toolDir)
 		for _, file := range files {

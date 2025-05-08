@@ -1,0 +1,226 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/instance: grafana
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/version: 11.6.0
+  name: grafana
+  namespace: grafana
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: grafana
+      app.kubernetes.io/name: grafana
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        checksum/config: 418c721d7688c3967d4bfac52bfd32245fff8e24b70659930714dd61a66da785
+        checksum/sc-dashboard-provider-config: 81f722b8194d01e4a84ce12a0cbbe9b705b2d9145719c803ac264b4786c64a09
+        kubectl.kubernetes.io/default-container: grafana
+      labels:
+        app.kubernetes.io/instance: grafana
+        app.kubernetes.io/name: grafana
+        app.kubernetes.io/version: 11.6.0
+    spec:
+      automountServiceAccountToken: true
+      containers:
+        - env:
+            - name: METHOD
+              value: WATCH
+            - name: LABEL
+              value: grafana_alerting
+            - name: FOLDER
+              value: /etc/grafana/provisioning/alerting
+            - name: RESOURCE
+              value: both
+            - name: REQ_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  key: grafana-admin-id
+                  name: grafana-user-credentials
+            - name: REQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: grafana-admin-pw
+                  name: grafana-user-credentials
+            - name: REQ_URL
+              value: http://localhost:3000/api/admin/provisioning/alerting/reload
+            - name: REQ_METHOD
+              value: POST
+          image: quay.io/kiwigrid/k8s-sidecar:1.30.0
+          imagePullPolicy: IfNotPresent
+          name: grafana-sc-alerts
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - mountPath: /etc/grafana/provisioning/alerting
+              name: sc-alerts-volume
+        - env:
+            - name: METHOD
+              value: WATCH
+            - name: LABEL
+              value: grafana_dashboard
+            - name: FOLDER
+              value: /tmp/dashboards
+            - name: RESOURCE
+              value: both
+            - name: FOLDER_ANNOTATION
+              value: grafana_folder
+            - name: REQ_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  key: grafana-admin-id
+                  name: grafana-user-credentials
+            - name: REQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: grafana-admin-pw
+                  name: grafana-user-credentials
+            - name: REQ_URL
+              value: http://localhost:3000/api/admin/provisioning/dashboards/reload
+            - name: REQ_METHOD
+              value: POST
+          image: quay.io/kiwigrid/k8s-sidecar:1.30.0
+          imagePullPolicy: IfNotPresent
+          name: grafana-sc-dashboard
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - mountPath: /tmp/dashboards
+              name: sc-dashboard-volume
+        - env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  key: grafana-admin-id
+                  name: grafana-user-credentials
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: grafana-admin-pw
+                  name: grafana-user-credentials
+            - name: GF_PATHS_DATA
+              value: /var/lib/grafana/
+            - name: GF_PATHS_LOGS
+              value: /var/log/grafana
+            - name: GF_PATHS_PLUGINS
+              value: /var/lib/grafana/plugins
+            - name: GF_PATHS_PROVISIONING
+              value: /etc/grafana/provisioning
+            - name: SLACK_CONTACT_POINT_TEST_URL
+              valueFrom:
+                secretKeyRef:
+                  key: slack_contact_point_test_url
+                  name: grafana-alertmanager-creds
+          image: docker.io/grafana/grafana:11.6.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 10
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 60
+            timeoutSeconds: 30
+          name: grafana
+          ports:
+            - containerPort: 3000
+              name: grafana
+              protocol: TCP
+            - containerPort: 9094
+              name: gossip-tcp
+              protocol: TCP
+            - containerPort: 9094
+              name: gossip-udp
+              protocol: UDP
+            - containerPort: 6060
+              name: profiling
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - mountPath: /etc/grafana/grafana.ini
+              name: config
+              subPath: grafana.ini
+            - mountPath: /var/lib/grafana
+              name: storage
+            - mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
+              name: config
+              subPath: datasources.yaml
+            - mountPath: /etc/grafana/provisioning/alerting
+              name: sc-alerts-volume
+            - mountPath: /tmp/dashboards
+              name: sc-dashboard-volume
+            - mountPath: /etc/grafana/provisioning/dashboards/sc-dashboardproviders.yaml
+              name: sc-dashboard-provider
+              subPath: provider.yaml
+      enableServiceLinks: true
+      initContainers:
+        - command:
+            - chown
+            - -R
+            - 472:472
+            - /var/lib/grafana
+          image: docker.io/library/busybox:1.31.1
+          imagePullPolicy: IfNotPresent
+          name: init-chown-data
+          securityContext:
+            capabilities:
+              add:
+                - CHOWN
+            runAsNonRoot: false
+            runAsUser: 0
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - mountPath: /var/lib/grafana
+              name: storage
+      securityContext:
+        fsGroup: 472
+        runAsGroup: 472
+        runAsNonRoot: true
+        runAsUser: 472
+      serviceAccountName: grafana
+      shareProcessNamespace: false
+      volumes:
+        - configMap:
+            name: grafana
+          name: config
+        - name: storage
+          persistentVolumeClaim:
+            claimName: grafana
+        - emptyDir: {}
+          name: sc-alerts-volume
+        - emptyDir: {}
+          name: sc-dashboard-volume
+        - configMap:
+            name: grafana-config-dashboards
+          name: sc-dashboard-provider

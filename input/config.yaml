@@ -11,18 +11,14 @@
   - kgateway-crds
 - name: certmanager
   namespace: cert-manager
-  manifest-url: https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml
   syncwave: -10
+  manifestpath:
+  - certmanager/manifests/sourced
 - name: amd-gpu-operator
   namespace: "kube-amd-gpu"
   manifestpath:
-  - amd-gpu-operator/manifests/helm
+  - amd-gpu-operator/manifests/sourced
   - amd-gpu-operator/manifests/additions
-  # helm-chart-name: "gpu-operator-charts"
-  # helm-name: amd-gpu-operator
-  # helm-url: "https://rocm.github.io/gpu-operator"
-  # helm-version: "1.0.0"
-  # values: values.yaml
 - name: amd-device-config
   namespace: kube-amd-gpu
   skip-namespace: true
@@ -37,26 +33,16 @@
 - name: kueue
   namespace: kueue-system
   manifestpath:
-  - kueue/manifests.yaml
+  - kueue/manifests/sourced
 - name: external-secrets
   namespace: "external-secrets"
   syncwave: -10
   manifestpath:
-  - external-secrets/manifests/helm
-  # helm-chart-name: "external-secrets"
-  # helm-name: external-secrets
-  # helm-url: "https://charts.external-secrets.io"
-  # values: external-secrets-values.yaml
-  # secrets: false
-  # helm-version: "0.15.1"
-- helm-chart-name: "psmdb-operator"
-  helm-name: psmdb-operator
-  helm-url: "https://percona.github.io/percona-helm-charts"
-  values: psmdb-operator-values.yaml
-  secrets: false
-  name: psmdb-operator
+  - external-secrets/manifests/sourced
+- name: psmdb-operator
   namespace: "psmdb"
-  helm-version: "1.17.0"
+  manifestpath:
+  - psmdb-operator/manifests/sourced
 - name: cnpg-operator
   namespace: cnpg-system
   manifestpath:
@@ -68,79 +54,42 @@
 - name: kyverno
   namespace: kyverno
   manifestpath:
-  - kyverno/manifests/helm
-  # helm-chart-name: kyverno
-  # helm-name: kyverno
-  # helm-url: https://kyverno.github.io/kyverno/
-  # values: values.yaml
-  # secrets: false
-- helm-chart-name: "prometheus"
-  helm-name: prometheus
-  helm-url: "https://prometheus-community.github.io/helm-charts"
+  - kyverno/manifests/sourced
+- name: prometheus
   namespace: "monitoring"
-  values: prometheus-values.yaml
-  secrets: false
-  name: prometheus
-- helm-chart-name: "promtail"
-  helm-name: promtail
-  helm-url: "https://grafana.github.io/helm-charts"
-  values: promtail-values.yaml
-  secrets: false
-  name: promtail
+  manifestpath:
+  - prometheus/manifests/sourced
+- name: promtail
   namespace: "monitoring"
+  manifestpath:
+  - promtail/manifests/sourced
 - name: trivy
   namespace: trivy-system
-  helm-chart-name: trivy-operator
-  helm-name: trivy-operator
-  helm-url: https://aquasecurity.github.io/helm-charts
-  values: values.yaml
-  secrets: false
-- helm-chart-name: "grafana"
-  helm-name: grafana
-  helm-url: "https://grafana.github.io/helm-charts"
-  values: grafana-values.yaml
-  secrets: false
-  name: grafana
+  manifestpath:
+  - trivy/manifests/sourced
+- name: grafana
   namespace: "grafana"
-  helm-version: "8.12.0"
   syncwave: 1
-# - helm-chart-name: "prometheus-opencost-exporter"
-#   helm-name: opencost
-#   helm-url: "https://prometheus-community.github.io/helm-charts"
-#   values: values.yaml
-#   secrets: false
-#   name: opencost
-#   namespace: opencost
+  manifestpath:
+  - grafana/manifests/sourced
 - name: kuberay-operator
   namespace: "default"
   manifestpath:
-  - kuberay-operator/manifests/helm
-  # helm-chart-name: "kuberay-operator"
-  # helm-name: kuberay-operator
-  # helm-url: "https://ray-project.github.io/kuberay-helm/"
-  # values: values.yaml
-  # secrets: false
+  - kuberay-operator/manifests/sourced
 - name: longhorn
   namespace: "longhorn"
   manifestpath:
-  - longhorn/manifests
+  - longhorn/manifests/sourced
   syncwave: -100
-  # helm-chart-name: "longhorn"
-  # helm-name: longhorn
-  # helm-url: "https://charts.longhorn.io"
-  # values: values.yaml
 - name: minio-operator
   namespace: "minio-operator"
   syncwave: -1
   manifestpath:
-  - minio-operator/manifests
-  # helm-chart-name: "operator"
-  # helm-name: minio-operator
-  # helm-url: "https://operator.min.io"
-  # values: minio-values.yaml
+  - minio-operator/manifests/sourced
 - name: minio-tenant
   namespace: minio-tenant-default
   manifestpath:
+  - minio-tenant/manifests/sourced
   - minio-tenant/manifests/base
   - minio-tenant/manifests/clustersecretstore
   - minio-tenant/manifests/route
@@ -149,53 +98,40 @@
   manifestpath:
   - minio-tenant/manifests/k8s-secret
   skip-namespace: true
-- helm-chart-name: "loki"
-  helm-name: loki
-  helm-url: "https://grafana.github.io/helm-charts"
-  values: grafana-loki-values.yaml
-  secrets: false
-  name: grafana-loki
+- name: grafana-loki
   namespace: "grafana-loki"
-  helm-version: "6.15.0"
   syncwave: 1
-- helm-chart-name: "mimir-distributed"
-  helm-name: mimir
-  helm-url: "https://grafana.github.io/helm-charts"
-  values: grafana-mimir-values.yaml
-  secrets: false
-  name: grafana-mimir
+  manifestpath:
+  - grafana-loki/manifests/sourced
+- name: grafana-mimir
   namespace: "grafana-mimir"
-  helm-version: "5.2.1"
   syncwave: 1
-- helm-chart-name: "redis"
-  helm-name: redis
-  helm-url: "https://charts.bitnami.com/bitnami"
+  manifestpath:
+  - grafana-mimir/manifests/sourced
+- name: redis
   namespace: "redis"
-  name: redis
-  helm-version: "20.3.0"
-  values: redis-dev-values.yaml # Insecure
+  manifestpath:
+  - redis/manifests/sourced
 - name: kube-prometheus-stack
   namespace: "prometheus-system"
   manifestpath:
   - kube-prometheus-stack/kube-prometheus-stack-manifests.yaml
 - name: opentelemetry-operator
   namespace: opentelemetry-operator-system
-  manifest-url: https://github.com/open-telemetry/opentelemetry-operator/releases/latest/download/opentelemetry-operator.yaml
-- helm-chart-name: "openobserve-standalone"
-  helm-name: o2
-  helm-url: "https://charts.openobserve.ai"
-  values: openobserve-standalone-values.yaml
-  secrets: true
-  name: openobserve
+  manifestpath:
+  - opentelemetry-operator/manifests/sourced
+- name: openobserve
   namespace: "openobserve"
-  helm-version: "0.14.1"
+  manifestpath:
+  - openobserve/manifests/sourced
 - name: openobserve-collector
   namespace: "openobserve-collector"
   manifestpath:
   - openobserve-collector/manifests.yaml
 - name: prometheus-crds
   namespace: prometheus-system
-  manifest-url: https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.79.2/stripped-down-crds.yaml
+  manifestpath:
+  - prometheus-crds/manifests/sourced
   syncwave: -1
 - name: 1password-cluster-secret-store
   namespace: external-secrets
@@ -252,30 +188,18 @@
   namespace: default
   syncwave: -200
   manifestpath: 
-  - gateway-api/manifests/url
-  # manifest-url: https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml
+  - gateway-api/manifests/sourced
 - name: metallb
   namespace: metallb-system
   syncwave: -10
   manifestpath:
-  - metallb/manifests/url
-  # manifest-url: https://raw.githubusercontent.com/metallb/metallb/v0.14.8/config/manifests/metallb-native.yaml
+  - metallb/manifests/sourced
 - name: kgateway-crds
   namespace: default
   manifestpath:
-  - kgateway-crds/manifests/helm
-  # helm-chart-name: "oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds"
-  # helm-name: kgateway-crds
-  # helm-url: ""
-  # helm-version: "v2.0.0-main"
-  # values: values.yaml
+  - kgateway-crds/manifests/sourced
 - name: kgateway
   namespace: kgateway-system
   manifestpath:
-  - kgateway/manifests/helm
+  - kgateway/manifests/sourced
   - kgateway/manifests/gateway
-  # helm-chart-name: "oci://cr.kgateway.dev/kgateway-dev/charts/kgateway"
-  # helm-name: kgateway
-  # helm-url: ""
-  # helm-version: "v2.0.0-main"
-  # values: values.yaml

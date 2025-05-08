@@ -1,0 +1,7 @@
+name: kgateway-crds
+namespace: default
+helm-chart-name: "oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds"
+helm-name: kgateway-crds
+helm-url: ""
+helm-version: "v2.0.0"
+values: values.yaml

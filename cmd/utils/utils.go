@@ -118,28 +118,23 @@ type GitopsParameters struct {
 }
 
 type Config struct {
-	HelmChartName       string   `yaml:"helm-chart-name"`
-	HelmURL             string   `yaml:"helm-url"`
-	Values              string   `yaml:"values"`
-	Name                string   `yaml:"name"`
-	HelmName            string   `yaml:"helm-name"`
-	ManifestURL         string   `yaml:"manifest-url"`
-	HelmVersion         string   `yaml:"helm-version"`
-	Namespace           string   `yaml:"namespace"`
-	ManifestPath        []string `yaml:"manifestpath"`
-	SyncWave            string   `yaml:"syncwave"`
-	Collection          []string `yaml:"collection"`
-	SkipNamespace       string   `yaml:"skip-namespace"`
-	Filename            string
-	CRDFiles            []string
-	NamespaceFiles      []string
-	SecretFiles         []string
-	ExternalSecretFiles []string
-	ObjectFiles         []string
-	StackName           string
-	GitopsUrl           string
-	GitopsBranch        string
-	GitopsPathPrefix    string
+	HelmChartName    string   `yaml:"helm-chart-name"`
+	HelmURL          string   `yaml:"helm-url"`
+	Values           string   `yaml:"values"`
+	Name             string   `yaml:"name"`
+	HelmName         string   `yaml:"helm-name"`
+	ManifestURL      string   `yaml:"manifest-url"`
+	HelmVersion      string   `yaml:"helm-version"`
+	Namespace        string   `yaml:"namespace"`
+	ManifestPath     []string `yaml:"manifestpath"`
+	SyncWave         string   `yaml:"syncwave"`
+	Collection       []string `yaml:"collection"`
+	SkipNamespace    string   `yaml:"skip-namespace"`
+	SourceExclusions []string `yaml:"source-exclusions"`
+	Filename         string
+	GitopsUrl        string
+	GitopsBranch     string
+	GitopsPathPrefix string
 }
 
 func Setup(nonInteractive bool) {
@@ -199,35 +194,34 @@ func Templatehelm(config Config, helmExec HelmExecutor) error {
 	defer file.Close()
 
 	if config.HelmChartName != "" {
+		valuesPath := fmt.Sprintf("input/%s/default-values.yaml", config.Name)
+		fetchValuesArgs := []string{"show", "values", config.HelmChartName}
+		if config.HelmURL != "" {
+			fetchValuesArgs = append(fetchValuesArgs, "--repo", config.HelmURL)
+		}
+		if config.HelmVersion != "" {
+			fetchValuesArgs = append(fetchValuesArgs, "--version", config.HelmVersion)
+		}
+		if config.Namespace != "" {
+			fetchValuesArgs = append(fetchValuesArgs, "--namespace", config.Namespace)
+		}
+		cmdFetchValues := exec.Command("helm", fetchValuesArgs...)
+		output, err := cmdFetchValues.Output()
+		if err != nil {
+			return fmt.Errorf("failed to fetch values.yaml for %s: %w", config.Name, err)
+		}
+
+		err = os.MkdirAll(fmt.Sprintf("input/%s", config.Name), 0755)
+		if err != nil {
+			return fmt.Errorf("failed to create input directory for %s: %w", config.Name, err)
+		}
+
+		err = os.WriteFile(valuesPath, output, 0644)
+		if err != nil {
+			return fmt.Errorf("failed to write default-values.yaml for %s: %w", config.Name, err)
+		}
 		if config.Values == "" {
-			valuesPath := fmt.Sprintf("input/%s/values.yaml", config.Name)
-			fetchValuesArgs := []string{"show", "values", config.HelmChartName}
-			if config.HelmURL != "" {
-				fetchValuesArgs = append(fetchValuesArgs, "--repo", config.HelmURL)
-			}
-			if config.HelmVersion != "" {
-				fetchValuesArgs = append(fetchValuesArgs, "--version", config.HelmVersion)
-			}
-			if config.Namespace != "" {
-				fetchValuesArgs = append(fetchValuesArgs, "--namespace", config.Namespace)
-			}
-			cmdFetchValues := exec.Command("helm", fetchValuesArgs...)
-			output, err := cmdFetchValues.Output()
-			if err != nil {
-				return fmt.Errorf("failed to fetch values.yaml for %s: %w", config.Name, err)
-			}
-
-			err = os.MkdirAll(fmt.Sprintf("input/%s", config.Name), 0755)
-			if err != nil {
-				return fmt.Errorf("failed to create input directory for %s: %w", config.Name, err)
-			}
-
-			err = os.WriteFile(valuesPath, output, 0644)
-			if err != nil {
-				return fmt.Errorf("failed to write values.yaml for %s: %w", config.Name, err)
-			}
-
-			config.Values = "values.yaml"
+			config.Values = "default-values.yaml"
 		}
 
 		args := []string{"template", config.HelmName, config.HelmChartName, "-f", "input/" + config.Name + "/" + config.Values, "--include-crds"}
@@ -245,6 +239,11 @@ func Templatehelm(config Config, helmExec HelmExecutor) error {
 		err = helmExec.RunHelmCommand(args, file, &stderr)
 		if err != nil {
 			return fmt.Errorf("helm command failed: %s: %w", stderr.String(), err)
+		}
+	} else if config.ManifestURL != "" {
+		err := downloadFile(config.Filename, config.ManifestURL)
+		if err != nil {
+			return fmt.Errorf("failed to download manifest: %w", err)
 		}
 	} else if len(config.ManifestPath) > 0 {
 		files := make([]string, 0)
@@ -277,11 +276,6 @@ func Templatehelm(config Config, helmExec HelmExecutor) error {
 			dstFile.WriteString("\n---\n")
 			data, _ := os.ReadFile(value)
 			dstFile.Write(data)
-		}
-	} else if config.ManifestURL != "" {
-		err := downloadFile(config.Filename, config.ManifestURL)
-		if err != nil {
-			return fmt.Errorf("failed to download manifest: %w", err)
 		}
 	}
 
@@ -644,4 +638,45 @@ func StructToYAML(value interface{}) ([]byte, error) {
 	validYAML := append([]byte("---\n"), valueBuffer.Bytes()...)
 	return validYAML, nil
 
+}
+
+const appConfigmapTemplate = `---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clusterforge-{{ .Name }}-info
+  namespace: {{.Namespace}}
+data:
+  source.yaml: |
+{{ .Source }}
+`
+
+type appConfig struct {
+	Name      string
+	Namespace string
+	Source    string
+}
+
+func CreateConfigmapFile(config Config, source string, outputPath string) error {
+	sourceLines := strings.Split(source, "\n")
+	indentedSource := "    " + strings.Join(sourceLines, "\n    ")
+	tmpl, err := template.New("configmap").Parse(appConfigmapTemplate)
+	if err != nil {
+		return fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, appConfig{Name: config.Name, Namespace: config.Namespace, Source: indentedSource}); err != nil {
+		return fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	if err := os.MkdirAll(outputPath, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	if err := os.WriteFile(outputPath+"/ConfigMap-clusterforge-"+config.Name+"-info.yaml", rendered.Bytes(), 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
 }
