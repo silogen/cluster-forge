@@ -20,7 +20,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: 418c721d7688c3967d4bfac52bfd32245fff8e24b70659930714dd61a66da785
+        checksum/config: 3409305cc6e584a2c2f5df3a38a39fdaa599138cbd0dffef82f2e01d5653ac5f
         checksum/sc-dashboard-provider-config: 81f722b8194d01e4a84ce12a0cbbe9b705b2d9145719c803ac264b4786c64a09
         kubectl.kubernetes.io/default-container: grafana
       labels:
@@ -127,6 +127,16 @@ spec:
               value: /var/lib/grafana/plugins
             - name: GF_PATHS_PROVISIONING
               value: /etc/grafana/provisioning
+            - name: LOKI_TENANT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: loki_tenant_password_ociclusters
+                  name: grafana-loki-creds
+            - name: MIMIR_BASIC_AUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: mimir_basic_auth_password
+                  name: grafana-mimir-creds
             - name: SLACK_CONTACT_POINT_TEST_URL
               valueFrom:
                 secretKeyRef:
