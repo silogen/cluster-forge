@@ -1,0 +1,92 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  annotations: {}
+  labels:
+    app.kubernetes.io/component: memcached-chunks-cache
+    app.kubernetes.io/instance: loki
+    app.kubernetes.io/name: loki
+    app.kubernetes.io/version: 3.1.1
+    name: memcached-chunks-cache
+  name: loki-chunks-cache
+  namespace: grafana-loki
+spec:
+  podManagementPolicy: Parallel
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: memcached-chunks-cache
+      app.kubernetes.io/instance: loki
+      app.kubernetes.io/name: loki
+      name: memcached-chunks-cache
+  serviceName: loki-chunks-cache
+  template:
+    metadata:
+      annotations: null
+      labels:
+        app.kubernetes.io/component: memcached-chunks-cache
+        app.kubernetes.io/instance: loki
+        app.kubernetes.io/name: loki
+        name: memcached-chunks-cache
+    spec:
+      affinity: {}
+      containers:
+        - args:
+            - -m 8192
+            - --extended=modern,track_sizes
+            - -I 5m
+            - -c 16384
+            - -v
+            - -u 11211
+          env: null
+          envFrom: null
+          image: memcached:1.6.23-alpine
+          imagePullPolicy: IfNotPresent
+          name: memcached
+          ports:
+            - containerPort: 11211
+              name: client
+          resources:
+            limits:
+              memory: 9830Mi
+            requests:
+              cpu: 500m
+              memory: 9830Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+        - args:
+            - --memcached.address=localhost:11211
+            - --web.listen-address=0.0.0.0:9150
+          image: prom/memcached-exporter:v0.14.2
+          imagePullPolicy: IfNotPresent
+          name: exporter
+          ports:
+            - containerPort: 9150
+              name: http-metrics
+          resources:
+            limits: {}
+            requests: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+      initContainers: []
+      nodeSelector: {}
+      securityContext:
+        fsGroup: 11211
+        runAsGroup: 11211
+        runAsNonRoot: true
+        runAsUser: 11211
+      serviceAccountName: loki
+      terminationGracePeriodSeconds: 60
+      tolerations: []
+      topologySpreadConstraints: []
+  updateStrategy:
+    type: RollingUpdate
