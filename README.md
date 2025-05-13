@@ -166,7 +166,7 @@ devbox run resetKind
 The project uses YAML configuration files:
 
 - Main configuration: `input/config.yaml`
-- Default configurations: `options/defaults.yaml`
+- Default options: `options/defaults.yaml`
 - Release configurations: `input/config-*.yaml`
 - Source configurations: `input/*/source.yaml`
 
