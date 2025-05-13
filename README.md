@@ -40,6 +40,7 @@ Cluster-Forge operates through a sequence of well-defined steps:
 ```mermaid
 graph LR
     A[input/config.yaml] --> B[Mine]
+    A2[input/*/source.yaml] --> B[Mine]
     B --> C[input/*.yaml]
     C --> D[Smelt]
     D --> E[working/*.yaml]
@@ -166,7 +167,8 @@ The project uses YAML configuration files:
 
 - Main configuration: `input/config.yaml`
 - Default configurations: `options/defaults.yaml`
-- Release configs: `release-configs/*.yaml`
+- Release configurations: `input/config-*.yaml`
+- Source configurations: `input/*/source.yaml`
 
 ## 🐞 Known Issues
 
