@@ -24,6 +24,10 @@
   skip-namespace: true
   manifestpath:
   - amd-device-config/deviceconfig_example.yaml
+- name: keycloak
+  namespace: keycloak
+  manifestpath:
+  - keycloak/keycloak-values.yaml
 - name: grafana-additional-stuff
   namespace: grafana
   manifestpath:
