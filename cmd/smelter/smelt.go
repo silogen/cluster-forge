@@ -27,13 +27,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/charmbracelet/lipgloss"
 	xstrings "github.com/charmbracelet/x/exp/strings"
-	git "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/silogen/cluster-forge/cmd/utils"
 	"github.com/silogen/cluster-forge/cmd/utils/configloader"
 	log "github.com/sirupsen/logrus"
@@ -148,8 +145,6 @@ func PrepareTool(configMap configloader.ToolSet, workingDir string) error {
 		}
 	}
 
-	CreateAndCommitRepo(workingDir, "Smelted commit")
-
 	return nil
 }
 
@@ -178,68 +173,6 @@ func createNamespaceFile(config utils.Config, workingDir string) error {
 	namespaceFilePath := filepath.Join(namespaceDir, "Namespace_"+config.Name+".yaml")
 	if err := os.WriteFile(namespaceFilePath, rendered.Bytes(), 0644); err != nil {
 		return fmt.Errorf("failed to write namespace file: %w", err)
-	}
-
-	return nil
-}
-
-// CreateAndCommitRepo creates a new Git repository and commits all files and directories from the specified path.
-func CreateAndCommitRepo(path string, commitMessage string) error {
-	repo, err := git.PlainInit(path, false)
-	if err != nil {
-		return fmt.Errorf("failed to initialize repository: %v", err)
-	}
-	worktree, err := repo.Worktree()
-	if err != nil {
-		return fmt.Errorf("failed to get worktree: %v", err)
-	}
-	err = filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		// Skip the root directory
-		if filePath == path {
-			return nil
-		}
-
-		// Skip .git, .DS_Store, and .gitkeep
-		if info.IsDir() && info.Name() == ".git" {
-			return filepath.SkipDir
-		}
-		if info.Name() == ".DS_Store" || info.Name() == ".gitkeep" {
-			return nil
-		}
-
-		relPath, err := filepath.Rel(path, filePath)
-		if err != nil {
-			return err
-		}
-
-		// If it's a directory, skip it
-		if info.IsDir() {
-			return nil
-		}
-
-		// Add the file to the Git index
-		if _, err := worktree.Add(relPath); err != nil {
-			return fmt.Errorf("failed to add file to worktree: %v", err)
-		}
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to walk directory: %v", err)
-	}
-
-	// Commit the changes
-	_, err = worktree.Commit(commitMessage, &git.CommitOptions{
-		Author: &object.Signature{
-			Name:  "ClusterForge",
-			Email: "cluster@forge.com",
-			When:  time.Now(),
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to commit changes: %v", err)
 	}
 
 	return nil
