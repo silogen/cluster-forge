@@ -4,52 +4,187 @@
 
 ## Overview
 
-**Cluster-Forge** is a tool designed to bundle various third-party, community, and in-house components into a single, streamlined stack that can be deployed in Kubernetes clusters. By automating the process, Cluster-Forge simplifies the repeated creation of consistent, ready-to-use clusters.
+**Cluster-Forge** is a tool designed to bundle various third-party, community, and in-house components into a single, streamlined stack that can be deployed in Kubernetes clusters. By automating the deployment process, Cluster-Forge simplifies the creation of consistent, ready-to-use clusters.
 
-This tool is not meant to replace simple `helm install` or `kubectl apply` commands for single-use development clusters. Instead, it wraps these workflows into a robust process tailored for scenarios such as:
+This tool is ideal for scenarios such as:
 
-- **Ephemeral test clusters**  
-- **CI/CD pipeline clusters**  
-- **Scaling and managing multiple clusters efficiently**
+- **Ephemeral test clusters** - Create temporary environments quickly
+- **CI/CD pipeline clusters** - Ensure consistent testing environments
+- **Multiple production clusters** - Manage a fleet of clusters efficiently
+- **Reproducible environments** - Ensure consistency across deployments
 
-Cluster-Forge is built with the idea of **ephemeral and reproducible clusters**, enabling you to spin up identical environments quickly and reliably.
+## 🚀 Quick Start
 
-## Usage
-To deploy a ClusterForge SW stack, download a release package, and run 'deploy.sh'. This assumes there is a working kubernetes cluster to deploy into, and the current KUBECONFIG context refers to that cluster. 
+```bash
+# Using a pre-built stack (recommended for first-time users)
+# 1. Download a release package
+# 2. Extract the package
+# 3. Deploy to your Kubernetes cluster
+./deploy.sh
 
-While ClusterForge does not in any way require AMD Instinct GPU's, this was a primary use case during intial development. 
+# Building your own stack with devbox
+devbox shell
+go run . forge  # Runs both smelt and cast, creating an ephemeral image
+```
 
-## Storage Classes
-Storage classes are provided by default with Longhorn. These can be changed or customized as needed. 
+## 📋 Workflow
 
-Out of the box, these are the storage classes and purposes:
+Cluster-Forge operates through a sequence of well-defined steps:
 
-| Purpose                      | storageclass | Type | Locality     |     |
-| ---------------------------- | ------------ | ---- | ------------ | --- |
-| GPU Job                      | mlstorage    | RWO  | LOCAL/remote |     |
-| GPU Job                      | default      | RWO  | LOCAL/remote |     |
-| Ask / know what you're doing | direct       | RWO  | LOCAL        |     |
-| Multi-container              | multinode    | RWX  | ANYWHERE     |     |
+1. **Mine** - Process input configuration to generate normalized YAML in the input directory
+2. **Smelt** - Process input configuration to generate normalized YAML in the working directory
+3. **Customize** (optional) - Edit files in the working directory
+4. **Cast** - Compile components into a deployable stack image
+5. **Forge** - Combined operation that runs both smelt and cast, creating an ephemeral image
 
-## Known Issues
+```mermaid
+graph LR
+    A[input/config.yaml] --> B[Mine]
+    A2[input/*/source.yaml] --> B[Mine]
+    B --> C[input/*.yaml]
+    C --> D[Smelt]
+    D --> E[working/*.yaml]
+    E --> F[Customize]
+    F --> G[Cast]
+    G --> H[deployable stack]
+    H --> I[Kubernetes Cluster]
+```
 
-Cluster-Forge is still a work in progress, and the following issues are currently known:
+## 🛠️ Available Components
+
+Cluster-Forge supports a wide range of components that can be imported into your cluster:
+
+### Core Infrastructure
+- **Longhorn** - Cloud native distributed storage solution
+- **MetalLB** - Load-balancer implementation for bare metal clusters
+- **CertManager** - Certificate management controller
+- **External Secrets** - Kubernetes operator for external secrets management
+- **Gateway API** - Next generation Kubernetes Ingress
+- **KGateway** - Kubernetes Gateway implementation
+
+### Monitoring & Observability
+- **Grafana** - Metrics visualization and dashboards
+- **Prometheus** - Monitoring system and time series database
+- **Grafana Loki** - Log aggregation system
+- **Grafana Mimir** - Highly available metrics backend
+- **Promtail** - Log collector for Loki
+- **OpenObserve** - Observability platform
+- **OpenTelemetry Operator** - Telemetry collection and management
+- **OTEL-LGTM Stack** - OpenTelemetry with Loki, Grafana, Tempo, and Mimir
+- **Kube-Prometheus-Stack** - End-to-end Kubernetes cluster monitoring
+
+### Database & Storage
+- **MinIO Operator** - Kubernetes operator for MinIO object storage
+- **MinIO Tenant** - Multi-tenant MinIO deployment
+- **CNPG Operator** - Cloud Native PostgreSQL operator
+- **PSMDB Operator** - Percona Server for MongoDB operator
+- **Redis** - In-memory data structure store
+
+### GPU Support
+- **AMD GPU Operator** - GPU operator for AMD Instinct GPUs
+- **AMD Device Config** - Device configuration for AMD GPUs
+
+### ML & Data Services
+- **KubeRay Operator** - Kubernetes operator for Ray
+- **Kueue** - Job queue controller for Kubernetes
+- **AppWrapper** - Application wrapper for job scheduling
+- **Kaiwo** - ML workflow management
+
+### Security & Management
+- **Kyverno** - Kubernetes policy engine
+- **Trivy** - Vulnerability scanner
+- **1Password Secret Store** - 1Password integration for secrets management
+- **K8s Cluster Secret Store** - Kubernetes native secret store
+
+## 💾 Storage Classes
+
+Storage classes are provided by default with Longhorn. These can be customized as needed.
+
+| Purpose | StorageClass | Access Mode | Locality |
+|---------|--------------|-------------|----------|
+| GPU Job | mlstorage | RWO | LOCAL/remote |
+| GPU Job | default | RWO | LOCAL/remote |
+| Advanced usage | direct | RWO | LOCAL |
+| Multi-container | multinode | RWX | ANYWHERE |
+
+## 🛠️ Development Setup
+
+### Prerequisites
+
+- **[Devbox](docs/DEVBOX.md)** for development environment
+- **Docker** with multi-architecture support (buildx)
+- **Golang** v1.23+
+- **kubectl**
+- **Helm**
+
+Setting up the development environment:
+
+```bash
+# Install devbox
+curl -fsSL https://get.jetpack.io/devbox | bash
+
+# Start devbox shell
+devbox shell
+```
+
+### Common Commands
+
+```bash
+# Building
+go build
+just build
+
+# Running commands
+go run . mine
+go run . smelt
+go run . cast
+go run . forge
+
+# With debug logging
+LOG_LEVEL=debug go run . smelt
+LOG_LEVEL=debug go run . cast
+LOG_LEVEL=debug go run . forge
+
+# Shorthand with justfile
+just debug-smelt
+just debug-cast
+just debug-forge
+
+# Testing
+go test ./...
+
+# Cleanup
+devbox run clean
+just clean-all
+
+# Reset Kind cluster (for testing)
+devbox run resetKind
+```
+
+## 📄 Configuration
+
+The project uses YAML configuration files:
+
+- Main configuration: `input/config.yaml`
+- Default options: `options/defaults.yaml`
+- Release configurations: `input/config-*.yaml`
+- Source configurations: `input/*/source.yaml`
+
+## 🐞 Known Issues
+
+Cluster-Forge is still a work in progress with the following known issues:
 
 1. **Terminal Line Handling**: Errors occurring alongside the progress spinner may cause terminal formatting issues. To restore the terminal, run:  
    ```sh
    reset
    ```
 
----
+## 📝 License
 
-## Future Improvements
-
-We are actively working on resolving the known issues and improving the overall functionality of Cluster-Forge. Your feedback is always welcome!
+Cluster-Forge is licensed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) file for details.
 
 ---
 
-## Conclusion
-
-Cluster-Forge is designed to simplify Kubernetes cluster management, especially when dealing with ephemeral, test, or pipeline clusters. By combining multiple tools and workflows into a repeatable process, Cluster-Forge saves time and ensures consistency across deployments.
-
-Give it a try, and let us know how it works for you!
+<div align="center">
+  <p>Give Cluster-Forge a try and let us know how it works for you!</p>
+</div>
