@@ -1,0 +1,19 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/instance: keda
+    app.kubernetes.io/name: keda-operator-webhook
+    app.kubernetes.io/part-of: keda-operator
+    app.kubernetes.io/version: 2.17.0
+  name: keda-operator-webhook
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: keda-operator-webhook
+subjects:
+  - kind: ServiceAccount
+    name: keda-webhook
+    namespace: keda
