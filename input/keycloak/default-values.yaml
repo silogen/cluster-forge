@@ -1,0 +1,35 @@
+# Default values for the Keycloak Helm chart
+auth:
+  adminUser: admin
+  # A random password will be generated if not specified
+  # adminPassword: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+# Configure database connection - use internal PostgreSQL by default
+database:
+  vendor: postgres
+  host: keycloak-db-postgresql
+  port: 5432
+  database: keycloak
+  username: keycloak
+  existingSecret: keycloak-db-credentials
+
+# Configure ingress if needed
+ingress:
+  enabled: false
+
+# Configure persistent storage
+persistence:
+  deployPostgres: true
+  dbStorageClass: standard
+  
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "500m"
+  limits:
+    memory: "1Gi"
+    cpu: "1000m"
