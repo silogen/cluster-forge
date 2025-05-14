@@ -1,6 +1,7 @@
 - name: certmanager
 - name: amd-gpu-operator
 - name: amd-device-config
+- name: cnpg-operator
 - name: kueue
 - name: external-secrets
 - name: minio-operator
