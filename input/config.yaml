@@ -50,7 +50,7 @@
 - name: cnpg-operator
   namespace: cnpg-system
   manifestpath:
-  - cnpg/cnpg-operator.yaml
+  - cnpg-operator/manifests/sourced
 - name: kyverno-policies
   namespace: default
   manifestpath:

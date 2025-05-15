@@ -1,0 +1,73 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  labels:
+    app.kubernetes.io/instance: cnpg-operator
+    app.kubernetes.io/name: cloudnative-pg
+    app.kubernetes.io/version: 1.25.1
+  name: cnpg-mutating-webhook-configuration
+webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: cnpg-webhook-service
+        namespace: cnpg-system
+        path: /mutate-postgresql-cnpg-io-v1-backup
+        port: 443
+    failurePolicy: Fail
+    name: mbackup.cnpg.io
+    rules:
+      - apiGroups:
+          - postgresql.cnpg.io
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - backups
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: cnpg-webhook-service
+        namespace: cnpg-system
+        path: /mutate-postgresql-cnpg-io-v1-cluster
+        port: 443
+    failurePolicy: Fail
+    name: mcluster.cnpg.io
+    rules:
+      - apiGroups:
+          - postgresql.cnpg.io
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - clusters
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: cnpg-webhook-service
+        namespace: cnpg-system
+        path: /mutate-postgresql-cnpg-io-v1-scheduledbackup
+        port: 443
+    failurePolicy: Fail
+    name: mscheduledbackup.cnpg.io
+    rules:
+      - apiGroups:
+          - postgresql.cnpg.io
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - scheduledbackups
+    sideEffects: None
