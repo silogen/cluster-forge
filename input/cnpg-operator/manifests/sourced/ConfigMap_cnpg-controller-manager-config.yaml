@@ -1,0 +1,11 @@
+---
+apiVersion: v1
+data: {}
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: cnpg-operator
+    app.kubernetes.io/name: cloudnative-pg
+    app.kubernetes.io/version: 1.25.1
+  name: cnpg-controller-manager-config
+  namespace: cnpg-system

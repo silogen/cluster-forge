@@ -1,0 +1,7 @@
+name: cnpg-operator
+namespace: cnpg-system
+helm-chart-name: "cloudnative-pg"
+helm-name: cnpg-operator
+helm-url: "https://cloudnative-pg.github.io/charts"
+helm-version: "0.23.2"
+values: values.yaml
