@@ -1,0 +1,124 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: keda-operator
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/instance: keda
+    app.kubernetes.io/name: keda-operator
+    app.kubernetes.io/part-of: keda-operator
+    app.kubernetes.io/version: 2.17.0
+    name: keda-operator
+  name: keda-operator
+  namespace: keda
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: keda-operator
+  template:
+    metadata:
+      labels:
+        app: keda-operator
+        app.kubernetes.io/component: operator
+        app.kubernetes.io/instance: keda
+        app.kubernetes.io/name: keda-operator
+        app.kubernetes.io/part-of: keda-operator
+        app.kubernetes.io/version: 2.17.0
+        name: keda-operator
+    spec:
+      automountServiceAccountToken: true
+      containers:
+        - args:
+            - --leader-elect
+            - --disable-compression=true
+            - --zap-log-level=info
+            - --zap-encoder=console
+            - --zap-time-encoding=rfc3339
+            - --enable-webhook-patching=true
+            - --cert-dir=/certs
+            - --enable-cert-rotation=true
+            - --cert-secret-name=kedaorg-certs
+            - --operator-service-name=keda-operator
+            - --metrics-server-service-name=keda-operator-metrics-apiserver
+            - --webhooks-service-name=keda-admission-webhooks
+            - --k8s-cluster-name=kubernetes-default
+            - --k8s-cluster-domain=cluster.local
+            - --enable-prometheus-metrics=false
+          command:
+            - /keda
+          env:
+            - name: WATCH_NAMESPACE
+              value: ""
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: OPERATOR_NAME
+              value: keda-operator
+            - name: KEDA_HTTP_DEFAULT_TIMEOUT
+              value: "3000"
+            - name: KEDA_HTTP_MIN_TLS_VERSION
+              value: TLS12
+          image: ghcr.io/kedacore/keda:2.17.0
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 25
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: keda-operator
+          ports:
+            - containerPort: 9666
+              name: metricsservice
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 20
+            periodSeconds: 3
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 1
+              memory: 1000Mi
+            requests:
+              cpu: 100m
+              memory: 100Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - mountPath: /certs
+              name: certificates
+              readOnly: true
+      enableServiceLinks: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: keda-operator
+      volumes:
+        - name: certificates
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: kedaorg-certs

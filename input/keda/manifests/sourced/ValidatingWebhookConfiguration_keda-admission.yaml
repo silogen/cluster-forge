@@ -1,0 +1,84 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  labels:
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/instance: keda
+    app.kubernetes.io/name: keda-admission-webhooks
+    app.kubernetes.io/part-of: keda-operator
+    app.kubernetes.io/version: 2.17.0
+  name: keda-admission
+webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: keda-admission-webhooks
+        namespace: keda
+        path: /validate-keda-sh-v1alpha1-scaledobject
+    failurePolicy: Ignore
+    matchPolicy: Equivalent
+    name: vscaledobject.kb.io
+    namespaceSelector: {}
+    objectSelector: {}
+    rules:
+      - apiGroups:
+          - keda.sh
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - scaledobjects
+    sideEffects: None
+    timeoutSeconds: 10
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: keda-admission-webhooks
+        namespace: keda
+        path: /validate-keda-sh-v1alpha1-triggerauthentication
+    failurePolicy: Ignore
+    matchPolicy: Equivalent
+    name: vstriggerauthentication.kb.io
+    namespaceSelector: {}
+    objectSelector: {}
+    rules:
+      - apiGroups:
+          - keda.sh
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - triggerauthentications
+    sideEffects: None
+    timeoutSeconds: 10
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: keda-admission-webhooks
+        namespace: keda
+        path: /validate-keda-sh-v1alpha1-clustertriggerauthentication
+    failurePolicy: Ignore
+    matchPolicy: Equivalent
+    name: vsclustertriggerauthentication.kb.io
+    namespaceSelector: {}
+    objectSelector: {}
+    rules:
+      - apiGroups:
+          - keda.sh
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - clustertriggerauthentications
+    sideEffects: None
+    timeoutSeconds: 10

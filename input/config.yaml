@@ -207,3 +207,7 @@
   manifestpath:
   - kgateway/manifests/sourced
   - kgateway/manifests/gateway
+- name: keda
+  namespace: keda
+  manifestpath:
+  - keda/manifests/sourced
