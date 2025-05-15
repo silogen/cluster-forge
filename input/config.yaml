@@ -34,6 +34,7 @@
   - grafana-additional-stuff/dashboards/grafana/grafana-default-dashboards.yaml
   - grafana-additional-stuff/dashboards/grafana/grafana-gpu-metrics-dashboard.yaml
   - grafana-additional-stuff/alertmanager 
+  skip-namespace: true
 - name: kueue
   namespace: kueue-system
   manifestpath:
