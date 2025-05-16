@@ -45,6 +45,7 @@ spec:
             - cert-manager
             - kuberay-operator
             - otel-lgtm-stack
+            - csi-wekafs
     validate:
       message: "Memory resource limits and CPU and memory resource requests are required."
       foreach:
