@@ -57,12 +57,12 @@ data:
     apiVersion: 1
     groups:
       - orgId: 1
-        name: GPU_MONITORING_ALERTS
+        name: EVERY_MINUTE_EVALUTION
         folder: GPU_alerts
         interval: 1m
         rules:
-          - uid: gpuutilwar
-            title: GPU General Usage High Utilization - WARNING
+          - uid: cem1zmkyqo1kwb
+            title: GPU General Usage Hig Utilization - WARNING
             condition: C
             data:
               - refId: A
@@ -71,12 +71,9 @@ data:
                   to: 0
                 datasourceUid: oci-clusters-mimir
                 model:
-                  datasource:
-                    type: prometheus
-                    uid: oci-clusters-mimir
                   disableTextWrap: false
-                  editorMode: code
-                  expr: avg(gpu_gfx_activity)
+                  editorMode: builder
+                  expr: avg(gpu_gfx_activity{k8s_cluster_name="oci1"})
                   fullMetaSearch: false
                   includeNullMetadata: true
                   instant: true
@@ -90,22 +87,22 @@ data:
                 datasourceUid: __expr__
                 model:
                   conditions:
-                    - evaluator:
-                        params:
-                          - 90
-                        type: gt
-                      operator:
-                        type: and
-                      query:
-                        params:
-                          - C
-                      reducer:
-                        type: last
-                        params: []
-                      type: query
+                      - evaluator:
+                          params:
+                              - 90
+                          type: gt
+                        operator:
+                          type: and
+                        query:
+                          params:
+                              - C
+                        reducer:
+                          params: []
+                          type: last
+                        type: query
                   datasource:
-                    type: __expr__
-                    uid: __expr__
+                      type: __expr__
+                      uid: __expr__
                   expression: A
                   intervalMs: 1000
                   maxDataPoints: 43200
@@ -114,15 +111,11 @@ data:
             noDataState: NoData
             execErrState: Error
             for: 1m
-            annotations: {}
-            labels:
-              severity: warning
             isPaused: false
             notification_settings:
-              receiver: 'new-test-contact-point-for-oci-clusters '
-
-          - uid: gpuutilcri
-            title: GPU General Usage High Utilization - CRITICAL
+              receiver: new-test-contact-point-for-oci-clusters
+          - uid: fem1zvc242e4gd
+            title: GPU General Usage Hig Utilization - CRITICAL
             condition: C
             data:
               - refId: A
@@ -131,12 +124,9 @@ data:
                   to: 0
                 datasourceUid: oci-clusters-mimir
                 model:
-                  datasource:
-                    type: prometheus
-                    uid: oci-clusters-mimir
                   disableTextWrap: false
-                  editorMode: code
-                  expr: avg(gpu_gfx_activity)
+                  editorMode: builder
+                  expr: avg(gpu_gfx_activity{k8s_cluster_name="oci1"})
                   fullMetaSearch: false
                   includeNullMetadata: true
                   instant: true
@@ -150,22 +140,22 @@ data:
                 datasourceUid: __expr__
                 model:
                   conditions:
-                    - evaluator:
-                        params:
-                          - 95
-                        type: gt
-                      operator:
-                        type: and
-                      query:
-                        params:
-                          - C
-                      reducer:
-                        type: last
-                        params: []
-                      type: query
+                      - evaluator:
+                          params:
+                              - 95
+                          type: gt
+                        operator:
+                          type: and
+                        query:
+                          params:
+                              - C
+                        reducer:
+                          params: []
+                          type: last
+                        type: query
                   datasource:
-                    type: __expr__
-                    uid: __expr__
+                      type: __expr__
+                      uid: __expr__
                   expression: A
                   intervalMs: 1000
                   maxDataPoints: 43200
@@ -174,15 +164,11 @@ data:
             noDataState: NoData
             execErrState: Error
             for: 1m
-            annotations: {}
-            labels:
-              severity: critical
             isPaused: false
             notification_settings:
-              receiver: 'new-test-contact-point-for-oci-clusters '
-
-          - uid: memgpuutilwar
-            title: GPU Memory Usage High Utilization - WARNING
+              receiver: new-test-contact-point-for-oci-clusters
+          - uid: bem206fdyp2pse
+            title: GPU Memory Usage Hig Utilization - WARNING
             condition: C
             data:
               - refId: A
@@ -191,12 +177,9 @@ data:
                   to: 0
                 datasourceUid: oci-clusters-mimir
                 model:
-                  datasource:
-                    type: prometheus
-                    uid: oci-clusters-mimir
                   disableTextWrap: false
-                  editorMode: code
-                  expr: avg(gpu_used_vram)
+                  editorMode: builder
+                  expr: avg(gpu_used_vram{k8s_cluster_name="oci1"})
                   fullMetaSearch: false
                   includeNullMetadata: true
                   instant: true
@@ -210,22 +193,22 @@ data:
                 datasourceUid: __expr__
                 model:
                   conditions:
-                    - evaluator:
-                        params:
-                          - 90
-                        type: gt
-                      operator:
-                        type: and
-                      query:
-                        params:
-                          - C
-                      reducer:
-                        type: last
-                        params: []
-                      type: query
+                      - evaluator:
+                          params:
+                              - 25000
+                          type: gt
+                        operator:
+                          type: and
+                        query:
+                          params:
+                              - C
+                        reducer:
+                          params: []
+                          type: last
+                        type: query
                   datasource:
-                    type: __expr__
-                    uid: __expr__
+                      type: __expr__
+                      uid: __expr__
                   expression: A
                   intervalMs: 1000
                   maxDataPoints: 43200
@@ -234,15 +217,11 @@ data:
             noDataState: NoData
             execErrState: Error
             for: 1m
-            annotations: {}
-            labels:
-              severity: warning
             isPaused: false
             notification_settings:
-              receiver: 'new-test-contact-point-for-oci-clusters '
-
-          - uid: memgpuutilcri
-            title: GPU Memory Usage High Utilization - CRITICAL
+              receiver: new-test-contact-point-for-oci-clusters
+          - uid: aem209isn5xj4d
+            title: GPU Memory Usage Hig Utilization - CRITICAL
             condition: C
             data:
               - refId: A
@@ -251,12 +230,9 @@ data:
                   to: 0
                 datasourceUid: oci-clusters-mimir
                 model:
-                  datasource:
-                    type: prometheus
-                    uid: oci-clusters-mimir
                   disableTextWrap: false
-                  editorMode: code
-                  expr: avg(gpu_used_vram)
+                  editorMode: builder
+                  expr: avg(gpu_used_vram{k8s_cluster_name="oci1"})
                   fullMetaSearch: false
                   includeNullMetadata: true
                   instant: true
@@ -270,22 +246,22 @@ data:
                 datasourceUid: __expr__
                 model:
                   conditions:
-                    - evaluator:
-                        params:
-                          - 95
-                        type: gt
-                      operator:
-                        type: and
-                      query:
-                        params:
-                          - C
-                      reducer:
-                        type: last
-                        params: []
-                      type: query
+                      - evaluator:
+                          params:
+                              - 26000
+                          type: gt
+                        operator:
+                          type: and
+                        query:
+                          params:
+                              - C
+                        reducer:
+                          params: []
+                          type: last
+                        type: query
                   datasource:
-                    type: __expr__
-                    uid: __expr__
+                      type: __expr__
+                      uid: __expr__
                   expression: A
                   intervalMs: 1000
                   maxDataPoints: 43200
@@ -294,16 +270,11 @@ data:
             noDataState: NoData
             execErrState: Error
             for: 1m
-            annotations: {}
-            labels:
-              severity: warning
             isPaused: false
             notification_settings:
-              receiver: 'new-test-contact-point-for-oci-clusters '
-
-          # Duplicate GPU power alarms setting 2 different ranges depending on GPU family type: (MI325X -> 1000W and MI300X -> 750)
-          - uid: gpupowerwar
-            title: GPU Power Usage High Utilization - CRITICAL
+              receiver: new-test-contact-point-for-oci-clusters
+          - uid: dem20ej8amby8b
+            title: GPU Power Usage Hig Utilization - WARNING
             condition: C
             data:
               - refId: A
@@ -312,12 +283,9 @@ data:
                   to: 0
                 datasourceUid: oci-clusters-mimir
                 model:
-                  datasource:
-                    type: prometheus
-                    uid: oci-clusters-mimir
                   disableTextWrap: false
-                  editorMode: code
-                  expr: avg(gpu_package_power)
+                  editorMode: builder
+                  expr: max(gpu_power_usage{k8s_cluster_name="oci1"})
                   fullMetaSearch: false
                   includeNullMetadata: true
                   instant: true
@@ -331,22 +299,22 @@ data:
                 datasourceUid: __expr__
                 model:
                   conditions:
-                    - evaluator:
-                        params:
-                          - 700
-                        type: gt
-                      operator:
-                        type: and
-                      query:
-                        params:
-                          - C
-                      reducer:
-                        type: last
-                        params: []
-                      type: query
+                      - evaluator:
+                          params:
+                              - 700
+                          type: gt
+                        operator:
+                          type: and
+                        query:
+                          params:
+                              - C
+                        reducer:
+                          params: []
+                          type: last
+                        type: query
                   datasource:
-                    type: __expr__
-                    uid: __expr__
+                      type: __expr__
+                      uid: __expr__
                   expression: A
                   intervalMs: 1000
                   maxDataPoints: 43200
@@ -355,15 +323,11 @@ data:
             noDataState: NoData
             execErrState: Error
             for: 1m
-            annotations: {}
-            labels:
-              severity: critical
             isPaused: false
             notification_settings:
-              receiver: 'new-test-contact-point-for-oci-clusters '
-
-          - uid: gpupowercri
-            title: GPU Power Usage High Utilization - CRITICAL
+              receiver: new-test-contact-point-for-oci-clusters
+          - uid: dem20fttag934f
+            title: GPU Power Usage Hig Utilization - CRITICAL
             condition: C
             data:
               - refId: A
@@ -372,12 +336,9 @@ data:
                   to: 0
                 datasourceUid: oci-clusters-mimir
                 model:
-                  datasource:
-                    type: prometheus
-                    uid: oci-clusters-mimir
                   disableTextWrap: false
-                  editorMode: code
-                  expr: avg(gpu_package_power)
+                  editorMode: builder
+                  expr: max(gpu_power_usage{k8s_cluster_name="oci1"})
                   fullMetaSearch: false
                   includeNullMetadata: true
                   instant: true
@@ -391,22 +352,22 @@ data:
                 datasourceUid: __expr__
                 model:
                   conditions:
-                    - evaluator:
-                        params:
-                          - 745
-                        type: gt
-                      operator:
-                        type: and
-                      query:
-                        params:
-                          - C
-                      reducer:
-                        type: last
-                        params: []
-                      type: query
+                      - evaluator:
+                          params:
+                              - 740
+                          type: gt
+                        operator:
+                          type: and
+                        query:
+                          params:
+                              - C
+                        reducer:
+                          params: []
+                          type: last
+                        type: query
                   datasource:
-                    type: __expr__
-                    uid: __expr__
+                      type: __expr__
+                      uid: __expr__
                   expression: A
                   intervalMs: 1000
                   maxDataPoints: 43200
@@ -415,16 +376,11 @@ data:
             noDataState: NoData
             execErrState: Error
             for: 1m
-            annotations: {}
-            labels:
-              severity: critical
             isPaused: false
             notification_settings:
-              receiver: 'new-test-contact-point-for-oci-clusters '
-
-          # Change for max function to maximum value of 128GB/s * total cores (128 * 8 = 1024)
-          - uid: pciebandwidthwar
-            title: PCIE Bandwidth utilization - WARNING
+              receiver: new-test-contact-point-for-oci-clusters
+          - uid: dem20kduaf01sd
+            title: GPU PCIe Bandwidth Usage Hig Utilization - WARNING
             condition: C
             data:
               - refId: A
@@ -433,12 +389,9 @@ data:
                   to: 0
                 datasourceUid: oci-clusters-mimir
                 model:
-                  datasource:
-                    type: prometheus
-                    uid: oci-clusters-mimir
                   disableTextWrap: false
-                  editorMode: code
-                  expr: avg(pcie_bandwidth)
+                  editorMode: builder
+                  expr: max(pcie_bandwidth{k8s_cluster_name="oci1"})
                   fullMetaSearch: false
                   includeNullMetadata: true
                   instant: true
@@ -452,22 +405,22 @@ data:
                 datasourceUid: __expr__
                 model:
                   conditions:
-                    - evaluator:
-                        params:
-                          - 10000
-                        type: gt
-                      operator:
-                        type: and
-                      query:
-                        params:
-                          - C
-                      reducer:
-                        type: last
-                        params: []
-                      type: query
+                      - evaluator:
+                          params:
+                              - 10000
+                          type: gt
+                        operator:
+                          type: and
+                        query:
+                          params:
+                              - C
+                        reducer:
+                          params: []
+                          type: last
+                        type: query
                   datasource:
-                    type: __expr__
-                    uid: __expr__
+                      type: __expr__
+                      uid: __expr__
                   expression: A
                   intervalMs: 1000
                   maxDataPoints: 43200
@@ -476,15 +429,11 @@ data:
             noDataState: NoData
             execErrState: Error
             for: 1m
-            annotations: {}
-            labels:
-              severity: critical
             isPaused: false
             notification_settings:
-              receiver: 'new-test-contact-point-for-oci-clusters '
-
-          - uid: pciebandwidthcri
-            title: PCIE Bandwidth utilization - CRITICAL
+              receiver: new-test-contact-point-for-oci-clusters
+          - uid: eem20m9hlf85cf
+            title: GPU PCIe Bandwidth Usage Hig Utilization - CRITICAL
             condition: C
             data:
               - refId: A
@@ -493,12 +442,9 @@ data:
                   to: 0
                 datasourceUid: oci-clusters-mimir
                 model:
-                  datasource:
-                    type: prometheus
-                    uid: oci-clusters-mimir
                   disableTextWrap: false
-                  editorMode: code
-                  expr: avg(pcie_bandwidth)
+                  editorMode: builder
+                  expr: max(pcie_bandwidth{k8s_cluster_name="oci1"})
                   fullMetaSearch: false
                   includeNullMetadata: true
                   instant: true
@@ -512,22 +458,22 @@ data:
                 datasourceUid: __expr__
                 model:
                   conditions:
-                    - evaluator:
-                        params:
-                          - 10500
-                        type: gt
-                      operator:
-                        type: and
-                      query:
-                        params:
-                          - C
-                      reducer:
-                        type: last
-                        params: []
-                      type: query
+                      - evaluator:
+                          params:
+                              - 10500
+                          type: gt
+                        operator:
+                          type: and
+                        query:
+                          params:
+                              - C
+                        reducer:
+                          params: []
+                          type: last
+                        type: query
                   datasource:
-                    type: __expr__
-                    uid: __expr__
+                      type: __expr__
+                      uid: __expr__
                   expression: A
                   intervalMs: 1000
                   maxDataPoints: 43200
@@ -536,252 +482,9 @@ data:
             noDataState: NoData
             execErrState: Error
             for: 1m
-            annotations: {}
-            labels:
-              severity: critical
             isPaused: false
             notification_settings:
-              receiver: 'new-test-contact-point-for-oci-clusters '
-
-          - uid: gputempwar
-            title: GPU Temperature - WARNING
-            condition: C
-            data:
-              - refId: A
-                relativeTimeRange:
-                  from: 600
-                  to: 0
-                datasourceUid: oci-clusters-mimir
-                model:
-                  datasource:
-                    type: prometheus
-                    uid: oci-clusters-mimir
-                  disableTextWrap: false
-                  editorMode: code
-                  expr: avg(gpu_edge_temperature)
-                  fullMetaSearch: false
-                  includeNullMetadata: true
-                  instant: true
-                  intervalMs: 1000
-                  legendFormat: __auto
-                  maxDataPoints: 43200
-                  range: false
-                  refId: A
-                  useBackend: false
-              - refId: C
-                datasourceUid: __expr__
-                model:
-                  conditions:
-                    - evaluator:
-                        params:
-                          - 90
-                        type: gt
-                      operator:
-                        type: and
-                      query:
-                        params:
-                          - C
-                      reducer:
-                        type: last
-                        params: []
-                      type: query
-                  datasource:
-                    type: __expr__
-                    uid: __expr__
-                  expression: A
-                  intervalMs: 1000
-                  maxDataPoints: 43200
-                  refId: C
-                  type: threshold
-            noDataState: NoData
-            execErrState: Error
-            for: 1m
-            annotations: {}
-            labels:
-              severity: critical
-            isPaused: false
-            notification_settings:
-              receiver: 'new-test-contact-point-for-oci-clusters '
-
-          - uid: gputempcri
-            title: GPU Temperature - CRITICAL
-            condition: C
-            data:
-              - refId: A
-                relativeTimeRange:
-                  from: 600
-                  to: 0
-                datasourceUid: oci-clusters-mimir
-                model:
-                  datasource:
-                    type: prometheus
-                    uid: oci-clusters-mimir
-                  disableTextWrap: false
-                  editorMode: code
-                  expr: avg(gpu_edge_temperature)
-                  fullMetaSearch: false
-                  includeNullMetadata: true
-                  instant: true
-                  intervalMs: 1000
-                  legendFormat: __auto
-                  maxDataPoints: 43200
-                  range: false
-                  refId: A
-                  useBackend: false
-              - refId: C
-                datasourceUid: __expr__
-                model:
-                  conditions:
-                    - evaluator:
-                        params:
-                          - 100
-                        type: gt
-                      operator:
-                        type: and
-                      query:
-                        params:
-                          - C
-                      reducer:
-                        type: last
-                        params: []
-                      type: query
-                  datasource:
-                    type: __expr__
-                    uid: __expr__
-                  expression: A
-                  intervalMs: 1000
-                  maxDataPoints: 43200
-                  refId: C
-                  type: threshold
-            noDataState: NoData
-            execErrState: Error
-            for: 1m
-            annotations: {}
-            labels:
-              severity: critical
-            isPaused: false
-            notification_settings:
-              receiver: 'new-test-contact-point-for-oci-clusters '
-
-          - uid: memorytempwar
-            title: Memory Temperature - WARNING
-            condition: C
-            data:
-              - refId: A
-                relativeTimeRange:
-                  from: 600
-                  to: 0
-                datasourceUid: oci-clusters-mimir
-                model:
-                  datasource:
-                    type: prometheus
-                    uid: oci-clusters-mimir
-                  disableTextWrap: false
-                  editorMode: code
-                  expr: avg(gpu_memory_temperature)
-                  fullMetaSearch: false
-                  includeNullMetadata: true
-                  instant: true
-                  intervalMs: 1000
-                  legendFormat: __auto
-                  maxDataPoints: 43200
-                  range: false
-                  refId: A
-                  useBackend: false
-              - refId: C
-                datasourceUid: __expr__
-                model:
-                  conditions:
-                    - evaluator:
-                        params:
-                          - 90
-                        type: gt
-                      operator:
-                        type: and
-                      query:
-                        params:
-                          - C
-                      reducer:
-                        type: last
-                        params: []
-                      type: query
-                  datasource:
-                    type: __expr__
-                    uid: __expr__
-                  expression: A
-                  intervalMs: 1000
-                  maxDataPoints: 43200
-                  refId: C
-                  type: threshold
-            noDataState: NoData
-            execErrState: Error
-            for: 1m
-            annotations: {}
-            labels:
-              severity: critical
-            isPaused: false
-            notification_settings:
-              receiver: 'new-test-contact-point-for-oci-clusters '
-
-          - uid: memorytempcri
-            title: Memory Temperature - CRITICAL
-            condition: C
-            data:
-              - refId: A
-                relativeTimeRange:
-                  from: 600
-                  to: 0
-                datasourceUid: oci-clusters-mimir
-                model:
-                  datasource:
-                    type: prometheus
-                    uid: oci-clusters-mimir
-                  disableTextWrap: false
-                  editorMode: code
-                  expr: avg(gpu_memory_temperature)
-                  fullMetaSearch: false
-                  includeNullMetadata: true
-                  instant: true
-                  intervalMs: 1000
-                  legendFormat: __auto
-                  maxDataPoints: 43200
-                  range: false
-                  refId: A
-                  useBackend: false
-              - refId: C
-                datasourceUid: __expr__
-                model:
-                  conditions:
-                    - evaluator:
-                        params:
-                          - 100
-                        type: gt
-                      operator:
-                        type: and
-                      query:
-                        params:
-                          - C
-                      reducer:
-                        type: last
-                        params: []
-                      type: query
-                  datasource:
-                    type: __expr__
-                    uid: __expr__
-                  expression: A
-                  intervalMs: 1000
-                  maxDataPoints: 43200
-                  refId: C
-                  type: threshold
-            noDataState: NoData
-            execErrState: Error
-            for: 1m
-            annotations: {}
-            labels:
-              severity: critical
-            isPaused: false
-            notification_settings:
-              receiver: 'new-test-contact-point-for-oci-clusters '
+              receiver: new-test-contact-point-for-oci-clusters
 
 
   policies.yaml: |
