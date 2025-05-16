@@ -1,0 +1,17 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: csi-wekafs-controller
+    component: csi-wekafs-controller
+    release: csi-wekafs
+  name: csi-wekafs-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: csi-wekafs-controller
+subjects:
+  - kind: ServiceAccount
+    name: csi-wekafs-controller
+    namespace: csi-wekafs

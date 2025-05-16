@@ -31,7 +31,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.serviceAccountName
-          image: ghcr.io/open-telemetry/opentelemetry-operator/opentelemetry-operator:0.124.0
+          image: ghcr.io/open-telemetry/opentelemetry-operator/opentelemetry-operator:0.125.0
           livenessProbe:
             httpGet:
               path: /healthz

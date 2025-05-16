@@ -1,0 +1,22 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: csi-wekafs-controller
+  namespace: csi-wekafs
+  labels:
+    app: csi-wekafs-controller
+    component: csi-wekafs-controller
+    release: csi-wekafs
+rules:
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - get
+      - watch
+      - list
+      - delete
+      - update
+      - create

@@ -1,0 +1,257 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: csi-wekafs-controller
+    component: csi-wekafs-controller
+    release: csi-wekafs
+  name: csi-wekafs-controller
+  namespace: csi-wekafs
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: csi-wekafs-controller
+      component: csi-wekafs-controller
+      release: csi-wekafs
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: 9090,9091,9092,9093,9095
+        prometheus.io/scrape: "true"
+      labels:
+        app: csi-wekafs-controller
+        component: csi-wekafs-controller
+        release: csi-wekafs
+    spec:
+      containers:
+        - args:
+            - --drivername=$(CSI_DRIVER_NAME)
+            - --v=5
+            - --endpoint=$(CSI_ENDPOINT)
+            - --nodeid=$(KUBE_NODE_NAME)
+            - --dynamic-path=$(CSI_DYNAMIC_PATH)
+            - --csimode=$(X_CSI_MODE)
+            - --newvolumeprefix=csivol-
+            - --newsnapshotprefix=csisnp-
+            - --seedsnapshotprefix=csisnp-seed-
+            - --allowautofscreation
+            - --allowautofsexpansion
+            - --enablemetrics
+            - --metricsport=9090
+            - --allowinsecurehttps
+            - --mutuallyexclusivemountoptions=readcache,writecache,coherent,forcedirect
+            - --mutuallyexclusivemountoptions=sync,async
+            - --mutuallyexclusivemountoptions=ro,rw
+            - --grpcrequesttimeoutseconds=30
+            - --concurrency.createVolume=5
+            - --concurrency.deleteVolume=5
+            - --concurrency.expandVolume=5
+            - --concurrency.createSnapshot=5
+            - --concurrency.deleteSnapshot=5
+            - --nfsprotocolversion=4.1
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+            - name: CSI_DRIVER_NAME
+              value: csi.weka.io
+            - name: CSI_DRIVER_VERSION
+              value: 2.7.2
+            - name: X_CSI_MODE
+              value: controller
+            - name: CSI_DYNAMIC_PATH
+              value: csi-volumes
+            - name: X_CSI_DEBUG
+              value: "false"
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: KUBE_NODE_IP_ADDRESS
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          image: quay.io/weka.io/csi-wekafs:v2.7.2
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            periodSeconds: 2
+            timeoutSeconds: 3
+          name: wekafs
+          ports:
+            - containerPort: 9898
+              name: healthz
+              protocol: TCP
+            - containerPort: 9090
+              name: metrics
+              protocol: TCP
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - mountPath: /var/lib/kubelet/pods
+              mountPropagation: Bidirectional
+              name: mountpoint-dir
+            - mountPath: /var/lib/kubelet/plugins
+              mountPropagation: Bidirectional
+              name: plugins-dir
+            - mountPath: /var/lib/csi-wekafs-data
+              name: csi-data-dir
+            - mountPath: /dev
+              name: dev-dir
+        - args:
+            - --csi-address=$(ADDRESS)
+            - --v=5
+            - --timeout=60s
+            - --leader-election
+            - --leader-election-namespace=csi-wekafs
+            - --worker-threads=5
+            - --http-endpoint=:9095
+          env:
+            - name: ADDRESS
+              value: unix:///csi/csi.sock
+          image: registry.k8s.io/sig-storage/csi-attacher:v4.8.0
+          livenessProbe:
+            httpGet:
+              path: /healthz/leader-election
+              port: 9095
+          name: csi-attacher
+          ports:
+            - containerPort: 9095
+              name: pr-metrics
+              protocol: TCP
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+        - args:
+            - --v=5
+            - --csi-address=$(ADDRESS)
+            - --feature-gates=Topology=true
+            - --timeout=60s
+            - --prevent-volume-mode-conversion
+            - --leader-election
+            - --leader-election-namespace=csi-wekafs
+            - --worker-threads=5
+            - --retry-interval-start=10s
+            - --http-endpoint=:9091
+          env:
+            - name: ADDRESS
+              value: unix:///csi/csi.sock
+          image: registry.k8s.io/sig-storage/csi-provisioner:v5.1.0
+          livenessProbe:
+            httpGet:
+              path: /healthz/leader-election
+              port: 9091
+          name: csi-provisioner
+          ports:
+            - containerPort: 9091
+              name: pr-metrics
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+        - args:
+            - --v=5
+            - --csi-address=$(ADDRESS)
+            - --timeout=60s
+            - --http-endpoint=:9092
+            - --leader-election
+            - --leader-election-namespace=csi-wekafs
+            - --workers=5
+            - --retry-interval-start=10s
+          env:
+            - name: ADDRESS
+              value: unix:///csi/csi.sock
+          image: registry.k8s.io/sig-storage/csi-resizer:v1.13.1
+          livenessProbe:
+            httpGet:
+              path: /healthz/leader-election
+              port: 9092
+          name: csi-resizer
+          ports:
+            - containerPort: 9092
+              name: rs-metrics
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+        - args:
+            - --v=5
+            - --csi-address=$(ADDRESS)
+            - --timeout=60s
+            - --leader-election
+            - --leader-election-namespace=csi-wekafs
+            - --worker-threads=5
+            - --retry-interval-start=10s
+            - --http-endpoint=:9093
+          env:
+            - name: ADDRESS
+              value: unix:///csi/csi.sock
+          image: registry.k8s.io/sig-storage/csi-snapshotter:v8.2.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            httpGet:
+              path: /healthz/leader-election
+              port: 9093
+          name: csi-snapshotter
+          ports:
+            - containerPort: 9093
+              name: sn-metrics
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+        - args:
+            - --v=5
+            - --csi-address=$(ADDRESS)
+            - --health-port=$(HEALTH_PORT)
+          env:
+            - name: ADDRESS
+              value: unix:///csi/csi.sock
+            - name: HEALTH_PORT
+              value: "9898"
+          image: registry.k8s.io/sig-storage/livenessprobe:v2.15.0
+          name: liveness-probe
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+      serviceAccountName: csi-wekafs-controller
+      terminationGracePeriodSeconds: 10
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Exists
+      volumes:
+        - hostPath:
+            path: /var/lib/kubelet/plugins/csi-wekafs-controller
+            type: DirectoryOrCreate
+          name: socket-dir
+        - hostPath:
+            path: /var/lib/kubelet/pods
+            type: DirectoryOrCreate
+          name: mountpoint-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins_registry
+            type: Directory
+          name: registration-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins
+            type: Directory
+          name: plugins-dir
+        - hostPath:
+            path: /var/lib/csi-wekafs-data/
+            type: DirectoryOrCreate
+          name: csi-data-dir
+        - hostPath:
+            path: /dev
+            type: Directory
+          name: dev-dir

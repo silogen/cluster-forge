@@ -1,0 +1,7 @@
+name: wekafs
+namespace: "csi-wekafs"
+helm-chart-name: "csi-wekafsplugin"
+helm-name: "csi-wekafs"
+helm-url: "https://weka.github.io/csi-wekafs/"
+values: wekafs-values.yaml
+helm-version: 2.7.2
