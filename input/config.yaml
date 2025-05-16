@@ -214,7 +214,7 @@
 - name: wekafs
   namespace: csi-wekafs
   manifestpath:
-  - wekafs/wekafs-values.yaml
+  - wekafs/manifests
 - name: wekafs-cluster-config
   namespace: csi-wekafs
   manifestpath:
