@@ -218,5 +218,5 @@
 - name: wekafs-cluster-config
   namespace: csi-wekafs
   manifestpath:
-  - wekafs-cluster-config/manifests.yaml
+  - wekafs-cluster-config/manifests
 
