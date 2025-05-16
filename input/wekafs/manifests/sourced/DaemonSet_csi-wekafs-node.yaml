@@ -1,0 +1,179 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: csi-wekafs-node
+    component: csi-wekafs-node
+    release: csi-wekafs
+  name: csi-wekafs-node
+  namespace: csi-wekafs
+spec:
+  selector:
+    matchLabels:
+      app: csi-wekafs-node
+      component: csi-wekafs-node
+      release: csi-wekafs
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9094"
+        prometheus.io/scrape: "true"
+      labels:
+        app: csi-wekafs-node
+        component: csi-wekafs-node
+        release: csi-wekafs
+    spec:
+      containers:
+        - args:
+            - --v=5
+            - --drivername=$(CSI_DRIVER_NAME)
+            - --endpoint=$(CSI_ENDPOINT)
+            - --nodeid=$(KUBE_NODE_NAME)
+            - --dynamic-path=$(CSI_DYNAMIC_PATH)
+            - --csimode=$(X_CSI_MODE)
+            - --newvolumeprefix=csivol-
+            - --newsnapshotprefix=csisnp-
+            - --seedsnapshotprefix=csisnp-seed-
+            - --enablemetrics
+            - --metricsport=9094
+            - --allowinsecurehttps
+            - --mutuallyexclusivemountoptions=readcache,writecache,coherent,forcedirect
+            - --mutuallyexclusivemountoptions=sync,async
+            - --mutuallyexclusivemountoptions=ro,rw
+            - --grpcrequesttimeoutseconds=30
+            - --concurrency.nodePublishVolume=5
+            - --concurrency.nodeUnpublishVolume=5
+            - --nfsprotocolversion=4.1
+          env:
+            - name: CSI_DRIVER_NAME
+              value: csi.weka.io
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: CSI_DYNAMIC_PATH
+              value: csi-volumes
+            - name: X_CSI_MODE
+              value: node
+            - name: KUBE_NODE_IP_ADDRESS
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          image: quay.io/weka.io/csi-wekafs:v2.7.2
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            periodSeconds: 2
+            timeoutSeconds: 3
+          name: wekafs
+          ports:
+            - containerPort: 9899
+              name: healthz
+              protocol: TCP
+            - containerPort: 9094
+              name: metrics
+              protocol: TCP
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - mountPath: /var/lib/kubelet/pods
+              mountPropagation: Bidirectional
+              name: mountpoint-dir
+            - mountPath: /var/lib/kubelet/plugins
+              mountPropagation: Bidirectional
+              name: plugins-dir
+            - mountPath: /var/lib/csi-wekafs-data
+              name: csi-data-dir
+            - mountPath: /dev
+              name: dev-dir
+            - mountPath: /etc/nodeinfo
+              name: nodeinfo
+              readOnly: true
+        - args:
+            - --v=5
+            - --csi-address=$(ADDRESS)
+            - --health-port=$(HEALTH_PORT)
+          env:
+            - name: ADDRESS
+              value: unix:///csi/csi.sock
+            - name: HEALTH_PORT
+              value: "9899"
+          image: registry.k8s.io/sig-storage/livenessprobe:v2.15.0
+          name: liveness-probe
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+        - args:
+            - --v=5
+            - --csi-address=$(ADDRESS)
+            - --kubelet-registration-path=$(KUBELET_REGISTRATION_PATH)
+            - --timeout=60s
+            - --health-port=9809
+          env:
+            - name: ADDRESS
+              value: unix:///csi/csi.sock
+            - name: KUBELET_REGISTRATION_PATH
+              value: /var/lib/kubelet/plugins/csi-wekafs-node/csi.sock
+          image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.13.0
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+          name: csi-registrar
+          ports:
+            - containerPort: 9809
+              name: healthz
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - mountPath: /registration
+              name: registration-dir
+            - mountPath: /var/lib/csi-wekafs-data
+              name: csi-data-dir
+      serviceAccountName: csi-wekafs-node
+      terminationGracePeriodSeconds: 10
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Exists
+      volumes:
+        - hostPath:
+            path: /var/lib/kubelet/pods
+            type: DirectoryOrCreate
+          name: mountpoint-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins_registry
+            type: Directory
+          name: registration-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins
+            type: Directory
+          name: plugins-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins/csi-wekafs-node
+            type: DirectoryOrCreate
+          name: socket-dir
+        - hostPath:
+            path: /var/lib/csi-wekafs-data/
+            type: DirectoryOrCreate
+          name: csi-data-dir
+        - hostPath:
+            path: /dev
+            type: Directory
+          name: dev-dir
+        - emptyDir: {}
+          name: nodeinfo

@@ -211,3 +211,12 @@
   namespace: keda
   manifestpath:
   - keda/manifests/sourced
+- name: wekafs
+  namespace: csi-wekafs
+  manifestpath:
+  - wekafs/wekafs-values.yaml
+- name: wekafs-cluster-config
+  namespace: csi-wekafs
+  manifestpath:
+  - wekafs-cluster-config/manifests.yaml
+

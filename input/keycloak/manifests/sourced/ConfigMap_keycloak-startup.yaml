@@ -1,0 +1,23 @@
+---
+apiVersion: v1
+data:
+  keycloak.cli: |
+    embed-server --server-config=standalone-ha.xml --std-out=echo
+    batch
+
+    echo Configuring node identifier
+
+    /subsystem=transactions:write-attribute(name=node-identifier, value=${jboss.node.name})
+
+    echo Finished configuring node identifier
+
+    run-batch
+    stop-embedded-server
+kind: ConfigMap
+metadata:
+  name: keycloak-startup
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/instance: keycloak
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/version: 17.0.1-legacy
