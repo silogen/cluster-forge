@@ -1,5 +1,5 @@
 controllerManager:
-  replicas: 2
+  replicas: 1
 managerConfig:
   controllerManagerConfigYaml: |-
     apiVersion: config.kueue.x-k8s.io/v1beta1

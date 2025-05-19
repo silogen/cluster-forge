@@ -10,7 +10,7 @@ metadata:
   name: kueue-controller-manager
   namespace: kueue-system
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/instance: kueue
