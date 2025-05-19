@@ -142,15 +142,15 @@ spec:
       - key: airm-realm-credentials
         value: not-a-secret
         version: v1
-      - Key: keycloak-client-internal-keycloak-id
+      - key: keycloak-client-internal-keycloak-id
         value: not-a-secret
         version: v1
-      - Key: keycloak-client-internal-keycloak-secret
+      - key: keycloak-client-internal-keycloak-secret
         value: not-a-secret
         version: v1
-      - Key: keycloak-client-frontend-keycloak-secret
+      - key: keycloak-client-frontend-keycloak-secret
         value: not-a-secret
         version: v1
-      - Key: keycloak-client-ci-keycloak-secret
+      - key: keycloak-client-ci-keycloak-secret
         value: not-a-secret
         version: v1
