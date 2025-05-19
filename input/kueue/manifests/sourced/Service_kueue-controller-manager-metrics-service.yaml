@@ -3,8 +3,10 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app.kubernetes.io/component: controller
+    app.kubernetes.io/component: metrics
+    app.kubernetes.io/instance: kueue
     app.kubernetes.io/name: kueue
+    app.kubernetes.io/version: v0.11.4
     control-plane: controller-manager
   name: kueue-controller-manager-metrics-service
   namespace: kueue-system
@@ -15,4 +17,7 @@ spec:
       protocol: TCP
       targetPort: 8443
   selector:
+    app.kubernetes.io/instance: kueue
+    app.kubernetes.io/name: kueue
     control-plane: controller-manager
+  type: ClusterIP

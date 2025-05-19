@@ -5,11 +5,22 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.2
   labels:
-    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: kueue
     app.kubernetes.io/name: kueue
+    app.kubernetes.io/version: v0.11.4
     control-plane: controller-manager
   name: topologies.kueue.x-k8s.io
 spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: kueue-webhook-service
+          namespace: kueue-system
+          path: /convert
+      conversionReviewVersions:
+        - v1
   group: kueue.x-k8s.io
   names:
     kind: Topology
@@ -77,29 +88,8 @@ spec:
               required:
                 - levels
               type: object
+          required:
+            - spec
           type: object
       served: true
       storage: true
-    - name: v1beta1
-      schema:
-        openAPIV3Schema:
-          properties:
-            levels:
-              description: levels define the levels of topology.
-              items:
-                type: string
-              maxItems: 8
-              minItems: 1
-              type: array
-              x-kubernetes-list-type: atomic
-            name:
-              description: name is the name of the topology.
-              maxLength: 253
-              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-              type: string
-          required:
-            - name
-            - levels
-          type: object
-      served: true
-      storage: false

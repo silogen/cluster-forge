@@ -1,3 +1,7 @@
 name: kueue
 namespace: kueue-system
-manifest-url: https://github.com/kubernetes-sigs/kueue/releases/download/v0.11.0/manifests.yaml
+helm-chart-name: "oci://registry.k8s.io/kueue/charts/kueue"
+helm-name: kueue
+helm-url: ""
+helm-version: "0.11.4"
+values: values.yaml

@@ -5,11 +5,22 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.2
   labels:
-    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: kueue
     app.kubernetes.io/name: kueue
+    app.kubernetes.io/version: v0.11.4
     control-plane: controller-manager
   name: multikueueconfigs.kueue.x-k8s.io
 spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: kueue-webhook-service
+          namespace: kueue-system
+          path: /convert
+      conversionReviewVersions:
+        - v1
   group: kueue.x-k8s.io
   names:
     kind: MultiKueueConfig

@@ -8,24 +8,13 @@ metadata:
     app.kubernetes.io/version: v0.11.4
     control-plane: controller-manager
     rbac.kueue.x-k8s.io/batch-admin: "true"
-    rbac.kueue.x-k8s.io/batch-user: "true"
-  name: kueue-rayjob-editor-role
+  name: kueue-topology-viewer-role
 rules:
   - apiGroups:
-      - ray.io
+      - kueue.x-k8s.io
     resources:
-      - rayjobs
+      - topology
     verbs:
-      - create
-      - delete
       - get
       - list
-      - patch
-      - update
       - watch
-  - apiGroups:
-      - ray.io
-    resources:
-      - rayjobs/status
-    verbs:
-      - get
