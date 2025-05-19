@@ -801,6 +801,14 @@ spec:
               scheme: http
               static_configs:
               - targets: [minio.minio-tenant-default.svc.cluster.local]
+            - job_name: argocd
+              metrics_path: /metrics
+              scheme: http
+              static_configs:
+              - targets:
+                - argocd-metrics.argocd.svc.cluster.local:8082
+                - argocd-applicationset-controller.argocd.svc.cluster.local:8080
+                - argocd-repo-server.argocd.svc.cluster.local:8084
     processors:
       batch:
         send_batch_size: 2000
