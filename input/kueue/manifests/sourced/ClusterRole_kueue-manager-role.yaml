@@ -3,8 +3,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: kueue
     app.kubernetes.io/name: kueue
+    app.kubernetes.io/version: v0.11.4
     control-plane: controller-manager
   name: kueue-manager-role
 rules:
@@ -85,6 +86,7 @@ rules:
   - apiGroups:
       - apps
     resources:
+      - deployments
       - replicasets
       - statefulsets
     verbs:
@@ -236,6 +238,7 @@ rules:
     resources:
       - admissionchecks/status
       - clusterqueues/status
+      - cohorts/status
       - localqueues/status
       - multikueueclusters/status
       - workloads/status

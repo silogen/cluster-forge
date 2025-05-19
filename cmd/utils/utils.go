@@ -208,7 +208,7 @@ func Templatehelm(config Config, helmExec HelmExecutor) error {
 		cmdFetchValues := exec.Command("helm", fetchValuesArgs...)
 		output, err := cmdFetchValues.Output()
 		if err != nil {
-			return fmt.Errorf("failed to fetch values.yaml for %s: %w", config.Name, err)
+			return fmt.Errorf("failed to fetch default-values.yaml for %s: %+w", config.Name, err)
 		}
 
 		err = os.MkdirAll(fmt.Sprintf("input/%s", config.Name), 0755)

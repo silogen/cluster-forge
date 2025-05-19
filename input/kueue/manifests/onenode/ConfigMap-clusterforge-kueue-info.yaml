@@ -1,0 +1,18 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clusterforge-kueue-info
+  namespace: kueue-system
+data:
+  source.yaml: |
+    name: kueue
+    namespace: kueue-system
+    helm-chart-name: "oci://registry.k8s.io/kueue/charts/kueue"
+    helm-name: kueue
+    helm-url: ""
+    helm-version: "0.11.4"
+    values: values.yaml
+    diffname: onenode
+    diffvalues: values-onenode.yaml
+    

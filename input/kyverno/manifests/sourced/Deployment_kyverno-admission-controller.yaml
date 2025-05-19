@@ -10,7 +10,7 @@ metadata:
   name: kyverno-admission-controller
   namespace: kyverno
 spec:
-  replicas: null
+  replicas: 2
   revisionHistoryLimit: 10
   selector:
     matchLabels:

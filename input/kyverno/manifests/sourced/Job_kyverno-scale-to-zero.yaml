@@ -28,7 +28,7 @@ spec:
               sleep 30
               kubectl delete validatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno
               kubectl delete mutatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno
-          image: bitnami/kubectl:1.30.2
+          image: ghcr.io/bitnami/kubectl:1.32.3
           imagePullPolicy: null
           name: kubectl
           resources:

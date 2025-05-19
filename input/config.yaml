@@ -38,6 +38,11 @@
   namespace: kueue-system
   manifestpath:
   - kueue/manifests/sourced
+- name: kueue-onenode
+  namespace: kueue-system
+  manifestpath:
+  - kueue/manifests/sourced
+  - kueue/manifests/onenode
 - name: external-secrets
   namespace: "external-secrets"
   syncwave: -10
@@ -59,6 +64,11 @@
   namespace: kyverno
   manifestpath:
   - kyverno/manifests/sourced
+- name: kyverno-onenode
+  namespace: kyverno
+  manifestpath:
+  - kyverno/manifests/sourced
+  - kyverno/manifests/onenode
 - name: prometheus
   namespace: "monitoring"
   manifestpath:

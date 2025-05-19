@@ -5,11 +5,22 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.2
   labels:
-    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: kueue
     app.kubernetes.io/name: kueue
+    app.kubernetes.io/version: v0.11.4
     control-plane: controller-manager
   name: cohorts.kueue.x-k8s.io
 spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: kueue-webhook-service
+          namespace: kueue-system
+          path: /convert
+      conversionReviewVersions:
+        - v1
   group: kueue.x-k8s.io
   names:
     kind: Cohort
@@ -242,8 +253,8 @@ spec:
                         Cohort, among all the resources provided by the Node, and
                         divided by the weight.  If zero, it means that the usage of
                         the Node is below the nominal quota.  If the Node has a
-                        weight of zero, this will return 9223372036854775807, the
-                        maximum possible share value.
+                        weight of zero and is borrowing, this will return
+                        9223372036854775807, the maximum possible share value.
                       format: int64
                       type: integer
                   required:

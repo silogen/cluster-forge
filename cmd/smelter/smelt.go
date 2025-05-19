@@ -170,7 +170,7 @@ func createNamespaceFile(config utils.Config, workingDir string) error {
 		return fmt.Errorf("failed to create directory %s: %w", namespaceDir, err)
 	}
 
-	namespaceFilePath := filepath.Join(namespaceDir, "Namespace_"+config.Name+".yaml")
+	namespaceFilePath := filepath.Join(namespaceDir, "Namespace_"+config.Namespace+".yaml")
 	if err := os.WriteFile(namespaceFilePath, rendered.Bytes(), 0644); err != nil {
 		return fmt.Errorf("failed to write namespace file: %w", err)
 	}

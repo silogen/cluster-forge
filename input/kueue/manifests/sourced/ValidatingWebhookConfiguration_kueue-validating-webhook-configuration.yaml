@@ -3,10 +3,12 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   labels:
-    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: kueue
     app.kubernetes.io/name: kueue
+    app.kubernetes.io/version: v0.11.4
     control-plane: controller-manager
   name: kueue-validating-webhook-configuration
+  namespace: kueue-system
 webhooks:
   - admissionReviewVersions:
       - v1
@@ -14,26 +16,19 @@ webhooks:
       service:
         name: kueue-webhook-service
         namespace: kueue-system
-        path: /validate--v1-pod
+        path: /validate-workload-codeflare-dev-v1beta2-appwrapper
     failurePolicy: Fail
-    name: vpod.kb.io
-    namespaceSelector:
-      matchExpressions:
-        - key: kubernetes.io/metadata.name
-          operator: NotIn
-          values:
-            - kube-system
-            - kueue-system
+    name: vappwrapper.kb.io
     rules:
       - apiGroups:
-          - ""
+          - workload.codeflare.dev
         apiVersions:
-          - v1
+          - v1beta2
         operations:
           - CREATE
           - UPDATE
         resources:
-          - pods
+          - appwrappers
     sideEffects: None
   - admissionReviewVersions:
       - v1
@@ -61,53 +56,6 @@ webhooks:
           - UPDATE
         resources:
           - deployments
-    sideEffects: None
-  - admissionReviewVersions:
-      - v1
-    clientConfig:
-      service:
-        name: kueue-webhook-service
-        namespace: kueue-system
-        path: /validate-apps-v1-statefulset
-    failurePolicy: Fail
-    name: vstatefulset.kb.io
-    namespaceSelector:
-      matchExpressions:
-        - key: kubernetes.io/metadata.name
-          operator: NotIn
-          values:
-            - kube-system
-            - kueue-system
-    rules:
-      - apiGroups:
-          - apps
-        apiVersions:
-          - v1
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - statefulsets
-    sideEffects: None
-  - admissionReviewVersions:
-      - v1
-    clientConfig:
-      service:
-        name: kueue-webhook-service
-        namespace: kueue-system
-        path: /validate-workload-codeflare-dev-v1beta2-appwrapper
-    failurePolicy: Fail
-    name: vappwrapper.kb.io
-    rules:
-      - apiGroups:
-          - workload.codeflare.dev
-        apiVersions:
-          - v1beta2
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - appwrappers
     sideEffects: None
   - admissionReviewVersions:
       - v1
@@ -235,6 +183,33 @@ webhooks:
       service:
         name: kueue-webhook-service
         namespace: kueue-system
+        path: /validate--v1-pod
+    failurePolicy: Fail
+    name: vpod.kb.io
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system
+            - kueue-system
+    rules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - pods
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: kueue-webhook-service
+        namespace: kueue-system
         path: /validate-leaderworkerset-x-k8s-io-v1-leaderworkerset
     failurePolicy: Fail
     name: vleaderworkerset.kb.io
@@ -308,6 +283,33 @@ webhooks:
           - UPDATE
         resources:
           - rayjobs
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: kueue-webhook-service
+        namespace: kueue-system
+        path: /validate-apps-v1-statefulset
+    failurePolicy: Fail
+    name: vstatefulset.kb.io
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system
+            - kueue-system
+    rules:
+      - apiGroups:
+          - apps
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - statefulsets
     sideEffects: None
   - admissionReviewVersions:
       - v1
