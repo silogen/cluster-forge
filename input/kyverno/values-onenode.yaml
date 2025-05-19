@@ -2,4 +2,4 @@ global:
   image:
     registry: ghcr.io
 admissionController:
-  replicas: 2
+  replicas: 1

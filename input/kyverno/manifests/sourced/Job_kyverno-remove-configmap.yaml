@@ -25,7 +25,7 @@ spec:
             - |-
               set -euo pipefail
               kubectl delete cm --ignore-not-found -n kyverno kyverno
-          image: bitnami/kubectl:1.30.2
+          image: ghcr.io/bitnami/kubectl:1.32.3
           imagePullPolicy: null
           name: kubectl
           resources:

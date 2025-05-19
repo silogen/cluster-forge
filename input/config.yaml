@@ -59,6 +59,11 @@
   namespace: kyverno
   manifestpath:
   - kyverno/manifests/sourced
+- name: kyverno-onenode
+  namespace: kyverno
+  manifestpath:
+  - kyverno/manifests/sourced
+  - kyverno/manifests/onenode
 - name: prometheus
   namespace: "monitoring"
   manifestpath:
