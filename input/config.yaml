@@ -229,4 +229,8 @@
   namespace: csi-wekafs
   manifestpath:
   - wekafs-cluster-config/manifests.yaml
+- name: rabbitmq
+  namespace: rabbitmq-system
+  manifestpath:
+  - rabbitmq/manifests/sourced
 
