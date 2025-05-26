@@ -11,13 +11,7 @@ loki:
       heartbeat_timeout: "10m"
   auth_enabled: true
   tenants: ## promtail
-    - name: ${TENANT_NAME_OCI1}
-      password: ${TENANT_PW}
-    - name: ${TENANT_NAME_OCI2}
-      password: ${TENANT_PW}
-    - name: ${TENANT_NAME_OCISILOGEN}
-      password: ${TENANT_PW}
-    - name: ${TENANT_NAME_OCIOPS}
+    - name: ${TENANT_NAME}
       password: ${TENANT_PW}
   limits_config:
     index_gateway_shard_size: 1
@@ -136,22 +130,10 @@ extraObjects:
       target:
         name: loki-tenant-creds
       data:
-        - secretKey: loki_tenant_name_oci1
+        - secretKey: loki_tenant_name_oci
           remoteRef:
             key: grafana-loki-creds
-            property: loki_tenant_name_oci1
-        - secretKey: loki_tenant_name_oci2
-          remoteRef:
-            key: grafana-loki-creds
-            property: loki_tenant_name_oci2
-        - secretKey: loki_tenant_name_ocisilogen
-          remoteRef:
-            key: grafana-loki-creds
-            property: loki_tenant_name_ocisilogen
-        - secretKey: loki_tenant_name_ociops
-          remoteRef:
-            key: grafana-loki-creds
-            property: loki_tenant_name_ociops
+            property: loki_tenant_name_oci
         - secretKey: loki_tenant_password_ociclusters
           remoteRef:
             key: grafana-loki-creds
@@ -172,26 +154,11 @@ backend:
         secretKeyRef:
           name: loki-minio-creds
           key: API_SECRET_KEY
-    - name: TENANT_NAME_OCI1
+    - name: TENANT_NAME
       valueFrom:
         secretKeyRef:
           name: loki-tenant-creds
-          key: loki_tenant_name_oci1
-    - name: TENANT_NAME_OCI2
-      valueFrom:
-        secretKeyRef:
-          name: loki-tenant-creds
-          key: loki_tenant_name_oci2
-    - name: TENANT_NAME_OCISILOGEN
-      valueFrom:
-        secretKeyRef:
-          name: loki-tenant-creds
-          key: loki_tenant_name_ocisilogen
-    - name: TENANT_NAME_OCIOPS
-      valueFrom:
-        secretKeyRef:
-          name: loki-tenant-creds
-          key: loki_tenant_name_ociops
+          key: loki_tenant_name_oci
     - name: TENANT_PW
       valueFrom:
         secretKeyRef:
@@ -213,26 +180,11 @@ write:
         secretKeyRef:
           name: loki-minio-creds
           key: API_SECRET_KEY
-    - name: TENANT_NAME_OCI1
+    - name: TENANT_NAME
       valueFrom:
         secretKeyRef:
           name: loki-tenant-creds
-          key: loki_tenant_name_oci1
-    - name: TENANT_NAME_OCI2
-      valueFrom:
-        secretKeyRef:
-          name: loki-tenant-creds
-          key: loki_tenant_name_oci2
-    - name: TENANT_NAME_OCISILOGEN
-      valueFrom:
-        secretKeyRef:
-          name: loki-tenant-creds
-          key: loki_tenant_name_ocisilogen
-    - name: TENANT_NAME_OCIOPS
-      valueFrom:
-        secretKeyRef:
-          name: loki-tenant-creds
-          key: loki_tenant_name_ociops
+          key: loki_tenant_name_oci
     - name: TENANT_PW
       valueFrom:
         secretKeyRef:
@@ -254,26 +206,11 @@ read:
         secretKeyRef:
           name: loki-minio-creds
           key: API_SECRET_KEY
-    - name: TENANT_NAME_OCI1
+    - name: TENANT_NAME
       valueFrom:
         secretKeyRef:
           name: loki-tenant-creds
-          key: loki_tenant_name_oci1
-    - name: TENANT_NAME_OCI2
-      valueFrom:
-        secretKeyRef:
-          name: loki-tenant-creds
-          key: loki_tenant_name_oci2
-    - name: TENANT_NAME_OCISILOGEN
-      valueFrom:
-        secretKeyRef:
-          name: loki-tenant-creds
-          key: loki_tenant_name_ocisilogen
-    - name: TENANT_NAME_OCIOPS
-      valueFrom:
-        secretKeyRef:
-          name: loki-tenant-creds
-          key: loki_tenant_name_ociops
+          key: loki_tenant_name_oci
     - name: TENANT_PW
       valueFrom:
         secretKeyRef:
