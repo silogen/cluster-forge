@@ -62,54 +62,18 @@ datasources:
   datasources.yaml:
     apiVersion: 1
     datasources:
-    - name: oci1-loki
+    - name: oci-clusters-loki
       type: loki
       url: http://loki-gateway.grafana-loki.svc.cluster.local:80
       orgId: 1
-      uid: oci1-loki
+      uid: oci-clusters-loki
       basicAuth: true
-      basicAuthUser: loki_tenant_oci1
+      basicAuthUser: loki_tenant_oci
       secureJsonData:
         basicAuthPassword: ${LOKI_TENANT_PASSWORD}
-        httpHeaderValue1: 'loki-tenant-oci1' ## <-- This may be not needed for loki
-      jsonData:
-        httpHeaderName1: 'X-Scope-OrgID' ## <-- This may be not needed for loki
-    - name: oci2-loki
-      type: loki
-      url: http://loki-gateway.grafana-loki.svc.cluster.local:80
-      orgId: 1
-      uid: oci2-loki
-      basicAuth: true
-      basicAuthUser: loki_tenant_oci2
-      secureJsonData:
-        basicAuthPassword: ${LOKI_TENANT_PASSWORD}
-        httpHeaderValue1: 'loki-tenant-oci2'
-      jsonData:
-        httpHeaderName1: 'X-Scope-OrgID'
-    - name: ocisilogen-loki
-      type: loki
-      url: http://loki-gateway.grafana-loki.svc.cluster.local:80
-      orgId: 1
-      uid: ocisilogen-loki
-      basicAuth: true
-      basicAuthUser: loki_tenant_ocisilogen
-      secureJsonData:
-        basicAuthPassword: ${LOKI_TENANT_PASSWORD}
-        httpHeaderValue1: 'loki-tenant-ocisilogen'
-      jsonData:
-        httpHeaderName1: 'X-Scope-OrgID'
-    - name: ociops-loki
-      type: loki
-      url: http://loki-gateway.grafana-loki.svc.cluster.local:80
-      orgId: 1
-      uid: ociops-loki
-      basicAuth: true
-      basicAuthUser: loki_tenant_ociops
-      secureJsonData:
-        basicAuthPassword: ${LOKI_TENANT_PASSWORD}
-        httpHeaderValue1: 'loki-tenant-ociops'
-      jsonData:
-        httpHeaderName1: 'X-Scope-OrgID'
+#        httpHeaderValue1: 'loki-tenant-oci1' ## <-- This may be not needed for loki
+#      jsonData:
+#        httpHeaderName1: 'X-Scope-OrgID' ## <-- This may be not needed for loki
     - name: oci-clusters-mimir
       type: prometheus
       url: http://mimir-gateway.grafana-mimir.svc:8080/prometheus
@@ -184,22 +148,10 @@ extraObjects:
       target:
         name: grafana-loki-creds
       data:
-        - secretKey: loki_tenant_name_oci1
+        - secretKey: loki_tenant_name_oci
           remoteRef:
             key: grafana-loki-creds
-            property: loki_tenant_name_oci1
-        - secretKey: loki_tenant_name_oci2
-          remoteRef:
-            key: grafana-loki-creds
-            property: loki_tenant_name_oci2
-        - secretKey: loki_tenant_name_ocisilogen
-          remoteRef:
-            key: grafana-loki-creds
-            property: loki_tenant_name_ocisilogen
-        - secretKey: loki_tenant_name_ociops
-          remoteRef:
-            key: grafana-loki-creds
-            property: loki_tenant_name_ociops
+            property: loki_tenant_name_oci
         - secretKey: loki_tenant_password_ociclusters
           remoteRef:
             key: grafana-loki-creds
