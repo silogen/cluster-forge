@@ -1,0 +1,22 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kueue-minio-tenant-reader
+rules:
+- apiGroups: ["minio.min.io"]
+  resources: ["tenants"]
+  verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kueue-minio-tenant-reader-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kueue-minio-tenant-reader
+subjects:
+- kind: ServiceAccount
+  name: kueue-controller-manager
+  namespace: kueue-system
