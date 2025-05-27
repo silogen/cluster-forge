@@ -26,8 +26,8 @@ jobs:
             name: RnD
           - type: enterprise
             name: Enterprise
-          - type: tw
-            name: Tensorwave
+          - type: weka
+            name: Weka-fs
 
     steps:
       - uses: actions/checkout@v4
