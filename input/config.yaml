@@ -233,4 +233,7 @@
   namespace: rabbitmq-system
   manifestpath:
   - rabbitmq/manifests/sourced
-
+- name: prometheus-app-config
+  namespace: kube-amd-gpu
+  manifestpath:
+  - prometheus-app-config/configmap_amddc.yaml
