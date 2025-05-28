@@ -38,11 +38,13 @@
   namespace: kueue-system
   manifestpath:
   - kueue/manifests/sourced
+  - kueue-cluster-config
 - name: kueue-onenode
   namespace: kueue-system
   manifestpath:
   - kueue/manifests/sourced
   - kueue/manifests/onenode
+  - kueue-cluster-config
 - name: external-secrets
   namespace: "external-secrets"
   syncwave: -10
