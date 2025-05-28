@@ -5,7 +5,7 @@ data:
     apiVersion: 1
     datasources:
     - basicAuth: true
-      basicAuthUser: loki_tenant_oci
+      basicAuthUser: loki_tenant_name_oci
       name: oci-clusters-loki
       orgId: 1
       secureJsonData:
