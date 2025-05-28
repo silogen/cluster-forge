@@ -38,11 +38,13 @@
   namespace: kueue-system
   manifestpath:
   - kueue/manifests/sourced
+  - kueue/manifests/cluster-config
 - name: kueue-onenode
   namespace: kueue-system
   manifestpath:
   - kueue/manifests/sourced
   - kueue/manifests/onenode
+  - kueue/manifests/cluster-config
 - name: external-secrets
   namespace: "external-secrets"
   syncwave: -10
@@ -233,4 +235,7 @@
   namespace: rabbitmq-system
   manifestpath:
   - rabbitmq/manifests/sourced
-
+- name: prometheus-app-config
+  namespace: kube-amd-gpu
+  manifestpath:
+  - prometheus-app-config/configmap_amddc.yaml
