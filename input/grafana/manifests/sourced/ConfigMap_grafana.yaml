@@ -5,52 +5,13 @@ data:
     apiVersion: 1
     datasources:
     - basicAuth: true
-      basicAuthUser: loki_tenant_oci1
-      jsonData:
-        httpHeaderName1: X-Scope-OrgID
-      name: oci1-loki
+      basicAuthUser: loki_tenant_oci
+      name: oci-clusters-loki
       orgId: 1
       secureJsonData:
         basicAuthPassword: ${LOKI_TENANT_PASSWORD}
-        httpHeaderValue1: loki-tenant-oci1
       type: loki
-      uid: oci1-loki
-      url: http://loki-gateway.grafana-loki.svc.cluster.local:80
-    - basicAuth: true
-      basicAuthUser: loki_tenant_oci2
-      jsonData:
-        httpHeaderName1: X-Scope-OrgID
-      name: oci2-loki
-      orgId: 1
-      secureJsonData:
-        basicAuthPassword: ${LOKI_TENANT_PASSWORD}
-        httpHeaderValue1: loki-tenant-oci2
-      type: loki
-      uid: oci2-loki
-      url: http://loki-gateway.grafana-loki.svc.cluster.local:80
-    - basicAuth: true
-      basicAuthUser: loki_tenant_ocisilogen
-      jsonData:
-        httpHeaderName1: X-Scope-OrgID
-      name: ocisilogen-loki
-      orgId: 1
-      secureJsonData:
-        basicAuthPassword: ${LOKI_TENANT_PASSWORD}
-        httpHeaderValue1: loki-tenant-ocisilogen
-      type: loki
-      uid: ocisilogen-loki
-      url: http://loki-gateway.grafana-loki.svc.cluster.local:80
-    - basicAuth: true
-      basicAuthUser: loki_tenant_ociops
-      jsonData:
-        httpHeaderName1: X-Scope-OrgID
-      name: ociops-loki
-      orgId: 1
-      secureJsonData:
-        basicAuthPassword: ${LOKI_TENANT_PASSWORD}
-        httpHeaderValue1: loki-tenant-ociops
-      type: loki
-      uid: ociops-loki
+      uid: oci-clusters-loki
       url: http://loki-gateway.grafana-loki.svc.cluster.local:80
     - basicAuth: true
       basicAuthUser: cluster-forge-mimir-test-user
