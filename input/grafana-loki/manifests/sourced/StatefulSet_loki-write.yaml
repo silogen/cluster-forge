@@ -54,25 +54,10 @@ spec:
                 secretKeyRef:
                   key: API_SECRET_KEY
                   name: loki-minio-creds
-            - name: TENANT_NAME_OCI1
+            - name: TENANT_NAME
               valueFrom:
                 secretKeyRef:
-                  key: loki_tenant_name_oci1
-                  name: loki-tenant-creds
-            - name: TENANT_NAME_OCI2
-              valueFrom:
-                secretKeyRef:
-                  key: loki_tenant_name_oci2
-                  name: loki-tenant-creds
-            - name: TENANT_NAME_OCISILOGEN
-              valueFrom:
-                secretKeyRef:
-                  key: loki_tenant_name_ocisilogen
-                  name: loki-tenant-creds
-            - name: TENANT_NAME_OCIOPS
-              valueFrom:
-                secretKeyRef:
-                  key: loki_tenant_name_ociops
+                  key: loki_tenant_name_oci
                   name: loki-tenant-creds
             - name: TENANT_PW
               valueFrom:

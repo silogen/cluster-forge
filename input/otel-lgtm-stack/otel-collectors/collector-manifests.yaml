@@ -316,6 +316,12 @@ spec:
           - key: k8s_cluster_name
             action: insert
             value: "cluster-name" ### value should be updated based on cluster
+      transform: ### this adds k8s.cluster.name as a label filter
+        error_mode: ignore
+        log_statements:
+          - context: log
+            statements:
+              - set(resource.attributes["k8s.cluster.name"], attributes["k8s.cluster.name"])
       batch:
         send_batch_size: 2000
         timeout: 10s
@@ -415,7 +421,7 @@ spec:
       pipelines:
         logs:
           receivers: [filelog/std]
-          processors: [batch, attributes, k8sattributes]
+          processors: [batch, k8sattributes, attributes, transform]
           exporters: [otlp, otlphttp/ops-loki]
           #exporters: [otlp, debug]
   volumes:
