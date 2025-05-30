@@ -160,7 +160,6 @@
 - name: kaiwo-cluster-config
   namespace: kaiwo
   manifestpath:
-  - kaiwo-cluster-config/manifests.yaml
   - kaiwo-cluster-config/manifests/additional
 - name: appwrapper
   namespace: appwrapper-system
