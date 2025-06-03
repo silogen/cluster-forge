@@ -46,6 +46,8 @@ spec:
             - kuberay-operator
             - otel-lgtm-stack
             - csi-wekafs
+            - opentelemetry-operator-system
+            - kube-system
     validate:
       message: "Memory resource limits and CPU and memory resource requests are required."
       foreach:
