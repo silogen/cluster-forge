@@ -6,7 +6,7 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.16.1
   labels:
     app.kubernetes.io/component: kmm
-    app.kubernetes.io/instance: amd-gpu
+    app.kubernetes.io/instance: amd-gpu-operator
     app.kubernetes.io/name: kmm
     app.kubernetes.io/part-of: kmm
     app.kubernetes.io/version: v20240618-v2.1.1
