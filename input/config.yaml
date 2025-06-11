@@ -238,3 +238,7 @@
   namespace: kube-amd-gpu
   manifestpath:
   - prometheus-app-config/configmap_amddc.yaml
+- name: cluster-auto-pvc
+  namespace: kaiwo
+  manifestpath:
+  - cluster-auto-pvc/pvc-user-demo.yaml

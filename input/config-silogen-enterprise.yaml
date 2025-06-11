@@ -21,4 +21,5 @@
 - name: kgateway-crds
 - name: kgateway
 - name: kaiwo-all
+- name: cluster-auto-pvc
 
