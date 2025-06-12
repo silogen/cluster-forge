@@ -815,6 +815,14 @@ spec:
                 - argocd-metrics.argocd.svc.cluster.local:8082
                 - argocd-applicationset-controller.argocd.svc.cluster.local:8080
                 - argocd-repo-server.argocd.svc.cluster.local:8084
+            - job_name: longhorn
+              metrics_path: /metrics
+              scheme: http
+              scrape_interval: 30s  # Optional: adjust based on your needs
+              static_configs:
+                - targets:
+                    - longhorn-backend.longhorn-system.svc.cluster.local:9500
+
     processors:
       batch:
         send_batch_size: 2000
