@@ -818,7 +818,6 @@ spec:
             - job_name: longhorn
               metrics_path: /metrics
               scheme: http
-              scrape_interval: 30s  # Optional: adjust based on your needs
               static_configs:
                 - targets:
                     - longhorn-backend.longhorn-system.svc.cluster.local:9500
