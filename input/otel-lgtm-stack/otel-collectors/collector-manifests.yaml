@@ -820,7 +820,7 @@ spec:
               scheme: http
               static_configs:
                 - targets:
-                    - longhorn-backend.longhorn-system.svc.cluster.local:9500
+                    - longhorn-backend.longhorn.svc.cluster.local:9500
 
     processors:
       batch:
