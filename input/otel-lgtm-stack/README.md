@@ -31,7 +31,7 @@ Users/Developers who want to use auto instrumation need to implement by giving a
 # Source of otel-lgtm stack
 - https://github.com/grafana/docker-otel-lgtm/tree/main
 
-# Access grafana of lgtm
+# How to access the grafana of lgtm
 kubectl port-forward -n otel-lgtm-stack service/lgtm-stack 3000:3000 4317:4317 4318:4318
 
 id/password of grafana: admin/admin
