@@ -322,6 +322,8 @@ spec:
           - context: log
             statements:
               - set(resource.attributes["k8s.cluster.name"], attributes["k8s.cluster.name"])
+              - set(resource.attributes["component.id"], attributes["component.id"])
+              - set(resource.attributes["workload.id"], attributes["workload.id"])
       batch:
         send_batch_size: 2000
         timeout: 10s
@@ -344,6 +346,12 @@ spec:
           - from: pod
             key: app.kubernetes.io/component
             tag_name: k8s.app.component
+          - from: pod
+            key: airm.silogen.ai/component-id
+            tag_name: component.id
+          - from: pod
+            key: airm.silogen.ai/workload-id
+            tag_name: workload.id
           metadata:
           - k8s.namespace.name
           - k8s.pod.name
