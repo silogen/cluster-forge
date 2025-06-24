@@ -77,7 +77,8 @@ spec:
     nodePort: 32500
 
     # exporter image
-    image: "docker.io/rocm/device-metrics-exporter:v1.0.0"
+    image: "docker.io/rocm/device-metrics-exporter:v1.3.0.1"
+    imagePullPolicy: IfNotPresent
 
     # image pull secrets for fetching metrics exporter image
     #imageRegistrySecret:
