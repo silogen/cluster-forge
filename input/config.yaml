@@ -218,6 +218,10 @@
   manifestpath:
   - kgateway/manifests/sourced
   - kgateway/manifests/gateway
+- name: kgateway-cert
+  namespace: kgateway-system
+  manifestpath:
+  - kgateway-cert/Certificate_kgateway-cert.yaml
 - name: keda
   namespace: keda
   manifestpath:

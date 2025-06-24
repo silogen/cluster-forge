@@ -18,5 +18,6 @@
 - name: metallb
 - name: kgateway-crds
 - name: kgateway
+- name: kgateway-cert
 - name: kaiwo-all
 
