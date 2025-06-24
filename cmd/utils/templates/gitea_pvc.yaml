@@ -74,7 +74,7 @@ spec:
                 image: GENERATED_IMAGE
                 command: ["sh", "-c", "cp -r /prepopulated/* /data && chown -R 1000:1000 /data"]
                 volumeMounts:
-                  - name: data
+                  - name: persistent-data
                     mountPath: /data
       terminationGracePeriodSeconds: 60
       containers:
