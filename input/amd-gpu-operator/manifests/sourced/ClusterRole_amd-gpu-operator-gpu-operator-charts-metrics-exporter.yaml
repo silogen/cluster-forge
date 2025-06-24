@@ -19,3 +19,11 @@ rules:
       - get
       - list
       - update
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - watch
+      - get
+      - list
