@@ -38,11 +38,13 @@
   namespace: kueue-system
   manifestpath:
   - kueue/manifests/sourced
+  - kueue/manifests/cluster-config
 - name: kueue-onenode
   namespace: kueue-system
   manifestpath:
   - kueue/manifests/sourced
   - kueue/manifests/onenode
+  - kueue/manifests/cluster-config
 - name: external-secrets
   namespace: "external-secrets"
   syncwave: -10
@@ -158,7 +160,6 @@
 - name: kaiwo-cluster-config
   namespace: kaiwo
   manifestpath:
-  - kaiwo-cluster-config/manifests.yaml
   - kaiwo-cluster-config/manifests/additional
 - name: appwrapper
   namespace: appwrapper-system
@@ -233,4 +234,11 @@
   namespace: rabbitmq-system
   manifestpath:
   - rabbitmq/manifests/sourced
-
+- name: prometheus-app-config
+  namespace: kube-amd-gpu
+  manifestpath:
+  - prometheus-app-config/configmap_amddc.yaml
+- name: cluster-auto-pvc
+  namespace: kaiwo
+  manifestpath:
+  - cluster-auto-pvc/pvc-user-demo.yaml

@@ -316,6 +316,14 @@ spec:
           - key: k8s_cluster_name
             action: insert
             value: "cluster-name" ### value should be updated based on cluster
+      transform: ### this adds k8s.cluster.name as a label filter
+        error_mode: ignore
+        log_statements:
+          - context: log
+            statements:
+              - set(resource.attributes["k8s.cluster.name"], attributes["k8s.cluster.name"])
+              - set(resource.attributes["component.id"], attributes["component.id"])
+              - set(resource.attributes["workload.id"], attributes["workload.id"])
       batch:
         send_batch_size: 2000
         timeout: 10s
@@ -338,6 +346,12 @@ spec:
           - from: pod
             key: app.kubernetes.io/component
             tag_name: k8s.app.component
+          - from: pod
+            key: airm.silogen.ai/component-id
+            tag_name: component.id
+          - from: pod
+            key: airm.silogen.ai/workload-id
+            tag_name: workload.id
           metadata:
           - k8s.namespace.name
           - k8s.pod.name
@@ -415,7 +429,7 @@ spec:
       pipelines:
         logs:
           receivers: [filelog/std]
-          processors: [batch, attributes, k8sattributes]
+          processors: [batch, k8sattributes, attributes, transform]
           exporters: [otlp, otlphttp/ops-loki]
           #exporters: [otlp, debug]
   volumes:
@@ -809,6 +823,13 @@ spec:
                 - argocd-metrics.argocd.svc.cluster.local:8082
                 - argocd-applicationset-controller.argocd.svc.cluster.local:8080
                 - argocd-repo-server.argocd.svc.cluster.local:8084
+            - job_name: longhorn
+              metrics_path: /metrics
+              scheme: http
+              static_configs:
+                - targets:
+                    - longhorn-backend.longhorn.svc.cluster.local:9500
+
     processors:
       batch:
         send_batch_size: 2000

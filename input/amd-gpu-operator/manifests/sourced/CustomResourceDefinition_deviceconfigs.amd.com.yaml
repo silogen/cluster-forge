@@ -6,7 +6,7 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.12.0
   labels:
     app.kubernetes.io/component: amd-gpu
-    app.kubernetes.io/instance: amd-gpu
+    app.kubernetes.io/instance: amd-gpu-operator
     app.kubernetes.io/name: gpu-operator-charts
     app.kubernetes.io/part-of: amd-gpu
     app.kubernetes.io/version: v1.2.0

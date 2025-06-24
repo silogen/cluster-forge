@@ -1,6 +1,7 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 kubectl create ns argocd
+bash ./generate-argocd-secret.sh
 kubectl apply -n argocd -f argocd.yaml
 kubectl apply -f gitea.yaml
 if [ -f argocd2.yaml ]; then

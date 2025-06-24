@@ -1,4 +1,4 @@
-argocdui: "false"
+argocdui: "true"
 config: input/config.yaml
 gitea: ephemeral
 gitopsbranch: HEAD

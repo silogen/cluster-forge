@@ -61,6 +61,13 @@ data:
       ingestion_burst_size_mb: 30
       ingestion_rate_mb: 20
       max_cache_freshness_per_query: 10m
+      otlp_config:
+        resource_attributes:
+          attributes_config:
+          - action: index_label
+            attributes:
+            - component.id
+            - workload.id
       query_timeout: 120s
       reject_old_samples: true
       reject_old_samples_max_age: 168h

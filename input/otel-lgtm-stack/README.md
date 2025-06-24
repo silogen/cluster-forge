@@ -31,7 +31,26 @@ Users/Developers who want to use auto instrumation need to implement by giving a
 # Source of otel-lgtm stack
 - https://github.com/grafana/docker-otel-lgtm/tree/main
 
-# After deployment
+# How to access the grafana of lgtm
 kubectl port-forward -n otel-lgtm-stack service/lgtm-stack 3000:3000 4317:4317 4318:4318
 
 id/password of grafana: admin/admin
+
+# Simple use case(Log)
+1. Login
+2. Go to explore
+3. Select "Loki" datasource
+4. Use label filters
+
+# Disclaimer
+[docker-otel-lgtm](https://github.com/grafana/docker-otel-lgtm/tree/main/docker) is added Cluster-Forge for development, demo, and testing. The only changed part is as follows at "otelcol-config.yaml" to make a custom image. We don't manage/develop this.
+```
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+        max_recv_msg_size_mib: 128 <-- added
+```
+
+
