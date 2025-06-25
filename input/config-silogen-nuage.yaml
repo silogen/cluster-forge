@@ -1,4 +1,3 @@
-#- name: certmanager
 - name: amd-gpu-operator
 - name: amd-device-config
 - name: kueue
@@ -6,20 +5,17 @@
 - name: minio-operator
 - name: minio-tenant
 - name: minio-tenant-k8s-secret
-#- name: kuberay-operator
 - name: k8s-cluster-secret-store
 - name: kaiwo-cluster-config
 - name: kyverno
 - name: kyverno-policies
-#- name: prometheus-crds
 - name: opentelemetry-operator
 - name: otel-lgtm-stack
 - name: gateway-api
-# - name: metallb
 - name: kgateway-crds
 - name: kgateway
-- name: kaiwo-all
-#- name: wekafs
-#- name: wekafs-cluster-config
 - name: keycloak
+- name: kuberay-operator
+- name: appwrapper
+- name: kaiwo
 - name: cnpg-operator
