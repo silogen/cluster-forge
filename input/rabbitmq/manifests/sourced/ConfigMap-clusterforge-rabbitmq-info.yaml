@@ -7,6 +7,6 @@ metadata:
 data:
   source.yaml: |
     name: rabbitmq
-    namespace: rabbitmq
+    namespace: rabbitmq-system
     manifest-url: https://github.com/rabbitmq/cluster-operator/releases/download/v2.13.0/cluster-operator.yml
     

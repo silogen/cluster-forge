@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.3
   labels:
     app: kgateway
     app.kubernetes.io/name: kgateway
@@ -178,6 +178,8 @@ spec:
                                     host:
                                       minLength: 1
                                       type: string
+                                    insecureSkipVerify:
+                                      type: boolean
                                     port:
                                       format: int32
                                       maximum: 65535
@@ -247,6 +249,8 @@ spec:
                                     host:
                                       minLength: 1
                                       type: string
+                                    insecureSkipVerify:
+                                      type: boolean
                                     port:
                                       format: int32
                                       maximum: 65535
@@ -268,12 +272,112 @@ spec:
                         - CHAT_STREAMING
                       type: string
                   type: object
+                cors:
+                  properties:
+                    allowCredentials:
+                      enum:
+                        - true
+                      type: boolean
+                    allowHeaders:
+                      items:
+                        maxLength: 256
+                        minLength: 1
+                        pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                        type: string
+                      maxItems: 64
+                      type: array
+                      x-kubernetes-list-type: set
+                    allowMethods:
+                      items:
+                        enum:
+                          - GET
+                          - HEAD
+                          - POST
+                          - PUT
+                          - DELETE
+                          - CONNECT
+                          - OPTIONS
+                          - TRACE
+                          - PATCH
+                          - '*'
+                        type: string
+                      maxItems: 9
+                      type: array
+                      x-kubernetes-list-type: set
+                      x-kubernetes-validations:
+                        - message: AllowMethods cannot contain '*' alongside other methods
+                          rule: '!(''*'' in self && self.size() > 1)'
+                    allowOrigins:
+                      items:
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^(([^:/?#]+):)(//([^/?#]*))([^?#]*)(\?([^#]*))?(#(.*))?
+                        type: string
+                      maxItems: 64
+                      type: array
+                      x-kubernetes-list-type: set
+                    exposeHeaders:
+                      items:
+                        maxLength: 256
+                        minLength: 1
+                        pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                        type: string
+                      maxItems: 64
+                      type: array
+                      x-kubernetes-list-type: set
+                    maxAge:
+                      default: 5
+                      format: int32
+                      minimum: 1
+                      type: integer
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                csrf:
+                  properties:
+                    additionalOrigins:
+                      items:
+                        properties:
+                          contains:
+                            type: string
+                          exact:
+                            type: string
+                          ignoreCase:
+                            default: false
+                            type: boolean
+                          prefix:
+                            type: string
+                          safeRegex:
+                            type: string
+                          suffix:
+                            type: string
+                        required:
+                          - ignoreCase
+                        type: object
+                        x-kubernetes-validations:
+                          - message: exactly one of Exact, Prefix, Suffix, Contains, or SafeRegex must be set
+                            rule: '[has(self.exact), has(self.prefix), has(self.suffix), has(self.contains), has(self.safeRegex)].filter(x, x).size() == 1'
+                      maxItems: 16
+                      type: array
+                    percentageEnabled:
+                      format: int32
+                      maximum: 100
+                      minimum: 0
+                      type: integer
+                    percentageShadowed:
+                      format: int32
+                      maximum: 100
+                      minimum: 0
+                      type: integer
+                  type: object
+                  x-kubernetes-validations:
+                    - message: exactly one of PercentageEnabled or PercentageShadowed must be set
+                      rule: has(self.percentageEnabled) != has(self.percentageShadowed)
                 extAuth:
                   properties:
-                    clearRouteCache:
-                      type: boolean
-                    emitFilterStateStats:
-                      type: boolean
+                    contextExtensions:
+                      additionalProperties:
+                        type: string
+                      type: object
                     enablement:
                       enum:
                         - DisableAll
@@ -285,19 +389,6 @@ spec:
                           type: string
                       type: object
                       x-kubernetes-map-type: atomic
-                    failureModeAllow:
-                      type: boolean
-                    includePeerCertificate:
-                      type: boolean
-                    includeTLSSession:
-                      type: boolean
-                    metadataContextNamespaces:
-                      default:
-                        - jwt
-                      items:
-                        type: string
-                      type: array
-                      x-kubernetes-list-type: set
                     withRequestBody:
                       properties:
                         allowPartialMessage:
@@ -324,8 +415,6 @@ spec:
                           type: string
                       type: object
                       x-kubernetes-map-type: atomic
-                    failureModeAllow:
-                      type: boolean
                     processingMode:
                       properties:
                         requestBodyMode:
@@ -380,12 +469,63 @@ spec:
                   type: object
                 rateLimit:
                   properties:
+                    global:
+                      properties:
+                        descriptors:
+                          items:
+                            properties:
+                              entries:
+                                items:
+                                  properties:
+                                    generic:
+                                      properties:
+                                        key:
+                                          type: string
+                                        value:
+                                          type: string
+                                      required:
+                                        - key
+                                        - value
+                                      type: object
+                                    header:
+                                      type: string
+                                    type:
+                                      enum:
+                                        - Generic
+                                        - Header
+                                        - RemoteAddress
+                                        - Path
+                                      type: string
+                                  required:
+                                    - type
+                                  type: object
+                                  x-kubernetes-validations:
+                                    - message: exactly one entry type must be specified
+                                      rule: (has(self.type) && (self.type == 'Generic' && has(self.generic) && !has(self.header)) || (self.type == 'Header' && has(self.header) && !has(self.generic)) || (self.type == 'RemoteAddress' && !has(self.generic) && !has(self.header)) || (self.type == 'Path' && !has(self.generic) && !has(self.header)))
+                                minItems: 1
+                                type: array
+                            required:
+                              - entries
+                            type: object
+                          minItems: 1
+                          type: array
+                        extensionRef:
+                          properties:
+                            name:
+                              default: ""
+                              type: string
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      required:
+                        - descriptors
+                        - extensionRef
+                      type: object
                     local:
                       properties:
                         tokenBucket:
                           properties:
                             fillInterval:
-                              format: duration
+                              pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                               type: string
                             maxTokens:
                               format: int32
@@ -400,8 +540,6 @@ spec:
                             - maxTokens
                           type: object
                       type: object
-                  required:
-                    - local
                   type: object
                 targetRefs:
                   items:
@@ -419,6 +557,11 @@ spec:
                         maxLength: 253
                         minLength: 1
                         type: string
+                      sectionName:
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
                     required:
                       - group
                       - kind
@@ -426,6 +569,28 @@ spec:
                     type: object
                   maxItems: 16
                   minItems: 1
+                  type: array
+                targetSelectors:
+                  items:
+                    properties:
+                      group:
+                        maxLength: 253
+                        pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                      kind:
+                        maxLength: 63
+                        minLength: 1
+                        pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                        type: string
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                    required:
+                      - group
+                      - kind
+                      - matchLabels
+                    type: object
                   type: array
                 transformation:
                   properties:
@@ -537,46 +702,98 @@ spec:
               type: object
             status:
               properties:
-                conditions:
+                ancestors:
                   items:
                     properties:
-                      lastTransitionTime:
-                        format: date-time
-                        type: string
-                      message:
-                        maxLength: 32768
-                        type: string
-                      observedGeneration:
-                        format: int64
-                        minimum: 0
-                        type: integer
-                      reason:
-                        maxLength: 1024
+                      ancestorRef:
+                        properties:
+                          group:
+                            default: gateway.networking.k8s.io
+                            maxLength: 253
+                            pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                            type: string
+                          kind:
+                            default: Gateway
+                            maxLength: 63
+                            minLength: 1
+                            pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                            type: string
+                          name:
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          namespace:
+                            maxLength: 63
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                            type: string
+                          port:
+                            format: int32
+                            maximum: 65535
+                            minimum: 1
+                            type: integer
+                          sectionName:
+                            maxLength: 253
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                            type: string
+                        required:
+                          - name
+                        type: object
+                      conditions:
+                        items:
+                          properties:
+                            lastTransitionTime:
+                              format: date-time
+                              type: string
+                            message:
+                              maxLength: 32768
+                              type: string
+                            observedGeneration:
+                              format: int64
+                              minimum: 0
+                              type: integer
+                            reason:
+                              maxLength: 1024
+                              minLength: 1
+                              pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                              type: string
+                            status:
+                              enum:
+                                - "True"
+                                - "False"
+                                - Unknown
+                              type: string
+                            type:
+                              maxLength: 316
+                              pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                              type: string
+                          required:
+                            - lastTransitionTime
+                            - message
+                            - reason
+                            - status
+                            - type
+                          type: object
+                        maxItems: 8
+                        minItems: 1
+                        type: array
+                        x-kubernetes-list-map-keys:
+                          - type
+                        x-kubernetes-list-type: map
+                      controllerName:
+                        maxLength: 253
                         minLength: 1
-                        pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
-                        type: string
-                      status:
-                        enum:
-                          - "True"
-                          - "False"
-                          - Unknown
-                        type: string
-                      type:
-                        maxLength: 316
-                        pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$
                         type: string
                     required:
-                      - lastTransitionTime
-                      - message
-                      - reason
-                      - status
-                      - type
+                      - ancestorRef
+                      - controllerName
                     type: object
-                  maxItems: 8
+                  maxItems: 16
                   type: array
-                  x-kubernetes-list-map-keys:
-                    - type
-                  x-kubernetes-list-type: map
+              required:
+                - ancestors
               type: object
           type: object
       served: true
