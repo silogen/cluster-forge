@@ -11,6 +11,6 @@ data:
     helm-chart-name: "oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds"
     helm-name: kgateway-crds
     helm-url: ""
-    helm-version: "v2.0.0"
+    helm-version: "v2.1.0-main"
     values: values.yaml
     
