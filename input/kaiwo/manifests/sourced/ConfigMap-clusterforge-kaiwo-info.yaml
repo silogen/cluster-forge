@@ -1,0 +1,12 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clusterforge-kaiwo-info
+  namespace: kaiwo-system
+data:
+  source.yaml: |
+    name: kaiwo
+    namespace: kaiwo-system
+    manifest-url: https://github.com/silogen/kaiwo/releases/download/v0.1.5/install.yaml
+    
