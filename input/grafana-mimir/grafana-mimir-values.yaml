@@ -116,7 +116,7 @@ distributor:
   replicas: 4
   resources:
     limits:
-      memory: 2Gi
+      memory: 3Gi
     requests:
       cpu: 1
       memory: 760Mi
@@ -128,7 +128,7 @@ ingester:
   replicas: 3
   resources:
     limits:
-      memory: 12Gi
+      memory: 14Gi
     requests:
       cpu: 1
       memory: 9Gi
@@ -192,7 +192,7 @@ overrides_exporter:
       memory: 128Mi
 
 querier:
-  replicas: 1
+  replicas: 2
   resources:
     limits:
       memory: 3000Mi
@@ -201,7 +201,7 @@ querier:
       memory: 2525Mi
 
 query_frontend:
-  replicas: 1
+  replicas: 2
   resources:
     limits:
       memory: 1000Mi
