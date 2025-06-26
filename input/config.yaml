@@ -170,7 +170,7 @@
   skip-namespace: true
   syncwave: 10
   manifestpath:
-    - kaiwo/install.yaml
+    - kaiwo/manifests/sourced
 - name: otel-lgtm-stack
   namespace: otel-lgtm-stack
   manifestpath:
