@@ -846,32 +846,16 @@ spec:
             action: insert
             value: "cluster-name" ### value should be updated based on cluster
 
-    extensions: ##
-      basicauth/mimir-tenant:
-        client_auth:
-          username: cluster-forge-mimir-test-user
-          password: cluster-forge-mimir-test-pass
-
     exporters:
       # Configure your actual backend exporters here
       otlp:
         endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
         tls:
           insecure: true
-      otlphttp/ops-mimir: ##
-        endpoint: http://otel-collector-metric-proxy.headscale.svc.cluster.local/otlp ##
-        tls:
-          insecure: true
-        headers:
-          "X-Scope-OrgID": "oci-clusters" ##
-        auth: ##
-          authenticator: basicauth/mimir-tenant ##
-      
       debug:
         verbosity: detailed
     
     service:
-      extensions: [basicauth/mimir-tenant] ##
       pipelines:
         metrics:
           receivers: [prometheus]
