@@ -61,7 +61,6 @@ jobs:
           go run . cast --config input/config-silogen-${{ matrix.release.type }}.yaml \
             --imageName ${{ github.event.inputs.image_name }}:${{ github.event.inputs.version }}-${{ matrix.release.type }} \
             --stackName ${{ github.event.inputs.version }}-${{ matrix.release.type }} \
-            --gitea persistent \
             --non-interactive
 
       - name: Clean stack
