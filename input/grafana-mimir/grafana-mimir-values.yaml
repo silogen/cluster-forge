@@ -65,6 +65,8 @@ mimir:
     limits:
       max_label_names_per_series: 150
       max_global_series_per_user: 1000000
+      ingestion_rate: 35000
+      ingestion_burst_size: 600000
 
     server:  # <-- Add this section
       grpc_server_max_recv_msg_size: 268435456  # 256 MiB ##
@@ -77,6 +79,14 @@ mimir:
       grpc_client_config:
         max_recv_msg_size: 268435456
         max_send_msg_size: 268435456
+
+#    ingester:
+#      ring:
+#        zone_awareness_enabled: false
+#    store_gateway:
+#      sharding_ring:
+#        zone_awareness_enabled: false
+
 alertmanager:
   enabled: false
   persistentVolume:
@@ -144,6 +154,7 @@ ingester:
 
   zoneAwareReplication:
     topologyKey: 'kubernetes.io/hostname'
+#    enabled: false ## Added
 
 admin-cache:
   enabled: true
@@ -239,6 +250,7 @@ store_gateway:
           topologyKey: 'kubernetes.io/hostname'
   zoneAwareReplication:
     topologyKey: 'kubernetes.io/hostname'
+##    enabled: false ## Added
 
 gateway:
   enabledNonEnterprise: true
