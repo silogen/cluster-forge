@@ -860,4 +860,4 @@ spec:
         metrics:
           receivers: [prometheus]
           processors: [memory_limiter, batch, attributes]
-          exporters: [otlp, otlphttp/ops-mimir]
+          exporters: [otlp]
