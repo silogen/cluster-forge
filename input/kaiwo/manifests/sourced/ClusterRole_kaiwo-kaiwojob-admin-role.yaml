@@ -1,0 +1,20 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: kaiwo
+  name: kaiwo-kaiwojob-admin-role
+rules:
+  - apiGroups:
+      - kaiwo.silogen.ai
+    resources:
+      - kaiwojobs
+    verbs:
+      - '*'
+  - apiGroups:
+      - kaiwo.silogen.ai
+    resources:
+      - kaiwojobs/status
+    verbs:
+      - get
