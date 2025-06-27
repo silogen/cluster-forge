@@ -104,6 +104,7 @@ rules:
       - workloads
       - admissionchecks
       - workloadpriorityclasses
+      - topologies
     verbs:
       - get
       - list
