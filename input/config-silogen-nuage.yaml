@@ -8,7 +8,7 @@
 - name: k8s-cluster-secret-store
 - name: kaiwo-cluster-config
 - name: kyverno
-- name: kyverno-policies
+# - name: kyverno-policies
 - name: opentelemetry-operator
 - name: otel-lgtm-stack
 - name: gateway-api
