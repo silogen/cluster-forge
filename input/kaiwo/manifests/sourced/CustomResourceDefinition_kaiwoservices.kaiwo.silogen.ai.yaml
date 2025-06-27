@@ -51,11 +51,13 @@ spec:
               properties:
                 clusterQueue:
                   description: |-
-                    ClusterQueue specifies the name of the Kueue `ClusterQueue` that the service should be submitted to for scheduling and resource management.
+                    ClusterQueue specifies the name of the Kueue `ClusterQueue` that the workload should be submitted to for scheduling and resource management.
 
-                    This value is set as the `kueue.x-k8s.io/queue-name` label on the underlying Kubernetes Deployment or RayService.
+                    This value is set as the `kueue.x-k8s.io/queue-name` label on the underlying resources.
 
-                    If omitted, it defaults to the value specified by the `DEFAULT_CLUSTER_QUEUE_NAME` environment variable in the Kaiwo controller (typically "kaiwo").
+                    If omitted, it defaults to the value specified by the `DEFAULT_CLUSTER_QUEUE_NAME` environment variable in the Kaiwo controller (typically "kaiwo"), which is set during installation.
+
+                    Note!
                   type: string
                 dangerous:
                   default: false
@@ -7798,6 +7800,13 @@ spec:
                       - name
                     type: object
                   type: array
+                gpuModels:
+                  description: |-
+                    GpuModels allows you to optionally specify the GPU models that your workload will run on. You can see available models either by using the CLI and running `kaiwo status amd/nvidia` or by using kubectl command `kubectl get nodes -o custom-columns=NAME:.metadata.name,MODEL:.metadata.labels.kaiwo\/gpu-model`
+                    This field is used to filter the available nodes for scheduling. You can specify multiple models, and Kaiwo will select the best available node that matches one of the specified models.
+                  items:
+                    type: string
+                  type: array
                 gpuVendor:
                   default: amd
                   description: GpuVendor specifies the GPU vendor (e.g., amd, nvidia, etc.). See [here](/scientist/scheduling#replicas-gpus-gpusperreplica-and-gpuvendor) for more details on how this field impacts scheduling.
@@ -7843,8 +7852,14 @@ spec:
                     type: string
                   description: PodTemplateSpecLabels allows you to specify custom labels that will be added to the `template.metadata.labels` section of the generated Pods (within Jobs, Deployments, or RayCluster specs). Standard Kaiwo system labels (like `kaiwo.silogen.ai/user`, `kaiwo.silogen.ai/name`, etc.) are added automatically and take precedence if there are conflicts.
                   type: object
+                preferredTopologyLabel:
+                  description: |-
+                    PreferredTopologyLabel specifies the preferred topology label for scheduling the workload. This is used to influence how the workload is distributed across nodes in the cluster.
+                    If not specified, Kaiwo will use the default topology labels defined in the default topology of KaiwoQueueConfig starting at the host level.
+                    The levels are evaluated one-by-one going up from the level indicated by the label. If the PodSet cannot fit within a given topology label then the next topology level up is considered.
+                  type: string
                 priorityClass:
-                  description: PriorityClass specifies the name of a Kubernetes `PriorityClass` to be assigned to the service's pods. This influences the scheduling priority relative to other pods in the cluster.
+                  description: WorkloadPriorityClass specifies the name of Kueue `WorkloadPriorityClass` to be assigned to the job's pods. This influences the scheduling priority relative to other pods in the cluster.
                   type: string
                 ray:
                   default: false
@@ -24809,6 +24824,9 @@ spec:
                   default: 1
                   description: Replicas specifies the number of replicas for the workload. See [here](/scientist/scheduling#replicas-gpus-gpusperreplica-and-gpuvendor) for more details on how this field impacts scheduling.
                   type: integer
+                requiredTopologyLabel:
+                  description: RequiredTopologyLabel specifies the required topology label for scheduling the workload. This is used to ensure that the workload is scheduled on nodes that match the specified topology label.
+                  type: string
                 resources:
                   description: |-
                     Resources specify the default resource requirements applied for all pods inside the workflow.
