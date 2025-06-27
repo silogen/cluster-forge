@@ -11,7 +11,9 @@ loki:
       heartbeat_timeout: "10m"
   auth_enabled: true
   tenants: ## promtail
-    - name: ${TENANT_NAME}
+    - name: ${TENANT_NAME_OCICLUSTERS}
+      password: ${TENANT_PW}
+    - name: ${TENANT_NAME_OCIOPS}
       password: ${TENANT_PW}
   limits_config:
     index_gateway_shard_size: 1
@@ -141,6 +143,10 @@ extraObjects:
           remoteRef:
             key: grafana-loki-creds
             property: loki_tenant_name_oci
+        - secretKey: loki_tenant_name_ociops
+          remoteRef:
+            key: grafana-loki-creds
+            property: loki_tenant_name_ociops
         - secretKey: loki_tenant_password_ociclusters
           remoteRef:
             key: grafana-loki-creds
@@ -161,7 +167,7 @@ backend:
         secretKeyRef:
           name: loki-minio-creds
           key: API_SECRET_KEY
-    - name: TENANT_NAME
+    - name: TENANT_NAME_OCICLUSTERS
       valueFrom:
         secretKeyRef:
           name: loki-tenant-creds
@@ -171,6 +177,11 @@ backend:
         secretKeyRef:
           name: loki-tenant-creds
           key: loki_tenant_password_ociclusters
+    - name: TENANT_NAME_OCIOPS
+      valueFrom:
+        secretKeyRef:
+          name: loki-tenant-creds
+          key: loki_tenant_name_ociops
 write:
   persistence:
     storageClass: longhorn-default
@@ -187,7 +198,7 @@ write:
         secretKeyRef:
           name: loki-minio-creds
           key: API_SECRET_KEY
-    - name: TENANT_NAME
+    - name: TENANT_NAME_OCICLUSTERS
       valueFrom:
         secretKeyRef:
           name: loki-tenant-creds
@@ -197,6 +208,11 @@ write:
         secretKeyRef:
           name: loki-tenant-creds
           key: loki_tenant_password_ociclusters
+    - name: TENANT_NAME_OCIOPS
+      valueFrom:
+        secretKeyRef:
+          name: loki-tenant-creds
+          key: loki_tenant_name_ociops
 read:
   persistence:
     storageClass: longhorn-default
@@ -213,7 +229,7 @@ read:
         secretKeyRef:
           name: loki-minio-creds
           key: API_SECRET_KEY
-    - name: TENANT_NAME
+    - name: TENANT_NAME_OCICLUSTERS
       valueFrom:
         secretKeyRef:
           name: loki-tenant-creds
@@ -223,5 +239,11 @@ read:
         secretKeyRef:
           name: loki-tenant-creds
           key: loki_tenant_password_ociclusters
+    - name: TENANT_NAME_OCIOPS
+      valueFrom:
+        secretKeyRef:
+          name: loki-tenant-creds
+          key: loki_tenant_name_ociops
+
 minio:
   enabled: false

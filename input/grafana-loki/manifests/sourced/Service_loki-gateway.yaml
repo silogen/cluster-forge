@@ -21,3 +21,4 @@ spec:
     app.kubernetes.io/instance: loki
     app.kubernetes.io/name: loki
   type: ClusterIP
+  clusterIP: 10.243.184.169 ## Static IP
