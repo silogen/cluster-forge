@@ -1,0 +1,30 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kaiwo-system/kaiwo-serving-cert
+  name: kaiwo-job-mutating
+webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: kaiwo-webhook-service
+        namespace: kaiwo-system
+        path: /mutate-batch-v1-job
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    name: mutate-jobs.kaiwo.silogen.ai
+    reinvocationPolicy: Never
+    rules:
+      - apiGroups:
+          - batch
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+        resources:
+          - jobs
+    sideEffects: None
+    timeoutSeconds: 5

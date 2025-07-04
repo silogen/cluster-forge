@@ -1,0 +1,3 @@
+name: kaiwo
+namespace: kaiwo-system
+manifest-url: https://github.com/silogen/kaiwo/releases/download/v0.1.6/install.yaml

@@ -1,0 +1,31 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kaiwo-system/kaiwo-serving-cert
+  name: kaiwo-job-validating
+webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: kaiwo-webhook-service
+        namespace: kaiwo-system
+        path: /validate-batch-v1-job
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    name: validate-jobs.kaiwo.silogen.ai
+    rules:
+      - apiGroups:
+          - batch
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - jobs
+    sideEffects: None
+    timeoutSeconds: 5

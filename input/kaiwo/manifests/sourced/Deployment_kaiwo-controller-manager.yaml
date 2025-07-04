@@ -1,0 +1,100 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: kaiwo
+    control-plane: kaiwo-controller-manager
+  name: kaiwo-controller-manager
+  namespace: kaiwo-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kaiwo
+      control-plane: kaiwo-controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        app.kubernetes.io/name: kaiwo
+        control-plane: kaiwo-controller-manager
+    spec:
+      containers:
+        - args:
+            - --metrics-bind-address=:8443
+            - --leader-elect
+            - --health-probe-bind-address=:8081
+            - --metrics-cert-path=/tmp/k8s-metrics-server/metrics-certs
+            - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
+          command:
+            - /manager
+          env:
+            - name: DEFAULT_KAIWO_QUEUE_CONFIG_NAME
+              value: kaiwo
+            - name: DEFAULT_CLUSTER_QUEUE_NAME
+              value: kaiwo
+            - name: RESOURCE_MONITORING_ENABLED
+              value: "false"
+            - name: RESOURCE_MONITORING_POLLING_INTERVAL
+              value: 15s
+            - name: RESOURCE_MONITORING_PROMETHEUS_ENDPOINT
+              value: http://prometheus-k8s.monitoring.svc.cluster.local:9090
+          image: ghcr.io/silogen/kaiwo-operator:v0.1.6
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          name: manager
+          ports:
+            - containerPort: 9443
+              name: webhook-server
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: 4Gi
+            requests:
+              cpu: 500m
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - mountPath: /tmp/k8s-metrics-server/metrics-certs
+              name: metrics-certs
+              readOnly: true
+            - mountPath: /tmp/k8s-webhook-server/serving-certs
+              name: webhook-certs
+              readOnly: true
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: kaiwo-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+        - name: metrics-certs
+          secret:
+            items:
+              - key: ca.crt
+                path: ca.crt
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+            optional: false
+            secretName: metrics-server-cert
+        - name: webhook-certs
+          secret:
+            secretName: webhook-server-cert
