@@ -4,25 +4,21 @@ kind: Service
 metadata:
   annotations: {}
   labels:
-    app.kubernetes.io/component: gateway
+    app.kubernetes.io/component: ruler
     app.kubernetes.io/instance: mimir
     app.kubernetes.io/name: mimir
+    app.kubernetes.io/part-of: memberlist
     app.kubernetes.io/version: 2.11.0
-  name: mimir-gateway
+  name: mimir-ruler
   namespace: grafana-mimir
 spec:
   ports:
     - name: http-metrics
-      port: 80
-      protocol: TCP
-      targetPort: http-metrics
-    - name: legacy-http-metrics
       port: 8080
       protocol: TCP
       targetPort: http-metrics
   selector:
-    app.kubernetes.io/component: gateway
+    app.kubernetes.io/component: ruler
     app.kubernetes.io/instance: mimir
     app.kubernetes.io/name: mimir
   type: ClusterIP
-  clusterIP: 10.243.245.229 ## Static IP

@@ -13,6 +13,7 @@ data:
       s3:
         bucket_name: cluster-forge-mimir
         insecure: true
+      storage_prefix: alertmanager
     blocks_storage:
       backend: s3
       bucket_store:
@@ -40,6 +41,7 @@ data:
       s3:
         bucket_name: cluster-forge-mimir
         insecure: true
+      storage_prefix: blocks
       tsdb:
         dir: /data/tsdb
         head_compaction_interval: 15m
@@ -93,6 +95,8 @@ data:
         max_recv_msg_size: 268435456
         max_send_msg_size: 268435456
     limits:
+      ingestion_burst_size: 600000
+      ingestion_rate: 35000
       max_cache_freshness: 10m
       max_global_series_per_user: 1000000
       max_label_names_per_series: 150
@@ -120,6 +124,7 @@ data:
       s3:
         bucket_name: cluster-forge-mimir
         insecure: true
+      storage_prefix: ruler
     runtime_config:
       file: /var/mimir/runtime.yaml
     server:

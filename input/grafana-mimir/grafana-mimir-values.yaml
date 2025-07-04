@@ -50,18 +50,27 @@ mimir:
             insecure_skip_verify: true
 
     blocks_storage:
+      storage_prefix: blocks
       backend: s3
       s3:
         bucket_name: cluster-forge-mimir
         insecure: true ##
+          #storage_prefix: blocks
+          #prefix: blocks
     alertmanager_storage: ##
+      storage_prefix: alertmanager
       s3:
         bucket_name: cluster-forge-mimir
         insecure: true ##
+          #storage_prefix: alertmanager
+          #prefix: alertmanager
     ruler_storage: ##
+      storage_prefix: ruler
       s3:
         bucket_name: cluster-forge-mimir
         insecure: true ##
+          #storage_prefix: ruler
+          #prefix: ruler
     limits:
       max_label_names_per_series: 150
       max_global_series_per_user: 1000000
@@ -210,7 +219,7 @@ query_frontend:
       memory: 623Mi
 
 ruler:
-  enabled: false
+  enabled: true
   replicas: 1
   resources:
     limits:
