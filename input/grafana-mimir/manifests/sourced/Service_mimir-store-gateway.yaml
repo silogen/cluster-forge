@@ -9,10 +9,7 @@ metadata:
     app.kubernetes.io/name: mimir
     app.kubernetes.io/part-of: memberlist
     app.kubernetes.io/version: 2.11.0
-    name: store-gateway-zone-b
-    rollout-group: store-gateway
-    zone: zone-b
-  name: mimir-store-gateway-zone-b
+  name: mimir-store-gateway
   namespace: grafana-mimir
 spec:
   ports:
@@ -28,6 +25,4 @@ spec:
     app.kubernetes.io/component: store-gateway
     app.kubernetes.io/instance: mimir
     app.kubernetes.io/name: mimir
-    rollout-group: store-gateway
-    zone: zone-b
   type: ClusterIP

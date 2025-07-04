@@ -4,15 +4,12 @@ kind: Service
 metadata:
   annotations: {}
   labels:
-    app.kubernetes.io/component: store-gateway
+    app.kubernetes.io/component: ruler
     app.kubernetes.io/instance: mimir
     app.kubernetes.io/name: mimir
     app.kubernetes.io/part-of: memberlist
     app.kubernetes.io/version: 2.11.0
-    name: store-gateway-zone-a
-    rollout-group: store-gateway
-    zone: zone-a
-  name: mimir-store-gateway-zone-a
+  name: mimir-ruler
   namespace: grafana-mimir
 spec:
   ports:
@@ -20,14 +17,8 @@ spec:
       port: 8080
       protocol: TCP
       targetPort: http-metrics
-    - name: grpc
-      port: 9095
-      protocol: TCP
-      targetPort: grpc
   selector:
-    app.kubernetes.io/component: store-gateway
+    app.kubernetes.io/component: ruler
     app.kubernetes.io/instance: mimir
     app.kubernetes.io/name: mimir
-    rollout-group: store-gateway
-    zone: zone-a
   type: ClusterIP

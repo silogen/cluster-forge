@@ -2,43 +2,34 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations:
-    rollout-max-unavailable: "50"
+  annotations: {}
   labels:
     app.kubernetes.io/component: store-gateway
     app.kubernetes.io/instance: mimir
     app.kubernetes.io/name: mimir
     app.kubernetes.io/part-of: memberlist
     app.kubernetes.io/version: 2.11.0
-    name: store-gateway-zone-c
-    rollout-group: store-gateway
-    zone: zone-c
-  name: mimir-store-gateway-zone-c
+  name: mimir-store-gateway
   namespace: grafana-mimir
 spec:
   podManagementPolicy: OrderedReady
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app.kubernetes.io/component: store-gateway
       app.kubernetes.io/instance: mimir
       app.kubernetes.io/name: mimir
-      rollout-group: store-gateway
-      zone: zone-c
   serviceName: mimir-store-gateway-headless
   template:
     metadata:
       annotations:
-        checksum/config: a1e3521abdc720c1f63bc0b567c5ff2e8199c841e90c95f770e2f4bdb8b00ae6
+        checksum/config: 20f23e1895832017ed546a7d58ab85e7c68b5c695459a65e60401f442e443ce9
       labels:
         app.kubernetes.io/component: store-gateway
         app.kubernetes.io/instance: mimir
         app.kubernetes.io/name: mimir
         app.kubernetes.io/part-of: memberlist
         app.kubernetes.io/version: 2.11.0
-        name: store-gateway-zone-c
-        rollout-group: store-gateway
-        zone: zone-c
       namespace: grafana-mimir
     spec:
       affinity:
@@ -46,21 +37,23 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchExpressions:
-                  - key: rollout-group
+                  - key: target
                     operator: In
                     values:
                       - store-gateway
-                  - key: zone
-                    operator: NotIn
+              topologyKey: kubernetes.io/hostname
+            - labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: In
                     values:
-                      - zone-c
+                      - store-gateway
               topologyKey: kubernetes.io/hostname
       containers:
         - args:
             - -target=store-gateway
             - -config.expand-env=true
             - -config.file=/etc/mimir/mimir.yaml
-            - -store-gateway.sharding-ring.instance-availability-zone=zone-c
           env:
             - name: API_ACCESS_KEY
               valueFrom:
@@ -151,7 +144,7 @@ spec:
         - emptyDir: {}
           name: active-queries
   updateStrategy:
-    type: OnDelete
+    type: RollingUpdate
   volumeClaimTemplates:
     - metadata:
         name: storage

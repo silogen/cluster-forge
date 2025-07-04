@@ -1,66 +1,46 @@
 ---
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
-  annotations:
-    rollout-max-unavailable: "50"
+  annotations: {}
   labels:
-    app.kubernetes.io/component: ingester
+    app.kubernetes.io/component: ruler
     app.kubernetes.io/instance: mimir
     app.kubernetes.io/name: mimir
     app.kubernetes.io/part-of: memberlist
     app.kubernetes.io/version: 2.11.0
-    name: ingester-zone-b
-    rollout-group: ingester
-    zone: zone-b
-  name: mimir-ingester-zone-b
+  name: mimir-ruler
   namespace: grafana-mimir
 spec:
-  podManagementPolicy: Parallel
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/component: ingester
+      app.kubernetes.io/component: ruler
       app.kubernetes.io/instance: mimir
       app.kubernetes.io/name: mimir
-      rollout-group: ingester
-      zone: zone-b
-  serviceName: mimir-ingester-headless
+  strategy:
+    rollingUpdate:
+      maxSurge: 50%
+      maxUnavailable: 0
+    type: RollingUpdate
   template:
     metadata:
       annotations:
-        checksum/config: a1e3521abdc720c1f63bc0b567c5ff2e8199c841e90c95f770e2f4bdb8b00ae6
+        checksum/config: 20f23e1895832017ed546a7d58ab85e7c68b5c695459a65e60401f442e443ce9
       labels:
-        app.kubernetes.io/component: ingester
+        app.kubernetes.io/component: ruler
         app.kubernetes.io/instance: mimir
         app.kubernetes.io/name: mimir
         app.kubernetes.io/part-of: memberlist
         app.kubernetes.io/version: 2.11.0
-        name: ingester-zone-b
-        rollout-group: ingester
-        zone: zone-b
       namespace: grafana-mimir
     spec:
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: rollout-group
-                    operator: In
-                    values:
-                      - ingester
-                  - key: zone
-                    operator: NotIn
-                    values:
-                      - zone-b
-              topologyKey: kubernetes.io/hostname
+      affinity: {}
       containers:
         - args:
-            - -target=ingester
+            - -target=ruler
             - -config.expand-env=true
             - -config.file=/etc/mimir/mimir.yaml
-            - -ingester.ring.instance-availability-zone=zone-b
           env:
             - name: API_ACCESS_KEY
               valueFrom:
@@ -76,7 +56,7 @@ spec:
           image: grafana/mimir:2.11.0
           imagePullPolicy: IfNotPresent
           livenessProbe: null
-          name: ingester
+          name: ruler
           ports:
             - containerPort: 8080
               name: http-metrics
@@ -91,13 +71,13 @@ spec:
             httpGet:
               path: /ready
               port: http-metrics
-            initialDelaySeconds: 60
+            initialDelaySeconds: 45
           resources:
             limits:
-              memory: 12Gi
+              memory: 2.8Gi
             requests:
               cpu: 1
-              memory: 9Gi
+              memory: 2Gi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -111,6 +91,7 @@ spec:
               name: runtime-config
             - mountPath: /data
               name: storage
+              subPath: null
             - mountPath: /active-query-tracker
               name: active-queries
       initContainers: []
@@ -123,12 +104,12 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       serviceAccountName: mimir
-      terminationGracePeriodSeconds: 240
+      terminationGracePeriodSeconds: 180
       tolerations: []
       topologySpreadConstraints:
         - labelSelector:
             matchLabels:
-              app.kubernetes.io/component: ingester
+              app.kubernetes.io/component: ruler
               app.kubernetes.io/instance: mimir
               app.kubernetes.io/name: mimir
           maxSkew: 1
@@ -145,16 +126,6 @@ spec:
             name: mimir-runtime
           name: runtime-config
         - emptyDir: {}
+          name: storage
+        - emptyDir: {}
           name: active-queries
-  updateStrategy:
-    type: OnDelete
-  volumeClaimTemplates:
-    - metadata:
-        name: storage
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 50Gi
-        storageClassName: longhorn-default

@@ -50,21 +50,26 @@ mimir:
             insecure_skip_verify: true
 
     blocks_storage:
+      storage_prefix: blocks
       backend: s3
       s3:
         bucket_name: cluster-forge-mimir
         insecure: true ##
     alertmanager_storage: ##
+      storage_prefix: alertmanager
       s3:
         bucket_name: cluster-forge-mimir
         insecure: true ##
     ruler_storage: ##
+      storage_prefix: ruler
       s3:
         bucket_name: cluster-forge-mimir
         insecure: true ##
     limits:
       max_label_names_per_series: 150
       max_global_series_per_user: 1000000
+      ingestion_rate: 35000
+      ingestion_burst_size: 600000
 
     server:  # <-- Add this section
       grpc_server_max_recv_msg_size: 268435456  # 256 MiB ##
@@ -77,6 +82,14 @@ mimir:
       grpc_client_config:
         max_recv_msg_size: 268435456
         max_send_msg_size: 268435456
+
+    ingester:
+      ring:
+        zone_awareness_enabled: false
+    store_gateway:
+      sharding_ring:
+        zone_awareness_enabled: false
+
 alertmanager:
   enabled: false
   persistentVolume:
@@ -106,7 +119,7 @@ distributor:
   replicas: 4
   resources:
     limits:
-      memory: 2Gi
+      memory: 3Gi
     requests:
       cpu: 1
       memory: 760Mi
@@ -118,7 +131,7 @@ ingester:
   replicas: 3
   resources:
     limits:
-      memory: 12Gi
+      memory: 14Gi
     requests:
       cpu: 1
       memory: 9Gi
@@ -144,6 +157,7 @@ ingester:
 
   zoneAwareReplication:
     topologyKey: 'kubernetes.io/hostname'
+    enabled: false ## Added
 
 admin-cache:
   enabled: true
@@ -181,7 +195,7 @@ overrides_exporter:
       memory: 128Mi
 
 querier:
-  replicas: 1
+  replicas: 2
   resources:
     limits:
       memory: 3000Mi
@@ -190,7 +204,7 @@ querier:
       memory: 2525Mi
 
 query_frontend:
-  replicas: 1
+  replicas: 2
   resources:
     limits:
       memory: 1000Mi
@@ -199,7 +213,7 @@ query_frontend:
       memory: 623Mi
 
 ruler:
-  enabled: false
+  enabled: true
   replicas: 1
   resources:
     limits:
@@ -239,6 +253,7 @@ store_gateway:
           topologyKey: 'kubernetes.io/hostname'
   zoneAwareReplication:
     topologyKey: 'kubernetes.io/hostname'
+    enabled: false ## Added
 
 gateway:
   enabledNonEnterprise: true

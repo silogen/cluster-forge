@@ -11,7 +11,7 @@ metadata:
   name: mimir-query-frontend
   namespace: grafana-mimir
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app.kubernetes.io/component: query-frontend
@@ -25,7 +25,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: a1e3521abdc720c1f63bc0b567c5ff2e8199c841e90c95f770e2f4bdb8b00ae6
+        checksum/config: 20f23e1895832017ed546a7d58ab85e7c68b5c695459a65e60401f442e443ce9
       labels:
         app.kubernetes.io/component: query-frontend
         app.kubernetes.io/instance: mimir

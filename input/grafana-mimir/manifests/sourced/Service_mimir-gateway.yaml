@@ -25,3 +25,4 @@ spec:
     app.kubernetes.io/instance: mimir
     app.kubernetes.io/name: mimir
   type: ClusterIP
+  clusterIP: 10.243.245.229 ## Static IP  
