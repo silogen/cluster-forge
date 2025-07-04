@@ -2,43 +2,34 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations:
-    rollout-max-unavailable: "50"
+  annotations: {}
   labels:
     app.kubernetes.io/component: ingester
     app.kubernetes.io/instance: mimir
     app.kubernetes.io/name: mimir
     app.kubernetes.io/part-of: memberlist
     app.kubernetes.io/version: 2.11.0
-    name: ingester-zone-c
-    rollout-group: ingester
-    zone: zone-c
-  name: mimir-ingester-zone-c
+  name: mimir-ingester
   namespace: grafana-mimir
 spec:
   podManagementPolicy: Parallel
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app.kubernetes.io/component: ingester
       app.kubernetes.io/instance: mimir
       app.kubernetes.io/name: mimir
-      rollout-group: ingester
-      zone: zone-c
   serviceName: mimir-ingester-headless
   template:
     metadata:
       annotations:
-        checksum/config: 7d59618209a8becb777919e932c14abb07878b33b9a1bd46b864b84919bf5a97
+        checksum/config: 20f23e1895832017ed546a7d58ab85e7c68b5c695459a65e60401f442e443ce9
       labels:
         app.kubernetes.io/component: ingester
         app.kubernetes.io/instance: mimir
         app.kubernetes.io/name: mimir
         app.kubernetes.io/part-of: memberlist
         app.kubernetes.io/version: 2.11.0
-        name: ingester-zone-c
-        rollout-group: ingester
-        zone: zone-c
       namespace: grafana-mimir
     spec:
       affinity:
@@ -46,21 +37,25 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchExpressions:
-                  - key: rollout-group
+                  - key: target
                     operator: In
                     values:
                       - ingester
-                  - key: zone
-                    operator: NotIn
+              topologyKey: kubernetes.io/hostname
+            - labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: In
                     values:
-                      - zone-c
+                      - ingester
               topologyKey: kubernetes.io/hostname
       containers:
         - args:
             - -target=ingester
             - -config.expand-env=true
             - -config.file=/etc/mimir/mimir.yaml
-            - -ingester.ring.instance-availability-zone=zone-c
+            - -ingester.ring.instance-availability-zone=zone-default
+            - -server.grpc-max-concurrent-streams=500
           env:
             - name: API_ACCESS_KEY
               valueFrom:
@@ -147,7 +142,7 @@ spec:
         - emptyDir: {}
           name: active-queries
   updateStrategy:
-    type: OnDelete
+    type: RollingUpdate
   volumeClaimTemplates:
     - metadata:
         name: storage

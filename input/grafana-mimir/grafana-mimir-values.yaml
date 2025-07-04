@@ -83,12 +83,12 @@ mimir:
         max_recv_msg_size: 268435456
         max_send_msg_size: 268435456
 
-#    ingester:
-#      ring:
-#        zone_awareness_enabled: false
-#    store_gateway:
-#      sharding_ring:
-#        zone_awareness_enabled: false
+    ingester:
+      ring:
+        zone_awareness_enabled: false
+    store_gateway:
+      sharding_ring:
+        zone_awareness_enabled: false
 
 alertmanager:
   enabled: false
@@ -157,7 +157,7 @@ ingester:
 
   zoneAwareReplication:
     topologyKey: 'kubernetes.io/hostname'
-#    enabled: false ## Added
+    enabled: false ## Added
 
 admin-cache:
   enabled: true
@@ -253,7 +253,7 @@ store_gateway:
           topologyKey: 'kubernetes.io/hostname'
   zoneAwareReplication:
     topologyKey: 'kubernetes.io/hostname'
-##    enabled: false ## Added
+    enabled: false ## Added
 
 gateway:
   enabledNonEnterprise: true
