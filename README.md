@@ -170,6 +170,41 @@ The project uses YAML configuration files:
 - Release configurations: `input/config-*.yaml`
 - Source configurations: `input/*/source.yaml`
 
+## 🗺️ Development Roadmap
+
+Cluster-Forge development is managed using [TaskMaster AI](https://github.com/taskmaster-ai/taskmaster-ai) for structured project management. The complete roadmap and task details can be found in [PRD.md](PRD.md).
+
+### Current Development Priorities
+
+#### 🔴 High Priority
+1. **Enhanced Testing Framework** - Comprehensive unit, integration, E2E, and performance testing
+2. **Improved Error Handling** - Standardized error types, recovery mechanisms, troubleshooting guides
+3. **Configuration Validation** - Schema validation, dependency conflict detection, compatibility checks
+
+#### 🟡 Medium Priority
+4. **Performance Optimization** - Parallel processing, incremental builds, caching, resource monitoring
+5. **Enhanced Customization** - Templating system, environment injection, plugin architecture
+6. **Observability Improvements** - Logging, metrics, deployment tracking, health monitoring, audit trails
+
+#### 🟢 Low Priority
+7. **Additional Integrations** - Multiple Helm repos, CI/CD platforms, GitOps tools, cloud optimizations
+8. **Documentation & Examples** - Configuration guides, best practices, tutorials, contribution guidelines
+
+### Task Management
+
+For contributors and maintainers, use TaskMaster to track development progress:
+
+```bash
+# View all tasks
+tm get-tasks
+
+# Get next task to work on
+tm next-task
+
+# Update task status
+tm set-task-status <task-id> <status>
+```
+
 ## 🐞 Known Issues
 
 Cluster-Forge is still a work in progress with the following known issues:
