@@ -1,0 +1,99 @@
+# Default OpenBao configuration for ClusterForge
+global:
+  enabled: true
+  tlsDisable: false
+
+server:
+  enabled: true
+  image:
+    repository: "quay.io/openbao/openbao"
+    tag: "2.1.0"
+    
+  # Resources
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+  # High availability configuration
+  ha:
+    enabled: true
+    replicas: 3
+    raft:
+      enabled: true
+      
+  # Storage configuration
+  dataStorage:
+    enabled: true
+    size: 10Gi
+    storageClass: null # Use default storage class
+    accessMode: ReadWriteOnce
+
+  # Audit storage
+  auditStorage:
+    enabled: true
+    size: 10Gi
+    storageClass: null # Use default storage class
+    accessMode: ReadWriteOnce
+
+  # Service configuration
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 8200
+    targetPort: 8200
+
+  # Ingress configuration (disabled by default)
+  ingress:
+    enabled: false
+    
+  # Security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 100
+    runAsGroup: 1000
+    fsGroup: 1000
+
+  # Init container for unsealing
+  extraInitContainers: []
+
+  # Extra environment variables
+  extraEnvironmentVars: {}
+
+ui:
+  enabled: true
+  serviceType: "ClusterIP"
+
+# Injector for automatic secret injection
+injector:
+  enabled: true
+  
+  # Resources
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi" 
+      cpu: "500m"
+
+  # Image
+  image:
+    repository: "registry.connect.redhat.com/hashicorp/vault-k8s"
+    tag: "1.4.0-ubi"
+
+# CSI Secret Store Driver
+csi:
+  enabled: true
+  image:
+    repository: "registry.connect.redhat.com/hashicorp/vault-csi-provider"
+    tag: "1.4.0-ubi"
+
+# ServiceMonitor for Prometheus monitoring
+serverTelemetry:
+  serviceMonitor:
+    enabled: true
+    interval: 30s
