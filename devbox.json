@@ -30,6 +30,38 @@
         "kind delete cluster -n forgetest",
         "kind create cluster -n forgetest",
         "kind export kubeconfig -n forgetest --kubeconfig forgetest.yaml"
+      ],
+      "build": [
+        "VERSION=${1:-dev-local}",
+        "echo 'ClusterForge Local Build Script'",
+        "echo '==============================='",
+        "echo \"Version: $VERSION\"",
+        "echo 'Note: This script builds packages locally without pushing Docker images'",
+        "echo ''",
+        "for release in core rnd enterprise; do",
+        "  echo \"Building $release release...\"",
+        "  echo '----------------------------'",
+        "  echo \"Running smelt for $release...\"",
+        "  go run . smelt --config \"input/config-silogen-${release}.yaml\" --non-interactive",
+        "  echo \"Skipping cast (Docker build) for local testing...\"",
+        "  echo 'Copying working directory to stack...'",
+        "  mkdir -p \"stacks/${VERSION}-${release}\"",
+        "  cp -r working/* \"stacks/${VERSION}-${release}/\"",
+        "  echo 'Cleaning stack...'",
+        "  rm -rf \"stacks/${VERSION}-${release}/.git\" \"stacks/${VERSION}-${release}/.gitkeep\"",
+        "  echo 'Creating release package...'",
+        "  mkdir -p \"stacks/clusterforge-${release}\"",
+        "  if [ -d \"stacks/${VERSION}-${release}\" ]; then",
+        "    cp -r \"stacks/${VERSION}-${release}\"/* \"stacks/clusterforge-${release}/\"",
+        "  fi",
+        "  echo 'Creating tarball...'",
+        "  tar -C stacks/ -zcf \"stacks/release-${release}-${VERSION}.tar.gz\" \"clusterforge-${release}\"",
+        "  rm -rf \"stacks/clusterforge-${release}\"",
+        "  echo \"✓ Built release-${release}-${VERSION}.tar.gz\"",
+        "  echo ''",
+        "done",
+        "echo 'Build complete! Tarballs created in stacks/ directory:'",
+        "ls -la stacks/*.tar.gz"
       ]
     }
   }
