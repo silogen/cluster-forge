@@ -138,6 +138,12 @@ func PrepareTool(configMap configloader.ToolSet, workingDir string) error {
 		}
 		utils.CleanDescFromResources(toolDir)
 	}
+	// Replace image tags with SHA values in all YAML files
+	if err := utils.ReplaceImageTagsWithSHA(workingDir); err != nil {
+		log.Errorf("failed to replace image tags with SHA values: %v", err)
+		// Continue execution as this is not a fatal error
+	}
+
 	// remove the working/pre directory if not debugging
 	if !log.IsLevelEnabled(log.DebugLevel) {
 		if err := os.RemoveAll(filepath.Join(workingDir, "pre")); err != nil {
