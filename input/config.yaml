@@ -246,7 +246,22 @@
   namespace: kaiwo
   manifestpath:
   - cluster-auto-pvc/pvc-user-demo.yaml
-- name: airm
+- name: rabbitmq-airm-config
+  namespace: rabbitmq-system
   manifestpath:
-  - airm/manifests
+  - rabbitmq-airm-config
+  syncwave: 100
+- name: cluster-airm-config
+  manifestpath:
+  - cluster-airm-config
+  syncwave: 100
+- name: keycloak-airm-config
+  namespace: keycloak
+  manifestpath:
+  - keycloak-airm-config
+  syncwave: 50
+- name: airm-airm-config
+  namespace: airm
+  manifestpath:
+  - airm-airm-config
   syncwave: 100
