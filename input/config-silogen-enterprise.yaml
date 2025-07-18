@@ -20,6 +20,8 @@
 - name: metallb
 - name: kgateway-crds
 - name: kgateway
+- name: kgateway-cert
 - name: kaiwo-all
 - name: cluster-auto-pvc
 - name: rabbitmq
+- name: airm

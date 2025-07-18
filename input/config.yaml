@@ -246,3 +246,7 @@
   namespace: kaiwo
   manifestpath:
   - cluster-auto-pvc/pvc-user-demo.yaml
+- name: airm
+  manifestpath:
+  - airm/manifests
+  syncwave: 100

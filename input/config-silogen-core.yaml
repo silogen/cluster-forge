@@ -24,3 +24,4 @@
 - name: kaiwo-all
 - name: cluster-auto-pvc
 - name: rabbitmq
+- name: airm
