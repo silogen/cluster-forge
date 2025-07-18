@@ -252,6 +252,7 @@
   - rabbitmq-airm-config
   syncwave: 100
 - name: cluster-airm-config
+  namespace: airm
   manifestpath:
   - cluster-airm-config
   syncwave: 100
