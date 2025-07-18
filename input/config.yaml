@@ -249,3 +249,4 @@
 - name: airm
   manifestpath:
   - airm/manifests
+  syncwave: 100
