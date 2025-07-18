@@ -126,6 +126,7 @@ type Config struct {
 	ManifestURL      string   `yaml:"manifest-url"`
 	HelmVersion      string   `yaml:"helm-version"`
 	Namespace        string   `yaml:"namespace"`
+	Namespaces       []string `yaml:"namespaces"`
 	ManifestPath     []string `yaml:"manifestpath"`
 	SyncWave         string   `yaml:"syncwave"`
 	Collection       []string `yaml:"collection"`
@@ -135,6 +136,16 @@ type Config struct {
 	GitopsUrl        string
 	GitopsBranch     string
 	GitopsPathPrefix string
+}
+
+// getPrimaryNamespace returns the primary namespace from config
+// If namespaces (plural) is specified, returns the first one
+// Otherwise returns the single namespace field (backward compatibility)
+func getPrimaryNamespace(config Config) string {
+	if len(config.Namespaces) > 0 {
+		return config.Namespaces[0]
+	}
+	return config.Namespace
 }
 
 func Setup(nonInteractive bool) {
@@ -184,8 +195,11 @@ func Templatehelm(config Config, helmExec HelmExecutor) error {
 		return fmt.Errorf("invalid configuration: at least one of HelmChartName, ManifestPath, or ManifestURL must be provided")
 	}
 
-	if config.Namespace == "" {
-		return fmt.Errorf("invalid configuration: Namespace must not be empty")
+	primaryNamespace := getPrimaryNamespace(config)
+	// Only require namespace for helm charts, since manifest-based tools
+	// might already define their own namespaces in the manifests
+	if config.HelmChartName != "" && primaryNamespace == "" {
+		return fmt.Errorf("invalid configuration: Namespace must not be empty for helm charts")
 	}
 	file, err := os.Create(config.Filename)
 	if err != nil {
@@ -202,8 +216,8 @@ func Templatehelm(config Config, helmExec HelmExecutor) error {
 		if config.HelmVersion != "" {
 			fetchValuesArgs = append(fetchValuesArgs, "--version", config.HelmVersion)
 		}
-		if config.Namespace != "" {
-			fetchValuesArgs = append(fetchValuesArgs, "--namespace", config.Namespace)
+		if primaryNamespace != "" {
+			fetchValuesArgs = append(fetchValuesArgs, "--namespace", primaryNamespace)
 		}
 		cmdFetchValues := exec.Command("helm", fetchValuesArgs...)
 		output, err := cmdFetchValues.Output()
@@ -231,8 +245,8 @@ func Templatehelm(config Config, helmExec HelmExecutor) error {
 		if config.HelmVersion != "" {
 			args = append(args, "--version", config.HelmVersion)
 		}
-		if config.Namespace != "" {
-			args = append(args, "--namespace", config.Namespace)
+		if primaryNamespace != "" {
+			args = append(args, "--namespace", primaryNamespace)
 		}
 
 		var stderr bytes.Buffer
@@ -666,7 +680,7 @@ func CreateConfigmapFile(config Config, source string, outputPath string) error 
 	}
 
 	var rendered bytes.Buffer
-	if err := tmpl.Execute(&rendered, appConfig{Name: config.Name, Namespace: config.Namespace, Source: indentedSource}); err != nil {
+	if err := tmpl.Execute(&rendered, appConfig{Name: config.Name, Namespace: getPrimaryNamespace(config), Source: indentedSource}); err != nil {
 		return fmt.Errorf("failed to execute template: %w", err)
 	}
 
