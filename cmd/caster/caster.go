@@ -187,8 +187,13 @@ func BuildAndPushImage(imageName string, filesDir string) error {
 	CreateAndCommitRepo(filesDir, "Cast commit")
 	utils.CopyDir("cmd/utils/templates/data", tempDir, false)
 	os.RemoveAll(tempDir + "/git/gitea-repositories/forge/clusterforge.git")
-	os.MkdirAll(tempDir+"/git/gitea-repositories/forge/clusterforge.git", 0755)
-	utils.CopyDir(filesDir+"/.git", tempDir+"/git/gitea-repositories/forge/clusterforge.git", false)
+	os.MkdirAll(tempDir+"/git/gitea-repositories/forge", 0755)
+	
+	// Create a proper bare repository for Gitea
+	bareRepoPath := tempDir + "/git/gitea-repositories/forge/clusterforge.git"
+	if err := CreateBareRepo(filesDir, bareRepoPath); err != nil {
+		return fmt.Errorf("failed to create bare repository: %v", err)
+	}
 	utils.CopyDir(tempDir, "stacks/latest", false)
 
 	cmd := exec.Command("docker", "buildx", "build", "-t", imageName, "--platform", "linux/amd64,linux/arm64", "-f", "Dockerfile", "--push", ".")
@@ -296,6 +301,50 @@ func CreateAndCommitRepo(path string, commitMessage string) error {
 	})
 	if err != nil {
 		return fmt.Errorf("failed to commit changes: %v", err)
+	}
+
+	return nil
+}
+
+// CreateBareRepo creates a bare Git repository from the working repository.
+func CreateBareRepo(workingRepoPath string, bareRepoPath string) error {
+	// Use git command to clone as bare repository
+	// This is more reliable than using go-git for bare repo creation
+	cmd := exec.Command("git", "clone", "--bare", workingRepoPath, bareRepoPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to create bare repository: %v, output: %s", err, string(output))
+	}
+
+	// Set the repository description for Gitea
+	descPath := filepath.Join(bareRepoPath, "description")
+	err = os.WriteFile(descPath, []byte("Baseline for ClusterForge"), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write description: %v", err)
+	}
+
+	// Create hooks directory if it doesn't exist
+	hooksDir := filepath.Join(bareRepoPath, "hooks")
+	err = os.MkdirAll(hooksDir, 0755)
+	if err != nil {
+		return fmt.Errorf("failed to create hooks directory: %v", err)
+	}
+
+	// Create a simple post-receive hook for Gitea
+	postReceiveHook := `#!/bin/sh
+# Gitea post-receive hook
+# This hook is executed after receiving a push
+`
+	postReceivePath := filepath.Join(hooksDir, "post-receive")
+	err = os.WriteFile(postReceivePath, []byte(postReceiveHook), 0755)
+	if err != nil {
+		return fmt.Errorf("failed to write post-receive hook: %v", err)
+	}
+
+	// Ensure proper permissions for the entire repository
+	cmd = exec.Command("chmod", "-R", "755", bareRepoPath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to set permissions: %v, output: %s", err, string(output))
 	}
 
 	return nil
