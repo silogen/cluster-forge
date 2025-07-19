@@ -374,12 +374,15 @@ func getQuaySHA(registry, repository, tag string) (string, error) {
 	manifestURL := fmt.Sprintf("https://%s/v2/%s/manifests/%s", registry, repository, tag)
 	
 	client := &http.Client{Timeout: 30 * time.Second}
+	
+	// First try to get manifest list to check if it's multi-arch
 	req, err := http.NewRequest("GET", manifestURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create manifest request: %w", err)
 	}
 	
-	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
+	// Accept both manifest list and single manifest
+	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json")
 	
 	resp, err := client.Do(req)
 	if err != nil {
@@ -391,7 +394,40 @@ func getQuaySHA(registry, repository, tag string) (string, error) {
 		return "", fmt.Errorf("manifest request failed with status: %s", resp.Status)
 	}
 	
-	// Get the digest from the response header
+	contentType := resp.Header.Get("Content-Type")
+	
+	// If it's a manifest list, we need to get the platform-specific manifest
+	if strings.Contains(contentType, "application/vnd.docker.distribution.manifest.list.v2+json") {
+		var manifestList struct {
+			Manifests []struct {
+				Digest   string `json:"digest"`
+				Platform struct {
+					Architecture string `json:"architecture"`
+					OS           string `json:"os"`
+				} `json:"platform"`
+			} `json:"manifests"`
+		}
+		
+		if err := json.NewDecoder(resp.Body).Decode(&manifestList); err != nil {
+			return "", fmt.Errorf("failed to decode manifest list: %w", err)
+		}
+		
+		// Find amd64/linux manifest (default platform)
+		for _, manifest := range manifestList.Manifests {
+			if manifest.Platform.Architecture == "amd64" && manifest.Platform.OS == "linux" {
+				return manifest.Digest, nil
+			}
+		}
+		
+		// If no amd64/linux found, return the first manifest
+		if len(manifestList.Manifests) > 0 {
+			return manifestList.Manifests[0].Digest, nil
+		}
+		
+		return "", fmt.Errorf("no manifests found in manifest list")
+	}
+	
+	// For single manifests, get the digest from the response header
 	digest := resp.Header.Get("Docker-Content-Digest")
 	if digest == "" {
 		return "", fmt.Errorf("no digest found in response headers")
