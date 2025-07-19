@@ -128,7 +128,12 @@ func processYAMLFile(filePath string) error {
 	for _, image := range images {
 		imageInfo, err := getImageSHA(image)
 		if err != nil {
-			log.Warnf("Failed to get SHA for image %s: %v", image, err)
+			// Check if this is a quay.io image that we're intentionally skipping
+			if strings.Contains(err.Error(), "skipping quay.io image") {
+				log.Infof("Skipping SHA resolution for quay.io image: %s", image)
+			} else {
+				log.Warnf("Failed to get SHA for image %s: %v", image, err)
+			}
 			continue
 		}
 		imageInfos = append(imageInfos, *imageInfo)
@@ -227,6 +232,12 @@ func getImageSHA(image string) (*ImageInfo, error) {
 	// Parse the image name
 	registry, repository, tag := parseImageName(image)
 	
+	// Skip quay.io images - leave them with tags
+	if strings.Contains(registry, "quay.io") {
+		log.Debugf("Skipping SHA resolution for quay.io image: %s", image)
+		return nil, fmt.Errorf("skipping quay.io image")
+	}
+	
 	var sha string
 	var err error
 	
@@ -235,8 +246,6 @@ func getImageSHA(image string) (*ImageInfo, error) {
 		sha, err = getDockerHubSHA(repository, tag)
 	} else if strings.Contains(registry, "gcr.io") || strings.Contains(registry, "registry.k8s.io") {
 		sha, err = getGCRSHA(registry, repository, tag)
-	} else if strings.Contains(registry, "quay.io") {
-		sha, err = getQuaySHA(registry, repository, tag)
 	} else {
 		// Try generic registry API
 		sha, err = getGenericRegistrySHA(registry, repository, tag)
@@ -369,72 +378,6 @@ func getGCRSHA(registry, repository, tag string) (string, error) {
 	return digest, nil
 }
 
-// getQuaySHA gets SHA from Quay.io
-func getQuaySHA(registry, repository, tag string) (string, error) {
-	manifestURL := fmt.Sprintf("https://%s/v2/%s/manifests/%s", registry, repository, tag)
-	
-	client := &http.Client{Timeout: 30 * time.Second}
-	
-	// First try to get manifest list to check if it's multi-arch
-	req, err := http.NewRequest("GET", manifestURL, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create manifest request: %w", err)
-	}
-	
-	// Accept both manifest list and single manifest
-	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json")
-	
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to get manifest: %w", err)
-	}
-	defer resp.Body.Close()
-	
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("manifest request failed with status: %s", resp.Status)
-	}
-	
-	contentType := resp.Header.Get("Content-Type")
-	
-	// If it's a manifest list, we need to get the platform-specific manifest
-	if strings.Contains(contentType, "application/vnd.docker.distribution.manifest.list.v2+json") {
-		var manifestList struct {
-			Manifests []struct {
-				Digest   string `json:"digest"`
-				Platform struct {
-					Architecture string `json:"architecture"`
-					OS           string `json:"os"`
-				} `json:"platform"`
-			} `json:"manifests"`
-		}
-		
-		if err := json.NewDecoder(resp.Body).Decode(&manifestList); err != nil {
-			return "", fmt.Errorf("failed to decode manifest list: %w", err)
-		}
-		
-		// Find amd64/linux manifest (default platform)
-		for _, manifest := range manifestList.Manifests {
-			if manifest.Platform.Architecture == "amd64" && manifest.Platform.OS == "linux" {
-				return manifest.Digest, nil
-			}
-		}
-		
-		// If no amd64/linux found, return the first manifest
-		if len(manifestList.Manifests) > 0 {
-			return manifestList.Manifests[0].Digest, nil
-		}
-		
-		return "", fmt.Errorf("no manifests found in manifest list")
-	}
-	
-	// For single manifests, get the digest from the response header
-	digest := resp.Header.Get("Docker-Content-Digest")
-	if digest == "" {
-		return "", fmt.Errorf("no digest found in response headers")
-	}
-	
-	return digest, nil
-}
 
 // getGenericRegistrySHA gets SHA from a generic registry
 func getGenericRegistrySHA(registry, repository, tag string) (string, error) {
