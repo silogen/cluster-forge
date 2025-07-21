@@ -2889,7 +2889,6 @@ spec:
             - /bin/sh
             - -c
             - |
-              cp /opt/realm_templates/silogen-realm.json /opt/realms/silogen-realm.json
               cp /opt/realm_templates/airm-realm.json /opt/realms/airm-realm.json
               sed -i -e "s/__SILOGEN_FRONTEND_CLIENT_SECRET__/$SILOGEN_FRONTEND_CLIENT_SECRET/g" /opt/realms/silogen-realm.json
               sed -i -e "s/__SILOGEN_INTERNAL_CLIENT_SECRET__/$SILOGEN_INTERNAL_CLIENT_SECRET/g" /opt/realms/silogen-realm.json
