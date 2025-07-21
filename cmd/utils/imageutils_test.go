@@ -212,3 +212,53 @@ spec:
 		t.Error("Original tag comment should be added for kube-proxy")
 	}
 }
+
+func TestGetImageSHASkipsQuayIO(t *testing.T) {
+	testCases := []struct {
+		image       string
+		shouldSkip  bool
+		description string
+	}{
+		{
+			image:       "quay.io/prometheus/prometheus:v2.40.0",
+			shouldSkip:  true,
+			description: "Should skip quay.io images",
+		},
+		{
+			image:       "nginx:1.21",
+			shouldSkip:  false,
+			description: "Should not skip docker.io images",
+		},
+		{
+			image:       "registry.k8s.io/kube-proxy:v1.28.0",
+			shouldSkip:  false,
+			description: "Should not skip registry.k8s.io images",
+		},
+		{
+			image:       "gcr.io/google-containers/test:latest",
+			shouldSkip:  false,
+			description: "Should not skip gcr.io images",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			imageInfo, err := getImageSHA(tc.image)
+			
+			if tc.shouldSkip {
+				if err == nil || !strings.Contains(err.Error(), "skipping quay.io image") {
+					t.Errorf("Expected to skip quay.io image %s, but got: %v", tc.image, err)
+				}
+				if imageInfo != nil {
+					t.Errorf("Expected nil imageInfo for skipped quay.io image, but got: %v", imageInfo)
+				}
+			} else {
+				// For non-quay.io images, we expect them to fail with network errors in tests
+				// (since we're not actually hitting the registries)
+				if err != nil && strings.Contains(err.Error(), "skipping quay.io image") {
+					t.Errorf("Should not skip non-quay.io image %s", tc.image)
+				}
+			}
+		})
+	}
+}
