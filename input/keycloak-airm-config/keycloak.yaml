@@ -2889,37 +2889,12 @@ spec:
             - /bin/sh
             - -c
             - |
-              cp /opt/realm_templates/silogen-realm.json /opt/realms/silogen-realm.json
               cp /opt/realm_templates/airm-realm.json /opt/realms/airm-realm.json
-              sed -i -e "s/__SILOGEN_FRONTEND_CLIENT_SECRET__/$SILOGEN_FRONTEND_CLIENT_SECRET/g" /opt/realms/silogen-realm.json
-              sed -i -e "s/__SILOGEN_INTERNAL_CLIENT_SECRET__/$SILOGEN_INTERNAL_CLIENT_SECRET/g" /opt/realms/silogen-realm.json
-              sed -i -e "s/__SILOGEN_INTERNAL_CLIENT_ID__/$SILOGEN_INTERNAL_CLIENT_ID/g" /opt/realms/silogen-realm.json
-              sed -i -e "s/__SILOGEN_CI_CLIENT_SECRET__/$SILOGEN_CI_CLIENT_SECRET/g" /opt/realms/silogen-realm.json
               sed -i -e "s/__AIRM_FRONTEND_CLIENT_SECRET__/$AIRM_FRONTEND_CLIENT_SECRET/g" /opt/realms/airm-realm.json
               sed -i -e "s/__AIRM_ADMIN_CLIENT_ID__/$AIRM_ADMIN_CLIENT_ID/g" /opt/realms/airm-realm.json
               sed -i -e "s/__AIRM_ADMIN_CLIENT_SECRET__/$AIRM_ADMIN_CLIENT_SECRET/g" /opt/realms/airm-realm.json
               sed -i -e "s/__AIRM_CI_CLIENT_SECRET__/$AIRM_CI_CLIENT_SECRET/g" /opt/realms/airm-realm.json
           env:
-            - name: SILOGEN_INTERNAL_CLIENT_ID
-              valueFrom:
-                secretKeyRef:
-                  key: INTERNAL_CLIENT_ID
-                  name: silogen-realm-credentials
-            - name: SILOGEN_FRONTEND_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  key: FRONTEND_CLIENT_SECRET
-                  name: silogen-realm-credentials
-            - name: SILOGEN_INTERNAL_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  key: INTERNAL_CLIENT_SECRET
-                  name: silogen-realm-credentials
-            - name: SILOGEN_CI_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  key: SILOGEN_CI_CLIENT_SECRET
-                  name: silogen-realm-credentials
             - name: AIRM_FRONTEND_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -3010,29 +2985,3 @@ spec:
     creationPolicy: Owner
     name: keycloak-credentials
 ---
-apiVersion: external-secrets.io/v1beta1
-kind: ExternalSecret
-metadata:
-  name: silogen-realm-credentials
-  namespace: keycloak
-spec:
-  data:
-    - remoteRef:
-        key: keycloak-client-internal-keycloak-id
-      secretKey: INTERNAL_CLIENT_ID
-    - remoteRef:
-        key: keycloak-client-internal-keycloak-secret
-      secretKey: INTERNAL_CLIENT_SECRET
-    - remoteRef:
-        key: keycloak-client-frontend-keycloak-secret
-      secretKey: FRONTEND_CLIENT_SECRET
-    - remoteRef:
-        key: keycloak-client-ci-keycloak-secret
-      secretKey: SILOGEN_CI_CLIENT_SECRET
-  refreshInterval: 1h
-  secretStoreRef:
-    kind: ClusterSecretStore
-    name: airm-secret-store
-  target:
-    creationPolicy: Owner
-    name: silogen-realm-credentials
