@@ -57,11 +57,11 @@ spec:
             - name: OPENID_CLIENT_ID
               value: 354a0fa1-35ac-4a6d-9c4d-d661129c2cd0
             - name: OPENID_CONFIGURATION_URL
-              value: http://localhost:8080/realms/airm/.well-known/openid-configuration
+              value: http://kc.not-a-domain/realms/airm/.well-known/openid-configuration
             - name: POST_REGISTRATION_REDIRECT_URL
-              value: https://localhost:8002/
+              value: https://airm.not-a-domain/
             - name: CLUSTER_BASE_URL
-              value: http://localhost:8888/
+              value: http://not-a-domain/
             - name: DATABASE_HOST
               value: airm-cnpg-rw.airm.svc.cluster.local
             - name: DATABASE_PORT
@@ -223,9 +223,9 @@ spec:
       containers:
         - env:
             - name: NEXTAUTH_URL
-              value: http://localhost:8002
+              value: http://airm.not-a-domain
             - name: KEYCLOAK_ISSUER
-              value: http://localhost:8080/realms/airm
+              value: http://kc.not-a-domain/realms/airm
             - name: KEYCLOAK_ID
               value: 354a0fa1-35ac-4a6d-9c4d-d661129c2cd0
             - name: KEYCLOAK_ISSUER_INTERNAL_URL
@@ -458,3 +458,63 @@ spec:
       name: airm-rabbitmq-admin
   tls:
     secretName: tls-secret
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: airmapi-route
+  namespace: airm
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: https
+    namespace: kgateway-system
+  rules:
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: airm-api
+      port: 80
+      weight: 1
+    matches:
+    - headers:
+      - name: Host
+        type: RegularExpression
+        value: airmapi\..*
+      path:
+        type: PathPrefix
+        value: /
+    timeouts:
+      backendRequest: 20s
+      request: 90s
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: airmui-route
+  namespace: airm
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: https
+    namespace: kgateway-system
+  rules:
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: airm-ui
+      port: 80
+      weight: 1
+    matches:
+    - headers:
+      - name: Host
+        type: RegularExpression
+        value: airmui\..*
+      path:
+        type: PathPrefix
+        value: /
+    timeouts:
+      backendRequest: 20s
+      request: 90s
