@@ -2,6 +2,7 @@
   collection:
   - certmanager
   - certmanager-issuer
+  - config-updater
   - external-secrets
   - gateway-api
   - metallb
@@ -20,6 +21,11 @@
   syncwave: -10
   manifestpath:
   - certmanager-issuer/manifests/
+- name: config-updater
+  namespace: default
+  syncwave: -999
+  manifestpath:
+  - config-updater/manifests/
 - name: amd-gpu-operator
   namespaces:
     - "kube-amd-gpu"

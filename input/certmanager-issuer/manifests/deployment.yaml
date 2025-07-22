@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: static-cert-issuer
+  namespace: static-cert-system
+  labels:
+    app: static-cert-issuer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: static-cert-issuer
+  template:
+    metadata:
+      labels:
+        app: static-cert-issuer
+    spec:
+      serviceAccountName: static-cert-issuer
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+      - name: manager
+        image: ghcr.io/silogen/cluster-cert:0.0.2
+        imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65532
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 32Mi

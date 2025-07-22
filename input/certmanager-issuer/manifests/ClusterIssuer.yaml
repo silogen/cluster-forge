@@ -3,4 +3,14 @@ kind: ClusterIssuer
 metadata:
   name: cluster-issuer
 spec:
-  selfSigned: {}
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: platform@silogen.ai
+    privateKeySecretRef:
+      name: cluster-tls
+    solvers:
+    - http01:
+        gatewayHTTPRoute:
+          parentRefs:
+          - name: https
+            namespace: kgateway-system

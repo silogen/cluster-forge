@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-certificate-issuerref
+spec:
+  background: false
+  rules:
+  - name: mutate-issuerref-to-static-wildcard
+    match:
+      any:
+      - resources:
+          kinds:
+          - Certificate
+          apiVersions:
+          - cert-manager.io/v1
+    mutate:
+      patchStrategicMerge:
+        spec:
+          issuerRef:
+            name: static-wildcard-issuer
+            kind: StaticCertIssuer
+            group: certmanager.io

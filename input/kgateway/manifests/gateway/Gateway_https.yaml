@@ -17,5 +17,5 @@ spec:
         certificateRefs:
           - group: ''	
             kind: Secret	
-            name: kgateway-cert
+            name: cluster-tls
         mode: Terminate
