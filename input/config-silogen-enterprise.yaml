@@ -28,3 +28,4 @@
 - name: cluster-airm-config
 - name: keycloak-airm-config
 - name: airm-airm-config
+- name: secret-generator

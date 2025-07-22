@@ -266,3 +266,8 @@
   manifestpath:
   - airm-airm-config
   syncwave: 100
+- name: secret-generator
+  namespace: airm
+  manifestpath:
+  - airm-airm-config/secret-generator.yaml
+  syncwave: 75
