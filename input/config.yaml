@@ -23,7 +23,6 @@
 - name: amd-gpu-operator
   namespaces:
     - "kube-amd-gpu"
-    - "andy-test"
   manifestpath:
   - amd-gpu-operator/manifests/sourced
   - amd-gpu-operator/manifests/additions
