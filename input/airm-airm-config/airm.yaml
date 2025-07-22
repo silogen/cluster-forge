@@ -328,17 +328,9 @@ spec:
     - rabbitmq.airm.svc.cluster.local
     - '*.rabbitmq-nodes.airm.svc.cluster.local'
   issuerRef:
-    kind: Issuer
-    name: selfsigned-issuer
+    kind: ClusterIssuer
+    name: cluster-issuer
   secretName: tls-secret
----
-apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: selfsigned-issuer
-  namespace: airm
-spec:
-  selfSigned: {}
 ---
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
