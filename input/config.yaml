@@ -77,6 +77,7 @@
   - kyverno/kyverno-policies.yaml
 - name: kyverno
   namespace: kyverno
+  syncwave: -100
   manifestpath:
   - kyverno/manifests/sourced
 - name: kyverno-onenode
