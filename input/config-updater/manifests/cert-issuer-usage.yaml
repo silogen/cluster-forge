@@ -23,7 +23,7 @@ spec:
         - -c
         - |
           set -e
-          [[ "${USE_CERT_MANAGER:-}" == "false" ]] && exit 0
+          [[ "${USE_CERT_MANAGER}" == "true" ]] && exit 0
           apk add --no-cache git yq
           git config --global user.name "K8s Gateway Updater"
           git config --global user.email "gateway-updater@cluster.local"
@@ -51,7 +51,7 @@ spec:
             echo "No changes detected."
             exit 0
           fi
-
+          git pull
           git add "$FILE_PATH"
           git commit -m "$COMMIT_MESSAGE: Updated cert-manager issuer policy"
 
