@@ -700,7 +700,7 @@ data:
             "https://*.not-a-domain/*",
           ],
           "webOrigins": [
-            "*",
+            "*"
           ],
           "notBefore": 0,
           "bearerOnly": false,

@@ -2,7 +2,6 @@ apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    istio-injection: enabled
     monitoring: prometheus
   name: airm
 ---
@@ -49,8 +48,6 @@ spec:
       app: airm-api
   template:
     metadata:
-      annotations:
-        traffic.sidecar.istio.io/excludeOutboundIPRanges: 0.0.0.0/0
       labels:
         app: airm-api
         auth-required: "true"
@@ -278,7 +275,6 @@ spec:
       template:
         metadata:
           annotations:
-            sidecar.istio.io/inject: "false"
             silodev.disabled: "true"
         spec:
           containers:
@@ -328,17 +324,9 @@ spec:
     - rabbitmq.airm.svc.cluster.local
     - '*.rabbitmq-nodes.airm.svc.cluster.local'
   issuerRef:
-    kind: Issuer
-    name: selfsigned-issuer
+    kind: ClusterIssuer
+    name: cluster-issuer
   secretName: tls-secret
----
-apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: selfsigned-issuer
-  namespace: airm
-spec:
-  selfSigned: {}
 ---
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
