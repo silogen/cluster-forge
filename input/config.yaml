@@ -1,6 +1,7 @@
 - name: hard-requirements
   collection:
   - certmanager
+  - certmanager-issuer
   - external-secrets
   - gateway-api
   - metallb
@@ -14,6 +15,11 @@
   syncwave: -10
   manifestpath:
   - certmanager/manifests/sourced
+- name: certmanager-issuer
+  namespace: cert-manager
+  syncwave: -10
+  manifestpath:
+  - certmanager-issuer/manifests/
 - name: amd-gpu-operator
   namespaces:
     - "kube-amd-gpu"
@@ -268,3 +274,8 @@
   manifestpath:
   - airm-airm-config
   syncwave: 100
+- name: secret-generator
+  namespace: airm
+  manifestpath:
+  - airm-airm-config/secret-generator.yaml
+  syncwave: 75

@@ -11,8 +11,8 @@ spec:
     - opentelemetry-operator-webhook-service.opentelemetry-operator-system.svc
     - opentelemetry-operator-webhook-service.opentelemetry-operator-system.svc.cluster.local
   issuerRef:
-    kind: Issuer
-    name: opentelemetry-operator-selfsigned-issuer
+    kind: ClusterIssuer
+    name: cluster-issuer
   secretName: opentelemetry-operator-controller-manager-service-cert
   subject:
     organizationalUnits:

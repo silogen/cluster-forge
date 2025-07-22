@@ -8,6 +8,6 @@ spec:
   dnsNames:
     - '*'
   issuerRef:
-    kind: Issuer
-    name: kgateway-system-selfsigned-issuer
+    kind: ClusterIssuer
+    name: cluster-issuer
   secretName: kgateway-cert

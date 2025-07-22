@@ -63,9 +63,6 @@ spec:
                 all:
                   - key: "{{ element.image }}"
                     operator: NotEquals
-                    value: "docker.io/istio*"
-                  - key: "{{ element.image }}"
-                    operator: NotEquals
                     value: "docker.io/semitechnologies*"
                   - key: "{{ element.image }}"
                     operator: NotEquals
