@@ -11,8 +11,6 @@ spec:
       - resources:
           kinds:
           - Certificate
-          apiVersions:
-          - cert-manager.io/v1
     mutate:
       patchStrategicMerge:
         spec:
