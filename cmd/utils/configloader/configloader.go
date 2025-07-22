@@ -221,8 +221,10 @@ func validateConfig(configs ToolSet) error {
 		if config.Name == "" {
 			return fmt.Errorf("missing 'name' in config: %+v", config)
 		}
-		if config.Namespace == "" {
-			return fmt.Errorf("missing 'namespace' in config: %+v", config)
+		// Only require namespace for helm charts, since manifest-based tools
+		// might already define their own namespaces in the manifests
+		if config.HelmChartName != "" && config.Namespace == "" && len(config.Namespaces) == 0 {
+			return fmt.Errorf("either 'namespace' or 'namespaces' must be provided for helm charts in config: %+v", config)
 		}
 		if config.ManifestURL == "" && config.HelmChartName == "" && len(config.ManifestPath) == 0 {
 			return fmt.Errorf("either 'manifest-url', 'helm-chart-name' or 'manifestpath' must be provided in config: %+v", config)

@@ -134,7 +134,7 @@ func SplitYAML(config Config, workingDir string) {
 		}
 		if !IsClusterScoped(metadataObject.Kind, metadataObject.APIVersion) {
 			if metadataObject.Metadata.Namespace == "" {
-				metadataObject.Metadata.Namespace = config.Namespace // Set your default namespace here
+				metadataObject.Metadata.Namespace = getPrimaryNamespace(config) // Set your default namespace here
 				objectMap["metadata"] = metadataObject.Metadata
 			}
 

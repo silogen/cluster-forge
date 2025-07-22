@@ -131,9 +131,9 @@ func PrepareTool(configMap configloader.ToolSet, workingDir string) error {
 			}
 		}
 
-		if !namespaceObject && config.Namespace != "default" && config.SkipNamespace != "true" {
-			if err = createNamespaceFile(config, workingDir); err != nil {
-				return fmt.Errorf("failed to create namespace file: %w", err)
+		if !namespaceObject && config.SkipNamespace != "true" {
+			if err = createNamespaceFiles(config, workingDir); err != nil {
+				return fmt.Errorf("failed to create namespace files: %w", err)
 			}
 		}
 		utils.CleanDescFromResources(toolDir)
@@ -154,11 +154,13 @@ func PrepareTool(configMap configloader.ToolSet, workingDir string) error {
 	return nil
 }
 
-func createNamespaceFile(config utils.Config, workingDir string) error {
-	data := struct {
-		NamespaceName string
-	}{
-		NamespaceName: config.Namespace,
+func createNamespaceFiles(config utils.Config, workingDir string) error {
+	// Get the list of namespaces to create
+	namespaces := getNamespaceList(config)
+	
+	// Skip if no namespaces to create
+	if len(namespaces) == 0 {
+		return nil
 	}
 
 	tmpl, err := template.New("namespace").Parse(namespaceTemplate)
@@ -166,20 +168,48 @@ func createNamespaceFile(config utils.Config, workingDir string) error {
 		return fmt.Errorf("failed to parse namespace template: %w", err)
 	}
 
-	var rendered bytes.Buffer
-	if err := tmpl.Execute(&rendered, data); err != nil {
-		return fmt.Errorf("failed to execute namespace template: %w", err)
-	}
-
 	namespaceDir := filepath.Join(workingDir, config.Name)
 	if err := os.MkdirAll(namespaceDir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", namespaceDir, err)
 	}
 
-	namespaceFilePath := filepath.Join(namespaceDir, "Namespace_"+config.Namespace+".yaml")
-	if err := os.WriteFile(namespaceFilePath, rendered.Bytes(), 0644); err != nil {
-		return fmt.Errorf("failed to write namespace file: %w", err)
+	// Create a namespace file for each namespace
+	for _, ns := range namespaces {
+		if ns == "default" {
+			continue // Skip default namespace
+		}
+		
+		data := struct {
+			NamespaceName string
+		}{
+			NamespaceName: ns,
+		}
+
+		var rendered bytes.Buffer
+		if err := tmpl.Execute(&rendered, data); err != nil {
+			return fmt.Errorf("failed to execute namespace template for %s: %w", ns, err)
+		}
+
+		namespaceFilePath := filepath.Join(namespaceDir, "Namespace_"+ns+".yaml")
+		if err := os.WriteFile(namespaceFilePath, rendered.Bytes(), 0644); err != nil {
+			return fmt.Errorf("failed to write namespace file for %s: %w", ns, err)
+		}
 	}
 
 	return nil
+}
+
+// getNamespaceList returns the list of namespaces to create based on config
+func getNamespaceList(config utils.Config) []string {
+	// If namespaces (plural) is specified, use that
+	if len(config.Namespaces) > 0 {
+		return config.Namespaces
+	}
+	
+	// Otherwise, use the single namespace field (backward compatibility)
+	if config.Namespace != "" {
+		return []string{config.Namespace}
+	}
+	
+	return []string{}
 }
