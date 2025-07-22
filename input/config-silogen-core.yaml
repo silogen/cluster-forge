@@ -1,9 +1,8 @@
-- name: certmanager
+- name: routing
 - name: amd-gpu-operator
 - name: amd-device-config
 - name: cnpg-operator
 - name: kueue
-- name: external-secrets
 - name: minio-operator
 - name: minio-tenant
 - name: minio-tenant-k8s-secret
@@ -16,10 +15,6 @@
 - name: prometheus-crds
 - name: opentelemetry-operator
 - name: otel-lgtm-stack
-- name: gateway-api
-- name: metallb
-- name: kgateway-crds
-- name: kgateway
 - name: kgateway-cert
 - name: kaiwo-all
 - name: cluster-auto-pvc
