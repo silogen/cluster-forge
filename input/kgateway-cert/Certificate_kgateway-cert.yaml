@@ -11,4 +11,4 @@ spec:
   issuerRef:
     kind: ClusterIssuer
     name: cluster-issuer
-  secretName: kgateway-cert
+  secretName: cluster-tls
