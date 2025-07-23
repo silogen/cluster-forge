@@ -25,8 +25,8 @@ spec:
       initContainers:
       - name: webhook-cert-generator
         image: alpine/k8s:1.28.2
-        command: ["/bin/sh"]
-        args: ["/scripts/generate-certs.sh"]
+        command: ["/bin/sh", "-c"]
+        args: ["apk add --no-cache openssl && /scripts/generate-certs.sh"]
         env:
         - name: NAMESPACE
           valueFrom:
