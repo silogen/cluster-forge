@@ -11,6 +11,16 @@ spec:
       - resources:
           kinds:
           - Certificate
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - kube-system
+          - kube-public
+          - kube-node-lease
+          - local-path-storage
+          - kube-amd-gpu
+          - opentelemetry-operator-system
     mutate:
       patchStrategicMerge:
         spec:
