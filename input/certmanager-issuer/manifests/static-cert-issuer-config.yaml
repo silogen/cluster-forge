@@ -1,8 +1,0 @@
-apiVersion: certmanager.io/v1alpha1
-kind: StaticCertIssuer
-metadata:
-  name: static-wildcard-issuer
-  namespace: cert-manager
-spec:
-  secretName: cluster-tls
-  secretNamespace: kgateway-system
