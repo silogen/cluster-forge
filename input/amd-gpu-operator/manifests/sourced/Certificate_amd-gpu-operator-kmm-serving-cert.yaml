@@ -13,6 +13,6 @@ spec:
     - amd-gpu-operator-kmm-webhook-service.kube-amd-gpu.svc
     - amd-gpu-operator-kmm-webhook-service.kube-amd-gpu.svc.cluster.local
   issuerRef:
-    kind: ClusterIssuer
-    name: cluster-issuer
+    kind: Issuer
+    name: amd-gpu-operator-kmm-selfsigned-issuer
   secretName: kmm-operator-webhook-server-cert

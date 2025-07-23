@@ -11,6 +11,6 @@ spec:
     - kaiwo-webhook-service.kaiwo-system.svc
     - kaiwo-webhook-service.kaiwo-system.svc.cluster.local
   issuerRef:
-    kind: ClusterIssuer
-    name: cluster-issuer
+    kind: Issuer
+    name: kaiwo-selfsigned-issuer
   secretName: webhook-server-cert
