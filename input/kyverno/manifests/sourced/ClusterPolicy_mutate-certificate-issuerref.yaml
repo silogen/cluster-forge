@@ -15,6 +15,8 @@ spec:
       any:
       - resources:
           namespaces:
+          - airm
+          - kaiwo
           - kube-system
           - kube-public
           - kube-node-lease
