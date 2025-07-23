@@ -69,6 +69,7 @@ spec:
           fi
           
           # Stage, commit and push changes
+          git pull
           git add .
           git commit -m "$COMMIT_MESSAGE: Replaced 'not-a-domain' with $NEW_DOMAIN_NAME"
           
