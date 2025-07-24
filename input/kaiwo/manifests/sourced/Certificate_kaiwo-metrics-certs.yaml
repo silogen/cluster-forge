@@ -11,6 +11,6 @@ spec:
     - kaiwo-controller-manager-metrics-service.kaiwo-system.svc
     - kaiwo-controller-manager-metrics-service.kaiwo-system.svc.cluster.local
   issuerRef:
-    kind: ClusterIssuer
-    name: cluster-issuer
+    kind: Issuer
+    name: kaiwo-selfsigned-issuer
   secretName: metrics-server-cert
