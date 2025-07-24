@@ -338,7 +338,6 @@ data:
               "attributes": {}
             }
           ],
-          "ci-service-account": [],
           "account": [
             {
               "id": "6ec587dc-6f20-498d-9118-8a1819333087",
@@ -501,27 +500,6 @@ data:
               "realm-admin"
             ]
           },
-          "notBefore": 0,
-          "groups": []
-        },
-        {
-          "id": "072a1a66-c4de-46a4-8d8f-34d92daca514",
-          "username": "service-account-ci-service-account",
-          "firstName": "CI Service",
-          "lastName": "Account",
-          "email": "service-account-ci-service-account-oci2@amd.com",
-          "emailVerified": true,
-          "createdTimestamp": 1745325425328,
-          "enabled": true,
-          "totp": false,
-          "serviceAccountClientId": "ci-service-account",
-          "disableableCredentialTypes": [],
-          "requiredActions": [],
-          "realmRoles": [
-            "default-roles-airm",
-            "Platform Administrator",
-            "Super Administrator"
-          ],
           "notBefore": 0,
           "groups": []
         },
