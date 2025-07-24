@@ -1,7 +1,7 @@
 - name: hard-requirements
   collection:
   - certmanager
-  - certmanager-issuer
+  # - certmanager-issuer
   - config-updater
   - external-secrets
   - gateway-api
