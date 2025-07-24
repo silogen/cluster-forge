@@ -10,6 +10,7 @@ spec:
     - allowedRoutes:
         namespaces:
           from: All
+      hostname: "*.not-a-domain"
       name: https
       port: 443
       protocol: HTTPS
