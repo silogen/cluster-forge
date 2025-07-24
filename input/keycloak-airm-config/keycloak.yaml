@@ -505,10 +505,10 @@ data:
         },
         {
           "id": "487590ed-165c-44d5-b686-1aff81cca298",
-          "username": "devuser@amd.com",
+          "username": "devuser@not-a-domain",
           "firstName": "Dev Env",
           "lastName": "User",
-          "email": "devuser@amd.com",
+          "email": "devuser@not-a-domain",
           "emailVerified": true,
           "createdTimestamp": 1746628462894,
           "enabled": true,
