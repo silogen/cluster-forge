@@ -697,7 +697,7 @@ data:
           "secret": "__AIRM_FRONTEND_CLIENT_SECRET__",
           "redirectUris": [
             "https://not-a-domain/*",
-            "https://*.not-a-domain/*",
+            "https://*.not-a-domain/*"
           ],
           "webOrigins": [
             "*"
