@@ -223,9 +223,9 @@ spec:
       containers:
         - env:
             - name: NEXTAUTH_URL
-              value: http://airm.not-a-domain
+              value: https://airmui.not-a-domain
             - name: KEYCLOAK_ISSUER
-              value: http://kc.not-a-domain/realms/airm
+              value: https://kc.not-a-domain/realms/airm
             - name: KEYCLOAK_ID
               value: 354a0fa1-35ac-4a6d-9c4d-d661129c2cd0
             - name: KEYCLOAK_ISSUER_INTERNAL_URL

@@ -655,7 +655,7 @@ data:
           "optionalClientScopes": [
             "address",
             "phone",
-            "organization",
+            "aization",
             "offline_access",
             "microprofile-jwt"
           ]
@@ -2822,7 +2822,7 @@ spec:
             - --import-realm
           env:
             - name: KC_HOSTNAME
-              value: http://localhost:8080
+              value: https://kc.not-a-domain
             - name: KC_DB
               value: postgres
             - name: KC_DB_URL_HOST
