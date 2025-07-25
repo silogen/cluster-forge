@@ -655,7 +655,7 @@ data:
           "optionalClientScopes": [
             "address",
             "phone",
-            "aization",
+            "organization",
             "offline_access",
             "microprofile-jwt"
           ]
