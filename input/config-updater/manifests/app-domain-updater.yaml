@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: app-domain-updater
+  name: app-domain-updater-manual
   namespace: default
 spec:
   template:
@@ -28,7 +28,8 @@ spec:
         - -c
         - |
           set -e
-          
+          sed -i 's|https://dl-cdn.alpinelinux.org|http://dl-cdn.alpinelinux.org|' /etc/apk/repositories
+          apk update
           # Install git, yq, and grep
           apk add --no-cache git yq grep
           
