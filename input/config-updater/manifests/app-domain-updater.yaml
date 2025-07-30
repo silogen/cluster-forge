@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: app-domain-updater-test
+  name: app-domain-updater
   namespace: default
 spec:
   template:
