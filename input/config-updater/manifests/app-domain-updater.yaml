@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: app-domain-updater
+  name: app-domain-updater-test
   namespace: default
 spec:
   template:
@@ -9,7 +9,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: domain-updater
-        image: alpine:latest
+        image: ubuntu:22.04
         env:
         - name: FILE_PATH
           value: "/"
@@ -28,10 +28,9 @@ spec:
         - -c
         - |
           set -e
-          sed -i 's|https://dl-cdn.alpinelinux.org|http://dl-cdn.alpinelinux.org|' /etc/apk/repositories
-          apk update
-          # Install git, yq, and grep
-          apk add --no-cache git yq grep
+          # Install git, and grep
+          DEBIAN_FRONTEND=noninteractive
+          apt-get update && apt-get install -y git grep
           
           # Configure git
           git config --global user.name "K8s Domain Updater"
