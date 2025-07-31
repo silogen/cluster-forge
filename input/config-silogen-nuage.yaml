@@ -1,7 +1,7 @@
+- name: routing
 - name: amd-gpu-operator
 - name: amd-device-config
 - name: kueue
-- name: external-secrets
 - name: minio-operator
 - name: minio-tenant
 - name: minio-tenant-k8s-secret
@@ -11,11 +11,13 @@
 # - name: kyverno-policies
 - name: opentelemetry-operator
 - name: otel-lgtm-stack
-- name: gateway-api
-- name: kgateway-crds
-- name: kgateway
 - name: keycloak
 - name: kuberay-operator
 - name: appwrapper
 - name: kaiwo
 - name: cnpg-operator
+- name: rabbitmq
+- name: rabbitmq-airm-config
+- name: cluster-airm-config
+- name: keycloak-airm-config
+- name: airm-airm-config
