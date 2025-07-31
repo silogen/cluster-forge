@@ -1,0 +1,427 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: airm-configure
+  namespace: default
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccount: airm-configure
+      containers:
+      - name: airm-cluster-initialize
+        image: ubuntu:22.04
+        env:
+        - name: NEW_DOMAIN_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: bloom
+              key: DOMAIN
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+
+          #!/bin/bash
+          set -e
+
+          # Install needed packages
+          DEBIAN_FRONTEND=noninteractive
+          apt-get update 1> /dev/null 2>&1
+          apt-get install curl -y 1> /dev/null 2>&1
+          echo "Ubuntu packages ready"
+          echo ""
+
+          cd /opt
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          cp ./kubectl /usr/local/bin/kubectl
+          chmod +x /usr/local/bin/kubectl
+          rm /opt/kubectl
+          echo "kubectl tool ready"
+          echo ""
+
+          echo "Done"
+
+          # Checking that all services are ready: keycloak, airm-api, airm-ui:
+          #####################################################################################
+          # 1. keycloak
+          echo "Checking keycloak..."
+          echo ""
+          while true; do
+            NAMESPACE="keycloak"
+            LABEL="app=keycloak"
+            CONTAINER="keycloak"
+
+            # Find the first pod name matching label and is Running
+            PODS=$(kubectl get pods -n "$NAMESPACE" -l "$LABEL" --field-selector=status.phase=Running -o jsonpath="{.items[*].metadata.name}")
+            FIRST_POD=$(echo "$PODS" | awk '{print $1}')
+            if [[ -z "$FIRST_POD" ]]; then
+              echo "No running pod with label $LABEL in namespace $NAMESPACE found yet."
+              echo "Waiting 10 seconds..."
+              sleep 10
+              continue
+            fi
+            POD=$FIRST_POD
+
+            echo "Found running pod: $POD"
+            # Check if the specific container is present and ready
+            IS_READY=$(kubectl get pod "$POD" -n "$NAMESPACE" -o jsonpath="{.status.containerStatuses[?(@.name=='$CONTAINER')].ready}")
+            if [[ "$IS_READY" == "true" ]]; then
+              echo "Container '$CONTAINER' in pod '$POD' is ready."
+              return
+            else
+              echo "Container '$CONTAINER' in pod '$POD' is NOT ready."
+            fi
+          done
+
+          #####################################################################################
+          # 2. airm-ui
+
+          echo "Checking airm-ui..."
+          echo ""
+          while true; do
+            NAMESPACE="airm"
+            LABEL="app=airm-ui"
+            CONTAINER="airm-ui"
+
+            # Find the first pod name matching label and is Running
+            PODS=$(kubectl get pods -n "$NAMESPACE" -l "$LABEL" --field-selector=status.phase=Running -o jsonpath="{.items[*].metadata.name}")
+            FIRST_POD=$(echo "$PODS" | awk '{print $1}')
+            if [[ -z "$FIRST_POD" ]]; then
+              echo "No running pod with label $LABEL in namespace $NAMESPACE found yet."
+              echo "Waiting 10 seconds..."
+              sleep 10
+              continue
+            fi
+            POD=$FIRST_POD
+
+            echo "Found running pod: $POD"
+            # Check if the specific container is present and ready
+            IS_READY=$(kubectl get pod "$POD" -n "$NAMESPACE" -o jsonpath="{.status.containerStatuses[?(@.name=='$CONTAINER')].ready}")
+            if [[ "$IS_READY" == "true" ]]; then
+              echo "Container '$CONTAINER' in pod '$POD' is ready."
+              return
+            else
+              echo "Container '$CONTAINER' in pod '$POD' is NOT ready."
+            fi
+          done
+
+          #####################################################################################
+          # 3. airm-api
+
+          echo "Checking airm-api..."
+          echo ""
+          while true; do
+            NAMESPACE="airm"
+            LABEL="app=airm-api"
+            CONTAINER="airm"
+
+            # Find the first pod name matching label and is Running
+            PODS=$(kubectl get pods -n "$NAMESPACE" -l "$LABEL" --field-selector=status.phase=Running -o jsonpath="{.items[*].metadata.name}")
+            FIRST_POD=$(echo "$PODS" | awk '{print $1}')
+            if [[ -z "$FIRST_POD" ]]; then
+              echo "No running pod with label $LABEL in namespace $NAMESPACE found yet."
+              echo "Waiting 10 seconds..."
+              sleep 10
+              continue
+            fi
+            POD=$FIRST_POD
+
+            echo "Found running pod: $POD"
+            # Check if the specific container is present and ready
+            IS_READY=$(kubectl get pod "$POD" -n "$NAMESPACE" -o jsonpath="{.status.containerStatuses[?(@.name=='$CONTAINER')].ready}")
+            if [[ "$IS_READY" == "true" ]]; then
+              echo "Container '$CONTAINER' in pod '$POD' is ready."
+              return
+            else
+              echo "Container '$CONTAINER' in pod '$POD' is NOT ready."
+            fi
+          done
+
+          #####################################################################################
+          # 4. Run confugre script block
+
+          # --- Configuration Variables ---
+          KEYCLOAK_CLIENT_ID=354a0fa1-35ac-4a6d-9c4d-d661129c2cd0
+          KEYCLOAK_CLIENT_SECRET=$(kubectl get secret secrets-airm -n airm -o jsonpath='{.data.KEYCLOAK_SECRET}' | base64 -d)
+          ORG_NAME="demo"
+          ORG_DOMAINS='["example.com"]'
+          USER_EMAIL="devuser@example.com"
+          PROJECT_NAME="demo"
+          PROJECT_DESCRIPTION="demo"
+          CLUSTER_NAME="demo-cluster"
+          TIMEOUT=300
+          SLEEP_INTERVAL=5
+          MODEL_ID="TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+          DISPATCHER_PATH="./k8s/apps/airm-dispatcher/overlays/amddc"
+          CORE_REPO="https://github.com/silogen/core"
+          CORE_BRANCH="workloads"
+
+          # --- Input Validation ---
+          if [ -z "$KEYCLOAK_CLIENT_ID" ]; then
+              echo "ERROR: Could not retrieve ADMIN_CLIENT_ID from Kubernetes secret."
+              exit 1
+          fi
+
+          if [ -z "$KEYCLOAK_CLIENT_SECRET" ]; then
+              echo "ERROR: Could not retrieve ADMIN_CLIENT_SECRET from Kubernetes secret."
+              exit 1
+          fi
+
+          function check_success() {
+              if [ $1 -ne 0 ]; then
+                  echo "ERROR: $2"
+                  exit 1
+              fi
+          }
+
+          function refresh_token() {
+            echo "debug: ${KEYCLOAK_CLIENT_ID} ${KEYCLOAK_CLIENT_SECRET}"
+            TOKEN=$(curl -s -d "client_id=${KEYCLOAK_CLIENT_ID}" -d "username=${USER_EMAIL}" -d 'password=password' -d 'grant_type=password' -d "client_secret=${KEYCLOAK_CLIENT_SECRET}" 'http://keycloak.keycloak.svc.cluster.local:8080/realms/airm/protocol/openid-connect/token' | jq -r '.access_token')
+            if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
+                echo "ERROR: Failed to obtain access token from Keycloak."
+                kill $PF_API_PID $PF_KC_PID $PF_UI_PID
+                exit 1
+            fi
+          }
+          #Then access Keycloak at http://keycloak.keycloak.svc.cluster.local:8080 with username "silogen-admin" and the password you set earlier.
+          #Load up and connect the dispatcher component.
+
+          # Function to kill existing port-forward processes for a given service and namespace
+          function kill_port_forward() {
+            local svc_name=$1
+
+            # Search and kill matching kubectl port-forward processes
+            pids=$(ps aux | grep "kubectl port-forward svc/${svc_name}" | grep -v grep | awk '{print $2}')
+            if [[ ! -z "$pids" ]]; then
+              echo "Killing existing port-forward processes for svc/${svc_name}: $pids"
+              kill $pids
+            fi
+          }
+
+
+          function port_forward() {
+            kill_port_forward airm-api
+            kill_port_forward keycloak
+            kill_port_forward airm-ui
+
+            kubectl port-forward svc/airm-api -n airm 8003:80 > /dev/null 2>&1 &
+            PF_API_PID=$!
+            kubectl port-forward svc/keycloak -n keycloak 8080:8080 > /dev/null 2>&1 &
+            PF_KC_PID=$!
+            kubectl port-forward svc/airm-ui -n airm 8002:80 > /dev/null 2>&1 &
+            PF_UI_PID=$!
+            sleep 10
+          }
+
+          #NOTE: if org exists in keycloak but not in airm, it will break
+          function create_org() {
+            # Try to get ORG_ID by name
+            ORG_ID=$(curl -s -X GET 'http://airm-api.airm.svc.cluster.local/v1/organizations' \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H 'Content-Type: application/json' | jq -r --arg name "$ORG_NAME" '.organizations[] | select(.name==$name) | .id')
+
+            # If not found, create the org and fetch the ID again
+            if [ -z "$ORG_ID" ] || [ "$ORG_ID" == "null" ]; then
+              ORG_RESP=$(curl -s -o /dev/null -X POST -w "%{http_code}" 'http://airm-api.airm.svc.cluster.local/v1/organizations' \
+                -H "Authorization: Bearer ${TOKEN}" \
+                -H 'Content-Type: application/json' \
+                -d "{ \"name\": \"$ORG_NAME\", \"domains\": $ORG_DOMAINS }")
+              echo $ORG_RESP
+              check_success $([[ "$ORG_RESP" == "200" || "$ORG_RESP" == "201" ]] && echo 0 || echo 1) "Failed to create organization"
+
+              ORG_ID=$(curl -s -X GET 'http://airm-api.airm.svc.cluster.local/v1/organizations' \
+                -H "Authorization: Bearer ${TOKEN}" \
+                -H 'Content-Type: application/json' | jq -r --arg name "$ORG_NAME" '.organizations[] | select(.name==$name) | .id')
+            fi
+
+            if [ -z "$ORG_ID" ] || [ "$ORG_ID" == "null" ]; then
+              echo "ERROR: Failed to create or retrieve organization ID."
+              kill $PF_API_PID $PF_KC_PID $PF_UI_PID
+              exit 1
+            else
+                echo "ORG_ID=${ORG_ID}"
+            fi
+          }
+
+          function add_user_to_org() {
+            # Check if user exists in org
+            USER_EXISTS=$(curl -s -X GET "http://airm-api.airm.svc.cluster.local/v1/users" \
+              -H 'accept: application/json' \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H 'Content-Type: application/json' | jq -r --arg email "$USER_EMAIL" '.users[] | select(.email==$email) | .email')
+            # Add user to org if they don't exist
+            if [ -z "$USER_EXISTS" ] || [ "$USER_EXISTS" == "null" ]; then
+              echo $USER_EXISTS
+              echo "User '$USER_EMAIL' not found in organization. Adding..."
+              ADD_USER_RESP=$(curl  -o /dev/null -w "%{http_code}" -X 'POST' \
+              "http://airm-api.airm.svc.cluster.local/v1/organizations/${ORG_ID}/users" \
+              -H 'accept: application/json' \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H 'Content-Type: application/json' \
+              -d '{ "email": "'"$USER_EMAIL"'", "roles": ["Platform Administrator"]}')
+              echo $ADD_USER_RESP
+              check_success $([[ "$ADD_USER_RESP" == "200" || "$ADD_USER_RESP" == "201" ]] && echo 0 || echo 1) "Failed to add user to organization"
+            else
+              echo "User '$USER_EMAIL' already exists in organization."
+            fi
+          }
+
+          function create_project() {
+            PROJECT_ID=$(curl -s -X GET 'http://airm-api.airm.svc.cluster.local/v1/projects' \
+              -H 'accept: application/json' -H "Authorization: Bearer ${TOKEN}" | jq -r '.projects[] | select(.name=="'$PROJECT_NAME'") | .id')
+
+            for (( i=0; i<=$TIMEOUT; i+=$SLEEP_INTERVAL )); do
+              CLUSTER_STATUS=$(curl -s -X GET "http://airm-api.airm.svc.cluster.local/v1/clusters/$CLUSTER_ID" \
+                -H "Authorization: Bearer ${TOKEN}" \
+                -H 'Content-Type: application/json' | jq -r '.status')
+
+              if [ "$CLUSTER_STATUS" == "healthy" ]; then
+                echo "Cluster is healthy!"
+                break # Exit the loop if the cluster is healthy
+              fi
+              echo "Cluster status: $CLUSTER_STATUS.  Waiting $SLEEP_INTERVAL seconds... ($i/$TIMEOUT seconds elapsed)"
+              sleep $SLEEP_INTERVAL
+            done
+
+            if [ "$CLUSTER_STATUS" != "healthy" ]; then
+              echo "ERROR: Cluster did not become healthy within $TIMEOUT seconds."
+              exit 1
+            fi
+
+            if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" == "null" ]; then
+              echo "Projects '$PROJECT_NAME' not found. Creating..."
+              PROJECT_ID=$(curl -X 'POST' \
+                'http://airm-api.airm.svc.cluster.local/v1/projects' \
+                -H 'accept: application/json' \
+                -H "Authorization: Bearer ${TOKEN}" \
+                -H 'Content-Type: application/json' \
+                -d '{
+                  "name": "'"$PROJECT_NAME"'",
+                  "description": "'"$PROJECT_DESCRIPTION"'",
+                  "cluster_id": "'"$CLUSTER_ID"'",
+                  "quota": {
+                    "cpu_milli_cores": 0,
+                    "memory_bytes": 0,
+                    "ephemeral_storage_bytes": 0,
+                    "gpu_count": 0
+                  }
+                }' | jq -r '.id')
+              echo $PROJECT_ID
+              check_success $([[ "$PROJECT_ID" != "null" ]] && echo 0 || echo 1) "Failed to create project"
+            else
+              echo "Project '$PROJECT_NAME' already exists with ID: $PROJECT_ID"
+            fi
+          }
+
+          function add_user_to_project() {
+            # Get project id
+            USER_IN_PROJECT=$(curl -X 'GET' \
+            'http://127.0.0.1:8003/v1/users' \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${TOKEN}" | jq -r  '.users[] | select(.projects.id=="'$PROJECT_ID'" and .email=="'$USER_EMAIL'") | .id ')
+
+            USER_ID=$(curl -X 'GET' \
+            'http://127.0.0.1:8003/v1/users' \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${TOKEN}" | jq -r  '.users[] | select(.email=="'$USER_EMAIL'") | .id ')
+
+            # Add user to project if they are not already in it
+            if [ -z "$USER_IN_PROJECT" ] || [ "$USER_IN_PROJECT" == "null" ]; then
+              echo "Adding user '$USER_ID' to project '$PROJECT_ID'..."
+              ADD_PROJECT_RESP=$(curl -w "%{http_code}" -o /dev/null -X 'POST' \
+              "http://airm-api.airm.svc.cluster.local/v1/projects/${PROJECT_ID}/users" \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H 'Content-Type: application/json' \
+              -d '{"user_ids": ["'${USER_ID}'"]}')
+              echo $ADD_PROJECT_RESP
+              check_success $([[ "$ADD_PROJECT_RESP" == "200" || "$ADD_PROJECT_RESP" == "201" || "$ADD_PROJECT_RESP" == "204" ]] && echo 0 || echo 1) "Failed to add user to project"
+            else
+              echo "User '$USER_ID' already exists in project '$PROJECT_ID'."
+            fi
+          }
+
+          function create_cluster() {
+            # Check if cluster exists
+            CLUSTER_EXISTS=$(curl -s -X GET 'http://airm-api.airm.svc.cluster.local/v1/clusters' \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H 'Content-Type: application/json' | jq -r '.clusters[] | select(.name=="'$CLUSTER_NAME'") | .id')
+
+            if [ -z "$CLUSTER_EXISTS" ] || [ "$CLUSTER_EXISTS" == "null" ]; then
+              # Create cluster
+              echo "Creating cluster..."
+              CLUSTER=$(curl -X 'POST' \
+              'http://airm-api.airm.svc.cluster.local/v1/clusters' \
+              -H 'accept: application/json' -H "Authorization: Bearer ${TOKEN}")
+              CLUSTER_ID=$(echo "$CLUSTER" | jq -r '.id')
+              check_success $([[ "$CLUSTER_ID" != "null" ]] && echo 0 || echo 1) "Failed to create cluster"
+              CLUSTER_SECRET=$(echo "$CLUSTER" | jq -r '.user_secret')
+            else
+              echo "Cluster already exists with ID: $CLUSTER_EXISTS"
+              CLUSTER_ID=$CLUSTER_EXISTS
+              # Optionally, fetch the existing cluster's secret if needed.  This assumes the secret is retrievable.
+              # CLUSTER_SECRET=$(curl -s -X GET "http://airm-api.airm.svc.cluster.local/v1/clusters/$CLUSTER_ID" -H "Authorization: Bearer ${TOKEN}" | jq -r '.user_secret')
+            fi
+          }
+
+
+          function create_secret_and_start_dispatcher() {
+            # Create secret for dispatcher to use
+            kubectl create secret generic airm-rabbitmq-common-vhost-user --from-literal=username="$CLUSTER_ID" --from-literal=password="$CLUSTER_SECRET" -n airm
+
+            # Start dispatcher and wait for 10 seconds
+            sleep 10
+            kubectl apply -k "$DISPATCHER_PATH"
+            sleep 10
+          }
+
+
+          function load_charts() {
+            kubectl delete job workloads-manager-init -n airm --ignore-not-found=true
+
+            echo "Loading workloads using workloads-manager job..."
+            kubectl create secret generic workloads-manager-token \
+              --from-literal=token="$TOKEN" \
+              --namespace=airm \
+              --dry-run=client -o yaml | kubectl apply -f -
+            kubectl apply -f workloads-manager-job.yaml
+
+            echo "Waiting for workloads-manager job to complete..."
+            kubectl wait --for=condition=complete --timeout=120s job/workloads-manager-init -n airm
+            kubectl delete secret workloads-manager-token -n airm
+          }
+
+          function onboard_tinyllama() {
+            curl -X 'POST' "http://airm-api.airm.svc.cluster.local/v1/models/download?model_id=${MODEL_ID}&project_id=$PROJECT_ID" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${TOKEN}"
+          }
+
+          function main() {
+            # NOTE: no need when running within the K8 cluster
+            # port_forward
+
+            refresh_token
+            create_org
+            
+            refresh_token
+            add_user_to_org
+            
+            refresh_token
+            create_cluster
+            create_secret_and_start_dispatcher
+            
+            refresh_token
+            create_project
+            add_user_to_project
+            
+            refresh_token
+            load_charts
+            onboard_tinyllama
+          }
+
+          main
+
+          echo "Successfully created cluster quota and default user credentials"
+          exit 0
