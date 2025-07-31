@@ -146,8 +146,8 @@ spec:
           KEYCLOAK_CLIENT_ID=354a0fa1-35ac-4a6d-9c4d-d661129c2cd0
           KEYCLOAK_CLIENT_SECRET=$(kubectl get secret secrets-airm -n airm -o jsonpath='{.data.KEYCLOAK_SECRET}' | base64 -d)
           ORG_NAME="demo"
-          ORG_DOMAINS='["amd.com"]'
-          USER_EMAIL="devuser@amd.com"
+          ORG_DOMAINS='["example.com"]'
+          USER_EMAIL="devuser@example.com"
           PROJECT_NAME="demo"
           PROJECT_DESCRIPTION="demo"
           CLUSTER_NAME="demo-cluster"
