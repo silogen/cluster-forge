@@ -9,7 +9,7 @@ metadata:
   annotations:
      grafana_folder: "common"
 data:
-  grafana-pvc-dashboard.json: |-
+  lgtm-pvc-dashboard.json: |-
     {
       "annotations": {
         "list": [
