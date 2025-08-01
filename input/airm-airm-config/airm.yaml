@@ -61,7 +61,7 @@ spec:
             - name: POST_REGISTRATION_REDIRECT_URL
               value: https://airm.not-a-domain/
             - name: CLUSTER_BASE_URL
-              value: http://not-a-domain/
+              value: https://not-a-domain/
             - name: DATABASE_HOST
               value: airm-cnpg-rw.airm.svc.cluster.local
             - name: DATABASE_PORT
