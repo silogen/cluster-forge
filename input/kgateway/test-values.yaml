@@ -1,0 +1,12 @@
+# podTemplate breaks with no labels
+gatewayClass:
+  parametersRef:
+    podTemplate:
+      extraLabels:
+        cf-default: "true"
+controller:
+  image:
+    registry: ghcr.io
+    repository: silogen/kgateway-v2.1.0-main-websocket
+    tag: 0.0.1
+

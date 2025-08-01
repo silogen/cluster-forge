@@ -147,3 +147,21 @@ rules:
     verbs:
       - patch
       - update
+  - apiGroups:
+      - networking.istio.io
+    resources:
+      - destinationrules
+      - serviceentries
+      - workloadentries
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - security.istio.io
+    resources:
+      - authorizationpolicies
+    verbs:
+      - get
+      - list
+      - watch
