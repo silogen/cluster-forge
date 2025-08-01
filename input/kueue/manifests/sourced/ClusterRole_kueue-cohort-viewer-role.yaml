@@ -8,24 +8,13 @@ metadata:
     app.kubernetes.io/version: v0.12.3
     control-plane: controller-manager
     rbac.kueue.x-k8s.io/batch-admin: "true"
-    rbac.kueue.x-k8s.io/batch-user: "true"
-  name: kueue-xgboostjob-editor-role
+  name: kueue-cohort-viewer-role
 rules:
   - apiGroups:
-      - kubeflow.org
+      - kueue.x-k8s.io
     resources:
-      - xgboostjobs
+      - cohorts
     verbs:
-      - create
-      - delete
       - get
       - list
-      - patch
-      - update
       - watch
-  - apiGroups:
-      - kubeflow.org
-    resources:
-      - xgboostjobs/status
-    verbs:
-      - get

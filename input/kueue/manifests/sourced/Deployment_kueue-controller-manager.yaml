@@ -5,7 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/instance: kueue
     app.kubernetes.io/name: kueue
-    app.kubernetes.io/version: v0.11.4
+    app.kubernetes.io/version: v0.12.3
     control-plane: controller-manager
   name: kueue-controller-manager
   namespace: kueue-system
@@ -19,7 +19,7 @@ spec:
   template:
     metadata:
       annotations:
-        charts.kueue.x-k8s.io/config-checksum: 6eddcc27cbe5eb100e591f01417b6f51fe0433b10f300c8bb1eeeefd5b34aabf
+        charts.kueue.x-k8s.io/config-checksum: 8b389750af0aa41518832334ac53b32dccd3eea657d6f2695a3d6ff714c696fc
         kubectl.kubernetes.io/default-container: manager
       labels:
         app.kubernetes.io/instance: kueue
@@ -32,7 +32,7 @@ spec:
             - --zap-log-level=2
           command:
             - /manager
-          image: registry.k8s.io/kueue/kueue:v0.11.4
+          image: registry.k8s.io/kueue/kueue:v0.12.3
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3
@@ -75,10 +75,13 @@ spec:
             capabilities:
               drop:
                 - ALL
+            readOnlyRootFilesystem: true
           volumeMounts:
             - mountPath: /tmp/k8s-webhook-server/serving-certs
               name: cert
               readOnly: true
+            - mountPath: /visibility
+              name: visibility
             - mountPath: /controller_manager_config.yaml
               name: manager-config
               subPath: controller_manager_config.yaml
@@ -96,3 +99,5 @@ spec:
         - configMap:
             name: kueue-manager-config
           name: manager-config
+        - emptyDir: {}
+          name: visibility

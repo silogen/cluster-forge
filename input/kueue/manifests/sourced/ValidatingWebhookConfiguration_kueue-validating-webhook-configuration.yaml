@@ -5,7 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/instance: kueue
     app.kubernetes.io/name: kueue
-    app.kubernetes.io/version: v0.11.4
+    app.kubernetes.io/version: v0.12.3
     control-plane: controller-manager
   name: kueue-validating-webhook-configuration
   namespace: kueue-system
@@ -96,6 +96,26 @@ webhooks:
           - UPDATE
         resources:
           - jobsets
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: kueue-webhook-service
+        namespace: kueue-system
+        path: /validate-kubeflow-org-v1-jaxjob
+    failurePolicy: Fail
+    name: vjaxjob.kb.io
+    rules:
+      - apiGroups:
+          - kubeflow.org
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - jaxjobs
     sideEffects: None
   - admissionReviewVersions:
       - v1

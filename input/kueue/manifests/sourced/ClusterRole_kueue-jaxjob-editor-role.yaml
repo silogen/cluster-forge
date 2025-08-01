@@ -9,12 +9,12 @@ metadata:
     control-plane: controller-manager
     rbac.kueue.x-k8s.io/batch-admin: "true"
     rbac.kueue.x-k8s.io/batch-user: "true"
-  name: kueue-xgboostjob-editor-role
+  name: kueue-jaxjob-editor-role
 rules:
   - apiGroups:
       - kubeflow.org
     resources:
-      - xgboostjobs
+      - jaxjobs
     verbs:
       - create
       - delete
@@ -26,6 +26,6 @@ rules:
   - apiGroups:
       - kubeflow.org
     resources:
-      - xgboostjobs/status
+      - jaxjobs/status
     verbs:
       - get
