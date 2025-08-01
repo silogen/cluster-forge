@@ -5,7 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/instance: kueue
     app.kubernetes.io/name: kueue
-    app.kubernetes.io/version: v0.11.4
+    app.kubernetes.io/version: v0.12.3
     control-plane: controller-manager
   name: kueue-manager-role
 rules:
@@ -116,6 +116,7 @@ rules:
     resources:
       - jobs
     verbs:
+      - delete
       - get
       - list
       - patch
@@ -149,6 +150,7 @@ rules:
     resources:
       - jobsets
     verbs:
+      - delete
       - get
       - list
       - patch
@@ -172,11 +174,7 @@ rules:
   - apiGroups:
       - kubeflow.org
     resources:
-      - mpijobs
-      - paddlejobs
-      - pytorchjobs
-      - tfjobs
-      - xgboostjobs
+      - jaxjobs
     verbs:
       - get
       - list
@@ -186,6 +184,7 @@ rules:
   - apiGroups:
       - kubeflow.org
     resources:
+      - jaxjobs/finalizers
       - mpijobs/finalizers
       - paddlejobs/finalizers
       - pytorchjobs/finalizers
@@ -197,6 +196,7 @@ rules:
   - apiGroups:
       - kubeflow.org
     resources:
+      - jaxjobs/status
       - mpijobs/status
       - paddlejobs/status
       - pytorchjobs/status
@@ -206,6 +206,21 @@ rules:
       - get
       - patch
       - update
+  - apiGroups:
+      - kubeflow.org
+    resources:
+      - mpijobs
+      - paddlejobs
+      - pytorchjobs
+      - tfjobs
+      - xgboostjobs
+    verbs:
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
   - apiGroups:
       - kueue.x-k8s.io
     resources:
@@ -298,6 +313,7 @@ rules:
       - rayclusters
       - rayjobs
     verbs:
+      - delete
       - get
       - list
       - patch
@@ -333,6 +349,7 @@ rules:
     resources:
       - appwrappers
     verbs:
+      - delete
       - get
       - list
       - patch
