@@ -9,6 +9,6 @@ metadata:
   labels:
     app.kubernetes.io/instance: kueue
     app.kubernetes.io/name: kueue
-    app.kubernetes.io/version: v0.11.4
+    app.kubernetes.io/version: v0.12.3
     control-plane: controller-manager
   name: kueue-batch-admin-role
