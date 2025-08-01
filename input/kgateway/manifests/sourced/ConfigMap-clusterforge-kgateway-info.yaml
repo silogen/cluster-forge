@@ -12,5 +12,5 @@ data:
     helm-name: kgateway
     helm-url: ""
     helm-version: "v2.1.0-main"
-    values: test-values.yaml
+    values: values.yaml
     
