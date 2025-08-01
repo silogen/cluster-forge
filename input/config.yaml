@@ -227,11 +227,11 @@
   namespace: default
   manifestpath:
   - kgateway-crds/manifests/sourced
- name: kgateway
- namespace: kgateway-system
- manifestpath:
- - kgateway/manifests/sourced
- - kgateway/manifests/gateway
+- name: kgateway
+  namespace: kgateway-system
+  manifestpath:
+  - kgateway/manifests/sourced
+  - kgateway/manifests/gateway
 - name: kgateway-cert
   namespace: kgateway-system
   manifestpath:
