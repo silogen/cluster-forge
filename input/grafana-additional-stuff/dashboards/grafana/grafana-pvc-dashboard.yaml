@@ -593,7 +593,7 @@ data:
       },
       "timepicker": {},
       "timezone": "UTC",
-      "title": "Persitent Volumes Dashboard",
+      "title": "Persitent volumes dashboard",
       "uid": "persistent_volumes_dashboard",
       "version": 44
     }
