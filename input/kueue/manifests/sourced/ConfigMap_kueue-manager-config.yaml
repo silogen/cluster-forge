@@ -22,6 +22,9 @@ data:
         Cohort.kueue.x-k8s.io: 1
         ClusterQueue.kueue.x-k8s.io: 1
         ResourceFlavor.kueue.x-k8s.io: 1
+    managedJobsNamespaceSelector:
+      matchLabels:
+        kueue-managed: "true"
     clientConnection:
       qps: 50
       burst: 100
