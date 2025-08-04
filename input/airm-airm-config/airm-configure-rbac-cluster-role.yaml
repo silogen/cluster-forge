@@ -6,8 +6,25 @@ metadata:
 rules:
   - apiGroups:
       - ""
+      - "batch"
+      - "apps"
+      - "rbac.authorization.k8s.io"
+      - "external-secrets.io"
     resources:
       - pods
+      - secrets
+      - jobs
+      - cronjobs
+      - deployments
+      - namespaces
+      - clusterrolebindings
+      - clusterroles
+      - serviceaccounts
+      - services
+      - externalsecrets
     verbs:
       - list
       - get
+      - create
+      - delete
+      - patch
