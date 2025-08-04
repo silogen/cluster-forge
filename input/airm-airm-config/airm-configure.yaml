@@ -163,6 +163,8 @@ spec:
           
           # ORG_NAME="demo"
           ORG_NAME=$(echo $NEW_DOMAIN_NAME | awk -F '.' '{ print $2 }')
+
+          ORG_NAME="demo"
           ORG_DOMAINS=$(echo "[\""$NEW_DOMAIN_NAME"\"]")
           USER_EMAIL="devuser@$NEW_DOMAIN_NAME"
           KEYCLOAK_CLIENT_ID=354a0fa1-35ac-4a6d-9c4d-d661129c2cd0
@@ -299,12 +301,12 @@ spec:
           function add_user_to_project() {
             # Get project id
             USER_IN_PROJECT=$(curl -X 'GET' \
-            'http://127.0.0.1:8003/v1/users' \
+            'http://airm-api.airm.svc.cluster.local/v1/users' \
             -H 'accept: application/json' \
             -H "Authorization: Bearer ${TOKEN}" | jq -r  '.users[] | select(.projects.id=="'$PROJECT_ID'" and .email=="'$USER_EMAIL'") | .id ')
 
             USER_ID=$(curl -X 'GET' \
-            'http://127.0.0.1:8003/v1/users' \
+            'http://airm-api.airm.svc.cluster.local/v1/users' \
             -H 'accept: application/json' \
             -H "Authorization: Bearer ${TOKEN}" | jq -r  '.users[] | select(.email=="'$USER_EMAIL'") | .id ')
 
@@ -353,7 +355,8 @@ spec:
 
             # Start dispatcher and wait for 10 seconds
             sleep 10
-            kubectl apply -k "$DISPATCHER_PATH"
+            # kubectl apply -k "$DISPATCHER_PATH"
+            kubectl apply -f airm-dispatcher.yaml
             sleep 10
           }
 
@@ -401,6 +404,7 @@ spec:
             refresh_token
             echo "create_project..."
             create_project
+            refresh_token
             echo "add_user_to_project..."
             add_user_to_project
             echo ""

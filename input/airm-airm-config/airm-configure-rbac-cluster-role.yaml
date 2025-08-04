@@ -28,3 +28,4 @@ rules:
       - create
       - delete
       - patch
+      - watch
