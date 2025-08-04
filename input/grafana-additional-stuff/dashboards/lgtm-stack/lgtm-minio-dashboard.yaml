@@ -652,6 +652,6 @@ data:
       },
       "timezone": "browser",
       "title": "MinIO simple dashboard",
-      "uid": "minioSimple",
+      "uid": "minio_simple_dashboard",
       "version": 5
     }
