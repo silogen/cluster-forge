@@ -821,102 +821,101 @@ spec:
     requests:
       cpu: 500m
       memory: 1Gi
-config:
-  receivers:
-    prometheus:
-      config:
-        scrape_configs:
-          # OpenTelemetry Collector self-metrics
-          - job_name: otel-collector
-            scrape_interval: 30s
-            static_configs:
-              - targets: ['localhost:8888']
+  config:
+    receivers:
+      prometheus:
+        config:
+          scrape_configs:
+            # OpenTelemetry Collector self-metrics
+            - job_name: otel-collector
+              scrape_interval: 30s
+              static_configs:
+                - targets: ['localhost:8888']
 
-          # OpenCost metrics
-          - job_name: opencost
-            honor_labels: true
-            scrape_interval: 1m
-            scrape_timeout: 10s
-            metrics_path: /metrics
-            scheme: http
-            dns_sd_configs:
-              - names:
-                  - opencost-prometheus-opencost-exporter.monitoring
-                type: 'A'
-                port: 9003
+            # OpenCost metrics
+            - job_name: opencost
+              honor_labels: true
+              scrape_interval: 1m
+              scrape_timeout: 10s
+              metrics_path: /metrics
+              scheme: http
+              dns_sd_configs:
+                - names:
+                    - opencost-prometheus-opencost-exporter.monitoring
+                  type: 'A'
+                  port: 9003
 
-          # GPU Operator Metrics Exporter (AMD GPUs)
-          - job_name: gpu-operator-metrics-exporter
-            kubernetes_sd_configs:
-              - role: node
-            relabel_configs:
-              # Keep only nodes with AMD GPU label
-              - source_labels: [__meta_kubernetes_node_label_feature_node_kubernetes_io_amd_gpu]
-                action: keep
-                regex: true
-              # Use internal IP and set port 32500
-              - source_labels: [__meta_kubernetes_node_address_InternalIP]
-                regex: (.+)
-                replacement: "$1:32500"
-                target_label: __address__
-              # Add node name as 'hostname' label
-              - source_labels: [__meta_kubernetes_node_name]
-                target_label: hostname
-            metrics_path: /metrics
+            # GPU Operator Metrics Exporter (AMD GPUs)
+            - job_name: gpu-operator-metrics-exporter
+              kubernetes_sd_configs:
+                - role: node
+              relabel_configs:
+                # Keep only nodes with AMD GPU label
+                - source_labels: [__meta_kubernetes_node_label_feature_node_kubernetes_io_amd_gpu]
+                  action: keep
+                  regex: true
+                # Use internal IP and set port 32500
+                - source_labels: [__meta_kubernetes_node_address_InternalIP]
+                  regex: (.+)
+                  replacement: "$1:32500"
+                  target_label: __address__
+                # Add node name as 'hostname' label
+                - source_labels: [__meta_kubernetes_node_name]
+                  target_label: hostname
+              metrics_path: /metrics
 
-          # MinIO Cluster Metrics
-          - job_name: minio-cluster-metrics
-            scheme: http
-            metrics_path: /minio/v2/metrics/cluster
-            static_configs:
-              - targets: ['minio.minio-tenant-default.svc.cluster.local']
+            # MinIO Cluster Metrics
+            - job_name: minio-cluster-metrics
+              scheme: http
+              metrics_path: /minio/v2/metrics/cluster
+              static_configs:
+                - targets: ['minio.minio-tenant-default.svc.cluster.local']
 
-          # MinIO Bucket Metrics
-          - job_name: minio-bucket-metrics
-            scheme: http
-            metrics_path: /minio/v2/metrics/bucket
-            static_configs:
-              - targets: ['minio.minio-tenant-default.svc.cluster.local']
+            # MinIO Bucket Metrics
+            - job_name: minio-bucket-metrics
+              scheme: http
+              metrics_path: /minio/v2/metrics/bucket
+              static_configs:
+                - targets: ['minio.minio-tenant-default.svc.cluster.local']
 
-          # MinIO Resource Metrics
-          - job_name: minio-resource-metrics
-            scheme: http
-            metrics_path: /minio/v2/metrics/resource
-            static_configs:
-              - targets: ['minio.minio-tenant-default.svc.cluster.local']
+            # MinIO Resource Metrics
+            - job_name: minio-resource-metrics
+              scheme: http
+              metrics_path: /minio/v2/metrics/resource
+              static_configs:
+                - targets: ['minio.minio-tenant-default.svc.cluster.local']
 
-          # Argo CD Controller Metrics
-          - job_name: argocd-controller
-            scheme: http
-            metrics_path: /metrics
-            static_configs:
-              - targets:
-                  - argocd-metrics.argocd.svc.cluster.local:8082
+            # Argo CD Controller Metrics
+            - job_name: argocd-controller
+              scheme: http
+              metrics_path: /metrics
+              static_configs:
+                - targets:
+                    - argocd-metrics.argocd.svc.cluster.local:8082
 
-          # Argo CD ApplicationSet Controller Metrics
-          - job_name: argocd-applicationset
-            scheme: http
-            metrics_path: /metrics
-            static_configs:
-              - targets:
-                  - argocd-applicationset-controller.argocd.svc.cluster.local:8080
+            # Argo CD ApplicationSet Controller Metrics
+            - job_name: argocd-applicationset
+              scheme: http
+              metrics_path: /metrics
+              static_configs:
+                - targets:
+                    - argocd-applicationset-controller.argocd.svc.cluster.local:8080
 
-          # Argo CD Repo Server Metrics
-          - job_name: argocd-repo-server
-            scheme: http
-            metrics_path: /metrics
-            static_configs:
-              - targets:
-                  - argocd-repo-server.argocd.svc.cluster.local:8084
+            # Argo CD Repo Server Metrics
+            - job_name: argocd-repo-server
+              scheme: http
+              metrics_path: /metrics
+              static_configs:
+                - targets:
+                    - argocd-repo-server.argocd.svc.cluster.local:8084
 
-          # Longhorn Storage Metrics
-          - job_name: longhorn
-            scheme: http
-            metrics_path: /metrics
-            static_configs:
-              - targets:
-                  - longhorn-backend.longhorn.svc.cluster.local:9500
-
+            # Longhorn Storage Metrics
+            - job_name: longhorn
+              scheme: http
+              metrics_path: /metrics
+              static_configs:
+                - targets:
+                    - longhorn-backend.longhorn.svc.cluster.local:9500
     processors:
       batch:
         send_batch_size: 2000
