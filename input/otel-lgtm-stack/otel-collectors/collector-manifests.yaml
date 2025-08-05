@@ -807,144 +807,128 @@ metadata:
   name: otel-collector-metrics-rest
   namespace: otel-lgtm-stack
 spec:
+  image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
   mode: deployment
-  serviceAccount: otel-collector
-  image: "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0"
-  replicas: 1
   podAnnotations:
-    prometheus.io/scrape: "true"
     prometheus.io/port: "8888"
+    prometheus.io/scrape: "true"
+  replicas: 1
   resources:
     limits:
-      cpu: '2'
+      cpu: "2"
       memory: 8Gi
     requests:
       cpu: 500m
       memory: 1Gi
-config:
-  receivers:
-    prometheus:
-      config:
-        scrape_configs:
-          # OpenTelemetry Collector self-metrics
-          - job_name: otel-collector
-            scrape_interval: 30s
-            static_configs:
-              - targets: ['localhost:8888']
-
-          # OpenCost metrics
-          - job_name: opencost
-            honor_labels: true
-            scrape_interval: 1m
-            scrape_timeout: 10s
-            metrics_path: /metrics
-            scheme: http
-            dns_sd_configs:
-              - names:
-                  - opencost-prometheus-opencost-exporter.monitoring
-                type: 'A'
-                port: 9003
-
-          # GPU Operator Metrics Exporter (AMD GPUs)
-          - job_name: gpu-operator-metrics-exporter
-            kubernetes_sd_configs:
-              - role: node
-            relabel_configs:
-              # Keep only nodes with AMD GPU label
-              - source_labels: [__meta_kubernetes_node_label_feature_node_kubernetes_io_amd_gpu]
-                action: keep
-                regex: true
-              # Use internal IP and set port 32500
-              - source_labels: [__meta_kubernetes_node_address_InternalIP]
-                regex: (.+)
-                replacement: "$1:32500"
-                target_label: __address__
-              # Add node name as 'hostname' label
-              - source_labels: [__meta_kubernetes_node_name]
-                target_label: hostname
-            metrics_path: /metrics
-
-          # MinIO Cluster Metrics
-          - job_name: minio-cluster-metrics
-            scheme: http
-            metrics_path: /minio/v2/metrics/cluster
-            static_configs:
-              - targets: ['minio.minio-tenant-default.svc.cluster.local']
-
-          # MinIO Bucket Metrics
-          - job_name: minio-bucket-metrics
-            scheme: http
-            metrics_path: /minio/v2/metrics/bucket
-            static_configs:
-              - targets: ['minio.minio-tenant-default.svc.cluster.local']
-
-          # MinIO Resource Metrics
-          - job_name: minio-resource-metrics
-            scheme: http
-            metrics_path: /minio/v2/metrics/resource
-            static_configs:
-              - targets: ['minio.minio-tenant-default.svc.cluster.local']
-
-          # Argo CD Controller Metrics
-          - job_name: argocd-controller
-            scheme: http
-            metrics_path: /metrics
-            static_configs:
-              - targets:
-                  - argocd-metrics.argocd.svc.cluster.local:8082
-
-          # Argo CD ApplicationSet Controller Metrics
-          - job_name: argocd-applicationset
-            scheme: http
-            metrics_path: /metrics
-            static_configs:
-              - targets:
-                  - argocd-applicationset-controller.argocd.svc.cluster.local:8080
-
-          # Argo CD Repo Server Metrics
-          - job_name: argocd-repo-server
-            scheme: http
-            metrics_path: /metrics
-            static_configs:
-              - targets:
-                  - argocd-repo-server.argocd.svc.cluster.local:8084
-
-          # Longhorn Storage Metrics
-          - job_name: longhorn
-            scheme: http
-            metrics_path: /metrics
-            static_configs:
-              - targets:
-                  - longhorn-backend.longhorn.svc.cluster.local:9500
-
+  serviceAccount: otel-collector
+  config:
+    exporters:
+      debug:
+        verbosity: detailed
+      otlp:
+        endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
+        tls:
+          insecure: true
     processors:
+      attributes:
+        actions:
+          - action: insert
+            key: k8s_cluster_name
+            value: cluster-name
       batch:
         send_batch_size: 2000
-          #send_batch_size: 1000  # Reduced from 10000
-          #send_batch_max_size: 1000  # Added explicit max size
         timeout: 10s
       memory_limiter:
         check_interval: 5s
         limit_percentage: 80
         spike_limit_percentage: 25
-      attributes:
-        actions:
-          - key: k8s_cluster_name
-            action: insert
-            value: "cluster-name" ### value should be updated based on cluster
-
-    exporters:
-      # Configure your actual backend exporters here
-      otlp:
-        endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
-        tls:
-          insecure: true
-      debug:
-        verbosity: detailed
-    
+    receivers:
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: otel-collector
+              scrape_interval: 30s
+              static_configs:
+                - targets:
+                    - localhost:8888
+            - dns_sd_configs:
+                - names:
+                    - opencost-prometheus-opencost-exporter.monitoring
+                  port: 9003
+                  type: A
+              honor_labels: true
+              job_name: opencost
+              metrics_path: /metrics
+              scheme: http
+              scrape_interval: 1m
+              scrape_timeout: 10s
+            - job_name: gpu-operator-metrics-exporter
+              kubernetes_sd_configs:
+                - role: node
+              metrics_path: /metrics
+              relabel_configs:
+                - action: keep
+                  regex: true
+                  source_labels:
+                    - __meta_kubernetes_node_label_feature_node_kubernetes_io_amd_gpu
+                - regex: (.+)
+                  replacement: $1:32500
+                  source_labels:
+                    - __meta_kubernetes_node_address_InternalIP
+                  target_label: __address__
+                - source_labels:
+                    - __meta_kubernetes_node_name
+                  target_label: hostname
+            - job_name: minio-cluster-metrics
+              metrics_path: /minio/v2/metrics/cluster
+              scheme: http
+              static_configs:
+                - targets:
+                    - minio.minio-tenant-default.svc.cluster.local
+            - job_name: minio-bucket-metrics
+              metrics_path: /minio/v2/metrics/bucket
+              scheme: http
+              static_configs:
+                - targets:
+                    - minio.minio-tenant-default.svc.cluster.local
+            - job_name: minio-resource-metrics
+              metrics_path: /minio/v2/metrics/resource
+              scheme: http
+              static_configs:
+                - targets:
+                    - minio.minio-tenant-default.svc.cluster.local
+            - job_name: argocd-controller
+              metrics_path: /metrics
+              scheme: http
+              static_configs:
+                - targets:
+                    - argocd-metrics.argocd.svc.cluster.local:8082
+            - job_name: argocd-applicationset
+              metrics_path: /metrics
+              scheme: http
+              static_configs:
+                - targets:
+                    - argocd-applicationset-controller.argocd.svc.cluster.local:8080
+            - job_name: argocd-repo-server
+              metrics_path: /metrics
+              scheme: http
+              static_configs:
+                - targets:
+                    - argocd-repo-server.argocd.svc.cluster.local:8084
+            - job_name: longhorn
+              metrics_path: /metrics
+              scheme: http
+              static_configs:
+                - targets:
+                    - longhorn-backend.longhorn.svc.cluster.local:9500
     service:
       pipelines:
         metrics:
-          receivers: [prometheus]
-          processors: [memory_limiter, batch, attributes]
-          exporters: [otlp]
+          exporters:
+            - otlp
+          processors:
+            - memory_limiter
+            - batch
+            - attributes
+          receivers:
+            - prometheus
