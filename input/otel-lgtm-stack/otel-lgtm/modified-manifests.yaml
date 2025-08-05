@@ -149,6 +149,10 @@ spec:
       protocol: TCP
       port: 9090
       targetPort: 9090
+    - name: loki
+      protocol: TCP
+      port: 3100
+      targetPort: 3100
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -209,6 +213,7 @@ spec:
             - containerPort: 4317
             - containerPort: 4318
             - containerPort: 9090
+            - containerPort: 3100
           readinessProbe:
             exec:
               command:
