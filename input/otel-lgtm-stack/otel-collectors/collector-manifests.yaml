@@ -801,7 +801,6 @@ spec:
           processors: [memory_limiter, batch, attributes]
           exporters: [otlp]
 ---
----
 apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
