@@ -1,0 +1,256 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: airm-dispatcher-sa
+  namespace: airm
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: airm-dispatcher-cluster-access-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - namespaces
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - update
+      - patch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - update
+      - patch
+  - apiGroups:
+      - batch
+    resources:
+      - jobs
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - update
+      - patch
+  - apiGroups:
+      - kaiwo.silogen.ai
+    resources:
+      - kaiwojobs
+      - kaiwoservices
+      - kaiwoqueueconfigs
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - update
+      - patch
+  - apiGroups:
+      - gateway.networking.k8s.io
+    resources:
+      - httproutes
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - update
+      - patch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - update
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: airm-dispatcher-cluster-access-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: airm-dispatcher-cluster-access-role
+subjects:
+  - kind: ServiceAccount
+    name: airm-dispatcher-sa
+    namespace: airm
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: airm-dispatcher
+  name: airm-dispatcher
+  namespace: airm
+spec:
+  ports:
+    - name: web
+      port: 80
+      targetPort: 8080
+  selector:
+    app: airm-dispatcher
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airm-dispatcher
+  namespace: airm
+spec:
+  selector:
+    matchLabels:
+      app: airm-dispatcher
+  template:
+    metadata:
+      labels:
+        app: airm-dispatcher
+    spec:
+      containers:
+        - env:
+            - name: KUBE_CLUSTER_NAME
+              value: demo-cluster
+            - name: ORG_NAME
+              value: demo
+            - name: RABBITMQ_HOST
+              value: rabbitmq.airm.svc.cluster.local
+            - name: RABBITMQ_PORT
+              value: "5672"
+            - name: RABBITMQ_AIRM_COMMON_VHOST
+              value: vh_airm_common
+            - name: RABBITMQ_AIRM_COMMON_QUEUE
+              value: airm_common
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: airm-rabbitmq-common-vhost-user
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: airm-rabbitmq-common-vhost-user
+          image: ghcr.io/silogen/airm-dispatcher:main-deffd6d1
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /v1/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 2
+          name: airm-dispatcher
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /v1/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 2
+          resources:
+            limits:
+              memory: 1Gi
+            requests:
+              cpu: 500m
+              memory: 1Gi
+          securityContext:
+            runAsUser: 0
+      serviceAccountName: airm-dispatcher-sa
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cluster-nodes-dispatcher
+  namespace: airm
+spec:
+  concurrencyPolicy: Replace
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - command:
+                - curl
+                - -X
+                - POST
+                - http://airm-dispatcher:80/v1/clusters/nodes
+              image: ghcr.io/silogen/airm-dispatcher:main
+              imagePullPolicy: IfNotPresent
+              name: airm-cluster-nodes-cron
+              resources:
+                limits:
+                  memory: 100Mi
+                requests:
+                  cpu: 50m
+                  memory: 100Mi
+          restartPolicy: OnFailure
+  schedule: 0 * * * *
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: heartbeat-dispatcher
+  namespace: airm
+spec:
+  concurrencyPolicy: Replace
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "false"
+        spec:
+          containers:
+            - command:
+                - curl
+                - -X
+                - POST
+                - http://airm-dispatcher:80/v1/heartbeats
+              image: ghcr.io/silogen/airm-dispatcher:main-deffd6d1
+              name: airm-heartbeat-cron
+              resources:
+                limits:
+                  memory: 100Mi
+                requests:
+                  cpu: 50m
+                  memory: 100Mi
+          restartPolicy: OnFailure
+  schedule: '*/1 * * * *'
