@@ -47,7 +47,7 @@ spec:
             - --path.sysfs=/host/sys
             - --path.rootfs=/host/root
             - --path.udev.data=/host/root/run/udev/data
-            - --web.listen-address=[$(HOST_IP)]:9100
+            - --web.listen-address=[$(HOST_IP)]:9101
           env:
             - name: HOST_IP
               value: 0.0.0.0
@@ -58,7 +58,7 @@ spec:
             httpGet:
               httpHeaders: null
               path: /
-              port: 9100
+              port: 9101
               scheme: HTTP
             initialDelaySeconds: 0
             periodSeconds: 10
@@ -66,7 +66,7 @@ spec:
             timeoutSeconds: 1
           name: node-exporter
           ports:
-            - containerPort: 9100
+            - containerPort: 9101
               name: metrics
               protocol: TCP
           readinessProbe:
@@ -74,7 +74,7 @@ spec:
             httpGet:
               httpHeaders: null
               path: /
-              port: 9100
+              port: 9101
               scheme: HTTP
             initialDelaySeconds: 0
             periodSeconds: 10

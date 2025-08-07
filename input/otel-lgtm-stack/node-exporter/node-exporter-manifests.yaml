@@ -34,8 +34,8 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - port: 9100
-      targetPort: 9100
+    - port: 9101
+      targetPort: 9101
       protocol: TCP
       name: metrics
   selector:
@@ -95,7 +95,7 @@ spec:
             - --path.sysfs=/host/sys
             - --path.rootfs=/host/root
             - --path.udev.data=/host/root/run/udev/data
-            - --web.listen-address=[$(HOST_IP)]:9100
+            - --web.listen-address=[$(HOST_IP)]:9101
           securityContext:
             readOnlyRootFilesystem: true
           env:
@@ -103,14 +103,14 @@ spec:
               value: 0.0.0.0
           ports:
             - name: metrics
-              containerPort: 9100
+              containerPort: 9101
               protocol: TCP
           livenessProbe:
             failureThreshold: 3
             httpGet:
               httpHeaders:
               path: /
-              port: 9100
+              port: 9101
               scheme: HTTP
             initialDelaySeconds: 0
             periodSeconds: 10
@@ -121,7 +121,7 @@ spec:
             httpGet:
               httpHeaders:
               path: /
-              port: 9100
+              port: 9101
               scheme: HTTP
             initialDelaySeconds: 0
             periodSeconds: 10

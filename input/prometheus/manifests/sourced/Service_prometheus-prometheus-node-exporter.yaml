@@ -15,9 +15,9 @@ metadata:
 spec:
   ports:
     - name: metrics
-      port: 9100
+      port: 9101
       protocol: TCP
-      targetPort: 9100
+      targetPort: 9101
   selector:
     app.kubernetes.io/instance: prometheus
     app.kubernetes.io/name: prometheus-node-exporter
