@@ -1,0 +1,51 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: airm-configure
+  namespace: default
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccount: airm-configure
+      volumes:
+        - name: overlays-config
+          configMap:
+            name: configure-overlays
+        - name: overlays-config-base
+          configMap:
+            name: configure-base
+        - name: scripts-config
+          defaultMode: 0500
+          configMap:
+            name: configure-scripts
+      containers:
+      - name: airm-cluster-initialize
+        image: ubuntu:22.04
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NEW_DOMAIN_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: bloom
+              key: DOMAIN
+        command: ["/bin/bash"]
+        volumeMounts:
+          - name: overlays-config
+            mountPath: /opt/dispatcher
+          - name: overlays-config-base
+            mountPath: /opt/base
+          - name: scripts-config
+            mountPath: /opt/scripts
+        args:
+        - -c
+        - |
+
+          #!/bin/bash
+          set -e
+
+          /opt/scripts/run.sh
+
+          exit 0
+
