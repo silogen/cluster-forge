@@ -36,30 +36,30 @@ data:
     echo "Checking keycloak..."
     echo ""
     while true; do
-    NAMESPACE="keycloak"
-    LABEL="app=keycloak"
-    CONTAINER="keycloak"
+        NAMESPACE="keycloak"
+        LABEL="app=keycloak"
+        CONTAINER="keycloak"
 
-    # Find the first pod name matching label and is Running
-    PODS=$(kubectl get pods -n "$NAMESPACE" -l "$LABEL" --field-selector=status.phase=Running -o jsonpath="{.items[*].metadata.name}")
-    FIRST_POD=$(echo "$PODS" | awk '{print $1}')
-    if [[ -z "$FIRST_POD" ]]; then
-        echo "No running pod with label $LABEL in namespace $NAMESPACE found yet."
-        echo "Waiting 10 seconds..."
-        sleep 10
-        continue
-    fi
-    POD=$FIRST_POD
+        # Find the first pod name matching label and is Running
+        PODS=$(kubectl get pods -n "$NAMESPACE" -l "$LABEL" --field-selector=status.phase=Running -o jsonpath="{.items[*].metadata.name}")
+        FIRST_POD=$(echo "$PODS" | awk '{print $1}')
+        if [[ -z "$FIRST_POD" ]]; then
+            echo "No running pod with label $LABEL in namespace $NAMESPACE found yet."
+            echo "Waiting 10 seconds..."
+            sleep 10
+            continue
+        fi
+        POD=$FIRST_POD
 
-    echo "Found running pod: $POD"
-    # Check if the specific container is present and ready
-    IS_READY=$(kubectl get pod "$POD" -n "$NAMESPACE" -o jsonpath="{.status.containerStatuses[?(@.name=='$CONTAINER')].ready}")
-    if [[ "$IS_READY" == "true" ]]; then
-        echo "Container '$CONTAINER' in pod '$POD' is ready."
-        break
-    else
-        echo "Container '$CONTAINER' in pod '$POD' is NOT ready."
-    fi
+        echo "Found running pod: $POD"
+        # Check if the specific container is present and ready
+        IS_READY=$(kubectl get pod "$POD" -n "$NAMESPACE" -o jsonpath="{.status.containerStatuses[?(@.name=='$CONTAINER')].ready}")
+        if [[ "$IS_READY" == "true" ]]; then
+            echo "Container '$CONTAINER' in pod '$POD' is ready."
+            break
+        else
+            echo "Container '$CONTAINER' in pod '$POD' is NOT ready."
+        fi
     done
 
     #####################################################################################
@@ -68,30 +68,30 @@ data:
     echo "Checking airm-ui..."
     echo ""
     while true; do
-    NAMESPACE="airm"
-    LABEL="app=airm-ui"
-    CONTAINER="airm-ui"
+        NAMESPACE="airm"
+        LABEL="app=airm-ui"
+        CONTAINER="airm-ui"
 
-    # Find the first pod name matching label and is Running
-    PODS=$(kubectl get pods -n "$NAMESPACE" -l "$LABEL" --field-selector=status.phase=Running -o jsonpath="{.items[*].metadata.name}")
-    FIRST_POD=$(echo "$PODS" | awk '{print $1}')
-    if [[ -z "$FIRST_POD" ]]; then
-        echo "No running pod with label $LABEL in namespace $NAMESPACE found yet."
-        echo "Waiting 10 seconds..."
-        sleep 10
-        continue
-    fi
-    POD=$FIRST_POD
+        # Find the first pod name matching label and is Running
+        PODS=$(kubectl get pods -n "$NAMESPACE" -l "$LABEL" --field-selector=status.phase=Running -o jsonpath="{.items[*].metadata.name}")
+        FIRST_POD=$(echo "$PODS" | awk '{print $1}')
+        if [[ -z "$FIRST_POD" ]]; then
+            echo "No running pod with label $LABEL in namespace $NAMESPACE found yet."
+            echo "Waiting 10 seconds..."
+            sleep 10
+            continue
+        fi
+        POD=$FIRST_POD
 
-    echo "Found running pod: $POD"
-    # Check if the specific container is present and ready
-    IS_READY=$(kubectl get pod "$POD" -n "$NAMESPACE" -o jsonpath="{.status.containerStatuses[?(@.name=='$CONTAINER')].ready}")
-    if [[ "$IS_READY" == "true" ]]; then
-        echo "Container '$CONTAINER' in pod '$POD' is ready."
-        break
-    else
-        echo "Container '$CONTAINER' in pod '$POD' is NOT ready."
-    fi
+        echo "Found running pod: $POD"
+        # Check if the specific container is present and ready
+        IS_READY=$(kubectl get pod "$POD" -n "$NAMESPACE" -o jsonpath="{.status.containerStatuses[?(@.name=='$CONTAINER')].ready}")
+        if [[ "$IS_READY" == "true" ]]; then
+            echo "Container '$CONTAINER' in pod '$POD' is ready."
+            break
+        else
+            echo "Container '$CONTAINER' in pod '$POD' is NOT ready."
+        fi
     done
 
     #####################################################################################
@@ -100,30 +100,30 @@ data:
     echo "Checking airm-api..."
     echo ""
     while true; do
-    NAMESPACE="airm"
-    LABEL="app=airm-api"
-    CONTAINER="airm"
+        NAMESPACE="airm"
+        LABEL="app=airm-api"
+        CONTAINER="airm"
 
-    # Find the first pod name matching label and is Running
-    PODS=$(kubectl get pods -n "$NAMESPACE" -l "$LABEL" --field-selector=status.phase=Running -o jsonpath="{.items[*].metadata.name}")
-    FIRST_POD=$(echo "$PODS" | awk '{print $1}')
-    if [[ -z "$FIRST_POD" ]]; then
-        echo "No running pod with label $LABEL in namespace $NAMESPACE found yet."
-        echo "Waiting 10 seconds..."
-        sleep 10
-        continue
-    fi
-    POD=$FIRST_POD
+        # Find the first pod name matching label and is Running
+        PODS=$(kubectl get pods -n "$NAMESPACE" -l "$LABEL" --field-selector=status.phase=Running -o jsonpath="{.items[*].metadata.name}")
+        FIRST_POD=$(echo "$PODS" | awk '{print $1}')
+        if [[ -z "$FIRST_POD" ]]; then
+            echo "No running pod with label $LABEL in namespace $NAMESPACE found yet."
+            echo "Waiting 10 seconds..."
+            sleep 10
+            continue
+        fi
+        POD=$FIRST_POD
 
-    echo "Found running pod: $POD"
-    # Check if the specific container is present and ready
-    IS_READY=$(kubectl get pod "$POD" -n "$NAMESPACE" -o jsonpath="{.status.containerStatuses[?(@.name=='$CONTAINER')].ready}")
-    if [[ "$IS_READY" == "true" ]]; then
-        echo "Container '$CONTAINER' in pod '$POD' is ready."
-        break
-    else
-        echo "Container '$CONTAINER' in pod '$POD' is NOT ready."
-    fi
+        echo "Found running pod: $POD"
+        # Check if the specific container is present and ready
+        IS_READY=$(kubectl get pod "$POD" -n "$NAMESPACE" -o jsonpath="{.status.containerStatuses[?(@.name=='$CONTAINER')].ready}")
+        if [[ "$IS_READY" == "true" ]]; then
+            echo "Container '$CONTAINER' in pod '$POD' is ready."
+            break
+        else
+            echo "Container '$CONTAINER' in pod '$POD' is NOT ready."
+        fi
     done
 
     #####################################################################################
