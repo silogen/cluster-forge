@@ -135,9 +135,9 @@ data:
     # --- Configuration Variables ---
     # Get values from bloom configmap mounted as env
 
-    # ORG_NAME="demo"
-    ORG_NAME=$(echo $NEW_DOMAIN_NAME | awk -F '.' '{ print $2 }')
-
+    # NOTE: ORG_NAME is hardcoded to demo because gpu operator metrics it has same the org name hardcoded there
+    # Otherwise it following line can be uncomment to consider the real org name from bloom config
+    # ORG_NAME=$(echo $NEW_DOMAIN_NAME | awk -F '.' '{ print $2 }')
     ORG_NAME="demo"
     ORG_DOMAINS=$(echo "[\""$NEW_DOMAIN_NAME"\"]")
     USER_EMAIL="devuser@$NEW_DOMAIN_NAME"
