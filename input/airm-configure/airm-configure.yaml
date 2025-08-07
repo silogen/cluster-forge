@@ -17,6 +17,7 @@ spec:
           configMap:
             name: configure-base
         - name: scripts-config
+          defaultMode: 0500
           configMap:
             name: configure-scripts
       containers:
@@ -44,8 +45,7 @@ spec:
           #!/bin/bash
           set -e
 
-          # /opt/scripts/run.sh
-          cat /dev/stdout
+          /opt/scripts/run.sh
 
           exit 0
 
