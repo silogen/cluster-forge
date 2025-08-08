@@ -119,13 +119,13 @@ func SplitYAML(config Config, workingDir string) {
 	for _, res := range result {
 		cleanres, err := clean(res)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("Error cleaning ", config.Filename, ":", err)
 		}
 
 		var objectMap map[string]interface{}
 		err = yaml.Unmarshal(cleanres, &objectMap)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("Error unmarshaling ", config.Filename, ":", err)
 		}
 		var metadataObject k8sObject
 		err = yaml.Unmarshal(cleanres, &metadataObject)
