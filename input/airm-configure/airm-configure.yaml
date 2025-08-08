@@ -17,8 +17,8 @@ spec:
           configMap:
             name: configure-base
         - name: scripts-config
-          defaultMode: 0500
           configMap:
+            defaultMode: 0755
             name: configure-scripts
       containers:
       - name: airm-cluster-initialize

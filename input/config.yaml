@@ -286,7 +286,7 @@
   - secret-generator
   syncwave: 51
 - name: airm-configure
-  namespace: airm
+  namespace: default
   manifestpath:
   - airm-configure
-  syncwaves: 150
+  syncwave: 120
