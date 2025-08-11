@@ -1,0 +1,19 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  data:
+    CERT_OPTION: generate
+    DISABLED_STEPS: SetupLonghornStep
+    DOMAIN: localhost
+    GPU_NODE: "false"
+    SKIP_DISK_CHECK: "true"
+    TLS_CERT: none
+    TLS_KEY: none
+    USE_CERT_MANAGER: "false"
+    tls_secret_name: none
+    tls_secret_namespace: kgateway-system
+  kind: ConfigMap
+  metadata:
+    name: bloom
+    namespace: default
+kind: List
