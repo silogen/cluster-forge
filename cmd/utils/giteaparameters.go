@@ -24,8 +24,8 @@ import (
 func NewGiteaParameters() GiteaParameters {
 	return GiteaParameters{
 		Allowed:    []string{"ephemeral", "persistent", "none"},
-		Value:      "ephemeral",
-		Persistent: false,
+		Value:      "persistent",
+		Persistent: true,
 		Deploy:     true,
 	}
 }
