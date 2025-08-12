@@ -9,7 +9,7 @@ metadata:
   labels:
     app.kubernetes.io/instance: amd-gpu-operator
     app.kubernetes.io/name: gpu-operator-charts
-    app.kubernetes.io/version: v1.2.0
+    app.kubernetes.io/version: v1.3.0
   name: upgrade-crd
   namespace: kube-amd-gpu
 spec:
@@ -34,7 +34,7 @@ spec:
               kubectl apply -f /opt/helm-charts-crds-k8s/nfd-api-crds.yaml
               kubectl apply -f /opt/helm-charts-crds-k8s/module-crd.yaml
               kubectl apply -f /opt/helm-charts-crds-k8s/nodemodulesconfig-crd.yaml
-          image: docker.io/rocm/gpu-operator:v1.2.0
+          image: docker.io/rocm/gpu-operator:v1.3.0
           imagePullPolicy: Always
           name: upgrade-crd
       restartPolicy: OnFailure

@@ -48,7 +48,7 @@ spec:
           env:
             - name: KUBERNETES_CLUSTER_DOMAIN
               value: cluster.local
-          image: docker.io/rocm/kernel-module-management-webhook-server:v1.2.0
+          image: docker.io/rocm/kernel-module-management-webhook-server:v1.3.0
           imagePullPolicy: Always
           livenessProbe:
             httpGet:

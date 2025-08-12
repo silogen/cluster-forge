@@ -1,20 +1,19 @@
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
-  name: amd-gpu-operator-gpu-operator-charts-leader-election-rolebinding
-  namespace: kube-amd-gpu
   labels:
     app.kubernetes.io/component: amd-gpu
     app.kubernetes.io/instance: amd-gpu-operator
     app.kubernetes.io/name: gpu-operator-charts
     app.kubernetes.io/part-of: amd-gpu
     app.kubernetes.io/version: v1.3.0
+  name: amd-gpu-operator-gpu-operator-charts-config-manager
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: amd-gpu-operator-gpu-operator-charts-leader-election-role
+  kind: ClusterRole
+  name: amd-gpu-operator-gpu-operator-charts-config-manager
 subjects:
   - kind: ServiceAccount
-    name: amd-gpu-operator-gpu-operator-charts-controller-manager
+    name: amd-gpu-operator-config-manager
     namespace: kube-amd-gpu

@@ -9,7 +9,7 @@ metadata:
   labels:
     app.kubernetes.io/instance: amd-gpu-operator
     app.kubernetes.io/name: gpu-operator-charts
-    app.kubernetes.io/version: v1.2.0
+    app.kubernetes.io/version: v1.3.0
   name: delete-custom-resource-definitions
   namespace: kube-amd-gpu
 spec:
@@ -47,7 +47,7 @@ spec:
               if kubectl get crds nodemodulesconfigs.kmm.sigs.x-k8s.io > /dev/null 2>&1; then
                 kubectl delete crds nodemodulesconfigs.kmm.sigs.x-k8s.io
               fi
-          image: docker.io/rocm/gpu-operator:v1.2.0
+          image: docker.io/rocm/gpu-operator:v1.3.0
           name: delete-custom-resource-definitions
       restartPolicy: Never
       serviceAccountName: amd-gpu-operator-gpu-operator-charts-prune

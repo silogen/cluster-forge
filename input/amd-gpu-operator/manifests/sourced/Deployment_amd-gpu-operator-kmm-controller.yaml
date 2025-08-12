@@ -44,7 +44,7 @@ spec:
             - --config=controller_config.yaml
           env:
             - name: RELATED_IMAGE_WORKER
-              value: docker.io/rocm/kernel-module-management-worker:v1.2.0
+              value: docker.io/rocm/kernel-module-management-worker:v1.3.0
             - name: OPERATOR_NAMESPACE
               valueFrom:
                 fieldRef:
@@ -52,10 +52,10 @@ spec:
             - name: RELATED_IMAGE_BUILD
               value: gcr.io/kaniko-project/executor:v1.23.2
             - name: RELATED_IMAGE_SIGN
-              value: docker.io/rocm/kernel-module-management-signimage:v1.2.0
+              value: docker.io/rocm/kernel-module-management-signimage:v1.3.0
             - name: KUBERNETES_CLUSTER_DOMAIN
               value: cluster.local
-          image: docker.io/rocm/kernel-module-management-operator:v1.2.0
+          image: docker.io/rocm/kernel-module-management-operator:v1.3.0
           imagePullPolicy: Always
           livenessProbe:
             httpGet:

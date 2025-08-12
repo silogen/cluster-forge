@@ -9,7 +9,7 @@ metadata:
   labels:
     app.kubernetes.io/instance: amd-gpu-operator
     app.kubernetes.io/name: gpu-operator-charts
-    app.kubernetes.io/version: v1.2.0
+    app.kubernetes.io/version: v1.3.0
   name: amd-gpu-operator-gpu-operator-charts-prune
 roleRef:
   apiGroup: rbac.authorization.k8s.io

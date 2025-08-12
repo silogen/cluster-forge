@@ -9,8 +9,8 @@ metadata:
   labels:
     app.kubernetes.io/instance: amd-gpu-operator
     app.kubernetes.io/name: gpu-operator-charts
-    app.kubernetes.io/version: v1.2.0
-  name: check-leftover-deviceconfigs
+    app.kubernetes.io/version: v1.3.0
+  name: delete-leftover-deviceconfigs
   namespace: kube-amd-gpu
 spec:
   backoffLimit: 0
@@ -29,15 +29,13 @@ spec:
             - /bin/sh
             - -c
             - |
-              if kubectl get deviceconfigs -n kube-amd-gpu --no-headers | grep -q .; then
-                echo "DeviceConfigs resources exist. Stop uninstallation."
-                exit 1
-              else
-                echo "No DeviceConfigs resources found. Proceeding with uninstallation."
+              installed=$(kubectl api-resources -owide | grep -i amd.com | grep -i deviceconfig)
+              if [ -z ${installed} ] ; then
                 exit 0
               fi
-          image: docker.io/rocm/gpu-operator:v1.2.0
-          name: check-leftover-deviceconfigs
+              kubectl delete deviceconfigs.amd.com --all -A
+          image: docker.io/rocm/gpu-operator:v1.3.0
+          name: delete-leftover-deviceconfigs
       restartPolicy: Never
       serviceAccountName: amd-gpu-operator-gpu-operator-charts-pre-delete
       tolerations:
