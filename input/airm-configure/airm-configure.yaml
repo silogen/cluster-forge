@@ -38,14 +38,4 @@ spec:
             mountPath: /opt/base
           - name: scripts-config
             mountPath: /opt/scripts
-        args:
-        - -c
-        - |
-
-          #!/bin/bash
-          set -e
-
-          /opt/scripts/run.sh
-
-          exit 0
-
+        args: ["/opt/scripts/run.sh"]
