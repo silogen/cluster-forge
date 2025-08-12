@@ -8,21 +8,13 @@ metadata:
     app.kubernetes.io/name: gpu-operator-charts
     app.kubernetes.io/part-of: amd-gpu
     app.kubernetes.io/version: v1.3.0
-  name: amd-gpu-operator-gpu-operator-charts-metrics-exporter
+  name: amd-gpu-operator-gpu-operator-charts-utils-container
 rules:
   - apiGroups:
-      - ""
+      - security.openshift.io
+    resourceNames:
+      - privileged
     resources:
-      - nodes
+      - securitycontextconstraints
     verbs:
-      - watch
-      - get
-      - list
-      - update
-  - apiGroups:
-      - ""
-    resources:
-      - pods
-    verbs:
-      - get
-      - list
+      - use

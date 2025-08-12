@@ -8,28 +8,36 @@ metadata:
     app.kubernetes.io/name: gpu-operator-charts
     app.kubernetes.io/part-of: amd-gpu
     app.kubernetes.io/version: v1.3.0
-  name: amd-gpu-operator-gpu-operator-charts-metrics-exporter-rbac-proxy
+  name: amd-gpu-operator-gpu-operator-charts-config-manager
 rules:
   - apiGroups:
-      - authentication.k8s.io
+      - ""
     resources:
-      - tokenreviews
+      - events
     verbs:
       - create
-  - apiGroups:
-      - authorization.k8s.io
-    resources:
-      - subjectaccessreviews
-    verbs:
-      - create
+      - get
+      - list
+      - update
   - apiGroups:
       - ""
     resources:
       - nodes
     verbs:
-      - watch
       - get
       - list
+      - watch
+      - update
+  - apiGroups:
+      - apps
+    resources:
+      - daemonsets
+    verbs:
+      - get
+      - list
+      - watch
+      - delete
+      - create
       - update
   - apiGroups:
       - ""
@@ -38,3 +46,7 @@ rules:
     verbs:
       - get
       - list
+      - watch
+      - delete
+      - create
+      - update

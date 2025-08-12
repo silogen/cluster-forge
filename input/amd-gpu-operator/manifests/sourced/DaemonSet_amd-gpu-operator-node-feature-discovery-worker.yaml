@@ -103,6 +103,11 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       securityContext: {}
       serviceAccountName: amd-gpu-operator-node-feature-discovery-worker
+      tolerations:
+        - effect: NoExecute
+          key: amd-dcm
+          operator: Equal
+          value: up
       volumes:
         - hostPath:
             path: /boot

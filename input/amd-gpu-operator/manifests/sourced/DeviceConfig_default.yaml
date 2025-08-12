@@ -1,0 +1,87 @@
+---
+apiVersion: amd.com/v1alpha1
+kind: DeviceConfig
+metadata:
+  name: default
+  namespace: kube-amd-gpu
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  commonConfig:
+    initContainerImage: busybox:1.36
+    utilsContainer:
+      image: docker.io/rocm/gpu-operator-utils:v1.3.0
+      imagePullPolicy: IfNotPresent
+  configManager:
+    enable: false
+    image: rocm/device-config-manager:v1.3.0
+    imagePullPolicy: IfNotPresent
+    upgradePolicy:
+      maxUnavailable: 1
+      upgradeStrategy: RollingUpdate
+  devicePlugin:
+    devicePluginImage: rocm/k8s-device-plugin:latest
+    devicePluginImagePullPolicy: IfNotPresent
+    enableNodeLabeller: true
+    nodeLabellerImage: rocm/k8s-device-plugin:labeller-latest
+    nodeLabellerImagePullPolicy: IfNotPresent
+    upgradePolicy:
+      maxUnavailable: 1
+      upgradeStrategy: RollingUpdate
+  driver:
+    blacklist: false
+    enable: false
+    image: docker.io/myUserName/driverImage
+    imageRegistryTLS:
+      insecure: false
+      insecureSkipTLSVerify: false
+    upgradePolicy:
+      enable: true
+      maxParallelUpgrades: 3
+      maxUnavailableNodes: 25%
+      nodeDrainPolicy:
+        force: true
+        gracePeriodSeconds: -1
+        timeoutSeconds: 300
+      podDeletionPolicy:
+        force: true
+        gracePeriodSeconds: -1
+        timeoutSeconds: 300
+      rebootRequired: true
+    version: "6.4"
+  metricsExporter:
+    enable: true
+    image: rocm/device-metrics-exporter:v1.3.0
+    imagePullPolicy: IfNotPresent
+    nodePort: 32500
+    port: 5000
+    prometheus:
+      serviceMonitor:
+        enable: false
+        honorLabels: true
+        honorTimestamps: false
+        interval: 30s
+    rbacConfig:
+      disableHttps: false
+      enable: false
+      image: quay.io/brancz/kube-rbac-proxy:v0.18.1
+      staticAuthorization:
+        clientName: ""
+        enable: false
+    serviceType: ClusterIP
+    upgradePolicy:
+      maxUnavailable: 1
+      upgradeStrategy: RollingUpdate
+  selector:
+    feature.node.kubernetes.io/amd-gpu: "true"
+  testRunner:
+    enable: false
+    image: docker.io/rocm/test-runner:v1.3.0
+    imagePullPolicy: IfNotPresent
+    logsLocation:
+      hostPath: /var/log/amd-test-runner
+      logsExportSecrets: []
+      mountPath: /var/log/amd-test-runner
+    upgradePolicy:
+      maxUnavailable: 1
+      upgradeStrategy: RollingUpdate

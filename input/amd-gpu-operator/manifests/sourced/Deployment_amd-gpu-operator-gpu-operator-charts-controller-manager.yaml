@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/instance: amd-gpu-operator
     app.kubernetes.io/name: gpu-operator-charts
     app.kubernetes.io/part-of: amd-gpu
-    app.kubernetes.io/version: v1.2.0
+    app.kubernetes.io/version: v1.3.0
     control-plane: controller-manager
 spec:
   replicas: 1
@@ -51,7 +51,7 @@ spec:
               value: cluster.local
             - name: SIM_ENABLE
               value: "false"
-          image: docker.io/rocm/gpu-operator:v1.2.0
+          image: docker.io/rocm/gpu-operator:v1.3.0
           imagePullPolicy: Always
           livenessProbe:
             httpGet:
@@ -68,11 +68,11 @@ spec:
             periodSeconds: 10
           resources:
             limits:
-              cpu: 500m
-              memory: 384Mi
+              cpu: 1000m
+              memory: 1Gi
             requests:
-              cpu: 10m
-              memory: 64Mi
+              cpu: 100m
+              memory: 256Mi
           securityContext:
             allowPrivilegeEscalation: false
           volumeMounts:
