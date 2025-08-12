@@ -125,6 +125,7 @@ func SplitYAML(config Config, workingDir string) {
 		var objectMap map[string]interface{}
 		err = yaml.Unmarshal(cleanres, &objectMap)
 		if err != nil {
+			log.Println(string(cleanres))
 			log.Fatal("Error unmarshaling ", config.Filename, ":", err)
 		}
 		var metadataObject k8sObject
