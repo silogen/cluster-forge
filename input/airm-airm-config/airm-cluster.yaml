@@ -56,18 +56,6 @@ spec:
   affinity:
     enablePodAntiAffinity: true
     topologyKey: topology.kubernetes.io/zone
-  backup:
-    barmanObjectStore:
-      data:
-        compression: bzip2
-        immediateCheckpoint: false
-        jobs: 2
-      destinationPath: gs://silogen-dev-db-data/cnpg/airm-cluster1
-      googleCredentials:
-        gkeEnvironment: true
-      wal:
-        compression: bzip2
-    retentionPolicy: 30d
   bootstrap:
     initdb:
       database: airm
@@ -83,10 +71,11 @@ spec:
     reusePVC: true
   postgresql:
     parameters:
-      auto_explain.log_min_duration: 10s
+      auto_explain.log_min_duration: "10s"
       pg_stat_statements.max: "10000"
-      pg_stat_statements.track: all
-      shared_buffers: 256MB
+      pg_stat_statements.track: "all"
+      shared_buffers: "256MB"
+      wal_compression: "pglz" # default is "off"
     pg_hba:
       - host all all 10.244.0.0/16 md5
   primaryUpdateStrategy: unsupervised
@@ -111,15 +100,3 @@ spec:
   walStorage:
     size: 50Gi
     storageClass: default
----
-apiVersion: postgresql.cnpg.io/v1
-kind: ScheduledBackup
-metadata:
-  name: airm-cnpg-backup
-  namespace: airm
-spec:
-  backupOwnerReference: self
-  cluster:
-    name: airm-cnpg
-  immediate: true
-  schedule: 0 3 0 * * *
