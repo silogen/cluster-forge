@@ -1,0 +1,88 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configure-scripts-extra
+  namespace: default
+data:
+
+  add-additional-models.sh: |
+
+    #!/bin/bash
+
+    # Script to add additional models to AIRM database via kubectl exec
+    # Usage: ./add_additional_models.sh [namespace] [pod-name]
+
+    set -e
+
+    # Default values
+    NAMESPACE="${1:-airm}"
+    POD_NAME="${2:-airm-cnpg-1}"
+
+    echo "Adding additional models to database..."
+    echo "Namespace: $NAMESPACE"
+    echo "Pod: $POD_NAME"
+
+    # SQL script to add the models
+    SQL_SCRIPT="
+    -- Llama 3.1 70B
+    INSERT INTO model_metadata (
+        canonical_name, display_name, description,
+        compatible_inference_engines, capabilities, model_url,
+        created_at, updated_at, created_by, updated_by
+    ) VALUES (
+        'meta-llama/Llama-3.1-70B',
+        'Llama 3.1 70B',
+        'Meta''s Llama 3.1 70B base model with exceptional performance for complex tasks.',
+        '{vLLM,TGI}',
+        '{text-generation}',
+        'https://huggingface.co/meta-llama/Llama-3.1-70B',
+        NOW(), NOW(), 'system', 'system'
+    );
+
+    -- TinyLlama-v1.1 Chat
+    INSERT INTO model_metadata (
+        canonical_name, display_name, description,
+        compatible_inference_engines, capabilities, model_url,
+        created_at, updated_at, created_by, updated_by
+    ) VALUES (
+        'TinyLlama/TinyLlama-1.1B-Chat-v1.0',
+        'TinyLlama-v1.1 Chat',
+        'Ultra-compact chat model with 1.1B parameters optimized for conversational AI on resource-constrained devices.',
+        '{vLLM,TGI,LlamaCpp}',
+        '{text-generation,chat}',
+        'https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0',
+        NOW(), NOW(), 'system', 'system'
+    );
+
+    -- Qwen 1.5 Odia CPT
+    INSERT INTO model_metadata (
+        canonical_name, display_name, description,
+        compatible_inference_engines, capabilities, model_url,
+        created_at, updated_at, created_by, updated_by
+    ) VALUES (
+        'OdiaGenAI-LLM/qwen_1.5_odia_7b',
+        'Qwen 1.5 Odia 7B',
+        'Qwen 1.5 model with 7B parameters fine-tuned for Odia language.',
+        '{vLLM,TGI,LlamaCpp}',
+        '{text-generation}',
+        'https://huggingface.co/OdiaGenAI-LLM/qwen_1.5_odia_7b',
+        NOW(), NOW(), 'system', 'system'
+    );
+    "
+
+    echo "Executing SQL script..."
+
+    # Execute the SQL script via stdin to avoid file system issues
+    echo "\c airm;
+    $SQL_SCRIPT" | kubectl exec -i -n "$NAMESPACE" "$POD_NAME" -- psql -U postgres
+
+    if [ $? -eq 0 ]; then
+        echo "✅ Successfully added additional models to the database!"
+        echo ""
+        echo "Verifying the models were added..."
+        kubectl exec -n "$NAMESPACE" "$POD_NAME" -- psql -U postgres -d airm -c "SELECT canonical_name, display_name FROM model_metadata WHERE canonical_name IN ('meta-llama/Llama-3.1-70B', 'TinyLlama/TinyLlama-1.1B-Chat-v1.0', 'OdiaGenAI-LLM/qwen_1.5_odia_7b');"
+    else
+        echo "❌ Failed to add models to the database"
+        exit 1
+    fi
