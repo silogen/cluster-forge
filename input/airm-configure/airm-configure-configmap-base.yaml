@@ -23,7 +23,7 @@ data:
               restartPolicy: OnFailure
               containers:
               - name: airm-cluster-nodes-cron
-                image: ghcr.io/silogen/airm-dispatcher:main
+                image: ghcr.io/silogen/airm-dispatcher:v2025.08-rc.8
                 command: ["curl", "-X", "POST", "http://airm-dispatcher:80/v1/clusters/nodes"]
                 resources:
                   requests:
@@ -51,7 +51,7 @@ data:
           serviceAccountName: airm-dispatcher-sa
           containers:
           - name: airm-dispatcher
-            image: ghcr.io/silogen/airm-dispatcher:main-deffd6d1
+            image: ghcr.io/silogen/airm-dispatcher:v2025.08-rc.8
             imagePullPolicy: Always
             ports:
             - containerPort: 8080
@@ -121,7 +121,7 @@ data:
               restartPolicy: OnFailure
               containers:
               - name: airm-heartbeat-cron
-                image: ghcr.io/silogen/airm-dispatcher:main
+                image: ghcr.io/silogen/airm-dispatcher:v2025.08-rc.8
                 command: ["curl", "-X", "POST", "http://airm-dispatcher:80/v1/heartbeats"]
                 resources:
                   requests:
