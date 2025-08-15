@@ -26,7 +26,7 @@ spec:
           echo "API is ready!"
       containers:
       - name: workloads-manager
-        image: ghcr.io/silogen/workloads-manager:main-538f33fb
+        image: ghcr.io/silogen/workloads-manager:v2025.08-rc.8
         imagePullPolicy: IfNotPresent
         env:
         - name: WM_API_URL
