@@ -54,18 +54,6 @@ spec:
   affinity:
     enablePodAntiAffinity: true
     topologyKey: topology.kubernetes.io/zone
-  backup:
-    barmanObjectStore:
-      data:
-        compression: bzip2
-        immediateCheckpoint: false
-        jobs: 2
-      destinationPath: gs://silogen-dev-db-data/cnpg/keycloak-cluster1
-      googleCredentials:
-        gkeEnvironment: true
-      wal:
-        compression: bzip2
-    retentionPolicy: 30d
   bootstrap:
     initdb:
       database: keycloak
@@ -109,15 +97,3 @@ spec:
   walStorage:
     size: 50Gi
     storageClass: default
----
-apiVersion: postgresql.cnpg.io/v1
-kind: ScheduledBackup
-metadata:
-  name: keycloak-cnpg-backup
-  namespace: keycloak
-spec:
-  backupOwnerReference: self
-  cluster:
-    name: keycloak-cnpg
-  immediate: true
-  schedule: 0 0 0 * * *
