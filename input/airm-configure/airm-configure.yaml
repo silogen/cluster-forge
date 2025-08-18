@@ -16,13 +16,9 @@ spec:
         - name: overlays-config-base
           configMap:
             name: configure-base
-        - name: scripts-config
-          configMap:
-            defaultMode: 0755
-            name: configure-scripts
       containers:
       - name: airm-cluster-initialize
-        image: ubuntu:22.04
+        image: ghcr.io/silogen/airm-configure:v1.0.0
         imagePullPolicy: IfNotPresent
         env:
         - name: NEW_DOMAIN_NAME
@@ -30,12 +26,8 @@ spec:
             configMapKeyRef:
               name: bloom
               key: DOMAIN
-        command: ["/bin/bash"]
         volumeMounts:
           - name: overlays-config
             mountPath: /opt/dispatcher
           - name: overlays-config-base
             mountPath: /opt/base
-          - name: scripts-config
-            mountPath: /opt/scripts
-        args: ["/opt/scripts/run.sh"]

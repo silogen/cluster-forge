@@ -274,17 +274,17 @@
   namespace: keycloak
   manifestpath:
   - keycloak-airm-config
-  syncwave: 50
+  syncwave: 80
 - name: airm-airm-config
   namespace: airm
   manifestpath:
   - airm-airm-config
-  syncwave: 50
+  syncwave: 80
 - name: secret-generator
   namespace: airm
   manifestpath:
   - secret-generator
-  syncwave: 51
+  syncwave: 81
 - name: airm-configure
   namespace: default
   manifestpath:
