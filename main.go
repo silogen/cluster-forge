@@ -45,7 +45,7 @@ func main() {
 	var optionsFile string
 	var nonInteractive bool
 
-	var rootCmd = &cobra.Command{Use: "app",
+	var rootCmd = &cobra.Command{Use: "cluster-forge",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			readConfigs(cmd, optionsFile)
 		},
@@ -56,7 +56,7 @@ func main() {
 	var mineCmd = &cobra.Command{
 		Use:   "mine",
 		Short: "Run mine",
-		Long: `The mine command processes the input configuration  generates normalized yaml in the input directory.
+		Long: `The mine command processes the input configuration and generates normalized yaml in the input directory.
 It is used to update of configure the manifests used by the smelt operation.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			runMine()
@@ -81,7 +81,7 @@ For example, you could template a 'baseDomain' which could then be input and tem
 		Short: "Run cast",
 		Long: `The cast command processes the normalized (and possibly custom templated) yaml from the working directory and performs the casting operation.
 
-This step creates a container image which can be used during forge step to deploy all the components in a stack to a cluster.`,
+This step creates a container image which can be used later to deploy all the components in a stack to a cluster.`,
 		PreRun: func(cmd *cobra.Command, args []string) {
 			if nonInteractive && !castParameters.Private {
 				cmd.MarkFlagRequired("imageName")
@@ -93,10 +93,15 @@ This step creates a container image which can be used during forge step to deplo
 		},
 	}
 
+	// TODO: Add parameter for local dev forging with all local development hacks
 	var forgeCmd = &cobra.Command{
 		Use:   "forge",
 		Short: "Run forge",
-		Long:  `The forge command will run both smelt and cast, and create ephemeral image.`,
+		Long: `The forge command will run both smelt and cast, and create ephemeral image.
+It reads the configuration from the input directory and generates normalized yaml in the working directory.
+Then it creates a container image which can be used to deploy all the components in a stack to a cluster.
+
+Run "cluster-forge smelt -h" or "cluster-forge cast -h" for more information.`,
 
 		Run: func(cmd *cobra.Command, args []string) {
 			runForge(castParameters, configFile, nonInteractive, gitops)
@@ -112,9 +117,9 @@ This step creates a container image which can be used during forge step to deplo
 	rootCmd.PersistentFlags().StringVarP(&optionsFile, "options", "o", "", "Path to the options file")
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", defaultConfigfile, "Path to the config file")
 	rootCmd.PersistentFlags().BoolVarP(&nonInteractive, "non-interactive", "n", false, "Non-interactive, fail if information is missing.")
-	rootCmd.PersistentFlags().StringVarP(&gitops.Url, "gitopsUrl", "", defaultGitopsUrl, "Url target for Argocd app")
-	rootCmd.PersistentFlags().StringVarP(&gitops.Branch, "gitopsBranch", "", defaultGitopsBranch, "Url target for Argocd app")
-	rootCmd.PersistentFlags().StringVarP(&gitops.PathPrefix, "gitopsPathPrefix", "", defaultGitopsPathPrefix, "Prefix for Argocd app target path")
+	rootCmd.PersistentFlags().StringVarP(&gitops.Url, "gitopsUrl", "", defaultGitopsUrl, "Url target for ArgoCD git repository")
+	rootCmd.PersistentFlags().StringVarP(&gitops.Branch, "gitopsBranch", "", defaultGitopsBranch, "Git target revision to track by ArgoCD app")
+	rootCmd.PersistentFlags().StringVarP(&gitops.PathPrefix, "gitopsPathPrefix", "", defaultGitopsPathPrefix, "Prefix for ArgoCD app target path")
 
 	castParameters.Gitea = utils.NewGiteaParameters()
 	rootCmd.PersistentFlags().VarP(&castParameters.Gitea, "gitea", "g", "How to deploy gitea, one of ['"+strings.Join(castParameters.Gitea.Allowed, "', '")+"']")
