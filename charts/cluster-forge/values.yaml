@@ -1,0 +1,44 @@
+clusterForge:
+  repoUrl: "https://github.com/silogen/cluster-forge.git"
+  targetRevision: gitops-forge
+  valuesFile: "values.yaml"
+
+externalValues:
+  enabled: false
+  repoUrl: # define if enabled
+  targetRevision: main
+
+apps:
+  - name: argo-cd
+    path: argo-cd/8.3.0
+    valuesFile: ../values_ha.yaml
+    namespace: argocd
+    syncWave: -10
+
+  - name: cert-manager
+    path: cert-manager/v1.14.5
+    valuesFile: ../custom_values.yaml
+    namespace: cert-manager
+    syncWave: 0
+#    ignoreDifferences:
+#      - group: "apps"
+#        kind: "Deployment"
+#        jsonPointers:
+#          - /spec/replicas
+
+  - name: amd-gpu-operator
+    path: amd-gpu-operator/1.3.1
+    valuesFile: values.yaml
+    namespace: amd-gpu-operator
+    syncWave: 1
+
+  - name: amd-gpu-operator-config
+    path: amd-gpu-operator-config
+    namespace: amd-gpu-operator
+    syncWave: 1
+
+  - name: openbao
+    path: openbao/0.16.3
+    valuesFile: values.yaml
+    namespace: openbao
+    syncWave: 1

@@ -1,0 +1,24 @@
+controller:
+  replicas: 2
+  pdb:
+    enabled: true
+
+redis:
+  enabled: false
+redis-ha:
+  enabled: true
+
+server:
+  replicas: 2
+  pdb:
+    enabled: true
+
+repoServer:
+  replicas: 2
+  pdb:
+    enabled: true
+
+applicationSet:
+  replicas: 2
+  pdb:
+    enabled: true

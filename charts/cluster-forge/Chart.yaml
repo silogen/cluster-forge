@@ -1,0 +1,4 @@
+apiVersion: v2
+name: cluster-forge
+description: A Helm chart to rule them all
+version: 0.1.0
