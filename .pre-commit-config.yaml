@@ -10,6 +10,7 @@ repos:
         exclude: ^(LICENSE|licenses/.*)$
       - id: end-of-file-fixer
         exclude: ^(LICENSE|licenses/.*)$
+      - id: no-commit-to-branch
   - repo: https://github.com/adrienverge/yamllint.git
     rev: v1.35.1
     hooks:
