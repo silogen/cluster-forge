@@ -89,7 +89,7 @@ jobs:
               stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz
 
       - name: Make deploy package
-        if: github.ref == 'refs/heads/main' && matrix.release.type == 'core'
+        if: github.ref == 'refs/heads/main' && matrix.release.type == 'enterprise-ai'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -103,7 +103,7 @@ jobs:
               --generate-notes \
               stacks/deploy-release.tar.gz
       - name: Make test package
-        if: github.ref != 'refs/heads/main' && matrix.release.type == 'core'
+        if: github.ref != 'refs/heads/main' && matrix.release.type == 'enterprise-ai'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
