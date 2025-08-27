@@ -75,6 +75,21 @@ jobs:
           echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
           echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
 
+  create_release:
+    needs: version
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.event.inputs.is_prerelease != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.new_version }}
+        run: |
+          gh release create "$VERSION" \
+              --title="ClusterForge Release $VERSION" \
+              --repo="$GITHUB_REPOSITORY" \
+              --generate-notes
+
   build:
     needs: version
     runs-on: ubuntu-latest
@@ -124,27 +139,23 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.version.outputs.new_version }}
         run: |
-          # Create release if it doesn't exist (only for first asset)
-          if [[ "${{ matrix.release.type }}" == "enterprise-ai" ]]; then
-            gh release create "$VERSION" \
-                --title="ClusterForge Release $VERSION" \
-                --repo="$GITHUB_REPOSITORY" \
-                --generate-notes
-          fi
-
           # Upload asset to the release
           gh release upload "$VERSION" \
-              "stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz#ClusterForge ${{ matrix.release.name }} Package"
+              "stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz#ClusterForge ${{ matrix.release.name }} Package" \
+              --clobber
 
-          # For enterprise-ai, also update the deploy release
-          if [[ "${{ matrix.release.type }}" == "enterprise-ai" ]]; then
-            cp stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz stacks/deploy-release.tar.gz
-            if gh release view "deploy" --repo="$GITHUB_REPOSITORY"; then
-              gh release delete "deploy" --repo="$GITHUB_REPOSITORY" --cleanup-tag --yes
-            fi
-            gh release create "deploy" \
-                --title="ClusterForge Deploy Release $VERSION" \
-                --repo="$GITHUB_REPOSITORY" \
-                --generate-notes \
-                stacks/deploy-release.tar.gz
+      - name: Update Deploy Package
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && matrix.release.type == 'enterprise-ai' && github.event.inputs.is_prerelease != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.new_version }}
+        run: |
+          cp stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz stacks/deploy-release.tar.gz
+          if gh release view "deploy" --repo="$GITHUB_REPOSITORY"; then
+            gh release delete "deploy" --repo="$GITHUB_REPOSITORY" --cleanup-tag --yes
           fi
+          gh release create "deploy" \
+              --title="ClusterForge Deploy Release $VERSION" \
+              --repo="$GITHUB_REPOSITORY" \
+              --generate-notes \
+              stacks/deploy-release.tar.gz
