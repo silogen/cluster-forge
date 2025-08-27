@@ -18,8 +18,13 @@ on:
       is_prerelease:
         description: 'Is this a pre-release?'
         required: true
-        type: boolean
-        default: false
+      image_name:
+        default: ghcr.io/silogen/clusterforge
+
+
+permissions:
+  contents: write
+  packages: write
 
 jobs:
   version:
@@ -107,8 +112,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23.2'
+
+      - name: Smelt
+        run: |
+          go run . smelt --config input/config-silogen-${{ matrix.release.type }}.yaml --non-interactive
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
