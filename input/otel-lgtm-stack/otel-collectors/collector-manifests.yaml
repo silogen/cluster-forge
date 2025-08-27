@@ -932,3 +932,80 @@ spec:
             - attributes
           receivers:
             - prometheus
+
+---
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: otel-collector-metrics-airm
+  namespace: otel-lgtm-stack
+spec:
+  image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
+  mode: deployment
+  podAnnotations:
+    prometheus.io/port: "8888"
+    prometheus.io/scrape: "true"
+  replicas: 1
+  resources:
+    limits:
+      cpu: "2"
+      memory: 8Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  serviceAccount: otel-collector
+  config:
+    exporters:
+      debug:
+        verbosity: detailed
+      otlp:
+        endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
+        tls:
+          insecure: true
+    processors:
+      attributes:
+        actions:
+          - action: insert
+            key: k8s_cluster_name
+            value: cluster-name
+      batch:
+        send_batch_size: 2000
+        timeout: 10s
+      memory_limiter:
+        check_interval: 5s
+        limit_percentage: 80
+        spike_limit_percentage: 25
+    receivers:
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: airm-custom-metrics
+              scrape_interval: 30s
+              kubernetes_sd_configs:
+                - role: pod
+              metrics_path: /
+              relabel_configs:
+                - action: keep
+                  source_labels:
+                    - __meta_kubernetes_pod_label_app
+                  regex: airm-api
+                - regex: (.+)
+                  replacement: $1:9009
+                  source_labels:
+                    - __meta_kubernetes_node_address_InternalIP
+                  target_label: __address__
+                  action: replace
+                - source_labels:
+                    - __meta_kubernetes_node_name
+                  target_label: hostname
+    service:
+      pipelines:
+        metrics:
+          exporters:
+            - otlp
+          processors:
+            - memory_limiter
+            - batch
+            - attributes
+          receivers:
+            - prometheus

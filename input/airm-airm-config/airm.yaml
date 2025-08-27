@@ -122,7 +122,7 @@ spec:
                   name: api-minio-credentials
             - name: PROMETHEUS_URL
               value: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:9090
-          image: ghcr.io/silogen/airm-api:v2025.08-rc.8
+          image: ghcr.io/silogen/airm-api:v2025.08.001
           imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 3
@@ -162,7 +162,7 @@ spec:
             - sh
             - -c
             - cp /code/migrations/* /mnt/code/migrations/
-          image: ghcr.io/silogen/airm-api:v2025.08-rc.8
+          image: ghcr.io/silogen/airm-api:v2025.08.001
           name: init-migration-scripts
           securityContext:
             allowPrivilegeEscalation: false
@@ -235,7 +235,7 @@ spec:
           envFrom:
             - secretRef:
                 name: secrets-airm
-          image: ghcr.io/silogen/airm-ui:v2025.08-rc.8
+          image: ghcr.io/silogen/airm-ui:v2025.08.001
           imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 3
