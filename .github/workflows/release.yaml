@@ -22,8 +22,8 @@ jobs:
         release:
           - type: core
             name: Core
-          - type: enterprise
-            name: Enterprise
+          - type: enterprise-ai
+            name: Enterprise-AI
           - type: weka
             name: Weka-fs
           - type: nuage
