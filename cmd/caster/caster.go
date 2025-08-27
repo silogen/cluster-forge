@@ -139,6 +139,7 @@ func CastTool(filesDir string, imageName string, publishImage bool, stackName st
 	}
 	if gitea.Persistent {
 		utils.CopyFile("cmd/utils/templates/gitea_pvc.yaml", "stacks/latest/gitea.yaml")
+		utils.CopyFile("cmd/utils/templates/gitea_pvc_init.yaml", "stacks/latest/gitea_pvc_init.yaml")
 	} else if gitea.Deploy {
 		utils.CopyFile("cmd/utils/templates/gitea.yaml", "stacks/latest/gitea.yaml")
 	}
@@ -146,8 +147,13 @@ func CastTool(filesDir string, imageName string, publishImage bool, stackName st
 	if !gitea.Deploy {
 		utils.CopyFile("cmd/utils/templates/deploy_no_gitea.sh", "stacks/latest/deploy.sh")
 	} else {
-		utils.CopyFile("cmd/utils/templates/deploy.sh", "stacks/latest/deploy.sh")
-		utils.ReplaceStringInFile("stacks/latest/gitea.yaml", "GENERATED_IMAGE", imageName)
+		if gitea.Persistent {
+			utils.CopyFile("cmd/utils/templates/deploy.sh", "stacks/latest/deploy.sh")
+			utils.ReplaceStringInFile("stacks/latest/gitea_pvc_init.yaml", "GENERATED_IMAGE", imageName)
+		} else {
+			utils.CopyFile("cmd/utils/templates/deploy.sh", "stacks/latest/deploy.sh")
+			utils.ReplaceStringInFile("stacks/latest/gitea.yaml", "GENERATED_IMAGE", imageName)
+		}
 	}
 
 	if publishImage || stackName != "" {
@@ -188,7 +194,7 @@ func BuildAndPushImage(imageName string, filesDir string) error {
 	utils.CopyDir("cmd/utils/templates/data", tempDir, false)
 	os.RemoveAll(tempDir + "/git/gitea-repositories/forge/clusterforge.git")
 	os.MkdirAll(tempDir+"/git/gitea-repositories/forge", 0755)
-	
+
 	// Create a proper bare repository for Gitea
 	bareRepoPath := tempDir + "/git/gitea-repositories/forge/clusterforge.git"
 	if err := CreateBareRepo(filesDir, bareRepoPath); err != nil {
