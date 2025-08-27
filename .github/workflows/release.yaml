@@ -1,55 +1,101 @@
 name: ClusterForge Release
 
 on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
   workflow_dispatch:
     inputs:
-      version:
+      version_type:
+        description: 'Type of version bump (major, minor, patch)'
         required: true
-      image_name:
-        default: ghcr.io/silogen/clusterforge
-
-
-permissions:
-  contents: write
-  packages: write
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      is_prerelease:
+        description: 'Is this a pre-release?'
+        required: true
+        type: boolean
+        default: false
 
 jobs:
-  build:
+  version:
     runs-on: ubuntu-latest
-    # Define a matrix for the three release types
+    outputs:
+      new_version: ${{ steps.semver.outputs.new_version }}
+      current_version: ${{ steps.semver.outputs.current_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest version
+        id: get_version
+        run: |
+          # Get latest version tag or default to v0.0.0 if none exists
+          CURRENT_VERSION=$(git describe --tags --match "v[0-9]*" --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Calculate new version
+        id: semver
+        run: |
+          CURRENT_VERSION=${{ steps.get_version.outputs.current_version }}
+          # Remove v prefix for calculation
+          VERSION=${CURRENT_VERSION#v}
+          IFS='.' read -r major minor patch <<< "$VERSION"
+
+          # For pull requests, use a test version
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            NEW_VERSION="${CURRENT_VERSION}-pr.${{ github.event.pull_request.number }}"
+          else
+            case "${{ github.event.inputs.version_type }}" in
+              major)
+                major=$((major + 1))
+                minor=0
+                patch=0
+                ;;
+              minor)
+                minor=$((minor + 1))
+                patch=0
+                ;;
+              patch)
+                patch=$((patch + 1))
+                ;;
+            esac
+
+            NEW_VERSION="v${major}.${minor}.${patch}"
+            if [[ "${{ github.event.inputs.is_prerelease }}" == "true" ]]; then
+              NEW_VERSION="${NEW_VERSION}-dev.$(date +%Y%m%d%H%M)"
+            fi
+          fi
+
+          echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+
+  build:
+    needs: version
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         release:
+          - type: enterprise-ai
+            name: Enterprise AI
           - type: core
             name: Core
-          - type: rnd
-            name: RnD
-          - type: enterprise
-            name: Enterprise
-          - type: weka
-            name: Weka-fs
+          - type: wekafs
+            name: WekaFS
           - type: nuage
             name: Nuage
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.23.2'
-
-      - name: Smelt
-        run: |
-          go run . smelt --config input/config-silogen-${{ matrix.release.type }}.yaml --non-interactive
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v2
 
-      - name: Log in to the Container registry
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
@@ -57,60 +103,48 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cast
+        env:
+          VERSION: ${{ needs.version.outputs.new_version }}
         run: |
-          go run . cast --config input/config-silogen-${{ matrix.release.type }}.yaml \
-            --imageName ${{ github.event.inputs.image_name }}:${{ github.event.inputs.version }}-${{ matrix.release.type }} \
-            --stackName ${{ github.event.inputs.version }}-${{ matrix.release.type }} \
+          go run . cast \
+            --config input/config-silogen-${{ matrix.release.type }}.yaml \
+            --imageName ghcr.io/silogen/clusterforge:$VERSION-${{ matrix.release.type }} \
+            --stackName ${{ matrix.release.type }}-$VERSION \
             --non-interactive
 
-      - name: Clean stack
+      - name: Create release package
+        env:
+          VERSION: ${{ needs.version.outputs.new_version }}
         run: |
-          rm -rf stacks/${{ github.event.inputs.version }}/.git stacks/${{ github.event.inputs.version }}/.gitkeep
+          tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz ${{ matrix.release.type }}-$VERSION
 
-      - name: Create release package directory
-        run: |
-          # Create the desired top-level directory that will appear when unzipped
-          mkdir -p stacks/clusterforge
-          
-          # Move the stack directory and ansible directory into the package directory
-          mv stacks/${{ github.event.inputs.version }}-${{ matrix.release.type }}/* stacks/clusterforge/
-
-      - name: Create tarball
-        run: |
-          tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz clusterforge
-
-      - name: Create release
-        if: github.ref == 'refs/heads/main'
+      - name: Upload Release Asset
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.event.inputs.is_prerelease != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.new_version }}
         run: |
-          gh release create "${{ github.event.inputs.version }}-${{ matrix.release.type }}" \
-              --title="ClusterForge ${{ matrix.release.name }} release ${{ github.event.inputs.version }}" \
-              --repo="$GITHUB_REPOSITORY" \
-              --generate-notes \
-              stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz
-
-      - name: Make deploy package
-        if: github.ref == 'refs/heads/main' && matrix.release.type == 'core'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cp stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz stacks/deploy-release.tar.gz
-          if gh release view "deploy" --repo="$GITHUB_REPOSITORY"; then
-            gh release delete "deploy" --repo="$GITHUB_REPOSITORY" --cleanup-tag --yes
+          # Create release if it doesn't exist (only for first asset)
+          if [[ "${{ matrix.release.type }}" == "enterprise-ai" ]]; then
+            gh release create "$VERSION" \
+                --title="ClusterForge Release $VERSION" \
+                --repo="$GITHUB_REPOSITORY" \
+                --generate-notes
           fi
-          gh release create "deploy" \
-              --title="ClusterForge Deploy Release" \
-              --repo="$GITHUB_REPOSITORY" \
-              --generate-notes \
-              stacks/deploy-release.tar.gz
-      - name: Make test package
-        if: github.ref != 'refs/heads/main' && matrix.release.type == 'core'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cp stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz stacks/${{ github.event.inputs.version }}-test.tar.gz
-          gh release create ${{ github.event.inputs.version }}-test \
-              --title="ClusterForge Test Release" \
-              --repo="$GITHUB_REPOSITORY" \
-              stacks/${{ github.event.inputs.version }}-test.tar.gz
+
+          # Upload asset to the release
+          gh release upload "$VERSION" \
+              "stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz#ClusterForge ${{ matrix.release.name }} Package"
+
+          # For enterprise-ai, also update the deploy release
+          if [[ "${{ matrix.release.type }}" == "enterprise-ai" ]]; then
+            cp stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz stacks/deploy-release.tar.gz
+            if gh release view "deploy" --repo="$GITHUB_REPOSITORY"; then
+              gh release delete "deploy" --repo="$GITHUB_REPOSITORY" --cleanup-tag --yes
+            fi
+            gh release create "deploy" \
+                --title="ClusterForge Deploy Release $VERSION" \
+                --repo="$GITHUB_REPOSITORY" \
+                --generate-notes \
+                stacks/deploy-release.tar.gz
+          fi
