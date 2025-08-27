@@ -1,0 +1,41 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gitea-init-job
+  namespace: cf-gitea
+  labels:
+    app: gitea
+    created-by: cluster-forge
+spec:
+  template:
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: init-data
+          image: GENERATED_IMAGE
+          command: ["sh", "-c", "cp -r /prepopulated/* /data && chown -R 1000:1000 /data"]
+          volumeMounts:
+            - name: persistent-data
+              mountPath: /data
+      volumes:
+        - name: persistent-data
+          persistentVolumeClaim:
+            claimName: gitea-data
+      restartPolicy: Never
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gitea-data
+  namespace: cf-gitea
+  labels:
+    app: gitea
+    created-by: cluster-forge
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
