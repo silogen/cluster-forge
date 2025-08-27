@@ -1,10 +1,3 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: cf-gitea
-  labels:
-    app: gitea
-    created-by: cluster-forge
 ---
 apiVersion: v1
 kind: Service
@@ -69,13 +62,6 @@ spec:
     spec:
       securityContext:
         fsGroup: 1000
-      initContainers:
-              - name: init-data
-                image: GENERATED_IMAGE
-                command: ["sh", "-c", "cp -r /prepopulated/* /data && chown -R 1000:1000 /data"]
-                volumeMounts:
-                  - name: persistent-data
-                    mountPath: /data
       terminationGracePeriodSeconds: 60
       containers:
         - name: gitea
@@ -128,18 +114,3 @@ spec:
         - name: persistent-data
           persistentVolumeClaim:
             claimName: gitea-data
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: gitea-data
-  namespace: cf-gitea
-  labels:
-    app: gitea
-    created-by: cluster-forge
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
