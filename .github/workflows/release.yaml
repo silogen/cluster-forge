@@ -91,7 +91,7 @@ jobs:
               --generate-notes
 
   build:
-    needs: [version, create_release]
+    needs: version
     runs-on: ubuntu-latest
     strategy:
       matrix:
