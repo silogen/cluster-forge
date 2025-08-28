@@ -18,7 +18,6 @@
 - name: kaiwo-all
 - name: cluster-auto-pvc
 - name: rabbitmq
-- name: rabbitmq-airm-config
 - name: cluster-airm-config
 - name: keycloak-airm-config
 - name: airm-airm-config
