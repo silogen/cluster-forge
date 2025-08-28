@@ -1,4 +1,4 @@
-apiVersion: batch/v1
+  apiVersion: batch/v1
 kind: Job
 metadata:
   name: gitea-oauth-config
@@ -6,11 +6,18 @@ metadata:
 spec:
   template:
     spec:
+      serviceAccountName: config-account
       containers:
       - name: gitea-config
-        image: gitea/gitea:latest
-        command: ["/bin/sh"]
+        image: bitnami/kubectl:latest
+        command: ["kubectl"]
         args:
+          - exec
+          - deploy/gitea
+          - -c
+          - gitea
+          - --
+          - /bin/bash
           - -c
           - |
             gitea admin auth add-oauth \
@@ -21,7 +28,7 @@ spec:
               --group-claim-name "groups" \
               --scopes "groups" \
               --group-team-map "{\"/gitea-users\":{\"forgetest\":[\"Developers\"]}}" \
-              --auto-discover-url "https://kc.not-a-domain/realms/k8s/.well-known/openid-configuration"
+              --auto-discover-url "https://kc.${DOMAIN}/realms/k8s/.well-known/openid-configuration"
         env:
         - name: CLIENT_SECRET
           valueFrom:
