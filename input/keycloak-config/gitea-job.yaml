@@ -1,4 +1,4 @@
-  apiVersion: batch/v1
+apiVersion: batch/v1
 kind: Job
 metadata:
   name: gitea-oauth-config
@@ -6,7 +6,7 @@ metadata:
 spec:
   template:
     spec:
-      serviceAccountName: config-account
+      serviceAccountName: gitea-oauth-config-sa
       containers:
       - name: gitea-config
         image: bitnami/kubectl:latest
@@ -20,6 +20,23 @@ spec:
           - /bin/bash
           - -c
           - |
+            # Create an admin user and generate an admin access token
+            # TODO: take user admin from secret?
+            gitea user create --username gitea_admin --password forgetest --admin true
+            random_token_name='giteajob-'$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 5)
+            admin_token=$(gitea admin user generate-access-token --username gitea_admin --token-name ${random_token_name})
+
+            # Rename existing user forge to forgeuser
+            curl -H "Content-Type: application/json" -H "Authorization: Bearer ${admin_token}" -d '{"new_username": "forgeuser"}' https://gitea.plat-dev.silogen.ai/api/v1/admin/users/forge/rename  \
+            # Create organization called forge, owned by forgeuser
+            curl -H "Content-Type: application/json" -H "Authorization: Bearer ${admin_token}" -d '{"username": "forge"}' https://gitea.plat-dev.silogen.ai/api/v1/admin/users/forgeuser/orgs  \
+            # Create team Developers in organization forge with write permission
+            curl -H "Content-Type: application/json" -H "Authorization: Bearer ${admin_token}" -d '{"name": "Developers", "permission": "write"}' https://gitea.plat-dev.silogen.ai/api/v1/orgs/forge/teams  \
+            # Transfer repository clusterforge from user forgeuser to organization forge
+            curl -H "Content-Type: application/json" -H "Authorization: Bearer ${admin_token}" -d '{"new_owner": "forge"}' https://gitea.plat-dev.silogen.ai/api/v1/repos/forgeuser/clusterforge/transfer  \
+
+            DOMAIN=$(kubectl get configmap bloom -n default -o jsonpath='{.data.DOMAIN}{"\n"}')
+
             gitea admin auth add-oauth \
               --name "Keycloak" \
               --provider openidConnect \
@@ -27,7 +44,7 @@ spec:
               --secret ${CLIENT_SECRET} \
               --group-claim-name "groups" \
               --scopes "groups" \
-              --group-team-map "{\"/gitea-users\":{\"forgetest\":[\"Developers\"]}}" \
+              --group-team-map "{\"/gitea-users\":{\"forge\":[\"Developers\"]}}" \
               --auto-discover-url "https://kc.${DOMAIN}/realms/k8s/.well-known/openid-configuration"
         env:
         - name: CLIENT_SECRET
@@ -44,3 +61,37 @@ spec:
           claimName: gitea-data
       restartPolicy: OnFailure
   backoffLimit: 3
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gitea-oauth-config-sa
+  namespace: keycloak
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gitea-oauth-config-role
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gitea-oauth-config-binding
+subjects:
+- kind: ServiceAccount
+  name: gitea-oauth-config-sa
+  namespace: keycloak
+roleRef:
+  kind: ClusterRole
+  name: gitea-oauth-config-role
+  apiGroup: rbac.authorization.k8s.io
