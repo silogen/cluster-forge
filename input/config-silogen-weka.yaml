@@ -19,7 +19,7 @@
 - name: cluster-auto-pvc
 - name: rabbitmq
 - name: cluster-airm-config
-- name: keycloak-airm-config
+- name: keycloak-config
 - name: airm-airm-config
 - name: wekafs
 - name: wekafs-cluster-config
