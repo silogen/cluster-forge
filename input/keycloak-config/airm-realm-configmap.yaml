@@ -730,7 +730,8 @@ data:
             "organization",
             "profile",
             "basic",
-            "email"
+            "email",
+            "groups"
           ],
           "optionalClientScopes": [
             "address",
@@ -1141,6 +1142,34 @@ data:
                 "id.token.claim": "true",
                 "access.token.claim": "true",
                 "claim.name": "organization",
+                "jsonType.label": "String"
+              }
+            }
+          ]
+        },
+        {
+          "id": "ca910203-028f-426e-b8bd-44881302e47b",
+          "name": "groups",
+          "description": "User group memberships",
+          "protocol": "openid-connect",
+          "attributes": {
+            "include.in.token.scope": "true",
+            "display.on.consent.screen": "false"
+          },
+          "protocolMappers": [
+            {
+              "id": "c44766cf-7ee5-484d-b147-ef112f0cf573",
+              "name": "groups",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-group-membership-mapper",
+              "consentRequired": false,
+              "config": {
+                "introspection.token.claim": "true",
+                "multivalued": "true",
+                "userinfo.token.claim": "true",
+                "id.token.claim": "false",
+                "access.token.claim": "true",
+                "claim.name": "groups",
                 "jsonType.label": "String"
               }
             }
@@ -1710,7 +1739,8 @@ data:
         "roles",
         "web-origins",
         "acr",
-        "basic"
+        "basic",
+        "groups"
       ],
       "defaultOptionalClientScopes": [
         "offline_access",

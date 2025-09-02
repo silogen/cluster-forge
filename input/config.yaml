@@ -45,7 +45,7 @@
   namespace: grafana
   manifestpath:
   - grafana-additional-stuff/dashboards/grafana
-  - grafana-additional-stuff/alertmanager 
+  - grafana-additional-stuff/alertmanager
   skip-namespace: true
 - name: kueue
   namespace: kueue-system
@@ -216,7 +216,7 @@
 - name: gateway-api
   namespace: default
   syncwave: -200
-  manifestpath: 
+  manifestpath:
   - gateway-api/manifests/sourced
 - name: metallb
   namespace: metallb-system
@@ -260,6 +260,8 @@
   namespace: kaiwo
   manifestpath:
   - cluster-auto-pvc/pvc-user-demo.yaml
+  syncwave: 10
+  skip-namespace: true
 - name: rabbitmq-airm-config
   namespace: rabbitmq-system
   manifestpath:
@@ -270,11 +272,13 @@
   manifestpath:
   - cluster-airm-config
   syncwave: 100
+  skip-namespace: true
 - name: keycloak-airm-config
   namespace: keycloak
   manifestpath:
   - keycloak-airm-config
   syncwave: 80
+  skip-namespace: true
 - name: airm-airm-config
   namespace: airm
   manifestpath:

@@ -65,8 +65,9 @@ AIRM and Keycloak are two components which use Cloud Native Postgresql (CNPG) fo
   - enter password for previously decoded airm_user
   - perform needed operation, e.g. delete the CNPG cluster and wait for all pods to get deleted
   - wait for atleast one cnpg pod to come up and again (triggered by Argo CD) and forward port 5432
-  - run the restoration: `psql -h 127.0.0.1 -U airm_user airm < /tmp/airm-<clusterName>-<date>.sql`
-using the same airm_user secret as before
+  - run the restoration: `psql -h 127.0.0.1 -U airm_user airm < /tmp/airm-<clusterName>-<date>.sql` using the same airm_user secret as before
+  - restart airm api & ui pods
+
 
   2. <b>on-demand CNPG Backup</b>: this method leverages CNPG cluster.spec.backup specification and will become the preferred path after the process has been validated
 
