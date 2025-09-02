@@ -12,7 +12,7 @@ data:
     chmod +x ./kubectl
     mv ./kubectl /usr/local/bin
  
-    ADMIN_USERNAME=${ADMIN_USERNAME:-silo_admin}
+    ADMIN_USERNAME=${ADMIN_USERNAME}
     ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme12345}
     DOMAIN=${DOMAIN:-plat-dev.silogen.ai}
     CLIENT_SECRET=${CLIENT_SECRET}
@@ -56,11 +56,17 @@ spec:
         command: ["sh", "-c", "/scripts/configure-gitea-kubectl.sh"]
         env:
         - name: DOMAIN
-          value: plat-dev.silogen.ai
+          value: not-a-domain
         - name: ADMIN_USERNAME
-          value: silo_admin
+          valueFrom:
+            secretKeyRef:
+              name: k8s-realm-credentials
+              key: GITEA_ADMIN_USERNAME
         - name: ADMIN_PASSWORD
-          value: changeme12345
+          valueFrom:
+            secretKeyRef:
+              name: k8s-realm-credentials
+              key: GITEA_ADMIN_PASSWORD
         - name: CLIENT_SECRET
           valueFrom:
             secretKeyRef:
