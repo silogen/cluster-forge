@@ -322,39 +322,9 @@ spec:
     - remoteRef:
         key: gitea-client-secret
       secretKey: GITEA_CLIENT_SECRET
-  refreshInterval: 1h
-  secretStoreRef:
-    kind: ClusterSecretStore
-    name: k8srealm-secret-store
-  target:
-    creationPolicy: Owner
-    name: k8s-realm-credentials
----
-apiVersion: external-secrets.io/v1beta1
-kind: ExternalSecret
-metadata:
-  name: k8s-realm-credentials
-  namespace: keycloak
-spec:
-  data:
     - remoteRef:
         key: gitea-admin-password
       secretKey: GITEA_ADMIN_PASSWORD
-  refreshInterval: 1h
-  secretStoreRef:
-    kind: ClusterSecretStore
-    name: k8srealm-secret-store
-  target:
-    creationPolicy: Owner
-    name: k8s-realm-credentials
----
-apiVersion: external-secrets.io/v1beta1
-kind: ExternalSecret
-metadata:
-  name: k8s-realm-credentials
-  namespace: keycloak
-spec:
-  data:
     - remoteRef:
         key: gitea-admin-username
       secretKey: GITEA_ADMIN_USERNAME
