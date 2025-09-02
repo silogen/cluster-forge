@@ -11,13 +11,9 @@ data:
     curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
     chmod +x ./kubectl
     mv ./kubectl /usr/local/bin
- 
-    ADMIN_USERNAME=${ADMIN_USERNAME}
-    ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme12345}
-    DOMAIN=${DOMAIN:-plat-dev.silogen.ai}
-    CLIENT_SECRET=${CLIENT_SECRET}
+
     RANDOM_TOKEN_NAME='giteajob-'$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 5)
-    
+
     kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
       gitea admin user create --username $ADMIN_USERNAME --password $ADMIN_PASSWORD --admin=true --must-change-password=false --email ${ADMIN_USERNAME}@${DOMAIN}
 
@@ -27,7 +23,7 @@ data:
 
     curl -H "Content-Type: application/json" -H "Authorization: Bearer ${admin_token}" -d '{"new_username": "forge_user"}' https://gitea.${DOMAIN}/api/v1/admin/users/forge/rename
     curl -H "Content-Type: application/json" -H "Authorization: Bearer ${admin_token}" -d '{"username": "forge"}' https://gitea.${DOMAIN}/api/v1/admin/users/forge_user/orgs
-    curl -H "Content-Type: application/json" -H "Authorization: Bearer ${admin_token}" -d '{"name": "Developers", "permission": "write"}' https://gitea.${DOMAIN}/api/v1/orgs/forge/teams
+    curl -H "Content-Type: application/json" -H "Authorization: Bearer ${admin_token}" -d '{"name": "Developers", "permission": "write", "units": ["repo.actions","repo.code","repo.issues","repo.ext_issues","repo.wiki","repo.ext_wiki","repo.pulls","repo.releases","repo.projects","repo.ext_wiki"]}' https://gitea.${DOMAIN}/api/v1/orgs/forge/teams
     curl -H "Content-Type: application/json" -H "Authorization: Bearer ${admin_token}" -d '{"new_owner": "forge"}' https://gitea.${DOMAIN}/api/v1/repos/forge_user/clusterforge/transfer
 
     kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
