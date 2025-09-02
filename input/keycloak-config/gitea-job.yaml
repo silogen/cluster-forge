@@ -19,7 +19,10 @@ data:
 
     admin_token=$(kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
       gitea admin user generate-access-token --raw --username $ADMIN_USERNAME --token-name ${RANDOM_TOKEN_NAME} --scopes all
-      )
+    )
+
+    kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
+      sed -i -e "s/git\.example\.com/$DOMAIN/g" /data/gitea/conf/app.ini
 
     curl -H "Content-Type: application/json" -H "Authorization: Bearer ${admin_token}" -d '{"new_username": "forge_user"}' https://gitea.${DOMAIN}/api/v1/admin/users/forge/rename
     curl -H "Content-Type: application/json" -H "Authorization: Bearer ${admin_token}" -d '{"username": "forge"}' https://gitea.${DOMAIN}/api/v1/admin/users/forge_user/orgs
