@@ -19,7 +19,13 @@ data:
 
     admin_token=$(kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
       gitea admin user generate-access-token --raw --username $ADMIN_USERNAME --token-name ${RANDOM_TOKEN_NAME} --scopes all
-      )
+    )
+
+    kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
+      sed -i -e "s/git\.example\.com/gitea\.$DOMAIN/g" /data/gitea/conf/app.ini
+
+    kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
+      sed -i -e "s/http:/https:/g" /data/gitea/conf/app.ini
 
     curl -H "Content-Type: application/json" -H "Authorization: Bearer ${admin_token}" -d '{"new_username": "forge_user"}' https://gitea.${DOMAIN}/api/v1/admin/users/forge/rename
     curl -H "Content-Type: application/json" -H "Authorization: Bearer ${admin_token}" -d '{"username": "forge"}' https://gitea.${DOMAIN}/api/v1/admin/users/forge_user/orgs
@@ -36,6 +42,11 @@ data:
       --scopes "groups" \
       --group-team-map "{\"/gitea-users\":{\"forge\":[\"Developers\"]}}" \
       --auto-discover-url "https://kc.${DOMAIN}/realms/k8s/.well-known/openid-configuration"
+
+
+    podname=$(kubectl -n cf-gitea get pods --selector=app=gitea -o jsonpath='{.items[*].metadata.name}')
+    kubectl -n cf-gitea delete pod/$podname
+
 ---
 apiVersion: batch/v1
 kind: Job
@@ -93,7 +104,7 @@ metadata:
 rules:
 - apiGroups: ["", "apps"]
   resources: ["pods"]
-  verbs: ["get", "list"]
+  verbs: ["get", "list", "delete"]
 - apiGroups: ["", "apps"]
   resources: ["deployments"]
   verbs: ["get", "list"]
