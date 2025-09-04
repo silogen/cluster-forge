@@ -205,11 +205,54 @@ tm next-task
 tm set-task-status <task-id> <status>
 ```
 
+## 🌟 Build and Release Flow
+
+```mermaid
+flowchart TB
+    subgraph "🚀 Triggers"
+        A[📥 Pull Request to main] --> Start
+        B[🛠️ Manual Workflow] --> Start
+    end
+
+    Start --> version[🔢 Version Job]
+
+    version --> C{📦 Is Manual Release?}
+    C -->|❌ No| build[🏗️ Build Job]
+    C -->|✅ Yes| create[📜 Create Release Job]
+    create --> build
+
+    subgraph "🔄 Build Job Matrix"
+        build --> BuildTypes[🛠️ Build All Types]
+
+        subgraph "📂 For Each Type"
+            BuildTypes --> L[🔨 Build Docker Image]
+            L --> M[📦 Create Package]
+            M --> N{📦 Is Manual Release?}
+            N -->|❌ No| O[✅ End]
+            N -->|✅ Yes| S[📤 Upload Asset to Release]
+            S --> T{🌟 Is Enterprise AI?}
+            T -->|✅ Yes| U[📤 Update Deploy Package]
+        end
+    end
+
+    classDef trigger fill:#f96
+    classDef job fill:#58f
+    classDef condition fill:#ff9
+    classDef action fill:#9f9
+    classDef matrix fill:#f6f
+
+    class A,B trigger
+    class version,create,build job
+    class C,N,T condition
+    class L,M,S,U action
+    class BuildTypes matrix
+```
+
 ## 🐞 Known Issues
 
 Cluster-Forge is still a work in progress with the following known issues:
 
-1. **Terminal Line Handling**: Errors occurring alongside the progress spinner may cause terminal formatting issues. To restore the terminal, run:  
+1. **Terminal Line Handling**: Errors occurring alongside the progress spinner may cause terminal formatting issues. To restore the terminal, run:
    ```sh
    reset
    ```
