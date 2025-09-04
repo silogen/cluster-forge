@@ -88,11 +88,12 @@ jobs:
           VERSION: ${{ needs.version.outputs.new_version }}
         run: |
           gh release create "$VERSION" \
+              --latest=false \
+              --draft \
+              --prerelease \
               --title="ClusterForge Release $VERSION" \
               --repo="$GITHUB_REPOSITORY" \
-              --generate-notes \
-              --prerelease
-
+              --generate-notes
   build:
     needs: [version, create_release]
     runs-on: ubuntu-latest
