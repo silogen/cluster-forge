@@ -121,6 +121,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Smelt
+        run: |
+          go run . smelt \
+            --config input/config-silogen-${{ matrix.release.type }}.yaml \
+            --non-interactive
+
       - name: Cast
         env:
           VERSION: ${{ needs.version.outputs.new_version }}
