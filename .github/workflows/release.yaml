@@ -77,57 +77,69 @@ jobs:
           echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
           echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
 
-  # create_release:
-  #   needs: version
-  #   if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.event.inputs.is_prerelease != 'true'
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Create GitHub Release
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #         VERSION: ${{ needs.version.outputs.new_version }}
-  #       run: |
-  #         gh release create "$VERSION" \
-  #             --title="ClusterForge Release $VERSION" \
-  #             --repo="$GITHUB_REPOSITORY" \
-  #             --generate-notes
+  create_release:
+    needs: version
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.event.inputs.is_prerelease != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.new_version }}
+        run: |
+          gh release create "$VERSION" \
+              --title="ClusterForge Release $VERSION" \
+              --repo="$GITHUB_REPOSITORY" \
+              --generate-notes
+              --prerelease
 
-  # build:
-  #   needs: version
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     matrix:
-  #       release:
-  #         - type: enterprise-ai
-  #           name: Enterprise AI
-  #         - type: core
-  #           name: Core
-  #         - type: wekafs
-  #           name: WekaFS
-  #         - type: nuage
-  #           name: Nuage
-  #   steps:
-  #     - uses: actions/checkout@v4
+  build:
+    needs: [version, create_release]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        release:
+          - type: enterprise-ai
+            name: Enterprise AI
+          - type: core
+            name: Core
+          - type: wekafs
+            name: WekaFS
+          - type: nuage
+            name: Nuage
+    steps:
+      - uses: actions/checkout@v4
 
-  #     - name: Set up Docker Buildx
-  #       uses: docker/setup-buildx-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-  #     - name: Login to GitHub Container Registry
-  #       uses: docker/login-action@v2
-  #       with:
-  #         registry: ghcr.io
-  #         username: ${{ github.actor }}
-  #         password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-  #     - name: Cast
-  #       env:
-  #         VERSION: ${{ needs.version.outputs.new_version }}
-  #       run: |
-  #         go run . cast \
-  #           --config input/config-silogen-${{ matrix.release.type }}.yaml \
-  #           --imageName ghcr.io/silogen/clusterforge:$VERSION-${{ matrix.release.type }} \
-  #           --stackName ${{ matrix.release.type }}-$VERSION \
-  #           --non-interactive
+      - name: Cast
+        env:
+          VERSION: ${{ needs.version.outputs.new_version }}
+        run: |
+          echo "Building stack for ${{ matrix.release.type }} version $VERSION"
+          # go run . cast \
+          #   --config input/config-silogen-${{ matrix.release.type }}.yaml \
+          #   --imageName ghcr.io/silogen/clusterforge:$VERSION-${{ matrix.release.type }} \
+          #   --stackName ${{ matrix.release.type }}-$VERSION \
+          #   --non-interactive
+
+      # - name: Cast
+      #   env:
+      #     VERSION: ${{ needs.version.outputs.new_version }}
+      #   run: |
+      #     go run . cast \
+      #       --config input/config-silogen-${{ matrix.release.type }}.yaml \
+      #       --imageName ghcr.io/silogen/clusterforge:$VERSION-${{ matrix.release.type }} \
+      #       --stackName ${{ matrix.release.type }}-$VERSION \
+      #       --non-interactive
 
   #     - name: Create release package
   #       env:
