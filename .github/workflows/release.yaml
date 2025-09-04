@@ -104,7 +104,7 @@ jobs:
             name: Enterprise AI
           - type: core
             name: Core
-          - type: wekafs
+          - type: weka
             name: WekaFS
           - type: nuage
             name: Nuage
