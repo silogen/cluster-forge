@@ -125,67 +125,56 @@ jobs:
         env:
           VERSION: ${{ needs.version.outputs.new_version }}
         run: |
-          echo "Building stack for ${{ matrix.release.type }} version $VERSION"
-          # go run . cast \
-          #   --config input/config-silogen-${{ matrix.release.type }}.yaml \
-          #   --imageName ghcr.io/silogen/clusterforge:$VERSION-${{ matrix.release.type }} \
-          #   --stackName ${{ matrix.release.type }}-$VERSION \
-          #   --non-interactive
+          go run . cast \
+            --config input/config-silogen-${{ matrix.release.type }}.yaml \
+            --imageName ghcr.io/silogen/clusterforge:$VERSION-${{ matrix.release.type }} \
+            --stackName ${{ matrix.release.type }}-$VERSION \
+            --non-interactive
 
-      # - name: Cast
+      - name: Create release package
+        env:
+          VERSION: ${{ needs.version.outputs.new_version }}
+        run: |
+          tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz ${{ matrix.release.type }}-$VERSION
+
+      - name: Upload Release Asset
+        # if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.event.inputs.is_prerelease != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.new_version }}
+        run: |
+          # Upload asset to the release
+          gh release upload "$VERSION" \
+              "stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz#ClusterForge ${{ matrix.release.name }} Package" \
+              --clobber
+
+      # - name: Update Deploy Package
+      #   if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && matrix.release.type == 'enterprise-ai' && github.event.inputs.is_prerelease != 'true'
       #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       #     VERSION: ${{ needs.version.outputs.new_version }}
       #   run: |
-      #     go run . cast \
-      #       --config input/config-silogen-${{ matrix.release.type }}.yaml \
-      #       --imageName ghcr.io/silogen/clusterforge:$VERSION-${{ matrix.release.type }} \
-      #       --stackName ${{ matrix.release.type }}-$VERSION \
-      #       --non-interactive
+      #     # Create release if it doesn't exist (only for enterrise-ai as that is the one used by default in bloom)
+      #     if [[ "${{ matrix.release.type }}" == "enterprise-ai" ]]; then
+      #       gh release create "$VERSION" \
+      #           --title="ClusterForge Release $VERSION" \
+      #           --repo="$GITHUB_REPOSITORY" \
+      #           --generate-notes
+      #     fi
 
-  #     - name: Create release package
-  #       env:
-  #         VERSION: ${{ needs.version.outputs.new_version }}
-  #       run: |
-  #         tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz ${{ matrix.release.type }}-$VERSION
+      #     # Upload asset to the release
+      #     gh release upload "$VERSION" \
+      #         "stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz#ClusterForge ${{ matrix.release.name }} Package"
 
-  #     - name: Upload Release Asset
-  #       if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.event.inputs.is_prerelease != 'true'
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #         VERSION: ${{ needs.version.outputs.new_version }}
-  #       run: |
-  #         # Upload asset to the release
-  #         gh release upload "$VERSION" \
-  #             "stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz#ClusterForge ${{ matrix.release.name }} Package" \
-  #             --clobber
-
-  #     - name: Update Deploy Package
-  #       if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && matrix.release.type == 'enterprise-ai' && github.event.inputs.is_prerelease != 'true'
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #         VERSION: ${{ needs.version.outputs.new_version }}
-  #       run: |
-  #         # Create release if it doesn't exist (only for enterrise-ai as that is the one used by default in bloom)
-  #         if [[ "${{ matrix.release.type }}" == "enterprise-ai" ]]; then
-  #           gh release create "$VERSION" \
-  #               --title="ClusterForge Release $VERSION" \
-  #               --repo="$GITHUB_REPOSITORY" \
-  #               --generate-notes
-  #         fi
-
-  #         # Upload asset to the release
-  #         gh release upload "$VERSION" \
-  #             "stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz#ClusterForge ${{ matrix.release.name }} Package"
-
-  #         # For enterprise-ai, also update the deploy release
-  #         if [[ "${{ matrix.release.type }}" == "enterprise-ai" ]]; then
-  #           cp stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz stacks/deploy-release.tar.gz
-  #           if gh release view "deploy" --repo="$GITHUB_REPOSITORY"; then
-  #             gh release delete "deploy" --repo="$GITHUB_REPOSITORY" --cleanup-tag --yes
-  #           fi
-  #           gh release create "deploy" \
-  #               --title="ClusterForge Deploy Release $VERSION" \
-  #               --repo="$GITHUB_REPOSITORY" \
-  #               --generate-notes \
-  #               stacks/deploy-release.tar.gz
-  #         fi
+      #     # For enterprise-ai, also update the deploy release
+      #     if [[ "${{ matrix.release.type }}" == "enterprise-ai" ]]; then
+      #       cp stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz stacks/deploy-release.tar.gz
+      #       if gh release view "deploy" --repo="$GITHUB_REPOSITORY"; then
+      #         gh release delete "deploy" --repo="$GITHUB_REPOSITORY" --cleanup-tag --yes
+      #       fi
+      #       gh release create "deploy" \
+      #           --title="ClusterForge Deploy Release $VERSION" \
+      #           --repo="$GITHUB_REPOSITORY" \
+      #           --generate-notes \
+      #           stacks/deploy-release.tar.gz
+      #     fi
