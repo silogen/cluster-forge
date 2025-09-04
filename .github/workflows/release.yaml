@@ -90,7 +90,7 @@ jobs:
           gh release create "$VERSION" \
               --title="ClusterForge Release $VERSION" \
               --repo="$GITHUB_REPOSITORY" \
-              --generate-notes
+              --generate-notes \
               --prerelease
 
   build:
