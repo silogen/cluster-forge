@@ -444,6 +444,41 @@ spec:
   target:
     name: secrets-airm
 ---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: minio-keycloak-credentials
+  namespace: minio-tenant-default
+spec:
+  data:
+    - remoteRef:
+        key: minio-keycloak-client-secret
+      secretKey: MINIO_KEYCLOAK_CLIENT_SECRET
+  refreshInterval: 15s
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: airm-secret-store
+  target:
+    name: minio-keycloak-credentials
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: minio-keycloak-credentials
+  namespace: keycloak
+spec:
+  data:
+    - remoteRef:
+        key: minio-keycloak-client-secret
+      secretKey: MINIO_KEYCLOAK_CLIENT_SECRET
+  refreshInterval: 15s
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: airm-secret-store
+  target:
+    name: minio-keycloak-credentials
+---
+
 apiVersion: rabbitmq.com/v1beta1
 kind: RabbitmqCluster
 metadata:

@@ -222,6 +222,7 @@ spec:
 
               if [ -f "/opt/realm_templates/airm/airm-realm.json" ]; then
                   cp /opt/realm_templates/airm/airm-realm.json /opt/realms/airm-realm.json
+                  sed -i -e "s/__MINIO_KEYCLOAK_CLIENT_SECRET__/$MINIO_KEYCLOAK_CLIENT_SECRET/g" /opt/realms/airm-realm.json
                   sed -i -e "s/__AIRM_FRONTEND_CLIENT_SECRET__/$AIRM_FRONTEND_CLIENT_SECRET/g" /opt/realms/airm-realm.json
                   sed -i -e "s/__AIRM_ADMIN_CLIENT_ID__/$AIRM_ADMIN_CLIENT_ID/g" /opt/realms/airm-realm.json
                   sed -i -e "s/__AIRM_ADMIN_CLIENT_SECRET__/$AIRM_ADMIN_CLIENT_SECRET/g" /opt/realms/airm-realm.json
@@ -230,6 +231,11 @@ spec:
                   echo "Warning: /opt/realm_templates/airm/airm-realm.json not found, skipping airm realm setup"
               fi
           env:
+            - name: MINIO_KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                  secretKeyRef:
+                    key: MINIO_KEYCLOAK_CLIENT_SECRET
+                    name: minio-keycloak-client-secret
             - name: K8S_GITEA_CLIENT_SECRET
               valueFrom:
                   secretKeyRef:
