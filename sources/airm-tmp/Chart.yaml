@@ -1,0 +1,4 @@
+apiVersion: v2
+name: airm
+description: A Helm chart for airm
+version: 0.1.0

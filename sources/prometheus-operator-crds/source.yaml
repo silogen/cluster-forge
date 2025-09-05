@@ -1,0 +1,4 @@
+sourceUrl: https://prometheus-community.github.io/helm-charts
+sourceRepoName: prometheus-community
+sourceChartName: prometheus-operator-crds
+sourceVersion: 23.0.0

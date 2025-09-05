@@ -1,0 +1,4 @@
+sourceUrl: https://operator.min.io
+sourceRepoName:  minio-operator
+sourceChartName: tenant
+sourceVersion: 7.1.1

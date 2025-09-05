@@ -1,0 +1,5 @@
+global:
+  domain: # to be filled by cluster-forge app
+configs:
+  params:
+    server.insecure: true

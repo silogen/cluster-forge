@@ -1,0 +1,522 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: airm-api
+  name: airm-api
+  namespace: airm
+spec:
+  ports:
+    - name: web
+      port: 80
+      targetPort: 8080
+  selector:
+    app: airm-api
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: airm-ui
+  name: airm-ui
+  namespace: airm
+spec:
+  ports:
+    - port: 80
+      protocol: TCP
+      targetPort: 8000
+  selector:
+    app: airm-ui
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airm-api
+  namespace: airm
+spec:
+  selector:
+    matchLabels:
+      app: airm-api
+  template:
+    metadata:
+      labels:
+        app: airm-api
+        auth-required: "true"
+    spec:
+      containers:
+        - env:
+            - name: OPENID_CLIENT_ID
+              value: 354a0fa1-35ac-4a6d-9c4d-d661129c2cd0
+            - name: OPENID_CONFIGURATION_URL
+              value: http://kc.{{ .Values.domain }}/realms/airm/.well-known/openid-configuration
+            - name: POST_REGISTRATION_REDIRECT_URL
+              value: https://airm.{{ .Values.domain }}/
+            - name: CLUSTER_BASE_URL
+              value: https://workspaces.{{ .Values.domain }}/
+            - name: DATABASE_HOST
+              value: airm-cnpg-rw.airm.svc.cluster.local
+            - name: DATABASE_PORT
+              value: "5432"
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: airm-cnpg-user
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: airm-cnpg-user
+            - name: RABBITMQ_HOST
+              value: rabbitmq.airm.svc.cluster.local
+            - name: RABBITMQ_PORT
+              value: "5672"
+            - name: RABBITMQ_MANAGEMENT_URL
+              value: http://rabbitmq.airm.svc.cluster.local:15672/api
+            - name: RABBITMQ_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: airm-rabbitmq-admin
+            - name: RABBITMQ_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: airm-rabbitmq-admin
+            - name: KEYCLOAK_ADMIN_SERVER_URL
+              value: http://keycloak.keycloak.svc.cluster.local:8080
+            - name: KEYCLOAK_REALM
+              value: airm
+            - name: KEYCLOAK_ADMIN_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  key: client-id
+                  name: airm-keycloak-admin-client
+            - name: KEYCLOAK_ADMIN_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: client-secret
+                  name: airm-keycloak-admin-client
+            - name: MINIO_URL
+              value: http://minio.minio-tenant-default.svc.cluster.local:80
+            - name: MINIO_BUCKET
+              value: default-bucket
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: minio-access-key
+                  name: api-minio-credentials
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: minio-secret-key
+                  name: api-minio-credentials
+            - name: PROMETHEUS_URL
+              value: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:9090
+          image: ghcr.io/silogen/airm-api:v2025.08.001
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /v1/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 2
+          name: airm
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /v1/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 2
+          resources:
+            limits:
+              memory: 1Gi
+            requests:
+              cpu: 500m
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+      initContainers:
+        - command:
+            - sh
+            - -c
+            - cp /code/migrations/* /mnt/code/migrations/
+          image: ghcr.io/silogen/airm-api:v2025.08.001
+          name: init-migration-scripts
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - mountPath: /mnt/code/migrations
+              name: airm-migration-volume
+        - command:
+            - liquibase
+            - --url=jdbc:postgresql://airm-cnpg-rw.airm.svc.cluster.local:5432/airm
+            - --username=$(DATABASE_USER)
+            - --password=$(DATABASE_PASSWORD)
+            - --logLevel=INFO
+            - --changeLogFile=changelog/changelog.xml
+            - update
+          env:
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: airm-cnpg-user
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: airm-cnpg-user
+          image: quay.io/lib/liquibase:latest
+          name: liquibase-migrate
+          volumeMounts:
+            - mountPath: /liquibase/changelog
+              name: airm-migration-volume
+              readOnly: true
+      volumes:
+        - emptyDir: {}
+          name: airm-migration-volume
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airm-ui
+  namespace: airm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airm-ui
+  template:
+    metadata:
+      labels:
+        app: airm-ui
+    spec:
+      containers:
+        - env:
+            - name: NEXTAUTH_URL
+              value: https://airmui.{{ .Values.domain }}
+            - name: KEYCLOAK_ISSUER
+              value: https://kc.{{ .Values.domain }}/realms/airm
+            - name: KEYCLOAK_ID
+              value: 354a0fa1-35ac-4a6d-9c4d-d661129c2cd0
+            - name: KEYCLOAK_ISSUER_INTERNAL_URL
+              value: http://keycloak.keycloak.svc.cluster.local:8080/realms/airm/
+            - name: AIRM_API_SERVICE_URL
+              value: http://airm-api.airm.svc.cluster.local
+          envFrom:
+            - secretRef:
+                name: secrets-airm
+          image: ghcr.io/silogen/airm-ui:v2025.08.001
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 2
+          name: airm-ui
+          ports:
+            - containerPort: 8000
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: 4Gi
+            requests:
+              cpu: 500m
+              memory: 4Gi
+      restartPolicy: Always
+status: {}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rabbitmq-backup-cron
+  namespace: airm
+spec:
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          annotations:
+            silodev.disabled: "true"
+        spec:
+          containers:
+            - env:
+                - name: RABBITMQ_URL
+                  value: http://rabbitmq.airm.svc.cluster.local:15672
+                - name: RABBITMQ_USER
+                  valueFrom:
+                    secretKeyRef:
+                      key: username
+                      name: airm-rabbitmq-admin
+                - name: RABBITMQ_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      key: password
+                      name: airm-rabbitmq-admin
+                - name: S3_HOST
+                  value: https://storage.googleapis.com
+                - name: S3_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      key: access_key
+                      name: rabbitmq-backup-minio-credentials
+                - name: S3_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      key: secret_key
+                      name: rabbitmq-backup-minio-credentials
+              image: ghcr.io/silogen/rabbitmq-backup:0.1
+              name: rabbitmq-backup-cron
+              resources:
+                limits:
+                  memory: 100Mi
+                requests:
+                  cpu: 50m
+                  memory: 100Mi
+          restartPolicy: OnFailure
+  schedule: 0 * * * *
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: tls-cert
+  namespace: airm
+spec:
+  dnsNames:
+    - rabbitmq.airm.svc.cluster.local
+    - '*.rabbitmq-nodes.airm.svc.cluster.local'
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: tls-secret
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+  namespace: airm
+spec:
+  selfSigned: {}
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: airm-keycloak-admin-client
+  namespace: airm
+spec:
+  data:
+    - remoteRef:
+        key: airm-keycloak-admin-client-id
+      secretKey: client-id
+    - remoteRef:
+        key: airm-keycloak-admin-client-secret
+      secretKey: client-secret
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: airm-secret-store
+  target:
+    name: airm-keycloak-admin-client
+    template:
+      type: Opaque
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: airm-rabbitmq-admin
+  namespace: airm
+spec:
+  data:
+    - remoteRef:
+        key: airm-rabbitmq-user-username
+      secretKey: username
+    - remoteRef:
+        key: airm-rabbitmq-user-password
+      secretKey: password
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: airm-secret-store
+  target:
+    name: airm-rabbitmq-admin
+    template:
+      data:
+        default_user.conf: |
+          default_user = '{{ "{{" }}.username{{ "}}"}}'
+          default_pass = '{{ "{{" }}.password{{ "}}"}}'
+        password: '{{ "{{" }}.password{{ "}}"}}'
+        username: '{{ "{{" }}.username{{ "}}"}}'
+      type: Opaque
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: api-minio-credentials
+  namespace: airm
+spec:
+  data:
+    - remoteRef:
+        key: default-user
+        property: API_ACCESS_KEY
+      secretKey: minio-access-key
+    - remoteRef:
+        key: default-user
+        property: API_SECRET_KEY
+      secretKey: minio-secret-key
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: k8s-secret-store
+  target:
+    name: api-minio-credentials
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: rabbitmq-backup-minio-credentials
+  namespace: airm
+spec:
+  data:
+    - remoteRef:
+        key: hmac-keys-access-key
+      secretKey: access_key
+    - remoteRef:
+        key: hmac-keys-secret-key
+      secretKey: secret_key
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: airm-secret-store
+  target:
+    name: rabbitmq-backup-minio-credentials
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: secrets-airm
+  namespace: airm
+spec:
+  data:
+    - remoteRef:
+        key: airm-legacy-auth-nextauth-secret
+      secretKey: NEXTAUTH_SECRET
+    - remoteRef:
+        key: airm-ui-keycloak-secret
+      secretKey: KEYCLOAK_SECRET
+  refreshInterval: 15s
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: airm-secret-store
+  target:
+    name: secrets-airm
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: rabbitmq
+  namespace: airm
+spec:
+  persistence:
+    storage: 20Gi
+    storageClassName: default
+  replicas: 1
+  resources:
+    limits:
+      cpu: "1"
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  secretBackend:
+    externalSecret:
+      name: airm-rabbitmq-admin
+  tls:
+    secretName: tls-secret
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: airmapi-route
+  namespace: airm
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: https
+    namespace: kgateway-system
+  rules:
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: airm-api
+      port: 80
+      weight: 1
+    matches:
+    - headers:
+      - name: Host
+        type: RegularExpression
+        value: airmapi\..*
+      path:
+        type: PathPrefix
+        value: /
+    timeouts:
+      backendRequest: 20s
+      request: 90s
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: airmui-route
+  namespace: airm
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: https
+    namespace: kgateway-system
+  rules:
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: airm-ui
+      port: 80
+      weight: 1
+    matches:
+    - headers:
+      - name: Host
+        type: RegularExpression
+        value: airmui\..*
+      path:
+        type: PathPrefix
+        value: /
+    timeouts:
+      backendRequest: 20s
+      request: 90s

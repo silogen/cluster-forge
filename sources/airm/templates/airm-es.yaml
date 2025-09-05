@@ -1,0 +1,150 @@
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: '{{ .Release.Name }}-airm-cnpg-superuser'
+  namespace: '{{ .Release.Namespace }}'
+spec:
+  data:
+    - remoteRef:
+        key: airm-cnpg-superuser-username
+      secretKey: username
+    - remoteRef:
+        key: airm-cnpg-superuser-password
+      secretKey: password
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.airm.externalSecretStore.airm.name }}
+  target:
+    name: '{{ .Release.Name }}-airm-cnpg-superuser'
+    template:
+      type: Opaque
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: '{{ .Release.Name }}-airm-cnpg-user'
+  namespace: '{{ .Release.Namespace }}'
+spec:
+  data:
+    - remoteRef:
+        key: airm-cnpg-user-username
+      secretKey: username
+    - remoteRef:
+        key: airm-cnpg-user-password
+      secretKey: password
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.airm.externalSecretStore.airm.name }}
+  target:
+    name: '{{ .Release.Name }}-airm-cnpg-user'
+    template:
+      type: Opaque
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name:  '{{ .Release.Name }}-airm-keycloak-admin-client'
+  namespace: '{{ .Release.Namespace }}'
+spec:
+  data:
+    - remoteRef:
+        key: airm-keycloak-admin-client-id
+      secretKey: client-id
+    - remoteRef:
+        key: airm-keycloak-admin-client-secret
+      secretKey: client-secret
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.airm.externalSecretStore.keycloak.name }}
+  target:
+    name: '{{ .Release.Name }}-airm-keycloak-admin-client'
+    template:
+      type: Opaque
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: '{{ .Release.Name }}-airm-rabbitmq-admin'
+  namespace: '{{ .Release.Namespace }}'
+spec:
+  data:
+    - remoteRef:
+        key: airm-rabbitmq-user-username
+      secretKey: username
+    - remoteRef:
+        key: airm-rabbitmq-user-password
+      secretKey: password
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.airm.externalSecretStore.airm.name }}
+  target:
+    name: '{{ .Release.Name }}-airm-rabbitmq-admin'
+    template:
+      data:
+        default_user.conf: |
+          default_user = {{ "{{ .username }}" }}
+          default_pass = {{ "{{ .password }}" }}
+        password: '{{ "{{ .password }}" }}'
+        username: '{{ "{{ .username }}" }}'
+      type: Opaque
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: '{{ .Release.Name }}-api-minio-credentials'
+  namespace: '{{ .Release.Namespace }}'
+spec:
+  data:
+    - remoteRef:
+        key: default-user
+        property: API_ACCESS_KEY
+      secretKey: minio-access-key
+    - remoteRef:
+        key: default-user
+        property: API_SECRET_KEY
+      secretKey: minio-secret-key
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.airm.externalSecretStore.minio.name }}
+  target:
+    name: '{{ .Release.Name }}-api-minio-credentials'
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: '{{ .Release.Name }}-rabbitmq-backup-minio-credentials'
+  namespace: '{{ .Release.Namespace }}'
+spec:
+  data:
+    - remoteRef:
+        key: hmac-keys-access-key
+      secretKey: access_key
+    - remoteRef:
+        key: hmac-keys-secret-key
+      secretKey: secret_key
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.airm.externalSecretStore.airm.name }}
+  target:
+    name: '{{ .Release.Name }}-rabbitmq-backup-minio-credentials'
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: '{{ .Release.Name }}-secrets-airm'
+  namespace: '{{ .Release.Namespace }}'
+spec:
+  data:
+    - remoteRef:
+        key: airm-legacy-auth-nextauth-secret
+      secretKey: NEXTAUTH_SECRET
+    - remoteRef:
+        key: airm-ui-keycloak-secret
+      secretKey: KEYCLOAK_SECRET
+  refreshInterval: 15s
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.airm.externalSecretStore.keycloak.name }}
+  target:
+    name: '{{ .Release.Name }}-secrets-airm'

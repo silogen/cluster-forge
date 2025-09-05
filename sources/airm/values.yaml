@@ -1,0 +1,169 @@
+# This is a YAML-formatted file
+secretgenerator:
+  image:
+    repository: ghcr.io/silogen/kubectl
+    tag: latest
+    pullPolicy: IfNotPresent
+
+kgateway:
+  namespace: kgateway-system
+  gatewayName: https
+  airmapi:
+    servicePort: 80
+    prefixValue: airmapi #airmapi-demo
+  airmui:
+    servicePort: 80
+    prefixValue: airmui #airmui-demo
+  keycloak:
+    servicePort: 80
+    prefixValue: kc
+
+keycloak:
+  prefixUrl: kc
+  keycloakClientId: '354a0fa1-35ac-4a6d-9c4d-d661129c2cd0'
+  namespace: keycloak
+  serviceName: keycloak
+  servicePort: 8080
+
+airm:
+  appDomain: PUBLIC-NODE-IP.nip.io # Put the valid public IP of the cluster
+
+  externalSecretStore:
+    keycloak:
+      name: keycloak-secret-store
+    airm:
+      name: airm-secret-store
+    minio:
+      name: k8s-secret-store
+
+  postgresql:
+    enabled: true
+    cnpg:
+      image: ghcr.io/cloudnative-pg/postgresql:17
+      instance: 1
+      resources:
+        limits:
+          cpu: "2"
+          memory: 1Gi
+        requests:
+          cpu: "1"
+          memory: 512Mi
+      storage:
+        size: 50Gi
+        storageClass: default
+      walStorage:
+        size: 50Gi
+        storageClass: default
+
+  rabbitmqBackup:
+    enabled: false
+    image: ghcr.io/silogen/rabbitmq-backup:0.1
+    replicas: 1
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+    persistence:
+      storage: 20Gi
+      storageClassName: default
+    cronJob:
+      resources:
+        limits:
+          memory: 512Mi
+        requests:
+          cpu: 250m
+          memory: 256Mi
+
+  dispatcher:
+    core:
+      image:
+        repository: ghcr.io/silogen/airm-dispatcher
+        tag: v2025.08-rc.21
+        pullPolicy: IfNotPresent
+      servicePort: 80
+    heartbeat:
+      image:
+        repository: ghcr.io/silogen/airm-dispatcher
+        tag: v2025.08-rc.21
+        pullPolicy: IfNotPresent
+    nodes:
+      image:
+        repository: ghcr.io/silogen/airm-dispatcher
+        tag: v2025.08-rc.21
+        pullPolicy: IfNotPresent
+
+  frontend:
+    prefixUrl: airmui
+    image:
+      repository: ghcr.io/silogen/airm-ui
+      tag: v2025.08-rc.21
+      pullPolicy: IfNotPresent
+    servicePort: 80
+    replicase: 1
+    resources:
+      limits:
+        memory: 4Gi
+      requests:
+        cpu: 500m
+        memory: 4Gi
+    # FIXME
+    # resources:
+    #   '{{- toYaml .Values.airm.frontend.resources | nindent 12 }}'
+
+  workloads:
+    prefixUrl: workspaces
+    image:
+      repository: ghcr.io/silogen/workloads-manager
+      tag: v2025.08-rc.8
+      pullPolicy: IfNotPresent
+
+  backend:
+    prefixUrl: airmapi
+    image:
+      repository: ghcr.io/silogen/airm-api
+      tag: v2025.08-rc.21
+      pullPolicy: IfNotPresent
+    initContainers:
+      initMigrationScripts:
+        repository: ghcr.io/silogen/airm-api
+        tag: v2025.08-rc.21
+        pullPolicy: IfNotPresent
+      liquibaseMigrate:
+        repository: quay.io/lib/liquibase
+        tag: latest
+        pullPolicy: IfNotPresent
+      chartsRegistration:
+        repository: ghcr.io/silogen/airm-api
+        tag: v2025.08-rc.21
+        pullPolicy: IfNotPresent
+
+    servicePort: 80
+    servicePortMetrics: 9009
+    env:
+      dbPort: 5432
+      rabbitmqPort: 5672
+      minio_url: http://minio.minio-tenant-default.svc.cluster.local:80
+      minio_bucket: default-bucket
+      prometheus_url: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:9090
+
+    resources:
+      limits:
+        memory: 1Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      runAsUser: 1000
+      seccompProfile:
+        type: RuntimeDefault
+
+# All junk values below this line
+#########################################################################################################
+
+# nodeSelector: {}
+# tolerations: []
+# affinity: {}

@@ -1,0 +1,22 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: https
+  namespace: kgateway-system
+spec:
+  gatewayClassName: kgateway
+  listeners:
+    - allowedRoutes:
+        namespaces:
+          from: All
+      hostname: "*.{{ .Values.domain }}"
+      name: https
+      port: 443
+      protocol: HTTPS
+      tls:
+        certificateRefs:
+          - group: ''	
+            kind: Secret	
+            name: cluster-tls
+        mode: Terminate
