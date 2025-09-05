@@ -149,6 +149,10 @@ jobs:
           VERSION: ${{ needs.version.outputs.new_version }}
         run: |
           # Upload asset to the release
+          if [[ "${{ matrix.release.type }}" == "enterprise-ai" ]]; then
+            cp stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz stacks/deploy-release.tar.gz
+          fi
+          ls stacks/
           gh release upload "$VERSION" \
               "stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz#ClusterForge ${{ matrix.release.name }} Package" \
               --clobber
