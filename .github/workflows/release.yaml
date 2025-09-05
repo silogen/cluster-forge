@@ -92,7 +92,7 @@ jobs:
               --prerelease \
               --title="ClusterForge Release $VERSION" \
               --repo="$GITHUB_REPOSITORY" \
-              --generate-notes
+              --generate-notes || true # Ignore if release already exists
   build:
     needs: [version, create_release]
     runs-on: ubuntu-latest
