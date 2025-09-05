@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: airm-rabbitmq-common-vhost-user
+type: Opaque
+data:
+  password: dmVyeS1zdHJvbmctcGFzc3dvcmQ=
+  username: dmVyeS1zdHJvbmctcGFzc3dvcmQ=

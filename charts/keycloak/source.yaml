@@ -1,0 +1,4 @@
+sourceUrl: https://codecentric.github.io/helm-charts
+sourceRepoName: keycloak
+sourceChartName: external-secrets
+sourceVersion: 18.10.0

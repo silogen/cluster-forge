@@ -1,0 +1,4 @@
+apiVersion: v2
+name: minio-tenant-config
+description: A Helm chart with config for minio-tenant
+version: 0.1.0

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: airm-configure
+description: A Helm chart for airm-configure
+version: 0.1.0

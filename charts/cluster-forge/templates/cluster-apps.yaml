@@ -20,6 +20,13 @@ spec:
       valueFiles:
         - {{ .valuesFile }}
     {{- end }}
+      {{- if .helmParameters }}
+      parameters:
+      {{- range $parameter := .helmParameters }}
+        - name: {{ include "common.tplvalues.render" ( dict "value" $parameter.name "context" $) | quote }}
+          value: {{ include "common.tplvalues.render" ( dict "value" $parameter.value "context" $) | quote }}
+      {{- end }}
+    {{- end }}
   {{- with .ignoreDifferences }}
     ignoreDifferences: {{ . | toYaml | nindent 6 }}
   {{- end }}

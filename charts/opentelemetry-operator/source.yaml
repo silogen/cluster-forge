@@ -1,0 +1,4 @@
+sourceUrl: https://open-telemetry.github.io/opentelemetry-helm-charts
+sourceRepoName: open-telemetry
+sourceChartName: opentelemetry-operator
+sourceVersion: 0.93.1

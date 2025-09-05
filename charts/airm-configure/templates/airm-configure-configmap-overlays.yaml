@@ -1,0 +1,45 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configure-overlays
+  namespace: default
+data:
+
+  env-vars.yaml: |
+
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: airm-dispatcher
+      namespace: airm
+    spec:
+      template:
+        spec:
+          containers:
+          - name: airm-dispatcher
+            env:
+            - name: KUBE_CLUSTER_NAME
+              value: "demo-cluster"
+            - name: ORG_NAME
+              value: "demo"
+
+  kustomization.yaml: |
+
+    apiVersion: kustomize.config.k8s.io/v1beta1
+    kind: Kustomization
+    namespace: airm
+
+    resources:
+    - ../base
+
+    patches:
+    - path: env-vars.yaml
+
+    images:
+    - name: europe-west4-docker.pkg.dev/silogen-dev/silogen-dev/airm-dispatcher
+      newName: ghcr.io/silogen/airm-dispatcher
+      newTag: main #main-c2deeceb
+
+    patchesStrategicMerge:
+    - ../base/external-secret.yaml

@@ -4,7 +4,7 @@ metadata:
   # the names for the device plugin, metrics exporter and node labeler pods will be prefixed with this name
   name: gpu-operator
   # it is highly recommended to use the namespace where AMD GPU Operator is running
-  namespace: amd-gpu-operator
+  namespace: kube-amd-gpu
 spec:
   driver:
     # set to ture for deploying out-of-tree driver with specified ROCm version 
