@@ -49,7 +49,7 @@ jobs:
 
           # For pull requests, use a test version
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            NEW_VERSION="${CURRENT_VERSION}-pr.${{ github.event.pull_request.number }}"
+            NEW_VERSION="pr-${{ github.head_ref }}"
           else
             case "${{ github.event.inputs.version_type }}" in
               major)
@@ -94,65 +94,65 @@ jobs:
               --title="ClusterForge Release $VERSION" \
               --repo="$GITHUB_REPOSITORY" \
               --generate-notes
-  build:
-    needs: [version, create_release]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        release:
-          - type: enterprise-ai
-            name: Enterprise AI
-          - type: core
-            name: Core
-          - type: weka
-            name: WekaFS
-          - type: nuage
-            name: Nuage
-    steps:
-      - uses: actions/checkout@v4
+  # build:
+  #   needs: [version, create_release]
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     matrix:
+  #       release:
+  #         - type: enterprise-ai
+  #           name: Enterprise AI
+  #         - type: core
+  #           name: Core
+  #         - type: weka
+  #           name: WekaFS
+  #         - type: nuage
+  #           name: Nuage
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v2
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Login to GitHub Container Registry
+  #       uses: docker/login-action@v2
+  #       with:
+  #         registry: ghcr.io
+  #         username: ${{ github.actor }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Smelt
-        run: |
-          go run . smelt \
-            --config input/config-silogen-${{ matrix.release.type }}.yaml \
-            --non-interactive
+  #     - name: Smelt
+  #       run: |
+  #         go run . smelt \
+  #           --config input/config-silogen-${{ matrix.release.type }}.yaml \
+  #           --non-interactive
 
-      - name: Cast
-        env:
-          VERSION: ${{ needs.version.outputs.new_version }}
-        run: |
-          go run . cast \
-            --config input/config-silogen-${{ matrix.release.type }}.yaml \
-            --imageName ghcr.io/silogen/clusterforge:$VERSION-${{ matrix.release.type }} \
-            --stackName ${{ matrix.release.type }}-$VERSION \
-            --non-interactive
+  #     - name: Cast
+  #       env:
+  #         VERSION: ${{ needs.version.outputs.new_version }}
+  #       run: |
+  #         go run . cast \
+  #           --config input/config-silogen-${{ matrix.release.type }}.yaml \
+  #           --imageName ghcr.io/silogen/clusterforge:$VERSION-${{ matrix.release.type }} \
+  #           --stackName ${{ matrix.release.type }}-$VERSION \
+  #           --non-interactive
 
-      - name: Create release package
-        env:
-          VERSION: ${{ needs.version.outputs.new_version }}
-        run: |
-          tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz ${{ matrix.release.type }}-$VERSION
+  #     - name: Create release package
+  #       env:
+  #         VERSION: ${{ needs.version.outputs.new_version }}
+  #       run: |
+  #         tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz ${{ matrix.release.type }}-$VERSION
 
-      - name: Upload Release Asset
-        # if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.event.inputs.is_prerelease != 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.version.outputs.new_version }}
-        run: |
-          # Upload asset to the release
-          gh release upload "$VERSION" \
-              "stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz#ClusterForge ${{ matrix.release.name }} Package" \
-              --clobber
+  #     - name: Upload Release Asset
+  #       # if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.event.inputs.is_prerelease != 'true'
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #         VERSION: ${{ needs.version.outputs.new_version }}
+  #       run: |
+  #         # Upload asset to the release
+  #         gh release upload "$VERSION" \
+  #             "stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz#ClusterForge ${{ matrix.release.name }} Package" \
+  #             --clobber
 
       # - name: Update Deploy Package
       #   if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && matrix.release.type == 'enterprise-ai' && github.event.inputs.is_prerelease != 'true'
