@@ -89,7 +89,6 @@ jobs:
         run: |
           gh release create "$VERSION" \
               --latest=false \
-              --draft \
               --prerelease \
               --title="ClusterForge Release $VERSION" \
               --repo="$GITHUB_REPOSITORY" \
