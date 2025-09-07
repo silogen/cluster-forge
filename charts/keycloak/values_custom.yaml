@@ -6,6 +6,9 @@ resources:
     memory: "1Gi"
     cpu: "1000m"
 
+podLabels:
+  app: keycloak
+
 extraInitContainers:
   - command:
       - /bin/sh
