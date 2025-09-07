@@ -1,9 +1,9 @@
 tenant:
   name: default-minio-tenant
   configuration:
-    name: default-minio-tenant-env-configuration
+    name: default-minio-tenant
   configSecret: 
-    name: example-minio-config-secret
+    name: default-minio-tenant
   pools:
     - servers: 1
       name: pool-0

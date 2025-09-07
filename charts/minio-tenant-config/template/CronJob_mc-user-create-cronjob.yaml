@@ -40,7 +40,7 @@ spec:
               defaultMode: 420
               sources:
               - secret:
-                  name: default-minio-tenant-env-configuration
+                  name: default-minio-tenant
           - name: user
             projected:
               defaultMode: 0700
