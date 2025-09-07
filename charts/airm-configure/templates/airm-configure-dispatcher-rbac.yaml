@@ -156,12 +156,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: airm-rabbitmq-common-vhost-user
+                  name: airm-rabbitmq-admin
             - name: RABBITMQ_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: airm-rabbitmq-common-vhost-user
+                  name: airm-rabbitmq-admin
           image: ghcr.io/silogen/airm-dispatcher:v2025.08.001
           imagePullPolicy: Always
           livenessProbe:
