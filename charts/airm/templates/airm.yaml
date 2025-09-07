@@ -372,10 +372,10 @@ spec:
     template:
       data:
         default_user.conf: |
-          default_user = {{ .username }}
-          default_pass = {{ .password }}
-        password: '{{ .password }}'
-        username: '{{ .username }}'
+          default_user = '{{ "{{" }}.username{{ "}}"}}'
+          default_pass = '{{ "{{" }}.password{{ "}}"}}'
+        password: '{{ "{{" }}.password{{ "}}"}}'
+        username: '{{ "{{" }}.username{{ "}}"}}'
       type: Opaque
 ---
 apiVersion: external-secrets.io/v1
