@@ -1,0 +1,319 @@
+---
+# Source: keycloak/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: release-name-keycloa
+  labels:
+    helm.sh/chart: keycloak-18.10.0
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "17.0.1-legacy"
+    app.kubernetes.io/managed-by: Helm
+imagePullSecrets:
+    []
+---
+# Source: keycloak/templates/configmap-startup.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-name-keycloa-startup
+  labels:
+    helm.sh/chart: keycloak-18.10.0
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "17.0.1-legacy"
+    app.kubernetes.io/managed-by: Helm
+data:
+  keycloak.cli: |
+    embed-server --server-config=standalone-ha.xml --std-out=echo
+    batch
+    
+    echo Configuring node identifier
+    
+    ## Sets the node identifier to the node name (= pod name). Node identifiers have to be unique. They can have a
+    ## maximum length of 23 characters. Thus, the chart's fullname template truncates its length accordingly.
+    /subsystem=transactions:write-attribute(name=node-identifier, value=${jboss.node.name})
+    
+    echo Finished configuring node identifier
+    
+    run-batch
+    stop-embedded-server
+---
+# Source: keycloak/templates/service-headless.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: release-name-keycloa-headless
+  labels:
+    helm.sh/chart: keycloak-18.10.0
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "17.0.1-legacy"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: headless
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: release-name
+---
+# Source: keycloak/templates/service-http.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: release-name-keycloa-http
+  labels:
+    helm.sh/chart: keycloak-18.10.0
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "17.0.1-legacy"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: http
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+    - name: https
+      port: 8443
+      targetPort: https
+      protocol: TCP
+    - name: http-management
+      port: 9990
+      targetPort: http-management
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: release-name
+---
+# Source: keycloak/templates/statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: release-name-keycloa
+  labels:
+    helm.sh/chart: keycloak-18.10.0
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "17.0.1-legacy"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+      app.kubernetes.io/instance: release-name
+  replicas: 1
+  serviceName: release-name-keycloa-headless
+  podManagementPolicy: Parallel
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        checksum/config-startup: 45bab02d173bdbe8d43c19f4e990231d3eec848d52d922d4d5ec95fb9bae9d16
+        checksum/secrets: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+      labels:
+        app.kubernetes.io/name: keycloak
+        app.kubernetes.io/instance: release-name
+    spec:
+      initContainers:
+        
+        - command:
+          - /bin/sh
+          - -c
+          - |
+            cd /opt/scripts
+            zip -r /opt/keycloak/providers/SilogenExtensionPackage.jar .
+          image: ghcr.io/silogen/keycloak-init:0.1
+          name: init-auth-extensions
+          volumeMounts:
+          - mountPath: /opt/keycloak/providers
+            name: keycloak-package-volume
+          - mountPath: /opt/scripts
+            name: keycloak-script-volume
+        - command:
+          - /bin/sh
+          - -c
+          - |
+            if [ -f "/opt/realm_templates/k8s/k8s-realm.json" ]; then
+                cp /opt/realm_templates/k8s/k8s-realm.json /opt/realms/k8s-realm.json
+                sed -i -e "s/__K8S_GITEA_CLIENT_SECRET__/$K8S_GITEA_CLIENT_SECRET/g" /opt/realms/k8s-realm.json
+            else
+                echo "Warning: /opt/realm_templates/k8s/k8s-realm.json not found, skipping k8s realm setup"
+            fi
+        
+            if [ -f "/opt/realm_templates/airm/airm-realm.json" ]; then
+                cp /opt/realm_templates/airm/airm-realm.json /opt/realms/airm-realm.json
+                sed -i -e "s/__AIRM_FRONTEND_CLIENT_SECRET__/$AIRM_FRONTEND_CLIENT_SECRET/g" /opt/realms/airm-realm.json
+                sed -i -e "s/__AIRM_ADMIN_CLIENT_ID__/$AIRM_ADMIN_CLIENT_ID/g" /opt/realms/airm-realm.json
+                sed -i -e "s/__AIRM_ADMIN_CLIENT_SECRET__/$AIRM_ADMIN_CLIENT_SECRET/g" /opt/realms/airm-realm.json
+                sed -i -e "s/__AIRM_CI_CLIENT_SECRET__/$AIRM_CI_CLIENT_SECRET/g" /opt/realms/airm-realm.json
+            else
+                echo "Warning: /opt/realm_templates/airm/airm-realm.json not found, skipping airm realm setup"
+            fi
+          env:
+          - name: K8S_GITEA_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                key: GITEA_CLIENT_SECRET
+                name: k8s-realm-credentials
+          - name: AIRM_FRONTEND_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                key: FRONTEND_CLIENT_SECRET
+                name: airm-realm-credentials
+          - name: AIRM_ADMIN_CLIENT_ID
+            valueFrom:
+              secretKeyRef:
+                key: ADMIN_CLIENT_ID
+                name: airm-realm-credentials
+          - name: AIRM_ADMIN_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                key: ADMIN_CLIENT_SECRET
+                name: airm-realm-credentials
+          - name: AIRM_CI_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                key: CI_CLIENT_SECRET
+                name: airm-realm-credentials
+          image: ghcr.io/silogen/keycloak-init:0.1
+          name: init-realm-scripts
+          volumeMounts:
+          - mountPath: /opt/realm_templates/airm
+            name: keycloak-airm-realm-template-volume
+          - mountPath: /opt/realm_templates/k8s
+            name: keycloak-k8s-realm-template-volume
+          - mountPath: /opt/realms
+            name: keycloak-realm-volume
+      containers:
+        - name: keycloak
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+          image: "quay.io/keycloak/keycloak:17.0.1-legacy"
+          imagePullPolicy: IfNotPresent
+          command:
+            []
+          args:
+            []
+          env:
+          envFrom:
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: https
+              containerPort: 8443
+              protocol: TCP
+            - name: http-management
+              containerPort: 9990
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /auth/
+              port: http
+            initialDelaySeconds: 0
+            timeoutSeconds: 5
+            
+          readinessProbe:
+            httpGet:
+              path: /auth/realms/master
+              port: http
+            initialDelaySeconds: 30
+            timeoutSeconds: 1
+            
+          startupProbe:
+            httpGet:
+              path: /auth/
+              port: http
+            initialDelaySeconds: 30
+            timeoutSeconds: 1
+            failureThreshold: 60
+            periodSeconds: 5
+            
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+            requests:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: startup
+              mountPath: "/opt/jboss/startup-scripts/keycloak.cli"
+              subPath: "keycloak.cli"
+              readOnly: true
+            
+            - mountPath: /opt/keycloak/providers
+              name: keycloak-package-volume
+            - mountPath: /opt/keycloak/data/import
+              name: keycloak-realm-volume""
+      serviceAccountName: release-name-keycloa
+      securityContext:
+        fsGroup: 1000
+      enableServiceLinks: true
+      restartPolicy: Always
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: keycloak
+                  app.kubernetes.io/instance: release-name
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: NotIn
+                    values:
+                      - test
+              topologyKey: kubernetes.io/hostname
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: keycloak
+                    app.kubernetes.io/instance: release-name
+                  matchExpressions:
+                    - key: app.kubernetes.io/component
+                      operator: NotIn
+                      values:
+                        - test
+                topologyKey: failure-domain.beta.kubernetes.io/zone
+        
+      terminationGracePeriodSeconds: 60
+      volumes:
+        - name: startup
+          configMap:
+            name: release-name-keycloa-startup
+            defaultMode: 0555
+            items:
+              - key: keycloak.cli
+                path: keycloak.cli
+        - configMap:
+            items:
+            - key: keycloak-scripts.json
+              path: META-INF/keycloak-scripts.json
+            - key: domain-group-authenticator.js
+              path: domain-group-authenticator.js
+            name: keycloak-scripts-5h96f8448g
+          name: keycloak-script-volume
+        - emptyDir: {}
+          name: keycloak-package-volume
+        - configMap:
+            name: keycloak-realm-templates-7kgh2hc6b2
+          name: keycloak-airm-realm-template-volume
+        - emptyDir: {}
+          name: keycloak-realm-volume
+        - configMap:
+            name: keycloak-realm-templates-k8s
+          name: keycloak-k8s-realm-template-volume
