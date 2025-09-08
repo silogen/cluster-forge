@@ -91,6 +91,8 @@ apps:
   - name: otel-lgtm-stack
     path: otel-lgtm-stack
     namespace: otel-lgtm-stack
+    directory:
+      recurse: true
     syncWave: -20
 
   # Databases
