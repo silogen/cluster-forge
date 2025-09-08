@@ -186,6 +186,9 @@ apps:
     path: minio-tenant-config
     namespace: minio-tenant-default
     valuesFile: values.yaml
+    helmParameters:
+      - name: domain
+        value: "{{ .Values.common.domain }}"
     syncWave: -30
 
   # Kaiwo stuff
