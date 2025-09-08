@@ -23,8 +23,8 @@ keycloak:
   prefixUrl: kc
   keycloakClientId: '354a0fa1-35ac-4a6d-9c4d-d661129c2cd0'
   namespace: keycloak
-  serviceName: keycloak
-  servicePort: 8080
+  serviceName: keycloak-http
+  servicePort: 80
 
 airm:
   publicNodeIp: PUBLIC-NODE-IP.nip.io # Put the valid public IP of the cluster

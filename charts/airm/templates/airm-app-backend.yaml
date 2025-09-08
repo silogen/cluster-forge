@@ -107,10 +107,10 @@ spec:
             httpGet:
               path: /v1/health
               port: 8080
-            initialDelaySeconds: 10
+            initialDelaySeconds: 30
             periodSeconds: 5
             successThreshold: 1
-            timeoutSeconds: 2
+            timeoutSeconds: 10
           name: airm
           ports:
             - containerPort: 8080
@@ -119,10 +119,10 @@ spec:
             httpGet:
               path: /v1/health
               port: 8080
-            initialDelaySeconds: 10
+            initialDelaySeconds: 30
             periodSeconds: 5
             successThreshold: 1
-            timeoutSeconds: 2
+            timeoutSeconds: 10
           resources:
             {{- toYaml .Values.airm.backend.resources | nindent 12 }}
           securityContext:
