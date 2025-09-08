@@ -15,7 +15,7 @@ apps:
 
   # Core apps
   - name: argocd
-    path: argocd/8.3.0
+    path: argocd/8.3.5
     namespace: argocd
     valuesFile: values.yaml
     #valuesFile: ../values_ha.yaml
@@ -55,13 +55,13 @@ apps:
     syncWave: -50
 
   - name: kgateway-crds
-    path: kgateway-crds/v2.0.4
+    path: kgateway-crds/v2.1.0-main
     namespace: kgateway-system
     valuesFile: values.yaml
     syncWave: -45
 
   - name: kgateway
-    path: kgateway/v2.0.4
+    path: kgateway/v2.1.0-main
     namespace: kgateway-system
     valuesFile: values.yaml
     syncWave: -40
