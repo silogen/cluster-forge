@@ -4,6 +4,7 @@ tenant:
     name: default-minio-tenant
   configSecret: 
     name: default-minio-tenant
+    existingSecret: true
   pools:
     - servers: 1
       name: pool-0
