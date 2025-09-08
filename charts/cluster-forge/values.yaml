@@ -115,6 +115,13 @@ apps:
       - name: domain
         value: "{{ .Values.common.domain }}"
     syncWave: -30
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
 
   - name: kyverno
     path: kyverno/3.5.1
@@ -213,29 +220,10 @@ apps:
     ignoreDifferences:
       - group: external-secrets.io
         kind: ExternalSecret
-        namespace: airm
-        jsonPointers:
-          - /spec/data/0/remoteRef/conversionStrategy
-          - /spec/data/0/remoteRef/decodingStrategy
-          - /spec/data/0/remoteRef/metadataPolicy
-          - /spec/data/1/remoteRef/conversionStrategy
-          - /spec/data/1/remoteRef/decodingStrategy
-          - /spec/data/1/remoteRef/metadataPolicy
-          - /spec/data/2/remoteRef/conversionStrategy
-          - /spec/data/2/remoteRef/decodingStrategy
-          - /spec/data/2/remoteRef/metadataPolicy
-          - /spec/data/3/remoteRef/conversionStrategy
-          - /spec/data/3/remoteRef/decodingStrategy
-          - /spec/data/3/remoteRef/metadataPolicy
-          - /spec/data/4/remoteRef/conversionStrategy
-          - /spec/data/4/remoteRef/decodingStrategy
-          - /spec/data/4/remoteRef/metadataPolicy
-          - /spec/data/5/remoteRef/conversionStrategy
-          - /spec/data/5/remoteRef/decodingStrategy
-          - /spec/data/5/remoteRef/metadataPolicy
-          - /spec/data/6/remoteRef/conversionStrategy
-          - /spec/data/6/remoteRef/decodingStrategy
-          - /spec/data/6/remoteRef/metadataPolicy
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
 
 
   - name: airm-config

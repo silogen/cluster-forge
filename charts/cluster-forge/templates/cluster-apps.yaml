@@ -27,9 +27,9 @@ spec:
           value: {{ include "common.tplvalues.render" ( dict "value" $parameter.value "context" $) | quote }}
       {{- end }}
     {{- end }}
-  {{- with .ignoreDifferences }}
-    ignoreDifferences: {{ . | toYaml | nindent 6 }}
-  {{- end }}
+{{- with .ignoreDifferences }}
+  ignoreDifferences: {{ . | toYaml | nindent 2 }}
+{{- end }}
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .namespace }}
