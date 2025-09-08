@@ -208,7 +208,7 @@ apps:
     namespace: airm
     valuesFile: values.yaml
     helmParameters:
-      - name: domain
+      - name: airm.publicNodeIp
         value: "{{ .Values.common.domain }}"
     syncWave: -20
 
