@@ -14,12 +14,17 @@ common:
 apps:
 
   # Core apps
-  - name: argo-cd
-    path: argo-cd/8.3.0
+  - name: argocd
+    path: argocd/8.3.0
     namespace: argocd
     valuesFile: values.yaml
     #valuesFile: ../values_ha.yaml
     syncWave: -100
+
+  - name: argocd-config
+    path: argocd-config
+    namespace: argocd
+    syncWave: -90
 
   - name: cert-manager
     path: cert-manager/v1.18.2

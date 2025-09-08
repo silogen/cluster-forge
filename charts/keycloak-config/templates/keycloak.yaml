@@ -82,7 +82,8 @@ spec:
   - backendRefs:
     - group: ""
       kind: Service
-      name: keycloak
+      name: keycloak-http
+      namespace: keycloak
       port: 8080
       weight: 1
     matches:
