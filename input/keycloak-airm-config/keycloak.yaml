@@ -1144,7 +1144,7 @@ data:
               "protocolMapper": "oidc-usermodel-attribute-mapper",
               "consentRequired": false,
               "config": {
-                "full.path": "false"
+                "full.path": "false",
                 "introspection.token.claim": "true",
                 "userinfo.token.claim": "true",
                 "user.attribute": "phoneNumberVerified",
