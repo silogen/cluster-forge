@@ -20,3 +20,11 @@ jobs:
           branch: feat-pr-checks
           maxTagsToFetch: 100
           skipInvalidTags: true
+          patchList: |
+            test
+            ci
+            fix
+            bugfix
+            perf
+            refactor
+            tests
