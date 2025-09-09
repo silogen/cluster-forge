@@ -17,6 +17,6 @@ jobs:
         uses: ietf-tools/semver-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: main
+          branch: feat-pr-checks
           maxTagsToFetch: 100
           skipInvalidTags: true
