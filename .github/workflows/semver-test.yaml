@@ -20,4 +20,4 @@ jobs:
           branch: feat-pr-checks
           maxTagsToFetch: 100
           skipInvalidTags: true
-          patchAll: false
+          patchAll: true
