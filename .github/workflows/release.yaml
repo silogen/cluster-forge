@@ -103,12 +103,12 @@ jobs:
               --generate-notes \
               stacks/deploy-release.tar.gz
       - name: Make test package
-        if: github.ref != 'refs/heads/main' && matrix.release.type == 'core'
+        if: github.ref != 'refs/heads/main' && matrix.release.type == 'enterprise-ai'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cp stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz stacks/${{ github.event.inputs.version }}-test.tar.gz
-          gh release create ${{ github.event.inputs.version }}-test \
-              --title="ClusterForge Test Release" \
+          gh release create "${{ github.event.inputs.version }}-${{ matrix.release.type }}" \
+              --title="ClusterForge ${{ matrix.release.name }} release ${{ github.event.inputs.version }}" \
               --repo="$GITHUB_REPOSITORY" \
-              stacks/${{ github.event.inputs.version }}-test.tar.gz
+              --generate-notes \
+              stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz
