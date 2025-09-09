@@ -80,7 +80,6 @@ jobs:
           tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz clusterforge
 
       - name: Create release
-        if: github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -91,7 +90,7 @@ jobs:
               stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz
 
       - name: Make deploy package
-        if: github.ref == 'refs/heads/main' && matrix.release.type == 'core'
+        if: matrix.release.type == 'core'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -104,13 +103,3 @@ jobs:
               --repo="$GITHUB_REPOSITORY" \
               --generate-notes \
               stacks/deploy-release.tar.gz
-      - name: Make test package
-        if: github.ref != 'refs/heads/main' && matrix.release.type == 'core'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cp stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz stacks/${{ github.event.inputs.version }}-test.tar.gz
-          gh release create ${{ github.event.inputs.version }}-test \
-              --title="ClusterForge Test Release" \
-              --repo="$GITHUB_REPOSITORY" \
-              stacks/${{ github.event.inputs.version }}-test.tar.gz
