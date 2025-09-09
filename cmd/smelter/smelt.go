@@ -136,7 +136,7 @@ func PrepareTool(configMap configloader.ToolSet, workingDir string) error {
 				return fmt.Errorf("failed to create namespace files: %w", err)
 			}
 		}
-		if !strings.Contains(toolDir, "kueue") {
+		if !strings.Contains(toolDir, "kueue") && !strings.Contains(toolDir, "kaiwo") {
 			utils.CleanDescFromResources(toolDir)
 
 		}
