@@ -251,6 +251,13 @@ apps:
       - name: domain
         value: "{{ .Values.common.domain }}"
     syncWave: -25
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
 
   - name: airm-config
     path: airm-config
