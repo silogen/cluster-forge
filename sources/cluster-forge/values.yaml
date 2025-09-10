@@ -32,10 +32,10 @@ apps:
     valuesFile: ../custom_values.yaml
     syncWave: -50
 
-  - name: cluster-cert
-    path: cluster-cert
-    namespace: static-cert-system
-    syncWave: -45
+#  - name: cluster-cert
+#    path: cluster-cert
+#    namespace: static-cert-system
+#    syncWave: -45
 
   - name: external-secrets
     path: external-secrets/0.19.2
