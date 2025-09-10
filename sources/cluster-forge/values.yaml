@@ -115,7 +115,7 @@ apps:
 #    syncWave: -30
 
   - name: keycloak
-    path: keycloak
+    path: keycloak-old
     namespace: keycloak
     valuesFile: values.yaml
     helmParameters:
