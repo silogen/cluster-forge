@@ -18,7 +18,7 @@ spec:
             name: configure-base
       containers:
       - name: airm-cluster-initialize
-        image: ghcr.io/silogen/airm-configure:v2025.08-rc.18
+        image: ghcr.io/silogen/airm-configure:v2025.08-rc.21
         imagePullPolicy: IfNotPresent
         env:
         - name: NEW_DOMAIN_NAME

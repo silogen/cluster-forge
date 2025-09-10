@@ -105,7 +105,7 @@ spec:
                 secretKeyRef:
                   key: password
                   name: airm-rabbitmq-common-vhost-user
-          image: ghcr.io/silogen/airm-dispatcher:v2025.08-rc.18
+          image: ghcr.io/silogen/airm-dispatcher:v2025.08-rc.21
           imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 3
@@ -155,7 +155,7 @@ spec:
                 - -X
                 - POST
                 - http://airm-dispatcher:80/v1/clusters/nodes
-              image: ghcr.io/silogen/airm-dispatcher:v2025.08-rc.18
+              image: ghcr.io/silogen/airm-dispatcher:v2025.08-rc.21
               imagePullPolicy: IfNotPresent
               name: airm-cluster-nodes-cron
               resources:
@@ -187,7 +187,7 @@ spec:
                 - -X
                 - POST
                 - http://airm-dispatcher:80/v1/heartbeats
-              image: ghcr.io/silogen/airm-dispatcher:v2025.08-rc.18
+              image: ghcr.io/silogen/airm-dispatcher:v2025.08-rc.21
               name: airm-heartbeat-cron
               resources:
                 limits:
