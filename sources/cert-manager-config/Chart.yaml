@@ -1,0 +1,4 @@
+apiVersion: v2
+name: cert-manager-config
+description: A Helm chart with CR config for cert-manager
+version: 0.1.0
