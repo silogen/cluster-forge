@@ -10,6 +10,9 @@ kind: ClusterRole
 metadata:
   name: airm-dispatcher-cluster-access-role
 rules:
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
   - apiGroups: ["kaiwo.silogen.ai"]
     resources: ["kaiwojobs", "kaiwoservices", "kaiwoqueueconfigs"]
     verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
