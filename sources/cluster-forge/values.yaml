@@ -103,14 +103,14 @@ apps:
     syncWave: -30
 
   # Access control
-  - name: keycloak
-    path: keycloak/18.10.0-patched
-    namespace: keycloak
-    valuesFile: ../values_custom.yaml
-    syncWave: -30
+#  - name: keycloak
+#    path: keycloak/18.10.0-patched
+#    namespace: keycloak
+#    valuesFile: ../values_custom.yaml
+#    syncWave: -30
 
-  - name: keycloak-config
-    path: keycloak-config
+  - name: keycloak
+    path: keycloak-old
     namespace: keycloak
     valuesFile: values.yaml
     helmParameters:
@@ -124,6 +124,22 @@ apps:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
+
+#  - name: keycloak-config
+#    path: keycloak-config
+#    namespace: keycloak
+#    valuesFile: values.yaml
+#    helmParameters:
+#      - name: domain
+#        value: "{{ .Values.common.domain }}"
+#    syncWave: -30
+#    ignoreDifferences:
+#      - group: external-secrets.io
+#        kind: ExternalSecret
+#        jqPathExpressions:
+#          - ".spec.data[].remoteRef.conversionStrategy"
+#          - ".spec.data[].remoteRef.decodingStrategy"
+#          - ".spec.data[].remoteRef.metadataPolicy"
 
   - name: kyverno
     path: kyverno/3.5.1
@@ -211,22 +227,30 @@ apps:
     syncWave: -25
 
   # Airm stuff
+#  - name: airm
+#    path: airm
+#    namespace: airm
+#    valuesFile: values.yaml
+#    helmParameters:
+#      - name: airm.publicNodeIp
+#        value: "{{ .Values.common.domain }}"
+#    syncWave: -20
+#    ignoreDifferences:
+#      - group: external-secrets.io
+#        kind: ExternalSecret
+#        jqPathExpressions:
+#          - ".spec.data[].remoteRef.conversionStrategy"
+#          - ".spec.data[].remoteRef.decodingStrategy"
+#          - ".spec.data[].remoteRef.metadataPolicy"
+
   - name: airm
-    path: airm
+    path: airm-tmp
     namespace: airm
     valuesFile: values.yaml
     helmParameters:
-      - name: airm.publicNodeIp
+      - name: domain
         value: "{{ .Values.common.domain }}"
-    syncWave: -20
-    ignoreDifferences:
-      - group: external-secrets.io
-        kind: ExternalSecret
-        jqPathExpressions:
-          - ".spec.data[].remoteRef.conversionStrategy"
-          - ".spec.data[].remoteRef.decodingStrategy"
-          - ".spec.data[].remoteRef.metadataPolicy"
-
+    syncWave: -25
 
   - name: airm-config
     path: airm-config

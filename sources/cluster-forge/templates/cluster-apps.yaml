@@ -14,7 +14,7 @@ spec:
   source:
     repoURL: {{ $clusterForgeRepoUrl }}
     targetRevision: {{ $clusterForgeTargetRevision }}
-    path: charts/{{ .path }}
+    path: sources/{{ .path }}
     {{- if .valuesFile }}
     helm:
       valueFiles:

@@ -10,7 +10,7 @@ spec:
   {{- if .Values.externalValues.enabled }}
   - repoURL: {{ .Values.clusterForge.repoUrl }}
     targetRevision: {{ .Values.clusterForge.targetRevision }}
-    path: charts/cluster-forge
+    path: sources/cluster-forge
     helm:
       valueFiles:
         - {{ .Values.clusterForge.valuesFile }}
@@ -20,7 +20,7 @@ spec:
   {{ else }}
     repoURL: {{ .Values.clusterForge.repoUrl }}
     targetRevision: {{ .Values.clusterForge.targetRevision }}
-    path: charts/cluster-forge
+    path: sources/cluster-forge
     helm:
       valueFiles:
         - {{ .Values.clusterForge.valuesFile }}
