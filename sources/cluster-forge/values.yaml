@@ -37,8 +37,8 @@ apps:
     namespace: static-cert-system
     syncWave: -45
 
-  - name: external-secrets-operator
-    path: external-secrets-operator/0.19.2
+  - name: external-secrets
+    path: external-secrets/0.19.2
     namespace: external-secrets
     valuesFile: values.yaml
     syncWave: -50
