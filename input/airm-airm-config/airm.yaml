@@ -59,7 +59,7 @@ spec:
             - name: OPENID_CONFIGURATION_URL
               value: http://kc.not-a-domain/realms/airm/.well-known/openid-configuration
             - name: POST_REGISTRATION_REDIRECT_URL
-              value: https://airm.not-a-domain/
+              value: https://airmui.not-a-domain/
             - name: CLUSTER_BASE_URL
               value: https://workspaces.not-a-domain/
             - name: DATABASE_HOST
