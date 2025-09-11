@@ -32,14 +32,14 @@ apps:
     valuesFile: ../custom_values.yaml
     syncWave: -50
 
-  - name: cert-manager-config
-    path: cert-manager-config
-    namespace: cert-manager
-    valuesFile: values.yaml
-    helmParameters:
-      - name: domain
-        value: "{{ .Values.common.domain }}"
-    syncWave: -50
+#  - name: cert-manager-config
+#    path: cert-manager-config
+#    namespace: cert-manager
+#    valuesFile: values.yaml
+#    helmParameters:
+#      - name: domain
+#        value: "{{ .Values.common.domain }}"
+#    syncWave: -50
 
 #  - name: cluster-cert
 #    path: cluster-cert
