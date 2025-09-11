@@ -17,6 +17,9 @@ spec:
     - name: web
       port: 80
       targetPort: 8080
+    - name: metrics
+      port: 9009
+      targetPort: 9009
   selector:
     app: airm-api
   type: ClusterIP
@@ -136,6 +139,7 @@ spec:
           name: airm
           ports:
             - containerPort: 8080
+            - containerPort: 9009
           readinessProbe:
             failureThreshold: 3
             httpGet:
