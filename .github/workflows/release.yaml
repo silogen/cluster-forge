@@ -86,6 +86,7 @@ jobs:
           gh release create "${{ github.event.inputs.version }}-${{ matrix.release.type }}" \
               --title="ClusterForge ${{ matrix.release.name }} release ${{ github.event.inputs.version }}" \
               --repo="$GITHUB_REPOSITORY" \
+              --target="${{ github.ref_name }}" \
               --generate-notes \
               stacks/release-${{ matrix.release.type }}-${{ github.event.inputs.version }}.tar.gz
 
@@ -101,5 +102,6 @@ jobs:
           gh release create "deploy" \
               --title="ClusterForge Deploy Release" \
               --repo="$GITHUB_REPOSITORY" \
+              --target="${{ github.ref_name }}" \
               --generate-notes \
               stacks/deploy-release.tar.gz
