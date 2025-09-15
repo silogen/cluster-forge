@@ -17,6 +17,9 @@ spec:
     - name: web
       port: 80
       targetPort: 8080
+    - name: metrics
+      port: 9009
+      targetPort: 9009
   selector:
     app: airm-api
   type: ClusterIP
@@ -59,7 +62,7 @@ spec:
             - name: OPENID_CONFIGURATION_URL
               value: http://kc.not-a-domain/realms/airm/.well-known/openid-configuration
             - name: POST_REGISTRATION_REDIRECT_URL
-              value: https://airm.not-a-domain/
+              value: https://airmui.not-a-domain/
             - name: CLUSTER_BASE_URL
               value: https://workspaces.not-a-domain/
             - name: DATABASE_HOST
@@ -122,7 +125,7 @@ spec:
                   name: api-minio-credentials
             - name: PROMETHEUS_URL
               value: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:9090
-          image: ghcr.io/silogen/airm-api:v2025.08.001
+          image: ghcr.io/silogen/airm-api:v2025.08-rc.21
           imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 3
@@ -136,6 +139,7 @@ spec:
           name: airm
           ports:
             - containerPort: 8080
+            - containerPort: 9009
           readinessProbe:
             failureThreshold: 3
             httpGet:
@@ -162,7 +166,7 @@ spec:
             - sh
             - -c
             - cp /code/migrations/* /mnt/code/migrations/
-          image: ghcr.io/silogen/airm-api:v2025.08.001
+          image: ghcr.io/silogen/airm-api:v2025.08-rc.21
           name: init-migration-scripts
           securityContext:
             allowPrivilegeEscalation: false
@@ -201,6 +205,49 @@ spec:
             - mountPath: /liquibase/changelog
               name: airm-migration-volume
               readOnly: true
+        - name: charts-registration
+          image: ghcr.io/silogen/airm-api:v2025.08-rc.21
+          command: ['uv', 'run', '-m', 'app.charts.registration']
+          env:
+          - name: DATABASE_HOST
+            value: "airm-cnpg-rw.airm.svc.cluster.local"
+          - name: DATABASE_PORT
+            value: "5432"
+          - name: DATABASE_USER
+            valueFrom:
+              secretKeyRef:
+                name: airm-cnpg-user
+                key: username
+          - name: DATABASE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: airm-cnpg-user
+                key: password
+          - name: RABBITMQ_HOST
+            value: "rabbitmq.airm.svc.cluster.local"
+          - name: RABBITMQ_PORT
+            value: "5672"
+          - name: RABBITMQ_MANAGEMENT_URL
+            value: "http://rabbitmq.airm.svc.cluster.local:15672/api"
+          - name: RABBITMQ_ADMIN_USER
+            valueFrom:
+              secretKeyRef:
+                name: airm-rabbitmq-admin
+                key: username
+          - name: RABBITMQ_ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: airm-rabbitmq-admin
+                key: password
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop:
+              - ALL
       volumes:
         - emptyDir: {}
           name: airm-migration-volume
@@ -235,7 +282,7 @@ spec:
           envFrom:
             - secretRef:
                 name: secrets-airm
-          image: ghcr.io/silogen/airm-ui:v2025.08.001
+          image: ghcr.io/silogen/airm-ui:v2025.08-rc.21
           imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 3

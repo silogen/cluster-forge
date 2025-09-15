@@ -612,6 +612,7 @@ data:
           "secret": "__AIRM_ADMIN_CLIENT_SECRET__",
           "redirectUris": [
             "https://not-a-domain/*",
+            "https://airmui.not-a-domain/*",
             "https://*.not-a-domain/*"
           ],
           "webOrigins": [
@@ -750,27 +751,6 @@ data:
           "authenticationFlowBindingOverrides": {},
           "fullScopeAllowed": true,
           "nodeReRegistrationTimeout": -1,
-          "protocolMappers": [
-            {
-              "id": "c5b1f35a-11a3-4eb2-8abc-7c1a422edb3a",
-              "name": "organization",
-              "protocol": "openid-connect",
-              "protocolMapper": "oidc-organization-membership-mapper",
-              "consentRequired": false,
-              "config": {
-                "introspection.token.claim": "true",
-                "multivalued": "true",
-                "userinfo.token.claim": "true",
-                "addOrganizationAttributes": "true",
-                "id.token.claim": "true",
-                "lightweight.claim": "false",
-                "access.token.claim": "true",
-                "claim.name": "organization",
-                "jsonType.label": "JSON",
-                "addOrganizationId": "true"
-              }
-            }
-          ],
           "defaultClientScopes": [
             "web-origins",
             "acr",
@@ -1302,7 +1282,8 @@ data:
                 "id.token.claim": "true",
                 "access.token.claim": "true",
                 "claim.name": "organization",
-                "jsonType.label": "String"
+                "jsonType.label": "JSON",
+                "addOrganizationId": "true"
               }
             }
           ]
@@ -1324,10 +1305,12 @@ data:
               "protocolMapper": "oidc-group-membership-mapper",
               "consentRequired": false,
               "config": {
+                "full.path": "false",
                 "introspection.token.claim": "true",
                 "multivalued": "true",
                 "userinfo.token.claim": "true",
-                "id.token.claim": "false",
+                "id.token.claim": "true",
+                "lightweight.claim": "false",
                 "access.token.claim": "true",
                 "claim.name": "groups",
                 "jsonType.label": "String"

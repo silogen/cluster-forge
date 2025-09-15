@@ -10,90 +10,33 @@ kind: ClusterRole
 metadata:
   name: airm-dispatcher-cluster-access-role
 rules:
-  - apiGroups:
-      - ""
-    resources:
-      - services
-      - namespaces
-      - configmaps
-    verbs:
-      - get
-      - list
-      - watch
-      - create
-      - delete
-      - update
-      - patch
-  - apiGroups:
-      - ""
-    resources:
-      - nodes
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - apps
-    resources:
-      - deployments
-    verbs:
-      - get
-      - list
-      - watch
-      - create
-      - delete
-      - update
-      - patch
-  - apiGroups:
-      - batch
-    resources:
-      - jobs
-    verbs:
-      - get
-      - list
-      - watch
-      - create
-      - delete
-      - update
-      - patch
-  - apiGroups:
-      - kaiwo.silogen.ai
-    resources:
-      - kaiwojobs
-      - kaiwoservices
-      - kaiwoqueueconfigs
-    verbs:
-      - get
-      - list
-      - watch
-      - create
-      - delete
-      - update
-      - patch
-  - apiGroups:
-      - gateway.networking.k8s.io
-    resources:
-      - httproutes
-    verbs:
-      - get
-      - list
-      - watch
-      - create
-      - delete
-      - update
-      - patch
-  - apiGroups:
-      - networking.k8s.io
-    resources:
-      - ingresses
-    verbs:
-      - get
-      - list
-      - watch
-      - create
-      - delete
-      - update
-      - patch
+- apiGroups: [""]
+  resources: ["services", "namespaces", "configmaps", "pods"]
+  verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "statefulsets", "daemonsets"]
+  verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+- apiGroups: ["kaiwo.silogen.ai"]
+  resources: ["kaiwojobs", "kaiwoservices", "kaiwoqueueconfigs"]
+  verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: ["httproutes"]
+  verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+- apiGroups: ["external-secrets.io"]
+  resources: ["externalsecrets"]
+  verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -162,7 +105,7 @@ spec:
                 secretKeyRef:
                   key: password
                   name: airm-rabbitmq-common-vhost-user
-          image: ghcr.io/silogen/airm-dispatcher:v2025.08.001
+          image: ghcr.io/silogen/airm-dispatcher:v2025.08-rc.21
           imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 3
@@ -212,7 +155,7 @@ spec:
                 - -X
                 - POST
                 - http://airm-dispatcher:80/v1/clusters/nodes
-              image: ghcr.io/silogen/airm-dispatcher:v2025.08.001
+              image: ghcr.io/silogen/airm-dispatcher:v2025.08-rc.21
               imagePullPolicy: IfNotPresent
               name: airm-cluster-nodes-cron
               resources:
@@ -244,7 +187,7 @@ spec:
                 - -X
                 - POST
                 - http://airm-dispatcher:80/v1/heartbeats
-              image: ghcr.io/silogen/airm-dispatcher:v2025.08.001
+              image: ghcr.io/silogen/airm-dispatcher:v2025.08-rc.21
               name: airm-heartbeat-cron
               resources:
                 limits:
