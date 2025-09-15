@@ -22,10 +22,8 @@ jobs:
         release:
           - type: core
             name: Core
-          - type: rnd
-            name: RnD
-          - type: enterprise
-            name: Enterprise
+          - type: enterprise-ai
+            name: Enterprise-AI
           - type: weka
             name: Weka-fs
           - type: nuage
@@ -71,7 +69,7 @@ jobs:
         run: |
           # Create the desired top-level directory that will appear when unzipped
           mkdir -p stacks/clusterforge
-          
+
           # Move the stack directory and ansible directory into the package directory
           mv stacks/${{ github.event.inputs.version }}-${{ matrix.release.type }}/* stacks/clusterforge/
 
