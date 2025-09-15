@@ -18,11 +18,6 @@ spec:
   env:
     - name: MINIO_PROMETHEUS_AUTH_TYPE
       value: public
-    - name: MINIO_IDENTITY_OPENID_CLIENT_SECRET
-      valueFrom:
-        secretKeyRef:
-          key: MINIO_KEYCLOAK_CLIENT_SECRET
-          name: minio-keycloak-credentials
     - name: MINIO_IDENTITY_OPENID_SCOPES
       value: openid,profile,email,policy
     - name: MINIO_BROWSER_REDIRECT_URL
