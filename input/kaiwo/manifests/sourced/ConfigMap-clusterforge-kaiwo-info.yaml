@@ -8,6 +8,4 @@ data:
   source.yaml: |
     name: kaiwo
     namespace: kaiwo-system
-    manifest-url: https://github.com/silogen/kaiwo/releases/download/v0.1.7/install.yaml
-    source-exclusions:
-      - Namespace_kaiwo.yaml
+    manifest-url: https://github.com/silogen/kaiwo/releases/download/v0.1.9/install.yaml
