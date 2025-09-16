@@ -494,7 +494,7 @@ spec:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: minio-keycloak-credentials
+  name: minio-keycloak-client-secret
   namespace: keycloak
 spec:
   data:
@@ -506,7 +506,7 @@ spec:
     kind: ClusterSecretStore
     name: minio-integrations-secret-store
   target:
-    name: minio-keycloak-credentials
+    name: minio-keycloak-client-secret
 ---
 
 apiVersion: rabbitmq.com/v1beta1
