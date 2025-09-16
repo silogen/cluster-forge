@@ -1,18 +1,20 @@
-name: Semver Test
+name: Release Pipeline
 
 on:
-  workflow_dispatch:
   pull_request:
 
 jobs:
-  deploy:
+  version:
     runs-on: ubuntu-latest
-
+    outputs:
+      new_version: ${{ steps.semver.outputs.new_version }}
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Get Next Version
+        if: github.event_name == 'workflow_dispatch'
         id: semver
         uses: ietf-tools/semver-action@v1
         with:
@@ -21,3 +23,15 @@ jobs:
           maxTagsToFetch: 100
           skipInvalidTags: true
           patchAll: true
+
+      - name: Calculate new version
+        id: version
+        run: |
+          # For pull requests, use a test version
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            NEW_VERSION="pr-${{ github.head_ref }}"
+          else if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            NEW_VERSION="${{ steps.semver.outputs.next }}"
+          fi
+          echo "New version: $NEW_VERSION"
+          echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
