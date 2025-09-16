@@ -569,6 +569,7 @@ data:
           "secret": "__AIRM_ADMIN_CLIENT_SECRET__",
           "redirectUris": [
             "https://not-a-domain/*",
+            "https://airmui.not-a-domain/*",
             "https://*.not-a-domain/*"
           ],
           "webOrigins": [
@@ -702,27 +703,6 @@ data:
           "authenticationFlowBindingOverrides": {},
           "fullScopeAllowed": true,
           "nodeReRegistrationTimeout": -1,
-          "protocolMappers": [
-            {
-              "id": "c5b1f35a-11a3-4eb2-8abc-7c1a422edb3a",
-              "name": "organization",
-              "protocol": "openid-connect",
-              "protocolMapper": "oidc-organization-membership-mapper",
-              "consentRequired": false,
-              "config": {
-                "introspection.token.claim": "true",
-                "multivalued": "true",
-                "userinfo.token.claim": "true",
-                "addOrganizationAttributes": "true",
-                "id.token.claim": "true",
-                "lightweight.claim": "false",
-                "access.token.claim": "true",
-                "claim.name": "organization",
-                "jsonType.label": "JSON",
-                "addOrganizationId": "true"
-              }
-            }
-          ],
           "defaultClientScopes": [
             "web-origins",
             "acr",
@@ -730,7 +710,8 @@ data:
             "organization",
             "profile",
             "basic",
-            "email"
+            "email",
+            "groups"
           ],
           "optionalClientScopes": [
             "address",
@@ -1141,6 +1122,37 @@ data:
                 "id.token.claim": "true",
                 "access.token.claim": "true",
                 "claim.name": "organization",
+                "jsonType.label": "JSON",
+                "addOrganizationId": "true"
+              }
+            }
+          ]
+        },
+        {
+          "id": "ca910203-028f-426e-b8bd-44881302e47b",
+          "name": "groups",
+          "description": "User group memberships",
+          "protocol": "openid-connect",
+          "attributes": {
+            "include.in.token.scope": "true",
+            "display.on.consent.screen": "false"
+          },
+          "protocolMappers": [
+            {
+              "id": "c44766cf-7ee5-484d-b147-ef112f0cf573",
+              "name": "groups",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-group-membership-mapper",
+              "consentRequired": false,
+              "config": {
+                "full.path": "false",
+                "introspection.token.claim": "true",
+                "multivalued": "true",
+                "userinfo.token.claim": "true",
+                "id.token.claim": "true",
+                "lightweight.claim": "false",
+                "access.token.claim": "true",
+                "claim.name": "groups",
                 "jsonType.label": "String"
               }
             }
@@ -1710,7 +1722,8 @@ data:
         "roles",
         "web-origins",
         "acr",
-        "basic"
+        "basic",
+        "groups"
       ],
       "defaultOptionalClientScopes": [
         "offline_access",
@@ -2682,314 +2695,3 @@ kind: ConfigMap
 metadata:
   name: keycloak-realm-templates-7kgh2hc6b2
   namespace: keycloak
----
-apiVersion: v1
-data:
-  domain-group-authenticator.js: |
-    // Helper function to map domain to group using group attributes
-    function mapDomainToGroups(domain, realm) {
-        // Fetch all groups and check their attributes for email domain mapping
-        var groups = realm.getGroupsStream().toArray();
-        LOG.info("groups: " + groups);
-        var allowedGroups = [];
-        for (var i = 0; i < groups.length; i++) {
-            var allowedDomains = groups[i].getAttributeStream("allowedDomains").toArray();
-            LOG.info("allowedDomains: " + allowedDomains);
-            for (var j = 0; j < allowedDomains.length; j++) {
-                if (allowedDomains[j] == domain) {
-                    allowedGroups.push(groups[i])
-                    break;
-                };
-            }
-        }
-
-        return allowedGroups;
-    }
-
-    // Helper function to extract email domain
-    function getEmailDomain(email) {
-        var parts = email.split("@");
-        return parts.length === 2 ? parts[1] : null;
-    }
-
-    function authenticate(context) {
-        var user = context.getUser();
-        var realm = context.getRealm();
-        var authenticationSession = context.getAuthenticationSession();
-
-        // Extract email domain from user's email
-        var email = user.getEmail();
-        var domain = getEmailDomain(email);
-        LOG.info("Email domain" + domain);
-
-        // Map email domain to a group using group attributes
-        var groups = mapDomainToGroups(domain, realm);
-
-        if (groups.length > 0) {
-            // var group = realm.getGroupByPath("/" + groupName);
-            groups.forEach(function (group) {
-                LOG.info("joining group" + group);
-                user.joinGroup(group)
-            });
-        }
-
-        // Continue with the authentication flow
-        context.success();
-    };
-  keycloak-scripts.json: |
-    {
-        "authenticators": [
-            {
-                "name": "Email domain group mapping",
-                "fileName": "domain-group-authenticator.js",
-                "description": "Applies a group to a user account based on their email domain matching a group's allowedDomains attribute"
-            }
-        ]
-    }
-kind: ConfigMap
-metadata:
-  name: keycloak-scripts-5h96f8448g
-  namespace: keycloak
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: keycloak
-  name: keycloak
-  namespace: keycloak
-spec:
-  ports:
-    - name: http
-      port: 8080
-      targetPort: 8080
-  selector:
-    app: keycloak
-  type: ClusterIP
----
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
-  name: keycloak-route
-  namespace: keycloak
-spec:
-  parentRefs:
-  - group: gateway.networking.k8s.io
-    kind: Gateway
-    name: https
-    namespace: kgateway-system
-  rules:
-  - backendRefs:
-    - group: ""
-      kind: Service
-      name: keycloak
-      port: 8080
-      weight: 1
-    matches:
-    - headers:
-      - name: Host
-        type: RegularExpression
-        value: kc\..*
-      path:
-        type: PathPrefix
-        value: /
-    timeouts:
-      backendRequest: 20s
-      request: 90s
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app: keycloak
-  name: keycloak
-  namespace: keycloak
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: keycloak
-  template:
-    metadata:
-      labels:
-        app: keycloak
-    spec:
-      containers:
-        - args:
-            - start
-            - --cache=ispn
-            - --features=scripts,admin-fine-grained-authz,token-exchange
-            - --import-realm
-          env:
-            - name: KC_HOSTNAME
-              value: https://kc.not-a-domain
-            - name: KC_DB
-              value: postgres
-            - name: KC_DB_URL_HOST
-              value: keycloak-cnpg-rw.keycloak.svc.cluster.local
-            - name: KC_DB_URL_PORT
-              value: "5432"
-            - name: KC_DB_URL_DATABASE
-              value: keycloak
-            - name: KC_DB_SCHEMA
-              value: public
-            - name: KC_DB_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  key: username
-                  name: keycloak-cnpg-user
-            - name: KC_DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: password
-                  name: keycloak-cnpg-user
-            - name: KC_BOOTSTRAP_ADMIN_USERNAME
-              value: silogen-admin
-            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: KEYCLOAK_INITIAL_ADMIN_PASSWORD
-                  name: keycloak-credentials
-            - name: KC_PROXY
-              value: edge
-            - name: KC_HOSTNAME_STRICT
-              value: "false"
-            - name: KC_PROXY_HEADERS
-              value: xforwarded
-          image: quay.io/keycloak/keycloak:26.0.0
-          name: keycloak
-          ports:
-            - containerPort: 8080
-              name: http
-            - containerPort: 8443
-              name: https
-          readinessProbe:
-            httpGet:
-              path: /realms/master
-              port: 8080
-          resources:
-            limits:
-              cpu: 500m
-              memory: 1Gi
-            requests:
-              cpu: 250m
-              memory: 512Mi
-          volumeMounts:
-            - mountPath: /opt/keycloak/providers
-              name: keycloak-package-volume
-            - mountPath: /opt/keycloak/data/import
-              name: keycloak-realm-volume
-      initContainers:
-        - command:
-            - /bin/sh
-            - -c
-            - |
-              cd /opt/scripts
-              zip -r /opt/keycloak/providers/SilogenExtensionPackage.jar .
-          image: ghcr.io/silogen/keycloak-init:0.1
-          name: init-auth-extensions
-          volumeMounts:
-            - mountPath: /opt/keycloak/providers
-              name: keycloak-package-volume
-            - mountPath: /opt/scripts
-              name: keycloak-script-volume
-        - command:
-            - /bin/sh
-            - -c
-            - |
-              cp /opt/realm_templates/airm-realm.json /opt/realms/airm-realm.json
-              sed -i -e "s/__AIRM_FRONTEND_CLIENT_SECRET__/$AIRM_FRONTEND_CLIENT_SECRET/g" /opt/realms/airm-realm.json
-              sed -i -e "s/__AIRM_ADMIN_CLIENT_ID__/$AIRM_ADMIN_CLIENT_ID/g" /opt/realms/airm-realm.json
-              sed -i -e "s/__AIRM_ADMIN_CLIENT_SECRET__/$AIRM_ADMIN_CLIENT_SECRET/g" /opt/realms/airm-realm.json
-              sed -i -e "s/__AIRM_CI_CLIENT_SECRET__/$AIRM_CI_CLIENT_SECRET/g" /opt/realms/airm-realm.json
-          env:
-            - name: AIRM_FRONTEND_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  key: FRONTEND_CLIENT_SECRET
-                  name: airm-realm-credentials
-            - name: AIRM_ADMIN_CLIENT_ID
-              valueFrom:
-                secretKeyRef:
-                  key: ADMIN_CLIENT_ID
-                  name: airm-realm-credentials
-            - name: AIRM_ADMIN_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  key: ADMIN_CLIENT_SECRET
-                  name: airm-realm-credentials
-            - name: AIRM_CI_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  key: CI_CLIENT_SECRET
-                  name: airm-realm-credentials
-          image: ghcr.io/silogen/keycloak-init:0.1
-          name: init-realm-scripts
-          volumeMounts:
-            - mountPath: /opt/realm_templates
-              name: keycloak-realm-template-volume
-            - mountPath: /opt/realms
-              name: keycloak-realm-volume
-      restartPolicy: Always
-      volumes:
-        - configMap:
-            items:
-              - key: keycloak-scripts.json
-                path: META-INF/keycloak-scripts.json
-              - key: domain-group-authenticator.js
-                path: domain-group-authenticator.js
-            name: keycloak-scripts-5h96f8448g
-          name: keycloak-script-volume
-        - emptyDir: {}
-          name: keycloak-package-volume
-        - configMap:
-            name: keycloak-realm-templates-7kgh2hc6b2
-          name: keycloak-realm-template-volume
-        - emptyDir: {}
-          name: keycloak-realm-volume
----
-apiVersion: external-secrets.io/v1beta1
-kind: ExternalSecret
-metadata:
-  name: airm-realm-credentials
-  namespace: keycloak
-spec:
-  data:
-    - remoteRef:
-        key: airm-ui-keycloak-secret
-      secretKey: FRONTEND_CLIENT_SECRET
-    - remoteRef:
-        key: airm-keycloak-admin-client-id
-      secretKey: ADMIN_CLIENT_ID
-    - remoteRef:
-        key: airm-keycloak-admin-client-secret
-      secretKey: ADMIN_CLIENT_SECRET
-    - remoteRef:
-        key: airm-ci-client-secret
-      secretKey: CI_CLIENT_SECRET
-  refreshInterval: 1h
-  secretStoreRef:
-    kind: ClusterSecretStore
-    name: airm-secret-store
-  target:
-    creationPolicy: Owner
-    name: airm-realm-credentials
----
-apiVersion: external-secrets.io/v1beta1
-kind: ExternalSecret
-metadata:
-  name: keycloak-credentials
-  namespace: keycloak
-spec:
-  data:
-    - remoteRef:
-        key: keycloak_initial_admin_password
-      secretKey: KEYCLOAK_INITIAL_ADMIN_PASSWORD
-  refreshInterval: 1h
-  secretStoreRef:
-    kind: ClusterSecretStore
-    name: airm-secret-store
-  target:
-    creationPolicy: Owner
-    name: keycloak-credentials
----

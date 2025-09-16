@@ -136,7 +136,10 @@ func PrepareTool(configMap configloader.ToolSet, workingDir string) error {
 				return fmt.Errorf("failed to create namespace files: %w", err)
 			}
 		}
-		utils.CleanDescFromResources(toolDir)
+		if !strings.Contains(toolDir, "kueue") && !strings.Contains(toolDir, "kaiwo") {
+			utils.CleanDescFromResources(toolDir)
+
+		}
 	}
 	// Replace image tags with SHA values in all YAML files
 	if err := utils.ReplaceImageTagsWithSHA(workingDir); err != nil {
@@ -157,7 +160,7 @@ func PrepareTool(configMap configloader.ToolSet, workingDir string) error {
 func createNamespaceFiles(config utils.Config, workingDir string) error {
 	// Get the list of namespaces to create
 	namespaces := getNamespaceList(config)
-	
+
 	// Skip if no namespaces to create
 	if len(namespaces) == 0 {
 		return nil
@@ -178,7 +181,7 @@ func createNamespaceFiles(config utils.Config, workingDir string) error {
 		if ns == "default" {
 			continue // Skip default namespace
 		}
-		
+
 		data := struct {
 			NamespaceName string
 		}{
@@ -205,11 +208,11 @@ func getNamespaceList(config utils.Config) []string {
 	if len(config.Namespaces) > 0 {
 		return config.Namespaces
 	}
-	
+
 	// Otherwise, use the single namespace field (backward compatibility)
 	if config.Namespace != "" {
 		return []string{config.Namespace}
 	}
-	
+
 	return []string{}
 }

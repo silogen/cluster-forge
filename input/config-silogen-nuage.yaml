@@ -17,7 +17,6 @@
 - name: kaiwo
 - name: cnpg-operator
 - name: rabbitmq
-- name: rabbitmq-airm-config
 - name: cluster-airm-config
-- name: keycloak-airm-config
+- name: keycloak-config
 - name: airm-airm-config
