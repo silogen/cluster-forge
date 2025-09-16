@@ -30,7 +30,7 @@ jobs:
           # For pull requests, use a test version
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             NEW_VERSION="pr-${{ github.head_ref }}"
-          else if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             NEW_VERSION="${{ steps.semver.outputs.next }}"
           fi
           echo "New version: $NEW_VERSION"
