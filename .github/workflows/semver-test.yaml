@@ -46,15 +46,11 @@ jobs:
           echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
           echo "extra_args=${EXTRA_ARGS}" >> $GITHUB_OUTPUT
 
-  create_release:
-    needs: version
-    runs-on: ubuntu-latest
-    steps:
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.version.outputs.new_version }}
-          EXTRA_ARGS: ${{ needs.version.outputs.extra_args }}
+          VERSION: ${{ steps.version.outputs.next }}
+          EXTRA_ARGS: ${{ steps.version.outputs.extra_args }}
         run: |
           echo gh release create "$VERSION" $EXTRA_ARGS \
               --title="ClusterForge Release $VERSION" \
