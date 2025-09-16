@@ -95,7 +95,7 @@ data:
 
 
     podname=$(kubectl -n cf-gitea get pods --selector=app=gitea -o jsonpath='{.items[*].metadata.name}')
-    kubectl -n cf-gitea delete pod/$podname
+    kubectl -n cf-gitea delete --wait=false pod/$podname
 
 ---
 apiVersion: batch/v1
