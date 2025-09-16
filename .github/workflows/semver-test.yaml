@@ -15,7 +15,7 @@ jobs:
           fetch-depth: 0
 
       - name: Get Next Version
-        if: github.event_name == 'workflow_dispatch'
+        # if: github.event_name == 'workflow_dispatch'
         id: semver
         uses: ietf-tools/semver-action@v1
         with:
@@ -31,6 +31,7 @@ jobs:
           # For pull requests, use a test version
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             NEW_VERSION="pr-${{ github.head_ref }}"
+            NEW_VERSION="${{ steps.semver.outputs.next }}"
           elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             NEW_VERSION="${{ steps.semver.outputs.next }}"
           fi
