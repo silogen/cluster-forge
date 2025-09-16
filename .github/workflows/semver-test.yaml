@@ -7,7 +7,7 @@ jobs:
   version:
     runs-on: ubuntu-latest
     outputs:
-      new_version: ${{ steps.semver.outputs.new_version }}
+        new_version: ${{ steps.semver.outputs.new_version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,3 +35,6 @@ jobs:
           fi
           echo "New version: $NEW_VERSION"
           echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Output new version
+        run: echo "New version is ${{ steps.version.outputs.new_version }}"
