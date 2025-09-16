@@ -8,7 +8,8 @@ jobs:
   version:
     runs-on: ubuntu-latest
     outputs:
-        new_version: ${{ steps.semver.outputs.new_version }}
+      new_version: ${{ steps.version.outputs.new_version }}
+      extra_args: ${{ steps.version.outputs.extra_args }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,17 +26,37 @@ jobs:
           skipInvalidTags: true
           patchAll: true
 
-      - name: Calculate new version
+      - name: Calculate new version and args
         id: version
         run: |
+          EXTRA_ARGS="--latest=false --prerelease"
           # For pull requests, use a test version
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             NEW_VERSION="pr-${{ github.head_ref }}"
           elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            if [[ "${{ github.event.inputs.is_prerelease }}" == "true" ]]; then
+              EXTRA_ARGS="--latest=false --prerelease"
+            else
+              EXTRA_ARGS="--latest=false"
+            fi
             NEW_VERSION="${{ steps.semver.outputs.next }}"
           fi
+          echo "Args: ${EXTRA_ARGS}"
           echo "New version: $NEW_VERSION"
           echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "extra_args=${EXTRA_ARGS}" >> $GITHUB_OUTPUT
 
-      - name: Output new version
-        run: echo "New version is ${{ steps.version.outputs.new_version }}"
+  create_release:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.new_version }}
+          EXTRA_ARGS: ${{ needs.version.outputs.extra_args }}
+        run: |
+          echo gh release create "$VERSION" $EXTRA_ARGS \
+              --title="ClusterForge Release $VERSION" \
+              --repo="$GITHUB_REPOSITORY" \
+              --generate-notes || true # Ignore if release already exists
