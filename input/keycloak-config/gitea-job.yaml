@@ -95,7 +95,12 @@ data:
 
 
     podname=$(kubectl -n cf-gitea get pods --selector=app=gitea -o jsonpath='{.items[*].metadata.name}')
+
+    echo "Restarting gitea pod after keycloak is alive"
     kubectl -n cf-gitea delete --wait=false pod/$podname
+
+    echo "Restarting minio tenant pool pod after keycloak is alive"
+    kubectl -n minio-tenant-default delete --wait=false pod/default-minio-tenant-pool-0-0
 
 ---
 apiVersion: batch/v1
