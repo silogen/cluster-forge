@@ -18,6 +18,8 @@ spec:
   env:
     - name: MINIO_PROMETHEUS_AUTH_TYPE
       value: public
+    - name: MINIO_IDENTITY_OPENID_CLIENT_SECRET
+      value: defaultsecret
     - name: MINIO_IDENTITY_OPENID_SCOPES
       value: openid,profile,email,policy
     - name: MINIO_BROWSER_REDIRECT_URL
