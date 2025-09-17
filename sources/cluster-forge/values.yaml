@@ -1,6 +1,6 @@
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: gitops-forge
+  targetRevision: gitops-forge-kind
   valuesFile: "values.yaml"
 
 externalValues:
@@ -9,7 +9,7 @@ externalValues:
   targetRevision: main
 
 common:
-  domain: plat-dev-2.silogen.ai
+  domain: kind.silogen.ai
 
 apps:
 
@@ -35,14 +35,14 @@ apps:
     valuesFile: ../custom_values.yaml
     syncWave: -50
 
-#  - name: cert-manager-config
-#    path: cert-manager-config
-#    namespace: cert-manager
-#    valuesFile: values.yaml
-#    helmParameters:
-#      - name: domain
-#        value: "{{ .Values.common.domain }}"
-#    syncWave: -50
+  - name: cert-manager-config
+    path: cert-manager-config
+    namespace: cert-manager
+    valuesFile: values.yaml
+    helmParameters:
+      - name: domain
+        value: "{{ .Values.common.domain }}"
+    syncWave: -50
 
 #  - name: cluster-cert
 #    path: cluster-cert
