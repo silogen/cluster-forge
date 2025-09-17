@@ -921,23 +921,19 @@ spec:
               static_configs:
                 - targets:
                     - longhorn-backend.longhorn.svc.cluster.local:9500
-            - job_name: airm-custom-metrics
+            - job_name: chrony-exporter
               kubernetes_sd_configs:
                 - role: pod
-              metrics_path: /
               relabel_configs:
-                - action: keep
-                  regex: airm-api
-                  source_labels:
-                    - __meta_kubernetes_pod_label_app
-                - regex: (.+)
-                  replacement: $1:9009
-                  source_labels:
-                    - __meta_kubernetes_node_address_InternalIP
+                - source_labels: [__meta_kubernetes_pod_label_app]
+                  regex: chrony-exporter
+                  action: keep
+                - source_labels: [__meta_kubernetes_pod_ip]
                   target_label: __address__
-                - source_labels:
-                    - __meta_kubernetes_node_name
-                  target_label: hostname
+                  regex: (.*)
+                  replacement: $1:9123
+                - source_labels: [__meta_kubernetes_pod_node_name]
+                  target_label: k8s_node_name
     service:
       pipelines:
         metrics:
