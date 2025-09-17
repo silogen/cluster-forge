@@ -2,7 +2,17 @@ name: Release Pipeline
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+  release:
+    types: [created, edited]
   workflow_dispatch:
+    inputs:
+      is_prerelease:
+        description: 'Is this a prerelease?'
+        required: false
+        type: boolean
+        default: 'false'
 
 jobs:
   version:
@@ -21,7 +31,6 @@ jobs:
         uses: ietf-tools/semver-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: feat-pr-checks
           maxTagsToFetch: 100
           skipInvalidTags: true
           patchAll: true
