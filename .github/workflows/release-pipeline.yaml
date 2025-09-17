@@ -7,6 +7,12 @@ on:
   release:
     types: [created, edited]
   workflow_dispatch:
+    inputs:
+      is_prerelease:
+        description: 'Is this a prerelease?'
+        required: false
+        type: boolean
+        default: 'false'
 
 jobs:
   version:
