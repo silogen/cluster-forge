@@ -17,7 +17,7 @@ apps:
   - name: argocd
     path: argocd/8.3.5
     namespace: argocd
-    valuesFile: ../values_custom.yaml
+    valuesFile: ../values_cf.yaml
     #valuesFile: ../values_ha.yaml
     helmParameters:
       - name: global.domain
@@ -32,7 +32,7 @@ apps:
   - name: cert-manager
     path: cert-manager/v1.18.2
     namespace: cert-manager
-    valuesFile: ../custom_values.yaml
+    valuesFile: ../values_cf.yaml
     syncWave: -50
 
 #  - name: cert-manager-config
@@ -58,7 +58,7 @@ apps:
   - name: external-secrets-config
     path: external-secrets-config
     namespace: cf-es-backend
-    syncWave: -40
+    syncWave: -45
 
   # Network apps
   - name: gateway-api
@@ -80,7 +80,7 @@ apps:
   - name: kgateway
     path: kgateway/v2.1.0-main
     namespace: kgateway-system
-    valuesFile: ../custom_values.yaml
+    valuesFile: ../values_cf.yaml
     syncWave: -40
 
   - name: kgateway-config
@@ -91,6 +91,20 @@ apps:
       - name: domain
         value: "{{ .Values.common.domain }}"
     syncWave: -35
+
+  - name: gitea-config
+    path: gitea-config
+    namespace: cf-gitea
+    syncWave: -50
+
+  - name: gitea
+    path: gitea/12.3.0
+    namespace: cf-gitea
+    valuesFile: ../values_cf.yaml
+    helmParameters:
+      - name: clusterDomain
+        value: "{{ .Values.common.domain }}"
+    syncWave: -40
 
   # Monitoring
   - name: prometheus-crds
@@ -123,7 +137,7 @@ apps:
 #  - name: keycloak
 #    path: keycloak/25.2.0
 #    namespace: keycloak
-#    valuesFile: ../values_custom.yaml
+#    valuesFile: ../values_cf.yaml
 #    syncWave: -30
 #
 #  - name: keycloak-config
@@ -220,7 +234,7 @@ apps:
   - name: minio-tenant
     path: minio-tenant/7.1.1
     namespace: minio-tenant-default
-    valuesFile: ../values_custom.yaml
+    valuesFile: ../values_cf.yaml
     syncWave: -20
 
   - name: minio-tenant-config

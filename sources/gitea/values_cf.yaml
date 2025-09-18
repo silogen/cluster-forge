@@ -1,0 +1,13 @@
+clusterDomain: # to be filled by cluster-forge app
+gitea:
+  admin:
+    existingSecret: gitea-credentials
+
+valkey-cluster:
+  enabled: false
+valkey:
+  enabled: true
+postgresql-ha:
+  enabled: false
+postgresql:
+  enabled: true
