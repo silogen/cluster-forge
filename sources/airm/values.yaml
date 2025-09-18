@@ -34,7 +34,7 @@ airm:
     airm:
       name: airm-secret-store
     minio:
-      name: k8s-secret-store
+      name: minio-secret-store
 
   postgresql:
     enabled: true

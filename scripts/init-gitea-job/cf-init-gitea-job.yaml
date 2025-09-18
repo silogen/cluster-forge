@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gitea-init-job
+  namespace: cf-gitea
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: gitea-init-job-sa
+      containers:
+        - name: gitea-init
+          image: alpine/k8s:1.28.4
+          command: ["/bin/bash"]
+          args: ["/tmp/scripts/init-gitea.sh"]
+          volumeMounts:
+            - name: scripts
+              mountPath: /tmp/scripts
+            - name: values
+              mountPath: /tmp/values
+      volumes:
+        - name: scripts
+          configMap:
+            name: init-gitea-scripts
+            defaultMode: 0755
+        - name: values
+          configMap:
+            name: cf-values-file
