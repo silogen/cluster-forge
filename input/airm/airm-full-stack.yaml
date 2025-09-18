@@ -1114,7 +1114,7 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
       restartPolicy: Always
----
+--- 
 # Source: airm-chart/templates/airm-dispatcher-app.yaml
 apiVersion: apps/v1
 kind: Deployment
