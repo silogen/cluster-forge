@@ -767,9 +767,9 @@ spec:
             - name: OPENID_CLIENT_ID
               value: '354a0fa1-35ac-4a6d-9c4d-d661129c2cd0'
             - name: OPENID_CONFIGURATION_URL
-              value: 'http://kc.PUBLIC-IP.nip.io/realms/airm/.well-known/openid-configuration'
+              value: 'http://kc.not-a-domain/realms/airm/.well-known/openid-configuration'
             - name: POST_REGISTRATION_REDIRECT_URL
-              value: 'https://airmui.PUBLIC-IP.nip.io/'
+              value: 'https://airmui.not-a-domain/'
             - name: DATABASE_HOST
               value: 'airmchartdemo-airm-cnpg-rw.silodemo-airm.svc.cluster.local'
             - name: DATABASE_PORT
@@ -1040,7 +1040,7 @@ spec:
           - name: ORG_NAME
             value: 'demo'
           - name: NEW_DOMAIN_NAME
-            value: 'PUBLIC-IP.nip.io'
+            value: 'not-a-domain'
           - name: KEYCLOAK_CLIENT_ID
             value: '354a0fa1-35ac-4a6d-9c4d-d661129c2cd0'
           - name: KEYCLOAK_CLIENT_SECRET
@@ -1049,13 +1049,13 @@ spec:
                 key: KEYCLOAK_SECRET
                 name: 'airmchartdemo-secrets-airm'
           - name: USER_EMAIL
-            value: 'devuser@PUBLIC-IP.nip.io'
+            value: 'devuser@not-a-domain'
           - name: KEYCLOAK_URL
             value: 'http://keycloak.keycloak.svc.cluster.local:8080'
           - name: AIRM_API_URL
             value: 'http://airmchartdemo-airm-api.silodemo-airm.svc.cluster.local'
           - name: CLUSTER_BASE_URL
-            value: 'https://workspaces.PUBLIC-IP.nip.io/'
+            value: 'https://workspaces.not-a-domain/'
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: false
@@ -1077,9 +1077,9 @@ spec:
         - name: airm-ui
           env:
           - name: NEXTAUTH_URL
-            value: 'https://airmui.PUBLIC-IP.nip.io'
+            value: 'https://airmui.not-a-domain'
           - name: KEYCLOAK_ISSUER
-            value: 'https://kc.PUBLIC-IP.nip.io/realms/airm'
+            value: 'https://kc.not-a-domain/realms/airm'
           - name: KEYCLOAK_ID
             value: '354a0fa1-35ac-4a6d-9c4d-d661129c2cd0'
           - name: KEYCLOAK_ISSUER_INTERNAL_URL
