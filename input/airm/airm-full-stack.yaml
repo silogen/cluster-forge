@@ -3,29 +3,29 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: 'airmchartdemo-airm-ui-sa'
-  namespace: 'silodemo-airm'
+  name: 'airm-airm-ui-sa'
+  namespace: 'airm'
 ---
 # Source: airm-chart/templates/airm-dispatcher-app.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: 'airmchartdemo-airm-dispatcher-sa'
-  namespace: 'silodemo-airm'
+  name: 'airm-airm-dispatcher-sa'
+  namespace: 'airm'
 ---
 # Source: airm-chart/templates/secret-generator-rbac.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: 'airmchartdemo-secret-generator-sa'
-  namespace: 'silodemo-airm'
+  name: 'airm-secret-generator-sa'
+  namespace: 'airm'
 ---
 # Source: airm-chart/templates/airm-app-frontend.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: 'airmchartdemo-airm-configure'
-  namespace: 'silodemo-airm'
+  name: 'airm-airm-configure'
+  namespace: 'airm'
 data:
   init-db.sh: |
 
@@ -85,8 +85,8 @@ data:
     echo "Checking airm-api..."
     echo ""
     while true; do
-        NAMESPACE="silodemo-airm"
-        LABEL="app=airmchartdemo-airm-api"
+        NAMESPACE="airm"
+        LABEL="app=airm-airm-api"
         CONTAINER="airm"
 
         # Find the first pod name matching label and is Running
@@ -183,7 +183,7 @@ data:
             # Create cluster
             echo "Creating cluster $AIRM_API_URL..."
             CLUSTER=$(curl -v -X 'POST' "${AIRM_API_URL}/v1/clusters" -H 'accept: application/json' -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" -d '{ "base_url": "'"$CLUSTER_BASE_URL"'" }')
-            
+    
             CLUSTER_ID=$(echo "$CLUSTER" | jq -r '.id')
             check_success $([[ "$CLUSTER_ID" != "null" ]] && echo 0 || exit 1) "Failed to create cluster"
             CLUSTER_SECRET=$(echo "$CLUSTER" | jq -r '.user_secret')
@@ -197,12 +197,12 @@ data:
 
     function create_secret_and_start_dispatcher() {
         # Create secret for dispatcher to use
-        kubectl delete secret airmchartdemo-airm-rabbitmq-common-vhost-user -n 'silodemo-airm' 
-        kubectl create secret generic airmchartdemo-airm-rabbitmq-common-vhost-user --from-literal=username="$CLUSTER_ID" --from-literal=password="$CLUSTER_SECRET" -n 'silodemo-airm'
+        kubectl delete secret airm-airm-rabbitmq-common-vhost-user -n 'airm' 
+        kubectl create secret generic airm-airm-rabbitmq-common-vhost-user --from-literal=username="$CLUSTER_ID" --from-literal=password="$CLUSTER_SECRET" -n 'airm'
 
         sleep 10
         # Start dispatcher because it has been failing because secret was not created and wait for 10 seconds
-        # kubectl rollout restart deployment/airm-dispatcher -n 'silodemo-airm'
+        # kubectl rollout restart deployment/airm-dispatcher -n 'airm'
         echo "Just waiting 20 seconds for dispatcher deployment to rollout and take the secret that has been created"
     }
 
@@ -429,8 +429,8 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: 'airmchartdemo-secret-generator-script'
-  namespace: 'silodemo-airm'
+  name: 'airm-secret-generator-script'
+  namespace: 'airm'
 data:
   generate-secrets.sh: |
     #!/bin/bash
@@ -508,8 +508,8 @@ data:
             value: ${AIRM_ADMIN_SECRET}
           - key: airm-ci-client-secret
             value: ${AIRM_CI_SECRET}
-          - key: airmchartdemo-airm-cnpg-user
-            value: airmchartdemo-airm-cnpg-user
+          - key: airm-airm-cnpg-user
+            value: airm-airm-cnpg-user
           - key: catalog-cnpg-superuser
             value: ${CATALOG_SUPERUSER}
           - key: catalog-cnpg-user
@@ -548,7 +548,7 @@ data:
             value: ${AIRM_RABBITMQ_USERNAME}
           - key: airm-oci-1-rabbitmq-common-vhost-username
             value: ${AIRM_OCI_RABBITMQ_USERNAME}
-          - key: airmchartdemo-rabbitmq-backup-minio-credentials
+          - key: airm-rabbitmq-backup-minio-credentials
             value: ${RABBITMQ_BACKUP_CREDS}
           - key: keycloak-cnpg-superuser-password
             value: ${KC_SUPERUSER_PASSWORD}
@@ -578,14 +578,14 @@ data:
             value: ${RABBITMQ_DEFAULT_PASSWORD}
     EOF
     
-
+    
     # do not apply if the secret store already exists
     kubectl get clustersecretstores.external-secrets.io airm-secret-store > /dev/null 2>&1
     if [ $? -eq 0 ] ; then
       echo "ClusterSecretStore already exists, skipping creation."
       exit 0
     fi
- 
+    
     kubectl apply -f /tmp/final-secret-store.yaml
     
     echo "ClusterSecretStore created successfully!"
@@ -596,99 +596,99 @@ data:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: 'airmchartdemo-airm-ui-cluster-access-role'
+  name: 'airm-airm-ui-cluster-access-role'
 rules:
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["get", "list", "create", "delete"]
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
 ---
 # Source: airm-chart/templates/airm-dispatcher-app.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: 'airmchartdemo-airm-dispatcher-cluster-access-role'
+  name: 'airm-airm-dispatcher-cluster-access-role'
 rules:
-- apiGroups: [""]
-  resources: ["services", "namespaces", "configmaps", "pods"]
-  verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
-- apiGroups: [""]
-  resources: ["nodes"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["apps"]
-  resources: ["deployments", "statefulsets", "daemonsets"]
-  verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
-- apiGroups: ["batch"]
-  resources: ["jobs", "cronjobs"]
-  verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
-- apiGroups: ["kaiwo.silogen.ai"]
-  resources: ["kaiwojobs", "kaiwoservices", "kaiwoqueueconfigs"]
-  verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
-- apiGroups: ["gateway.networking.k8s.io"]
-  resources: ["httproutes"]
-  verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses"]
-  verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
-- apiGroups: ["external-secrets.io"]
-  resources: ["externalsecrets"]
-  verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["services", "namespaces", "configmaps", "pods"]
+    verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+  - apiGroups: ["kaiwo.silogen.ai"]
+    resources: ["kaiwojobs", "kaiwoservices", "kaiwoqueueconfigs"]
+    verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes"]
+    verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+  - apiGroups: ["external-secrets.io"]
+    resources: ["externalsecrets"]
+    verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list"]
 ---
 # Source: airm-chart/templates/secret-generator-rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: 'airmchartdemo-secret-generator-role'
+  name: 'airm-secret-generator-role'
 rules:
-- apiGroups: ["external-secrets.io"]
-  resources: ["clustersecretstores"]
-  verbs: ["create", "update", "patch", "get", "list"]
+  - apiGroups: ["external-secrets.io"]
+    resources: ["clustersecretstores"]
+    verbs: ["create", "update", "patch", "get", "list"]
 ---
 # Source: airm-chart/templates/airm-app-frontend.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: 'airmchartdemo-airm-ui-cluster-access-binding'
+  name: 'airm-airm-ui-cluster-access-binding'
 subjects:
-- kind: ServiceAccount
-  name: 'airmchartdemo-airm-ui-sa'
-  namespace: 'silodemo-airm'
+  - kind: ServiceAccount
+    name: 'airm-airm-ui-sa'
+    namespace: 'airm'
 roleRef:
   kind: ClusterRole
-  name: 'airmchartdemo-airm-ui-cluster-access-role'
+  name: 'airm-airm-ui-cluster-access-role'
   apiGroup: rbac.authorization.k8s.io
 ---
 # Source: airm-chart/templates/airm-dispatcher-app.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: 'airmchartdemo-airm-dispatcher-cluster-access-binding'
+  name: 'airm-airm-dispatcher-cluster-access-binding'
 subjects:
-- kind: ServiceAccount
-  name: 'airmchartdemo-airm-dispatcher-sa'
-  namespace: 'silodemo-airm'
+  - kind: ServiceAccount
+    name: 'airm-airm-dispatcher-sa'
+    namespace: 'airm'
 roleRef:
   kind: ClusterRole
-  name: 'airmchartdemo-airm-dispatcher-cluster-access-role'
+  name: 'airm-airm-dispatcher-cluster-access-role'
   apiGroup: rbac.authorization.k8s.io
 ---
 # Source: airm-chart/templates/secret-generator-rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: 'airmchartdemo-secret-generator-binding'
+  name: 'airm-secret-generator-binding'
 subjects:
-- kind: ServiceAccount
-  name: 'airmchartdemo-secret-generator-sa'
-  namespace: 'silodemo-airm'
+  - kind: ServiceAccount
+    name: 'airm-secret-generator-sa'
+    namespace: 'airm'
 roleRef:
   kind: ClusterRole
-  name: 'airmchartdemo-secret-generator-role'
+  name: 'airm-secret-generator-role'
   apiGroup: rbac.authorization.k8s.io
 ---
 # Source: airm-chart/templates/airm-app-backend.yaml
@@ -696,9 +696,9 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: 'airmchartdemo-airm-api'
-  name: 'airmchartdemo-airm-api'
-  namespace: 'silodemo-airm'
+    app: 'airm-airm-api'
+  name: 'airm-airm-api'
+  namespace: 'airm'
 spec:
   ports:
     - name: web
@@ -708,7 +708,7 @@ spec:
       port: 9009
       targetPort: 9009
   selector:
-    app: 'airmchartdemo-airm-api'
+    app: 'airm-airm-api'
   type: ClusterIP
 ---
 # Source: airm-chart/templates/airm-app-frontend.yaml
@@ -716,50 +716,50 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: 'airmchartdemo-airm-ui'
-  name: 'airmchartdemo-airm-ui'
-  namespace: 'silodemo-airm'
+    app: 'airm-airm-ui'
+  name: 'airm-airm-ui'
+  namespace: 'airm'
 spec:
   ports:
     - name: web
       port: 80
       targetPort: 8000
   selector:
-    app: 'airmchartdemo-airm-ui'
+    app: 'airm-airm-ui'
   type: ClusterIP
 ---
 # Source: airm-chart/templates/airm-dispatcher-app.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: 'airmchartdemo-airm-dispatcher'
-  namespace: 'silodemo-airm'
+  name: 'airm-airm-dispatcher'
+  namespace: 'airm'
   labels:
-    app: 'airmchartdemo-airm-dispatcher'
+    app: 'airm-airm-dispatcher'
 spec:
   ports:
-  - name: web
-    port: 80
-    targetPort: 8080
+    - name: web
+      port: 80
+      targetPort: 8080
   type: ClusterIP
   selector:
-    app: 'airmchartdemo-airm-dispatcher'
+    app: 'airm-airm-dispatcher'
 ---
 # Source: airm-chart/templates/airm-app-backend.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: 'airmchartdemo-airm-api'
-  namespace: 'silodemo-airm'
+  name: 'airm-airm-api'
+  namespace: 'airm'
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: 'airmchartdemo-airm-api'
+      app: 'airm-airm-api'
   template:
     metadata:
       labels:
-        app: 'airmchartdemo-airm-api'
+        app: 'airm-airm-api'
         auth-required: "true"
     spec:
       containers:
@@ -767,39 +767,39 @@ spec:
             - name: OPENID_CLIENT_ID
               value: '354a0fa1-35ac-4a6d-9c4d-d661129c2cd0'
             - name: OPENID_CONFIGURATION_URL
-              value: 'http://kc.not-a-domain/realms/airm/.well-known/openid-configuration'
+              value: 'http://kc.PUBLIC-IP.nip.io/realms/airm/.well-known/openid-configuration'
             - name: POST_REGISTRATION_REDIRECT_URL
-              value: 'https://airmui.not-a-domain/'
+              value: 'https://airmui.PUBLIC-IP.nip.io/'
             - name: DATABASE_HOST
-              value: 'airmchartdemo-airm-cnpg-rw.silodemo-airm.svc.cluster.local'
+              value: 'airm-airm-cnpg-rw.airm.svc.cluster.local'
             - name: DATABASE_PORT
               value: '5432'
             - name: DATABASE_USER
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: 'airmchartdemo-airm-cnpg-user'
+                  name: 'airm-airm-cnpg-user'
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: 'airmchartdemo-airm-cnpg-user'
+                  name: 'airm-airm-cnpg-user'
             - name: RABBITMQ_HOST
-              value: 'airmchartdemo-rabbitmq.silodemo-airm.svc.cluster.local'
+              value: 'airm-rabbitmq.airm.svc.cluster.local'
             - name: RABBITMQ_PORT
               value: '5672'
             - name: RABBITMQ_MANAGEMENT_URL
-              value: http://airmchartdemo-rabbitmq.silodemo-airm.svc.cluster.local:15672/api
+              value: http://airm-rabbitmq.airm.svc.cluster.local:15672/api
             - name: RABBITMQ_ADMIN_USER
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: 'airmchartdemo-airm-rabbitmq-admin'
+                  name: 'airm-airm-rabbitmq-admin'
             - name: RABBITMQ_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: 'airmchartdemo-airm-rabbitmq-admin'
+                  name: 'airm-airm-rabbitmq-admin'
             - name: KEYCLOAK_ADMIN_SERVER_URL
               value: 'http://keycloak.keycloak.svc.cluster.local:8080'
             - name: KEYCLOAK_REALM
@@ -808,26 +808,26 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: client-id
-                  name: 'airmchartdemo-airm-keycloak-admin-client'
+                  name: 'airm-airm-keycloak-admin-client'
             - name: KEYCLOAK_ADMIN_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
                   key: client-secret
-                  name: 'airmchartdemo-airm-keycloak-admin-client'
+                  name: 'airm-airm-keycloak-admin-client'
             - name: MINIO_URL
               value: 'http://minio.minio-tenant-default.svc.cluster.local:80'
             - name: MINIO_BUCKET
-              value: 'default-bucket' 
+              value: 'default-bucket'
             - name: MINIO_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
                   key: minio-access-key
-                  name: 'airmchartdemo-api-minio-credentials'
+                  name: 'airm-api-minio-credentials'
             - name: MINIO_SECRET_KEY
               valueFrom:
                 secretKeyRef:
                   key: minio-secret-key
-                  name: 'airmchartdemo-api-minio-credentials'
+                  name: 'airm-api-minio-credentials'
             - name: PROMETHEUS_URL
               value: 'http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:9090'
           image: 'ghcr.io/silogen/airm-api:v2025.08-rc.21'
@@ -889,7 +889,7 @@ spec:
         - name: liquibase-migrate
           command:
             - liquibase
-            - --url=jdbc:postgresql://airmchartdemo-airm-cnpg-rw.silodemo-airm.svc.cluster.local:5432/airm 
+            - --url=jdbc:postgresql://airm-airm-cnpg-rw.airm.svc.cluster.local:5432/airm
             - --username=$(DATABASE_USER)
             - --password=$(DATABASE_PASSWORD)
             - --logLevel=INFO
@@ -900,12 +900,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: 'airmchartdemo-airm-cnpg-user'
+                  name: 'airm-airm-cnpg-user'
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: 'airmchartdemo-airm-cnpg-user'
+                  name: 'airm-airm-cnpg-user'
           image: 'quay.io/lib/liquibase:latest'
           imagePullPolicy: 'IfNotPresent'
           volumeMounts:
@@ -917,36 +917,36 @@ spec:
           imagePullPolicy: 'IfNotPresent'
           command: ['uv', 'run', '-m', 'app.charts.registration']
           env:
-          - name: DATABASE_HOST
-            value: 'airmchartdemo-airm-cnpg-rw.silodemo-airm.svc.cluster.local'
-          - name: DATABASE_PORT
-            value: '5432'
-          - name: DATABASE_USER
-            valueFrom:
-              secretKeyRef:
-                name: 'airmchartdemo-airm-cnpg-user'
-                key: username
-          - name: DATABASE_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: 'airmchartdemo-airm-cnpg-user'
-                key: password
-          - name: RABBITMQ_HOST
-            value: 'airmchartdemo-rabbitmq.silodemo-airm.svc.cluster.local'
-          - name: RABBITMQ_PORT
-            value: '5672'
-          - name: RABBITMQ_MANAGEMENT_URL
-            value: http://airmchartdemo-rabbitmq.silodemo-airm.svc.cluster.local:15672/api
-          - name: RABBITMQ_ADMIN_USER
-            valueFrom:
-              secretKeyRef:
-                key: username
-                name: 'airmchartdemo-airm-rabbitmq-admin'
-          - name: RABBITMQ_ADMIN_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                key: password
-                name: 'airmchartdemo-airm-rabbitmq-admin'
+            - name: DATABASE_HOST
+              value: 'airm-airm-cnpg-rw.airm.svc.cluster.local'
+            - name: DATABASE_PORT
+              value: '5432'
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: 'airm-airm-cnpg-user'
+                  key: username
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: 'airm-airm-cnpg-user'
+                  key: password
+            - name: RABBITMQ_HOST
+              value: 'airm-rabbitmq.airm.svc.cluster.local'
+            - name: RABBITMQ_PORT
+              value: '5672'
+            - name: RABBITMQ_MANAGEMENT_URL
+              value: http://airm-rabbitmq.airm.svc.cluster.local:15672/api
+            - name: RABBITMQ_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: 'airm-airm-rabbitmq-admin'
+            - name: RABBITMQ_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: 'airm-airm-rabbitmq-admin'
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
@@ -955,30 +955,30 @@ spec:
               type: RuntimeDefault
             capabilities:
               drop:
-              - ALL
+                - ALL
         - name: check-rabbitmq-is-ready
           command:
-          - /bin/bash
-          - -c
-          - |
-
-            apt-get update -y 1> /dev/null 2>&1
-            apt-get install ncat -y 1> /dev/null 2>&1
-            while ! nc -z "$ENDPOINT_URL_TO_CHECK" "$ENDPOINT_PORT_TO_CHECK"; do
-              echo "Waiting for Airm rabbitmq at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}..."
+            - /bin/bash
+            - -c
+            - |
+              
+              apt-get update -y 1> /dev/null 2>&1
+              apt-get install ncat -y 1> /dev/null 2>&1
+              while ! nc -z "$ENDPOINT_URL_TO_CHECK" "$ENDPOINT_PORT_TO_CHECK"; do
+                echo "Waiting for Airm rabbitmq at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}..."
+                sleep 3
+              done
+              echo "Airm rabbitmq is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}."
               sleep 3
-            done
-            echo "Airm rabbitmq is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}."
-            sleep 3
-            exit 0
+              exit 0
 
           image: ubuntu:22.04
-          imagePullPolicy: IfNotPresent 
+          imagePullPolicy: IfNotPresent
           env:
-          - name: ENDPOINT_URL_TO_CHECK
-            value: "airmchartdemo-rabbitmq.silodemo-airm.svc.cluster.local"
-          - name: ENDPOINT_PORT_TO_CHECK
-            value: "15672" #""
+            - name: ENDPOINT_URL_TO_CHECK
+              value: "airm-rabbitmq.airm.svc.cluster.local"
+            - name: ENDPOINT_PORT_TO_CHECK
+              value: "15672" #""
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: false
@@ -1003,59 +1003,59 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: 'airmchartdemo-airm-ui'
-  namespace: 'silodemo-airm'
+  name: 'airm-airm-ui'
+  namespace: 'airm'
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: 'airmchartdemo-airm-ui'
+      app: 'airm-airm-ui'
   template:
     metadata:
       labels:
-        app: 'airmchartdemo-airm-ui'
+        app: 'airm-airm-ui'
     spec:
-      serviceAccountName: 'airmchartdemo-airm-ui-sa'
+      serviceAccountName: 'airm-airm-ui-sa'
       volumes:
         - name: config-script
           configMap:
-            name: 'airmchartdemo-airm-configure'
+            name: 'airm-airm-configure'
             defaultMode: 0755
 
       initContainers:
         - name: init-orgdb
           command:
-          - /bin/bash
-          - -c
-          - |
-            /opt/scripts/init-db.sh
+            - /bin/bash
+            - -c
+            - |
+              /opt/scripts/init-db.sh
           image: ubuntu:22.04
-          imagePullPolicy: IfNotPresent 
+          imagePullPolicy: IfNotPresent
           volumeMounts:
             - name: config-script
               mountPath: /opt/scripts
           env:
-          - name: DEBIAN_FRONTEND
-            value: 'noninteractive'
-          - name: ORG_NAME
-            value: 'demo'
-          - name: NEW_DOMAIN_NAME
-            value: 'not-a-domain'
-          - name: KEYCLOAK_CLIENT_ID
-            value: '354a0fa1-35ac-4a6d-9c4d-d661129c2cd0'
-          - name: KEYCLOAK_CLIENT_SECRET
-            valueFrom:
-              secretKeyRef:
-                key: KEYCLOAK_SECRET
-                name: 'airmchartdemo-secrets-airm'
-          - name: USER_EMAIL
-            value: 'devuser@not-a-domain'
-          - name: KEYCLOAK_URL
-            value: 'http://keycloak.keycloak.svc.cluster.local:8080'
-          - name: AIRM_API_URL
-            value: 'http://airmchartdemo-airm-api.silodemo-airm.svc.cluster.local'
-          - name: CLUSTER_BASE_URL
-            value: 'https://workspaces.not-a-domain/'
+            - name: DEBIAN_FRONTEND
+              value: 'noninteractive'
+            - name: ORG_NAME
+              value: 'demo'
+            - name: NEW_DOMAIN_NAME
+              value: 'PUBLIC-IP.nip.io'
+            - name: KEYCLOAK_CLIENT_ID
+              value: '354a0fa1-35ac-4a6d-9c4d-d661129c2cd0'
+            - name: KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: KEYCLOAK_SECRET
+                  name: 'airm-secrets-airm'
+            - name: USER_EMAIL
+              value: 'devuser@PUBLIC-IP.nip.io'
+            - name: KEYCLOAK_URL
+              value: 'http://keycloak.keycloak.svc.cluster.local:8080'
+            - name: AIRM_API_URL
+              value: 'http://airm-airm-api.airm.svc.cluster.local'
+            - name: CLUSTER_BASE_URL
+              value: 'https://workspaces.PUBLIC-IP.nip.io/'
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: false
@@ -1076,19 +1076,19 @@ spec:
       containers:
         - name: airm-ui
           env:
-          - name: NEXTAUTH_URL
-            value: 'https://airmui.not-a-domain'
-          - name: KEYCLOAK_ISSUER
-            value: 'https://kc.not-a-domain/realms/airm'
-          - name: KEYCLOAK_ID
-            value: '354a0fa1-35ac-4a6d-9c4d-d661129c2cd0'
-          - name: KEYCLOAK_ISSUER_INTERNAL_URL
-            value: 'http://keycloak.keycloak.svc.cluster.local:8080/realms/airm/'
-          - name: AIRM_API_SERVICE_URL
-            value: 'http://airmchartdemo-airm-api.silodemo-airm.svc.cluster.local'
+            - name: NEXTAUTH_URL
+              value: 'https://airmui.PUBLIC-IP.nip.io'
+            - name: KEYCLOAK_ISSUER
+              value: 'https://kc.PUBLIC-IP.nip.io/realms/airm'
+            - name: KEYCLOAK_ID
+              value: '354a0fa1-35ac-4a6d-9c4d-d661129c2cd0'
+            - name: KEYCLOAK_ISSUER_INTERNAL_URL
+              value: 'http://keycloak.keycloak.svc.cluster.local:8080/realms/airm/'
+            - name: AIRM_API_SERVICE_URL
+              value: 'http://airm-airm-api.airm.svc.cluster.local'
           envFrom:
             - secretRef:
-                name: 'airmchartdemo-secrets-airm'
+                name: 'airm-secrets-airm'
           image: 'ghcr.io/silogen/airm-ui:v2025.08-rc.21'
           imagePullPolicy: 'IfNotPresent'
           livenessProbe:
@@ -1120,46 +1120,46 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: 'airmchartdemo-airm-dispatcher'
-  namespace: 'silodemo-airm'
+  name: 'airm-airm-dispatcher'
+  namespace: 'airm'
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: 'airmchartdemo-airm-dispatcher'
+      app: 'airm-airm-dispatcher'
   template:
     metadata:
       labels:
-        app: 'airmchartdemo-airm-dispatcher'
+        app: 'airm-airm-dispatcher'
     spec:
-      serviceAccountName: 'airmchartdemo-airm-dispatcher-sa'
+      serviceAccountName: 'airm-airm-dispatcher-sa'
       initContainers:
         - name: check-airm-api-is-ready
           command:
-          - /bin/bash
-          - -c
-          - |
-
-            apt-get update -y 1> /dev/null 2>&1
-            apt-get install ncat -y 1> /dev/null 2>&1
-            while ! nc -z "$ENDPOINT_URL_TO_CHECK" "$ENDPOINT_PORT_TO_CHECK"; do
-              echo "Waiting for Airm UI at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}..."
-              sleep 3
-            done
-            echo "Airm UI is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}."
-            sleep 12
-            exit 0
+            - /bin/bash
+            - -c
+            - |
+              
+              apt-get update -y 1> /dev/null 2>&1
+              apt-get install ncat -y 1> /dev/null 2>&1
+              while ! nc -z "$ENDPOINT_URL_TO_CHECK" "$ENDPOINT_PORT_TO_CHECK"; do
+                echo "Waiting for Airm UI at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}..."
+                sleep 3
+              done
+              echo "Airm UI is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}."
+              sleep 12
+              exit 0
 
           image: ubuntu:22.04
-          imagePullPolicy: IfNotPresent 
+          imagePullPolicy: IfNotPresent
           # volumeMounts:
           #   - name: config-script
           #     mountPath: /opt/scripts
           env:
-          - name: ENDPOINT_URL_TO_CHECK
-            value: "airmchartdemo-airm-api.silodemo-airm.svc.cluster.local"
-          - name: ENDPOINT_PORT_TO_CHECK
-            value: "80" #""
+            - name: ENDPOINT_URL_TO_CHECK
+              value: "airm-airm-api.airm.svc.cluster.local"
+            - name: ENDPOINT_PORT_TO_CHECK
+              value: "80" #""
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: false
@@ -1177,85 +1177,85 @@ spec:
             seccompProfile:
               type: RuntimeDefault
       containers:
-      - name: airm-dispatcher
-        image: 'ghcr.io/silogen/airm-dispatcher:v2025.08-rc.21'
-        imagePullPolicy: 'IfNotPresent'
-        ports:
-        - containerPort: 8080
-        env:
-        - name: KUBE_CLUSTER_NAME
-          value: demo-cluster
-        - name: ORG_NAME
-          value: demo
-        - name: RABBITMQ_HOST
-          value: "airmchartdemo-rabbitmq.silodemo-airm.svc.cluster.local"
-        - name: RABBITMQ_PORT
-          value: "5672" #""
-        - name: RABBITMQ_AIRM_COMMON_VHOST
-          value: "vh_airm_common"
-        - name: RABBITMQ_AIRM_COMMON_QUEUE
-          value: "airm_common"
-        - name: RABBITMQ_USER
-          valueFrom:
-            secretKeyRef:
-              name: 'airmchartdemo-airm-rabbitmq-common-vhost-user'
-              key: username
-        - name: RABBITMQ_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: 'airmchartdemo-airm-rabbitmq-common-vhost-user'
-              key: password
-        livenessProbe:
-          httpGet:
-            path: /v1/health
-            port: 8080
-          initialDelaySeconds: 10
-          periodSeconds: 5
-          timeoutSeconds: 2
-          failureThreshold: 3
-          successThreshold: 1
-        readinessProbe:
-          httpGet:
-            path: /v1/health
-            port: 8080
-          initialDelaySeconds: 10
-          periodSeconds: 5
-          timeoutSeconds: 2
-          failureThreshold: 3
-          successThreshold: 1
-        resources:
-          requests:
-            memory: "1Gi"
-            cpu: "500m"
-          limits:
-            memory: "1Gi"
-        securityContext:
-          runAsUser: 0
+        - name: airm-dispatcher
+          image: 'ghcr.io/silogen/airm-dispatcher:v2025.08-rc.21'
+          imagePullPolicy: 'IfNotPresent'
+          ports:
+            - containerPort: 8080
+          env:
+            - name: KUBE_CLUSTER_NAME
+              value: demo-cluster
+            - name: ORG_NAME
+              value: demo
+            - name: RABBITMQ_HOST
+              value: "airm-rabbitmq.airm.svc.cluster.local"
+            - name: RABBITMQ_PORT
+              value: "5672" #""
+            - name: RABBITMQ_AIRM_COMMON_VHOST
+              value: "vh_airm_common"
+            - name: RABBITMQ_AIRM_COMMON_QUEUE
+              value: "airm_common"
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: 'airm-airm-rabbitmq-common-vhost-user'
+                  key: username
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: 'airm-airm-rabbitmq-common-vhost-user'
+                  key: password
+          livenessProbe:
+            httpGet:
+              path: /v1/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+            successThreshold: 1
+          readinessProbe:
+            httpGet:
+              path: /v1/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+            successThreshold: 1
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+          securityContext:
+            runAsUser: 0
 ---
 # Source: airm-chart/templates/secret-generator-job.yaml
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: 'airmchartdemo-secret-generator'
-  namespace: 'silodemo-airm'
+  name: 'airm-secret-generator'
+  namespace: 'airm'
 spec:
   template:
     spec:
-      serviceAccountName: 'airmchartdemo-secret-generator-sa'
+      serviceAccountName: 'airm-secret-generator-sa'
       containers:
-      - name: secret-generator
-        image: 'ghcr.io/silogen/kubectl:latest'
-        imagePullPolicy: 'IfNotPresent'
-        command: ["/bin/bash"]
-        args: ["/scripts/generate-secrets.sh"]
-        volumeMounts:
-        - name: script-volume
-          mountPath: /scripts
+        - name: secret-generator
+          image: 'ghcr.io/silogen/kubectl:latest'
+          imagePullPolicy: 'IfNotPresent'
+          command: ["/bin/bash"]
+          args: ["/scripts/generate-secrets.sh"]
+          volumeMounts:
+            - name: script-volume
+              mountPath: /scripts
       volumes:
-      - name: script-volume
-        configMap:
-          name: 'airmchartdemo-secret-generator-script'
-          defaultMode: 0755
+        - name: script-volume
+          configMap:
+            name: 'airm-secret-generator-script'
+            defaultMode: 0755
       restartPolicy: OnFailure
   backoffLimit: 3
 ---
@@ -1263,8 +1263,8 @@ spec:
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: 'airmchartdemo-cluster-nodes-dispatcher'
-  namespace: 'silodemo-airm'
+  name: 'airm-cluster-nodes-dispatcher'
+  namespace: 'airm'
 spec:
   concurrencyPolicy: Replace
   jobTemplate:
@@ -1276,7 +1276,7 @@ spec:
                 - curl
                 - -X
                 - POST
-                - http://airmchartdemo-airm-dispatcher:80/v1/clusters/nodes
+                - http://airm-airm-dispatcher:80/v1/clusters/nodes
               image: 'ghcr.io/silogen/airm-dispatcher:v2025.08-rc.21'
               imagePullPolicy: 'IfNotPresent'
               name: airm-cluster-nodes-cron
@@ -1293,8 +1293,8 @@ spec:
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: 'airmchartdemo-heartbeat-dispatcher'
-  namespace: 'silodemo-airm'
+  name: 'airm-heartbeat-dispatcher'
+  namespace: 'airm'
 spec:
   concurrencyPolicy: Replace
   schedule: "*/1 * * * *"
@@ -1311,30 +1311,30 @@ spec:
           initContainers:
             - name: check-dispatcher-is-ready
               command:
-              - /bin/bash
-              - -c
-              - |
-
-                apt-get update -y 1> /dev/null 2>&1
-                apt-get install ncat -y 1> /dev/null 2>&1
-                while ! nc -z "$ENDPOINT_URL_TO_CHECK" "$ENDPOINT_PORT_TO_CHECK"; do
-                  echo "Waiting for Airm dispatcher at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}..."
-                  sleep 3
-                done
-                echo "Airm dispatcher is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}."
-                sleep 12
-                exit 0
+                - /bin/bash
+                - -c
+                - |
+                  
+                  apt-get update -y 1> /dev/null 2>&1
+                  apt-get install ncat -y 1> /dev/null 2>&1
+                  while ! nc -z "$ENDPOINT_URL_TO_CHECK" "$ENDPOINT_PORT_TO_CHECK"; do
+                    echo "Waiting for Airm dispatcher at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}..."
+                    sleep 3
+                  done
+                  echo "Airm dispatcher is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}."
+                  sleep 12
+                  exit 0
 
               image: ubuntu:22.04
-              imagePullPolicy: IfNotPresent 
+              imagePullPolicy: IfNotPresent
               # volumeMounts:
               #   - name: config-script
               #     mountPath: /opt/scripts
               env:
-              - name: ENDPOINT_URL_TO_CHECK
-                value: "airmchartdemo-airm-dispatcher.silodemo-airm.svc.cluster.local"
-              - name: ENDPOINT_PORT_TO_CHECK
-                value: "80" #""
+                - name: ENDPOINT_URL_TO_CHECK
+                  value: "airm-airm-dispatcher.airm.svc.cluster.local"
+                - name: ENDPOINT_PORT_TO_CHECK
+                  value: "80" #""
               securityContext:
                 allowPrivilegeEscalation: false
                 runAsNonRoot: false
@@ -1352,38 +1352,38 @@ spec:
                 seccompProfile:
                   type: RuntimeDefault
           containers:
-          - name: airm-heartbeat-cron
-            image: 'ghcr.io/silogen/airm-dispatcher:v2025.08-rc.21'
-            imagePullPolicy: 'IfNotPresent'
-            command: ["curl", "-X", "POST", "http://airmchartdemo-airm-dispatcher:80/v1/heartbeats"]
-            resources:
-              requests:
-                memory: "100Mi"
-                cpu: "50m"
-              limits:
-                memory: "100Mi"
+            - name: airm-heartbeat-cron
+              image: 'ghcr.io/silogen/airm-dispatcher:v2025.08-rc.21'
+              imagePullPolicy: 'IfNotPresent'
+              command: ["curl", "-X", "POST", "http://airm-airm-dispatcher:80/v1/heartbeats"]
+              resources:
+                requests:
+                  memory: "100Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "100Mi"
 ---
 # Source: airm-chart/templates/airm-cert-issuer.yaml
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: 'airmchartdemo-tls-secret'
-  namespace: 'silodemo-airm'
+  name: 'airm-tls-secret'
+  namespace: 'airm'
 spec:
   dnsNames:
-    - 'airmchartdemo-rabbitmq.silodemo-airm.svc.cluster.local'
-    - '*.airmchartdemo-rabbitmq-nodes.silodemo-airm.svc.cluster.local'
+    - 'airm-rabbitmq.airm.svc.cluster.local'
+    - '*.airm-rabbitmq-nodes.airm.svc.cluster.local'
   issuerRef:
     kind: Issuer
-    name: 'airmchartdemo-selfsigned-issuer'
-  secretName: 'airmchartdemo-tls-secret'
+    name: 'airm-selfsigned-issuer'
+  secretName: 'airm-tls-secret'
 ---
 # Source: airm-chart/templates/airm-cluster.yaml
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: 'airmchartdemo-airm-cnpg'
-  namespace: 'silodemo-airm'
+  name: 'airm-airm-cnpg'
+  namespace: 'airm'
 spec:
   affinity:
     enablePodAntiAffinity: true
@@ -1395,7 +1395,7 @@ spec:
       postInitSQL:
         - GRANT CREATE ON SCHEMA public TO airm_user
       secret:
-        name: 'airmchartdemo-airm-cnpg-user'
+        name: 'airm-airm-cnpg-user'
   imageName: ghcr.io/cloudnative-pg/postgresql:17
   instances: 1
   nodeMaintenanceWindow:
@@ -1424,7 +1424,7 @@ spec:
     size: 50Gi
     storageClass: default
   superuserSecret:
-    name: 'airmchartdemo-airm-cnpg-superuser' # airm-cnpg-superuser
+    name: 'airm-airm-cnpg-superuser' # airm-cnpg-superuser
   walStorage:
     size: 50Gi
     storageClass: default
@@ -1433,8 +1433,8 @@ spec:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: 'airmchartdemo-airm-cnpg-superuser'
-  namespace: 'silodemo-airm'
+  name: 'airm-airm-cnpg-superuser'
+  namespace: 'airm'
 spec:
   data:
     - remoteRef:
@@ -1447,7 +1447,7 @@ spec:
     kind: ClusterSecretStore
     name: airm-secret-store
   target:
-    name: 'airmchartdemo-airm-cnpg-superuser'
+    name: 'airm-airm-cnpg-superuser'
     template:
       type: Opaque
 ---
@@ -1455,8 +1455,8 @@ spec:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: 'airmchartdemo-airm-cnpg-user'
-  namespace: 'silodemo-airm'
+  name: 'airm-airm-cnpg-user'
+  namespace: 'airm'
 spec:
   data:
     - remoteRef:
@@ -1469,7 +1469,7 @@ spec:
     kind: ClusterSecretStore
     name: airm-secret-store
   target:
-    name: 'airmchartdemo-airm-cnpg-user'
+    name: 'airm-airm-cnpg-user'
     template:
       type: Opaque
 ---
@@ -1477,8 +1477,8 @@ spec:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name:  'airmchartdemo-airm-keycloak-admin-client'
-  namespace: 'silodemo-airm'
+  name:  'airm-airm-keycloak-admin-client'
+  namespace: 'airm'
 spec:
   data:
     - remoteRef:
@@ -1489,9 +1489,9 @@ spec:
       secretKey: client-secret
   secretStoreRef:
     kind: ClusterSecretStore
-    name: airm-secret-store
+    name: keycloak-secret-store
   target:
-    name: 'airmchartdemo-airm-keycloak-admin-client'
+    name: 'airm-airm-keycloak-admin-client'
     template:
       type: Opaque
 ---
@@ -1499,8 +1499,8 @@ spec:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: 'airmchartdemo-airm-rabbitmq-admin'
-  namespace: 'silodemo-airm'
+  name: 'airm-airm-rabbitmq-admin'
+  namespace: 'airm'
 spec:
   data:
     - remoteRef:
@@ -1513,7 +1513,7 @@ spec:
     kind: ClusterSecretStore
     name: airm-secret-store
   target:
-    name: 'airmchartdemo-airm-rabbitmq-admin'
+    name: 'airm-airm-rabbitmq-admin'
     template:
       data:
         default_user.conf: |
@@ -1527,8 +1527,8 @@ spec:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: 'airmchartdemo-api-minio-credentials'
-  namespace: 'silodemo-airm'
+  name: 'airm-api-minio-credentials'
+  namespace: 'airm'
 spec:
   data:
     - remoteRef:
@@ -1543,14 +1543,14 @@ spec:
     kind: ClusterSecretStore
     name: k8s-secret-store
   target:
-    name: 'airmchartdemo-api-minio-credentials'
+    name: 'airm-api-minio-credentials'
 ---
 # Source: airm-chart/templates/airm-es.yaml
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: 'airmchartdemo-rabbitmq-backup-minio-credentials'
-  namespace: 'silodemo-airm'
+  name: 'airm-rabbitmq-backup-minio-credentials'
+  namespace: 'airm'
 spec:
   data:
     - remoteRef:
@@ -1563,14 +1563,14 @@ spec:
     kind: ClusterSecretStore
     name: airm-secret-store
   target:
-    name: 'airmchartdemo-rabbitmq-backup-minio-credentials'
+    name: 'airm-rabbitmq-backup-minio-credentials'
 ---
 # Source: airm-chart/templates/airm-es.yaml
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: 'airmchartdemo-secrets-airm'
-  namespace: 'silodemo-airm'
+  name: 'airm-secrets-airm'
+  namespace: 'airm'
 spec:
   data:
     - remoteRef:
@@ -1582,78 +1582,78 @@ spec:
   refreshInterval: 15s
   secretStoreRef:
     kind: ClusterSecretStore
-    name: airm-secret-store
+    name: keycloak-secret-store
   target:
-    name: 'airmchartdemo-secrets-airm'
+    name: 'airm-secrets-airm'
 ---
 # Source: airm-chart/templates/airm-httproute.yaml
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: 'airmchartdemo-airmapi-route'
-  namespace: 'silodemo-airm'
+  name: 'airm-airmapi-route'
+  namespace: 'airm'
 spec:
   parentRefs:
-  - group: gateway.networking.k8s.io
-    kind: Gateway
-    name: https
-    namespace: kgateway-system
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: https
+      namespace: kgateway-system
   rules:
-  - backendRefs:
-    - group: ""
-      kind: Service
-      name: 'airmchartdemo-airm-api'
-      port: 80
-      weight: 1
-    matches:
-    - headers:
-      - name: Host
-        type: RegularExpression
-        value: airmapi\..*
-      path:
-        type: PathPrefix
-        value: /
-    timeouts:
-      backendRequest: 20s
-      request: 90s
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: 'airm-airm-api'
+          port: 80
+          weight: 1
+      matches:
+        - headers:
+            - name: Host
+              type: RegularExpression
+              value: airmapi\..*
+          path:
+            type: PathPrefix
+            value: /
+      timeouts:
+        backendRequest: 20s
+        request: 90s
 ---
 # Source: airm-chart/templates/airm-httproute.yaml
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: 'airmchartdemo-airmui-route'
-  namespace: 'silodemo-airm'
+  name: 'airm-airmui-route'
+  namespace: 'airm'
 spec:
   parentRefs:
-  - group: gateway.networking.k8s.io
-    kind: Gateway
-    name: https
-    namespace: kgateway-system
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: https
+      namespace: kgateway-system
   rules:
-  - backendRefs:
-    - group: ""
-      kind: Service
-      name: 'airmchartdemo-airm-ui'
-      port: 80
-      weight: 1
-    matches:
-    - headers:
-      - name: Host
-        type: RegularExpression
-        value: airmui\..*
-      path:
-        type: PathPrefix
-        value: /
-    timeouts:
-      backendRequest: 20s
-      request: 90s
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: 'airm-airm-ui'
+          port: 80
+          weight: 1
+      matches:
+        - headers:
+            - name: Host
+              type: RegularExpression
+              value: airmui\..*
+          path:
+            type: PathPrefix
+            value: /
+      timeouts:
+        backendRequest: 20s
+        request: 90s
 ---
 # Source: airm-chart/templates/airm-cert-issuer.yaml
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: 'airmchartdemo-selfsigned-issuer'
-  namespace: 'silodemo-airm'
+  name: 'airm-selfsigned-issuer'
+  namespace: 'airm'
 spec:
   selfSigned: {}
 ---
@@ -1661,8 +1661,8 @@ spec:
 apiVersion: rabbitmq.com/v1beta1
 kind: RabbitmqCluster
 metadata:
-  name: 'airmchartdemo-rabbitmq'
-  namespace: 'silodemo-airm'
+  name: 'airm-rabbitmq'
+  namespace: 'airm'
 spec:
   persistence:
     storage: 20Gi
@@ -1676,6 +1676,6 @@ spec:
       memory: 256Mi
   secretBackend:
     externalSecret:
-      name: 'airmchartdemo-airm-rabbitmq-admin'
+      name: 'airm-airm-rabbitmq-admin'
   tls:
-    secretName: 'airmchartdemo-tls-secret'
+    secretName: 'airm-tls-secret'
