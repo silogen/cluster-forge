@@ -581,11 +581,10 @@ data:
     
     # do not apply if the secret store already exists
     kubectl get clustersecretstores.external-secrets.io airm-secret-store > /dev/null 2>&1
-    if [ $? -eq 0 ] ; then
-      echo "ClusterSecretStore already exists, skipping creation."
+    if kubectl get clustersecretstores.external-secrets.io airm-secret-store >/dev/null 2>&1; then
+      echo "ClusterSecretStore 'airm-secret-store' already exists, skipping creation."
       exit 0
     fi
-    
     kubectl apply -f /tmp/final-secret-store.yaml
     
     echo "ClusterSecretStore created successfully!"
@@ -1252,8 +1251,7 @@ spec:
         - name: secret-generator
           image: 'ghcr.io/silogen/kubectl:latest'
           imagePullPolicy: 'IfNotPresent'
-          command: ["/bin/bash"]
-          args: ["/scripts/generate-secrets.sh"]
+          command: ["/bin/bash", "-c", "/scripts/generate-secrets.sh"]
           volumeMounts:
             - name: script-volume
               mountPath: /scripts
