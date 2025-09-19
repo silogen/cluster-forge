@@ -9,6 +9,7 @@ externalValues:
   enabled: true
   repoUrl: "https://github.com/silogen/cluster-forge.git"
   targetRevision: gitops-forge
+  path: root/values.yaml
 
 common:
   domain: plat-dev-2.silogen.ai
