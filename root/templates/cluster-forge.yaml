@@ -7,20 +7,22 @@ metadata:
 spec:
   project: default
   source:
+  # helm-chart & values file from 2 different git repos
   {{- if .Values.externalValues.enabled }}
   - repoURL: {{ .Values.clusterForge.repoUrl }}
     targetRevision: {{ .Values.clusterForge.targetRevision }}
-    path: sources/cluster-forge
+    path: root/cluster-forge
     helm:
       valueFiles:
         - {{ .Values.clusterForge.valuesFile }}
   - repoURL: {{ .Values.externalValues.repoUrl }}
     targetRevision: {{ .Values.externalValues.targetRevision }}
     ref: values
+  # helm-chart & values file within the same git repo
   {{ else }}
     repoURL: {{ .Values.clusterForge.repoUrl }}
     targetRevision: {{ .Values.clusterForge.targetRevision }}
-    path: sources/cluster-forge
+    path: root/cluster-forge
     helm:
       valueFiles:
         - {{ .Values.clusterForge.valuesFile }}

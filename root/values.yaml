@@ -4,9 +4,11 @@ clusterForge:
   valuesFile: "values.yaml"
 
 externalValues:
-  enabled: false
-  repoUrl: # define if enabled
-  targetRevision: main
+#  enabled: false
+#  repoUrl: # define if enabled
+  enabled: true
+  repoUrl: "https://github.com/silogen/cluster-forge.git"
+  targetRevision: gitops-forge
 
 common:
   domain: plat-dev-2.silogen.ai
