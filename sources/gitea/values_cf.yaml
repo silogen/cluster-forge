@@ -2,7 +2,7 @@ clusterDomain: # to be filled by cluster-forge app
 
 gitea:
   admin:
-    existingSecret: gitea-credentials
+    existingSecret: gitea-admin-credentials
   config:
     database:
       DB_TYPE: sqlite3
