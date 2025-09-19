@@ -4,6 +4,8 @@ gitea:
   admin:
     existingSecret: gitea-admin-credentials
   config:
+    server:
+      ROOT_URL: # to be filled by cluster-forge app
     database:
       DB_TYPE: sqlite3
     session:
