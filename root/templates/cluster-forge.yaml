@@ -6,9 +6,9 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  source:
   # helm-chart & values file from 2 different git repos
   {{- if .Values.externalValues.enabled }}
+  sources:
   - repoURL: {{ .Values.clusterForge.repoUrl }}
     targetRevision: {{ .Values.clusterForge.targetRevision }}
     path: root
@@ -20,6 +20,7 @@ spec:
     ref: values
   # helm-chart & values file within the same git repo
   {{ else }}
+  source:
     repoURL: {{ .Values.clusterForge.repoUrl }}
     targetRevision: {{ .Values.clusterForge.targetRevision }}
     path: root/cluster-forge
