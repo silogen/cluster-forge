@@ -108,7 +108,7 @@ apps:
       - name: clusterDomain
         value: "{{ .Values.common.domain }}"
       - name: gitea.config.server. ROOT_URL
-        values: "gitea.{{ .Values.common.domain }}"
+        value: "gitea.{{ .Values.common.domain }}"
     syncWave: -40
 
   # Monitoring
