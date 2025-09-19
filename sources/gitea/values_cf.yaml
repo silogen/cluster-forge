@@ -1,13 +1,26 @@
 clusterDomain: # to be filled by cluster-forge app
+
 gitea:
   admin:
     existingSecret: gitea-credentials
+  config:
+    database:
+      DB_TYPE: sqlite3
+    session:
+      PROVIDER: memory
+    cache:
+      ADAPTER: memory
+    queue:
+      TYPE: level
 
 valkey-cluster:
   enabled: false
 valkey:
-  enabled: true
-postgresql-ha:
   enabled: false
 postgresql:
-  enabled: true
+  enabled: false
+postgresql-ha:
+  enabled: false
+
+persistence:
+  enabled: false
