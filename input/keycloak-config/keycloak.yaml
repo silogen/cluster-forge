@@ -313,7 +313,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: airm-secret-store
+    name: keycloak-secret-store
   target:
     creationPolicy: Owner
     name: airm-realm-credentials
@@ -355,7 +355,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: airm-secret-store
+    name: keycloak-secret-store
   target:
     creationPolicy: Owner
     name: keycloak-credentials

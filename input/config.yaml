@@ -279,18 +279,13 @@
   - keycloak-config
   syncwave: 80
   skip-namespace: true
-- name: airm-airm-config
+- name: airm
   namespace: airm
   manifestpath:
-  - airm-airm-config
+  - airm
   syncwave: 80
 - name: secret-generator
   namespace: airm
   manifestpath:
   - secret-generator
   syncwave: 81
-- name: airm-configure
-  namespace: default
-  manifestpath:
-  - airm-configure
-  syncwave: 120

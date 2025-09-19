@@ -20,5 +20,4 @@
 - name: rabbitmq
 - name: cluster-airm-config
 - name: keycloak-config
-- name: airm-airm-config
-- name: airm-configure
+- name: airm
