@@ -107,7 +107,7 @@ apps:
     helmParameters:
       - name: clusterDomain
         value: "{{ .Values.common.domain }}"
-      - name: gitea.config.server. ROOT_URL
+      - name: gitea.config.server.ROOT_URL
         value: "gitea.{{ .Values.common.domain }}"
     syncWave: -40
 
