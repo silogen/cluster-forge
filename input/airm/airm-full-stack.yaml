@@ -581,12 +581,12 @@ data:
     
     # do not apply if the secret store already exists
     kubectl get clustersecretstores.external-secrets.io airm-secret-store > /dev/null 2>&1
-    if kubectl get clustersecretstores.external-secrets.io airm-secret-store >/dev/null 2>&1; then
+    if [ $? -eq 0 ]; then
       echo "ClusterSecretStore 'airm-secret-store' already exists, skipping creation."
       exit 0
     fi
+
     kubectl apply -f /tmp/final-secret-store.yaml
-    
     echo "ClusterSecretStore created successfully!"
     echo "Generated secrets with alphanumeric values only"
     exit 0
