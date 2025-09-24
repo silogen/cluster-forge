@@ -1,0 +1,36 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: airm-project-namespace-rolebinding
+spec:
+  background: false
+  rules:
+  - name: generate-project-namespace-rolebinding
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+          operations:
+          - CREATE
+    preconditions:
+      any:
+      - key: "{{ request.object.metadata.labels.\"airm.silogen.ai/project-id\" || '' }}"
+        operator: NotEquals
+        value: ""
+    generate:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      name: "{{request.object.metadata.name}}-member-role-binding"
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      data:
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: airm-project-member
+        subjects:
+        - kind: Group
+          # The kubernetes cluster apply an OIDC prefix of 'oidc', so we adjust the groups to expect that
+          name: "oidc{{request.object.metadata.name}}"
+          apiGroup: rbac.authorization.k8s.io

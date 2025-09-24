@@ -1,0 +1,96 @@
+# Kyverno policy that enforces that workloads submitted to a namespace managed by AIRMan have the
+# correct kueue lables and field set, so that they are bound by the quota of the namespace
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: airm-quota-enforcement-for-workloads
+spec:
+  background: false
+  rules:
+  - name: set-queue-name-from-namespace-default
+    match:
+      resources:
+        kinds:
+        - Deployment
+        - StatefulSet
+        - Pod
+        namespaceSelector:
+          matchExpressions:
+          - key: airm.silogen.ai/project-id
+            operator: Exists
+    preconditions:
+      all:
+      - key: "{{ request.object.metadata.labels.\"kueue.x-k8s.io/queue-name\" || '' }}"
+        operator: NotEquals
+        value: "{{ request.namespace }}"
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            kueue.x-k8s.io/queue-name: "{{ request.namespace }}"
+
+  - name: set-queue-name-from-namespace-jobs
+    match:
+      resources:
+        kinds:
+        - Job  # https://kueue.sigs.k8s.io/docs/tasks/run/jobs/
+        namespaceSelector:
+          matchExpressions:
+          - key: airm.silogen.ai/project-id
+            operator: Exists
+    preconditions:
+      all:
+      - key: "{{ request.object.metadata.labels.\"kueue.x-k8s.io/queue-name\" || '' }}"
+        operator: NotEquals
+        value: "{{ request.namespace }}"
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            kueue.x-k8s.io/queue-name: "{{ request.namespace }}"
+        spec:
+          suspend: true
+
+  - name: set-queue-name-from-namespace-cronjobs
+    match:
+      resources:
+        kinds:
+        - CronJob  # https://kueue.sigs.k8s.io/docs/tasks/run/run_cronjobs/
+        namespaceSelector:
+          matchExpressions:
+          - key: airm.silogen.ai/project-id
+            operator: Exists
+    preconditions:
+      all:
+      - key: "{{ request.object.spec.jobTemplate.metadata.labels.\"kueue.x-k8s.io/queue-name\" || '' }}"
+        operator: NotEquals
+        value: "{{ request.namespace }}"
+    mutate:
+      patchStrategicMerge:
+        spec:
+          jobTemplate:
+            metadata:
+              labels:
+                kueue.x-k8s.io/queue-name: "{{ request.namespace }}"
+            spec:
+              suspend: true
+
+  - name: set-queue-name-from-namespace-kaiwo
+    match:
+      resources:
+        kinds:
+        - KaiwoJob
+        - KaiwoService
+        namespaceSelector:
+          matchExpressions:
+          - key: airm.silogen.ai/project-id
+            operator: Exists
+    preconditions:
+      all:
+      - key: "{{ request.object.spec.clusterQueue || '' }}"
+        operator: NotEquals
+        value: "{{ request.namespace }}"
+    mutate:
+      patchStrategicMerge:
+        spec:
+          clusterQueue: "{{ request.namespace }}"
