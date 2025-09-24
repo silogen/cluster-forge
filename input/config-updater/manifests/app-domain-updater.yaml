@@ -44,7 +44,7 @@ spec:
 
           # Search for files containing 'not-a-domain'
           echo "Searching for files containing 'not-a-domain'..."
-          FILES_WITH_NOT_A_DOMAIN=$(grep -r -l --exclude=app-domain-updater.yaml "not-a-domain" . || true)
+          FILES_WITH_NOT_A_DOMAIN=$(grep -r -l --exclude=Job_app-domain-updater.yaml "not-a-domain" . || true)
 
           if [ -z "$FILES_WITH_NOT_A_DOMAIN" ]; then
             echo "No files found containing 'not-a-domain'"
