@@ -1,5 +1,4 @@
 - name: routing
-- name: certmanager
 - name: openbao
 - name: amd-gpu-operator
 - name: amd-device-config
