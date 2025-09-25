@@ -3,14 +3,14 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: "airm-airm-ui-sa"
+  name: "airm-ui-sa"
   namespace: "airm"
 ---
 # Source: airm-chart/templates/airm-dispatcher-app.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: "airm-airm-dispatcher-sa"
+  name: "airm-dispatcher-sa"
   namespace: "airm"
 ---
 # Source: airm-chart/templates/secret-generator-rbac.yaml
@@ -24,7 +24,7 @@ metadata:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: "airm-airm-configure"
+  name: "airm-configure"
   namespace: "airm"
 data:
   init-db.sh: |
@@ -86,7 +86,7 @@ data:
     echo ""
     while true; do
         NAMESPACE="airm"
-        LABEL="app=airm-airm-api"
+        LABEL="app=airm-api"
         CONTAINER="airm"
 
         # Find the first pod name matching label and is Running
@@ -197,8 +197,8 @@ data:
 
     function create_secret_and_start_dispatcher() {
         # Create secret for dispatcher to use
-        kubectl delete secret airm-airm-rabbitmq-common-vhost-user -n 'airm'
-        kubectl create secret generic airm-airm-rabbitmq-common-vhost-user --from-literal=username="$CLUSTER_ID" --from-literal=password="$CLUSTER_SECRET" -n 'airm'
+        kubectl delete secret airm-rabbitmq-common-vhost-user -n 'airm'
+        kubectl create secret generic airm-rabbitmq-common-vhost-user --from-literal=username="$CLUSTER_ID" --from-literal=password="$CLUSTER_SECRET" -n 'airm'
 
         sleep 10
         # Start dispatcher because it has been failing because secret was not created and wait for 10 seconds
@@ -507,8 +507,8 @@ data:
               value: ${AIRM_ADMIN_SECRET}
             - key: airm-ci-client-secret
               value: ${AIRM_CI_SECRET}
-            - key: airm-airm-cnpg-user
-              value: airm-airm-cnpg-user
+            - key: airm-cnpg-user
+              value: airm-cnpg-user
             - key: catalog-cnpg-superuser
               value: ${CATALOG_SUPERUSER}
             - key: catalog-cnpg-user
@@ -547,6 +547,8 @@ data:
               value: ${AIRM_RABBITMQ_USERNAME}
             - key: airm-oci-1-rabbitmq-common-vhost-username
               value: ${AIRM_OCI_RABBITMQ_USERNAME}
+            - key: airm-oci-1-rabbitmq-common-vhost-password
+              value: ${AIRM_OCI_RABBITMQ_PASSWORD}
             - key: airm-rabbitmq-backup-minio-credentials
               value: ${RABBITMQ_BACKUP_CREDS}
             - key: keycloak-cnpg-superuser-password
@@ -561,8 +563,6 @@ data:
               value: ${AIRM_USER_PASSWORD}
             - key: airm-rabbitmq-user-password
               value: ${AIRM_RABBITMQ_PASSWORD}
-            - key: airm-oci-1-rabbitmq-common-vhost-password
-              value: ${AIRM_OCI_RABBITMQ_PASSWORD}
             - key: hmac-keys-access-key
               value: ${HMAC_ACCESS_KEY}
             - key: hmac-keys-secret-key
@@ -593,7 +593,7 @@ data:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: "airm-airm-ui-cluster-access-role"
+  name: "airm-ui-cluster-access-role"
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
@@ -606,7 +606,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: "airm-airm-dispatcher-cluster-access-role"
+  name: "airm-dispatcher-cluster-access-role"
 rules:
   - apiGroups: [""]
     resources: ["services", "namespaces", "configmaps", "pods"]
@@ -650,28 +650,28 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: "airm-airm-ui-cluster-access-binding"
+  name: "airm-ui-cluster-access-binding"
 subjects:
   - kind: ServiceAccount
-    name: "airm-airm-ui-sa"
+    name: "airm-ui-sa"
     namespace: "airm"
 roleRef:
   kind: ClusterRole
-  name: "airm-airm-ui-cluster-access-role"
+  name: "airm-ui-cluster-access-role"
   apiGroup: rbac.authorization.k8s.io
 ---
 # Source: airm-chart/templates/airm-dispatcher-app.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: "airm-airm-dispatcher-cluster-access-binding"
+  name: "airm-dispatcher-cluster-access-binding"
 subjects:
   - kind: ServiceAccount
-    name: "airm-airm-dispatcher-sa"
+    name: "airm-dispatcher-sa"
     namespace: "airm"
 roleRef:
   kind: ClusterRole
-  name: "airm-airm-dispatcher-cluster-access-role"
+  name: "airm-dispatcher-cluster-access-role"
   apiGroup: rbac.authorization.k8s.io
 ---
 # Source: airm-chart/templates/secret-generator-rbac.yaml
@@ -693,19 +693,19 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: "airm-airm-api"
-  name: "airm-airm-api"
+    app: "airm-api"
+  name: "airm-api"
   namespace: "airm"
 spec:
   ports:
     - name: web
-      port: "80"
+      port: 80
       targetPort: 8080
     - name: metrics
-      port: "9009"
+      port: 9009
       targetPort: 9009
   selector:
-    app: "airm-airm-api"
+    app: "airm-api"
   type: ClusterIP
 ---
 # Source: airm-chart/templates/airm-app-frontend.yaml
@@ -713,50 +713,50 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: "airm-airm-ui"
-  name: "airm-airm-ui"
+    app: "airm-ui"
+  name: "airm-ui"
   namespace: "airm"
 spec:
   ports:
     - name: web
-      port: "{ { .Values.airm.frontend.servicePort } }"
+      port: 80
       targetPort: 8000
   selector:
-    app: "airm-airm-ui"
+    app: "airm-ui"
   type: ClusterIP
 ---
 # Source: airm-chart/templates/airm-dispatcher-app.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: "airm-airm-dispatcher"
+  name: "airm-dispatcher"
   namespace: "airm"
   labels:
-    app: "airm-airm-dispatcher"
+    app: "airm-dispatcher"
 spec:
   ports:
     - name: web
-      port: "{ { .Values.airm.dispatcher.core.servicePort } }"
+      port: 80
       targetPort: 8080
   type: ClusterIP
   selector:
-    app: "airm-airm-dispatcher"
+    app: "airm-dispatcher"
 ---
 # Source: airm-chart/templates/airm-app-backend.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: "airm-airm-api"
+  name: "airm-api"
   namespace: "airm"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: "airm-airm-api"
+      app: "airm-api"
   template:
     metadata:
       labels:
-        app: "airm-airm-api"
+        app: "airm-api"
         auth-required: "true"
     spec:
       containers:
@@ -768,19 +768,19 @@ spec:
             - name: POST_REGISTRATION_REDIRECT_URL
               value: "https://airmui.not-a-domain/"
             - name: DATABASE_HOST
-              value: "airm-airm-cnpg-rw.airm.svc.cluster.local"
+              value: "airm-cnpg-rw.airm.svc.cluster.local"
             - name: DATABASE_PORT
               value: "5432"
             - name: DATABASE_USER
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: "airm-airm-cnpg-user"
+                  name: "airm-cnpg-user"
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: "airm-airm-cnpg-user"
+                  name: "airm-cnpg-user"
             - name: RABBITMQ_HOST
               value: "airm-rabbitmq.airm.svc.cluster.local"
             - name: RABBITMQ_PORT
@@ -791,12 +791,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: "airm-airm-rabbitmq-admin"
+                  name: "airm-rabbitmq-admin"
             - name: RABBITMQ_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: "airm-airm-rabbitmq-admin"
+                  name: "airm-rabbitmq-admin"
             - name: KEYCLOAK_ADMIN_SERVER_URL
               value: "http://keycloak.keycloak.svc.cluster.local:8080"
             - name: KEYCLOAK_REALM
@@ -805,12 +805,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: client-id
-                  name: "airm-airm-keycloak-admin-client"
+                  name: "airm-keycloak-admin-client"
             - name: KEYCLOAK_ADMIN_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
                   key: client-secret
-                  name: "airm-airm-keycloak-admin-client"
+                  name: "airm-keycloak-admin-client"
             - name: MINIO_URL
               value: "http://minio.minio-tenant-default.svc.cluster.local:80"
             - name: MINIO_BUCKET
@@ -828,7 +828,7 @@ spec:
             - name: PROMETHEUS_URL
               value: "http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:9090"
           image: "ghcr.io/silogen/airm-api:v2025.08-rc.21"
-          imagePullPolicy: "{ { .Values.airm.backend.image.pullPolicy } }"
+          imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3
             httpGet:
@@ -852,10 +852,29 @@ spec:
             successThreshold: 1
             timeoutSeconds: 2
           resources:
-            "{ { - toYaml .Values.airm.backend.resources | nindent 12 } }"
+            limits:
+              memory: 1Gi
+            requests:
+              cpu: 500m
+              memory: 1Gi
           securityContext:
-            "{ { - toYaml .Values.airm.backend.securityContext | nindent 12 } }"
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
       initContainers:
+        - name: wait-for-db
+          image: postgres:17-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h "airm-cnpg-rw.airm.svc.cluster.local" -p 5432 -U postgres; do
+                echo "Waiting for database..."
+                sleep 2
+              done
+              echo "Database is ready!"
         - name: init-migration-scripts
           command:
             - sh
@@ -878,7 +897,7 @@ spec:
         - name: liquibase-migrate
           command:
             - liquibase
-            - --url=jdbc:postgresql://airm-airm-cnpg-rw.airm.svc.cluster.local:5432/airm
+            - --url=jdbc:postgresql://airm-cnpg-rw.airm.svc.cluster.local:5432/airm
             - --username=$(DATABASE_USER)
             - --password=$(DATABASE_PASSWORD)
             - --logLevel=INFO
@@ -889,12 +908,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: "airm-airm-cnpg-user"
+                  name: "airm-cnpg-user"
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: "airm-airm-cnpg-user"
+                  name: "airm-cnpg-user"
           image: "quay.io/lib/liquibase:latest"
           imagePullPolicy: "IfNotPresent"
           volumeMounts:
@@ -907,18 +926,18 @@ spec:
           command: ["uv", "run", "-m", "app.charts.registration"]
           env:
             - name: DATABASE_HOST
-              value: "airm-airm-cnpg-rw.airm.svc.cluster.local"
+              value: "airm-cnpg-rw.airm.svc.cluster.local"
             - name: DATABASE_PORT
               value: "5432"
             - name: DATABASE_USER
               valueFrom:
                 secretKeyRef:
-                  name: "airm-airm-cnpg-user"
+                  name: "airm-cnpg-user"
                   key: username
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "airm-airm-cnpg-user"
+                  name: "airm-cnpg-user"
                   key: password
             - name: RABBITMQ_HOST
               value: "airm-rabbitmq.airm.svc.cluster.local"
@@ -930,12 +949,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: "airm-airm-rabbitmq-admin"
+                  name: "airm-rabbitmq-admin"
             - name: RABBITMQ_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: "airm-airm-rabbitmq-admin"
+                  name: "airm-rabbitmq-admin"
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
@@ -984,23 +1003,23 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: "airm-airm-ui"
+  name: "airm-ui"
   namespace: "airm"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: "airm-airm-ui"
+      app: "airm-ui"
   template:
     metadata:
       labels:
-        app: "airm-airm-ui"
+        app: "airm-ui"
     spec:
-      serviceAccountName: "airm-airm-ui-sa"
+      serviceAccountName: "airm-ui-sa"
       volumes:
         - name: config-script
           configMap:
-            name: "airm-airm-configure"
+            name: "airm-configure"
             defaultMode: 0755
       initContainers:
         - name: init-orgdb
@@ -1027,9 +1046,9 @@ spec:
             - name: USER_EMAIL
               value: "devuser@not-a-domain"
             - name: KEYCLOAK_URL
-              value: "http://keycloak.keycloak:8080"
+              value: "http://keycloak.keycloak.svc.cluster.local:8080"
             - name: AIRM_API_URL
-              value: "http://airm-airm-api.airm"
+              value: "http://airm-api.airm.svc.cluster.local"
             - name: CLUSTER_BASE_URL
               value: "https://workspaces.not-a-domain/"
           securityContext:
@@ -1059,9 +1078,9 @@ spec:
             - name: KEYCLOAK_ID
               value: "354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
             - name: KEYCLOAK_ISSUER_INTERNAL_URL
-              value: "http://keycloak.keycloak.svc.cluster.local:8080/realms/airm/"
+              value: "http://keycloak.keycloak:8080/realms/airm/"
             - name: AIRM_API_SERVICE_URL
-              value: "http://airm-airm-api.airm.svc.cluster.local"
+              value: "http://airm-api.airm"
           envFrom:
             - secretRef:
                 name: "airm-secrets-airm"
@@ -1078,7 +1097,11 @@ spec:
           ports:
             - containerPort: 8000
           resources:
-            "{ { - toYaml .Values.airm.frontend.resources | nindent 12 } }"
+            limits:
+              memory: 4Gi
+            requests:
+              cpu: 500m
+              memory: 4Gi
           readinessProbe:
             httpGet:
               path: /api/health
@@ -1091,19 +1114,19 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: "airm-airm-dispatcher"
+  name: "airm-dispatcher"
   namespace: "airm"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: "airm-airm-dispatcher"
+      app: "airm-dispatcher"
   template:
     metadata:
       labels:
-        app: "airm-airm-dispatcher"
+        app: "airm-dispatcher"
     spec:
-      serviceAccountName: "airm-airm-dispatcher-sa"
+      serviceAccountName: "airm-dispatcher-sa"
       initContainers:
         - name: check-airm-api-is-ready
           command:
@@ -1116,7 +1139,7 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: ENDPOINT_URL_TO_CHECK
-              value: "airm-airm-api.airm.svc.cluster.local"
+              value: "airm-api.airm.svc.cluster.local"
             - name: ENDPOINT_PORT_TO_CHECK
               value: "80" #""
           securityContext:
@@ -1149,7 +1172,7 @@ spec:
             - name: RABBITMQ_HOST
               value: "airm-rabbitmq.airm.svc.cluster.local"
             - name: RABBITMQ_PORT
-              value: "5672" #""
+              value: "5672"
             - name: RABBITMQ_AIRM_COMMON_VHOST
               value: "vh_airm_common"
             - name: RABBITMQ_AIRM_COMMON_QUEUE
@@ -1157,12 +1180,12 @@ spec:
             - name: RABBITMQ_USER
               valueFrom:
                 secretKeyRef:
-                  name: "airm-airm-rabbitmq-common-vhost-user"
+                  name: "airm-rabbitmq-common-vhost-user"
                   key: username
             - name: RABBITMQ_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "airm-airm-rabbitmq-common-vhost-user"
+                  name: "airm-rabbitmq-common-vhost-user"
                   key: password
           livenessProbe:
             httpGet:
@@ -1234,7 +1257,7 @@ spec:
                 - curl
                 - -X
                 - POST
-                - http://airm-airm-dispatcher:80/v1/clusters/nodes
+                - http://airm-dispatcher:80/v1/clusters/nodes
               image: "ghcr.io/silogen/airm-dispatcher:v2025.08-rc.21"
               imagePullPolicy: "IfNotPresent"
               name: airm-cluster-nodes-cron
@@ -1278,7 +1301,7 @@ spec:
               imagePullPolicy: IfNotPresent
               env:
                 - name: ENDPOINT_URL_TO_CHECK
-                  value: "airm-airm-dispatcher.airm.svc.cluster.local"
+                  value: "airm-dispatcher.airm.svc.cluster.local"
                 - name: ENDPOINT_PORT_TO_CHECK
                   value: "80" #""
               securityContext:
@@ -1306,7 +1329,7 @@ spec:
                   "curl",
                   "-X",
                   "POST",
-                  "http://airm-airm-dispatcher:80/v1/heartbeats",
+                  "http://airm-dispatcher:80/v1/heartbeats",
                 ]
               resources:
                 requests:
@@ -1389,7 +1412,7 @@ spec:
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: "airm-airm-cnpg"
+  name: "airm-cnpg"
   namespace: "airm"
 spec:
   affinity:
@@ -1402,9 +1425,9 @@ spec:
       postInitSQL:
         - GRANT CREATE ON SCHEMA public TO airm_user
       secret:
-        name: "airm-airm-cnpg-user"
-  imageName: "{ { .Values.airm.postgresql.cnpg.image } }"
-  instances: "{ { .Values.airm.postgresql.cnpg.instance } }"
+        name: "airm-cnpg-user"
+  imageName: ghcr.io/cloudnative-pg/postgresql:17
+  instances: 1
   nodeMaintenanceWindow:
     inProgress: false
     reusePVC: true
@@ -1418,20 +1441,29 @@ spec:
     pg_hba:
       - host all all 10.244.0.0/16 md5
   primaryUpdateStrategy: unsupervised
-  resources: "{ { - toYaml .Values.airm.postgresql.cnpg.resources | nindent 4 } }"
+  resources:
+    limits:
+      cpu: "2"
+      memory: 1Gi
+    requests:
+      cpu: "1"
+      memory: 512Mi
   startDelay: 300
   stopDelay: 300
-  storage: "{ { - toYaml .Values.airm.postgresql.cnpg.storage | nindent 4 } }"
+  storage:
+    size: 50Gi
+    storageClass: default
   superuserSecret:
-    name: "airm-airm-cnpg-superuser" # airm-cnpg-superuser
+    name: "airm-cnpg-superuser" # airm-cnpg-superuser
   walStorage:
-    "{ { - toYaml .Values.airm.postgresql.cnpg.walStorage | nindent 4 } }"
+    size: 50Gi
+    storageClass: default
 ---
 # Source: airm-chart/templates/airm-es.yaml
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: "airm-airm-cnpg-superuser"
+  name: "airm-cnpg-superuser"
   namespace: "airm"
 spec:
   data:
@@ -1443,9 +1475,9 @@ spec:
       secretKey: password
   secretStoreRef:
     kind: ClusterSecretStore
-    name: "{ { .Values.airm.externalSecretStore.airm.name } }"
+    name: airm-secret-store
   target:
-    name: "airm-airm-cnpg-superuser"
+    name: "airm-cnpg-superuser"
     template:
       type: Opaque
 ---
@@ -1453,7 +1485,7 @@ spec:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: "airm-airm-cnpg-user"
+  name: "airm-cnpg-user"
   namespace: "airm"
 spec:
   data:
@@ -1465,9 +1497,9 @@ spec:
       secretKey: password
   secretStoreRef:
     kind: ClusterSecretStore
-    name: "{ { .Values.airm.externalSecretStore.airm.name } }"
+    name: airm-secret-store
   target:
-    name: "airm-airm-cnpg-user"
+    name: "airm-cnpg-user"
     template:
       type: Opaque
 ---
@@ -1475,7 +1507,7 @@ spec:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: "airm-airm-keycloak-admin-client"
+  name: "airm-keycloak-admin-client"
   namespace: "airm"
 spec:
   data:
@@ -1487,9 +1519,9 @@ spec:
       secretKey: client-secret
   secretStoreRef:
     kind: ClusterSecretStore
-    name: "{ { .Values.airm.externalSecretStore.keycloak.name } }"
+    name: airm-secret-store
   target:
-    name: "airm-airm-keycloak-admin-client"
+    name: "airm-keycloak-admin-client"
     template:
       type: Opaque
 ---
@@ -1497,7 +1529,7 @@ spec:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: "airm-airm-rabbitmq-admin"
+  name: "airm-rabbitmq-admin"
   namespace: "airm"
 spec:
   data:
@@ -1509,9 +1541,9 @@ spec:
       secretKey: password
   secretStoreRef:
     kind: ClusterSecretStore
-    name: "{ { .Values.airm.externalSecretStore.airm.name } }"
+    name: airm-secret-store
   target:
-    name: "airm-airm-rabbitmq-admin"
+    name: "airm-rabbitmq-admin"
     template:
       data:
         default_user.conf: |
@@ -1539,7 +1571,7 @@ spec:
       secretKey: minio-secret-key
   secretStoreRef:
     kind: ClusterSecretStore
-    name: "{ { .Values.airm.externalSecretStore.minio.name } }"
+    name: k8s-secret-store
   target:
     name: "airm-api-minio-credentials"
 ---
@@ -1559,7 +1591,7 @@ spec:
       secretKey: secret_key
   secretStoreRef:
     kind: ClusterSecretStore
-    name: "{ { .Values.airm.externalSecretStore.airm.name } }"
+    name: airm-secret-store
   target:
     name: "airm-rabbitmq-backup-minio-credentials"
 ---
@@ -1580,7 +1612,7 @@ spec:
   refreshInterval: 15s
   secretStoreRef:
     kind: ClusterSecretStore
-    name: "{ { .Values.airm.externalSecretStore.keycloak.name } }"
+    name: airm-secret-store
   target:
     name: "airm-secrets-airm"
 ---
@@ -1588,7 +1620,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: 'airm-airmapi-route'
+  name: 'airmapi-route'
   namespace: 'airm'
 spec:
   parentRefs:
@@ -1600,7 +1632,7 @@ spec:
     - backendRefs:
         - group: ""
           kind: Service
-          name: 'airm-airm-api'
+          name: 'airm-api'
           port: 80
           weight: 1
       matches:
@@ -1619,7 +1651,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: 'airm-airmui-route'
+  name: 'airmui-route'
   namespace: 'airm'
 spec:
   parentRefs:
@@ -1631,7 +1663,7 @@ spec:
     - backendRefs:
         - group: ""
           kind: Service
-          name: 'airm-airm-ui'
+          name: 'airm-ui'
           port: 80
           weight: 1
       matches:
@@ -1654,7 +1686,7 @@ metadata:
   namespace: "airm"
 spec:
   selfSigned: {}
---- 
+---
 # Source: airm-chart/templates/airm-rabbitmq-cluster.yaml
 apiVersion: rabbitmq.com/v1beta1
 kind: RabbitmqCluster
@@ -1674,6 +1706,6 @@ spec:
       memory: 256Mi
   secretBackend:
     externalSecret:
-      name: 'airm-airm-rabbitmq-admin'
+      name: 'airm-rabbitmq-admin'
   tls:
     secretName: 'airm-tls-secret'
