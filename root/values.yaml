@@ -311,7 +311,7 @@ apps:
   # Etc..
 
   - name: openbao
-    path: openbao/0.16.3
+    path: openbao/0.18.2
     namespace: openbao
     valuesFile: values.yaml
     syncWave: 1
