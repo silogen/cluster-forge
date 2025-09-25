@@ -7,7 +7,7 @@ clusterForge:
 externalValues:
   enabled: false
 #  repoUrl: # define if enabled
-  targetRevision: main
+  targetRevision: gitops-forge-openbao
   path: values.yaml
 
 common:
@@ -310,13 +310,13 @@ apps:
 
   # Etc..
 
-#  - name: openbao
-#    path: openbao/0.16.3
-#    namespace: openbao
-#    valuesFile: values.yaml
-#    syncWave: 1
-#    ignoreDifferences:
-#      - group: "apps"
-#        kind: "Deployment"
-#        jsonPointers:
-#          - /spec/replicas
+  - name: openbao
+    path: openbao/0.16.3
+    namespace: openbao
+    valuesFile: values.yaml
+    syncWave: 1
+    ignoreDifferences:
+      - group: "apps"
+        kind: "Deployment"
+        jsonPointers:
+          - /spec/replicas
