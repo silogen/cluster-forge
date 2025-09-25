@@ -1654,7 +1654,7 @@ metadata:
   namespace: "airm"
 spec:
   selfSigned: {}
----
+--- 
 # Source: airm-chart/templates/airm-rabbitmq-cluster.yaml
 apiVersion: rabbitmq.com/v1beta1
 kind: RabbitmqCluster
