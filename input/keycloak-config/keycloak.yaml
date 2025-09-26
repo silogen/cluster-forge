@@ -227,6 +227,7 @@ spec:
                   sed -i -e "s/__AIRM_ADMIN_CLIENT_ID__/$AIRM_ADMIN_CLIENT_ID/g" /opt/realms/airm-realm.json
                   sed -i -e "s/__AIRM_ADMIN_CLIENT_SECRET__/$AIRM_ADMIN_CLIENT_SECRET/g" /opt/realms/airm-realm.json
                   sed -i -e "s/__AIRM_CI_CLIENT_SECRET__/$AIRM_CI_CLIENT_SECRET/g" /opt/realms/airm-realm.json
+                  sed -i -e "s/__K8S_CLIENT_SECRET__/$K8S_CLIENT_SECRET/g" /opt/realms/airm-realm.json
               else
                   echo "Warning: /opt/realm_templates/airm/airm-realm.json not found, skipping airm realm setup"
               fi
@@ -260,6 +261,11 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: CI_CLIENT_SECRET
+                  name: airm-realm-credentials
+            - name: K8S_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: K8S_CLIENT_SECRET
                   name: airm-realm-credentials
           image: ghcr.io/silogen/keycloak-init:0.1
           name: init-realm-scripts
@@ -304,6 +310,9 @@ spec:
     - remoteRef:
         key: airm-keycloak-admin-client-id
       secretKey: ADMIN_CLIENT_ID
+    - remoteRef:
+        key: airm-keycloak-k8s-client-id
+      secretKey: K8S_CLIENT_ID
     - remoteRef:
         key: airm-keycloak-admin-client-secret
       secretKey: ADMIN_CLIENT_SECRET
