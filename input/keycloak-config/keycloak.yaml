@@ -265,7 +265,7 @@ spec:
             - name: K8S_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  key: K8S_CLIENT_SECRET
+                  key: K8S_CLIENT_ID
                   name: airm-realm-credentials
           image: ghcr.io/silogen/keycloak-init:0.1
           name: init-realm-scripts
@@ -316,6 +316,11 @@ spec:
     - remoteRef:
         key: airm-keycloak-admin-client-secret
       secretKey: ADMIN_CLIENT_SECRET
+
+    - remoteRef:
+        key: airm-keycloak-admin-client-secret
+      secretKey: ADMIN_CLIENT_SECRET
+
     - remoteRef:
         key: airm-ci-client-secret
       secretKey: CI_CLIENT_SECRET
