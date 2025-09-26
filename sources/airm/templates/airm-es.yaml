@@ -1,9 +1,13 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
 ---
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: '{{ .Release.Name }}-airm-cnpg-superuser'
-  namespace: '{{ .Release.Namespace }}'
+  name: "{{ .Release.Name }}-airm-cnpg-superuser"
+  namespace: "{{ .Release.Namespace }}"
 spec:
   data:
     - remoteRef:
@@ -16,15 +20,15 @@ spec:
     kind: ClusterSecretStore
     name: {{ .Values.airm.externalSecretStore.airm.name }}
   target:
-    name: '{{ .Release.Name }}-airm-cnpg-superuser'
+    name: "{{ .Release.Name }}-airm-cnpg-superuser"
     template:
       type: Opaque
 ---
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: '{{ .Release.Name }}-airm-cnpg-user'
-  namespace: '{{ .Release.Namespace }}'
+  name: "{{ .Release.Name }}-airm-cnpg-user"
+  namespace: "{{ .Release.Namespace }}"
 spec:
   data:
     - remoteRef:
@@ -37,15 +41,15 @@ spec:
     kind: ClusterSecretStore
     name: {{ .Values.airm.externalSecretStore.airm.name }}
   target:
-    name: '{{ .Release.Name }}-airm-cnpg-user'
+    name: "{{ .Release.Name }}-airm-cnpg-user"
     template:
       type: Opaque
 ---
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name:  '{{ .Release.Name }}-airm-keycloak-admin-client'
-  namespace: '{{ .Release.Namespace }}'
+  name: "{{ .Release.Name }}-airm-keycloak-admin-client"
+  namespace: "{{ .Release.Namespace }}"
 spec:
   data:
     - remoteRef:
@@ -58,15 +62,15 @@ spec:
     kind: ClusterSecretStore
     name: {{ .Values.airm.externalSecretStore.keycloak.name }}
   target:
-    name: '{{ .Release.Name }}-airm-keycloak-admin-client'
+    name: "{{ .Release.Name }}-airm-keycloak-admin-client"
     template:
       type: Opaque
 ---
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: '{{ .Release.Name }}-airm-rabbitmq-admin'
-  namespace: '{{ .Release.Namespace }}'
+  name: "{{ .Release.Name }}-airm-rabbitmq-admin"
+  namespace: "{{ .Release.Namespace }}"
 spec:
   data:
     - remoteRef:
@@ -79,7 +83,7 @@ spec:
     kind: ClusterSecretStore
     name: {{ .Values.airm.externalSecretStore.airm.name }}
   target:
-    name: '{{ .Release.Name }}-airm-rabbitmq-admin'
+    name: "{{ .Release.Name }}-airm-rabbitmq-admin"
     template:
       data:
         default_user.conf: |
@@ -92,8 +96,8 @@ spec:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: '{{ .Release.Name }}-api-minio-credentials'
-  namespace: '{{ .Release.Namespace }}'
+  name: "{{ .Release.Name }}-api-minio-credentials"
+  namespace: "{{ .Release.Namespace }}"
 spec:
   data:
     - remoteRef:
@@ -108,13 +112,13 @@ spec:
     kind: ClusterSecretStore
     name: {{ .Values.airm.externalSecretStore.minio.name }}
   target:
-    name: '{{ .Release.Name }}-api-minio-credentials'
+    name: "{{ .Release.Name }}-api-minio-credentials"
 ---
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: '{{ .Release.Name }}-rabbitmq-backup-minio-credentials'
-  namespace: '{{ .Release.Namespace }}'
+  name: "{{ .Release.Name }}-rabbitmq-backup-minio-credentials"
+  namespace: "{{ .Release.Namespace }}"
 spec:
   data:
     - remoteRef:
@@ -127,13 +131,13 @@ spec:
     kind: ClusterSecretStore
     name: {{ .Values.airm.externalSecretStore.airm.name }}
   target:
-    name: '{{ .Release.Name }}-rabbitmq-backup-minio-credentials'
+    name: "{{ .Release.Name }}-rabbitmq-backup-minio-credentials"
 ---
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: '{{ .Release.Name }}-secrets-airm'
-  namespace: '{{ .Release.Namespace }}'
+  name: "{{ .Release.Name }}-secrets-airm"
+  namespace: "{{ .Release.Namespace }}"
 spec:
   data:
     - remoteRef:
@@ -147,4 +151,4 @@ spec:
     kind: ClusterSecretStore
     name: {{ .Values.airm.externalSecretStore.keycloak.name }}
   target:
-    name: '{{ .Release.Name }}-secrets-airm'
+    name: "{{ .Release.Name }}-secrets-airm"

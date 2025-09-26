@@ -1,7 +1,11 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
 ---
 apiVersion: v2
 name: airm-chart
-description: A Helm chart for AIRM
+description: A Helm chart for AIRM framework
 
 # A chart can be either an 'application' or a 'library' chart.
 #
@@ -23,15 +27,3 @@ version: 0.1.0
 # follow Semantic Versioning. They should reflect the version the application is using.
 # It is recommended to use it with quotes.
 appVersion: "1.0.0"
-
-# TODO: Uncomment when template manifests are ready
-# dependencies:
-# - name: external-secrets
-#   repository: https://charts.external-secrets.io
-#   version: 0.17.0
-# - name: rabbitmq-cluster-operator
-#   repository: https://charts.bitnami.com/bitnami
-#   version: 4.3.26
-# - name: cloudnative-pg
-#   repository: https://cloudnative-pg.github.io/charts
-#   version: 0.22.1

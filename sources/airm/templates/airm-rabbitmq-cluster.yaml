@@ -1,3 +1,7 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
 ---
 apiVersion: rabbitmq.com/v1beta1
 kind: RabbitmqCluster
