@@ -3,36 +3,434 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: "airm-ui-sa"
-  namespace: "airm"
----
-# Source: airm-chart/templates/airm-configure-job.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: "airm-configure-sa"
-  namespace: "airm"
+  name: 'airm-airm-ui-sa'
+  namespace: 'airm'
 ---
 # Source: airm-chart/templates/airm-dispatcher-app.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: "airm-dispatcher-sa"
-  namespace: "airm"
+  name: 'airm-airm-dispatcher-sa'
+  namespace: 'airm'
 ---
 # Source: airm-chart/templates/secret-generator-rbac.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: "airm-secret-generator-sa"
-  namespace: "airm"
+  name: 'airm-secret-generator-sa'
+  namespace: 'airm'
+---
+# Source: airm-chart/templates/airm-app-frontend.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: 'airm-airm-configure'
+  namespace: 'airm'
+data:
+  init-db.sh: |
+
+    #!/bin/bash
+
+    apt-get update 1> /dev/null 2>&1
+    apt-get install curl jq -y 1> /dev/null 2>&1
+    echo "Ubuntu packages ready now"
+    echo ""
+
+    cd /opt
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    cp ./kubectl /usr/local/bin/kubectl
+    chmod +x /usr/local/bin/kubectl
+    rm /opt/kubectl
+    echo "kubectl tool ready"
+    echo ""
+
+    # Wait until critical services are ready
+    ###########################################################################
+
+    # Checking that all services are ready: keycloak, airm-api, airm-ui:
+    #####################################################################################
+    # 1. keycloak
+    echo "Checking keycloak..."
+    echo ""
+    while true; do
+        NAMESPACE="keycloak"
+        LABEL="app=keycloak"
+        CONTAINER="keycloak"
+
+        # Find the first pod name matching label and is Running
+        PODS=$(kubectl get pods -n "$NAMESPACE" -l "$LABEL" --field-selector=status.phase=Running -o jsonpath="{.items[*].metadata.name}")
+        FIRST_POD=$(echo "$PODS" | awk '{print $1}')
+        if [[ -z "$FIRST_POD" ]]; then
+            echo "No running pod with label $LABEL in namespace $NAMESPACE found yet."
+            echo "Waiting 10 seconds..."
+            sleep 10
+            continue
+        fi
+        POD=$FIRST_POD
+
+        echo "Found running pod: $POD"
+        # Check if the specific container is present and ready
+        IS_READY=$(kubectl get pod "$POD" -n "$NAMESPACE" -o jsonpath="{.status.containerStatuses[?(@.name=='$CONTAINER')].ready}")
+        if [[ "$IS_READY" == "true" ]]; then
+            echo "Container '$CONTAINER' in pod '$POD' is ready."
+            break
+        else
+            echo "Container '$CONTAINER' in pod '$POD' is NOT ready."
+        fi
+    done
+
+    #####################################################################################
+    # 2. airm-api
+
+    echo "Checking airm-api..."
+    echo ""
+    while true; do
+        NAMESPACE="airm"
+        LABEL="app=airm-airm-api"
+        CONTAINER="airm"
+
+        # Find the first pod name matching label and is Running
+        PODS=$(kubectl get pods -n "$NAMESPACE" -l "$LABEL" --field-selector=status.phase=Running -o jsonpath="{.items[*].metadata.name}")
+        FIRST_POD=$(echo "$PODS" | awk '{print $1}')
+        if [[ -z "$FIRST_POD" ]]; then
+            echo "No running pod with label $LABEL in namespace $NAMESPACE found yet."
+            echo "Waiting 10 seconds..."
+            sleep 10
+            continue
+        fi
+        POD=$FIRST_POD
+
+        echo "Found running pod: $POD"
+        # Check if the specific container is present and ready
+        IS_READY=$(kubectl get pod "$POD" -n "$NAMESPACE" -o jsonpath="{.status.containerStatuses[?(@.name=='$CONTAINER')].ready}")
+        if [[ "$IS_READY" == "true" ]]; then
+            echo "Container '$CONTAINER' in pod '$POD' is ready."
+            break
+        else
+            echo "Container '$CONTAINER' in pod '$POD' is NOT ready."
+        fi
+    done
+
+    ###########################################################################
+
+    function check_success() {
+        if [ $1 -ne 0 ]; then
+            echo "ERROR: $2"
+            # exit 0
+        fi
+    }
+
+    function refresh_token() {
+        echo "debug: ${KEYCLOAK_CLIENT_ID} ${KEYCLOAK_CLIENT_SECRET}"
+        TOKEN=$(curl -v -s -d "client_id=${KEYCLOAK_CLIENT_ID}" -d "username=${USER_EMAIL}" -d 'password=password' -d 'grant_type=password' -d "client_secret=${KEYCLOAK_CLIENT_SECRET}" "${KEYCLOAK_URL}/realms/airm/protocol/openid-connect/token" | jq -r '.access_token')
+        if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
+            echo "ERROR: Failed to obtain access token from Keycloak."
+            # kill $PF_API_PID $PF_KC_PID $PF_UI_PID
+            exit 0
+        fi
+    }
+
+    function create_org() {
+        # Try to get ORG_ID by name
+        ORG_ID=$(curl -v -s -X GET "${AIRM_API_URL}/v1/organizations" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H 'Content-Type: application/json' | jq -r --arg name "$ORG_NAME" '.organizations[] | select(.name==$name) | .id')
+
+        # If not found, create the org and fetch the ID again
+        if [ -z "$ORG_ID" ] || [ "$ORG_ID" == "null" ]; then
+            ORG_RESP=$(curl -v -s -o /dev/null -X POST -w "%{http_code}" "${AIRM_API_URL}/v1/organizations" -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d "{ \"name\": \"$ORG_NAME\", \"domains\": $ORG_DOMAINS }")
+
+            echo $ORG_RESP
+            check_success $([[ "$ORG_RESP" == "200" || "$ORG_RESP" == "201" ]] && echo 0 || echo 1) "Failed to create organization"
+
+            ORG_ID=$(curl -v -s -X GET "${AIRM_API_URL}/v1/organizations" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H 'Content-Type: application/json' | jq -r --arg name "$ORG_NAME" '.organizations[] | select(.name==$name) | .id')
+        fi
+
+        if [ -z "$ORG_ID" ] || [ "$ORG_ID" == "null" ]; then
+            echo "ERROR: Failed to create or retrieve organization ID."
+            # kill $PF_API_PID $PF_KC_PID $PF_UI_PID
+            echo "Org demo already exists??"
+            #exit 0
+        else
+            echo "ORG_ID=${ORG_ID}"
+        fi
+    }
+
+    function add_user_to_org() {
+        # Check if user exists in org
+        USER_EXISTS=$(curl -v -s -X GET "${AIRM_API_URL}/v1/users" -H 'accept: application/json' -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' | jq -r --arg email "$USER_EMAIL" '.users[] | select(.email==$email) | .email')
+        # Add user to org if they don't exist
+        if [ -z "$USER_EXISTS" ] || [ "$USER_EXISTS" == "null" ]; then
+            echo $USER_EXISTS
+            echo "User '$USER_EMAIL' not found in organization. Adding..."
+            ADD_USER_RESP=$(curl -v -w "%{http_code}" -X 'POST' "${AIRM_API_URL}/v1/organizations/${ORG_ID}/users" -H 'accept: application/json' -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{ "email": "'"$USER_EMAIL"'", "roles": ["Platform Administrator"]}')
+            echo $ADD_USER_RESP
+            check_success $([[ "$ADD_USER_RESP" == "200" || "$ADD_USER_RESP" == "201" || "$ADD_USER_RESP" == "null201" ]] && echo 0 || echo 1) "Failed to add user to organization"
+        else
+            echo "User '$USER_EMAIL' already exists in organization."
+        fi
+    }
+
+    function create_cluster() {
+        # Check if cluster exists
+        CLUSTER_EXISTS=$(curl -v -s -X GET "${AIRM_API_URL}/v1/clusters" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H 'Content-Type: application/json' | jq -r '.clusters[] | select(.name=="'$CLUSTER_NAME'") | .id')
+
+        if [ -z "$CLUSTER_EXISTS" ] || [ "$CLUSTER_EXISTS" == "null" ]; then
+            # Create cluster
+            echo "Creating cluster $AIRM_API_URL..."
+            CLUSTER=$(curl -v -X 'POST' "${AIRM_API_URL}/v1/clusters" -H 'accept: application/json' -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" -d '{ "base_url": "'"$CLUSTER_BASE_URL"'" }')
+    
+            CLUSTER_ID=$(echo "$CLUSTER" | jq -r '.id')
+            check_success $([[ "$CLUSTER_ID" != "null" ]] && echo 0 || exit 1) "Failed to create cluster"
+            CLUSTER_SECRET=$(echo "$CLUSTER" | jq -r '.user_secret')
+        else
+            echo "Cluster already exists with ID: $CLUSTER_EXISTS"
+            CLUSTER_ID=$CLUSTER_EXISTS
+            # Optionally, fetch the existing cluster's secret if needed.  This assumes the secret is retrievable.
+            CLUSTER_SECRET=$(curl -v -s -X GET "${AIRM_API_URL}/v1/clusters/$CLUSTER_ID" -H "Authorization: Bearer ${TOKEN}" | jq -r '.user_secret')
+        fi
+    }
+
+    function create_secret_and_start_dispatcher() {
+        # Create secret for dispatcher to use
+        kubectl delete secret airm-airm-rabbitmq-common-vhost-user -n 'airm' 
+        kubectl create secret generic airm-airm-rabbitmq-common-vhost-user --from-literal=username="$CLUSTER_ID" --from-literal=password="$CLUSTER_SECRET" -n 'airm'
+
+        sleep 10
+        # Start dispatcher because it has been failing because secret was not created and wait for 10 seconds
+        # kubectl rollout restart deployment/airm-dispatcher -n 'airm'
+        echo "Just waiting 20 seconds for dispatcher deployment to rollout and take the secret that has been created"
+    }
+
+    function create_project() {
+        PROJECT_ID=$(curl -v -s -X GET "${AIRM_API_URL}/v1/projects" -H 'accept: application/json' -H "Authorization: Bearer ${TOKEN}" | jq -r '.projects[] | select(.name=="'$PROJECT_NAME'") | .id')
+
+        for (( i=0; i<=$TIMEOUT; i+=$SLEEP_INTERVAL )); do
+            CLUSTER_STATUS=$(curl -v -s -X GET "${AIRM_API_URL}/v1/clusters/$CLUSTER_ID" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H 'Content-Type: application/json' | jq -r '.status')
+
+            if [ "$CLUSTER_STATUS" == "healthy" ]; then
+            echo "Cluster is healthy!"
+            break # Exit the loop if the cluster is healthy
+            fi
+            echo "Cluster status: $CLUSTER_STATUS.  Waiting $SLEEP_INTERVAL seconds... ($i/$TIMEOUT seconds elapsed)"
+            sleep $SLEEP_INTERVAL
+        done
+
+        if [ "$CLUSTER_STATUS" != "healthy" ]; then
+            echo "ERROR: Cluster did not become healthy within $TIMEOUT seconds."
+            exit 1
+        fi
+
+        if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" == "null" ]; then
+            echo "Projects '$PROJECT_NAME' not found. Creating..."
+            PROJECT_ID=$(curl -v -X 'POST' \
+            "${AIRM_API_URL}/v1/projects" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d '{
+                "name": "'"$PROJECT_NAME"'",
+                "description": "'"$PROJECT_DESCRIPTION"'",
+                "cluster_id": "'"$CLUSTER_ID"'",
+                "quota": {
+                "cpu_milli_cores": 0,
+                "memory_bytes": 0,
+                "ephemeral_storage_bytes": 0,
+                "gpu_count": 0
+                }
+            }' | jq -r '.id')
+            echo $PROJECT_ID
+            check_success $([[ "$PROJECT_ID" != "null" ]] && echo 0 || echo 1) "Failed to create project"
+        else
+            echo "Project '$PROJECT_NAME' already exists with ID: $PROJECT_ID"
+        fi
+    }
+
+    function add_user_to_project() {
+        # Get project id
+        USER_IN_PROJECT=$(curl -v -X 'GET' \
+        "${AIRM_API_URL}/v1/users" \
+        -H 'accept: application/json' \
+        -H "Authorization: Bearer ${TOKEN}" | jq -r  '.users[] | select(.projects.id=="'$PROJECT_ID'" and .email=="'$USER_EMAIL'") | .id ')
+
+        USER_ID=$(curl -v -X 'GET' \
+        "${AIRM_API_URL}/v1/users" \
+        -H 'accept: application/json' \
+        -H "Authorization: Bearer ${TOKEN}" | jq -r  '.users[] | select(.email=="'$USER_EMAIL'") | .id ')
+
+        # Add user to project if they are not already in it
+        if [ -z "$USER_IN_PROJECT" ] || [ "$USER_IN_PROJECT" == "null" ]; then
+            echo "Adding user '$USER_ID' to project '$PROJECT_ID'..."
+            ADD_PROJECT_RESP=$(curl -v -w "%{http_code}" -o /dev/null -X 'POST' \
+            "${AIRM_API_URL}/v1/projects/${PROJECT_ID}/users" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d '{"user_ids": ["'${USER_ID}'"]}')
+            echo $ADD_PROJECT_RESP
+            check_success $([[ "$ADD_PROJECT_RESP" == "200" || "$ADD_PROJECT_RESP" == "201" || "$ADD_PROJECT_RESP" == "204" ]] && echo 0 || echo 1) "Failed to add user to project"
+        else
+            echo "User '$USER_ID' already exists in project '$PROJECT_ID'."
+        fi
+    }
+
+    function add_minio_secret_to_project() {
+
+        for (( i=0; i<=TIMEOUT; i+=SLEEP_INTERVAL )); do
+            PROJECT_STATUS=$(curl -s -X GET "${AIRM_API_URL}/v1/projects/$PROJECT_ID" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H 'Content-Type: application/json' | jq -r '.status')
+
+            if [ "$PROJECT_STATUS" == "Ready" ]; then
+            echo "Project is ready!"
+            break # Exit the loop if the project is ready
+            fi
+            echo "Project status: $PROJECT_STATUS.  Waiting $SLEEP_INTERVAL seconds... ($i/$TIMEOUT seconds elapsed)"
+            sleep $SLEEP_INTERVAL
+        done
+
+
+        SECRET_IN_PROJECT=$(curl -X 'GET' \
+        "${AIRM_API_URL}/v1/projects/${PROJECT_ID}/secrets" \
+        -H 'accept: application/json' \
+        -H "Authorization: Bearer ${TOKEN}" | jq -r  '.project_secrets[] | select(.projects.id=="'"$PROJECT_ID"'") | .id ')
+        SECRET_NAME="minio-credentials-fetcher"
+        EXTERNAL_SECRET_API_VERSION="v1beta1"
+        EXTERNAL_SECRET_MANIFEST=$(cat <<EOF
+    apiVersion: external-secrets.io/${EXTERNAL_SECRET_API_VERSION}
+    kind: ExternalSecret
+    metadata:
+      name: ${SECRET_NAME}
+    spec:
+      data:
+        - remoteRef:
+            key: default-user
+            property: API_ACCESS_KEY
+            conversionStrategy: Default
+            decodingStrategy: None
+            metadataPolicy: None
+          secretKey: minio-access-key
+        - remoteRef:
+            key: default-user
+            property: API_SECRET_KEY
+            conversionStrategy: Default
+            decodingStrategy: None
+            metadataPolicy: None
+          secretKey: minio-secret-key
+      refreshInterval: 1h
+      secretStoreRef:
+        kind: ClusterSecretStore
+        name: k8s-secret-store
+      target:
+        creationPolicy: Owner
+        name: minio-credentials
+    EOF
+    )
+        if [ -z "$SECRET_IN_PROJECT" ] || [ "$SECRET_IN_PROJECT" == "null" ]; then
+            echo "Adding secret to project '$PROJECT_ID'..."
+            ADD_SECRET_RESP=$(curl -w "%{http_code}" -o /dev/null -X 'POST' \
+            "${AIRM_API_URL}/v1/secrets" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d '{
+                "name": "'"$SECRET_NAME"'",
+                "project_ids": ["'"$PROJECT_ID"'"],
+                "type": "External",
+                "scope": "Organization",
+                "manifest": '"$(echo "$EXTERNAL_SECRET_MANIFEST" | jq -Rs .)"'
+            }')
+            echo "$ADD_SECRET_RESP"
+            check_success "$([[ "$ADD_SECRET_RESP" == "200" || "$ADD_SECRET_RESP" == "201" || "$ADD_SECRET_RESP" == "204" ]] && echo 0 || echo 1)" "Failed to add minio secret to project"
+        else
+            echo "Secret already exists in project '$PROJECT_ID'."
+        fi
+    }
+
+
+    echo "Waiting 10 seconds..."
+    sleep 10
+
+    # CLUSTER_BASE_URL="https://workspaces-demo.app-dev.silogen.ai/"
+    # export CLUSTER_BASE_URL
+
+    echo ""
+    echo "Creating demo organization"
+    echo ""
+
+    echo "Env vars..."
+    echo $KEYCLOAK_CLIENT_ID
+    echo $KEYCLOAK_CLIENT_SECRET
+    echo $USER_EMAIL
+    echo $KEYCLOAK_URL
+    echo $AIRM_API_URL
+    ORG_DOMAINS=$(echo "[\""$NEW_DOMAIN_NAME"\"]")
+    export ORG_DOMAINS
+    echo $ORG_DOMAINS
+    echo $ORG_NAME
+    echo ""
+
+    PROJECT_NAME="demo"
+    PROJECT_DESCRIPTION="demo"
+    CLUSTER_NAME="demo-cluster"
+    TIMEOUT=300
+    SLEEP_INTERVAL=5
+
+    echo "Fetching a keycloak token..."
+    refresh_token
+    echo "Done"
+    echo ""
+
+    echo "Create_org in airm-api..."
+    create_org
+    echo "Done"
+    echo ""
+
+    echo "Fetching a keycloak token again..."
+    refresh_token
+    echo "Done"
+    echo ""
+    echo "Add user to org..."
+    add_user_to_org
+    echo ""
+
+    # Adding dispatcher...
+    echo "refresh_token"
+    refresh_token
+    echo "create_cluster..."
+    create_cluster
+
+    # NOTE: Done by airm-configure-dispatcher-rbac.yaml has the deployment failing until this step runs to trigger correctly
+    echo "create_secret_and_start_dispatcher..."
+    create_secret_and_start_dispatcher
+    echo ""
+
+    echo "refresh_token"
+    refresh_token
+    echo "create_project..."
+    create_project
+    echo "refresh_token"
+    refresh_token
+    echo "add_user_to_project..."
+    add_user_to_project
+
+    echo ""
+    add_minio_secret_to_project
+
+    echo ""
+    echo "Successfully created demo organization from keycloak in database"
+    exit 0
 ---
 # Source: airm-chart/templates/secret-generator-configmap.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: "airm-secret-generator-script"
-  namespace: "airm"
+  name: 'airm-secret-generator-script'
+  namespace: 'airm'
 data:
   generate-secrets.sh: |
     #!/bin/bash
@@ -109,8 +507,8 @@ data:
               value: ${AIRM_ADMIN_SECRET}
             - key: airm-ci-client-secret
               value: ${AIRM_CI_SECRET}
-            - key: airm-cnpg-user
-              value: airm-cnpg-user
+            - key: airm-airm-cnpg-user
+              value: airm-airm-cnpg-user
             - key: catalog-cnpg-superuser
               value: ${CATALOG_SUPERUSER}
             - key: catalog-cnpg-user
@@ -149,8 +547,6 @@ data:
               value: ${AIRM_RABBITMQ_USERNAME}
             - key: airm-oci-1-rabbitmq-common-vhost-username
               value: ${AIRM_OCI_RABBITMQ_USERNAME}
-            - key: airm-oci-1-rabbitmq-common-vhost-password
-              value: ${AIRM_OCI_RABBITMQ_PASSWORD}
             - key: airm-rabbitmq-backup-minio-credentials
               value: ${RABBITMQ_BACKUP_CREDS}
             - key: keycloak-cnpg-superuser-password
@@ -165,6 +561,8 @@ data:
               value: ${AIRM_USER_PASSWORD}
             - key: airm-rabbitmq-user-password
               value: ${AIRM_RABBITMQ_PASSWORD}
+            - key: airm-oci-1-rabbitmq-common-vhost-password
+              value: ${AIRM_OCI_RABBITMQ_PASSWORD}
             - key: hmac-keys-access-key
               value: ${HMAC_ACCESS_KEY}
             - key: hmac-keys-secret-key
@@ -191,126 +589,11 @@ data:
     echo "Generated secrets with alphanumeric values only"
     exit 0
 ---
-# Source: airm-chart/templates/airm-cluster-roles.yaml
-# Copyright © Advanced Micro Devices, Inc., or its affiliates.
-#
-# SPDX-License-Identifier: MIT
-
+# Source: airm-chart/templates/airm-app-frontend.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: airm-platform-admin
-rules:
-  - apiGroups: [""]
-    resources:
-      [
-        "pods",
-        "events",
-        "services",
-        "configmaps",
-        "persistentvolumes",
-        "persistentvolumeclaims",
-        "namespaces",
-        "serviceaccounts",
-      ]
-    verbs: ["get", "list", "watch", "delete"]
-  - apiGroups: [""]
-    resources: ["pods/log", "pods/exec", "pods/attach", "pods/portforward"]
-    verbs: ["*"]
-  - apiGroups: ["apps"]
-    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
-    verbs: ["get", "list", "watch", "delete"]
-  - apiGroups: ["batch"]
-    resources: ["jobs", "cronjobs"]
-    verbs: ["get", "list", "watch", "delete"]
-  - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses", "networkpolicies", "httproutes"]
-    verbs: ["get", "list", "watch", "delete"]
-  - apiGroups: ["kaiwo.silogen.ai"]
-    resources: ["kaiwojobs", "kaiwoservices"]
-    verbs: ["get", "list", "watch", "delete"]
-  - apiGroups: ["config.kaiwo.silogen.ai"]
-    resources: ["kaiwoconfigs"]
-    verbs: ["*"]
-  - apiGroups: ["kaiwo.silogen.ai"]
-    resources: ["kaiwojobs", "kaiwoservices", "kaiwoqueueconfigs"]
-    verbs: ["*"]
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["get", "list", "watch", "create", "delete"]
-  - apiGroups: [""]
-    resources: ["nodes"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["roles", "clusterroles", "rolebindings", "clusterrolebindings"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["external-secrets.io"]
-    resources: ["externalsecrets"]
-    verbs: ["get", "list", "watch", "create", "delete"]
-  - apiGroups: ["external-secrets.io"]
-    resources: ["clustersecretstores"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["storage.k8s.io"]
-    resources: ["storageclasses"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["kueue.x-k8s.io"]
-    resources: ["clusterqueues", "resourceflavors", "localqueues"]
-    verbs: ["get", "list", "watch"]
----
-# Source: airm-chart/templates/airm-cluster-roles.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: airm-project-member
-rules:
-  - apiGroups: [""]
-    resources:
-      [
-        "pods",
-        "pods/log",
-        "pods/exec",
-        "pods/attach",
-        "pods/portforward",
-        "events",
-        "services",
-        "configmaps",
-        "persistentvolumes",
-        "persistentvolumeclaims",
-      ]
-    verbs: ["*"]
-  - apiGroups: ["apps"]
-    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
-    verbs: ["*"]
-  - apiGroups: ["batch"]
-    resources: ["jobs", "cronjobs"]
-    verbs: ["*"]
-  - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses", "networkpolicies", "httproutes"]
-    verbs: ["*"]
-  - apiGroups: ["kaiwo.silogen.ai"]
-    resources: ["kaiwojobs", "kaiwoservices"]
-    verbs: ["*"]
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["list", "watch", "create"]
-  - apiGroups: [""]
-    resources: ["nodes"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["roles", "clusterroles", "rolebindings", "clusterrolebindings"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["external-secrets.io"]
-    resources: ["clustersecretstores", "externalsecrets"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["storage.k8s.io"]
-    resources: ["storageclasses"]
-    verbs: ["get", "list", "watch"]
----
-# Source: airm-chart/templates/airm-configure-job.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: "airm-configure-role"
+  name: 'airm-airm-ui-cluster-access-role'
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
@@ -323,7 +606,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: "airm-dispatcher-cluster-access-role"
+  name: 'airm-airm-dispatcher-cluster-access-role'
 rules:
   - apiGroups: [""]
     resources: ["services", "namespaces", "configmaps", "pods"]
@@ -353,106 +636,56 @@ rules:
     resources: ["customresourcedefinitions"]
     verbs: ["get", "list"]
 ---
-# Source: airm-chart/templates/kyverno-cluster-role.yaml
-# Copyright © Advanced Micro Devices, Inc., or its affiliates.
-#
-# SPDX-License-Identifier: MIT
-
-# These are additional cluster roles needed by kyverno background controller to be able to
-# create rolebindings in namespaces.
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kyverno:airm-policy-roles
-  labels:
-    rbac.kyverno.io/aggregate-to-background-controller: "true"
-rules:
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["clusterroles", "rolebindings"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["rbac.authorization.k8s.io"] # allow kyverno to bind clusterroles via rolebindings
-    resources: ["clusterroles"]
-    verbs: ["bind"]
----
-# Source: airm-chart/templates/kyverno-cluster-role.yaml
-# These are additional cluster roles needed by kyverno reports controller to be able to
-# manage custom resources for reporting
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kyverno:airm-reports-policy-roles
-  labels:
-    rbac.kyverno.io/aggregate-to-reports-controller: “true”
-rules:
-  - apiGroups: ["kaiwo.silogen.ai"]
-    resources: ["kaiwojobs", "kaiwoservices"]
-    verbs: ["get", "list", "watch"]
----
 # Source: airm-chart/templates/secret-generator-rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: "airm-secret-generator-role"
+  name: 'airm-secret-generator-role'
 rules:
   - apiGroups: ["external-secrets.io"]
     resources: ["clustersecretstores"]
     verbs: ["create", "update", "patch", "get", "list"]
 ---
-# Source: airm-chart/templates/airm-cluster-roles.yaml
+# Source: airm-chart/templates/airm-app-frontend.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: airm-platform-admin-role-binding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: airm-platform-admin
-subjects:
-  - kind: Group
-    # The kubernetes cluster apply an OIDC prefix of 'oidc', so we adjust the group to expect that
-    name: "oidcairm-role:Platform Administrator"
-    apiGroup: rbac.authorization.k8s.io
----
-# Source: airm-chart/templates/airm-configure-job.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: "airm-configure-binding"
+  name: 'airm-airm-ui-cluster-access-binding'
 subjects:
   - kind: ServiceAccount
-    name: "airm-configure-sa"
-    namespace: "airm"
+    name: 'airm-airm-ui-sa'
+    namespace: 'airm'
 roleRef:
   kind: ClusterRole
-  name: "airm-configure-role"
+  name: 'airm-airm-ui-cluster-access-role'
   apiGroup: rbac.authorization.k8s.io
 ---
 # Source: airm-chart/templates/airm-dispatcher-app.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: "airm-dispatcher-cluster-access-binding"
+  name: 'airm-airm-dispatcher-cluster-access-binding'
 subjects:
   - kind: ServiceAccount
-    name: "airm-dispatcher-sa"
-    namespace: "airm"
+    name: 'airm-airm-dispatcher-sa'
+    namespace: 'airm'
 roleRef:
   kind: ClusterRole
-  name: "airm-dispatcher-cluster-access-role"
+  name: 'airm-airm-dispatcher-cluster-access-role'
   apiGroup: rbac.authorization.k8s.io
 ---
 # Source: airm-chart/templates/secret-generator-rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: "airm-secret-generator-binding"
+  name: 'airm-secret-generator-binding'
 subjects:
   - kind: ServiceAccount
-    name: "airm-secret-generator-sa"
-    namespace: "airm"
+    name: 'airm-secret-generator-sa'
+    namespace: 'airm'
 roleRef:
   kind: ClusterRole
-  name: "airm-secret-generator-role"
+  name: 'airm-secret-generator-role'
   apiGroup: rbac.authorization.k8s.io
 ---
 # Source: airm-chart/templates/airm-app-backend.yaml
@@ -460,9 +693,9 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: "airm-api"
-  name: "airm-api"
-  namespace: "airm"
+    app: 'airm-airm-api'
+  name: 'airm-airm-api'
+  namespace: 'airm'
 spec:
   ports:
     - name: web
@@ -472,7 +705,7 @@ spec:
       port: 9009
       targetPort: 9009
   selector:
-    app: "airm-api"
+    app: 'airm-airm-api'
   type: ClusterIP
 ---
 # Source: airm-chart/templates/airm-app-frontend.yaml
@@ -480,26 +713,26 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: "airm-ui"
-  name: "airm-ui"
-  namespace: "airm"
+    app: 'airm-airm-ui'
+  name: 'airm-airm-ui'
+  namespace: 'airm'
 spec:
   ports:
     - name: web
       port: 80
       targetPort: 8000
   selector:
-    app: "airm-ui"
+    app: 'airm-airm-ui'
   type: ClusterIP
 ---
 # Source: airm-chart/templates/airm-dispatcher-app.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: "airm-dispatcher"
-  namespace: "airm"
+  name: 'airm-airm-dispatcher'
+  namespace: 'airm'
   labels:
-    app: "airm-dispatcher"
+    app: 'airm-airm-dispatcher'
 spec:
   ports:
     - name: web
@@ -507,94 +740,94 @@ spec:
       targetPort: 8080
   type: ClusterIP
   selector:
-    app: "airm-dispatcher"
+    app: 'airm-airm-dispatcher'
 ---
 # Source: airm-chart/templates/airm-app-backend.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: "airm-api"
-  namespace: "airm"
+  name: 'airm-airm-api'
+  namespace: 'airm'
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: "airm-api"
+      app: 'airm-airm-api'
   template:
     metadata:
       labels:
-        app: "airm-api"
+        app: 'airm-airm-api'
         auth-required: "true"
     spec:
       containers:
         - env:
             - name: OPENID_CLIENT_ID
-              value: "354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
+              value: '354a0fa1-35ac-4a6d-9c4d-d661129c2cd0'
             - name: OPENID_CONFIGURATION_URL
-              value: "http://kc.not-a-domain.svc.cluster.local/realms/airm/.well-known/openid-configuration"
+              value: 'http://kc.not-a-domain/realms/airm/.well-known/openid-configuration'
             - name: POST_REGISTRATION_REDIRECT_URL
-              value: "https://airmui.not-a-domain.svc.cluster.local/"
+              value: 'https://airmui.not-a-domain/'
             - name: DATABASE_HOST
-              value: "airm-cnpg-rw.airm.svc.cluster.local"
+              value: 'airm-airm-cnpg-rw.airm.svc.cluster.local'
             - name: DATABASE_PORT
-              value: "5432"
+              value: '5432'
             - name: DATABASE_USER
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: "airm-cnpg-user"
+                  name: 'airm-airm-cnpg-user'
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: "airm-cnpg-user"
+                  name: 'airm-airm-cnpg-user'
             - name: RABBITMQ_HOST
-              value: "airm-rabbitmq.airm.svc.cluster.local"
+              value: 'airm-rabbitmq.airm.svc.cluster.local'
             - name: RABBITMQ_PORT
-              value: "5672"
+              value: '5672'
             - name: RABBITMQ_MANAGEMENT_URL
               value: http://airm-rabbitmq.airm.svc.cluster.local:15672/api
             - name: RABBITMQ_ADMIN_USER
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: "airm-rabbitmq-admin"
+                  name: 'airm-airm-rabbitmq-admin'
             - name: RABBITMQ_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: "airm-rabbitmq-admin"
+                  name: 'airm-airm-rabbitmq-admin'
             - name: KEYCLOAK_ADMIN_SERVER_URL
-              value: "http://keycloak.keycloak.svc.cluster.local:8080"
+              value: 'http://keycloak.keycloak.svc.cluster.local:8080'
             - name: KEYCLOAK_REALM
               value: airm
             - name: KEYCLOAK_ADMIN_CLIENT_ID
               valueFrom:
                 secretKeyRef:
                   key: client-id
-                  name: "airm-keycloak-admin-client"
+                  name: 'airm-airm-keycloak-admin-client'
             - name: KEYCLOAK_ADMIN_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
                   key: client-secret
-                  name: "airm-keycloak-admin-client"
+                  name: 'airm-airm-keycloak-admin-client'
             - name: MINIO_URL
-              value: "http://minio.minio-tenant-default.svc.cluster.local:80"
+              value: 'http://minio.minio-tenant-default.svc.cluster.local:80'
             - name: MINIO_BUCKET
-              value: "default-bucket"
+              value: 'default-bucket'
             - name: MINIO_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
                   key: minio-access-key
-                  name: "airm-api-minio-credentials"
+                  name: 'airm-api-minio-credentials'
             - name: MINIO_SECRET_KEY
               valueFrom:
                 secretKeyRef:
                   key: minio-secret-key
-                  name: "airm-api-minio-credentials"
+                  name: 'airm-api-minio-credentials'
             - name: PROMETHEUS_URL
-              value: "http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:9090"
-          image: "ghcr.io/silogen/airm-api:main-fc65bc1"
+              value: 'http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:9090'
+          image: 'ghcr.io/silogen/airm-api:v2025.08-rc.21'
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3
@@ -631,24 +864,13 @@ spec:
             seccompProfile:
               type: RuntimeDefault
       initContainers:
-        - name: wait-for-db
-          image: postgres:17-alpine
-          command:
-            - sh
-            - -c
-            - |
-              until pg_isready -h "airm-cnpg-rw.airm.svc.cluster.local" -p 5432 -U postgres; do
-                echo "Waiting for database..."
-                sleep 2
-              done
-              echo "Database is ready!"
         - name: init-migration-scripts
           command:
             - sh
             - -c
             - cp /code/migrations/* /mnt/code/migrations/
-          image: "ghcr.io/silogen/airm-api:main-fc65bc1"
-          imagePullPolicy: "IfNotPresent"
+          image: 'ghcr.io/silogen/airm-api:v2025.08-rc.21'
+          imagePullPolicy: 'IfNotPresent'
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -664,7 +886,7 @@ spec:
         - name: liquibase-migrate
           command:
             - liquibase
-            - --url=jdbc:postgresql://airm-cnpg-rw.airm.svc.cluster.local:5432/airm
+            - --url=jdbc:postgresql://airm-airm-cnpg-rw.airm.svc.cluster.local:5432/airm
             - --username=$(DATABASE_USER)
             - --password=$(DATABASE_PASSWORD)
             - --logLevel=INFO
@@ -675,53 +897,53 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: "airm-cnpg-user"
+                  name: 'airm-airm-cnpg-user'
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: "airm-cnpg-user"
-          image: "quay.io/lib/liquibase:latest"
-          imagePullPolicy: "IfNotPresent"
+                  name: 'airm-airm-cnpg-user'
+          image: 'quay.io/lib/liquibase:latest'
+          imagePullPolicy: 'IfNotPresent'
           volumeMounts:
             - mountPath: /liquibase/changelog
               name: airm-migration-volume
               readOnly: true
         - name: charts-registration
-          image: "ghcr.io/silogen/airm-api:main-fc65bc1"
-          imagePullPolicy: "IfNotPresent"
-          command: ["uv", "run", "-m", "app.charts.registration"]
+          image: 'ghcr.io/silogen/airm-api:v2025.08-rc.21'
+          imagePullPolicy: 'IfNotPresent'
+          command: ['uv', 'run', '-m', 'app.charts.registration']
           env:
             - name: DATABASE_HOST
-              value: "airm-cnpg-rw.airm.svc.cluster.local"
+              value: 'airm-airm-cnpg-rw.airm.svc.cluster.local'
             - name: DATABASE_PORT
-              value: "5432"
+              value: '5432'
             - name: DATABASE_USER
               valueFrom:
                 secretKeyRef:
-                  name: "airm-cnpg-user"
+                  name: 'airm-airm-cnpg-user'
                   key: username
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "airm-cnpg-user"
+                  name: 'airm-airm-cnpg-user'
                   key: password
             - name: RABBITMQ_HOST
-              value: "airm-rabbitmq.airm.svc.cluster.local"
+              value: 'airm-rabbitmq.airm.svc.cluster.local'
             - name: RABBITMQ_PORT
-              value: "5672"
+              value: '5672'
             - name: RABBITMQ_MANAGEMENT_URL
               value: http://airm-rabbitmq.airm.svc.cluster.local:15672/api
             - name: RABBITMQ_ADMIN_USER
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: "airm-rabbitmq-admin"
+                  name: 'airm-airm-rabbitmq-admin'
             - name: RABBITMQ_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: "airm-rabbitmq-admin"
+                  name: 'airm-airm-rabbitmq-admin'
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
@@ -732,19 +954,30 @@ spec:
               drop:
                 - ALL
         - name: check-rabbitmq-is-ready
-          command:
-            [
-              "/bin/bash",
-              "-c",
-              'apt-get update -y 1> /dev/null 2>&1 && apt-get install ncat -y 1> /dev/null 2>&1 && while ! nc -z "$ENDPOINT_URL_TO_CHECK" "$ENDPOINT_PORT_TO_CHECK"; do echo "Waiting for Airm rabbitmq at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}..."; sleep 3; done; echo "Airm rabbitmq is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}."; sleep 3; exit 0',
-            ]
+
+          command: ["/bin/bash", "-c", "apt-get update -y 1> /dev/null 2>&1 && apt-get install ncat -y 1> /dev/null 2>&1 && while ! nc -z \"$ENDPOINT_URL_TO_CHECK\" \"$ENDPOINT_PORT_TO_CHECK\"; do echo \"Waiting for Airm rabbitmq at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}...\"; sleep 3; done; echo \"Airm rabbitmq is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}.\"; sleep 3; exit 0"]
+          # command:
+          #   - /bin/bash
+          #   - -c
+          #   - |
+              
+          #     apt-get update -y 1> /dev/null 2>&1
+          #     apt-get install ncat -y 1> /dev/null 2>&1
+          #     while ! nc -z "$ENDPOINT_URL_TO_CHECK" "$ENDPOINT_PORT_TO_CHECK"; do
+          #       echo "Waiting for Airm rabbitmq at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}..."
+          #       sleep 3
+          #     done
+          #     echo "Airm rabbitmq is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}."
+          #     sleep 3
+          #     exit 0
+
           image: ubuntu:22.04
           imagePullPolicy: IfNotPresent
           env:
             - name: ENDPOINT_URL_TO_CHECK
               value: "airm-rabbitmq.airm.svc.cluster.local"
             - name: ENDPOINT_PORT_TO_CHECK
-              value: "15672"
+              value: "15672" #""
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: false
@@ -761,7 +994,6 @@ spec:
                 - FSETID
             seccompProfile:
               type: RuntimeDefault
-
       volumes:
         - emptyDir: {}
           name: airm-migration-volume
@@ -770,39 +1002,62 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: "airm-ui"
-  namespace: "airm"
+  name: 'airm-airm-ui'
+  namespace: 'airm'
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: "airm-ui"
+      app: 'airm-airm-ui'
   template:
     metadata:
       labels:
-        app: "airm-ui"
+        app: 'airm-airm-ui'
     spec:
-      serviceAccountName: "airm-ui-sa"
+      serviceAccountName: 'airm-airm-ui-sa'
+      volumes:
+        - name: config-script
+          configMap:
+            name: 'airm-airm-configure'
+            defaultMode: 0755
+
       initContainers:
-        - name: wait-for-api
+        - name: init-orgdb
+
+          command: ["/bin/bash", "-c", "/opt/scripts/init-db.sh"]
+          # command:
+          #   - /bin/bash
+          #   - -c
+          #   - |
+          #     /opt/scripts/init-db.sh
+
           image: ubuntu:22.04
           imagePullPolicy: IfNotPresent
-          command: ["/bin/bash", "-c"]
-          args:
-            - |
-              apt-get update -y 1> /dev/null 2>&1
-              apt-get install curl -y 1> /dev/null 2>&1
-              echo "Waiting for AIRM API..."
-
-              while true; do
-                if curl -s --max-time 5 http://airm-api.airm.svc.cluster.local/v1/health > /dev/null 2>&1; then
-                  echo "AIRM API is ready!"
-                  break
-                else
-                  echo "Still waiting for AIRM API..."
-                  sleep 5
-                fi
-              done
+          volumeMounts:
+            - name: config-script
+              mountPath: /opt/scripts
+          env:
+            - name: DEBIAN_FRONTEND
+              value: 'noninteractive'
+            - name: ORG_NAME
+              value: 'demo'
+            - name: NEW_DOMAIN_NAME
+              value: 'not-a-domain'
+            - name: KEYCLOAK_CLIENT_ID
+              value: '354a0fa1-35ac-4a6d-9c4d-d661129c2cd0'
+            - name: KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: KEYCLOAK_SECRET
+                  name: 'airm-secrets-airm'
+            - name: USER_EMAIL
+              value: 'devuser@not-a-domain'
+            - name: KEYCLOAK_URL
+              value: 'http://keycloak.keycloak.svc.cluster.local:8080'
+            - name: AIRM_API_URL
+              value: 'http://airm-airm-api.airm.svc.cluster.local'
+            - name: CLUSTER_BASE_URL
+              value: 'https://workspaces.not-a-domain/'
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: false
@@ -819,24 +1074,25 @@ spec:
                 - FSETID
             seccompProfile:
               type: RuntimeDefault
+
       containers:
         - name: airm-ui
           env:
             - name: NEXTAUTH_URL
-              value: "https://airmui.not-a-domain"
+              value: 'https://airmui.not-a-domain'
             - name: KEYCLOAK_ISSUER
-              value: "https://kc.not-a-domain/realms/airm"
+              value: 'https://kc.not-a-domain/realms/airm'
             - name: KEYCLOAK_ID
-              value: "354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
+              value: '354a0fa1-35ac-4a6d-9c4d-d661129c2cd0'
             - name: KEYCLOAK_ISSUER_INTERNAL_URL
-              value: "http://keycloak.keycloak:8080/realms/airm/"
+              value: 'http://keycloak.keycloak.svc.cluster.local:8080/realms/airm/'
             - name: AIRM_API_SERVICE_URL
-              value: "http://airm-api.airm"
+              value: 'http://airm-airm-api.airm.svc.cluster.local'
           envFrom:
             - secretRef:
-                name: "airm-secrets-airm"
-          image: "ghcr.io/silogen/airm-ui:main-fc65bc1"
-          imagePullPolicy: "IfNotPresent"
+                name: 'airm-secrets-airm'
+          image: 'ghcr.io/silogen/airm-ui:v2025.08-rc.21'
+          imagePullPolicy: 'IfNotPresent'
           livenessProbe:
             failureThreshold: 3
             httpGet:
@@ -860,37 +1116,51 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
       restartPolicy: Always
----
+--- 
 # Source: airm-chart/templates/airm-dispatcher-app.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: "airm-dispatcher"
-  namespace: "airm"
+  name: 'airm-airm-dispatcher'
+  namespace: 'airm'
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: "airm-dispatcher"
+      app: 'airm-airm-dispatcher'
   template:
     metadata:
       labels:
-        app: "airm-dispatcher"
+        app: 'airm-airm-dispatcher'
     spec:
-      serviceAccountName: "airm-dispatcher-sa"
+      serviceAccountName: 'airm-airm-dispatcher-sa'
       initContainers:
         - name: check-airm-api-is-ready
-          command:
-            [
-              "/bin/bash",
-              "-c",
-              'apt-get update -y 1> /dev/null 2>&1 && apt-get install ncat -y 1> /dev/null 2>&1 && while ! nc -z "$ENDPOINT_URL_TO_CHECK" "$ENDPOINT_PORT_TO_CHECK"; do echo "Waiting for Airm UI at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}..."; sleep 3; done; echo "Airm UI is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}."; sleep 12; exit 0',
-            ]
+
+          command: ["/bin/bash", "-c", "apt-get update -y 1> /dev/null 2>&1 && apt-get install ncat -y 1> /dev/null 2>&1 && while ! nc -z \"$ENDPOINT_URL_TO_CHECK\" \"$ENDPOINT_PORT_TO_CHECK\"; do echo \"Waiting for Airm UI at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}...\"; sleep 3; done; echo \"Airm UI is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}.\"; sleep 12; exit 0"]
+          # command:
+          #   - /bin/bash
+          #   - -c
+          #   - |
+              
+          #     apt-get update -y 1> /dev/null 2>&1
+          #     apt-get install ncat -y 1> /dev/null 2>&1
+          #     while ! nc -z "$ENDPOINT_URL_TO_CHECK" "$ENDPOINT_PORT_TO_CHECK"; do
+          #       echo "Waiting for Airm UI at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}..."
+          #       sleep 3
+          #     done
+          #     echo "Airm UI is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}."
+          #     sleep 12
+          #     exit 0
+
           image: ubuntu:22.04
           imagePullPolicy: IfNotPresent
+          # volumeMounts:
+          #   - name: config-script
+          #     mountPath: /opt/scripts
           env:
             - name: ENDPOINT_URL_TO_CHECK
-              value: "airm-api.airm.svc.cluster.local"
+              value: "airm-airm-api.airm.svc.cluster.local"
             - name: ENDPOINT_PORT_TO_CHECK
               value: "80" #""
           securityContext:
@@ -911,8 +1181,8 @@ spec:
               type: RuntimeDefault
       containers:
         - name: airm-dispatcher
-          image: "ghcr.io/silogen/airm-dispatcher:main-fc65bc1"
-          imagePullPolicy: "IfNotPresent"
+          image: 'ghcr.io/silogen/airm-dispatcher:v2025.08-rc.21'
+          imagePullPolicy: 'IfNotPresent'
           ports:
             - containerPort: 8080
           env:
@@ -923,7 +1193,7 @@ spec:
             - name: RABBITMQ_HOST
               value: "airm-rabbitmq.airm.svc.cluster.local"
             - name: RABBITMQ_PORT
-              value: "5672"
+              value: "5672" #""
             - name: RABBITMQ_AIRM_COMMON_VHOST
               value: "vh_airm_common"
             - name: RABBITMQ_AIRM_COMMON_QUEUE
@@ -931,12 +1201,12 @@ spec:
             - name: RABBITMQ_USER
               valueFrom:
                 secretKeyRef:
-                  name: "airm-rabbitmq-common-vhost-user"
+                  name: 'airm-airm-rabbitmq-common-vhost-user'
                   key: username
             - name: RABBITMQ_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "airm-rabbitmq-common-vhost-user"
+                  name: 'airm-airm-rabbitmq-common-vhost-user'
                   key: password
           livenessProbe:
             httpGet:
@@ -965,142 +1235,20 @@ spec:
           securityContext:
             runAsUser: 0
 ---
-# Source: airm-chart/templates/airm-configure-job.yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: "airm-configure"
-  namespace: "airm"
-spec:
-  backoffLimit: 3
-  template:
-    metadata:
-      labels:
-        app: "airm-configure"
-    spec:
-      restartPolicy: Never
-      serviceAccountName: "airm-configure-sa"
-      initContainers:
-        - name: wait-for-dependencies
-          image: ubuntu:22.04
-          imagePullPolicy: IfNotPresent
-          command: ["/bin/bash", "-c"]
-          args:
-            - |
-              apt-get update -y 1> /dev/null 2>&1
-              apt-get install curl -y 1> /dev/null 2>&1
-              echo "Checking dependencies..."
-
-              # Wait for Keycloak
-              echo "Checking keycloak..."
-              while true; do
-                if curl -s --max-time 5 http://keycloak.keycloak.svc.cluster.local:8080/realms/airm/.well-known/openid-configuration > /dev/null 2>&1; then
-                  echo "Keycloak is ready!"
-                  break
-                else
-                  echo "Waiting for Keycloak..."
-                  sleep 10
-                fi
-              done
-
-              # Wait for AIRM API
-              echo "Checking airm-api..."
-              while true; do
-                if curl -s --max-time 5 http://airm-api.airm.svc.cluster.local/v1/health > /dev/null 2>&1; then
-                  echo "AIRM API is ready!"
-                  break
-                else
-                  echo "Waiting for AIRM API..."
-                  sleep 10
-                fi
-              done
-
-              # Wait for RabbitMQ (needed for secret creation)
-              echo "Checking rabbitmq..."
-              while true; do
-                if curl -s --max-time 5 http://airm-rabbitmq.airm.svc.cluster.local:15672/api/overview > /dev/null 2>&1; then
-                  echo "RabbitMQ is ready!"
-                  break
-                else
-                  echo "Waiting for RabbitMQ..."
-                  sleep 10
-                fi
-              done
-
-              echo "All dependencies are ready!"
-          securityContext:
-            allowPrivilegeEscalation: false
-            runAsNonRoot: false
-            runAsUser: 0
-            capabilities:
-              drop:
-                - ALL
-              add:
-                - SETUID
-                - SETGID
-                - CHOWN
-                - DAC_OVERRIDE
-                - FOWNER
-                - FSETID
-            seccompProfile:
-              type: RuntimeDefault
-      containers:
-        - name: configure
-          image: "ghcr.io/silogen/airm-configure:main-fc65bc1"
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: DEBIAN_FRONTEND
-              value: "noninteractive"
-            - name: ORG_NAME
-              value: "demo"
-            - name: NEW_DOMAIN_NAME
-              value: "not-a-domain"
-            - name: KEYCLOAK_CLIENT_ID
-              value: "354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
-            - name: KEYCLOAK_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  key: KEYCLOAK_SECRET
-                  name: "airm-secrets-airm"
-            - name: USER_EMAIL
-              value: "devuser@not-a-domain"
-            - name: KEYCLOAK_URL
-              value: "http://keycloak.keycloak.svc.cluster.local:8080"
-            - name: AIRM_API_URL
-              value: "http://airm-api.airm.svc.cluster.local"
-            - name: CLUSTER_BASE_URL
-              value: "https://workspaces.not-a-domain/"
-          securityContext:
-            allowPrivilegeEscalation: false
-            runAsNonRoot: false
-            runAsUser: 0
-            capabilities:
-              drop:
-                - ALL
-              add:
-                - SETUID
-                - SETGID
-                - CHOWN
-                - DAC_OVERRIDE
-                - FOWNER
-                - FSETID
-            seccompProfile:
-              type: RuntimeDefault
----
 # Source: airm-chart/templates/secret-generator-job.yaml
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: "airm-secret-generator"
-  namespace: "airm"
+  name: 'airm-secret-generator'
+  namespace: 'airm'
 spec:
   template:
     spec:
-      serviceAccountName: "airm-secret-generator-sa"
+      serviceAccountName: 'airm-secret-generator-sa'
       containers:
         - name: secret-generator
-          image: "ghcr.io/silogen/kubectl:latest"
-          imagePullPolicy: "IfNotPresent"
+          image: 'ghcr.io/silogen/kubectl:latest'
+          imagePullPolicy: 'IfNotPresent'
           command: ["/bin/bash", "-c", "/scripts/generate-secrets.sh"]
           volumeMounts:
             - name: script-volume
@@ -1108,7 +1256,7 @@ spec:
       volumes:
         - name: script-volume
           configMap:
-            name: "airm-secret-generator-script"
+            name: 'airm-secret-generator-script'
             defaultMode: 0755
       restartPolicy: OnFailure
   backoffLimit: 3
@@ -1117,8 +1265,8 @@ spec:
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: "airm-cluster-nodes-dispatcher"
-  namespace: "airm"
+  name: 'airm-cluster-nodes-dispatcher'
+  namespace: 'airm'
 spec:
   concurrencyPolicy: Replace
   jobTemplate:
@@ -1130,9 +1278,9 @@ spec:
                 - curl
                 - -X
                 - POST
-                - http://airm-dispatcher:80/v1/clusters/nodes
-              image: "ghcr.io/silogen/airm-dispatcher:main-fc65bc1"
-              imagePullPolicy: "IfNotPresent"
+                - http://airm-airm-dispatcher:80/v1/clusters/nodes
+              image: 'ghcr.io/silogen/airm-dispatcher:v2025.08-rc.21'
+              imagePullPolicy: 'IfNotPresent'
               name: airm-cluster-nodes-cron
               resources:
                 limits:
@@ -1147,8 +1295,8 @@ spec:
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: "airm-heartbeat-dispatcher"
-  namespace: "airm"
+  name: 'airm-heartbeat-dispatcher'
+  namespace: 'airm'
 spec:
   concurrencyPolicy: Replace
   schedule: "*/1 * * * *"
@@ -1164,17 +1312,31 @@ spec:
 
           initContainers:
             - name: check-dispatcher-is-ready
-              command:
-                [
-                  "/bin/bash",
-                  "-c",
-                  'apt-get update -y 1> /dev/null 2>&1 && apt-get install ncat -y 1> /dev/null 2>&1 && while ! nc -z "$ENDPOINT_URL_TO_CHECK" "$ENDPOINT_PORT_TO_CHECK"; do echo "Waiting for Airm dispatcher at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}..."; sleep 3; done; echo "Airm dispatcher is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}."; sleep 12; exit 0',
-                ]
+
+              command: ["/bin/bash", "-c", "apt-get update -y 1> /dev/null 2>&1 && apt-get install ncat -y 1> /dev/null 2>&1 && while ! nc -z \"$ENDPOINT_URL_TO_CHECK\" \"$ENDPOINT_PORT_TO_CHECK\"; do echo \"Waiting for Airm dispatcher at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}...\"; sleep 3; done; echo \"Airm dispatcher is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}.\"; sleep 12; exit 0"]
+              # command:
+              #   - /bin/bash
+              #   - -c
+              #   - |
+                  
+              #     apt-get update -y 1> /dev/null 2>&1
+              #     apt-get install ncat -y 1> /dev/null 2>&1
+              #     while ! nc -z "$ENDPOINT_URL_TO_CHECK" "$ENDPOINT_PORT_TO_CHECK"; do
+              #       echo "Waiting for Airm dispatcher at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}..."
+              #       sleep 3
+              #     done
+              #     echo "Airm dispatcher is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}."
+              #     sleep 12
+              #     exit 0
+
               image: ubuntu:22.04
               imagePullPolicy: IfNotPresent
+              # volumeMounts:
+              #   - name: config-script
+              #     mountPath: /opt/scripts
               env:
                 - name: ENDPOINT_URL_TO_CHECK
-                  value: "airm-dispatcher.airm.svc.cluster.local"
+                  value: "airm-airm-dispatcher.airm.svc.cluster.local"
                 - name: ENDPOINT_PORT_TO_CHECK
                   value: "80" #""
               securityContext:
@@ -1195,15 +1357,9 @@ spec:
                   type: RuntimeDefault
           containers:
             - name: airm-heartbeat-cron
-              image: "ghcr.io/silogen/airm-dispatcher:main-fc65bc1"
-              imagePullPolicy: "IfNotPresent"
-              command:
-                [
-                  "curl",
-                  "-X",
-                  "POST",
-                  "http://airm-dispatcher:80/v1/heartbeats",
-                ]
+              image: 'ghcr.io/silogen/airm-dispatcher:v2025.08-rc.21'
+              imagePullPolicy: 'IfNotPresent'
+              command: ["curl", "-X", "POST", "http://airm-airm-dispatcher:80/v1/heartbeats"]
               resources:
                 requests:
                   memory: "100Mi"
@@ -1211,87 +1367,27 @@ spec:
                 limits:
                   memory: "100Mi"
 ---
-# Source: airm-chart/templates/airm-app-backend.yaml
-# Copyright © Advanced Micro Devices, Inc., or its affiliates.
-#
-# SPDX-License-Identifier: MIT
----
-# Source: airm-chart/templates/airm-app-frontend.yaml
-# Copyright © Advanced Micro Devices, Inc., or its affiliates.
-#
-# SPDX-License-Identifier: MIT
----
-# Source: airm-chart/templates/airm-cert-issuer.yaml
-# Copyright © Advanced Micro Devices, Inc., or its affiliates.
-#
-# SPDX-License-Identifier: MIT
----
-# Source: airm-chart/templates/airm-cluster.yaml
-# Copyright © Advanced Micro Devices, Inc., or its affiliates.
-#
-# SPDX-License-Identifier: MIT
----
-# Source: airm-chart/templates/airm-configure-job.yaml
-# Copyright © Advanced Micro Devices, Inc., or its affiliates.
-#
-# SPDX-License-Identifier: MIT
----
-# Source: airm-chart/templates/airm-dispatcher-app.yaml
-# Copyright © Advanced Micro Devices, Inc., or its affiliates.
-#
-# SPDX-License-Identifier: MIT
----
-# Source: airm-chart/templates/airm-es.yaml
-# Copyright © Advanced Micro Devices, Inc., or its affiliates.
-#
-# SPDX-License-Identifier: MIT
----
-# Source: airm-chart/templates/airm-httproute.yaml
-# Copyright © Advanced Micro Devices, Inc., or its affiliates.
-#
-# SPDX-License-Identifier: MIT
----
-# Source: airm-chart/templates/airm-rabbitmq-cluster.yaml
-# Copyright © Advanced Micro Devices, Inc., or its affiliates.
-#
-# SPDX-License-Identifier: MIT
----
-# Source: airm-chart/templates/secret-generator-configmap.yaml
-# Copyright © Advanced Micro Devices, Inc., or its affiliates.
-#
-# SPDX-License-Identifier: MIT
----
-# Source: airm-chart/templates/secret-generator-job.yaml
-# Copyright © Advanced Micro Devices, Inc., or its affiliates.
-#
-# SPDX-License-Identifier: MIT
----
-# Source: airm-chart/templates/secret-generator-rbac.yaml
-# Copyright © Advanced Micro Devices, Inc., or its affiliates.
-#
-# SPDX-License-Identifier: MIT
----
 # Source: airm-chart/templates/airm-cert-issuer.yaml
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: "airm-tls-secret"
-  namespace: "airm"
+  name: 'airm-tls-secret'
+  namespace: 'airm'
 spec:
   dnsNames:
-    - "airm-rabbitmq.airm.svc.cluster.local"
-    - "*.airm-rabbitmq-nodes.airm.svc.cluster.local"
+    - 'airm-rabbitmq.airm.svc.cluster.local'
+    - '*.airm-rabbitmq-nodes.airm.svc.cluster.local'
   issuerRef:
     kind: Issuer
-    name: "airm-selfsigned-issuer"
-  secretName: "airm-tls-secret"
+    name: 'airm-selfsigned-issuer'
+  secretName: 'airm-tls-secret'
 ---
 # Source: airm-chart/templates/airm-cluster.yaml
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: "airm-cnpg"
-  namespace: "airm"
+  name: 'airm-airm-cnpg'
+  namespace: 'airm'
 spec:
   affinity:
     enablePodAntiAffinity: true
@@ -1303,7 +1399,7 @@ spec:
       postInitSQL:
         - GRANT CREATE ON SCHEMA public TO airm_user
       secret:
-        name: "airm-cnpg-user"
+        name: 'airm-airm-cnpg-user'
   imageName: ghcr.io/cloudnative-pg/postgresql:17
   instances: 1
   nodeMaintenanceWindow:
@@ -1332,352 +1428,17 @@ spec:
     size: 50Gi
     storageClass: default
   superuserSecret:
-    name: "airm-cnpg-superuser" # airm-cnpg-superuser
+    name: 'airm-airm-cnpg-superuser' # airm-cnpg-superuser
   walStorage:
     size: 50Gi
     storageClass: default
----
-# Source: airm-chart/templates/airm-cluster-policies.yaml
-# Copyright © Advanced Micro Devices, Inc., or its affiliates.
-#
-# SPDX-License-Identifier: MIT
-
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: airm-project-namespace-rolebinding
-spec:
-  background: false
-  rules:
-    - name: generate-project-namespace-rolebinding
-      match:
-        any:
-          - resources:
-              kinds:
-                - Namespace
-              operations:
-                - CREATE
-      preconditions:
-        any:
-          - key: '{{request.object.metadata.labels."airm.silogen.ai/project-id" || '''' }}'
-            operator: NotEquals
-            value: ""
-      generate:
-        apiVersion: rbac.authorization.k8s.io/v1
-        kind: RoleBinding
-        name: "{{request.object.metadata.name}}-member-role-binding"
-        namespace: "{{request.object.metadata.name}}"
-        synchronize: true
-        data:
-          roleRef:
-            apiGroup: rbac.authorization.k8s.io
-            kind: ClusterRole
-            name: airm-project-member
-          subjects:
-            - kind: Group
-              # The kubernetes cluster apply an OIDC prefix of 'oidc', so we adjust the groups to expect that
-              name: "oidc{{request.object.metadata.name}}"
-              apiGroup: rbac.authorization.k8s.io
----
-# Source: airm-chart/templates/airm-cluster-policies.yaml
-# Kyverno policy that enforces that workloads submitted to a namespace managed by AIRMan have the
-# correct kueue lables and field set, so that they are bound by the quota of the namespace
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: airm-quota-enforcement-for-workloads
-spec:
-  background: false
-  rules:
-    - name: set-queue-name-from-namespace-default
-      match:
-        resources:
-          kinds:
-            - Deployment
-            - StatefulSet
-            - Pod
-          namespaceSelector:
-            matchExpressions:
-              - key: airm.silogen.ai/project-id
-                operator: Exists
-      preconditions:
-        all:
-          - key: '{{request.object.metadata.labels."kueue.x-k8s.io/queue-name" || '''' }}'
-            operator: NotEquals
-            value: "{{request.namespace }}"
-      mutate:
-        patchStrategicMerge:
-          metadata:
-            labels:
-              kueue.x-k8s.io/queue-name: "{{request.namespace }}"
-
-    - name: set-queue-name-from-namespace-jobs
-      match:
-        resources:
-          kinds:
-            - Job # https://kueue.sigs.k8s.io/docs/tasks/run/jobs/
-          namespaceSelector:
-            matchExpressions:
-              - key: airm.silogen.ai/project-id
-                operator: Exists
-      preconditions:
-        all:
-          - key: '{{request.object.metadata.labels."kueue.x-k8s.io/queue-name" || '''' }}'
-            operator: NotEquals
-            value: "{{request.namespace }}"
-      mutate:
-        patchStrategicMerge:
-          metadata:
-            labels:
-              kueue.x-k8s.io/queue-name: "{{request.namespace }}"
-          spec:
-            suspend: true
-
-    - name: set-queue-name-from-namespace-cronjobs
-      match:
-        resources:
-          kinds:
-            - CronJob # https://kueue.sigs.k8s.io/docs/tasks/run/run_cronjobs/
-          namespaceSelector:
-            matchExpressions:
-              - key: airm.silogen.ai/project-id
-                operator: Exists
-      preconditions:
-        all:
-          - key: '{{request.object.spec.jobTemplate.metadata.labels."kueue.x-k8s.io/queue-name" || '''' }}'
-            operator: NotEquals
-            value: "{{request.namespace }}"
-      mutate:
-        patchStrategicMerge:
-          spec:
-            jobTemplate:
-              metadata:
-                labels:
-                  kueue.x-k8s.io/queue-name: "{{request.namespace }}"
-              spec:
-                suspend: true
-
-    - name: set-queue-name-from-namespace-kaiwo
-      match:
-        resources:
-          kinds:
-            - KaiwoJob
-            - KaiwoService
-          namespaceSelector:
-            matchExpressions:
-              - key: airm.silogen.ai/project-id
-                operator: Exists
-      preconditions:
-        all:
-          - key: "{{request.object.spec.clusterQueue || '' }}"
-            operator: NotEquals
-            value: "{{request.namespace }}"
-      mutate:
-        patchStrategicMerge:
-          spec:
-            clusterQueue: "{{request.namespace }}"
----
-# Source: airm-chart/templates/airm-cluster-policies.yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: airm-workload-tracking-policy
-spec:
-  background: false
-  rules:
-    # For all supported types, if airm.silogen.ai/workload-id and airm.silogen.ai/component-id are not set, we assume
-    # it has been submitted from outside of AIRMan. In that case, we set airm.silogen.ai/auto-discovered: true, so it can
-    # be tracked upstream. We also set airm.silogen.ai/discovered-component-type so that we can identify the type of component
-    # that was originally tracked, and ignore children created by it. See remove-auto-discovered-annotations-inherited-from-parent
-    # We also try to capture the user who submitted the workload, and consume it in the application
-
-    # Please note that ReplicaSet is not supported because by default it is filtered away by Kyverno by default: https://github.com/kyverno/kyverno/blob/main/charts/kyverno/values.yaml#L270
-    - name: add-discovery-annotations-for-supported-types
-      match:
-        resources:
-          kinds:
-            - Job
-            - Deployment
-            - StatefulSet
-            - DaemonSet
-            - CronJob
-            - KaiwoJob
-            - KaiwoService
-            - Pod
-          namespaceSelector:
-            matchExpressions:
-              - key: airm.silogen.ai/project-id
-                operator: Exists
-      preconditions:
-        all:
-          - key: '{{request.object.metadata.labels."airm.silogen.ai/workload-id" || '''' }}'
-            operator: Equals
-            value: ""
-          - key: '{{request.object.metadata.labels."airm.silogen.ai/component-id" || '''' }}'
-            operator: Equals
-            value: ""
-          - key: '{{request.object.metadata.annotations."airm.silogen.ai/auto-discovered" || '''' }}'
-            operator: Equals
-            value: ""
-      mutate:
-        patchStrategicMerge:
-          metadata:
-            annotations:
-              airm.silogen.ai/submitter: "{{request.userInfo.username }}"
-              airm.silogen.ai/auto-discovered: "true"
-              airm.silogen.ai/discovered-component-type: "{{request.object.kind }}"
-    # For all supported types, if airm.silogen.ai/auto-discovered is set and the airm.silogen.ai/discovered-component-type
-    # doesnt match the kind of the current component, we assume this type has been created by a parent which is also
-    # supported by AIRMan and we dont need to track this type upstream, so we unset the airm.silogen.ai/auto-discovered annotation.
-    # This is mostly to account for KaiwoJob and KaiwoService which propagate annotations to pods.
-    - name: remove-auto-discovered-annotations-inherited-from-parent
-      match:
-        resources:
-          kinds:
-            - Job
-            - Deployment
-            - StatefulSet
-            - DaemonSet
-            - CronJob
-            - KaiwoJob
-            - KaiwoService
-            - Pod
-          namespaceSelector:
-            matchExpressions:
-              - key: airm.silogen.ai/project-id
-                operator: Exists
-      preconditions:
-        all:
-          - key: '{{request.object.metadata.annotations."airm.silogen.ai/auto-discovered" || '''' }}'
-            operator: Equals
-            value: "true"
-          - key: '{{request.object.metadata.annotations."airm.silogen.ai/discovered-component-type" || '''' }}'
-            operator: NotEquals
-            value: "{{request.object.kind }}"
-      mutate:
-        patchStrategicMerge:
-          metadata:
-            annotations:
-              airm.silogen.ai/auto-discovered: "false"
-    # For all supported types, if airm.silogen.ai/project-id does not match that of the namespace label, overwrite it
-    # with the expected value, to avoid metrics getting mixed up between projects.
-    - name: set-project-id-from-namespace-label
-      match:
-        resources:
-          kinds:
-            - Job
-            - Deployment
-            - StatefulSet
-            - DaemonSet
-            - CronJob
-            - KaiwoJob
-            - KaiwoService
-            - Pod
-          namespaceSelector:
-            matchExpressions:
-              - key: airm.silogen.ai/project-id
-                operator: Exists
-      context:
-        - name: ns_labels
-          apiCall:
-            urlPath: "/api/v1/namespaces/{{request.namespace }}"
-            jmesPath: "metadata.labels"
-      preconditions:
-        all:
-          - key: '{{request.object.metadata.labels."airm.silogen.ai/project-id" || '''' }}'
-            operator: NotEquals
-            value: '{{ns_labels."airm.silogen.ai/project-id" }}'
-      mutate:
-        patchStrategicMerge:
-          metadata:
-            labels:
-              airm.silogen.ai/project-id: '{{ns_labels."airm.silogen.ai/project-id" }}'
-    # Add the airm.silogen.ai/workload-id and airm.silogen.ai/component-id labels to types that expect them at
-    # metadata.labels. The expectation is that these are propagated to the subsequent pods that are created.
-
-    # If the resource is spawned off by a CRD, it will not know about the labels on the previous version of the object,
-    # so we also check request.oldObject for the labels to try and preserve them if they were already set.
-    - name: add-workload-and-component-id-default
-      match:
-        resources:
-          kinds:
-            - Pod
-            - KaiwoJob
-            - KaiwoService
-          namespaceSelector:
-            matchExpressions:
-              - key: airm.silogen.ai/project-id
-                operator: Exists
-      mutate:
-        patchStrategicMerge:
-          metadata:
-            labels:
-              airm.silogen.ai/workload-id: '{{request.object.metadata.labels."airm.silogen.ai/workload-id" || request.oldObject.metadata.labels."airm.silogen.ai/workload-id" || request.uid }}'
-              airm.silogen.ai/component-id: '{{request.object.metadata.labels."airm.silogen.ai/component-id" || request.oldObject.metadata.labels."airm.silogen.ai/component-id" || request.uid }}'
-    # Add the airm.silogen.ai/workload-id and airm.silogen.ai/component-id labels to objects with templates and
-    # also add it to spec.template.metadata.labels to ensure that the pods created by them contain the labels as well
-    - name: add-workload-and-component-id-to-objects-with-template
-      match:
-        resources:
-          kinds:
-            - Job
-            - Deployment
-            - StatefulSet
-            - DaemonSet
-          namespaceSelector:
-            matchExpressions:
-              - key: airm.silogen.ai/project-id
-                operator: Exists
-      mutate:
-        patchStrategicMerge:
-          metadata:
-            labels:
-              airm.silogen.ai/workload-id: '{{request.object.metadata.labels."airm.silogen.ai/workload-id" || request.oldObject.metadata.labels."airm.silogen.ai/workload-id" || request.uid }}'
-              airm.silogen.ai/component-id: '{{request.object.metadata.labels."airm.silogen.ai/component-id" || request.oldObject.metadata.labels."airm.silogen.ai/component-id" || request.uid }}'
-          spec:
-            template:
-              metadata:
-                labels:
-                  airm.silogen.ai/workload-id: '{{request.object.metadata.labels."airm.silogen.ai/workload-id" || request.oldObject.metadata.labels."airm.silogen.ai/workload-id" || request.uid }}'
-                  airm.silogen.ai/component-id: '{{request.object.metadata.labels."airm.silogen.ai/component-id" || request.oldObject.metadata.labels."airm.silogen.ai/component-id" || request.uid }}'
-
-    # Add the airm.silogen.ai/workload-id and airm.silogen.ai/component-id labels to cronjob and
-    # also add it to spec.jobTemplate.metadata.labels to ensure that the pods created by the cronjob
-    # contain it as well
-    - name: add-workload-and-component-id-cronjobs
-      match:
-        resources:
-          kinds:
-            - CronJob
-          namespaceSelector:
-            matchExpressions:
-              - key: airm.silogen.ai/project-id
-                operator: Exists
-      mutate:
-        patchStrategicMerge:
-          metadata:
-            labels:
-              airm.silogen.ai/workload-id: '{{request.object.metadata.labels."airm.silogen.ai/workload-id" || request.oldObject.metadata.labels."airm.silogen.ai/workload-id" || request.uid }}'
-              airm.silogen.ai/component-id: '{{request.object.metadata.labels."airm.silogen.ai/component-id" || request.oldObject.metadata.labels."airm.silogen.ai/component-id" || request.uid }}'
-          spec:
-            jobTemplate:
-              metadata:
-                labels:
-                  airm.silogen.ai/workload-id: '{{request.object.metadata.labels."airm.silogen.ai/workload-id" || request.oldObject.metadata.labels."airm.silogen.ai/workload-id" || request.uid }}'
-                  airm.silogen.ai/component-id: '{{request.object.metadata.labels."airm.silogen.ai/component-id" || request.oldObject.metadata.labels."airm.silogen.ai/component-id" || request.uid }}'
-              spec:
-                template:
-                  metadata:
-                    labels:
-                      airm.silogen.ai/workload-id: '{{request.object.metadata.labels."airm.silogen.ai/workload-id" || request.oldObject.metadata.labels."airm.silogen.ai/workload-id" || request.uid }}'
-                      airm.silogen.ai/component-id: '{{request.object.metadata.labels."airm.silogen.ai/component-id" || request.oldObject.metadata.labels."airm.silogen.ai/component-id" || request.uid }}'
 ---
 # Source: airm-chart/templates/airm-es.yaml
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: "airm-cnpg-superuser"
-  namespace: "airm"
+  name: 'airm-airm-cnpg-superuser'
+  namespace: 'airm'
 spec:
   data:
     - remoteRef:
@@ -1690,7 +1451,7 @@ spec:
     kind: ClusterSecretStore
     name: airm-secret-store
   target:
-    name: "airm-cnpg-superuser"
+    name: 'airm-airm-cnpg-superuser'
     template:
       type: Opaque
 ---
@@ -1698,8 +1459,8 @@ spec:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: "airm-cnpg-user"
-  namespace: "airm"
+  name: 'airm-airm-cnpg-user'
+  namespace: 'airm'
 spec:
   data:
     - remoteRef:
@@ -1712,7 +1473,7 @@ spec:
     kind: ClusterSecretStore
     name: airm-secret-store
   target:
-    name: "airm-cnpg-user"
+    name: 'airm-airm-cnpg-user'
     template:
       type: Opaque
 ---
@@ -1720,8 +1481,8 @@ spec:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: "airm-keycloak-admin-client"
-  namespace: "airm"
+  name:  'airm-airm-keycloak-admin-client'
+  namespace: 'airm'
 spec:
   data:
     - remoteRef:
@@ -1732,9 +1493,9 @@ spec:
       secretKey: client-secret
   secretStoreRef:
     kind: ClusterSecretStore
-    name: airm-secret-store
+    name: keycloak-secret-store
   target:
-    name: "airm-keycloak-admin-client"
+    name: 'airm-airm-keycloak-admin-client'
     template:
       type: Opaque
 ---
@@ -1742,8 +1503,8 @@ spec:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: "airm-rabbitmq-admin"
-  namespace: "airm"
+  name: 'airm-airm-rabbitmq-admin'
+  namespace: 'airm'
 spec:
   data:
     - remoteRef:
@@ -1756,7 +1517,7 @@ spec:
     kind: ClusterSecretStore
     name: airm-secret-store
   target:
-    name: "airm-rabbitmq-admin"
+    name: 'airm-airm-rabbitmq-admin'
     template:
       data:
         default_user.conf: |
@@ -1770,8 +1531,8 @@ spec:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: "airm-api-minio-credentials"
-  namespace: "airm"
+  name: 'airm-api-minio-credentials'
+  namespace: 'airm'
 spec:
   data:
     - remoteRef:
@@ -1786,14 +1547,14 @@ spec:
     kind: ClusterSecretStore
     name: k8s-secret-store
   target:
-    name: "airm-api-minio-credentials"
+    name: 'airm-api-minio-credentials'
 ---
 # Source: airm-chart/templates/airm-es.yaml
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: "airm-rabbitmq-backup-minio-credentials"
-  namespace: "airm"
+  name: 'airm-rabbitmq-backup-minio-credentials'
+  namespace: 'airm'
 spec:
   data:
     - remoteRef:
@@ -1806,14 +1567,14 @@ spec:
     kind: ClusterSecretStore
     name: airm-secret-store
   target:
-    name: "airm-rabbitmq-backup-minio-credentials"
+    name: 'airm-rabbitmq-backup-minio-credentials'
 ---
 # Source: airm-chart/templates/airm-es.yaml
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: "airm-secrets-airm"
-  namespace: "airm"
+  name: 'airm-secrets-airm'
+  namespace: 'airm'
 spec:
   data:
     - remoteRef:
@@ -1825,15 +1586,15 @@ spec:
   refreshInterval: 15s
   secretStoreRef:
     kind: ClusterSecretStore
-    name: airm-secret-store
+    name: keycloak-secret-store
   target:
-    name: "airm-secrets-airm"
+    name: 'airm-secrets-airm'
 ---
 # Source: airm-chart/templates/airm-httproute.yaml
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: 'airmapi-route'
+  name: 'airm-airmapi-route'
   namespace: 'airm'
 spec:
   parentRefs:
@@ -1845,7 +1606,7 @@ spec:
     - backendRefs:
         - group: ""
           kind: Service
-          name: 'airm-api'
+          name: 'airm-airm-api'
           port: 80
           weight: 1
       matches:
@@ -1864,7 +1625,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: 'airmui-route'
+  name: 'airm-airmui-route'
   namespace: 'airm'
 spec:
   parentRefs:
@@ -1876,7 +1637,7 @@ spec:
     - backendRefs:
         - group: ""
           kind: Service
-          name: 'airm-ui'
+          name: 'airm-airm-ui'
           port: 80
           weight: 1
       matches:
@@ -1895,8 +1656,8 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: "airm-selfsigned-issuer"
-  namespace: "airm"
+  name: 'airm-selfsigned-issuer'
+  namespace: 'airm'
 spec:
   selfSigned: {}
 ---
@@ -1919,6 +1680,6 @@ spec:
       memory: 256Mi
   secretBackend:
     externalSecret:
-      name: 'airm-rabbitmq-admin'
+      name: 'airm-airm-rabbitmq-admin'
   tls:
     secretName: 'airm-tls-secret'
