@@ -535,7 +535,7 @@ spec:
             - name: POST_REGISTRATION_REDIRECT_URL
               value: "https://airmui.not-a-domain/"
             - name: DATABASE_HOST
-              value: "airm-cnpg-rw.airm.svc.cluster.local"
+              value: "airm-cnpg-rw.airm"
             - name: DATABASE_PORT
               value: "5432"
             - name: DATABASE_USER
@@ -549,11 +549,11 @@ spec:
                   key: password
                   name: "airm-cnpg-user"
             - name: RABBITMQ_HOST
-              value: "airm-rabbitmq.airm.svc.cluster.local"
+              value: "airm-rabbitmq.airm"
             - name: RABBITMQ_PORT
               value: "5672"
             - name: RABBITMQ_MANAGEMENT_URL
-              value: http://airm-rabbitmq.airm.svc.cluster.local:15672/api
+              value: http://airm-rabbitmq.airm:15672/api
             - name: RABBITMQ_ADMIN_USER
               valueFrom:
                 secretKeyRef:
@@ -565,7 +565,7 @@ spec:
                   key: password
                   name: "airm-rabbitmq-admin"
             - name: KEYCLOAK_ADMIN_SERVER_URL
-              value: "http://keycloak.keycloak.svc.cluster.local:8080"
+              value: "http://keycloak.keycloak:8080"
             - name: KEYCLOAK_REALM
               value: airm
             - name: KEYCLOAK_ADMIN_CLIENT_ID
@@ -1807,10 +1807,6 @@ kind: Job
 metadata:
   name: "airm-configure"
   namespace: "airm"
-  annotations:
-    "helm.sh/hook": post-install
-    "helm.sh/hook-weight": "1"
-    "helm.sh/hook-delete-policy": never
 spec:
   backoffLimit: 3
   template:
