@@ -1,4 +1,5 @@
 - name: routing
+- name: openbao
 - name: amd-gpu-operator
 - name: amd-device-config
 - name: kueue

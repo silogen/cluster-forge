@@ -3,6 +3,7 @@
   - certmanager
   # - certmanager-issuer
   - config-updater
+  - openbao
   - external-secrets
   - gateway-api
   - metallb
@@ -26,6 +27,11 @@
   syncwave: -999
   manifestpath:
   - config-updater/manifests/
+- name: openbao
+  namespace: openbao
+  syncwave: -10
+  manifestpath:
+  - openbao/manifests/sourced
 - name: amd-gpu-operator
   namespaces:
     - "kube-amd-gpu"
