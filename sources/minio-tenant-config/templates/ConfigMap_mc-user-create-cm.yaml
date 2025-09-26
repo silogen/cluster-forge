@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mc-user-create-cm
+  namespace: minio-tenant-default
+data:
+  mc-user-create.sh: |
+    #!/bin/bash
+    source /tmp/minio-config/config.env
+
+    until mc alias set init "$MINIO_SERVER_URL" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+    do 
+      sleep 5
+    done
+    until mc admin accesskey edit init/ "$(< /tmp/minio-user/API_ACCESS_KEY)" --secret-key "$(< /tmp/minio-user/API_SECRET_KEY)"
+    do 
+      mc admin user add init  "$(< /tmp/minio-user/CONSOLE_ACCESS_KEY)" "$(< /tmp/minio-user/CONSOLE_SECRET_KEY)"
+      sleep 1
+      mc admin policy attach init consoleAdmin --user "$(< /tmp/minio-user/CONSOLE_ACCESS_KEY)"
+      sleep 1
+      mc admin accesskey create init/ "$(< /tmp/minio-user/CONSOLE_ACCESS_KEY)" --access-key "$(< /tmp/minio-user/API_ACCESS_KEY)" --secret-key "$(< /tmp/minio-user/API_SECRET_KEY)" > /dev/null
+      sleep 1
+    done

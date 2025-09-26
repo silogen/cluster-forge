@@ -1,0 +1,68 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-scripts
+  namespace: keycloak
+data:
+  domain-group-authenticator.js: |
+    // Helper function to map domain to group using group attributes
+    function mapDomainToGroups(domain, realm) {
+        // Fetch all groups and check their attributes for email domain mapping
+        var groups = realm.getGroupsStream().toArray();
+        LOG.info("groups: " + groups);
+        var allowedGroups = [];
+        for (var i = 0; i < groups.length; i++) {
+            var allowedDomains = groups[i].getAttributeStream("allowedDomains").toArray();
+            LOG.info("allowedDomains: " + allowedDomains);
+            for (var j = 0; j < allowedDomains.length; j++) {
+                if (allowedDomains[j] == domain) {
+                    allowedGroups.push(groups[i])
+                    break;
+                };
+            }
+        }
+
+        return allowedGroups;
+    }
+
+    // Helper function to extract email domain
+    function getEmailDomain(email) {
+        var parts = email.split("@");
+        return parts.length === 2 ? parts[1] : null;
+    }
+
+    function authenticate(context) {
+        var user = context.getUser();
+        var realm = context.getRealm();
+        var authenticationSession = context.getAuthenticationSession();
+
+        // Extract email domain from user's email
+        var email = user.getEmail();
+        var domain = getEmailDomain(email);
+        LOG.info("Email domain" + domain);
+
+        // Map email domain to a group using group attributes
+        var groups = mapDomainToGroups(domain, realm);
+
+        if (groups.length > 0) {
+            // var group = realm.getGroupByPath("/" + groupName);
+            groups.forEach(function (group) {
+                LOG.info("joining group" + group);
+                user.joinGroup(group)
+            });
+        }
+
+        // Continue with the authentication flow
+        context.success();
+    };
+  keycloak-scripts.json: |
+    {
+        "authenticators": [
+            {
+                "name": "Email domain group mapping",
+                "fileName": "domain-group-authenticator.js",
+                "description": "Applies a group to a user account based on their email domain matching a group's allowedDomains attribute"
+            }
+        ]
+    }

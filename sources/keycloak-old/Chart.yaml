@@ -1,0 +1,4 @@
+apiVersion: v2
+name: keycloak-old
+description: A Helm chart with config for keycloak
+version: 0.1.0

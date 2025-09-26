@@ -1,0 +1,4 @@
+sourceUrl: https://charts.external-secrets.io
+sourceRepoName: external-secrets
+sourceChartName: external-secrets
+sourceVersion: 0.19.2

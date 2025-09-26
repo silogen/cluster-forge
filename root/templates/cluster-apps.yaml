@@ -1,0 +1,49 @@
+{{- $clusterForgeRepoUrl := .Values.clusterForge.repoUrl }}
+{{- $clusterForgeTargetRevision := .Values.clusterForge.targetRevision }}
+{{- range .Values.apps }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .name }}
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "{{ .syncWave }}"
+spec:
+  project: default
+  source:
+    repoURL: {{ $clusterForgeRepoUrl }}
+    targetRevision: {{ $clusterForgeTargetRevision }}
+    path: sources/{{ .path }}
+    {{- if .valuesFile }}
+    helm:
+      valueFiles:
+        - {{ .valuesFile }}
+    {{- end }}
+      {{- if .helmParameters }}
+      parameters:
+      {{- range $parameter := .helmParameters }}
+        - name: {{ include "common.tplvalues.render" ( dict "value" $parameter.name "context" $) | quote }}
+          value: {{ include "common.tplvalues.render" ( dict "value" $parameter.value "context" $) | quote }}
+      {{- end }}
+    {{- end }}
+    {{- with .directory }}
+    directory: {{ . | toYaml | nindent 6 }}
+    {{- end }}
+{{- with .ignoreDifferences }}
+  ignoreDifferences: {{ . | toYaml | nindent 2 }}
+{{- end }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .namespace }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      {{- if .ignoreDifferences }}
+      - RespectIgnoreDifferences=true
+      {{- end }}
+{{- end }}
