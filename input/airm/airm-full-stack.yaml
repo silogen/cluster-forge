@@ -531,11 +531,11 @@ spec:
             - name: OPENID_CLIENT_ID
               value: "354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
             - name: OPENID_CONFIGURATION_URL
-              value: "http://kc.not-a-domain/realms/airm/.well-known/openid-configuration"
+              value: "http://kc.not-a-domain.svc.cluster.local/realms/airm/.well-known/openid-configuration"
             - name: POST_REGISTRATION_REDIRECT_URL
-              value: "https://airmui.not-a-domain/"
+              value: "https://airmui.not-a-domain.svc.cluster.local/"
             - name: DATABASE_HOST
-              value: "airm-cnpg-rw.airm"
+              value: "airm-cnpg-rw.airm.svc.cluster.local"
             - name: DATABASE_PORT
               value: "5432"
             - name: DATABASE_USER
@@ -549,11 +549,11 @@ spec:
                   key: password
                   name: "airm-cnpg-user"
             - name: RABBITMQ_HOST
-              value: "airm-rabbitmq.airm"
+              value: "airm-rabbitmq.airm.svc.cluster.local"
             - name: RABBITMQ_PORT
               value: "5672"
             - name: RABBITMQ_MANAGEMENT_URL
-              value: http://airm-rabbitmq.airm:15672/api
+              value: http://airm-rabbitmq.airm.svc.cluster.local:15672/api
             - name: RABBITMQ_ADMIN_USER
               valueFrom:
                 secretKeyRef:
@@ -565,7 +565,7 @@ spec:
                   key: password
                   name: "airm-rabbitmq-admin"
             - name: KEYCLOAK_ADMIN_SERVER_URL
-              value: "http://keycloak.keycloak:8080"
+              value: "http://keycloak.keycloak.svc.cluster.local:8080"
             - name: KEYCLOAK_REALM
               value: airm
             - name: KEYCLOAK_ADMIN_CLIENT_ID
@@ -964,6 +964,128 @@ spec:
               memory: "1Gi"
           securityContext:
             runAsUser: 0
+---
+# Source: airm-chart/templates/airm-configure-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "airm-configure"
+  namespace: "airm"
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: "airm-configure"
+    spec:
+      restartPolicy: Never
+      serviceAccountName: "airm-configure-sa"
+      initContainers:
+        - name: wait-for-dependencies
+          image: ubuntu:22.04
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              apt-get update -y 1> /dev/null 2>&1
+              apt-get install curl -y 1> /dev/null 2>&1
+              echo "Checking dependencies..."
+
+              # Wait for Keycloak
+              echo "Checking keycloak..."
+              while true; do
+                if curl -s --max-time 5 http://keycloak.keycloak.svc.cluster.local:8080/realms/airm/.well-known/openid-configuration > /dev/null 2>&1; then
+                  echo "Keycloak is ready!"
+                  break
+                else
+                  echo "Waiting for Keycloak..."
+                  sleep 10
+                fi
+              done
+
+              # Wait for AIRM API
+              echo "Checking airm-api..."
+              while true; do
+                if curl -s --max-time 5 http://airm-api.airm.svc.cluster.local/v1/health > /dev/null 2>&1; then
+                  echo "AIRM API is ready!"
+                  break
+                else
+                  echo "Waiting for AIRM API..."
+                  sleep 10
+                fi
+              done
+
+              # Wait for RabbitMQ (needed for secret creation)
+              echo "Checking rabbitmq..."
+              while true; do
+                if curl -s --max-time 5 http://airm-rabbitmq.airm.svc.cluster.local:15672/api/overview > /dev/null 2>&1; then
+                  echo "RabbitMQ is ready!"
+                  break
+                else
+                  echo "Waiting for RabbitMQ..."
+                  sleep 10
+                fi
+              done
+
+              echo "All dependencies are ready!"
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: false
+            runAsUser: 0
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - SETUID
+                - SETGID
+                - CHOWN
+                - DAC_OVERRIDE
+                - FOWNER
+                - FSETID
+            seccompProfile:
+              type: RuntimeDefault
+      containers:
+        - name: configure
+          image: "ghcr.io/silogen/airm-configure:main-fc65bc1"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DEBIAN_FRONTEND
+              value: "noninteractive"
+            - name: ORG_NAME
+              value: "demo"
+            - name: NEW_DOMAIN_NAME
+              value: "not-a-domain"
+            - name: KEYCLOAK_CLIENT_ID
+              value: "354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
+            - name: KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: KEYCLOAK_SECRET
+                  name: "airm-secrets-airm"
+            - name: USER_EMAIL
+              value: "devuser@not-a-domain"
+            - name: KEYCLOAK_URL
+              value: "http://keycloak.keycloak.svc.cluster.local:8080"
+            - name: AIRM_API_URL
+              value: "http://airm-api.airm.svc.cluster.local"
+            - name: CLUSTER_BASE_URL
+              value: "https://workspaces.not-a-domain/"
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: false
+            runAsUser: 0
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - SETUID
+                - SETGID
+                - CHOWN
+                - DAC_OVERRIDE
+                - FOWNER
+                - FSETID
+            seccompProfile:
+              type: RuntimeDefault
 ---
 # Source: airm-chart/templates/secret-generator-job.yaml
 apiVersion: batch/v1
@@ -1800,125 +1922,3 @@ spec:
       name: 'airm-rabbitmq-admin'
   tls:
     secretName: 'airm-tls-secret'
----
-# Source: airm-chart/templates/airm-configure-job.yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: "airm-configure"
-  namespace: "airm"
-spec:
-  backoffLimit: 3
-  template:
-    metadata:
-      labels:
-        app: "airm-configure"
-    spec:
-      restartPolicy: Never
-      serviceAccountName: "airm-configure-sa"
-      initContainers:
-        - name: wait-for-dependencies
-          image: ubuntu:22.04
-          imagePullPolicy: IfNotPresent
-          command: ["/bin/bash", "-c"]
-          args:
-            - |
-              apt-get update -y 1> /dev/null 2>&1
-              apt-get install curl -y 1> /dev/null 2>&1
-              echo "Checking dependencies..."
-
-              # Wait for Keycloak
-              echo "Checking keycloak..."
-              while true; do
-                if curl -s --max-time 5 http://keycloak.keycloak.svc.cluster.local:8080/realms/airm/.well-known/openid-configuration > /dev/null 2>&1; then
-                  echo "Keycloak is ready!"
-                  break
-                else
-                  echo "Waiting for Keycloak..."
-                  sleep 10
-                fi
-              done
-
-              # Wait for AIRM API
-              echo "Checking airm-api..."
-              while true; do
-                if curl -s --max-time 5 http://airm-api.airm.svc.cluster.local/v1/health > /dev/null 2>&1; then
-                  echo "AIRM API is ready!"
-                  break
-                else
-                  echo "Waiting for AIRM API..."
-                  sleep 10
-                fi
-              done
-
-              # Wait for RabbitMQ (needed for secret creation)
-              echo "Checking rabbitmq..."
-              while true; do
-                if curl -s --max-time 5 http://airm-rabbitmq.airm.svc.cluster.local:15672/api/overview > /dev/null 2>&1; then
-                  echo "RabbitMQ is ready!"
-                  break
-                else
-                  echo "Waiting for RabbitMQ..."
-                  sleep 10
-                fi
-              done
-
-              echo "All dependencies are ready!"
-          securityContext:
-            allowPrivilegeEscalation: false
-            runAsNonRoot: false
-            runAsUser: 0
-            capabilities:
-              drop:
-                - ALL
-              add:
-                - SETUID
-                - SETGID
-                - CHOWN
-                - DAC_OVERRIDE
-                - FOWNER
-                - FSETID
-            seccompProfile:
-              type: RuntimeDefault
-      containers:
-        - name: configure
-          image: "ghcr.io/silogen/airm-configure:main-fc65bc1"
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: DEBIAN_FRONTEND
-              value: "noninteractive"
-            - name: ORG_NAME
-              value: "demo"
-            - name: NEW_DOMAIN_NAME
-              value: "not-a-domain"
-            - name: KEYCLOAK_CLIENT_ID
-              value: "354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
-            - name: KEYCLOAK_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  key: KEYCLOAK_SECRET
-                  name: "airm-secrets-airm"
-            - name: USER_EMAIL
-              value: "devuser@not-a-domain"
-            - name: KEYCLOAK_URL
-              value: "http://keycloak.keycloak.svc.cluster.local:8080"
-            - name: AIRM_API_URL
-              value: "http://airm-api.airm.svc.cluster.local"
-            - name: CLUSTER_BASE_URL
-              value: "https://workspaces.not-a-domain/"
-          securityContext:
-            allowPrivilegeEscalation: false
-            runAsNonRoot: false
-            runAsUser: 0
-            capabilities:
-              drop:
-                - ALL
-              add:
-                - SETUID
-                - SETGID
-                - CHOWN
-                - DAC_OVERRIDE
-                - FOWNER
-                - FSETID
-            seccompProfile:
-              type: RuntimeDefault
