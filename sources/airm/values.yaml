@@ -5,7 +5,7 @@
 # This is a YAML-formatted file
 secretgenerator:
   image:
-    repository: ghcr.io/silogen/kubectl
+    repository: ghcr.io/silogen/cluster-tool
     tag: latest
     pullPolicy: IfNotPresent
 
