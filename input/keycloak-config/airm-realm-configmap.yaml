@@ -335,6 +335,7 @@ data:
           "security-admin-console": [],
           "__AIRM_ADMIN_CLIENT_ID__": [],
           "admin-cli": [],
+          "k8s": [],
           "minio": [],
           "account-console": [],
           "broker": [
@@ -597,6 +598,87 @@ data:
         ]
       },
       "clients": [
+        {
+          "id": "157574c2-61bc-4f7b-acd6-dfb1672c4871",
+          "clientId": "k8s",
+          "name": "",
+          "description": "used for kubeconfig tokens",
+          "rootUrl": "",
+          "adminUrl": "",
+          "baseUrl": "",
+          "surrogateAuthRequired": false,
+          "enabled": true,
+          "alwaysDisplayInConsole": false,
+          "clientAuthenticatorType": "client-secret",
+          "secret": "__K8S_CLIENT_SECRET__",
+          "redirectUris": [
+            "http://*",
+            "https://*"
+          ],
+          "webOrigins": [
+            "http://*",
+            "https://*"
+          ],
+          "notBefore": 0,
+          "bearerOnly": false,
+          "consentRequired": false,
+          "standardFlowEnabled": true,
+          "implicitFlowEnabled": false,
+          "directAccessGrantsEnabled": true,
+          "serviceAccountsEnabled": false,
+          "publicClient": false,
+          "frontchannelLogout": true,
+          "protocol": "openid-connect",
+          "attributes": {
+            "realm_client": "false",
+            "oidc.ciba.grant.enabled": "false",
+            "client.secret.creation.time": "1758657646",
+            "backchannel.logout.session.required": "true",
+            "post.logout.redirect.uris": "+",
+            "oauth2.device.authorization.grant.enabled": "false",
+            "backchannel.logout.revoke.offline.tokens": "false"
+          },
+          "authenticationFlowBindingOverrides": {},
+          "fullScopeAllowed": true,
+          "nodeReRegistrationTimeout": -1,
+          "protocolMappers": [
+            {
+              "id": "6ae1a58c-6f31-49ba-9271-cd00e1f86708",
+              "name": "airm-role-to-group",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usermodel-realm-role-mapper",
+              "consentRequired": false,
+              "config": {
+                "usermodel.realmRoleMapping.rolePrefix": "airm-role:",
+                "introspection.token.claim": "true",
+                "multivalued": "true",
+                "userinfo.token.claim": "true",
+                "id.token.claim": "true",
+                "lightweight.claim": "false",
+                "access.token.claim": "true",
+                "claim.name": "groups",
+                "jsonType.label": "String"
+              }
+            }
+          ],
+          "defaultClientScopes": [
+            "web-origins",
+            "acr",
+            "roles",
+            "profile",
+            "groups",
+            "basic",
+            "email",
+            "policy"
+          ],
+          "optionalClientScopes": [
+            "address",
+            "phone",
+            "organization",
+            "offline_access",
+            "microprofile-jwt"
+          ]
+        },
         {
           "id": "9f46dcf2-2d4a-434e-bec6-718bdb300367",
           "clientId": "__AIRM_ADMIN_CLIENT_ID__",
