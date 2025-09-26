@@ -311,7 +311,7 @@ spec:
         key: airm-keycloak-admin-client-id
       secretKey: ADMIN_CLIENT_ID
     - remoteRef:
-        key: airm-keycloak-k8s-client-id
+        key: airm-keycloak-k8s-client-secret
       secretKey: K8S_CLIENT_SECRET
     - remoteRef:
         key: airm-keycloak-admin-client-secret
