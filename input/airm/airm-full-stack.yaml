@@ -1,5 +1,5 @@
 ---
-# Source: airm-chart/templates/airm-app-frontend.yaml 
+# Source: airm-chart/templates/airm-app-frontend.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -594,7 +594,7 @@ spec:
                   name: "airm-api-minio-credentials"
             - name: PROMETHEUS_URL
               value: "http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:9090"
-          image: "ghcr.io/silogen/airm-api:v2025.09-rc.2"
+          image: "ghcr.io/silogen/airm-api:main-fc65bc1"
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3
@@ -647,7 +647,7 @@ spec:
             - sh
             - -c
             - cp /code/migrations/* /mnt/code/migrations/
-          image: "ghcr.io/silogen/airm-api:v2025.09-rc.2"
+          image: "ghcr.io/silogen/airm-api:main-fc65bc1"
           imagePullPolicy: "IfNotPresent"
           securityContext:
             allowPrivilegeEscalation: false
@@ -688,7 +688,7 @@ spec:
               name: airm-migration-volume
               readOnly: true
         - name: charts-registration
-          image: "ghcr.io/silogen/airm-api:v2025.09-rc.2"
+          image: "ghcr.io/silogen/airm-api:main-fc65bc1"
           imagePullPolicy: "IfNotPresent"
           command: ["uv", "run", "-m", "app.charts.registration"]
           env:
@@ -835,7 +835,7 @@ spec:
           envFrom:
             - secretRef:
                 name: "airm-secrets-airm"
-          image: "ghcr.io/silogen/airm-ui:v2025.09-rc.2"
+          image: "ghcr.io/silogen/airm-ui:main-fc65bc1"
           imagePullPolicy: "IfNotPresent"
           livenessProbe:
             failureThreshold: 3
@@ -911,7 +911,7 @@ spec:
               type: RuntimeDefault
       containers:
         - name: airm-dispatcher
-          image: "ghcr.io/silogen/airm-dispatcher:v2025.09-rc.2"
+          image: "ghcr.io/silogen/airm-dispatcher:main-fc65bc1"
           imagePullPolicy: "IfNotPresent"
           ports:
             - containerPort: 8080
@@ -1009,7 +1009,7 @@ spec:
                 - -X
                 - POST
                 - http://airm-dispatcher:80/v1/clusters/nodes
-              image: "ghcr.io/silogen/airm-dispatcher:v2025.09-rc.2"
+              image: "ghcr.io/silogen/airm-dispatcher:main-fc65bc1"
               imagePullPolicy: "IfNotPresent"
               name: airm-cluster-nodes-cron
               resources:
@@ -1073,7 +1073,7 @@ spec:
                   type: RuntimeDefault
           containers:
             - name: airm-heartbeat-cron
-              image: "ghcr.io/silogen/airm-dispatcher:v2025.09-rc.2"
+              image: "ghcr.io/silogen/airm-dispatcher:main-fc65bc1"
               imagePullPolicy: "IfNotPresent"
               command:
                 [
@@ -1886,7 +1886,7 @@ spec:
               type: RuntimeDefault
       containers:
         - name: configure
-          image: "ghcr.io/silogen/airm-configure:v2025.09-rc.2"
+          image: "ghcr.io/silogen/airm-configure:main-fc65bc1"
           imagePullPolicy: IfNotPresent
           env:
             - name: DEBIAN_FRONTEND
