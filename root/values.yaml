@@ -314,9 +314,20 @@ apps:
     path: openbao/0.18.2
     namespace: openbao
     valuesFile: values.yaml
-    syncWave: 1
+    syncWave: -40
     ignoreDifferences:
       - group: "apps"
         kind: "Deployment"
         jsonPointers:
           - /spec/replicas
+
+  - name: openbao-config
+    path: openbao-config
+    namespace: openbao
+    syncWave: -40
+
+
+  - name: openbao-airm
+    path: openbao-airm
+    namespace: openbao
+    syncWave: -25
