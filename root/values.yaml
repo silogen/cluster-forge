@@ -20,7 +20,6 @@ apps:
     path: argocd/8.3.5
     namespace: argocd
     valuesFile: ../values_cf.yaml
-    #valuesFile: ../values_ha.yaml
     helmParameters:
       - name: global.domain
         value: "{{ .Values.common.domain }}"
@@ -138,28 +137,6 @@ apps:
     syncWave: -30
 
   # Access control
-#  - name: keycloak
-#    path: keycloak/25.2.0
-#    namespace: keycloak
-#    valuesFile: ../values_cf.yaml
-#    syncWave: -30
-#
-#  - name: keycloak-config
-#    path: keycloak-config
-#    namespace: keycloak
-#    valuesFile: values.yaml
-#    helmParameters:
-#      - name: domain
-#        value: "{{ .Values.common.domain }}"
-#    syncWave: -30
-#    ignoreDifferences:
-#      - group: external-secrets.io
-#        kind: ExternalSecret
-#        jqPathExpressions:
-#          - ".spec.data[].remoteRef.conversionStrategy"
-#          - ".spec.data[].remoteRef.decodingStrategy"
-#          - ".spec.data[].remoteRef.metadataPolicy"
-
   - name: keycloak
     path: keycloak-old
     namespace: keycloak
@@ -214,8 +191,7 @@ apps:
   - name: kueue
     path: kueue/0.13.0
     namespace: kueue-system
-    valuesFile: ../values_ha.yaml
-    #    valuesFile: ../values_onenode.yaml
+    valuesFile: ../values_onenode.yaml
     syncWave: -30
 
   - name: kueue-config
@@ -277,46 +253,3 @@ apps:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
-
-#  - name: airm
-#    path: airm-tmp
-#    namespace: airm
-#    valuesFile: values.yaml
-#    helmParameters:
-#      - name: domain
-#        value: "{{ .Values.common.domain }}"
-#    syncWave: -25
-#    ignoreDifferences:
-#      - group: external-secrets.io
-#        kind: ExternalSecret
-#        jqPathExpressions:
-#          - ".spec.data[].remoteRef.conversionStrategy"
-#          - ".spec.data[].remoteRef.decodingStrategy"
-#          - ".spec.data[].remoteRef.metadataPolicy"
-#
-#  - name: airm-config
-#    path: airm-config
-#    namespace: airm
-#    syncWave: -25
-#
-#  - name: airm-configure
-#    path: airm-configure
-#    namespace: default
-#    valuesFile: values.yaml
-#    helmParameters:
-#      - name: domain
-#        value: "{{ .Values.common.domain }}"
-#    syncWave: -30
-
-  # Etc..
-
-#  - name: openbao
-#    path: openbao/0.16.3
-#    namespace: openbao
-#    valuesFile: values.yaml
-#    syncWave: 1
-#    ignoreDifferences:
-#      - group: "apps"
-#        kind: "Deployment"
-#        jsonPointers:
-#          - /spec/replicas
