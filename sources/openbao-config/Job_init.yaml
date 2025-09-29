@@ -1,0 +1,101 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: openbao-init
+  namespace: openbao
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: openbao-init-binding
+  namespace: openbao
+subjects:
+  - kind: ServiceAccount
+    name: openbao
+    namespace: openbao
+roleRef:
+  kind: Role
+  name: openbao-init
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: openbao-init
+  namespace: openbao
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - args:
+            - while true;
+              do
+                bao status;
+                retVal=$?;
+                if [ $retVal -ne 1 ]; then
+                  break;
+                fi;
+                sleep 1;
+              done;
+              if bao status; then
+                echo already initialized;
+                exit 0;
+              else
+                echo not initialized yet, initializing ;
+              fi;
+              bao operator init -format=json -key-shares=1 -key-threshold=1 > /tmp/bao-keys.json;
+              kubectl create secret generic openbao-keys --from-file=/tmp/bao-keys.json -n openbao --dry-run=client -o yaml | kubectl apply -f -;
+              BAO_ROOT_TOKEN=$(jq -r '.root_token' /tmp/bao-keys.json);
+              BAO_UNSEAL_KEY=$(jq -r '.unseal_keys_b64[0]' /tmp/bao-keys.json);
+              bao operator unseal "$BAO_UNSEAL_KEY" > /dev/null;
+              bao login $BAO_ROOT_TOKEN > /dev/null;
+              bao secrets enable -version=2 -path=airm kv;
+              echo 'path "*" {' > /tmp/admin_policy.hcl;
+              echo '  capabilities = ["sudo", "read", "list", "create", "update", "delete", "patch"]' >> /tmp/admin_policy.hcl;
+              echo '}' >> /tmp/admin_policy.hcl;
+              bao policy write admin /tmp/admin_policy.hcl;
+              BAO_ADMIN_PASSWORD=$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex);
+              kubectl create secret generic bao-admin-password --from-literal=password="$BAO_ADMIN_PASSWORD" -n openbao --dry-run=client -o yaml | kubectl apply -f -;
+              bao auth enable userpass;
+              bao write auth/userpass/users/admin password="$BAO_ADMIN_PASSWORD" policies="admin";
+              BAO_USER_PASSWORD=$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex);
+              kubectl create secret generic bao-user-password --from-literal=password="$BAO_USER_PASSWORD" -n openbao --dry-run=client -o yaml | kubectl apply -f -;
+              echo 'path "*" {' > /tmp/read_policy.hcl;
+              echo '  capabilities = ["read"]' >> /tmp/read_policy.hcl;
+              echo '}' >> /tmp/read_policy.hcl;
+              bao policy write read /tmp/read_policy.hcl;
+              echo 'path "*" {' > /tmp/list_policy.hcl;
+              echo '  capabilities = ["list"]' >> /tmp/list_policy.hcl;
+              echo '}' >> /tmp/list_policy.hcl;
+              bao policy write list /tmp/list_policy.hcl;
+              bao write auth/userpass/users/reader password="$BAO_USER_PASSWORD" policies="list";
+              bao token create -policy=read -display-name="external-secrets" -format=json | jq -r '.auth.client_token' > /tmp/external-secrets-token.txt;
+              BAO_EXTERNAL_SECRETS_TOKEN=$(cat /tmp/external-secrets-token.txt);
+              kubectl create secret generic bao-external-secrets-token --from-literal=token="$BAO_EXTERNAL_SECRETS_TOKEN" -n openbao --dry-run=client -o yaml | kubectl apply -f -;
+          command:
+            - /bin/sh
+            - -c
+          env:
+            - name: BAO_ADDR
+              value: http://openbao-internal:8200
+            - name: BAO_API_ADDR
+              value: http://openbao-internal:8200
+            - name: BAO_CLUSTER_ADDR
+              value: http://openbao-internal:8201
+          image: ghcr.io/silogen/cluster-tool:latest
+          imagePullPolicy: Always
+          name: openbao-unseal
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+            requests:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+      serviceAccountName: openbao
