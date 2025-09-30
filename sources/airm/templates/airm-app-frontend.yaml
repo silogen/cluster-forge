@@ -1,26 +1,30 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: '{{ .Release.Name }}-airm-ui'
-  name: '{{ .Release.Name }}-airm-ui'
-  namespace: '{{ .Release.Namespace }}'
+    app: "{{ .Release.Name }}-airm-ui"
+  name: "{{ .Release.Name }}-airm-ui"
+  namespace: "{{ .Release.Namespace }}"
 spec:
   ports:
     - name: web
       port: {{ .Values.airm.frontend.servicePort }}
       targetPort: 8000
   selector:
-    app: '{{ .Release.Name }}-airm-ui'
+    app: "{{ .Release.Name }}-airm-ui"
   type: ClusterIP
 
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: '{{ .Release.Name }}-airm-configure'
-  namespace: '{{ .Release.Namespace }}'
+  name: "{{ .Release.Name }}-airm-configure"
+  namespace: "{{ .Release.Namespace }}"
 data:
   init-db.sh: |
 
@@ -178,7 +182,7 @@ data:
             # Create cluster
             echo "Creating cluster $AIRM_API_URL..."
             CLUSTER=$(curl -v -X 'POST' "${AIRM_API_URL}/v1/clusters" -H 'accept: application/json' -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" -d '{ "base_url": "'"$CLUSTER_BASE_URL"'" }')
-            
+
             CLUSTER_ID=$(echo "$CLUSTER" | jq -r '.id')
             check_success $([[ "$CLUSTER_ID" != "null" ]] && echo 0 || exit 1) "Failed to create cluster"
             CLUSTER_SECRET=$(echo "$CLUSTER" | jq -r '.user_secret')
@@ -192,7 +196,7 @@ data:
 
     function create_secret_and_start_dispatcher() {
         # Create secret for dispatcher to use
-        kubectl delete secret {{ .Release.Name }}-airm-rabbitmq-common-vhost-user -n '{{ .Release.Namespace }}' 
+        kubectl delete secret {{ .Release.Name }}-airm-rabbitmq-common-vhost-user -n '{{ .Release.Namespace }}'
         kubectl create secret generic {{ .Release.Name }}-airm-rabbitmq-common-vhost-user --from-literal=username="$CLUSTER_ID" --from-literal=password="$CLUSTER_SECRET" -n '{{ .Release.Namespace }}'
 
         sleep 10
@@ -424,90 +428,85 @@ data:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: '{{ .Release.Name }}-airm-ui-cluster-access-binding'
+  name: "{{ .Release.Name }}-airm-ui-cluster-access-binding"
 subjects:
-- kind: ServiceAccount
-  name: '{{ .Release.Name }}-airm-ui-sa'
-  namespace: '{{ .Release.Namespace }}'
+  - kind: ServiceAccount
+    name: "{{ .Release.Name }}-airm-ui-sa"
+    namespace: "{{ .Release.Namespace }}"
 roleRef:
   kind: ClusterRole
-  name: '{{ .Release.Name }}-airm-ui-cluster-access-role'
+  name: "{{ .Release.Name }}-airm-ui-cluster-access-role"
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: '{{ .Release.Name }}-airm-ui-cluster-access-role'
+  name: "{{ .Release.Name }}-airm-ui-cluster-access-role"
 rules:
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["get", "list", "create", "delete"]
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: '{{ .Release.Name }}-airm-ui-sa'
-  namespace: '{{ .Release.Namespace }}'
+  name: "{{ .Release.Name }}-airm-ui-sa"
+  namespace: "{{ .Release.Namespace }}"
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: '{{ .Release.Name }}-airm-ui'
-  namespace: '{{ .Release.Namespace }}'
+  name: "{{ .Release.Name }}-airm-ui"
+  namespace: "{{ .Release.Namespace }}"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: '{{ .Release.Name }}-airm-ui'
+      app: "{{ .Release.Name }}-airm-ui"
   template:
     metadata:
       labels:
-        app: '{{ .Release.Name }}-airm-ui'
+        app: "{{ .Release.Name }}-airm-ui"
     spec:
-      serviceAccountName: '{{ .Release.Name }}-airm-ui-sa'
+      serviceAccountName: "{{ .Release.Name }}-airm-ui-sa"
       volumes:
         - name: config-script
           configMap:
-            name: '{{ .Release.Name }}-airm-configure'
+            name: "{{ .Release.Name }}-airm-configure"
             defaultMode: 0755
-
       initContainers:
         - name: init-orgdb
-          command:
-          - /bin/bash
-          - -c
-          - |
-            /opt/scripts/init-db.sh
+          command: ["/bin/bash", "-c", "/opt/scripts/init-db.sh"]
           image: ubuntu:22.04
-          imagePullPolicy: IfNotPresent 
+          imagePullPolicy: IfNotPresent
           volumeMounts:
             - name: config-script
               mountPath: /opt/scripts
           env:
-          - name: DEBIAN_FRONTEND
-            value: 'noninteractive'
-          - name: ORG_NAME
-            value: 'demo'
-          - name: NEW_DOMAIN_NAME
-            value: '{{ .Values.airm.appDomain }}'
-          - name: KEYCLOAK_CLIENT_ID
-            value: '{{ .Values.keycloak.keycloakClientId }}'
-          - name: KEYCLOAK_CLIENT_SECRET
-            valueFrom:
-              secretKeyRef:
-                key: KEYCLOAK_SECRET
-                name: '{{ .Release.Name }}-secrets-airm'
-          - name: USER_EMAIL
-            value: 'devuser@{{ .Values.airm.appDomain }}'
-          - name: KEYCLOAK_URL
-            value: 'http://{{ .Values.keycloak.serviceName }}.{{ .Values.keycloak.namespace }}.svc.cluster.local:{{ .Values.keycloak.servicePort }}'
-          - name: AIRM_API_URL
-            value: 'http://{{ .Release.Name }}-airm-api.{{ .Release.Namespace }}.svc.cluster.local'
-          - name: CLUSTER_BASE_URL
-            value: 'https://{{ .Values.airm.workloads.prefixUrl }}.{{ .Values.airm.appDomain }}/'
+            - name: DEBIAN_FRONTEND
+              value: "noninteractive"
+            - name: ORG_NAME
+              value: "demo"
+            - name: NEW_DOMAIN_NAME
+              value: "{{ .Values.airm.appDomain }}"
+            - name: KEYCLOAK_CLIENT_ID
+              value: "{{ .Values.keycloak.keycloakClientId }}"
+            - name: KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: KEYCLOAK_SECRET
+                  name: "{{ .Release.Name }}-secrets-airm"
+            - name: USER_EMAIL
+              value: "devuser@{{ .Values.airm.appDomain }}"
+            - name: KEYCLOAK_URL
+              value: "http://{{ .Values.keycloak.serviceName }}.{{ .Values.keycloak.namespace }}.svc.cluster.local:{{ .Values.keycloak.servicePort }}"
+            - name: AIRM_API_URL
+              value: "http://{{ .Release.Name }}-airm-api.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: CLUSTER_BASE_URL
+              value: "https://{{ .Values.airm.workloads.prefixUrl }}.{{ .Values.airm.appDomain }}/"
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: false
@@ -528,21 +527,21 @@ spec:
       containers:
         - name: airm-ui
           env:
-          - name: NEXTAUTH_URL
-            value: 'https://{{ .Values.airm.frontend.prefixUrl }}.{{ .Values.airm.appDomain }}'
-          - name: KEYCLOAK_ISSUER
-            value: 'https://{{ .Values.keycloak.prefixUrl }}.{{ .Values.airm.appDomain }}/realms/airm'
-          - name: KEYCLOAK_ID
-            value: '{{ .Values.keycloak.keycloakClientId }}'
-          - name: KEYCLOAK_ISSUER_INTERNAL_URL
-            value: 'http://{{ .Values.keycloak.serviceName }}.{{ .Values.keycloak.namespace }}.svc.cluster.local:{{ .Values.keycloak.servicePort }}/realms/airm/'
-          - name: AIRM_API_SERVICE_URL
-            value: 'http://{{ .Release.Name }}-airm-api.{{ .Release.Namespace }}.svc.cluster.local'
+            - name: NEXTAUTH_URL
+              value: "https://{{ .Values.airm.frontend.prefixUrl }}.{{ .Values.airm.appDomain }}"
+            - name: KEYCLOAK_ISSUER
+              value: "https://{{ .Values.keycloak.prefixUrl }}.{{ .Values.airm.appDomain }}/realms/airm"
+            - name: KEYCLOAK_ID
+              value: "{{ .Values.keycloak.keycloakClientId }}"
+            - name: KEYCLOAK_ISSUER_INTERNAL_URL
+              value: "http://{{ .Values.keycloak.serviceName }}.{{ .Values.keycloak.namespace }}.svc.cluster.local:{{ .Values.keycloak.servicePort }}/realms/airm/"
+            - name: AIRM_API_SERVICE_URL
+              value: "http://{{ .Release.Name }}-airm-api.{{ .Release.Namespace }}.svc.cluster.local"
           envFrom:
             - secretRef:
-                name: '{{ .Release.Name }}-secrets-airm'
-          image: '{{ .Values.airm.frontend.image.repository }}:{{ .Values.airm.frontend.image.tag }}'
-          imagePullPolicy: '{{ .Values.airm.frontend.image.pullPolicy }}'
+                name: "{{ .Release.Name }}-secrets-airm"
+          image: "{{ .Values.airm.frontend.image.repository }}:{{ .Values.airm.frontend.image.tag }}"
+          imagePullPolicy: "{{ .Values.airm.frontend.image.pullPolicy }}"
           livenessProbe:
             failureThreshold: 3
             httpGet:
@@ -551,7 +550,6 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 2
-          name: airm-ui
           ports:
             - containerPort: 8000
           resources:

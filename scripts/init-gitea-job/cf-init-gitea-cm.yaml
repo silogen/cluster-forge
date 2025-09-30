@@ -12,15 +12,6 @@ data:
     GITEA_URL="${GITEA_URL:-http://gitea-http.cf-gitea.svc:3000}"
     GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-silogen-admin}"
     
-    apk add --no-cache \
-    curl \
-    bash \
-    jq \
-    git
-    
-    curl -fsSL https://github.com/go-gitea/gitea/releases/download/v1.21.3/gitea-1.21.3-linux-amd64 -o /usr/local/bin/gitea \
-    && chmod +x /usr/local/bin/gitea
-    
     echo "Step 0: Create admin access token"
     GITEA_TOKEN=$(kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
       gitea admin user generate-access-token --raw --username "$GITEA_ADMIN_USER" --token-name "api-token-$(date +%s)" --scopes all
@@ -68,6 +59,11 @@ data:
                     ;;
                 *)
                     echo "Attempt $ATTEMPT failed with HTTP $HTTP_CODE, retrying..."
+                    echo "Cleaning up failed repository..."
+                    sleep 1
+                    curl -s -X DELETE "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" \
+                      -H "Authorization: token ${GITEA_TOKEN}" >/dev/null 2>&1
+                    echo "Failed repository deleted..."
                     ;;
             esac
             

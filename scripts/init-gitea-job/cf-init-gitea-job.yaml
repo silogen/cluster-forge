@@ -10,7 +10,7 @@ spec:
       serviceAccountName: gitea-init-job-sa
       containers:
         - name: gitea-init
-          image: alpine/k8s:1.28.4
+          image: ghcr.io/silogen/cluster-tool:latest
           command: ["/bin/bash"]
           args: ["/tmp/scripts/init-gitea.sh"]
           volumeMounts:
@@ -25,4 +25,4 @@ spec:
             defaultMode: 0755
         - name: values
           configMap:
-            name: cf-values-file
+            name: initial-cf-values

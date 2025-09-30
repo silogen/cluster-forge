@@ -1,7 +1,11 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
 # This is a YAML-formatted file
 secretgenerator:
   image:
-    repository: ghcr.io/silogen/kubectl
+    repository: ghcr.io/silogen/cluster-tool
     tag: latest
     pullPolicy: IfNotPresent
 
@@ -20,21 +24,21 @@ kgateway:
 
 keycloak:
   prefixUrl: kc
-  keycloakClientId: '354a0fa1-35ac-4a6d-9c4d-d661129c2cd0'
+  keycloakClientId: "354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
   namespace: keycloak
   serviceName: keycloak
   servicePort: 8080
 
 airm:
-  appDomain: PUBLIC-NODE-IP.nip.io # Put the valid public IP of the cluster
+  appDomain: PUBLIC-IP
 
   externalSecretStore:
-    keycloak:
-      name: keycloak-secret-store
     airm:
       name: airm-secret-store
     minio:
-      name: minio-secret-store
+      name: k8s-secret-store
+    keycloak:
+      name: keycloak-secret-store
 
   postgresql:
     enabled: true
@@ -108,9 +112,6 @@ airm:
       requests:
         cpu: 500m
         memory: 4Gi
-    # FIXME
-    # resources:
-    #   '{{- toYaml .Values.airm.frontend.resources | nindent 12 }}'
 
   workloads:
     prefixUrl: workspaces
@@ -160,10 +161,3 @@ airm:
       runAsUser: 1000
       seccompProfile:
         type: RuntimeDefault
-
-# All junk values below this line
-#########################################################################################################
-
-# nodeSelector: {}
-# tolerations: []
-# affinity: {}
