@@ -1657,10 +1657,6 @@ kind: Job
 metadata:
   name: "airm-configure"
   namespace: "airm"
-  annotations:
-    "helm.sh/hook": post-install
-    "helm.sh/hook-weight": "1"
-    "helm.sh/hook-delete-policy": never
 spec:
   backoffLimit: 3
   template:
