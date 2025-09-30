@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openbao-init-scripts
+  namespace: cf-openbao
+data:
+  init-openbao.sh: |
+    #!/bin/bash
+    
+    set -e
+    
+    echo "Checking OpenBao status on openbao-0..."
+    if kubectl exec openbao-0 -n cf-openbao -- bao status 2>&1 | grep -q "Initialized.*true"; then
+      echo "OpenBao is already initialized. Skipping initialization."
+      exit 0
+    fi
+    
+    echo "Initializing OpenBao on openbao-0..."
+    INIT_OUTPUT=$(kubectl exec openbao-0 -- bao operator init -format=json -key-shares=1 -key-threshold=1)
+    echo $INIT_OUTPUT > /tmp/bao-keys.json;
+    echo $INIT_OUTPUT
+    echo "Saving unseal keys and root token to openbao-keys k8s secret..."        
+    BAO_ROOT_TOKEN=$(jq -r '.root_token' /tmp/bao-keys.json);
+    BAO_UNSEAL_KEY=$(jq -r '.unseal_keys_b64[0]' /tmp/bao-keys.json);    
+    kubectl create secret generic openbao-keys -n cf-openbao \
+      --from-literal=root_token="$BAO_ROOT_TOKEN" \
+      --from-literal=unseal_key="$BAO_UNSEAL_KEY" \
+      --dry-run=client -o yaml | kubectl apply -f -
+    
+    echo "Unsealing openbao-0..."
+    kubectl exec openbao-0 -n cf-openbao -- bao operator unseal "$BAO_UNSEAL_KEY"
+    kubectl wait --for=condition=ready pod/openbao-0 --timeout=300s -n cf-openbao
+    
+    echo "Unsealing openbao-1 & joining to Raft cluster..."
+    kubectl exec openbao-1 -n cf-openbao -- bao operator raft join http://openbao-0.openbao-internal:8200
+    kubectl exec openbao-1 -n cf-openbao -- bao operator unseal "$BAO_UNSEAL_KEY"
+    kubectl wait --for=condition=ready pod/openbao-1 --timeout=300s -n cf-openbao
+    
+    echo "Unsealing openbao-2 & joining to Raft cluster..."
+    kubectl exec openbao-2 -n cf-openbao -- bao operator raft join http://openbao-0.openbao-internal:8200
+    kubectl exec openbao-2 -n cf-openbao -- bao operator unseal "$BAO_UNSEAL_KEY"
+    kubectl wait --for=condition=ready pod/openbao-2 --timeout=300s -n cf-openbao
+    
+    echo "OpenBao Raft cluster initialization completed successfully!"
+    
+    echo "Going to configure secrets engine & k8s auth method for external-secrets usage..."
+    kubectl exec openbao-0 -n cf-openbao -- env BAO_TOKEN=$BAO_ROOT_TOKEN bao secrets enable -version=2 -path=secrets kv;
+    
+    kubectl exec openbao-0 -n cf-openbao -- env BAO_TOKEN=$BAO_ROOT_TOKEN bao auth enable kubernetes
+    kubectl exec openbao-0 -n cf-openbao -- env BAO_TOKEN=$BAO_ROOT_TOKEN bao write auth/kubernetes/config kubernetes_host="https://kubernetes.default.svc:443"
+    
+    echo 'path "secrets/data/*" {
+      capabilities = ["read"]
+    }' | kubectl exec -i openbao-0 -n cf-openbao -- env BAO_TOKEN=$BAO_ROOT_TOKEN bao policy write read-policy -
+    
+    kubectl exec openbao-0 -n cf-openbao -- env BAO_TOKEN=$BAO_ROOT_TOKEN bao write auth/kubernetes/role/reader-role \
+      bound_service_account_names=default \
+      bound_service_account_namespaces=* \
+      policies=read-policy \
+      ttl=24h
+    
+    echo "OpenBao configuration completed successfully!"

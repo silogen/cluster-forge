@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: init-gitea-scripts
+  name: gitea-init-scripts
   namespace: cf-gitea
 data:
   init-gitea.sh: |

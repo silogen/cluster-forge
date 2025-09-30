@@ -21,7 +21,7 @@ spec:
       volumes:
         - name: scripts
           configMap:
-            name: init-gitea-scripts
+            name: gitea-init-scripts
             defaultMode: 0755
         - name: values
           configMap:
