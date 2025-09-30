@@ -11,20 +11,15 @@ metadata:
   name: gitea-init-job-role
   namespace: cf-gitea
 rules:
-  # List deployments
   - apiGroups: ["apps"]
     resources: ["deployments"]
     verbs: ["get", "list", "watch"]
-
-  # Get pods and exec into them
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
     resources: ["pods/exec"]
     verbs: ["create"]
-
-  # Manage secrets
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]

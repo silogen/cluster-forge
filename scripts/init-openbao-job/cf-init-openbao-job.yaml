@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: openbao-init-job
+  namespace: cf-openbao
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: openbao-init-job-sa
+      containers:
+        - name: openbao-init
+          image: ghcr.io/silogen/cluster-tool:latest
+          command: ["/bin/bash"]
+          args: ["/tmp/scripts/init-openbao.sh"]
+          env:
+            - name: BAO_ADDR
+              value: http://openbao-internal:8200
+            - name: BAO_API_ADDR
+              value: http://openbao-internal:8200
+            - name: BAO_CLUSTER_ADDR
+              value: http://openbao-internal:8201
+          volumeMounts:
+            - name: scripts
+              mountPath: /tmp/scripts
+      volumes:
+        - name: scripts
+          configMap:
+            name: openbao-init-scripts
+            defaultMode: 0755

@@ -1,13 +1,13 @@
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: gitops-forge-openbao # cluster-forge version git tag
+  targetRevision: main # cluster-forge version git tag
   valuesFile: values.yaml
 
 # source helm values file from separate git repo
 externalValues:
   enabled: false
 #  repoUrl: # define if enabled
-  targetRevision: gitops-forge-openbao
+  targetRevision: main
   path: values.yaml
 
 common:
@@ -278,42 +278,11 @@ apps:
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
 
-#  - name: airm
-#    path: airm-tmp
-#    namespace: airm
-#    valuesFile: values.yaml
-#    helmParameters:
-#      - name: domain
-#        value: "{{ .Values.common.domain }}"
-#    syncWave: -25
-#    ignoreDifferences:
-#      - group: external-secrets.io
-#        kind: ExternalSecret
-#        jqPathExpressions:
-#          - ".spec.data[].remoteRef.conversionStrategy"
-#          - ".spec.data[].remoteRef.decodingStrategy"
-#          - ".spec.data[].remoteRef.metadataPolicy"
-#
-#  - name: airm-config
-#    path: airm-config
-#    namespace: airm
-#    syncWave: -25
-#
-#  - name: airm-configure
-#    path: airm-configure
-#    namespace: default
-#    valuesFile: values.yaml
-#    helmParameters:
-#      - name: domain
-#        value: "{{ .Values.common.domain }}"
-#    syncWave: -30
-
   # Etc..
-
   - name: openbao
     path: openbao/0.18.2
     namespace: openbao
-    valuesFile: values.yaml
+    valuesFile: ../values_cf.yaml
     syncWave: -40
     ignoreDifferences:
       - group: "apps"
@@ -325,9 +294,3 @@ apps:
     path: openbao-config
     namespace: openbao
     syncWave: -40
-
-
-  - name: openbao-airm
-    path: openbao-airm
-    namespace: openbao
-    syncWave: -25
