@@ -23,18 +23,18 @@ apps:
     helmParameters:
       - name: global.domain
         value: "{{ .Values.common.domain }}"
-    syncWave: -100
+    syncWave: -3
 
   - name: argocd-config
     path: argocd-config
     namespace: argocd
-    syncWave: -90
+    syncWave: -2
 
   - name: cert-manager
     path: cert-manager/v1.18.2
     namespace: cert-manager
     valuesFile: ../values_cf.yaml
-    syncWave: -50
+    syncWave: -3
 
 #  - name: cert-manager-config
 #    path: cert-manager-config
@@ -43,18 +43,18 @@ apps:
 #    helmParameters:
 #      - name: domain
 #        value: "{{ .Values.common.domain }}"
-#    syncWave: -50
+#    syncWave: -3
 
 #  - name: cluster-cert
 #    path: cluster-cert
 #    namespace: static-cert-system
-#    syncWave: -45
+#    syncWave: -2
 
   - name: openbao
     path: openbao/0.18.2
     namespace: cf-openbao
     valuesFile: ../values_cf.yaml
-    syncWave: -40
+    syncWave: -3
     ignoreDifferences:
       - group: "apps"
         kind: "Deployment"
@@ -64,23 +64,18 @@ apps:
   - name: openbao-config
     path: openbao-config
     namespace: cf-openbao
-    syncWave: -40
+    syncWave: -2
 
   - name: external-secrets
     path: external-secrets/0.15.1
     namespace: external-secrets
     valuesFile: values.yaml
-    syncWave: -50
+    syncWave: -3
 
   - name: external-secrets-config
     path: external-secrets-config
-    namespace: cf-es-backend
-    syncWave: -45
-
-  - name: gitea-config
-    path: gitea-config
-    namespace: cf-gitea
-    syncWave: -50
+    namespace: external-secrets
+    syncWave: -3
 
   - name: gitea
     path: gitea/12.3.0
@@ -91,30 +86,35 @@ apps:
         value: "{{ .Values.common.domain }}"
       - name: gitea.config.server.ROOT_URL
         value: "https://gitea.{{ .Values.common.domain }}"
-    syncWave: -40
+    syncWave: -3
+
+  - name: gitea-config
+    path: gitea-config
+    namespace: cf-gitea
+    syncWave: -2
 
   # Network apps
   - name: gateway-api
     path: gateway-api/v1.3.0
     namespace: default
-    syncWave: -50
+    syncWave: -3
 
   - name: metallb
     path: metallb/v0.15.2
     namespace: default
-    syncWave: -50
+    syncWave: -3
 
   - name: kgateway-crds
     path: kgateway-crds/v2.1.0-main
     namespace: kgateway-system
     valuesFile: values.yaml
-    syncWave: -45
+    syncWave: -3
 
   - name: kgateway
     path: kgateway/v2.1.0-main
     namespace: kgateway-system
     valuesFile: ../values_cf.yaml
-    syncWave: -40
+    syncWave: -2
 
   - name: kgateway-config
     path: kgateway-config
@@ -123,34 +123,34 @@ apps:
     helmParameters:
       - name: domain
         value: "{{ .Values.common.domain }}"
-    syncWave: -35
+    syncWave: -2
 
   # Monitoring
   - name: prometheus-crds
     path: prometheus-operator-crds/23.0.0
     namespace: prometheus-system
     valuesFile: values.yaml
-    syncWave: -50
+    syncWave: -3
 
   - name: opentelemetry-operator
     path: opentelemetry-operator/0.93.1
     namespace: opentelemetry-operator-system
     valuesFile: values.yaml
-    syncWave: -45
+    syncWave: -3
 
   - name: otel-lgtm-stack
     path: otel-lgtm-stack
     namespace: otel-lgtm-stack
     directory:
       recurse: true
-    syncWave: -20
+    syncWave: -2
 
   # Databases
   - name: cnpg-operator
     path: cnpg-operator/0.26.0
     namespace: cnpg-system
     valuesFile: values.yaml
-    syncWave: -30
+    syncWave: -3
 
   # Access control
   - name: keycloak
@@ -160,7 +160,7 @@ apps:
     helmParameters:
       - name: domain
         value: "{{ .Values.common.domain }}"
-    syncWave: -30
+    syncWave: -2
     ignoreDifferences:
       - group: external-secrets.io
         kind: ExternalSecret
@@ -173,65 +173,65 @@ apps:
     path: kyverno/3.5.1
     namespace: kyverno
     valuesFile: values.yaml
-    syncWave: -30
+    syncWave: -3
 
   #  - name: kyverno-config
   #    path: kyverno-config
   #    namespace: kyverno
-  #    syncWave: -30
+  #    syncWave: -2
 
   # GPU
   - name: amd-gpu-operator
     path: amd-gpu-operator/1.3.1
     namespace: kube-amd-gpu
     valuesFile: values.yaml
-    syncWave: -30
+    syncWave: -1
 
   - name: amd-gpu-operator-config
     path: amd-gpu-operator-config
     namespace: kube-amd-gpu
-    syncWave: -30
+    syncWave: -1
 
   - name: kuberay-operator
     path: kuberay-operator/1.4.2
     namespace: default
     valuesFile: values.yaml
-    syncWave: -30
+    syncWave: -1
 
   # Queues
   - name: rabbitmq
     path: rabbitmq/v2.15.0
     namespace: rabbitmq-system
-    syncWave: -30
+    syncWave: -1
 
   - name: kueue
     path: kueue/0.13.0
     namespace: kueue-system
     valuesFile: ../values_onenode.yaml
-    syncWave: -30
+    syncWave: -1
 
   - name: kueue-config
     path: kueue-config
     namespace: kueue-system
-    syncWave: -30
+    syncWave: -1
 
   - name: appwrapper
     path: appwrapper/v1.1.2
     namespace: appwrapper-system
-    syncWave: -30
+    syncWave: -1
 
   # Storage
   - name: minio-operator
     path: minio-operator/7.1.1
     namespace: minio-operator
     valuesFile: values.yaml
-    syncWave: -30
+    syncWave: -3
 
   - name: minio-tenant
     path: minio-tenant/7.1.1
     namespace: minio-tenant-default
     valuesFile: ../values_cf.yaml
-    syncWave: -20
+    syncWave: -2
 
   - name: minio-tenant-config
     path: minio-tenant-config
@@ -240,18 +240,25 @@ apps:
     helmParameters:
       - name: domain
         value: "{{ .Values.common.domain }}"
-    syncWave: -30
+    syncWave: -1
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
 
   # Kaiwo stuff
   - name: kaiwo
     path: kaiwo/v0.1.7
     namespace: kaiwo
-    syncWave: -30
+    syncWave: -1
 
   - name: kaiwo-config
     path: kaiwo-config
     namespace: kaiwo
-    syncWave: -25
+    syncWave: -1
     ignoreDifferences:
       - group: external-secrets.io
         kind: ExternalSecret
@@ -268,7 +275,7 @@ apps:
     helmParameters:
       - name: airm.appDomain
         value: "{{ .Values.common.domain }}"
-    syncWave: -20
+    syncWave: 0
     ignoreDifferences:
       - group: external-secrets.io
         kind: ExternalSecret
@@ -281,4 +288,4 @@ apps:
     path: airm-dispatcher
     namespace: airm
     valuesFile: values.yaml
-    syncWave: -20
+    syncWave: 0
