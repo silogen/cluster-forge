@@ -114,32 +114,32 @@ data:
     
     echo "Generating secrets..."
     bao kv put secrets/airm-cnpg-user-username value=airm_user;
-    bao kv put secrets/airm-cnpg-user-password value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
-    bao kv put secrets/airm-cnpg-superuser-username value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
-    bao kv put secrets/airm-cnpg-superuser-password value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/airm-cnpg-user-password value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+    bao kv put secrets/airm-cnpg-superuser-username value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+    bao kv put secrets/airm-cnpg-superuser-password value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     
-    bao kv put secrets/airm-rabbitmq-user-username value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
-    bao kv put secrets/airm-rabbitmq-user-password value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/airm-rabbitmq-user-username value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+    bao kv put secrets/airm-rabbitmq-user-password value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     
-    bao kv put secrets/airm-ui-keycloak-secret value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
-    bao kv put secrets/airm-legacy-auth-nextauth-secret value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/airm-ui-keycloak-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+    bao kv put secrets/airm-legacy-auth-nextauth-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/airm-keycloak-admin-client-id value="354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
-    bao kv put secrets/airm-keycloak-admin-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
-    bao kv put secrets/airm-ci-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/airm-keycloak-admin-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+    bao kv put secrets/airm-ci-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     
-    bao kv put secrets/hmac-keys-access-key value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
-    bao kv put secrets/hmac-keys-secret-key value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/hmac-keys-access-key value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+    bao kv put secrets/hmac-keys-secret-key value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     
     bao kv put secrets/keycloak-initial-admin-password value=admin;
     bao kv put secrets/keycloak-cnpg-user-username value=keycloak;
     bao kv put secrets/keycloak-cnpg-user-password value=keycloak;
-    bao kv put secrets/keycloak-cnpg-superuser-username value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
-    bao kv put secrets/keycloak-cnpg-superuser-password value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/keycloak-cnpg-superuser-username value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+    bao kv put secrets/keycloak-cnpg-superuser-password value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     
     bao kv put secrets/minio-api-access-key value=api-default-user;
-    bao kv put secrets/minio-api-secret-key value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/minio-api-secret-key value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/minio-console-access-key value=default-user;
-    bao kv put secrets/minio-console-secret-key value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
-    bao kv put secrets/minio-root-password value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/minio-console-secret-key value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+    bao kv put secrets/minio-root-password value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     
     echo "Secrets have been generated successfully!"

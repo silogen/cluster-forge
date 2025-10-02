@@ -252,6 +252,13 @@ apps:
     path: kaiwo-config
     namespace: kaiwo
     syncWave: -25
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
 
   # Airm stuff
   - name: airm-api

@@ -240,6 +240,13 @@ apps:
       - name: domain
         value: "{{ .Values.common.domain }}"
     syncWave: -30
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
 
   # Kaiwo stuff
   - name: kaiwo
@@ -251,6 +258,13 @@ apps:
     path: kaiwo-config
     namespace: kaiwo
     syncWave: -25
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
 
   # Airm stuff
   - name: airm-api
