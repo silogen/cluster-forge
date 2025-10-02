@@ -51,7 +51,7 @@ apps:
 
   - name: openbao
     path: openbao/0.18.2
-    namespace: openbao
+    namespace: cf-openbao
     valuesFile: ../values_cf.yaml
     syncWave: -40
     ignoreDifferences:
@@ -62,7 +62,7 @@ apps:
 
   - name: openbao-config
     path: openbao-config
-    namespace: openbao
+    namespace: cf-openbao
     syncWave: -40
 
   - name: external-secrets
