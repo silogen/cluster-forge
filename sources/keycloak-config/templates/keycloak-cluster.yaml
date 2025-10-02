@@ -1,24 +1,28 @@
-apiVersion: external-secrets.io/v1
+---
+apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
   name: keycloak-cnpg-superuser-credentials
   namespace: keycloak
 spec:
-  data:
-    - remoteRef:
-        key: keycloak-cnpg-superuser-username
-      secretKey: username
-    - remoteRef:
-        key: keycloak-cnpg-superuser-password
-      secretKey: password
   secretStoreRef:
     kind: ClusterSecretStore
-    name: keycloak-secret-store
+    name: openbao-secret-store
   target:
     creationPolicy: Owner
     name: keycloak-cnpg-superuser
+  data:
+    - remoteRef:
+        key: keycloak-cnpg-superuser-username
+        property: value
+      secretKey: username
+    - remoteRef:
+        key: keycloak-cnpg-superuser-password
+        property: value
+      secretKey: password
+
 ---
-apiVersion: external-secrets.io/v1
+apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
   name: keycloak-cnpg-user-credentials
@@ -27,14 +31,16 @@ spec:
   data:
     - remoteRef:
         key: keycloak-cnpg-user-username
+        property: value
       secretKey: username
     - remoteRef:
         key: keycloak-cnpg-user-password
+        property: value
       secretKey: password
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: keycloak-secret-store
+    name: openbao-secret-store
   target:
     creationPolicy: Owner
     name: keycloak-cnpg-user

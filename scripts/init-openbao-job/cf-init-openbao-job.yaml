@@ -11,8 +11,14 @@ spec:
       containers:
         - name: openbao-init
           image: ghcr.io/silogen/cluster-tool:latest
-          command: ["/bin/bash"]
-          args: ["/tmp/scripts/init-openbao.sh"]
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              /tmp/scripts/init-openbao.sh
+              /tmp/scripts/setup-openbao.sh
+              /tmp/scripts/generate-secrets.sh
           env:
             - name: BAO_ADDR
               value: http://openbao-internal:8200

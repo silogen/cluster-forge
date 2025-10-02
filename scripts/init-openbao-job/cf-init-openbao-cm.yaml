@@ -18,7 +18,7 @@ data:
     echo "Initializing OpenBao on openbao-0..."
     INIT_OUTPUT=$(kubectl exec openbao-0 -- bao operator init -format=json -key-shares=1 -key-threshold=1)
     echo $INIT_OUTPUT > /tmp/bao-keys.json;
-    echo $INIT_OUTPUT
+
     echo "Saving unseal keys and root token to openbao-keys k8s secret..."        
     BAO_ROOT_TOKEN=$(jq -r '.root_token' /tmp/bao-keys.json);
     BAO_UNSEAL_KEY=$(jq -r '.unseal_keys_b64[0]' /tmp/bao-keys.json);    
@@ -43,20 +43,103 @@ data:
     
     echo "OpenBao Raft cluster initialization completed successfully!"
     
-    echo "Going to configure secrets engine & k8s auth method for external-secrets usage..."
-    kubectl exec openbao-0 -n cf-openbao -- env BAO_TOKEN=$BAO_ROOT_TOKEN bao secrets enable -version=2 -path=secrets kv;
+  setup-openbao.sh: |
+    #!/bin/bash
     
-    kubectl exec openbao-0 -n cf-openbao -- env BAO_TOKEN=$BAO_ROOT_TOKEN bao auth enable kubernetes
-    kubectl exec openbao-0 -n cf-openbao -- env BAO_TOKEN=$BAO_ROOT_TOKEN bao write auth/kubernetes/config kubernetes_host="https://kubernetes.default.svc:443"
+    set -e
     
-    echo 'path "secrets/data/*" {
+    generate_password() {
+        openssl rand -hex 16 | tr 'a-f' 'A-F' | head -c 32
+    }
+    
+    export BAO_TOKEN=$(kubectl get secret openbao-keys -n cf-openbao -o jsonpath='{.data.root_token}' | base64 -d)
+     if [ -z "$BAO_TOKEN" ]; then
+      echo "ERROR: Failed to retrieve root token from openbao-keys k8s secret"
+      exit 1
+    fi
+        
+    READONLY_PASSWORD=$(generate_password)
+    
+    kubectl create secret generic openbao-user \
+      --from-literal=username=readonly-user \
+      --from-literal=password=$READONLY_PASSWORD \
+      --dry-run=client -o yaml | kubectl apply -f -
+    
+    echo "Enabling secrets KV engine..."
+    if bao secrets list 2>/dev/null | grep -q "^secrets/"; then
+      echo "Secrets engine already exists"
+    else
+     bao secrets enable -version=2 -path=secrets kv
+    fi    
+    
+    echo "Configuring userpass auth..."
+    if bao auth list 2>/dev/null | grep -q "^userpass/"; then
+      echo "userpass auth already exists"
+    else
+      bao auth enable userpass
+    fi
+    
+    echo "Creating read-policy..."
+    echo '
+    path "secrets/data/*" {
       capabilities = ["read"]
-    }' | kubectl exec -i openbao-0 -n cf-openbao -- env BAO_TOKEN=$BAO_ROOT_TOKEN bao policy write read-policy -
+    }
+    path "secrets/metadata/*" {
+      capabilities = ["list"]
+    }
+    path "auth/token/lookup-self" {
+      capabilities = ["read"]
+    }
+    path "auth/token/renew-self" {
+      capabilities = ["update"]
+    }' | bao policy write read-policy -
     
-    kubectl exec openbao-0 -n cf-openbao -- env BAO_TOKEN=$BAO_ROOT_TOKEN bao write auth/kubernetes/role/reader-role \
-      bound_service_account_names=default \
-      bound_service_account_namespaces=* \
+    echo "Creating reader-role..."
+    bao write auth/userpass/users/readonly-user \
       policies=read-policy \
-      ttl=24h
+      password=$READONLY_PASSWORD
     
     echo "OpenBao configuration completed successfully!"
+
+  generate-secrets.sh: |
+    #!/bin/bash
+
+    set -e
+
+    export BAO_TOKEN=$(kubectl get secret openbao-keys -n cf-openbao -o jsonpath='{.data.root_token}' | base64 -d)
+     if [ -z "$BAO_TOKEN" ]; then
+      echo "ERROR: Failed to retrieve root token from openbao-keys k8s secret"
+      exit 1
+    fi
+    
+    echo "Generating secrets..."
+    bao kv put secrets/airm-cnpg-user-username value=airm_user;
+    bao kv put secrets/airm-cnpg-user-password value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/airm-cnpg-superuser-username value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/airm-cnpg-superuser-password value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    
+    bao kv put secrets/airm-rabbitmq-user-username value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/airm-rabbitmq-user-password value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    
+    bao kv put secrets/airm-ui-keycloak-secret value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/airm-legacy-auth-nextauth-secret value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/airm-keycloak-admin-client-id value="354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
+    bao kv put secrets/airm-keycloak-admin-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/airm-ci-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    
+    bao kv put secrets/hmac-keys-access-key value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/hmac-keys-secret-key value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    
+    bao kv put secrets/keycloak-initial-admin-password value=admin;
+    bao kv put secrets/keycloak-cnpg-user-username value=keycloak;
+    bao kv put secrets/keycloak-cnpg-user-password value=keycloak;
+    bao kv put secrets/keycloak-cnpg-superuser-username value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/keycloak-cnpg-superuser-password value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    
+    bao kv put secrets/minio-api-access-key value=api-default-user;
+    bao kv put secrets/minio-api-secret-key value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/minio-console-access-key value=default-user;
+    bao kv put secrets/minio-console-secret-key value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    bao kv put secrets/minio-root-password value="$(bao write -field=random_bytes sys/tools/random bytes=32 format=hex)";
+    
+    echo "Secrets have been generated successfully!"

@@ -49,6 +49,22 @@ apps:
 #    namespace: static-cert-system
 #    syncWave: -45
 
+  - name: openbao
+    path: openbao/0.18.2
+    namespace: openbao
+    valuesFile: ../values_cf.yaml
+    syncWave: -40
+    ignoreDifferences:
+      - group: "apps"
+        kind: "Deployment"
+        jsonPointers:
+          - /spec/replicas
+
+  - name: openbao-config
+    path: openbao-config
+    namespace: openbao
+    syncWave: -40
+
   - name: external-secrets
     path: external-secrets/0.15.1
     namespace: external-secrets
@@ -57,8 +73,24 @@ apps:
 
   - name: external-secrets-config
     path: external-secrets-config
-    namespace: cf-es-backend
+    namespace: external-secrets
     syncWave: -45
+
+  - name: gitea-config
+    path: gitea-config
+    namespace: cf-gitea
+    syncWave: -50
+
+  - name: gitea
+    path: gitea/12.3.0
+    namespace: cf-gitea
+    valuesFile: ../values_cf.yaml
+    helmParameters:
+      - name: clusterDomain
+        value: "{{ .Values.common.domain }}"
+      - name: gitea.config.server.ROOT_URL
+        value: "https://gitea.{{ .Values.common.domain }}"
+    syncWave: -40
 
   # Network apps
   - name: gateway-api
@@ -91,22 +123,6 @@ apps:
       - name: domain
         value: "{{ .Values.common.domain }}"
     syncWave: -35
-
-  - name: gitea-config
-    path: gitea-config
-    namespace: cf-gitea
-    syncWave: -50
-
-  - name: gitea
-    path: gitea/12.3.0
-    namespace: cf-gitea
-    valuesFile: ../values_cf.yaml
-    helmParameters:
-      - name: clusterDomain
-        value: "{{ .Values.common.domain }}"
-      - name: gitea.config.server.ROOT_URL
-        value: "https://gitea.{{ .Values.common.domain }}"
-    syncWave: -40
 
   # Monitoring
   - name: prometheus-crds
@@ -190,7 +206,7 @@ apps:
   - name: kueue
     path: kueue/0.13.0
     namespace: kueue-system
-    valuesFile: ../values_ha.yaml
+    valuesFile: ../values_onenode.yaml
     syncWave: -30
 
   - name: kueue-config
