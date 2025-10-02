@@ -256,6 +256,10 @@ Cluster-Forge is still a work in progress with the following known issues:
    ```sh
    reset
    ```
+   Or, if you are in devbox, escape the reset
+   ```sh
+   \reset
+   ```
 
 ## 📝 License
 

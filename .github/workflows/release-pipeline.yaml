@@ -1,0 +1,126 @@
+name: Release Pipeline
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+  release:
+    types: [created, edited]
+  workflow_dispatch:
+    inputs:
+      is_prerelease:
+        description: 'Is this a prerelease?'
+        required: false
+        type: boolean
+        default: 'false'
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+      extra_args: ${{ steps.version.outputs.extra_args }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Next Version
+        if: github.event_name == 'workflow_dispatch'
+        id: semver
+        uses: ietf-tools/semver-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          maxTagsToFetch: 100
+          skipInvalidTags: true
+          patchAll: true
+
+      - name: Calculate new version and args
+        id: version
+        run: |
+          EXTRA_ARGS="--latest=false --prerelease"
+          # For pull requests, use a test version
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            NEW_VERSION="pr-${{ github.head_ref }}"
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            if [[ "${{ github.event.inputs.is_prerelease }}" == "true" ]]; then
+              EXTRA_ARGS="--latest=false --prerelease"
+            else
+              EXTRA_ARGS="--latest=false"
+            fi
+            NEW_VERSION="${{ steps.semver.outputs.next }}"
+          fi
+          echo "Args: ${EXTRA_ARGS}"
+          echo "New version: $NEW_VERSION"
+          echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "extra_args=${EXTRA_ARGS}" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.new_version }}
+          EXTRA_ARGS: ${{ steps.version.outputs.extra_args }}
+        run: |
+          gh release create "$VERSION" $EXTRA_ARGS \
+              --title="ClusterForge Release $VERSION" \
+              --repo="$GITHUB_REPOSITORY" \
+              --generate-notes || true # Ignore if release already exists
+
+  build:
+    needs: [version]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        release:
+          - type: enterprise-ai
+            name: Enterprise AI
+          - type: core
+            name: Core
+          - type: weka
+            name: WekaFS
+          - type: nuage
+            name: Nuage
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Smelt
+        run: |
+          go run . smelt \
+            --config input/config-silogen-${{ matrix.release.type }}.yaml \
+            --non-interactive
+
+      - name: Cast
+        env:
+          VERSION: ${{ needs.version.outputs.new_version }}
+        run: |
+          go run . cast \
+            --config input/config-silogen-${{ matrix.release.type }}.yaml \
+            --imageName ghcr.io/silogen/clusterforge:$VERSION-${{ matrix.release.type }} \
+            --stackName ${{ matrix.release.type }}-$VERSION \
+            --non-interactive
+
+      - name: Create release package
+        env:
+          VERSION: ${{ needs.version.outputs.new_version }}
+        run: |
+          tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz ${{ matrix.release.type }}-$VERSION
+
+      - name: Upload Release Asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.new_version }}
+        run: |
+          # Upload asset to the release
+          gh release upload "$VERSION" \
+              "stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz#ClusterForge ${{ matrix.release.name }} Package" \
+              --clobber

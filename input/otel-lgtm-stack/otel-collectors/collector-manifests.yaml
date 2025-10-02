@@ -921,6 +921,19 @@ spec:
               static_configs:
                 - targets:
                     - longhorn-backend.longhorn.svc.cluster.local:9500
+            - job_name: chrony-exporter
+              kubernetes_sd_configs:
+                - role: pod
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_pod_label_app]
+                  regex: chrony-exporter
+                  action: keep
+                - source_labels: [__meta_kubernetes_pod_ip]
+                  target_label: __address__
+                  regex: (.*)
+                  replacement: $1:9123
+                - source_labels: [__meta_kubernetes_pod_node_name]
+                  target_label: k8s_node_name
     service:
       pipelines:
         metrics:

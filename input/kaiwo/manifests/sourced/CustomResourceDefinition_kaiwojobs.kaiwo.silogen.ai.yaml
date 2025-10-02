@@ -310,8 +310,6 @@ spec:
                             batch.kubernetes.io/job-index-failure-count annotation. It can only
                             be set when Job's completionMode=Indexed, and the Pod's restart
                             policy is Never. The field is immutable.
-                            This field is beta-level. It can be used when the `JobBackoffLimitPerIndex`
-                            feature gate is enabled (enabled by default).
                           format: int32
                           type: integer
                         completionMode:
@@ -408,9 +406,10 @@ spec:
                                         running pods are terminated.
                                       - FailIndex: indicates that the pod's index is marked as Failed and will
                                         not be restarted.
-                                        This value is beta-level. It can be used when the
-                                        `JobBackoffLimitPerIndex` feature gate is enabled (enabled by default).
-                                      - Ignore: indicates that the counter towards the .
+                                      - Ignore: indicates that the counter towards the .backoffLimit is not
+                                        incremented and a replacement pod is created.
+                                      - Count: indicates that the pod is handled in the default way - the
+                                        counter towards the .
                                     type: string
                                   onExitCodes:
                                     description: Represents the requirement on the container exit codes.
@@ -549,9 +548,6 @@ spec:
                             only when the number of succeeded pods equals to the completions.
                             When the field is specified, it must be immutable and works only for the Indexed Jobs.
                             Once the Job meets the SuccessPolicy, the lingering pods are terminated.
-
-                            This field is beta-level. To use this field, you must enable the
-                            `JobSuccessPolicy` feature gate (enabled by default).
                           properties:
                             rules:
                               description: |-
@@ -1649,7 +1645,7 @@ spec:
                                           Values defined by an Env with a duplicate key will take precedence.
                                           Cannot be updated.
                                         items:
-                                          description: EnvFromSource represents the source of a set of ConfigMaps
+                                          description: EnvFromSource represents the source of a set of ConfigMaps or Secrets
                                           properties:
                                             configMapRef:
                                               description: The ConfigMap to select from
@@ -1669,7 +1665,7 @@ spec:
                                               type: object
                                               x-kubernetes-map-type: atomic
                                             prefix:
-                                              description: An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.
+                                              description: Optional text to prepend to the name of each environment variable. Must be a C_IDENTIFIER.
                                               type: string
                                             secretRef:
                                               description: The Secret to select from
@@ -1916,6 +1912,12 @@ spec:
                                                   - port
                                                 type: object
                                             type: object
+                                          stopSignal:
+                                            description: |-
+                                              StopSignal defines which signal will be sent to a container when it is being stopped.
+                                              If not specified, the default is defined by the container runtime in use.
+                                              StopSignal can only be set for Pods with a non-empty .spec.os.name
+                                            type: string
                                         type: object
                                       livenessProbe:
                                         description: |-
@@ -3054,7 +3056,7 @@ spec:
                                           Values defined by an Env with a duplicate key will take precedence.
                                           Cannot be updated.
                                         items:
-                                          description: EnvFromSource represents the source of a set of ConfigMaps
+                                          description: EnvFromSource represents the source of a set of ConfigMaps or Secrets
                                           properties:
                                             configMapRef:
                                               description: The ConfigMap to select from
@@ -3074,7 +3076,7 @@ spec:
                                               type: object
                                               x-kubernetes-map-type: atomic
                                             prefix:
-                                              description: An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.
+                                              description: Optional text to prepend to the name of each environment variable. Must be a C_IDENTIFIER.
                                               type: string
                                             secretRef:
                                               description: The Secret to select from
@@ -3317,6 +3319,12 @@ spec:
                                                   - port
                                                 type: object
                                             type: object
+                                          stopSignal:
+                                            description: |-
+                                              StopSignal defines which signal will be sent to a container when it is being stopped.
+                                              If not specified, the default is defined by the container runtime in use.
+                                              StopSignal can only be set for Pods with a non-empty .spec.os.name
+                                            type: string
                                         type: object
                                       livenessProbe:
                                         description: Probes are not allowed for ephemeral containers.
@@ -4452,7 +4460,7 @@ spec:
                                           Values defined by an Env with a duplicate key will take precedence.
                                           Cannot be updated.
                                         items:
-                                          description: EnvFromSource represents the source of a set of ConfigMaps
+                                          description: EnvFromSource represents the source of a set of ConfigMaps or Secrets
                                           properties:
                                             configMapRef:
                                               description: The ConfigMap to select from
@@ -4472,7 +4480,7 @@ spec:
                                               type: object
                                               x-kubernetes-map-type: atomic
                                             prefix:
-                                              description: An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.
+                                              description: Optional text to prepend to the name of each environment variable. Must be a C_IDENTIFIER.
                                               type: string
                                             secretRef:
                                               description: The Secret to select from
@@ -4719,6 +4727,12 @@ spec:
                                                   - port
                                                 type: object
                                             type: object
+                                          stopSignal:
+                                            description: |-
+                                              StopSignal defines which signal will be sent to a container when it is being stopped.
+                                              If not specified, the default is defined by the container runtime in use.
+                                              StopSignal can only be set for Pods with a non-empty .spec.os.name
+                                            type: string
                                         type: object
                                       livenessProbe:
                                         description: |-
@@ -6277,7 +6291,6 @@ spec:
                                           - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
                                           If this value is nil, the behavior is equivalent to the Honor policy.
-                                          This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                                         type: string
                                       nodeTaintsPolicy:
                                         description: |-
@@ -6288,7 +6301,6 @@ spec:
                                           - Ignore: node taints are ignored. All nodes are included.
 
                                           If this value is nil, the behavior is equivalent to the Ignore policy.
-                                          This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                                         type: string
                                       topologyKey:
                                         description: |-
@@ -8398,7 +8410,7 @@ spec:
                                 envFrom:
                                   description: Optional list of sources to populate environment variables in the autoscaler container.
                                   items:
-                                    description: EnvFromSource represents the source of a set of ConfigMaps
+                                    description: EnvFromSource represents the source of a set of ConfigMaps or Secrets
                                     properties:
                                       configMapRef:
                                         description: The ConfigMap to select from
@@ -8418,7 +8430,7 @@ spec:
                                         type: object
                                         x-kubernetes-map-type: atomic
                                       prefix:
-                                        description: An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.
+                                        description: Optional text to prepend to the name of each environment variable. Must be a C_IDENTIFIER.
                                         type: string
                                       secretRef:
                                         description: The Secret to select from
@@ -8446,10 +8458,10 @@ spec:
                                   format: int32
                                   type: integer
                                 image:
-                                  description: Image optionally overrides the autoscaler's container image. This override is for provided for autoscaler testing and development.
+                                  description: Image optionally overrides the autoscaler's container image. This override is provided for autoscaler testing and development.
                                   type: string
                                 imagePullPolicy:
-                                  description: ImagePullPolicy optionally overrides the autoscaler container's image pull policy. This override is for provided for autoscaler testing and development.
+                                  description: ImagePullPolicy optionally overrides the autoscaler container's image pull policy. This override is provided for autoscaler testing and development.
                                   type: string
                                 resources:
                                   description: |-
@@ -8711,6 +8723,17 @@ spec:
                                     - Default
                                     - Aggressive
                                     - Conservative
+                                  type: string
+                                version:
+                                  description: |-
+                                    Version is the version of the Ray autoscaler.
+                                    Setting this to v1 will explicitly use autoscaler v1.
+                                    Setting this to v2 will explicitly use autoscaler v2.
+                                    If this isn't set, the Ray version determines the autoscaler version.
+                                    In Ray 2.47.0 and later, the default autoscaler version is v2. It's v1 before that.
+                                  enum:
+                                    - v1
+                                    - v2
                                   type: string
                                 volumeMounts:
                                   description: Optional list of volumeMounts.  This is needed for enabling TLS for the autoscaler container.
@@ -9259,13 +9282,12 @@ spec:
                                           type: object
                                         trafficDistribution:
                                           description: |-
-                                            TrafficDistribution offers a way to express preferences for how traffic is
-                                            distributed to Service endpoints. Implementations can use this field as a
-                                            hint, but are not required to guarantee strict adherence. If the field is
-                                            not set, the implementation will apply its default routing strategy. If set
-                                            to "PreferClose", implementations should prioritize endpoints that are
-                                            topologically close (e.g., same zone).
-                                            This is a beta field and requires enabling ServiceTrafficDistribution feature.
+                                            TrafficDistribution offers a way to express preferences for how traffic
+                                            is distributed to Service endpoints. Implementations can use this field
+                                            as a hint, but are not required to guarantee strict adherence. If the
+                                            field is not set, the implementation will apply its default routing
+                                            strategy. If set to "PreferClose", implementations should prioritize
+                                            endpoints that are in the same zone.
                                           type: string
                                         type:
                                           description: |-
@@ -9427,7 +9449,7 @@ spec:
                                   description: ServiceType is Kubernetes service type of the head service. it will be used by the workers to connect to the head pod
                                   type: string
                                 template:
-                                  description: Template is the exact pod template used in K8s depoyments, statefulsets, etc.
+                                  description: Template is the exact pod template used in K8s deployments, statefulsets, etc.
                                   properties:
                                     metadata:
                                       description: |-
@@ -10471,7 +10493,7 @@ spec:
                                                   Values defined by an Env with a duplicate key will take precedence.
                                                   Cannot be updated.
                                                 items:
-                                                  description: EnvFromSource represents the source of a set of ConfigMaps
+                                                  description: EnvFromSource represents the source of a set of ConfigMaps or Secrets
                                                   properties:
                                                     configMapRef:
                                                       description: The ConfigMap to select from
@@ -10491,7 +10513,7 @@ spec:
                                                       type: object
                                                       x-kubernetes-map-type: atomic
                                                     prefix:
-                                                      description: An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.
+                                                      description: Optional text to prepend to the name of each environment variable. Must be a C_IDENTIFIER.
                                                       type: string
                                                     secretRef:
                                                       description: The Secret to select from
@@ -10738,6 +10760,12 @@ spec:
                                                           - port
                                                         type: object
                                                     type: object
+                                                  stopSignal:
+                                                    description: |-
+                                                      StopSignal defines which signal will be sent to a container when it is being stopped.
+                                                      If not specified, the default is defined by the container runtime in use.
+                                                      StopSignal can only be set for Pods with a non-empty .spec.os.name
+                                                    type: string
                                                 type: object
                                               livenessProbe:
                                                 description: |-
@@ -11876,7 +11904,7 @@ spec:
                                                   Values defined by an Env with a duplicate key will take precedence.
                                                   Cannot be updated.
                                                 items:
-                                                  description: EnvFromSource represents the source of a set of ConfigMaps
+                                                  description: EnvFromSource represents the source of a set of ConfigMaps or Secrets
                                                   properties:
                                                     configMapRef:
                                                       description: The ConfigMap to select from
@@ -11896,7 +11924,7 @@ spec:
                                                       type: object
                                                       x-kubernetes-map-type: atomic
                                                     prefix:
-                                                      description: An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.
+                                                      description: Optional text to prepend to the name of each environment variable. Must be a C_IDENTIFIER.
                                                       type: string
                                                     secretRef:
                                                       description: The Secret to select from
@@ -12139,6 +12167,12 @@ spec:
                                                           - port
                                                         type: object
                                                     type: object
+                                                  stopSignal:
+                                                    description: |-
+                                                      StopSignal defines which signal will be sent to a container when it is being stopped.
+                                                      If not specified, the default is defined by the container runtime in use.
+                                                      StopSignal can only be set for Pods with a non-empty .spec.os.name
+                                                    type: string
                                                 type: object
                                               livenessProbe:
                                                 description: Probes are not allowed for ephemeral containers.
@@ -13274,7 +13308,7 @@ spec:
                                                   Values defined by an Env with a duplicate key will take precedence.
                                                   Cannot be updated.
                                                 items:
-                                                  description: EnvFromSource represents the source of a set of ConfigMaps
+                                                  description: EnvFromSource represents the source of a set of ConfigMaps or Secrets
                                                   properties:
                                                     configMapRef:
                                                       description: The ConfigMap to select from
@@ -13294,7 +13328,7 @@ spec:
                                                       type: object
                                                       x-kubernetes-map-type: atomic
                                                     prefix:
-                                                      description: An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.
+                                                      description: Optional text to prepend to the name of each environment variable. Must be a C_IDENTIFIER.
                                                       type: string
                                                     secretRef:
                                                       description: The Secret to select from
@@ -13541,6 +13575,12 @@ spec:
                                                           - port
                                                         type: object
                                                     type: object
+                                                  stopSignal:
+                                                    description: |-
+                                                      StopSignal defines which signal will be sent to a container when it is being stopped.
+                                                      If not specified, the default is defined by the container runtime in use.
+                                                      StopSignal can only be set for Pods with a non-empty .spec.os.name
+                                                    type: string
                                                 type: object
                                               livenessProbe:
                                                 description: |-
@@ -15099,7 +15139,6 @@ spec:
                                                   - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
                                                   If this value is nil, the behavior is equivalent to the Honor policy.
-                                                  This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                                                 type: string
                                               nodeTaintsPolicy:
                                                 description: |-
@@ -15110,7 +15149,6 @@ spec:
                                                   - Ignore: node taints are ignored. All nodes are included.
 
                                                   If this value is nil, the behavior is equivalent to the Ignore policy.
-                                                  This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                                                 type: string
                                               topologyKey:
                                                 description: |-
@@ -16796,7 +16834,6 @@ spec:
                                       type: object
                                   type: object
                               required:
-                                - rayStartParams
                                 - template
                               type: object
                             headServiceAnnotations:
@@ -17924,7 +17961,7 @@ spec:
                                                     Values defined by an Env with a duplicate key will take precedence.
                                                     Cannot be updated.
                                                   items:
-                                                    description: EnvFromSource represents the source of a set of ConfigMaps
+                                                    description: EnvFromSource represents the source of a set of ConfigMaps or Secrets
                                                     properties:
                                                       configMapRef:
                                                         description: The ConfigMap to select from
@@ -17944,7 +17981,7 @@ spec:
                                                         type: object
                                                         x-kubernetes-map-type: atomic
                                                       prefix:
-                                                        description: An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.
+                                                        description: Optional text to prepend to the name of each environment variable. Must be a C_IDENTIFIER.
                                                         type: string
                                                       secretRef:
                                                         description: The Secret to select from
@@ -18191,6 +18228,12 @@ spec:
                                                             - port
                                                           type: object
                                                       type: object
+                                                    stopSignal:
+                                                      description: |-
+                                                        StopSignal defines which signal will be sent to a container when it is being stopped.
+                                                        If not specified, the default is defined by the container runtime in use.
+                                                        StopSignal can only be set for Pods with a non-empty .spec.os.name
+                                                      type: string
                                                   type: object
                                                 livenessProbe:
                                                   description: |-
@@ -19329,7 +19372,7 @@ spec:
                                                     Values defined by an Env with a duplicate key will take precedence.
                                                     Cannot be updated.
                                                   items:
-                                                    description: EnvFromSource represents the source of a set of ConfigMaps
+                                                    description: EnvFromSource represents the source of a set of ConfigMaps or Secrets
                                                     properties:
                                                       configMapRef:
                                                         description: The ConfigMap to select from
@@ -19349,7 +19392,7 @@ spec:
                                                         type: object
                                                         x-kubernetes-map-type: atomic
                                                       prefix:
-                                                        description: An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.
+                                                        description: Optional text to prepend to the name of each environment variable. Must be a C_IDENTIFIER.
                                                         type: string
                                                       secretRef:
                                                         description: The Secret to select from
@@ -19592,6 +19635,12 @@ spec:
                                                             - port
                                                           type: object
                                                       type: object
+                                                    stopSignal:
+                                                      description: |-
+                                                        StopSignal defines which signal will be sent to a container when it is being stopped.
+                                                        If not specified, the default is defined by the container runtime in use.
+                                                        StopSignal can only be set for Pods with a non-empty .spec.os.name
+                                                      type: string
                                                   type: object
                                                 livenessProbe:
                                                   description: Probes are not allowed for ephemeral containers.
@@ -20727,7 +20776,7 @@ spec:
                                                     Values defined by an Env with a duplicate key will take precedence.
                                                     Cannot be updated.
                                                   items:
-                                                    description: EnvFromSource represents the source of a set of ConfigMaps
+                                                    description: EnvFromSource represents the source of a set of ConfigMaps or Secrets
                                                     properties:
                                                       configMapRef:
                                                         description: The ConfigMap to select from
@@ -20747,7 +20796,7 @@ spec:
                                                         type: object
                                                         x-kubernetes-map-type: atomic
                                                       prefix:
-                                                        description: An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.
+                                                        description: Optional text to prepend to the name of each environment variable. Must be a C_IDENTIFIER.
                                                         type: string
                                                       secretRef:
                                                         description: The Secret to select from
@@ -20994,6 +21043,12 @@ spec:
                                                             - port
                                                           type: object
                                                       type: object
+                                                    stopSignal:
+                                                      description: |-
+                                                        StopSignal defines which signal will be sent to a container when it is being stopped.
+                                                        If not specified, the default is defined by the container runtime in use.
+                                                        StopSignal can only be set for Pods with a non-empty .spec.os.name
+                                                      type: string
                                                   type: object
                                                 livenessProbe:
                                                   description: |-
@@ -22552,7 +22607,6 @@ spec:
                                                     - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
                                                     If this value is nil, the behavior is equivalent to the Honor policy.
-                                                    This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                                                   type: string
                                                 nodeTaintsPolicy:
                                                   description: |-
@@ -22563,7 +22617,6 @@ spec:
                                                     - Ignore: node taints are ignored. All nodes are included.
 
                                                     If this value is nil, the behavior is equivalent to the Ignore policy.
-                                                    This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                                                   type: string
                                                 topologyKey:
                                                   description: |-
@@ -24252,7 +24305,6 @@ spec:
                                   - groupName
                                   - maxReplicas
                                   - minReplicas
-                                  - rayStartParams
                                   - template
                                 type: object
                               type: array
@@ -25328,7 +25380,7 @@ spec:
                                           Values defined by an Env with a duplicate key will take precedence.
                                           Cannot be updated.
                                         items:
-                                          description: EnvFromSource represents the source of a set of ConfigMaps
+                                          description: EnvFromSource represents the source of a set of ConfigMaps or Secrets
                                           properties:
                                             configMapRef:
                                               description: The ConfigMap to select from
@@ -25348,7 +25400,7 @@ spec:
                                               type: object
                                               x-kubernetes-map-type: atomic
                                             prefix:
-                                              description: An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.
+                                              description: Optional text to prepend to the name of each environment variable. Must be a C_IDENTIFIER.
                                               type: string
                                             secretRef:
                                               description: The Secret to select from
@@ -25595,6 +25647,12 @@ spec:
                                                   - port
                                                 type: object
                                             type: object
+                                          stopSignal:
+                                            description: |-
+                                              StopSignal defines which signal will be sent to a container when it is being stopped.
+                                              If not specified, the default is defined by the container runtime in use.
+                                              StopSignal can only be set for Pods with a non-empty .spec.os.name
+                                            type: string
                                         type: object
                                       livenessProbe:
                                         description: |-
@@ -26733,7 +26791,7 @@ spec:
                                           Values defined by an Env with a duplicate key will take precedence.
                                           Cannot be updated.
                                         items:
-                                          description: EnvFromSource represents the source of a set of ConfigMaps
+                                          description: EnvFromSource represents the source of a set of ConfigMaps or Secrets
                                           properties:
                                             configMapRef:
                                               description: The ConfigMap to select from
@@ -26753,7 +26811,7 @@ spec:
                                               type: object
                                               x-kubernetes-map-type: atomic
                                             prefix:
-                                              description: An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.
+                                              description: Optional text to prepend to the name of each environment variable. Must be a C_IDENTIFIER.
                                               type: string
                                             secretRef:
                                               description: The Secret to select from
@@ -26996,6 +27054,12 @@ spec:
                                                   - port
                                                 type: object
                                             type: object
+                                          stopSignal:
+                                            description: |-
+                                              StopSignal defines which signal will be sent to a container when it is being stopped.
+                                              If not specified, the default is defined by the container runtime in use.
+                                              StopSignal can only be set for Pods with a non-empty .spec.os.name
+                                            type: string
                                         type: object
                                       livenessProbe:
                                         description: Probes are not allowed for ephemeral containers.
@@ -28131,7 +28195,7 @@ spec:
                                           Values defined by an Env with a duplicate key will take precedence.
                                           Cannot be updated.
                                         items:
-                                          description: EnvFromSource represents the source of a set of ConfigMaps
+                                          description: EnvFromSource represents the source of a set of ConfigMaps or Secrets
                                           properties:
                                             configMapRef:
                                               description: The ConfigMap to select from
@@ -28151,7 +28215,7 @@ spec:
                                               type: object
                                               x-kubernetes-map-type: atomic
                                             prefix:
-                                              description: An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.
+                                              description: Optional text to prepend to the name of each environment variable. Must be a C_IDENTIFIER.
                                               type: string
                                             secretRef:
                                               description: The Secret to select from
@@ -28398,6 +28462,12 @@ spec:
                                                   - port
                                                 type: object
                                             type: object
+                                          stopSignal:
+                                            description: |-
+                                              StopSignal defines which signal will be sent to a container when it is being stopped.
+                                              If not specified, the default is defined by the container runtime in use.
+                                              StopSignal can only be set for Pods with a non-empty .spec.os.name
+                                            type: string
                                         type: object
                                       livenessProbe:
                                         description: |-
@@ -29956,7 +30026,6 @@ spec:
                                           - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
                                           If this value is nil, the behavior is equivalent to the Honor policy.
-                                          This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                                         type: string
                                       nodeTaintsPolicy:
                                         description: |-
@@ -29967,7 +30036,6 @@ spec:
                                           - Ignore: node taints are ignored. All nodes are included.
 
                                           If this value is nil, the behavior is equivalent to the Ignore policy.
-                                          This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                                         type: string
                                       topologyKey:
                                         description: |-
@@ -31689,9 +31757,6 @@ spec:
                           description: JobDeploymentStatus indicates RayJob status including RayCluster lifecycle management and Job submission
                           type: string
                         jobId:
-                          description: |-
-                            INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-                            Important: Run "make" to regenerate code after modifying this file
                           type: string
                         jobStatus:
                           description: JobStatus is the Ray Job Status.
@@ -31710,7 +31775,9 @@ spec:
                           description: RayClusterStatus is the status of the RayCluster running the job.
                           properties:
                             availableWorkerReplicas:
-                              description: AvailableWorkerReplicas indicates how many replicas are available in the cluster
+                              description: |-
+                                AvailableWorkerReplicas indicates how many worker pods are currently available (i.e., running).
+                                It is named "replicas" to maintain backward compatibility.
                               format: int32
                               type: integer
                             conditions:
@@ -31801,7 +31868,10 @@ spec:
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             desiredWorkerReplicas:
-                              description: DesiredWorkerReplicas indicates overall desired replicas claimed by the user at the cluster level.
+                              description: |-
+                                DesiredWorkerReplicas indicates the desired total number of worker Pods at the cluster level,
+                                calculated as the sum of `replicas * numOfHosts` for each worker group.
+                                It is named "replicas" to maintain backward compatibility.
                               format: int32
                               type: integer
                             endpoints:
@@ -31827,11 +31897,17 @@ spec:
                               nullable: true
                               type: string
                             maxWorkerReplicas:
-                              description: MaxWorkerReplicas indicates sum of maximum replicas of each node group.
+                              description: |-
+                                MaxWorkerReplicas indicates the maximum number of worker pods across all worker groups,
+                                calculated as the sum of `maxReplicas * numOfHosts` for each worker group.
+                                It is named "replicas" to maintain backward compatibility.
                               format: int32
                               type: integer
                             minWorkerReplicas:
-                              description: MinWorkerReplicas indicates sum of minimum replicas of each node group.
+                              description: |-
+                                MinWorkerReplicas indicates the minimum number of worker pods across all worker groups,
+                                calculated as the sum of `minReplicas * numOfHosts` for each worker group.
+                                It is named "replicas" to maintain backward compatibility.
                               format: int32
                               type: integer
                             observedGeneration:
@@ -31841,7 +31917,9 @@ spec:
                               format: int64
                               type: integer
                             readyWorkerReplicas:
-                              description: ReadyWorkerReplicas indicates how many worker replicas are ready in the cluster
+                              description: |-
+                                ReadyWorkerReplicas indicates the number of worker pods currently in the Ready state in the cluster.
+                                It actually reflects the number of Ready pods, although it is named "replicas" to maintain backward compatibility.
                               format: int32
                               type: integer
                             reason:
@@ -31861,6 +31939,19 @@ spec:
                                 type: string
                               description: StateTransitionTimes indicates the time of the last state transition for each state.
                               type: object
+                          type: object
+                        rayJobInfo:
+                          description: |-
+                            INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+                            Important: Run "make" to regenerate code after modifying this file
+                            RayJobStatusInfo contains information about the Ray job retrieved from the Ray dashboard.
+                          properties:
+                            endTime:
+                              format: date-time
+                              type: string
+                            startTime:
+                              format: date-time
+                              type: string
                           type: object
                         reason:
                           description: JobFailedReason indicates the reason the RayJob changes its JobDeploymentStatus to 'Failed'
