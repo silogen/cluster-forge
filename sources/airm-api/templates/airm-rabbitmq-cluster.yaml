@@ -16,7 +16,7 @@ spec:
     {{- toYaml .Values.airm.rabbitmqBackup.resources | nindent 4 }}
   secretBackend:
     externalSecret:
-      name: '{{ .Release.Name }}-airm-rabbitmq-admin'
+      name: '{{ .Release.Name }}-rabbitmq-admin'
   tls:
     secretName: '{{ .Release.Name }}-tls-secret'
 ---
@@ -41,24 +41,24 @@ spec:
                   valueFrom:
                     secretKeyRef:
                       key: username
-                      name: '{{ .Release.Name }}-airm-rabbitmq-admin'
+                      name: '{{ .Release.Name }}-rabbitmq-admin'
                 - name: RABBITMQ_PASSWORD
                   valueFrom:
                     secretKeyRef:
                       key: password
-                      name: '{{ .Release.Name }}-airm-rabbitmq-admin'
+                      name: '{{ .Release.Name }}-rabbitmq-admin'
                 - name: S3_HOST
-                  value: https://storage.googleapis.com
+                  value: "{{ .Values.airm.backend.env.minio_url }}"
                 - name: S3_ACCESS_KEY
                   valueFrom:
                     secretKeyRef:
-                      key: access_key
-                      name: '{{ .Release.Name }}-rabbitmq-backup-minio-credentials'
+                      key: minio-access-key
+                      name: '{{ .Release.Name }}-api-minio-credentials'
                 - name: S3_SECRET_KEY
                   valueFrom:
                     secretKeyRef:
-                      key: secret_key
-                      name: '{{ .Release.Name }}-rabbitmq-backup-minio-credentials'
+                      key: minio-secret-key
+                      name: '{{ .Release.Name }}-api-minio-credentials'
               image: '{{ .Values.airm.rabbitmqBackup.image }}'
               name: rabbitmq-backup-cron
               resources:

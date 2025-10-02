@@ -7,8 +7,8 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: "{{ .Release.Name }}-airm-api"
-  name: "{{ .Release.Name }}-airm-api"
+    app: "{{ .Release.Name }}-api"
+  name: "{{ .Release.Name }}-api"
   namespace: "{{ .Release.Namespace }}"
 spec:
   ports:
@@ -19,23 +19,23 @@ spec:
       port: {{ .Values.airm.backend.servicePortMetrics }}
       targetPort: 9009
   selector:
-    app: "{{ .Release.Name }}-airm-api"
+    app: "{{ .Release.Name }}-api"
   type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: "{{ .Release.Name }}-airm-api"
+  name: "{{ .Release.Name }}-api"
   namespace: "{{ .Release.Namespace }}"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: "{{ .Release.Name }}-airm-api"
+      app: "{{ .Release.Name }}-api"
   template:
     metadata:
       labels:
-        app: "{{ .Release.Name }}-airm-api"
+        app: "{{ .Release.Name }}-api"
         auth-required: "true"
     spec:
       containers:
@@ -47,19 +47,19 @@ spec:
             - name: POST_REGISTRATION_REDIRECT_URL
               value: "https://{{ .Values.kgateway.airmui.prefixValue }}.{{ .Values.airm.appDomain }}/"
             - name: DATABASE_HOST
-              value: "{{ .Release.Name }}-airm-cnpg-rw.{{ .Release.Namespace }}.svc.cluster.local"
+              value: "{{ .Release.Name }}-cnpg-rw.{{ .Release.Namespace }}.svc.cluster.local"
             - name: DATABASE_PORT
               value: "{{ .Values.airm.backend.env.dbPort }}"
             - name: DATABASE_USER
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: "{{ .Release.Name }}-airm-cnpg-user"
+                  name: "{{ .Release.Name }}-cnpg-user"
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: "{{ .Release.Name }}-airm-cnpg-user"
+                  name: "{{ .Release.Name }}-cnpg-user"
             - name: RABBITMQ_HOST
               value: "{{ .Release.Name }}-rabbitmq.{{ .Release.Namespace }}.svc.cluster.local"
             - name: RABBITMQ_PORT
@@ -70,12 +70,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: "{{ .Release.Name }}-airm-rabbitmq-admin"
+                  name: "{{ .Release.Name }}-rabbitmq-admin"
             - name: RABBITMQ_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: "{{ .Release.Name }}-airm-rabbitmq-admin"
+                  name: "{{ .Release.Name }}-rabbitmq-admin"
             - name: KEYCLOAK_ADMIN_SERVER_URL
               value: "http://{{ .Values.keycloak.serviceName }}.{{ .Values.keycloak.namespace }}.svc.cluster.local:{{ .Values.keycloak.servicePort }}"
             - name: KEYCLOAK_REALM
@@ -84,12 +84,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: client-id
-                  name: "{{ .Release.Name }}-airm-keycloak-admin-client"
+                  name: "{{ .Release.Name }}-keycloak-admin-client"
             - name: KEYCLOAK_ADMIN_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
                   key: client-secret
-                  name: "{{ .Release.Name }}-airm-keycloak-admin-client"
+                  name: "{{ .Release.Name }}-keycloak-admin-client"
             - name: MINIO_URL
               value: "{{ .Values.airm.backend.env.minio_url }}"
             - name: MINIO_BUCKET
@@ -135,6 +135,17 @@ spec:
           securityContext:
             {{- toYaml .Values.airm.backend.securityContext | nindent 12 }}
       initContainers:
+        - name: wait-for-db
+          image: postgres:17-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h "{{ .Release.Name }}-cnpg-rw.{{ .Release.Namespace }}.svc.cluster.local" -p 5432 -U postgres; do
+                echo "Waiting for database..."
+                sleep 2
+              done
+              echo "Database is ready!"
         - name: init-migration-scripts
           command:
             - sh
@@ -157,7 +168,7 @@ spec:
         - name: liquibase-migrate
           command:
             - liquibase
-            - --url=jdbc:postgresql://{{ .Release.Name }}-airm-cnpg-rw.{{ .Release.Namespace }}.svc.cluster.local:5432/airm
+            - --url=jdbc:postgresql://{{ .Release.Name }}-cnpg-rw.{{ .Release.Namespace }}.svc.cluster.local:5432/airm
             - --username=$(DATABASE_USER)
             - --password=$(DATABASE_PASSWORD)
             - --logLevel=INFO
@@ -168,12 +179,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: "{{ .Release.Name }}-airm-cnpg-user"
+                  name: "{{ .Release.Name }}-cnpg-user"
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: "{{ .Release.Name }}-airm-cnpg-user"
+                  name: "{{ .Release.Name }}-cnpg-user"
           image: "{{ .Values.airm.backend.initContainers.liquibaseMigrate.repository }}:{{ .Values.airm.backend.initContainers.liquibaseMigrate.tag }}"
           imagePullPolicy: "{{ .Values.airm.backend.initContainers.liquibaseMigrate.pullPolicy }}"
           volumeMounts:
@@ -186,35 +197,19 @@ spec:
           command: ["uv", "run", "-m", "app.charts.registration"]
           env:
             - name: DATABASE_HOST
-              value: "{{ .Release.Name }}-airm-cnpg-rw.{{ .Release.Namespace }}.svc.cluster.local"
+              value: "{{ .Release.Name }}-cnpg-rw.{{ .Release.Namespace }}.svc.cluster.local"
             - name: DATABASE_PORT
               value: "{{ .Values.airm.backend.env.dbPort }}"
             - name: DATABASE_USER
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Release.Name }}-airm-cnpg-user"
+                  name: "{{ .Release.Name }}-cnpg-user"
                   key: username
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Release.Name }}-airm-cnpg-user"
+                  name: "{{ .Release.Name }}-cnpg-user"
                   key: password
-            - name: RABBITMQ_HOST
-              value: "{{ .Release.Name }}-rabbitmq.{{ .Release.Namespace }}.svc.cluster.local"
-            - name: RABBITMQ_PORT
-              value: "{{ .Values.airm.backend.env.rabbitmqPort }}"
-            - name: RABBITMQ_MANAGEMENT_URL
-              value: http://{{ .Release.Name }}-rabbitmq.{{ .Release.Namespace }}.svc.cluster.local:15672/api
-            - name: RABBITMQ_ADMIN_USER
-              valueFrom:
-                secretKeyRef:
-                  key: username
-                  name: "{{ .Release.Name }}-airm-rabbitmq-admin"
-            - name: RABBITMQ_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: password
-                  name: "{{ .Release.Name }}-airm-rabbitmq-admin"
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true

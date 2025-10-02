@@ -1,0 +1,159 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: "{{ .Release.Name }}-configure-sa"
+  namespace: "{{ .Release.Namespace }}"
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: "{{ .Release.Name }}-configure-role"
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: "{{ .Release.Name }}-configure-binding"
+subjects:
+  - kind: ServiceAccount
+    name: "{{ .Release.Name }}-configure-sa"
+    namespace: "{{ .Release.Namespace }}"
+roleRef:
+  kind: ClusterRole
+  name: "{{ .Release.Name }}-configure-role"
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}-configure"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: "{{ .Release.Name }}-configure"
+    spec:
+      restartPolicy: Never
+      serviceAccountName: "{{ .Release.Name }}-configure-sa"
+      initContainers:
+        - name: wait-for-dependencies
+          image: ubuntu:22.04
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              apt-get update -y 1> /dev/null 2>&1
+              apt-get install curl -y 1> /dev/null 2>&1
+              echo "Checking dependencies..."
+
+              # Wait for Keycloak
+              echo "Checking keycloak..."
+              while true; do
+                if curl -s --max-time 5 http://{{ .Values.keycloak.serviceName }}.{{ .Values.keycloak.namespace }}.svc.cluster.local:{{ .Values.keycloak.servicePort }}/realms/airm/.well-known/openid-configuration > /dev/null 2>&1; then
+                  echo "Keycloak is ready!"
+                  break
+                else
+                  echo "Waiting for Keycloak..."
+                  sleep 10
+                fi
+              done
+
+              # Wait for AIRM API
+              echo "Checking airm-api..."
+              while true; do
+                if curl -s --max-time 5 http://{{ .Release.Name }}-api.{{ .Release.Namespace }}.svc.cluster.local/v1/health > /dev/null 2>&1; then
+                  echo "AIRM API is ready!"
+                  break
+                else
+                  echo "Waiting for AIRM API..."
+                  sleep 10
+                fi
+              done
+
+              # Wait for RabbitMQ (needed for secret creation)
+              echo "Checking rabbitmq..."
+              while true; do
+                if curl -s --max-time 5 http://{{ .Release.Name }}-rabbitmq.{{ .Release.Namespace }}.svc.cluster.local:15672/api/overview > /dev/null 2>&1; then
+                  echo "RabbitMQ is ready!"
+                  break
+                else
+                  echo "Waiting for RabbitMQ..."
+                  sleep 10
+                fi
+              done
+
+              echo "All dependencies are ready!"
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: false
+            runAsUser: 0
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - SETUID
+                - SETGID
+                - CHOWN
+                - DAC_OVERRIDE
+                - FOWNER
+                - FSETID
+            seccompProfile:
+              type: RuntimeDefault
+      containers:
+        - name: configure
+          image: "{{ .Values.airm.configure.image.repository }}:{{ .Values.airm.configure.image.tag }}"
+          imagePullPolicy: {{ .Values.airm.configure.image.pullPolicy }}
+          env:
+            - name: DEBIAN_FRONTEND
+              value: "noninteractive"
+            - name: ORG_NAME
+              value: "demo"
+            - name: NEW_DOMAIN_NAME
+              value: "{{ .Values.airm.appDomain }}"
+            - name: KEYCLOAK_CLIENT_ID
+              value: "{{ .Values.keycloak.keycloakClientId }}"
+            - name: KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: KEYCLOAK_SECRET
+                  name: "{{ .Release.Name }}-keycloak-ui-creds"
+            - name: USER_EMAIL
+              value: "devuser@{{ .Values.airm.appDomain }}"
+            - name: KEYCLOAK_URL
+              value: "http://{{ .Values.keycloak.serviceName }}.{{ .Values.keycloak.namespace }}.svc.cluster.local:{{ .Values.keycloak.servicePort }}"
+            - name: AIRM_API_URL
+              value: "http://{{ .Release.Name }}-api.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: CLUSTER_BASE_URL
+              value: "https://{{ .Values.airm.workloads.prefixUrl }}.{{ .Values.airm.appDomain }}/"
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: false
+            runAsUser: 0
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - SETUID
+                - SETGID
+                - CHOWN
+                - DAC_OVERRIDE
+                - FOWNER
+                - FSETID
+            seccompProfile:
+              type: RuntimeDefault

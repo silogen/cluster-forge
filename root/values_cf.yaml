@@ -253,8 +253,8 @@ apps:
     syncWave: -25
 
   # Airm stuff
-  - name: airm
-    path: airm
+  - name: airm-api
+    path: airm-api
     namespace: airm
     valuesFile: values.yaml
     helmParameters:
@@ -268,3 +268,9 @@ apps:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
+
+  - name: airm-dispatcher
+    path: airm-dispatcher
+    namespace: airm
+    valuesFile: values.yaml
+    syncWave: -20

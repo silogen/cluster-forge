@@ -4,8 +4,8 @@
 
 ---
 apiVersion: v2
-name: airm-chart
-description: A Helm chart for AIRM framework
+name: airm-dispatcher
+description: A Helm chart for AIRM Dispatcher
 
 # A chart can be either an 'application' or a 'library' chart.
 #

@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-# This is a YAML-formatted file
 secretgenerator:
   image:
     repository: ghcr.io/silogen/cluster-tool
@@ -14,10 +13,10 @@ kgateway:
   gatewayName: https
   airmapi:
     servicePort: 80
-    prefixValue: airmapi #airmapi-demo
+    prefixValue: airmapi
   airmui:
     servicePort: 80
-    prefixValue: airmui #airmui-demo
+    prefixValue: airmui
   keycloak:
     servicePort: 80
     prefixValue: kc
@@ -34,11 +33,11 @@ airm:
 
   externalSecretStore:
     airm:
-      name: airm-secret-store
+      name: openbao-secret-store
     minio:
-      name: k8s-secret-store
+      name: openbao-secret-store
     keycloak:
-      name: keycloak-secret-store
+      name: openbao-secret-store
 
   postgresql:
     enabled: true
@@ -80,29 +79,11 @@ airm:
           cpu: 250m
           memory: 256Mi
 
-  dispatcher:
-    core:
-      image:
-        repository: ghcr.io/silogen/airm-dispatcher
-        tag: v2025.08-rc.21
-        pullPolicy: IfNotPresent
-      servicePort: 80
-    heartbeat:
-      image:
-        repository: ghcr.io/silogen/airm-dispatcher
-        tag: v2025.08-rc.21
-        pullPolicy: IfNotPresent
-    nodes:
-      image:
-        repository: ghcr.io/silogen/airm-dispatcher
-        tag: v2025.08-rc.21
-        pullPolicy: IfNotPresent
-
   frontend:
     prefixUrl: airmui
     image:
       repository: ghcr.io/silogen/airm-ui
-      tag: v2025.08-rc.21
+      tag: v2025.09-rc.6
       pullPolicy: IfNotPresent
     servicePort: 80
     replicase: 1
@@ -113,23 +94,25 @@ airm:
         cpu: 500m
         memory: 4Gi
 
+  configure:
+    image:
+      repository: ghcr.io/silogen/airm-configure
+      tag: v2025.09-rc.6
+      pullPolicy: IfNotPresent
+
   workloads:
     prefixUrl: workspaces
-    image:
-      repository: ghcr.io/silogen/workloads-manager
-      tag: v2025.08-rc.8
-      pullPolicy: IfNotPresent
 
   backend:
     prefixUrl: airmapi
     image:
       repository: ghcr.io/silogen/airm-api
-      tag: v2025.08-rc.21
+      tag: v2025.09-rc.6
       pullPolicy: IfNotPresent
     initContainers:
       initMigrationScripts:
         repository: ghcr.io/silogen/airm-api
-        tag: v2025.08-rc.21
+        tag: v2025.09-rc.6
         pullPolicy: IfNotPresent
       liquibaseMigrate:
         repository: quay.io/lib/liquibase
@@ -137,7 +120,7 @@ airm:
         pullPolicy: IfNotPresent
       chartsRegistration:
         repository: ghcr.io/silogen/airm-api
-        tag: v2025.08-rc.21
+        tag: v2025.09-rc.6
         pullPolicy: IfNotPresent
 
     servicePort: 80
