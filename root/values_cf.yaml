@@ -267,12 +267,12 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
 
   # Airm stuff
-  - name: airm-api
-    path: airm-api
+  - name: airm
+    path: airm
     namespace: airm
     valuesFile: values.yaml
     helmParameters:
-      - name: airm.appDomain
+      - name: airm-api.airm.appDomain
         value: "{{ .Values.common.domain }}"
     syncWave: 0
     ignoreDifferences:
@@ -282,9 +282,3 @@ apps:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
-
-  - name: airm-dispatcher
-    path: airm-dispatcher
-    namespace: airm
-    valuesFile: values.yaml
-    syncWave: 0

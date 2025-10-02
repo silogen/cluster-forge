@@ -124,7 +124,7 @@ data:
     bao kv put secrets/airm-ui-keycloak-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/airm-ui-auth-nextauth-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/airm-legacy-auth-nextauth-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
-    bao kv put secrets/airm-keycloak-admin-client-id value="354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
+    bao kv put secrets/airm-keycloak-admin-client-id value="admin-client-id-value"
     bao kv put secrets/airm-keycloak-admin-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/airm-ci-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     

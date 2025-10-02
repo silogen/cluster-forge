@@ -33,14 +33,7 @@ initContainers:
   - command:
       - /bin/sh
       - -c
-      - |
-        if [ -f "/opt/realm_templates/k8s/k8s-realm.json" ]; then
-            cp /opt/realm_templates/k8s/k8s-realm.json /opt/realms/k8s-realm.json
-            sed -i -e "s/__K8S_GITEA_CLIENT_SECRET__/$K8S_GITEA_CLIENT_SECRET/g" /opt/realms/k8s-realm.json
-        else
-            echo "Warning: /opt/realm_templates/k8s/k8s-realm.json not found, skipping k8s realm setup"
-        fi
-        
+      - |       
         if [ -f "/opt/realm_templates/airm/airm-realm.json" ]; then
             cp /opt/realm_templates/airm/airm-realm.json /opt/realms/airm-realm.json
             sed -i -e "s/__AIRM_FRONTEND_CLIENT_SECRET__/$AIRM_FRONTEND_CLIENT_SECRET/g" /opt/realms/airm-realm.json
@@ -51,11 +44,6 @@ initContainers:
             echo "Warning: /opt/realm_templates/airm/airm-realm.json not found, skipping airm realm setup"
         fi
     env:
-#      - name: K8S_GITEA_CLIENT_SECRET
-#        valueFrom:
-#          secretKeyRef:
-#            key: GITEA_CLIENT_SECRET
-#            name: k8s-realm-credentials
       - name: AIRM_FRONTEND_CLIENT_SECRET
         valueFrom:
           secretKeyRef:
@@ -88,7 +76,7 @@ initContainers:
 
 extraVolumes:
   - configMap:
-      name: keycloak-scripts-5h96f8448g
+      name: keycloak-scripts
       items:
         - key: keycloak-scripts.json
           path: META-INF/keycloak-scripts.json

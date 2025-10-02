@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: keycloak-scripts-5h96f8448g
+  name: keycloak-scripts
   namespace: keycloak
 data:
   domain-group-authenticator.js: |

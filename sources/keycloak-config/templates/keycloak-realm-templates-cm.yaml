@@ -1,7 +1,8 @@
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: keycloak-realm-templates-7kgh2hc6b2
+  name: keycloak-realm-templates
   namespace: keycloak
 data:
   airm-realm.json: |
@@ -114,6 +115,7 @@ data:
           }
         ],
         "client": {
+          "admin-client-id-value": [],
           "354a0fa1-35ac-4a6d-9c4d-d661129c2cd0": [],
           "realm-management": [
             {
@@ -156,6 +158,14 @@ data:
               "id": "0f213eca-e78f-445d-a82e-6abf8d3574bb",
               "name": "manage-users",
               "description": "${role_manage-users}",
+              "composite": false,
+              "clientRole": true,
+              "containerId": "b640a3e3-0a9c-45a1-a737-cac9ce665c4f",
+              "attributes": {}
+            },
+            {
+              "id": "261ec1c3-1536-4f7f-bd45-f738f4699101",
+              "name": "uma_protection",
               "composite": false,
               "clientRole": true,
               "containerId": "b640a3e3-0a9c-45a1-a737-cac9ce665c4f",
@@ -330,6 +340,8 @@ data:
           "security-admin-console": [],
           "__AIRM_ADMIN_CLIENT_ID__": [],
           "admin-cli": [],
+          "k8s": [],
+          "minio": [],
           "account-console": [],
           "broker": [
             {
@@ -432,7 +444,21 @@ data:
           ]
         }
       },
-      "groups": [],
+      "groups": [
+        {
+          "id": "edbe36d4-aea0-4ff3-a8db-a3c9843e8a46",
+          "name": "minio-users",
+          "path": "/minio-users",
+          "subGroups": [],
+          "attributes": {
+            "policy": [
+              "readwrite"
+            ]
+          },
+          "realmRoles": [],
+          "clientRoles": {}
+        }
+      ],
       "defaultRole": {
         "id": "f527862a-af68-4191-986a-cbcb25f15c24",
         "name": "default-roles-airm",
@@ -509,10 +535,10 @@ data:
         },
         {
           "id": "487590ed-165c-44d5-b686-1aff81cca298",
-          "username": "devuser@"{{ .Values.domain }},
+          "username": "devuser@{{ .Values.domain }}",
           "firstName": "Dev Env",
           "lastName": "User",
-          "email": "devuser@"{{ .Values.domain }},
+          "email": "devuser@{{ .Values.domain }}",
           "emailVerified": true,
           "createdTimestamp": 1746628462894,
           "enabled": true,
@@ -533,6 +559,25 @@ data:
             "default-roles-airm",
             "Platform Administrator",
             "Super Administrator"
+          ],
+          "notBefore": 0,
+          "groups": [
+            "/minio-users"
+          ]
+        },
+        {
+          "id": "b2cbd302-17bf-4865-9591-96845376dc7b",
+          "username": "service-account-minio",
+          "emailVerified": false,
+          "createdTimestamp": 1756901765452,
+          "enabled": true,
+          "totp": false,
+          "serviceAccountClientId": "minio",
+          "credentials": [],
+          "disableableCredentialTypes": [],
+          "requiredActions": [],
+          "realmRoles": [
+            "default-roles-airm"
           ],
           "notBefore": 0,
           "groups": []
@@ -559,6 +604,87 @@ data:
       },
       "clients": [
         {
+          "id": "157574c2-61bc-4f7b-acd6-dfb1672c4871",
+          "clientId": "k8s",
+          "name": "",
+          "description": "used for kubeconfig tokens",
+          "rootUrl": "",
+          "adminUrl": "",
+          "baseUrl": "",
+          "surrogateAuthRequired": false,
+          "enabled": true,
+          "alwaysDisplayInConsole": false,
+          "clientAuthenticatorType": "client-secret",
+          "secret": "__K8S_CLIENT_SECRET__",
+          "redirectUris": [
+            "http://*",
+            "https://*"
+          ],
+          "webOrigins": [
+            "http://*",
+            "https://*"
+          ],
+          "notBefore": 0,
+          "bearerOnly": false,
+          "consentRequired": false,
+          "standardFlowEnabled": true,
+          "implicitFlowEnabled": false,
+          "directAccessGrantsEnabled": true,
+          "serviceAccountsEnabled": false,
+          "publicClient": false,
+          "frontchannelLogout": true,
+          "protocol": "openid-connect",
+          "attributes": {
+            "realm_client": "false",
+            "oidc.ciba.grant.enabled": "false",
+            "client.secret.creation.time": "1758657646",
+            "backchannel.logout.session.required": "true",
+            "post.logout.redirect.uris": "+",
+            "oauth2.device.authorization.grant.enabled": "false",
+            "backchannel.logout.revoke.offline.tokens": "false"
+          },
+          "authenticationFlowBindingOverrides": {},
+          "fullScopeAllowed": true,
+          "nodeReRegistrationTimeout": -1,
+          "protocolMappers": [
+            {
+              "id": "6ae1a58c-6f31-49ba-9271-cd00e1f86708",
+              "name": "airm-role-to-group",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usermodel-realm-role-mapper",
+              "consentRequired": false,
+              "config": {
+                "usermodel.realmRoleMapping.rolePrefix": "airm-role:",
+                "introspection.token.claim": "true",
+                "multivalued": "true",
+                "userinfo.token.claim": "true",
+                "id.token.claim": "true",
+                "lightweight.claim": "false",
+                "access.token.claim": "true",
+                "claim.name": "groups",
+                "jsonType.label": "String"
+              }
+            }
+          ],
+          "defaultClientScopes": [
+            "web-origins",
+            "acr",
+            "roles",
+            "profile",
+            "groups",
+            "basic",
+            "email",
+            "policy"
+          ],
+          "optionalClientScopes": [
+            "address",
+            "phone",
+            "organization",
+            "offline_access",
+            "microprofile-jwt"
+          ]
+        },
+        {
           "id": "9f46dcf2-2d4a-434e-bec6-718bdb300367",
           "clientId": "__AIRM_ADMIN_CLIENT_ID__",
           "name": "AIRM Admin API Client",
@@ -573,6 +699,7 @@ data:
           "secret": "__AIRM_ADMIN_CLIENT_SECRET__",
           "redirectUris": [
             "https://{{ .Values.domain }}/*",
+            "https://airmui.{{ .Values.domain }}/*",
             "https://*.{{ .Values.domain }}/*"
           ],
           "webOrigins": [
@@ -593,6 +720,7 @@ data:
             "oidc.ciba.grant.enabled": "false",
             "client.secret.creation.time": "1737315816",
             "backchannel.logout.session.required": "true",
+            "post.logout.redirect.uris": "+",
             "oauth2.device.authorization.grant.enabled": "false",
             "display.on.consent.screen": "false",
             "use.jwks.url": "false",
@@ -610,8 +738,9 @@ data:
               "consentRequired": false,
               "config": {
                 "user.session.note": "clientHost",
-                "id.token.claim": "true",
                 "introspection.token.claim": "true",
+                "userinfo.token.claim": "true",
+                "id.token.claim": "true",
                 "access.token.claim": "true",
                 "claim.name": "clientHost",
                 "jsonType.label": "String"
@@ -625,8 +754,9 @@ data:
               "consentRequired": false,
               "config": {
                 "user.session.note": "clientAddress",
-                "id.token.claim": "true",
                 "introspection.token.claim": "true",
+                "userinfo.token.claim": "true",
+                "id.token.claim": "true",
                 "access.token.claim": "true",
                 "claim.name": "clientAddress",
                 "jsonType.label": "String"
@@ -640,8 +770,9 @@ data:
               "consentRequired": false,
               "config": {
                 "user.session.note": "client_id",
-                "id.token.claim": "true",
                 "introspection.token.claim": "true",
+                "userinfo.token.claim": "true",
+                "id.token.claim": "true",
                 "access.token.claim": "true",
                 "claim.name": "client_id",
                 "jsonType.label": "String"
@@ -699,6 +830,7 @@ data:
             "oidc.ciba.grant.enabled": "false",
             "client.secret.creation.time": "1737564832",
             "backchannel.logout.session.required": "true",
+            "post.logout.redirect.uris": "+",
             "oauth2.device.authorization.grant.enabled": "false",
             "display.on.consent.screen": "false",
             "backchannel.logout.revoke.offline.tokens": "false"
@@ -706,27 +838,6 @@ data:
           "authenticationFlowBindingOverrides": {},
           "fullScopeAllowed": true,
           "nodeReRegistrationTimeout": -1,
-          "protocolMappers": [
-            {
-              "id": "c5b1f35a-11a3-4eb2-8abc-7c1a422edb3a",
-              "name": "organization",
-              "protocol": "openid-connect",
-              "protocolMapper": "oidc-organization-membership-mapper",
-              "consentRequired": false,
-              "config": {
-                "introspection.token.claim": "true",
-                "multivalued": "true",
-                "userinfo.token.claim": "true",
-                "addOrganizationAttributes": "true",
-                "id.token.claim": "true",
-                "lightweight.claim": "false",
-                "access.token.claim": "true",
-                "claim.name": "organization",
-                "jsonType.label": "JSON",
-                "addOrganizationId": "true"
-              }
-            }
-          ],
           "defaultClientScopes": [
             "web-origins",
             "acr",
@@ -871,7 +982,8 @@ data:
           "protocol": "openid-connect",
           "attributes": {
             "realm_client": "false",
-            "client.use.lightweight.access.token.enabled": "true"
+            "client.use.lightweight.access.token.enabled": "true",
+            "post.logout.redirect.uris": "+"
           },
           "authenticationFlowBindingOverrides": {},
           "fullScopeAllowed": true,
@@ -913,7 +1025,8 @@ data:
           "frontchannelLogout": false,
           "protocol": "openid-connect",
           "attributes": {
-            "realm_client": "true"
+            "realm_client": "true",
+            "post.logout.redirect.uris": "+"
           },
           "authenticationFlowBindingOverrides": {},
           "fullScopeAllowed": false,
@@ -925,6 +1038,114 @@ data:
             "profile",
             "basic",
             "email"
+          ],
+          "optionalClientScopes": [
+            "address",
+            "phone",
+            "organization",
+            "offline_access",
+            "microprofile-jwt"
+          ]
+        },
+        {
+          "id": "efb12ee0-a2dc-4c7a-a032-74ce4730c425",
+          "clientId": "minio",
+          "name": "",
+          "description": "",
+          "rootUrl": "",
+          "adminUrl": "",
+          "baseUrl": "",
+          "surrogateAuthRequired": false,
+          "enabled": true,
+          "alwaysDisplayInConsole": false,
+          "clientAuthenticatorType": "client-secret",
+          "secret": "__MINIO_KEYCLOAK_CLIENT_SECRET__",
+          "redirectUris": [
+            "",
+            "https://minio.{{ .Values.domain }}/*"
+          ],
+          "webOrigins": [
+            "*"
+          ],
+          "notBefore": 0,
+          "bearerOnly": false,
+          "consentRequired": false,
+          "standardFlowEnabled": true,
+          "implicitFlowEnabled": true,
+          "directAccessGrantsEnabled": true,
+          "serviceAccountsEnabled": true,
+          "publicClient": false,
+          "frontchannelLogout": true,
+          "protocol": "openid-connect",
+          "attributes": {
+            "realm_client": "false",
+            "oidc.ciba.grant.enabled": "false",
+            "client.secret.creation.time": "1756901765",
+            "backchannel.logout.session.required": "true",
+            "post.logout.redirect.uris": "+",
+            "oauth2.device.authorization.grant.enabled": "false",
+            "display.on.consent.screen": "false",
+            "backchannel.logout.revoke.offline.tokens": "false"
+          },
+          "authenticationFlowBindingOverrides": {},
+          "fullScopeAllowed": true,
+          "nodeReRegistrationTimeout": -1,
+          "protocolMappers": [
+            {
+              "id": "aa7debbf-865b-4ead-b990-7e23304f7a46",
+              "name": "Client ID",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usersessionmodel-note-mapper",
+              "consentRequired": false,
+              "config": {
+                "user.session.note": "client_id",
+                "id.token.claim": "true",
+                "introspection.token.claim": "true",
+                "access.token.claim": "true",
+                "claim.name": "client_id",
+                "jsonType.label": "String"
+              }
+            },
+            {
+              "id": "74d68184-fe7f-40a7-a7ed-b0e8cb8bdcc5",
+              "name": "Client IP Address",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usersessionmodel-note-mapper",
+              "consentRequired": false,
+              "config": {
+                "user.session.note": "clientAddress",
+                "id.token.claim": "true",
+                "introspection.token.claim": "true",
+                "access.token.claim": "true",
+                "claim.name": "clientAddress",
+                "jsonType.label": "String"
+              }
+            },
+            {
+              "id": "1539a7f8-a01a-4d37-8815-98ee03396d8c",
+              "name": "Client Host",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usersessionmodel-note-mapper",
+              "consentRequired": false,
+              "config": {
+                "user.session.note": "clientHost",
+                "id.token.claim": "true",
+                "introspection.token.claim": "true",
+                "access.token.claim": "true",
+                "claim.name": "clientHost",
+                "jsonType.label": "String"
+              }
+            }
+          ],
+          "defaultClientScopes": [
+            "web-origins",
+            "acr",
+            "roles",
+            "profile",
+            "groups",
+            "basic",
+            "email",
+            "policy"
           ],
           "optionalClientScopes": [
             "address",
@@ -956,7 +1177,8 @@ data:
           "frontchannelLogout": false,
           "protocol": "openid-connect",
           "attributes": {
-            "realm_client": "true"
+            "realm_client": "true",
+            "post.logout.redirect.uris": "+"
           },
           "authenticationFlowBindingOverrides": {},
           "fullScopeAllowed": false,
@@ -1113,8 +1335,9 @@ data:
               "consentRequired": false,
               "config": {
                 "user.session.note": "AUTH_TIME",
-                "id.token.claim": "true",
                 "introspection.token.claim": "true",
+                "userinfo.token.claim": "true",
+                "id.token.claim": "true",
                 "access.token.claim": "true",
                 "claim.name": "auth_time",
                 "jsonType.label": "long"
@@ -1146,7 +1369,8 @@ data:
                 "id.token.claim": "true",
                 "access.token.claim": "true",
                 "claim.name": "organization",
-                "jsonType.label": "String"
+                "jsonType.label": "JSON",
+                "addOrganizationId": "true"
               }
             }
           ]
@@ -1168,12 +1392,63 @@ data:
               "protocolMapper": "oidc-group-membership-mapper",
               "consentRequired": false,
               "config": {
+                "full.path": "false",
                 "introspection.token.claim": "true",
                 "multivalued": "true",
                 "userinfo.token.claim": "true",
-                "id.token.claim": "false",
+                "id.token.claim": "true",
+                "lightweight.claim": "false",
                 "access.token.claim": "true",
                 "claim.name": "groups",
+                "jsonType.label": "String"
+              }
+            }
+          ]
+        },
+        {
+          "id": "dfce246f-f69b-4a33-82cf-f222bffabaf8",
+          "name": "policy",
+          "description": "",
+          "protocol": "openid-connect",
+          "attributes": {
+            "include.in.token.scope": "true",
+            "display.on.consent.screen": "true",
+            "gui.order": "",
+            "consent.screen.text": ""
+          },
+          "protocolMappers": [
+            {
+              "id": "8f7ab7d2-8d4c-447c-967f-eda5719f884a",
+              "name": "defaultpolicy",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-hardcoded-claim-mapper",
+              "consentRequired": false,
+              "config": {
+                "introspection.token.claim": "true",
+                "claim.value": "readonly",
+                "userinfo.token.claim": "true",
+                "id.token.claim": "true",
+                "lightweight.claim": "true",
+                "access.token.claim": "true",
+                "claim.name": "policy",
+                "jsonType.label": "String",
+                "access.tokenResponse.claim": "false"
+              }
+            },
+            {
+              "id": "36858256-392e-47af-b08e-94de48987f20",
+              "name": "policymapper",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usermodel-attribute-mapper",
+              "consentRequired": false,
+              "config": {
+                "introspection.token.claim": "true",
+                "userinfo.token.claim": "true",
+                "user.attribute": "policy",
+                "id.token.claim": "true",
+                "lightweight.claim": "true",
+                "access.token.claim": "true",
+                "claim.name": "policy",
                 "jsonType.label": "String"
               }
             }
@@ -1243,7 +1518,8 @@ data:
               "config": {
                 "id.token.claim": "true",
                 "introspection.token.claim": "true",
-                "access.token.claim": "true"
+                "access.token.claim": "true",
+                "userinfo.token.claim": "true"
               }
             }
           ]
@@ -1457,6 +1733,7 @@ data:
               "config": {
                 "introspection.token.claim": "true",
                 "multivalued": "true",
+                "userinfo.token.claim": "true",
                 "user.attribute": "foo",
                 "id.token.claim": "true",
                 "access.token.claim": "true",
@@ -1744,7 +2021,8 @@ data:
         "web-origins",
         "acr",
         "basic",
-        "groups"
+        "groups",
+        "policy"
       ],
       "defaultOptionalClientScopes": [
         "offline_access",
@@ -1921,7 +2199,8 @@ data:
               "certificate": [
                 "MIIClzCCAX8CBgGWYaSXTDANBgkqhkiG9w0BAQsFADAPMQ0wCwYDVQQDDARhaXJtMB4XDTI1MDQyMzA3NTMxOFoXDTM1MDQyMzA3NTQ1OFowDzENMAsGA1UEAwwEYWlybTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAPgRZH8403z13S7V85XGvgnJubSFdti3LJkFEvZZpC6MDFGG9HoCmmHnG9LJrPo+nkkKs/24H6TsGfqLfAhJSVJljWlS7sXtA3PbLL+n/Q+8yUEjjiXPo0E3GpKZThMo4hxCI+A+TsILMmQlNc4eWQZq+HsfbIvcPj7NgYsXgFJbwGw0XrNeKzKlg8hQgRL+4VNBhcQKPqmbC51b0IwihrMnIOYKLx6H/a7onINxmEIdSiR9ugTe6c7TY9KVna1tOHr64oV+a83o+NbLweywSZu6MzGRh8ApEVfKepwbVQCLG12DVzc5LCWOcaaxVZcgtpDSkJR7ksVGmFe3Ri7WPoUCAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAlC+D2P0qI+yVdSspUGQwniQiZBvIdMiqZaZCEdyAnY3HUg48/zt0Ks/DMYs4sMv4yYCYWZRkcBSjEFa5xSUhV8QdkvO/5bp9Kuj6ZYEm8WLqYPcYLzNSvXqswn1w4ZS6dyv+riYb/IE825LOMiYcUhatx+czdiYxcYMM2JJmD9ZasTpqlcimDh8R5oHbicUl8Bds1vgnlxu9q7U0xyOFl0WPC2KZ70xanHf1P+8ysXHjf/rk0/0nzSK+N2LuhrxXEX0DGoamVCL7CBjW/Zuz/1weeA1bYS6kTgQpBXeP9IRTssb9/NxudTBC6eNiSxr8xA1/k9hNxQTzYp9gJcz3EQ=="
               ],
-              "priority": ["100"]
+              "priority": [
+                "100"]
             }
           },
           {
@@ -1930,9 +2209,13 @@ data:
             "providerId": "aes-generated",
             "subComponents": {},
             "config": {
-              "kid": ["c6e1723b-e78d-43c1-ae0c-dd8e83a3f59c"],
-              "secret": ["n4w0RdlcHmjmGz069t54uQ"],
-              "priority": ["100"]
+              "kid": [
+                "c6e1723b-e78d-43c1-ae0c-dd8e83a3f59c"],
+              "secret": [
+                "n4w0RdlcHmjmGz069t54uQ"
+              ],
+              "priority": [
+                "100"]
             }
           },
           {
@@ -1947,8 +2230,10 @@ data:
               "certificate": [
                 "MIIClzCCAX8CBgGWYaSX/jANBgkqhkiG9w0BAQsFADAPMQ0wCwYDVQQDDARhaXJtMB4XDTI1MDQyMzA3NTMxOFoXDTM1MDQyMzA3NTQ1OFowDzENMAsGA1UEAwwEYWlybTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANt0Egk6aF2XSF6x1MX9179N8UE7qCaTzR+2lap75eKQL9pfagyiKzqeiRY8dXGc1U6UAGf1y7lVjUPq4iD9PTJ98lC56UKcaRezRMVKWxRbiGPEtgkcT+zMAwZqkAO9iOCXXDh9df7tiy4ugCqp/rdVQX8EmbW4qe427Di0EHBAuJA2JLtZ5zZXzIpQY2nbptzMqQzRG4bdD/o9kyiClC8njPPdL1rR0VeSwa6Wqz/hBpYGZ76ypzzaa4caMQ3A1SMnMH7INVf2g0p87RvhI4cjuPRR2JTktYxuIi88hPkiuYC43R2KvpHxi3ZXNGxHCQPE6KMmgYlqW3bts2ect9UCAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAP74Ge9/YnlKR5AEBEA+Z1SX5ch6n9OmGH2F2ARJ3e16NCGMdcHMl3qDl9INZONLtZO43ygNCMGkGisw/aIyvMqllMOugDUriHY6tGWJtFniC++HhGQQSTDBBs25EPJOkTc0JAYULPeJteUefzlzBp64a20f4112haidV1UbTzibSgzME3mRTGSpGU8CLslo0Btsa8jfnPeRmE7fkn7YZesVSBHtDGumquoZWrvhirLlZJd/MwkK4mlIr0ou2s/hz7+l4YWweAUd6CtJm9cPGU0qA6TT5oF0iWWm4AOgCOybZ+VvG1EKAAzb7+XBr2a50AcyeLdipgQnGJfo+RRaOIA=="
               ],
-              "priority": ["100"],
-              "algorithm": ["RSA-OAEP"]
+              "priority": [
+                "100"],
+              "algorithm": [
+                "RSA-OAEP"]
             }
           }
         ]
