@@ -1,0 +1,255 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: "{{ .Release.Name }}-api"
+  name: "{{ .Release.Name }}-api"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: web
+      port: {{ .Values.airm.backend.servicePort }}
+      targetPort: 8080
+    - name: metrics
+      port: {{ .Values.airm.backend.servicePortMetrics }}
+      targetPort: 9009
+  selector:
+    app: "{{ .Release.Name }}-api"
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-api"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: "{{ .Release.Name }}-api"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Release.Name }}-api"
+        auth-required: "true"
+    spec:
+      containers:
+        - env:
+            - name: OPENID_CLIENT_ID
+              value: "{{ .Values.keycloak.keycloakClientId }}"
+            - name: OPENID_CONFIGURATION_URL
+              value: "http://{{ .Values.keycloak.prefixUrl }}.{{ .Values.airm.appDomain }}/realms/airm/.well-known/openid-configuration"
+            - name: POST_REGISTRATION_REDIRECT_URL
+              value: "https://{{ .Values.kgateway.airmui.prefixValue }}.{{ .Values.airm.appDomain }}/"
+            - name: DATABASE_HOST
+              value: "{{ .Release.Name }}-cnpg-rw.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: DATABASE_PORT
+              value: "{{ .Values.airm.backend.env.dbPort }}"
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: "{{ .Release.Name }}-cnpg-user"
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: "{{ .Release.Name }}-cnpg-user"
+            - name: RABBITMQ_HOST
+              value: "{{ .Release.Name }}-rabbitmq.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: RABBITMQ_PORT
+              value: "{{ .Values.airm.backend.env.rabbitmqPort }}"
+            - name: RABBITMQ_MANAGEMENT_URL
+              value: http://{{ .Release.Name }}-rabbitmq.{{ .Release.Namespace }}.svc.cluster.local:15672/api
+            - name: RABBITMQ_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: "{{ .Release.Name }}-rabbitmq-admin"
+            - name: RABBITMQ_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: "{{ .Release.Name }}-rabbitmq-admin"
+            - name: KEYCLOAK_ADMIN_SERVER_URL
+              value: "http://{{ .Values.keycloak.serviceName }}.{{ .Values.keycloak.namespace }}.svc.cluster.local:{{ .Values.keycloak.servicePort }}"
+            - name: KEYCLOAK_REALM
+              value: airm
+            - name: KEYCLOAK_ADMIN_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  key: client-id
+                  name: "{{ .Release.Name }}-keycloak-admin-client"
+            - name: KEYCLOAK_ADMIN_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: client-secret
+                  name: "{{ .Release.Name }}-keycloak-admin-client"
+            - name: MINIO_URL
+              value: "{{ .Values.airm.backend.env.minio_url }}"
+            - name: MINIO_BUCKET
+              value: "{{ .Values.airm.backend.env.minio_bucket }}"
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: minio-access-key
+                  name: "{{ .Release.Name }}-api-minio-credentials"
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: minio-secret-key
+                  name: "{{ .Release.Name }}-api-minio-credentials"
+            - name: PROMETHEUS_URL
+              value: "{{ .Values.airm.backend.env.prometheus_url }}"
+          image: "{{ .Values.airm.backend.image.repository }}:{{ .Values.airm.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.airm.backend.image.pullPolicy }}
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /v1/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 2
+          name: airm
+          ports:
+            - containerPort: 8080
+            - containerPort: 9009
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /v1/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 2
+          resources:
+            {{- toYaml .Values.airm.backend.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.airm.backend.securityContext | nindent 12 }}
+      initContainers:
+        - name: wait-for-db
+          image: postgres:17-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h "{{ .Release.Name }}-cnpg-rw.{{ .Release.Namespace }}.svc.cluster.local" -p 5432 -U postgres; do
+                echo "Waiting for database..."
+                sleep 2
+              done
+              echo "Database is ready!"
+        - name: init-migration-scripts
+          command:
+            - sh
+            - -c
+            - cp /code/migrations/* /mnt/code/migrations/
+          image: "{{ .Values.airm.backend.initContainers.initMigrationScripts.repository }}:{{ .Values.airm.backend.initContainers.initMigrationScripts.tag }}"
+          imagePullPolicy: "{{ .Values.airm.backend.initContainers.initMigrationScripts.pullPolicy }}"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - mountPath: /mnt/code/migrations
+              name: airm-migration-volume
+        - name: liquibase-migrate
+          command:
+            - liquibase
+            - --url=jdbc:postgresql://{{ .Release.Name }}-cnpg-rw.{{ .Release.Namespace }}.svc.cluster.local:5432/airm
+            - --username=$(DATABASE_USER)
+            - --password=$(DATABASE_PASSWORD)
+            - --logLevel=INFO
+            - --changeLogFile=changelog/changelog.xml
+            - update
+          env:
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: "{{ .Release.Name }}-cnpg-user"
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: "{{ .Release.Name }}-cnpg-user"
+          image: "{{ .Values.airm.backend.initContainers.liquibaseMigrate.repository }}:{{ .Values.airm.backend.initContainers.liquibaseMigrate.tag }}"
+          imagePullPolicy: "{{ .Values.airm.backend.initContainers.liquibaseMigrate.pullPolicy }}"
+          volumeMounts:
+            - mountPath: /liquibase/changelog
+              name: airm-migration-volume
+              readOnly: true
+        - name: charts-registration
+          image: "{{ .Values.airm.backend.initContainers.chartsRegistration.repository }}:{{ .Values.airm.backend.initContainers.chartsRegistration.tag }}"
+          imagePullPolicy: "{{ .Values.airm.backend.initContainers.chartsRegistration.pullPolicy }}"
+          command: ["uv", "run", "-m", "app.charts.registration"]
+          env:
+            - name: DATABASE_HOST
+              value: "{{ .Release.Name }}-cnpg-rw.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: DATABASE_PORT
+              value: "{{ .Values.airm.backend.env.dbPort }}"
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-cnpg-user"
+                  key: username
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-cnpg-user"
+                  key: password
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop:
+                - ALL
+        - name: check-rabbitmq-is-ready
+          command:
+            [
+              "/bin/bash",
+              "-c",
+              'apt-get update -y 1> /dev/null 2>&1 && apt-get install ncat -y 1> /dev/null 2>&1 && while ! nc -z "$ENDPOINT_URL_TO_CHECK" "$ENDPOINT_PORT_TO_CHECK"; do echo "Waiting for Airm rabbitmq at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}..."; sleep 3; done; echo "Airm rabbitmq is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}."; sleep 3; exit 0',
+            ]
+          image: ubuntu:22.04
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ENDPOINT_URL_TO_CHECK
+              value: "airm-rabbitmq.airm.svc.cluster.local"
+            - name: ENDPOINT_PORT_TO_CHECK
+              value: "15672"
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: false
+            runAsUser: 0
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - SETUID
+                - SETGID
+                - CHOWN
+                - DAC_OVERRIDE
+                - FOWNER
+                - FSETID
+            seccompProfile:
+              type: RuntimeDefault
+
+      volumes:
+        - emptyDir: {}
+          name: airm-migration-volume

@@ -1,0 +1,4 @@
+sourceUrl: https://ray-project.github.io/kuberay-helm/
+sourceRepoName: kuberay-operator
+sourceChartName: kuberay-operator
+sourceVersion: 1.4.2

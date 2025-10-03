@@ -1,0 +1,4 @@
+apiVersion: v2
+name: kgateway-config
+description: A Helm chart with CR config for kgateway
+version: 0.1.0

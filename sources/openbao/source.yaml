@@ -1,0 +1,4 @@
+sourceUrl: https://openbao.github.io/openbao-helm
+sourceRepoName: openbao
+sourceChartName: openbao
+sourceVersion: 0.18.2

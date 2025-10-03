@@ -7,7 +7,7 @@
 **Cluster-Forge** is a tool designed to bundle various third-party, community, and in-house components into a single, streamlined stack that can be deployed in Kubernetes clusters. By automating the deployment process, Cluster-Forge simplifies the creation of consistent, ready-to-use clusters.
 
 This tool is ideal for scenarios such as:
-
+ 
 - **Ephemeral test clusters** - Create temporary environments quickly
 - **CI/CD pipeline clusters** - Ensure consistent testing environments
 - **Multiple production clusters** - Manage a fleet of clusters efficiently

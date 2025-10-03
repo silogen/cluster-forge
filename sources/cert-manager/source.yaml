@@ -1,0 +1,2 @@
+sourceUrl: oci://quay.io/jetstack/charts/cert-manager
+sourceVersion: v1.18.2

@@ -1,0 +1,113 @@
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "500m"
+  limits:
+    memory: "1Gi"
+    cpu: "1000m"
+
+podLabels:
+  app: keycloak
+
+auth:
+  adminUser: admin
+  existingSecret: "keycloak-credentials"
+  passwordSecretKey: "KEYCLOAK_INITIAL_ADMIN_PASSWORD"
+
+extraStartupArgs: "--cache=ispn --features=scripts,admin-fine-grained-authz,token-exchange --import-realm"
+
+initContainers:
+  - command:
+      - /bin/sh
+      - -c
+      - |
+        cd /opt/scripts
+        zip -r /opt/keycloak/providers/SilogenExtensionPackage.jar .
+    image: ghcr.io/silogen/keycloak-init:0.1
+    name: init-auth-extensions
+    volumeMounts:
+      - mountPath: /opt/keycloak/providers
+        name: keycloak-package-volume
+      - mountPath: /opt/scripts
+        name: keycloak-script-volume
+  - command:
+      - /bin/sh
+      - -c
+      - |       
+        if [ -f "/opt/realm_templates/airm/airm-realm.json" ]; then
+            cp /opt/realm_templates/airm/airm-realm.json /opt/realms/airm-realm.json
+            sed -i -e "s/__AIRM_FRONTEND_CLIENT_SECRET__/$AIRM_FRONTEND_CLIENT_SECRET/g" /opt/realms/airm-realm.json
+            sed -i -e "s/__AIRM_ADMIN_CLIENT_ID__/$AIRM_ADMIN_CLIENT_ID/g" /opt/realms/airm-realm.json
+            sed -i -e "s/__AIRM_ADMIN_CLIENT_SECRET__/$AIRM_ADMIN_CLIENT_SECRET/g" /opt/realms/airm-realm.json
+            sed -i -e "s/__AIRM_CI_CLIENT_SECRET__/$AIRM_CI_CLIENT_SECRET/g" /opt/realms/airm-realm.json
+        else
+            echo "Warning: /opt/realm_templates/airm/airm-realm.json not found, skipping airm realm setup"
+        fi
+    env:
+      - name: AIRM_FRONTEND_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            key: FRONTEND_CLIENT_SECRET
+            name: airm-realm-credentials
+      - name: AIRM_ADMIN_CLIENT_ID
+        valueFrom:
+          secretKeyRef:
+            key: ADMIN_CLIENT_ID
+            name: airm-realm-credentials
+      - name: AIRM_ADMIN_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            key: ADMIN_CLIENT_SECRET
+            name: airm-realm-credentials
+      - name: AIRM_CI_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            key: CI_CLIENT_SECRET
+            name: airm-realm-credentials
+    image: ghcr.io/silogen/keycloak-init:0.1
+    name: init-realm-scripts
+    volumeMounts:
+      - mountPath: /opt/realm_templates/airm
+        name: keycloak-airm-realm-template-volume
+      - mountPath: /opt/realm_templates/k8s
+        name: keycloak-k8s-realm-template-volume
+      - mountPath: /opt/realms
+        name: keycloak-realm-volume
+
+extraVolumes:
+  - configMap:
+      name: keycloak-scripts
+      items:
+        - key: keycloak-scripts.json
+          path: META-INF/keycloak-scripts.json
+        - key: domain-group-authenticator.js
+          path: domain-group-authenticator.js
+    name: keycloak-script-volume
+  - emptyDir: {}
+    name: keycloak-package-volume
+  - configMap:
+      name: keycloak-realm-templates-7kgh2hc6b2
+    name: keycloak-airm-realm-template-volume
+  - emptyDir: {}
+    name: keycloak-realm-volume
+  - configMap:
+      name: keycloak-realm-templates-k8s
+    name: keycloak-k8s-realm-template-volume
+
+extraVolumeMounts:
+  - mountPath: /opt/keycloak/providers
+    name: keycloak-package-volume
+  - mountPath: /opt/keycloak/data/import
+    name: keycloak-realm-volume
+
+postgresql:
+  enabled: false
+
+externalDatabase:
+  host: "keycloak-cnpg-rw.keycloak.svc.cluster.local"
+  port: 5432
+  database: keycloak
+  schema: public
+  existingSecret: "keycloak-cnpg-user"
+  existingSecretUserKey: "username"
+  existingSecretPasswordKey: "password"
