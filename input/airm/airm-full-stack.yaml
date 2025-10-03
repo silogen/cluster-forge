@@ -486,7 +486,7 @@ spec:
                 secretKeyRef:
                   key: password
                   name: "airm-cnpg-user"
-          image: "quay.io/lib/liquibase:4.31"
+          image: "docker.io/liquibase/liquibase:4.31"
           imagePullPolicy: "IfNotPresent"
           volumeMounts:
             - mountPath: /liquibase/changelog
