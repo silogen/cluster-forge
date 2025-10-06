@@ -1,0 +1,18 @@
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: argocd-oidc-creds
+  namespace: argocd
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao-secret-store
+  refreshInterval: 15m
+  target:
+    name: argocd-oidc-creds
+  data:
+    - secretKey: client_secret
+      remoteRef:
+        key: secrets/data/argocd-oidc-creds
+        property: value

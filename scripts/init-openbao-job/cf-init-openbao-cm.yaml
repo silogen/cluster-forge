@@ -140,4 +140,6 @@ data:
     bao kv put secrets/minio-console-secret-key value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/minio-root-password value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     
+    bao kv put secrets/argocd-oidc-creds value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+        
     echo "Secrets have been generated successfully!"

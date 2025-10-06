@@ -9,7 +9,7 @@ externalValues:
   targetRevision: main
   path: values.yaml
 
-common:
+global:
   domain: # to be filled by bootstrap script
 
 apps:
@@ -21,13 +21,27 @@ apps:
     valuesFile: ../values_cf.yaml
     helmParameters:
       - name: global.domain
-        value: "{{ .Values.common.domain }}"
+        value: "{{ .Values.global.domain }}"
+      - name: configs.cm.oidc\.config
+        value: |
+          name: Keycloak
+          issuer: https://kc.{{ .Values.global.domain }}/realms/airm
+          clientID: argocd
+          clientSecret: $$argocd-oidc-creds:client_secret
+          requestedScopes: ["openid", "profile", "email", "groups"]
     syncWave: -3
 
   - name: argocd-config
     path: argocd-config
     namespace: argocd
     syncWave: -2
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
 
   - name: cert-manager
     path: cert-manager/v1.18.2
@@ -41,7 +55,7 @@ apps:
 #    valuesFile: values.yaml
 #    helmParameters:
 #      - name: domain
-#        value: "{{ .Values.common.domain }}"
+#        value: "{{ .Values.global.domain }}"
 #    syncWave: -3
 
 #  - name: cluster-cert
@@ -82,9 +96,9 @@ apps:
     valuesFile: ../values_cf.yaml
     helmParameters:
       - name: clusterDomain
-        value: "{{ .Values.common.domain }}"
+        value: "{{ .Values.global.domain }}"
       - name: gitea.config.server.ROOT_URL
-        value: "https://gitea.{{ .Values.common.domain }}"
+        value: "https://gitea.{{ .Values.global.domain }}"
     syncWave: -3
 
   - name: gitea-config
@@ -121,7 +135,7 @@ apps:
     valuesFile: values.yaml
     helmParameters:
       - name: domain
-        value: "{{ .Values.common.domain }}"
+        value: "{{ .Values.global.domain }}"
     syncWave: -2
 
   # Monitoring
@@ -158,7 +172,7 @@ apps:
     valuesFile: values.yaml
     helmParameters:
       - name: domain
-        value: "{{ .Values.common.domain }}"
+        value: "{{ .Values.global.domain }}"
     syncWave: -2
     ignoreDifferences:
       - group: external-secrets.io
@@ -238,7 +252,7 @@ apps:
     valuesFile: values.yaml
     helmParameters:
       - name: domain
-        value: "{{ .Values.common.domain }}"
+        value: "{{ .Values.global.domain }}"
     syncWave: -1
     ignoreDifferences:
       - group: external-secrets.io
@@ -273,7 +287,7 @@ apps:
     valuesFile: values.yaml
     helmParameters:
       - name: airm-api.airm.appDomain
-        value: "{{ .Values.common.domain }}"
+        value: "{{ .Values.global.domain }}"
     syncWave: 0
     ignoreDifferences:
       - group: external-secrets.io
@@ -282,3 +296,7 @@ apps:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
+      - group: kyverno.io
+        kind: ClusterPolicy
+        jqPathExpressions:
+          - ".spec.rules[].skipBackgroundRequests"

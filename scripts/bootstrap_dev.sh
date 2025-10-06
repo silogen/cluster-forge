@@ -8,7 +8,7 @@ if [ -z "$DOMAIN" ]; then
 fi
 
 # Update values_cf.yaml
-yq eval '.common.domain = "'${DOMAIN}'"' -i ../root/values.yaml
+yq eval '.global.domain = "'${DOMAIN}'"' -i ../root/values.yaml
 
 # Create namespaces
 kubectl create ns argocd
@@ -33,4 +33,4 @@ if ! kubectl wait --for=condition=complete --timeout=60s job/openbao-init-job -n
 fi
 
 # Create ArgoCD cluster-forge app
-helm template ../root -f ../root/values.yaml --set common.domain=${DOMAIN} | kubectl apply -f -
+helm template ../root -f ../root/values.yaml --set global.domain=${DOMAIN} | kubectl apply -f -

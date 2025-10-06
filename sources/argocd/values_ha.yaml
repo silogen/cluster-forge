@@ -3,6 +3,9 @@ global:
 configs:
   params:
     server.insecure: true
+  rbac:
+    policy.csv: |
+      g, argocd-users, role:admin
 
 controller:
   replicas: 2

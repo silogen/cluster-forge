@@ -8,7 +8,7 @@ if [ -z "$DOMAIN" ]; then
 fi
 
 # Update values_cf.yaml
-yq eval '.common.domain = "'${DOMAIN}'"' -i ../root/values_cf.yaml
+yq eval '.global.domain = "'${DOMAIN}'"' -i ../root/values_cf.yaml
 
 # Create namespaces
 kubectl create ns argocd
@@ -48,4 +48,4 @@ if ! kubectl wait --for=condition=complete --timeout=60s job/gitea-init-job -n c
 fi
 
 # Create ArgoCD cluster-forge app
-helm template ../root -f ../root/values_cf.yaml --set common.domain=${DOMAIN} | kubectl apply -f -
+helm template ../root -f ../root/values_cf.yaml --set global.domain=${DOMAIN} | kubectl apply -f -
