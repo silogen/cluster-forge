@@ -123,14 +123,11 @@ data:
     
     bao kv put secrets/airm-ui-keycloak-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/airm-ui-auth-nextauth-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
-    bao kv put secrets/airm-legacy-auth-nextauth-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
-    bao kv put secrets/airm-keycloak-admin-client-id value="admin-client-id-value"
-    bao kv put secrets/airm-keycloak-admin-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/airm-ci-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     
-    bao kv put secrets/hmac-keys-access-key value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
-    bao kv put secrets/hmac-keys-secret-key value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
-    
+    bao kv put secrets/airm-keycloak-admin-client-id value="admin-client-id-value"
+    bao kv put secrets/airm-keycloak-admin-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+        
     bao kv put secrets/keycloak-initial-admin-password value=admin;
     bao kv put secrets/keycloak-cnpg-user-username value=keycloak;
     bao kv put secrets/keycloak-cnpg-user-password value=keycloak;
