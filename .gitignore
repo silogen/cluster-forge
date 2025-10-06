@@ -62,3 +62,7 @@ node_modules/
 # Task files
 # tasks.json
 # tasks/ 
+
+
+input/kgateway-auth/go.mod
+input/kgateway-auth/go.sum
