@@ -115,8 +115,8 @@ airm:
         tag: v2025.09-rc.6
         pullPolicy: IfNotPresent
       liquibaseMigrate:
-        repository: quay.io/lib/liquibase
-        tag: latest
+        repository: docker.io/liquibase/liquibase
+        tag: 4.31
         pullPolicy: IfNotPresent
       chartsRegistration:
         repository: ghcr.io/silogen/airm-api
