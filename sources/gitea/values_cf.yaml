@@ -26,3 +26,6 @@ postgresql-ha:
 
 persistence:
   enabled: true
+
+test:
+  enabled: false

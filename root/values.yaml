@@ -1,6 +1,6 @@
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: main # cluster-forge version git tag
+  targetRevision: 330_keycloak_argocd # cluster-forge version git tag
   valuesFile: values.yaml
 
 # source helm values file from separate git repo
@@ -11,7 +11,7 @@ externalValues:
   path: values.yaml
 
 global:
-  domain: app.silogen.ai
+  domain: plat-dev-4.silogen.ai
 
 apps:
 
