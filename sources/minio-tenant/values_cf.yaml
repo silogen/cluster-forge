@@ -1,0 +1,24 @@
+tenant:
+  name: default-minio-tenant
+  configSecret:
+    name: default-minio-tenant-env-configuration
+    existingSecret: true
+  pools:
+    - servers: 1
+      name: pool-0
+      volumesPerServer: 1
+      size: 500Gi
+      storageClassName: direct
+  buckets:
+    - name: default-bucket
+    - name: cluster-forge-loki
+    - name: cluster-forge-mimir
+    - name: cluster-forge-tempo
+    - name: models
+  users:
+    - name: default-user
+  certificate:
+    requestAutoCert: false
+  env:
+    - name: MINIO_PROMETHEUS_AUTH_TYPE
+      value: "public"

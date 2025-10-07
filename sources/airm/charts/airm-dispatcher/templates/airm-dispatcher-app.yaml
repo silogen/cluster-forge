@@ -1,0 +1,272 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: "{{ .Release.Name }}-cluster-nodes-dispatcher"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  concurrencyPolicy: Replace
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - command:
+                - curl
+                - -X
+                - POST
+                - http://{{ .Release.Name }}-dispatcher:80/v1/clusters/nodes
+              image: "{{ .Values.airm.dispatcher.nodes.image.repository }}:{{ .Values.airm.dispatcher.nodes.image.tag }}"
+              imagePullPolicy: "{{ .Values.airm.dispatcher.nodes.image.pullPolicy }}"
+              name: airm-cluster-nodes-cron
+              resources:
+                limits:
+                  memory: 100Mi
+                requests:
+                  cpu: 50m
+                  memory: 100Mi
+          restartPolicy: OnFailure
+  schedule: 0 * * * *
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-dispatcher"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: "{{ .Release.Name }}-dispatcher"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Release.Name }}-dispatcher"
+    spec:
+      serviceAccountName: "{{ .Release.Name }}-dispatcher-sa"
+      initContainers:
+        - name: check-airm-api-is-ready
+          command:
+            [
+              "/bin/bash",
+              "-c",
+              'apt-get update -y 1> /dev/null 2>&1 && apt-get install ncat -y 1> /dev/null 2>&1 && while ! nc -z "$ENDPOINT_URL_TO_CHECK" "$ENDPOINT_PORT_TO_CHECK"; do echo "Waiting for Airm UI at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}..."; sleep 3; done; echo "Airm UI is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}."; sleep 12; exit 0',
+            ]
+          image: ubuntu:22.04
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ENDPOINT_URL_TO_CHECK
+              value: "{{ .Release.Name }}-api.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: ENDPOINT_PORT_TO_CHECK
+              value: "80"
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: false
+            runAsUser: 0
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - SETUID
+                - SETGID
+                - CHOWN
+                - DAC_OVERRIDE
+                - FOWNER
+                - FSETID
+            seccompProfile:
+              type: RuntimeDefault
+      containers:
+        - name: airm-dispatcher
+          image: "{{ .Values.airm.dispatcher.core.image.repository }}:{{ .Values.airm.dispatcher.core.image.tag }}"
+          imagePullPolicy: "{{ .Values.airm.dispatcher.core.image.pullPolicy }}"
+          ports:
+            - containerPort: 8080
+          env:
+            - name: KUBE_CLUSTER_NAME
+              value: demo-cluster
+            - name: ORG_NAME
+              value: demo
+            - name: RABBITMQ_HOST
+              value: "{{ .Release.Name }}-rabbitmq.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: RABBITMQ_PORT
+              value: "{{ .Values.airm.dispatcher.env.rabbitmqPort }}"
+            - name: RABBITMQ_AIRM_COMMON_VHOST
+              value: "vh_airm_common"
+            - name: RABBITMQ_AIRM_COMMON_QUEUE
+              value: "airm_common"
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-rabbitmq-common-vhost-user"
+                  key: username
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-rabbitmq-common-vhost-user"
+                  key: password
+          livenessProbe:
+            httpGet:
+              path: /v1/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+            successThreshold: 1
+          readinessProbe:
+            httpGet:
+              path: /v1/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+            successThreshold: 1
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+          securityContext:
+            runAsUser: 0
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: "{{ .Release.Name }}-heartbeat-dispatcher"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  concurrencyPolicy: Replace
+  schedule: "*/1 * * * *"
+  suspend: false
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "false"
+        spec:
+          restartPolicy: OnFailure
+
+          initContainers:
+            - name: check-dispatcher-is-ready
+              command:
+                [
+                  "/bin/bash",
+                  "-c",
+                  'apt-get update -y 1> /dev/null 2>&1 && apt-get install ncat -y 1> /dev/null 2>&1 && while ! nc -z "$ENDPOINT_URL_TO_CHECK" "$ENDPOINT_PORT_TO_CHECK"; do echo "Waiting for Airm dispatcher at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}..."; sleep 3; done; echo "Airm dispatcher is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}."; sleep 12; exit 0',
+                ]
+              image: ubuntu:22.04
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: ENDPOINT_URL_TO_CHECK
+                  value: "{{ .Release.Name }}-dispatcher.{{ .Release.Namespace }}.svc.cluster.local"
+                - name: ENDPOINT_PORT_TO_CHECK
+                  value: "80"
+              securityContext:
+                allowPrivilegeEscalation: false
+                runAsNonRoot: false
+                runAsUser: 0
+                capabilities:
+                  drop:
+                    - ALL
+                  add:
+                    - SETUID
+                    - SETGID
+                    - CHOWN
+                    - DAC_OVERRIDE
+                    - FOWNER
+                    - FSETID
+                seccompProfile:
+                  type: RuntimeDefault
+          containers:
+            - name: airm-heartbeat-cron
+              image: "{{ .Values.airm.dispatcher.heartbeat.image.repository }}:{{ .Values.airm.dispatcher.heartbeat.image.tag }}"
+              imagePullPolicy: "{{ .Values.airm.dispatcher.heartbeat.image.pullPolicy }}"
+              command:
+                [
+                  "curl",
+                  "-X",
+                  "POST",
+                  "http://{{ .Release.Name }}-dispatcher:80/v1/heartbeats",
+                ]
+              resources:
+                requests:
+                  memory: "100Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "100Mi"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: "{{ .Release.Name }}-dispatcher-cluster-access-binding"
+subjects:
+  - kind: ServiceAccount
+    name: "{{ .Release.Name }}-dispatcher-sa"
+    namespace: "{{ .Release.Namespace }}"
+roleRef:
+  kind: ClusterRole
+  name: "{{ .Release.Name }}-dispatcher-cluster-access-role"
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: "{{ .Release.Name }}-dispatcher-cluster-access-role"
+rules:
+  - apiGroups: [""]
+    resources: ["services", "namespaces", "configmaps", "pods"]
+    verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+  - apiGroups: ["kaiwo.silogen.ai"]
+    resources: ["kaiwojobs", "kaiwoservices", "kaiwoqueueconfigs"]
+    verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes"]
+    verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+  - apiGroups: ["external-secrets.io"]
+    resources: ["externalsecrets"]
+    verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: "{{ .Release.Name }}-dispatcher-sa"
+  namespace: "{{ .Release.Namespace }}"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ .Release.Name }}-dispatcher"
+  namespace: "{{ .Release.Namespace }}"
+  labels:
+    app: "{{ .Release.Name }}-dispatcher"
+spec:
+  ports:
+    - name: web
+      port: {{ .Values.airm.dispatcher.core.servicePort }}
+      targetPort: 8080
+  type: ClusterIP
+  selector:
+    app: "{{ .Release.Name }}-dispatcher"

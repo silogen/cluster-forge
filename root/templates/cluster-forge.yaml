@@ -1,0 +1,37 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cluster-forge
+  namespace: argocd
+spec:
+  project: default
+  # helm-chart & values file from 2 different git repos
+  {{- if .Values.externalValues.enabled }}
+  sources:
+  - repoURL: {{ .Values.clusterForge.repoUrl }}
+    targetRevision: {{ .Values.clusterForge.targetRevision }}
+    path: root
+    helm:
+      valueFiles:
+        - $values/{{ .Values.externalValues.path }}
+  - repoURL: {{ .Values.externalValues.repoUrl }}
+    targetRevision: {{ .Values.externalValues.targetRevision }}
+    ref: values
+  # helm-chart & values file within the same git repo
+  {{ else }}
+  source:
+    repoURL: {{ .Values.clusterForge.repoUrl }}
+    targetRevision: {{ .Values.clusterForge.targetRevision }}
+    path: root
+    helm:
+      valueFiles:
+        - {{ .Values.clusterForge.valuesFile }}
+  {{- end }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

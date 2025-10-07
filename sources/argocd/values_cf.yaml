@@ -1,0 +1,8 @@
+global:
+  domain: # to be filled by cluster-forge app
+configs:
+  params:
+    server.insecure: true
+  rbac:
+    policy.csv: |
+      g, argocd-users, role:admin

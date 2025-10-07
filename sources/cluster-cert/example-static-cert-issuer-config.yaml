@@ -1,0 +1,9 @@
+apiVersion: certmanager.io/v1alpha1
+kind: ClusterStaticCertIssuer
+metadata:
+  name: cluster-static-wildcard-issuer
+  labels:
+    app.kubernetes.io/instance: certmanager-issuer
+spec:
+  secretName: cluster-tls
+  secretNamespace: default

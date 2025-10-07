@@ -1,0 +1,51 @@
+#!/bin/bash
+
+DOMAIN="${1:-}"
+if [ -z "$DOMAIN" ]; then
+    echo "ERROR: Domain argument is required"
+    echo "Usage: $0 <domain>"
+    exit 1
+fi
+
+# Update values_cf.yaml
+yq eval '.global.domain = "'${DOMAIN}'"' -i ../root/values_cf.yaml
+
+# Create namespaces
+kubectl create ns argocd
+kubectl create ns cf-gitea
+kubectl create ns cf-openbao
+
+# ArgoCD bootstrap
+helm template --release-name argocd ../sources/argocd/8.3.0 --namespace argocd | kubectl apply -f -
+kubectl rollout status statefulset/argocd-application-controller -n argocd
+kubectl rollout status deploy/argocd-applicationset-controller -n argocd
+kubectl rollout status deploy/argocd-redis -n argocd
+kubectl rollout status deploy/argocd-repo-server -n argocd
+
+# OpenBao bootstrap
+helm template --release-name openbao ../sources/openbao/0.18.2 -f ../sources/openbao/values_cf.yaml \
+  --namespace cf-openbao | kubectl apply -f -
+kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s
+kubectl apply -f ./init-openbao-job/
+if ! kubectl wait --for=condition=complete --timeout=60s job/openbao-init-job -n cf-openbao; then
+  echo "ERROR: Job openbao-init-job failed to complete or timed out!"
+  exit 1
+fi
+
+# Gitea bootstrap
+kubectl create secret generic gitea-admin-credentials \
+  --namespace=cf-gitea \
+  --from-literal=username=silogen-admin \
+  --from-literal=password=password
+kubectl create configmap initial-cf-values --from-file=../root/values_cf.yaml -n cf-gitea
+helm upgrade --install gitea ../sources/gitea/12.3.0 -f ../sources/gitea/values_cf.yaml --namespace cf-gitea \
+  --set clusterDomain=${DOMAIN} --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}"
+kubectl rollout status deploy/gitea -n cf-gitea
+kubectl apply -f ./init-gitea-job/
+if ! kubectl wait --for=condition=complete --timeout=60s job/gitea-init-job -n cf-gitea; then
+  echo "ERROR: Job gitea-init-job failed to complete or timed out!"
+  exit 1
+fi
+
+# Create ArgoCD cluster-forge app
+helm template ../root -f ../root/values_cf.yaml --set global.domain=${DOMAIN} | kubectl apply -f -
