@@ -114,7 +114,7 @@ jobs:
         env:
           VERSION: ${{ needs.version.outputs.new_version }}
         run: |
-          tar -cfz release-enterprise-ai-$VERSION.tar.gz -C .. --transform 's,^,cluster-forge/,' root/ scripts/ sources commit-info.txt
+          tar -cfz release-enterprise-ai-$VERSION.tar.gz --transform 's,^,cluster-forge/,' root/ scripts/ sources commit-info.txt
       - name: Upload Release Asset
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
