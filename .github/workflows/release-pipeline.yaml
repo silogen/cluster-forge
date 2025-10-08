@@ -12,7 +12,7 @@ on:
         description: 'Is this a prerelease?'
         required: false
         type: boolean
-        default: 'false'
+        default: false
 
 jobs:
   version:
@@ -69,17 +69,17 @@ jobs:
   build:
     needs: [version]
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        release:
-          - type: enterprise-ai
-            name: Enterprise AI
-          - type: core
-            name: Core
-          - type: weka
-            name: WekaFS
-          - type: nuage
-            name: Nuage
+    # strategy:
+    #   matrix:
+    #     release:
+    #       - type: enterprise-ai
+    #         name: Enterprise AI
+    #       - type: core
+    #         name: Core
+    #       - type: weka
+    #         name: WekaFS
+    #       - type: nuage
+    #         name: Nuage
     steps:
       - uses: actions/checkout@v4
 
@@ -93,28 +93,26 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Smelt
+      - name: Create file with detailed commit info
         run: |
-          go run . smelt \
-            --config input/config-silogen-${{ matrix.release.type }}.yaml \
-            --non-interactive
+          echo "Commit SHA: ${{ github.sha }}" > commit-info.txt
+          echo "Commit Short SHA: $(git rev-parse --short HEAD)" >> commit-info.txt
+          echo "Commit Message: ${{ github.event.head_commit.message }}" >> commit-info.txt
+          echo "Commit Author: ${{ github.event.head_commit.author.name }}" >> commit-info.txt
+          echo "Commit Date: ${{ github.event.head_commit.timestamp }}" >> commit-info.txt
+          echo "Event Name: ${{ github.event_name }}" >> commit-info.txt
 
-      - name: Cast
-        env:
-          VERSION: ${{ needs.version.outputs.new_version }}
-        run: |
-          go run . cast \
-            --config input/config-silogen-${{ matrix.release.type }}.yaml \
-            --imageName ghcr.io/silogen/clusterforge:$VERSION-${{ matrix.release.type }} \
-            --stackName ${{ matrix.release.type }}-$VERSION \
-            --non-interactive
+      - name: show commit-info.txt
+        run: cat commit-info.txt
+
+      - name: show folder contents
+        run: ls -laR
 
       - name: Create release package
         env:
           VERSION: ${{ needs.version.outputs.new_version }}
         run: |
-          tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz ${{ matrix.release.type }}-$VERSION
-
+          tar -cfz release-enterprise-ai-$VERSION.tar.gz -C .. --transform 's,^,cluster-forge/,' root/ scripts/ sources commit-info.txt
       - name: Upload Release Asset
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -122,5 +120,5 @@ jobs:
         run: |
           # Upload asset to the release
           gh release upload "$VERSION" \
-              "stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz#ClusterForge ${{ matrix.release.name }} Package" \
+              "release-enterprise-ai-$VERSION.tar.gz#ClusterForgeV2 Enterprise AI Package" \
               --clobber
