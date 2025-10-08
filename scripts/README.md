@@ -81,7 +81,7 @@ Creates three namespaces for core components:
 3. **OpenBao:**
    ```bash
    # Root token
-   kubectl get secret openbao-keys -n cf-openbao -o jsonpath='{.data.root_token}' | base64 -d
+   kubectl -n cf-openbao get secret openbao-keys -o jsonpath='{.data.root_token}' | base64 -d
    ```
 
 ## Development
