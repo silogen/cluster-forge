@@ -1,8 +1,6 @@
 name: Release Pipeline
 
 on:
-  push:
-    branches: [feat_ci_cfv2]
   pull_request:
     types: [opened, synchronize, reopened]
     branches: [main]
@@ -122,5 +120,5 @@ jobs:
         run: |
           # Upload asset to the release
           gh release upload "$VERSION" \
-              "release-enterprise-ai-$VERSION.tar.gz#ClusterForgeV2 Enterprise AI Package" \
+              "release-enterprise-ai-$VERSION.tar.gz Enterprise AI Package" \
               --clobber
