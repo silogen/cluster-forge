@@ -106,13 +106,12 @@ jobs:
         env:
           VERSION: ${{ needs.version.outputs.new_version }}
         run: |
-          tar -cf "release-enterprise-ai-$VERSION.tar.gz" --transform 's,^,cluster-forge/,' root/ scripts/ sources commit-info.txt
+          tar -cf "release-enterprise-ai-${VERSION}.tar.gz" --transform 's,^,cluster-forge/,' root/ scripts/ sources commit-info.txt
       - name: Upload Release Asset
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.version.outputs.new_version }}
         run: |
-          # Upload asset to the release
           gh release upload "$VERSION" \
-              "release-enterprise-ai-$VERSION.tar.gz Enterprise AI Package" \
+              "release-enterprise-ai-${VERSION}.tar.gz Enterprise AI Package" \
               --clobber
