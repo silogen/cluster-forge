@@ -97,10 +97,19 @@ jobs:
         run: |
           echo "Commit SHA: ${{ github.sha }}" > commit-info.txt
           echo "Commit Short SHA: $(git rev-parse --short HEAD)" >> commit-info.txt
-          echo "Commit Message: ${{ github.event.head_commit.message }}" >> commit-info.txt
-          echo "Commit Author: ${{ github.event.head_commit.author.name }}" >> commit-info.txt
-          echo "Commit Date: ${{ github.event.head_commit.timestamp }}" >> commit-info.txt
+          echo "Commit Message: $(git log -1 --pretty=%B)" >> commit-info.txt
+          echo "Commit Author: $(git log -1 --pretty=%an)" >> commit-info.txt
+          echo "Commit Author Email: $(git log -1 --pretty=%ae)" >> commit-info.txt
+          echo "Commit Date: $(git log -1 --pretty=%ad)" >> commit-info.txt
           echo "Event Name: ${{ github.event_name }}" >> commit-info.txt
+          echo "Actor: ${{ github.actor }}" >> commit-info.txt
+          
+          # Add PR-specific info if it's a PR
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "PR Number: ${{ github.event.pull_request.number }}" >> commit-info.txt
+            echo "PR Title: ${{ github.event.pull_request.title }}" >> commit-info.txt
+            echo "PR Branch: ${{ github.event.pull_request.head.ref }}" >> commit-info.txt
+          fi
 
       - name: Create release package
         env:
