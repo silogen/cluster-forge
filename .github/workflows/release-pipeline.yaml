@@ -1,6 +1,8 @@
 name: Release Pipeline
 
 on:
+  push:
+    branches: [feat_ci_cfv2]
   pull_request:
     types: [opened, synchronize, reopened]
     branches: [main]
