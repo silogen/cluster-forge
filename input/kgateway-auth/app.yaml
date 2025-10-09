@@ -33,108 +33,18 @@ spec:
         image: ttl.sh/grpc-authz-adapter-v0.0.3:24h # TODO: Compile and put new image here
         imagePullPolicy: IfNotPresent
         env:
-        # - name: REDIRECT_URL
-        #   value: "https://airmui.app-dev.silogen.ai/api/auth/signin?callbackUrl=/"
-        - name: LISTEN_ADDR
-          value: ":50051"
+        - name: KEYCLOAK_SERVER_URL
+          value: "https://kc.app-dev.silogen.ai"
         - name: KEYCLOAK_REALM
           value: "airm"
         - name: KEYCLOAK_CLIENT_ID
           value: "354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
-        - name: KEYCLOAK_SERVER_URL
-          value: "https://kc.app-dev.silogen.ai"
-          # value: "https://kc.app-dev.silogen.ai/realms/airm/protocol/openid-connect/auth"
-
-        # - name: SESSION_COOKIE_NAME
-        #   value: "username-workspaces-app-dev-silogen-ai"
-
-        # - name: WORKLOAD_URL
-        #   value: "workspaces.app-dev.silogen.ai"
-        # - name: OIDC_LOGIN_URL
-        #   value: "https://kc.app-dev.silogen.ai/realms/airm/protocol/openid-connect/auth"
-        # - name: OIDC_CLIENT_ID
-        #   value: "354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
-        # - name: OIDC_JWKS_URL
-        #   value: "https://kc.app-dev.silogen.ai/realms/airm/protocol/openid-connect/certs"
-        # - name: OIDC_TOKEN_URL
-        #   value: "https://kc.app-dev.silogen.ai/realms/airm/protocol/openid-connect/token"
-        # - name: OIDC_CLIENT_SECRET
-        #   value: 3BDE84579BA2A8597AA9884A11B9C526 # TODO: mount the secret keycloak/airm-realm-credentials (KEY: FRONTEND_CLIENT_SECRET)
-        # - name: DEBUG_LEVEL
-        #   value: "9"
-        # # no need???
-        # - name: DISCOVERY_URL
-        #   value: "https://kc.app-dev.silogen.ai/realms/airm/.well-known/openid-configuration"
-        # - name: PORT
-        #   value: "50051"
-
-        # - name: OAUTH2_PROXY_URL
-        #   value: "http://127.0.0.1:4180"
+        - name: LISTEN_ADDR
+          value: ":50051"
+        - name: WORKLOAD_URL
+          value: "workloads.app-dev.silogen.ai"
         ports:
         - containerPort: 50051
-      # - name: oauth2-proxy
-      #   image: quay.io/oauth2-proxy/oauth2-proxy:latest
-      #   imagePullPolicy: IfNotPresent
-      #   env:
-      #   - name: OAUTH2_PROXY_LOGIN_URL
-      #     value: https://kc.app-dev.silogen.ai/realms/airm/protocol/openid-connect/auth
-      #   - name: OAUTH2_PROXY_REDEEM_URL
-      #     value: https://kc.app-dev.silogen.ai/realms/airm/protocol/openid-connect/token
-      #   - name: OAUTH2_PROXY_VALIDATE_URL
-      #     value: https://kc.app-dev.silogen.ai/realms/airm/protocol/openid-connect/userinfo
-      #   - name: OAUTH2_PROXY_EMAIL_DOMAINS
-      #     value: "*"
-      #   - name: OAUTH2_PROXY_COOKIE_SECRET
-      #     value: 0dRxp1UXNwxaQZCGhICTug==
-      #   - name: OAUTH2_PROXY_CLIENT_ID
-      #     value: 354a0fa1-35ac-4a6d-9c4d-d661129c2cd0
-      #   - name: OAUTH2_PROXY_CLIENT_SECRET
-      #     value: 3BDE84579BA2A8597AA9884A11B9C526 # TODO: mount the secret keycloak/airm-realm-credentials (KEY: FRONTEND_CLIENT_SECRET)
-      #   - name: OAUTH2_PROXY_COOKIE_REFRESH
-      #     value: 1m
-      #   - name: OAUTH2_PROXY_COOKIE_EXPIRE
-      #     value: 30m
-      #   - name: OAUTH2_PROXY_HTTP_ADDRESS
-      #     value: 0.0.0.0:4180
-      #   - name: OAUTH2_PROXY_FORCE_HTTPS
-      #     value: "false"
-      #   - name: OAUTH2_PROXY_SSL_INSECURE_SKIP_VERIFY
-      #     value: "true"
-      #   - name: OAUTH2_PROXY_PROVIDER
-      #     value: keycloak
-      #   - name: OAUTH2_PROXY_SCOPE
-      #     value: "openid profile email"
-      #   - name: OAUTH2_PROXY_SKIP_PROVIDER_BUTTON
-      #     value: "true"
-      #   # TODO: Add a another variable to ignore redirect???
-      #   # - name: OAUTH2_PROXY_UPSTREAMS
-      #   #   value: http://mw-dev-workspace-jupyterlab-1759319915-3061.demo.svc.cluster.local/
-      #   # - name: OAUTH2_PROXY_UPSTREAMS
-      #   #   value: http://mw-dev-workspace-jupyterlab-1759319915-3061.demo.svc.cluster.local/
-
-      #   livenessProbe:
-      #     failureThreshold: 5
-      #     initialDelaySeconds: 3
-      #     periodSeconds: 3
-      #     successThreshold: 1
-      #     timeoutSeconds: 5
-      #     tcpSocket:
-      #       port: 4180
-      #   readinessProbe:
-      #     failureThreshold: 5
-      #     initialDelaySeconds: 3
-      #     periodSeconds: 3
-      #     successThreshold: 1
-      #     timeoutSeconds: 5
-      #     tcpSocket:
-      #       port: 4180
-      #   resources:
-      #     limits:
-      #       cpu: '0.5'
-      #       memory: 500Mi
-      #     requests:
-      #       cpu: '0.1'
-      #       memory: 100Mi
 
 ---
 apiVersion: gateway.kgateway.dev/v1alpha1
@@ -180,22 +90,7 @@ spec:
   targetRefs:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
-    name: mw-dev-workspace-jupyterlab-1759475101-d363
+    name: <PUT-A-VALID-HTTP-ROUTE-HERE>
   extAuth:
     extensionRef: 
       name: gw-ext-adapter-extension
-
-# # https://kc.app-dev.silogen.ai/realms/airm/protocol/openid-connect/auth
-# ?client_id=
-# &redirect_uri=https://workloads.app-dev.silogen.ai%2F0d4b2d65-e956-43f7-be64-4f0c8ce57d51%2F068c1f23-0102-4e5b-a54f-7617b5e79fde%2Fd363a5b2-b055-4cae-9393-f4819cd403f8%2Flab%3Fsession_state=e7bf9361-c1a3-4c20-aab3-118547a0fd6f?iss=https://kc.app-dev.silogen.ai/realms/airm?code=6ffb4914-1967-483e-a2f3-0aa9b5acdb29.e7bf9361-c1a3-4c20-aab3-118547a0fd6f.ceeab688-00ab-4d0f-b0e2-0b5b0f1facbe?session_state=e7bf9361-c1a3-4c20-aab3-118547a0fd6f?iss=https://kc.app-dev.silogen.ai/realms/airm?code=24c330a4-a791-4197-b71b-ddac877a705a.e7bf9361-c1a3-4c20-aab3-118547a0fd6f.ceeab688-00ab-4d0f-b0e2-0b5b0f1facbe
-# &response_type=code
-# &scope=openid+profile+email+organization
-
-
-# https://workloads.app-dev.silogen.ai/0d4b2d65-e956-43f7-be64-4f0c8ce57d51/068c1f23-0102-4e5b-a54f-7617b5e79fde/d363a5b2-b055-4cae-9393-f4819cd403f8/lab
-# ?session_state=e7bf9361-c1a3-4c20-aab3-118547a0fd6f
-# ?iss=https://kc.app-dev.silogen.ai/realms/airm
-# ?code=6ffb4914-1967-483e-a2f3-0aa9b5acdb29.e7bf9361-c1a3-4c20-aab3-118547a0fd6f.ceeab688-00ab-4d0f-b0e2-0b5b0f1facbe
-# ?session_state=e7bf9361-c1a3-4c20-aab3-118547a0fd6f
-# ?iss=https://kc.app-dev.silogen.ai/realms/airm
-# ?code=24c330a4-a791-4197-b71b-ddac877a705a.e7bf9361-c1a3-4c20-aab3-118547a0fd6f.ceeab688-00ab-4d0f-b0e2-0b5b0f1facbe

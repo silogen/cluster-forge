@@ -23,7 +23,4 @@ docker push ttl.sh/grpc-authz-adapter-v0.0.1:24h
 
 ```
 https://workspaces.app-dev.silogen.ai/*
-
-https://workloads.app-dev.silogen.ai/*
-
 ```
