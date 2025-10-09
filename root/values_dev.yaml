@@ -1,0 +1,269 @@
+clusterForge:
+  repoUrl: "https://github.com/silogen/cluster-forge.git"
+  targetRevision: # feature-branch name to be provided by developer
+  valuesFile: values_dev.yaml
+
+externalValues:
+  enabled: false
+
+global:
+  domain: # to be provided by developer
+
+apps:
+
+  # Core apps
+  - name: argocd
+    path: argocd/8.3.5
+    namespace: argocd
+    valuesFile: ../values_cf.yaml
+    helmParameters:
+      - name: global.domain
+        value: "{{ .Values.global.domain }}"
+      - name: configs.cm.oidc\.config
+        value: |
+          name: Keycloak
+          issuer: https://kc.{{ .Values.global.domain }}/realms/airm
+          clientID: argocd
+          clientSecret: $$argocd-oidc-creds:client_secret
+          requestedScopes: ["openid", "profile", "email", "groups"]
+    syncWave: -3
+
+  - name: argocd-config
+    path: argocd-config
+    namespace: argocd
+    syncWave: -2
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+
+  - name: cert-manager
+    path: cert-manager/v1.18.2
+    namespace: cert-manager
+    valuesFile: ../values_cf.yaml
+    syncWave: -3
+
+  - name: openbao
+    path: openbao/0.18.2
+    namespace: cf-openbao
+    valuesFile: ../values_cf.yaml
+    syncWave: -3
+    ignoreDifferences:
+      - group: "apps"
+        kind: "Deployment"
+        jsonPointers:
+          - /spec/replicas
+
+  - name: openbao-config
+    path: openbao-config
+    namespace: cf-openbao
+    syncWave: -2
+
+  - name: external-secrets
+    path: external-secrets/0.15.1
+    namespace: external-secrets
+    valuesFile: values.yaml
+    syncWave: -3
+
+  - name: external-secrets-config
+    path: external-secrets-config
+    namespace: external-secrets
+    syncWave: -3
+
+  # Network apps
+  - name: gateway-api
+    path: gateway-api/v1.3.0
+    namespace: default
+    syncWave: -3
+
+  - name: metallb
+    path: metallb/v0.15.2
+    namespace: default
+    syncWave: -3
+
+  - name: kgateway-crds
+    path: kgateway-crds/v2.1.0-main
+    namespace: kgateway-system
+    valuesFile: values.yaml
+    syncWave: -3
+
+  - name: kgateway
+    path: kgateway/v2.1.0-main
+    namespace: kgateway-system
+    valuesFile: ../values_cf.yaml
+    syncWave: -2
+
+  - name: kgateway-config
+    path: kgateway-config
+    namespace: kgateway-system
+    valuesFile: values.yaml
+    helmParameters:
+      - name: domain
+        value: "{{ .Values.global.domain }}"
+    syncWave: -2
+
+  # Monitoring
+  - name: prometheus-crds
+    path: prometheus-operator-crds/23.0.0
+    namespace: prometheus-system
+    valuesFile: values.yaml
+    syncWave: -3
+
+  - name: opentelemetry-operator
+    path: opentelemetry-operator/0.93.1
+    namespace: opentelemetry-operator-system
+    valuesFile: values.yaml
+    syncWave: -3
+
+  - name: otel-lgtm-stack
+    path: otel-lgtm-stack
+    namespace: otel-lgtm-stack
+    directory:
+      recurse: true
+    syncWave: -2
+
+  # Databases
+  - name: cnpg-operator
+    path: cnpg-operator/0.26.0
+    namespace: cnpg-system
+    valuesFile: values.yaml
+    syncWave: -3
+
+  # Access control
+  - name: keycloak
+    path: keycloak-old
+    namespace: keycloak
+    valuesFile: values.yaml
+    helmParameters:
+      - name: domain
+        value: "{{ .Values.global.domain }}"
+    syncWave: -2
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+
+  - name: kyverno
+    path: kyverno/3.5.1
+    namespace: kyverno
+    valuesFile: values.yaml
+    syncWave: -3
+
+  #  - name: kyverno-config
+  #    path: kyverno-config
+  #    namespace: kyverno
+  #    syncWave: -2
+
+  # GPU
+  - name: amd-gpu-operator
+    path: amd-gpu-operator/v1.4.0
+    namespace: kube-amd-gpu
+    valuesFile: values.yaml
+    syncWave: -1
+
+  - name: amd-gpu-operator-config
+    path: amd-gpu-operator-config
+    namespace: kube-amd-gpu
+    syncWave: -1
+
+  - name: kuberay-operator
+    path: kuberay-operator/1.4.2
+    namespace: default
+    valuesFile: values.yaml
+    syncWave: -1
+
+  # Queues
+  - name: rabbitmq
+    path: rabbitmq/v2.15.0
+    namespace: rabbitmq-system
+    syncWave: -1
+
+  - name: kueue
+    path: kueue/0.13.0
+    namespace: kueue-system
+    valuesFile: ../values_onenode.yaml
+    syncWave: -1
+
+  - name: kueue-config
+    path: kueue-config
+    namespace: kueue-system
+    syncWave: -1
+
+  - name: appwrapper
+    path: appwrapper/v1.1.2
+    namespace: appwrapper-system
+    syncWave: -1
+
+  # Storage
+  - name: minio-operator
+    path: minio-operator/7.1.1
+    namespace: minio-operator
+    valuesFile: values.yaml
+    syncWave: -3
+
+  - name: minio-tenant
+    path: minio-tenant/7.1.1
+    namespace: minio-tenant-default
+    valuesFile: ../values_cf.yaml
+    syncWave: -2
+
+  - name: minio-tenant-config
+    path: minio-tenant-config
+    namespace: minio-tenant-default
+    valuesFile: values.yaml
+    helmParameters:
+      - name: domain
+        value: "{{ .Values.global.domain }}"
+    syncWave: -1
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+
+  # Kaiwo stuff
+  - name: kaiwo
+    path: kaiwo/v0.1.7
+    namespace: kaiwo
+    syncWave: -1
+
+  - name: kaiwo-config
+    path: kaiwo-config
+    namespace: kaiwo
+    syncWave: -1
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+
+  # Airm stuff
+  - name: airm
+    path: airm
+    namespace: airm
+    valuesFile: values.yaml
+    helmParameters:
+      - name: airm-api.airm.appDomain
+        value: "{{ .Values.global.domain }}"
+    syncWave: 0
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+      - group: kyverno.io
+        kind: ClusterPolicy
+        jqPathExpressions:
+          - ".spec.rules[].skipBackgroundRequests"
