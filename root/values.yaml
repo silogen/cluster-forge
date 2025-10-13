@@ -57,7 +57,7 @@ apps:
     valuesFile: ../values_cf.yaml
     helmParameters:
       - name: global.domain
-        value: "{{ .Values.global.domain }}"
+        value: "argocd.{{ .Values.global.domain }}"
       - name: configs.cm.oidc\.config
         value: |
           name: Keycloak
