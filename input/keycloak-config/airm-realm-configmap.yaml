@@ -579,7 +579,7 @@ data:
           "groups": []
         },
         {
-          "id": "c4567890-1234-5678-9abc-def012345678",
+          "id": "e5714500-2153-4c0e-9f2e-b9d4681f33c5",
           "username": "service-account-ci-service-account",
           "emailVerified": false,
           "createdTimestamp": 1759383882000,
@@ -1249,7 +1249,7 @@ data:
           }
         },
         {
-          "id": "c1234567-8901-2345-6789-abcdef012345",
+          "id": "185c5af6-9b04-4463-83db-2923dfc75b72",
           "clientId": "ci-service-account",
           "name": "CI Service Account",
           "description": "",
