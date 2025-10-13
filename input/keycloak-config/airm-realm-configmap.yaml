@@ -337,6 +337,7 @@ data:
           "admin-cli": [],
           "k8s": [],
           "minio": [],
+          "ci-service-account": [],
           "account-console": [],
           "broker": [
             {
@@ -568,6 +569,23 @@ data:
           "enabled": true,
           "totp": false,
           "serviceAccountClientId": "minio",
+          "credentials": [],
+          "disableableCredentialTypes": [],
+          "requiredActions": [],
+          "realmRoles": [
+            "default-roles-airm"
+          ],
+          "notBefore": 0,
+          "groups": []
+        },
+        {
+          "id": "e5714500-2153-4c0e-9f2e-b9d4681f33c5",
+          "username": "service-account-ci-service-account",
+          "emailVerified": false,
+          "createdTimestamp": 1759383882000,
+          "enabled": true,
+          "totp": false,
+          "serviceAccountClientId": "ci-service-account",
           "credentials": [],
           "disableableCredentialTypes": [],
           "requiredActions": [],
@@ -1229,6 +1247,111 @@ data:
             ],
             "decisionStrategy": "UNANIMOUS"
           }
+        },
+        {
+          "id": "185c5af6-9b04-4463-83db-2923dfc75b72",
+          "clientId": "ci-service-account",
+          "name": "CI Service Account",
+          "description": "",
+          "rootUrl": "",
+          "adminUrl": "",
+          "baseUrl": "",
+          "surrogateAuthRequired": false,
+          "enabled": true,
+          "alwaysDisplayInConsole": false,
+          "clientAuthenticatorType": "client-secret",
+          "secret": "__AIRM_CI_CLIENT_SECRET__",
+          "redirectUris": [
+            "/*"
+          ],
+          "webOrigins": [
+            "/*"
+          ],
+          "notBefore": 0,
+          "bearerOnly": false,
+          "consentRequired": false,
+          "standardFlowEnabled": true,
+          "implicitFlowEnabled": true,
+          "directAccessGrantsEnabled": true,
+          "serviceAccountsEnabled": true,
+          "publicClient": false,
+          "frontchannelLogout": true,
+          "protocol": "openid-connect",
+          "attributes": {
+            "realm_client": "false",
+            "oidc.ciba.grant.enabled": "false",
+            "client.secret.creation.time": "1759383882",
+            "backchannel.logout.session.required": "true",
+            "oauth2.device.authorization.grant.enabled": "false",
+            "backchannel.logout.revoke.offline.tokens": "false"
+          },
+          "authenticationFlowBindingOverrides": {},
+          "fullScopeAllowed": true,
+          "nodeReRegistrationTimeout": -1,
+          "protocolMappers": [
+            {
+              "id": "8cbf3b39-4ba0-4353-84f4-80ffeac6eee3",
+              "name": "Client IP Address",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usersessionmodel-note-mapper",
+              "consentRequired": false,
+              "config": {
+                "user.session.note": "clientAddress",
+                "id.token.claim": "true",
+                "introspection.token.claim": "true",
+                "access.token.claim": "true",
+                "claim.name": "clientAddress",
+                "jsonType.label": "String"
+              }
+            },
+            {
+              "id": "7dda77a1-17cd-4969-b093-2ce396ac8ebd",
+              "name": "Client Host",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usersessionmodel-note-mapper",
+              "consentRequired": false,
+              "config": {
+                "user.session.note": "clientHost",
+                "id.token.claim": "true",
+                "introspection.token.claim": "true",
+                "access.token.claim": "true",
+                "claim.name": "clientHost",
+                "jsonType.label": "String"
+              }
+            },
+            {
+              "id": "69603ff4-0252-4cc5-9c6d-b2f1357e5931",
+              "name": "Client ID",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usersessionmodel-note-mapper",
+              "consentRequired": false,
+              "config": {
+                "user.session.note": "client_id",
+                "id.token.claim": "true",
+                "introspection.token.claim": "true",
+                "access.token.claim": "true",
+                "claim.name": "client_id",
+                "jsonType.label": "String"
+              }
+            }
+          ],
+          "defaultClientScopes": [
+            "web-origins",
+            "acr",
+            "roles",
+            "organization",
+            "profile",
+            "groups",
+            "basic",
+            "email",
+            "policy"
+          ],
+          "optionalClientScopes": [
+            "address",
+            "phone",
+            "offline_access",
+            "microprofile-jwt"
+          ]
         },
         {
           "id": "2bb550ef-6d62-4c4a-ad46-bbaeb2e32ab8",
