@@ -68,7 +68,7 @@ source-references:
     sourceUrl: https://open-telemetry.github.io/opentelemetry-helm-charts
 
   - name: otel-lgtm-stack
-    path: otel-lgtm-stack ##
+    path: otel-lgtm-stack/v1.0.3 ##
     projectUrl: https://github.com/grafana/docker-otel-lgtm
     sourceUrl: https://github.com/silogen/docker-otel-lgtm
 
