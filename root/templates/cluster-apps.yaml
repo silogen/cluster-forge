@@ -1,11 +1,14 @@
 {{- $clusterForgeRepoUrl := .Values.clusterForge.repoUrl }}
 {{- $clusterForgeTargetRevision := .Values.clusterForge.targetRevision }}
-{{- range .Values.apps }}
+{{- range .Values.enabledApps }}
+{{- $name := . }}
+{{- $scope := (index $.Values.apps .) | required (printf "Values for app %s are missing!" $name) }}
+{{- with $scope }}
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: {{ .name }}
+  name: {{ $name }}
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "{{ .syncWave }}"
@@ -46,4 +49,5 @@ spec:
       {{- if .ignoreDifferences }}
       - RespectIgnoreDifferences=true
       {{- end }}
+{{- end }}
 {{- end }}

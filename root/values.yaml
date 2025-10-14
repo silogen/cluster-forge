@@ -13,10 +13,45 @@ externalValues:
 global:
   domain: app.silogen.ai
 
+enabledApps:
+  - argocd
+  - argocd-config
+  - cert-manager
+  - openbao
+  - openbao-config
+  - external-secrets
+  - external-secrets-config
+  - gitea
+  - gitea-config
+  - gateway-api
+  - metallb
+  - kgateway-crds
+  - kgateway
+  - kgateway-config
+  - prometheus-crds
+  - opentelemetry-operator
+  - otel-lgtm-stack
+  - cnpg-operator
+  - keycloak
+  - kyverno
+  - amd-gpu-operator
+  - amd-gpu-operator-config
+  - kuberay-operator
+  - rabbitmq
+  - kueue
+  - kueue-config
+  - appwrapper
+  - minio-operator
+  - minio-tenant
+  - minio-tenant-config
+  - kaiwo
+  - kaiwo-config
+  - airm
+
 apps:
 
   # Core apps
-  - name: argocd
+  argocd:
     path: argocd/8.3.5
     namespace: argocd
     valuesFile: ../values_cf.yaml
@@ -32,7 +67,7 @@ apps:
           requestedScopes: ["openid", "profile", "email", "groups"]
     syncWave: -3
 
-  - name: argocd-config
+  argocd-config:
     path: argocd-config
     namespace: argocd
     syncWave: -2
@@ -44,27 +79,13 @@ apps:
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
 
-  - name: cert-manager
+  cert-manager:
     path: cert-manager/v1.18.2
     namespace: cert-manager
     valuesFile: ../values_cf.yaml
     syncWave: -3
 
-#  - name: cert-manager-config
-#    path: cert-manager-config
-#    namespace: cert-manager
-#    valuesFile: values.yaml
-#    helmParameters:
-#      - name: domain
-#        value: "{{ .Values.global.domain }}"
-#    syncWave: -3
-
-#  - name: cluster-cert
-#    path: cluster-cert
-#    namespace: static-cert-system
-#    syncWave: -2
-
-  - name: openbao
+  openbao:
     path: openbao/0.18.2
     namespace: cf-openbao
     valuesFile: ../values_cf.yaml
@@ -75,23 +96,23 @@ apps:
         jsonPointers:
           - /spec/replicas
 
-  - name: openbao-config
+  openbao-config:
     path: openbao-config
     namespace: cf-openbao
     syncWave: -2
 
-  - name: external-secrets
+  external-secrets:
     path: external-secrets/0.15.1
     namespace: external-secrets
     valuesFile: values.yaml
     syncWave: -3
 
-  - name: external-secrets-config
+  external-secrets-config:
     path: external-secrets-config
     namespace: external-secrets
     syncWave: -3
 
-  - name: gitea
+  gitea:
     path: gitea/12.3.0
     namespace: cf-gitea
     valuesFile: ../values_cf.yaml
@@ -102,35 +123,35 @@ apps:
         value: "https://gitea.{{ .Values.global.domain }}"
     syncWave: -3
 
-  - name: gitea-config
+  gitea-config:
     path: gitea-config
     namespace: cf-gitea
     syncWave: -2
 
   # Network apps
-  - name: gateway-api
+  gateway-api:
     path: gateway-api/v1.3.0
     namespace: default
     syncWave: -3
 
-  - name: metallb
+  metallb:
     path: metallb/v0.15.2
     namespace: default
     syncWave: -3
 
-  - name: kgateway-crds
+  kgateway-crds:
     path: kgateway-crds/v2.1.0-main
     namespace: kgateway-system
     valuesFile: values.yaml
     syncWave: -3
 
-  - name: kgateway
+  kgateway:
     path: kgateway/v2.1.0-main
     namespace: kgateway-system
     valuesFile: ../values_cf.yaml
     syncWave: -2
 
-  - name: kgateway-config
+  kgateway-config:
     path: kgateway-config
     namespace: kgateway-system
     valuesFile: values.yaml
@@ -140,19 +161,19 @@ apps:
     syncWave: -2
 
   # Monitoring
-  - name: prometheus-crds
+  prometheus-crds:
     path: prometheus-operator-crds/23.0.0
     namespace: prometheus-system
     valuesFile: values.yaml
     syncWave: -3
 
-  - name: opentelemetry-operator
+  opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
     namespace: opentelemetry-operator-system
     valuesFile: values.yaml
     syncWave: -3
 
-  - name: otel-lgtm-stack
+  otel-lgtm-stack:
     path: otel-lgtm-stack
     namespace: otel-lgtm-stack
     directory:
@@ -160,14 +181,14 @@ apps:
     syncWave: -2
 
   # Databases
-  - name: cnpg-operator
+  cnpg-operator:
     path: cnpg-operator/0.26.0
     namespace: cnpg-system
     valuesFile: values.yaml
     syncWave: -3
 
   # Access control
-  - name: keycloak
+  keycloak:
     path: keycloak-old
     namespace: keycloak
     valuesFile: values.yaml
@@ -183,71 +204,66 @@ apps:
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
 
-  - name: kyverno
+  kyverno:
     path: kyverno/3.5.1
     namespace: kyverno
     valuesFile: values.yaml
     syncWave: -3
 
-  #  - name: kyverno-config
-  #    path: kyverno-config
-  #    namespace: kyverno
-  #    syncWave: -2
-
   # GPU
-  - name: amd-gpu-operator
+  amd-gpu-operator:
     path: amd-gpu-operator/v1.4.0
     namespace: kube-amd-gpu
     valuesFile: values.yaml
     syncWave: -1
 
-  - name: amd-gpu-operator-config
+  amd-gpu-operator-config:
     path: amd-gpu-operator-config
     namespace: kube-amd-gpu
     syncWave: -1
 
-  - name: kuberay-operator
+  kuberay-operator:
     path: kuberay-operator/1.4.2
     namespace: default
     valuesFile: values.yaml
     syncWave: -1
 
   # Queues
-  - name: rabbitmq
+  rabbitmq:
     path: rabbitmq/v2.15.0
     namespace: rabbitmq-system
     syncWave: -1
 
-  - name: kueue
+  kueue:
     path: kueue/0.13.0
     namespace: kueue-system
     valuesFile: ../values_onenode.yaml
     syncWave: -1
 
-  - name: kueue-config
+  kueue-config:
     path: kueue-config
     namespace: kueue-system
     syncWave: -1
 
-  - name: appwrapper
+  appwrapper:
     path: appwrapper/v1.1.2
     namespace: appwrapper-system
     syncWave: -1
 
   # Storage
-  - name: minio-operator
+  minio-operator:
     path: minio-operator/7.1.1
     namespace: minio-operator
     valuesFile: values.yaml
     syncWave: -3
 
-  - name: minio-tenant
+  minio-tenant:
     path: minio-tenant/7.1.1
     namespace: minio-tenant-default
     valuesFile: ../values_cf.yaml
     syncWave: -2
 
-  - name: minio-tenant-config
+  minio-tenant-config:
     path: minio-tenant-config
     namespace: minio-tenant-default
     valuesFile: values.yaml
@@ -264,12 +280,12 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
 
   # Kaiwo stuff
-  - name: kaiwo
+  kaiwo:
     path: kaiwo/v0.1.7
     namespace: kaiwo
     syncWave: -1
 
-  - name: kaiwo-config
+  kaiwo-config:
     path: kaiwo-config
     namespace: kaiwo
     syncWave: -1
@@ -282,7 +298,7 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
 
   # Airm stuff
-  - name: airm
+  airm:
     path: airm
     namespace: airm
     valuesFile: values.yaml

@@ -16,7 +16,8 @@ kubectl create ns cf-gitea
 kubectl create ns cf-openbao
 
 # ArgoCD bootstrap
-helm template --release-name argocd ../sources/argocd/8.3.0 --namespace argocd | kubectl apply -f -
+helm template --release-name argocd ../sources/argocd/8.3.5 -f ../sources/argocd/values_cf.yaml --namespace argocd \
+  --set global.domain=${DOMAIN} | kubectl apply -f -
 kubectl rollout status statefulset/argocd-application-controller -n argocd
 kubectl rollout status deploy/argocd-applicationset-controller -n argocd
 kubectl rollout status deploy/argocd-redis -n argocd
@@ -38,8 +39,8 @@ kubectl create secret generic gitea-admin-credentials \
   --from-literal=username=silogen-admin \
   --from-literal=password=password
 kubectl create configmap initial-cf-values --from-file=../root/values_cf.yaml -n cf-gitea
-helm upgrade --install gitea ../sources/gitea/12.3.0 -f ../sources/gitea/values_cf.yaml --namespace cf-gitea \
-  --set clusterDomain=${DOMAIN} --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}"
+helm template --release-name gitea ../sources/gitea/12.3.0 -f ../sources/gitea/values_cf.yaml --namespace cf-gitea \
+  --set clusterDomain=${DOMAIN} --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}" | kubectl apply -f -
 kubectl rollout status deploy/gitea -n cf-gitea
 kubectl apply -f ./init-gitea-job/
 if ! kubectl wait --for=condition=complete --timeout=60s job/gitea-init-job -n cf-gitea; then
