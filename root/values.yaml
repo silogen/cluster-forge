@@ -174,7 +174,7 @@ apps:
     syncWave: -3
 
   otel-lgtm-stack:
-    path: otel-lgtm-stack
+    path: otel-lgtm-stack/v1.0.3
     namespace: otel-lgtm-stack
     directory:
       recurse: true
