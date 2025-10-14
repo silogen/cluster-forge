@@ -53,7 +53,7 @@ source-references:
     valuesFile: ../values_cf.yaml
     projectUrl: https://kgateway.dev/
     sourceUrl: oci://cr.kgateway.dev/kgateway-dev/charts/kgateway
-	
+
   # Monitoring
   - name: prometheus-crds
     path: prometheus-operator-crds/23.0.0
@@ -66,7 +66,7 @@ source-references:
     valuesFile: values.yaml
     projectUrl: https://opentelemetry.io/
     sourceUrl: https://open-telemetry.github.io/opentelemetry-helm-charts
-	
+
   - name: otel-lgtm-stack
     path: otel-lgtm-stack ##
     projectUrl: https://github.com/grafana/docker-otel-lgtm
@@ -91,7 +91,7 @@ source-references:
     valuesFile: values.yaml
     sourceUrl: https://kyverno.github.io/kyverno/
     projectUrl: https://github.com/kyverno/kyverno
-	
+
   # GPU
   - name: amd-gpu-operator
     path: amd-gpu-operator/v1.4.0
@@ -110,13 +110,13 @@ source-references:
     path: rabbitmq/v2.15.0
     sourceUrl: https://github.com/rabbitmq/cluster-operator/releases/download/v2.15.0/cluster-operator.yml
     projectUrl: https://github.com/rabbitmq/cluster-operator/
-	
+
   - name: kueue
     path: kueue/0.13.0
     valuesFile: ../values_onenode.yaml
     sourceUrl: oci://registry.k8s.io/kueue/charts/kueue
     projectUrl: https://kueue.sigs.k8s.io/ 
-	
+
   - name: appwrapper
     path: appwrapper/v1.1.2
     sourceUrl: https://github.com/project-codeflare/appwrapper/releases/download/v1.1.2/install.yaml
