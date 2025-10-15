@@ -49,6 +49,7 @@ data:
                 "repo_owner": "cluster-org",
                 "service": "git",
                 "mirror": true,
+                "mirror_interval": "15m",
                 "private": false
               }')
             
