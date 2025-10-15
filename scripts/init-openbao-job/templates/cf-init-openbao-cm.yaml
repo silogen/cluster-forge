@@ -113,6 +113,9 @@ data:
     fi
     
     echo "Generating secrets..."
+    
+    bao kv put secrets/cluster-domain value={{ .Values.domain }};
+    
     bao kv put secrets/airm-cnpg-user-username value=airm_user;
     bao kv put secrets/airm-cnpg-user-password value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/airm-cnpg-superuser-username value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
@@ -140,6 +143,9 @@ data:
     bao kv put secrets/minio-console-secret-key value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/minio-root-password value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     
-    bao kv put secrets/argocd-oidc-creds value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+    bao kv put secrets/k8s-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+    bao kv put secrets/minio-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+    bao kv put secrets/gitea-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+    bao kv put secrets/argocd-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
         
     echo "Secrets have been generated successfully!"

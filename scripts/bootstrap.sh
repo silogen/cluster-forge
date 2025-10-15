@@ -16,7 +16,8 @@ kubectl create ns cf-gitea
 kubectl create ns cf-openbao
 
 # ArgoCD bootstrap
-helm template --release-name argocd ../sources/argocd/8.3.0 --namespace argocd | kubectl apply -f -
+helm template --release-name argocd ../sources/argocd/8.3.5 -f ../sources/argocd/values_cf.yaml --namespace argocd \
+  --set global.domain="https://argocd.${DOMAIN}" | kubectl apply -f -
 kubectl rollout status statefulset/argocd-application-controller -n argocd
 kubectl rollout status deploy/argocd-applicationset-controller -n argocd
 kubectl rollout status deploy/argocd-redis -n argocd
@@ -25,9 +26,9 @@ kubectl rollout status deploy/argocd-repo-server -n argocd
 # OpenBao bootstrap
 helm template --release-name openbao ../sources/openbao/0.18.2 -f ../sources/openbao/values_cf.yaml \
   --namespace cf-openbao | kubectl apply -f -
-kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s
-kubectl apply -f ./init-openbao-job/
-if ! kubectl wait --for=condition=complete --timeout=60s job/openbao-init-job -n cf-openbao; then
+kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
+helm template --release-name openbao-init ./init-openbao-job --set domain="${DOMAIN}" | kubectl apply -f -
+if ! kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao; then
   echo "ERROR: Job openbao-init-job failed to complete or timed out!"
   exit 1
 fi
@@ -38,14 +39,14 @@ kubectl create secret generic gitea-admin-credentials \
   --from-literal=username=silogen-admin \
   --from-literal=password=password
 kubectl create configmap initial-cf-values --from-file=../root/values_cf.yaml -n cf-gitea
-helm upgrade --install gitea ../sources/gitea/12.3.0 -f ../sources/gitea/values_cf.yaml --namespace cf-gitea \
-  --set clusterDomain=${DOMAIN} --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}"
+helm template --release-name gitea ../sources/gitea/12.3.0 -f ../sources/gitea/values_cf.yaml --namespace cf-gitea \
+  --set clusterDomain="${DOMAIN}" --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}" | kubectl apply -f -
 kubectl rollout status deploy/gitea -n cf-gitea
 kubectl apply -f ./init-gitea-job/
-if ! kubectl wait --for=condition=complete --timeout=60s job/gitea-init-job -n cf-gitea; then
+if ! kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea; then
   echo "ERROR: Job gitea-init-job failed to complete or timed out!"
   exit 1
 fi
 
 # Create ArgoCD cluster-forge app
-helm template ../root -f ../root/values_cf.yaml --set global.domain=${DOMAIN} | kubectl apply -f -
+helm template ../root -f ../root/values_cf.yaml --set global.domain="${DOMAIN}" | kubectl apply -f -

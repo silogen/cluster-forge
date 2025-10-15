@@ -1,15 +1,13 @@
 clusterForge:
-  repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
-  targetRevision: main # cluster-forge version git tag
+  repoUrl: "https://github.com/silogen/cluster-forge.git"
+  targetRevision: # feature-branch name to be provided by developer
+  valuesFile: values_dev.yaml
 
 externalValues:
-  enabled: true
-  repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
-  targetRevision: main
-  path: values_cf.yaml
+  enabled: false
 
 global:
-  domain: # to be filled by bootstrap script
+  domain: # to be provided by developer
 
 enabledApps:
   - argocd

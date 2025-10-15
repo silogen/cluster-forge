@@ -7,12 +7,8 @@ if [ -z "$DOMAIN" ]; then
     exit 1
 fi
 
-# Update values_cf.yaml
-yq eval '.global.domain = "'${DOMAIN}'"' -i ../root/values.yaml
-
 # Create namespaces
 kubectl create ns argocd
-kubectl create ns cf-gitea
 kubectl create ns cf-openbao
 
 # ArgoCD bootstrap
@@ -25,12 +21,12 @@ kubectl rollout status deploy/argocd-repo-server -n argocd
 # OpenBao bootstrap
 helm template --release-name openbao ../sources/openbao/0.18.2 -f ../sources/openbao/values_cf.yaml \
   --namespace cf-openbao | kubectl apply -f -
-kubectl wait --for=condition=initialized --timeout=60s pod/openbao-0 -n cf-openbao
-kubectl apply -f ./init-openbao-job/
+kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s
+helm template --release-name openbao-init ./init-openbao-job --set domain="$DOMAIN" | kubectl apply -f -
 if ! kubectl wait --for=condition=complete --timeout=60s job/openbao-init-job -n cf-openbao; then
   echo "ERROR: Job openbao-init-job failed to complete or timed out!"
   exit 1
 fi
 
 # Create ArgoCD cluster-forge app
-helm template ../root -f ../root/values.yaml --set global.domain=${DOMAIN} | kubectl apply -f -
+helm template ../root -f ../root/values_dev.yaml | kubectl apply -f -
