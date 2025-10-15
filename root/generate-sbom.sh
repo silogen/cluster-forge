@@ -75,12 +75,20 @@ counter=1
 for component in $component_names; do
     path=$(yq eval ".components.\"$component\".path" "$COMPONENTS_FILE")
     project_url=$(yq eval ".components.\"$component\".projectUrl // \"\"" "$COMPONENTS_FILE")
+    source_url=$(yq eval ".components.\"$component\".sourceUrl // \"\"" "$COMPONENTS_FILE")
     
     # Extract version from path
     version=$(extract_version "$path")
     
+    # Format version with sourceUrl link if available
+    if [[ -n "$source_url" ]]; then
+        version_link="[$version]($source_url)"
+    else
+        version_link="$version"
+    fi
+    
     # Add to all components table
-    echo "| $counter | $component | $version | $project_url |" >> "$SBOM_FILE"
+    echo "| $counter | $component | $version_link | $project_url |" >> "$SBOM_FILE"
     ((counter++))
 done
 
@@ -104,7 +112,15 @@ for component in $component_names; do
     category=$(categorize_component "$source_url")
     if [[ "$category" == "helm" ]]; then
         version=$(extract_version "$path")
-        echo "| $counter | $component | $version | $project_url |" >> "$SBOM_FILE"
+        
+        # Format version with sourceUrl link if available
+        if [[ -n "$source_url" ]]; then
+            version_link="[$version]($source_url)"
+        else
+            version_link="$version"
+        fi
+        
+        echo "| $counter | $component | $version_link | $project_url |" >> "$SBOM_FILE"
         ((counter++))
     fi
 done
@@ -129,7 +145,15 @@ for component in $component_names; do
     category=$(categorize_component "$source_url")
     if [[ "$category" == "manifest" ]]; then
         version=$(extract_version "$path")
-        echo "| $counter | $component | $version | $project_url |" >> "$SBOM_FILE"
+        
+        # Format version with sourceUrl link if available
+        if [[ -n "$source_url" ]]; then
+            version_link="[$version]($source_url)"
+        else
+            version_link="$version"
+        fi
+        
+        echo "| $counter | $component | $version_link | $project_url |" >> "$SBOM_FILE"
         ((counter++))
     fi
 done
