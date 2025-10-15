@@ -214,7 +214,7 @@ apps:
   amd-gpu-operator:
     path: amd-gpu-operator/v1.4.0
     namespace: kube-amd-gpu
-    valuesFile: values.yaml
+    valuesFile: ../values_cf.yaml
     syncWave: -1
 
   amd-gpu-operator-config:
