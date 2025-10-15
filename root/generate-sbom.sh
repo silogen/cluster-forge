@@ -7,6 +7,7 @@ set -euo pipefail
 
 COMPONENTS_FILE="components.yaml"
 SBOM_FILE="SBOM.md"
+SOURCES_DIR="../sources"
 
 # Check if components.yaml exists
 if [[ ! -f "$COMPONENTS_FILE" ]]; then
@@ -39,22 +40,16 @@ extract_version() {
 
 # Function to categorize component (helm vs manifest)
 categorize_component() {
-    local source_url="$1"
+    local component_name="$1"
     
-    # Kubernetes manifests (direct YAML files)
-    if [[ "$source_url" == *".yaml"* ]] || [[ "$source_url" == *".yml"* ]]; then
+    # Check if component has valuesFile field - if yes, it's a Helm chart
+    local values_file=$(yq eval ".components.\"$component_name\".valuesFile // \"\"" "$COMPONENTS_FILE")
+    
+    if [[ -n "$values_file" ]]; then
+        echo "helm"
+    else
         echo "manifest"
-        return
     fi
-    
-    # GitHub releases with install.yaml are typically manifests
-    if [[ "$source_url" == *"github.com"* ]] && [[ "$source_url" == *"releases"* ]] && [[ "$source_url" == *".yaml"* ]]; then
-        echo "manifest"
-        return
-    fi
-    
-    # Default to helm for most others (OCI, helm repos, etc.)
-    echo "helm"
 }
 
 # Get all component names using yq
@@ -109,7 +104,7 @@ for component in $component_names; do
     source_url=$(yq eval ".components.\"$component\".sourceUrl // \"\"" "$COMPONENTS_FILE")
     
     # Check if it's a helm component
-    category=$(categorize_component "$source_url")
+    category=$(categorize_component "$component")
     if [[ "$category" == "helm" ]]; then
         version=$(extract_version "$path")
         
@@ -142,7 +137,7 @@ for component in $component_names; do
     source_url=$(yq eval ".components.\"$component\".sourceUrl // \"\"" "$COMPONENTS_FILE")
     
     # Check if it's a manifest component
-    category=$(categorize_component "$source_url")
+    category=$(categorize_component "$component")
     if [[ "$category" == "manifest" ]]; then
         version=$(extract_version "$path")
         
@@ -158,13 +153,67 @@ for component in $component_names; do
     fi
 done
 
-# Add Container Images section placeholder
+# Function to extract images from a component
+extract_images_for_component() {
+    local component_name="$1"
+    local component_path="$2"
+    
+    echo "" >> "$SBOM_FILE"
+    echo "## $component_name images" >> "$SBOM_FILE"
+    echo "" >> "$SBOM_FILE"
+    
+    # Find all YAML files in the component path
+    local yaml_files=$(find "$SOURCES_DIR/$component_path" -name "*.yaml" -o -name "*.yml" 2>/dev/null || true)
+    
+    if [ -z "$yaml_files" ]; then
+        echo "No container images found in manifest files." >> "$SBOM_FILE"
+        return 0
+    fi
+    
+    # Extract container images
+    local images=$(grep -h -E "^[[:space:]]*image:" $yaml_files 2>/dev/null | \
+                   grep -v "description:" | \
+                   grep -v "type: string" | \
+                   sed 's/^[[:space:]]*image:[[:space:]]*//' | \
+                   sed 's/[[:space:]]*$//' | \
+                   sed 's/^"//' | \
+                   sed 's/"$//' | \
+                   sort -u | \
+                   grep -v '^$' || true)
+    
+    if [ -n "$images" ]; then
+        echo "| No | Image |" >> "$SBOM_FILE"
+        echo "|----|-------|" >> "$SBOM_FILE"
+        
+        local counter=1
+        echo "$images" | while IFS= read -r image; do
+            if [ -n "$image" ]; then
+                echo "| $counter | \`$image\` |" >> "$SBOM_FILE"
+                counter=$((counter + 1))
+            fi
+        done
+    else
+        echo "No container images found in manifest files." >> "$SBOM_FILE"
+    fi
+}
+
+# Add Container Images section
 cat >> "$SBOM_FILE" << 'EOF'
 
 ## Container Images
 
-*Container image analysis would require parsing manifest files and Helm charts.*
-
 EOF
+
+# Extract images for each component - only manifest components
+for component in $component_names; do
+    path=$(yq eval ".components.\"$component\".path" "$COMPONENTS_FILE")
+    source_url=$(yq eval ".components.\"$component\".sourceUrl // \"\"" "$COMPONENTS_FILE")
+    
+    # Only process components that are categorized as manifest (appear in Kubernetes Manifests table)
+    category=$(categorize_component "$component")
+    if [[ "$category" == "manifest" ]]; then
+        extract_images_for_component "$component" "$path"
+    fi
+done
 
 echo "SBOM.md generated successfully!"
