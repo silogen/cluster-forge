@@ -1,0 +1,99 @@
+name: PR Component Validation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'root/components.yaml'
+      - 'root/values.yaml'
+      - 'root/generate-compare-components.sh'
+
+jobs:
+  validate-components:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install yq
+      run: |
+        sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+        sudo chmod +x /usr/local/bin/yq
+        
+    - name: Run generate-compare-components.sh
+      working-directory: ./root
+      run: |
+        chmod +x generate-compare-components.sh
+        ./generate-compare-components.sh
+        
+    - name: Validate component URLs
+      working-directory: ./root
+      run: |
+        echo "Validating components.yaml for missing sourceUrl and projectUrl..."
+        
+        # Check if components.yaml exists
+        if [[ ! -f "components.yaml" ]]; then
+          echo "❌ Error: components.yaml not found"
+          exit 1
+        fi
+        
+        # Get all component names
+        component_names=$(yq eval '.components | keys | .[]' components.yaml)
+        
+        missing_fields=false
+        missing_components=()
+        
+        # Check each component for missing fields
+        for component in $component_names; do
+          source_url=$(yq eval ".components.\"$component\".sourceUrl // \"\"" components.yaml)
+          project_url=$(yq eval ".components.\"$component\".projectUrl // \"\"" components.yaml)
+          
+          component_missing=false
+          
+          if [[ -z "$source_url" ]]; then
+            echo "❌ Missing sourceUrl for component: $component"
+            missing_fields=true
+            component_missing=true
+          fi
+          
+          if [[ -z "$project_url" ]]; then
+            echo "❌ Missing projectUrl for component: $component"
+            missing_fields=true
+            component_missing=true
+          fi
+          
+          if [[ "$component_missing" == true ]]; then
+            missing_components+=("$component")
+          else
+            echo "✅ Component $component has both sourceUrl and projectUrl"
+          fi
+        done
+        
+        if [[ "$missing_fields" == true ]]; then
+          echo ""
+          echo "❌ VALIDATION FAILED!"
+          echo "The following components are missing required fields:"
+          for comp in "${missing_components[@]}"; do
+            echo "  - $comp"
+          done
+          echo ""
+          echo "Please ensure all components have both 'sourceUrl' and 'projectUrl' populated in components.yaml"
+          exit 1
+        else
+          echo ""
+          echo "✅ All components have required sourceUrl and projectUrl fields!"
+        fi
+        
+    - name: Check for uncommitted changes
+      working-directory: ./root
+      run: |
+        if [[ -n $(git status --porcelain components.yaml) ]]; then
+          echo "❌ components.yaml has uncommitted changes after running generate-compare-components.sh"
+          echo "Please commit the updated components.yaml file"
+          git diff components.yaml
+          exit 1
+        else
+          echo "✅ components.yaml is up to date"
+        fi
