@@ -144,7 +144,7 @@ jobs:
       with:
         name: sbom-${{ github.event.release.tag_name || inputs.release_tag || github.sha }}
         path: root/sbom-*.md
-        retention-days: 90
+        retention-days: 15
         
     - name: Upload SBOM to release (if release event)
       if: github.event_name == 'release'
