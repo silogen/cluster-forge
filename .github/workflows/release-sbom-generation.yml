@@ -9,6 +9,8 @@ on:
         description: 'Release tag to generate SBOM for'
         required: true
         type: string
+  push:
+    branches: [441_add_automated_sbom]
 
 jobs:
   generate-sbom:
@@ -18,7 +20,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.event.release.tag_name || inputs.release_tag }}
+        ref: ${{ github.event.release.tag_name || inputs.release_tag || github.sha }}
         
     - name: Install yq
       run: |
@@ -103,7 +105,7 @@ jobs:
     - name: Generate SBOM
       working-directory: ./root
       run: |
-        echo "Generating SBOM for release ${{ github.event.release.tag_name || inputs.release_tag }}..."
+        echo "Generating SBOM for release ${{ github.event.release.tag_name || inputs.release_tag || github.sha }}..."
         
         chmod +x generate-sbom.sh
         ./generate-sbom.sh
@@ -118,7 +120,7 @@ jobs:
         # Show SBOM summary
         echo ""
         echo "=== SBOM Summary ==="
-        echo "Release: ${{ github.event.release.tag_name || inputs.release_tag }}"
+        echo "Release: ${{ github.event.release.tag_name || inputs.release_tag || github.sha }}"
         echo "Generated at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
         
         # Count components in each category
@@ -134,7 +136,7 @@ jobs:
     - name: Upload SBOM as artifact
       uses: actions/upload-artifact@v4
       with:
-        name: sbom-${{ github.event.release.tag_name || inputs.release_tag }}
+        name: sbom-${{ github.event.release.tag_name || inputs.release_tag || github.sha }}
         path: root/SBOM.md
         retention-days: 90
         
