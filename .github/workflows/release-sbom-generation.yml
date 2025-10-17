@@ -115,7 +115,13 @@ jobs:
           exit 1
         fi
         
-        echo "✅ SBOM.md generated successfully"
+        # Create the renamed SBOM file with release name and git hash
+        RELEASE_NAME="${{ github.event.release.tag_name || inputs.release_tag || github.sha }}"
+        SHORT_HASH=$(echo "${{ github.sha }}" | cut -c1-7)
+        NEW_SBOM_NAME="sbom-${RELEASE_NAME}-${SHORT_HASH}.md"
+        
+        cp SBOM.md "$NEW_SBOM_NAME"
+        echo "✅ SBOM generated successfully as $NEW_SBOM_NAME"
         
         # Show SBOM summary
         echo ""
@@ -137,15 +143,17 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: sbom-${{ github.event.release.tag_name || inputs.release_tag || github.sha }}
-        path: root/SBOM.md
+        path: root/sbom-*.md
         retention-days: 90
         
     - name: Upload SBOM to release (if release event)
       if: github.event_name == 'release'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      working-directory: ./root
       run: |
-        # Upload SBOM.md to the release
-        gh release upload ${{ github.event.release.tag_name }} root/SBOM.md --clobber
+        # Upload the renamed SBOM file to the release
+        SBOM_FILE=$(ls sbom-*.md | head -1)
+        gh release upload ${{ github.event.release.tag_name }} "$SBOM_FILE" --clobber
         
-        echo "✅ SBOM.md uploaded to release ${{ github.event.release.tag_name }}"
+        echo "✅ $SBOM_FILE uploaded to release ${{ github.event.release.tag_name }}"
