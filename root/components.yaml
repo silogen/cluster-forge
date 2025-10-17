@@ -1,0 +1,119 @@
+# Generated components metadata for SBOM creation
+# This file contains simplified component information extracted from values.yaml
+# Apps with "config" suffix are excluded
+
+components:
+  argocd:
+    path: argocd/8.3.5
+    valuesFile: ../values_cf.yaml
+    sourceUrl: https://argoproj.github.io/argo-helm
+    projectUrl: https://argoproj.github.io/
+  cert-manager:
+    path: cert-manager/v1.18.2
+    valuesFile: ../values_cf.yaml
+    sourceUrl: oci://quay.io/jetstack/charts/cert-manager
+    projectUrl: https://cert-manager.io/
+  openbao:
+    path: openbao/0.18.2
+    valuesFile: ../values_cf.yaml
+    sourceUrl: https://openbao.github.io/openbao-helm
+    projectUrl: https://openbao.org/
+  external-secrets:
+    path: external-secrets/0.15.1
+    valuesFile: values.yaml
+    sourceUrl: https://charts.external-secrets.io
+    projectUrl: https://external-secrets.io/main/
+  gitea:
+    path: gitea/12.3.0
+    valuesFile: ../values_cf.yaml
+    sourceUrl: https://dl.gitea.com/charts/
+    projectUrl: https://github.com/go-gitea/gitea
+  gateway-api:
+    path: gateway-api/v1.3.0
+    sourceUrl: https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml
+    projectUrl: https://gateway-api.sigs.k8s.io/
+  metallb:
+    path: metallb/v0.15.2
+    sourceUrl: https://raw.githubusercontent.com/metallb/metallb/v0.15.2/config/manifests/metallb-native.yaml
+    projectUrl: https://github.com/metallb/metallb/
+  kgateway-crds:
+    path: kgateway-crds/v2.1.0-main
+    valuesFile: values.yaml
+    sourceUrl: oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds
+    projectUrl: https://kgateway.dev/
+  kgateway:
+    path: kgateway/v2.1.0-main
+    valuesFile: ../values_cf.yaml
+    sourceUrl: oci://cr.kgateway.dev/kgateway-dev/charts/kgateway
+    projectUrl: https://kgateway.dev/
+  prometheus-crds:
+    path: prometheus-operator-crds/23.0.0
+    valuesFile: values.yaml
+    sourceUrl: https://prometheus-community.github.io/helm-charts
+    projectUrl: https://github.com/prometheus-community/
+  opentelemetry-operator:
+    path: opentelemetry-operator/0.93.1
+    valuesFile: values.yaml
+    sourceUrl: https://open-telemetry.github.io/opentelemetry-helm-charts
+    projectUrl: https://opentelemetry.io/
+  otel-lgtm-stack:
+    path: otel-lgtm-stack
+    sourceUrl: https://github.com/silogen/docker-otel-lgtm
+    projectUrl: https://github.com/grafana/docker-otel-lgtm
+  cnpg-operator:
+    path: cnpg-operator/0.26.0
+    valuesFile: values.yaml
+    sourceUrl: https://cloudnative-pg.github.io/charts
+    projectUrl: https://cloudnative-pg.github.io/
+  keycloak:
+    path: keycloak-old
+    valuesFile: values.yaml
+    sourceUrl: https://codecentric.github.io/helm-charts
+    projectUrl: https://github.com/keycloak/keycloak
+  kyverno:
+    path: kyverno/3.5.1
+    valuesFile: values.yaml
+    sourceUrl: https://kyverno.github.io/kyverno/
+    projectUrl: https://github.com/kyverno/kyverno
+  amd-gpu-operator:
+    path: amd-gpu-operator/v1.4.0
+    valuesFile: values.yaml
+    sourceUrl: https://rocm.github.io/gpu-operator
+    projectUrl: https://github.com/ROCm/ROCm
+  kuberay-operator:
+    path: kuberay-operator/1.4.2
+    valuesFile: values.yaml
+    sourceUrl: https://ray-project.github.io/kuberay-helm/
+    projectUrl: https://github.com/ROCm/ROCm
+  rabbitmq:
+    path: rabbitmq/v2.15.0
+    sourceUrl: https://github.com/rabbitmq/cluster-operator/releases/download/v2.15.0/cluster-operator.yml
+    projectUrl: https://github.com/rabbitmq/cluster-operator/
+  kueue:
+    path: kueue/0.13.0
+    valuesFile: ../values_onenode.yaml
+    sourceUrl: oci://registry.k8s.io/kueue/charts/kueue
+    projectUrl: https://kueue.sigs.k8s.io/
+  appwrapper:
+    path: appwrapper/v1.1.2
+    sourceUrl: https://github.com/project-codeflare/appwrapper/releases/download/v1.1.2/install.yaml
+    projectUrl: https://github.com/project-codeflare/appwrapper
+  minio-operator:
+    path: minio-operator/7.1.1
+    valuesFile: values.yaml
+    sourceUrl: https://operator.min.io
+    projectUrl: https://github.com/minio/operator
+  minio-tenant:
+    path: minio-tenant/7.1.1
+    valuesFile: ../values_cf.yaml
+    sourceUrl: https://operator.min.io
+    projectUrl: https://github.com/minio/operator
+  kaiwo:
+    path: kaiwo/v0.1.7
+    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.1.7/install.yaml
+    projectUrl: https://github.com/silogen/kaiwo/
+  airm:
+    path: airm
+    valuesFile: values.yaml
+    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm
+    projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm
