@@ -9,8 +9,6 @@ on:
         description: 'Release tag to generate SBOM for'
         required: true
         type: string
-  push:
-    branches: [441_add_automated_sbom]
 
 jobs:
   generate-sbom:
