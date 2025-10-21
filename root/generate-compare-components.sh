@@ -60,6 +60,18 @@ else
             break
         fi
     done
+    
+    # Check for removed apps (apps in components.yaml that are no longer in values.yaml)
+    if [[ "$needs_update" == "false" ]]; then
+        existing_components=$(yq eval '.components | keys | .[]' "$OUTPUT_FILE")
+        for existing_component in $existing_components; do
+            if ! echo "$app_names" | grep -q "^$existing_component$"; then
+                echo "  Removed app found: $existing_component"
+                needs_update=true
+                break
+            fi
+        done
+    fi
 fi
 
 if [[ "$needs_update" == "false" ]]; then
@@ -92,10 +104,12 @@ for app in $app_names; do
         echo "    valuesFile: $values_file" >> "$TEMP_FILE"
     fi
     
-    # Preserve existing sourceUrl and projectUrl if they exist, otherwise add empty ones
+    # Preserve existing sourceUrl, projectUrl, license, and licenseUrl if they exist, otherwise add empty ones
     if [[ -f "$OUTPUT_FILE" ]]; then
         existing_source_url=$(yq eval ".components.\"$app\".sourceUrl // \"\"" "$OUTPUT_FILE" 2>/dev/null || echo "")
         existing_project_url=$(yq eval ".components.\"$app\".projectUrl // \"\"" "$OUTPUT_FILE" 2>/dev/null || echo "")
+        existing_license=$(yq eval ".components.\"$app\".license // \"\"" "$OUTPUT_FILE" 2>/dev/null || echo "")
+        existing_license_url=$(yq eval ".components.\"$app\".licenseUrl // \"\"" "$OUTPUT_FILE" 2>/dev/null || echo "")
         
         if [[ -n "$existing_source_url" ]]; then
             echo "    sourceUrl: $existing_source_url" >> "$TEMP_FILE"
@@ -108,10 +122,24 @@ for app in $app_names; do
         else
             echo "    projectUrl:" >> "$TEMP_FILE"
         fi
+        
+        if [[ -n "$existing_license" ]]; then
+            echo "    license: $existing_license" >> "$TEMP_FILE"
+        else
+            echo "    license:" >> "$TEMP_FILE"
+        fi
+        
+        if [[ -n "$existing_license_url" ]]; then
+            echo "    licenseUrl: $existing_license_url" >> "$TEMP_FILE"
+        else
+            echo "    licenseUrl:" >> "$TEMP_FILE"
+        fi
     else
         # New file, add empty fields
         echo "    sourceUrl:" >> "$TEMP_FILE"
         echo "    projectUrl:" >> "$TEMP_FILE"
+        echo "    license:" >> "$TEMP_FILE"
+        echo "    licenseUrl:" >> "$TEMP_FILE"
     fi
 done
 

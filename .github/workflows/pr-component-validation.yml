@@ -49,6 +49,8 @@ jobs:
         for component in $component_names; do
           source_url=$(yq eval ".components.\"$component\".sourceUrl // \"\"" components.yaml)
           project_url=$(yq eval ".components.\"$component\".projectUrl // \"\"" components.yaml)
+          license=$(yq eval ".components.\"$component\".license // \"\"" components.yaml)
+          license_url=$(yq eval ".components.\"$component\".licenseUrl // \"\"" components.yaml)
           
           component_missing=false
           
@@ -64,10 +66,22 @@ jobs:
             component_missing=true
           fi
           
+          if [[ -z "$license" ]]; then
+            echo "❌ Missing license for component: $component"
+            missing_fields=true
+            component_missing=true
+          fi
+          
+          if [[ -z "$license_url" ]]; then
+            echo "❌ Missing licenseUrl for component: $component"
+            missing_fields=true
+            component_missing=true
+          fi
+          
           if [[ "$component_missing" == true ]]; then
             missing_components+=("$component")
           else
-            echo "✅ Component $component has both sourceUrl and projectUrl"
+            echo "✅ Component $component has all required fields (sourceUrl, projectUrl, license, licenseUrl)"
           fi
         done
         
@@ -79,11 +93,18 @@ jobs:
             echo "  - $comp"
           done
           echo ""
-          echo "Please ensure all components have both 'sourceUrl' and 'projectUrl' populated in components.yaml"
+          echo "Please ensure all components have 'sourceUrl', 'projectUrl', 'license', and 'licenseUrl' populated in components.yaml"
+          echo ""
+          echo "📝 Manual steps required:"
+          echo "   1. Fill in 'sourceUrl' and 'projectUrl' manually for missing components"
+          echo "   2. Run ./update_licenses.sh to auto-populate license fields from GitHub"
+          echo ""
+          echo "💡 Note: 'sourceUrl' and 'projectUrl' must be provided manually as they require"
+          echo "   human knowledge about where to find charts/manifests and project repositories."
           exit 1
         else
           echo ""
-          echo "✅ All components have required sourceUrl and projectUrl fields!"
+          echo "✅ All components have required fields (sourceUrl, projectUrl, license, licenseUrl)!"
         fi
         
     - name: Check for uncommitted changes
