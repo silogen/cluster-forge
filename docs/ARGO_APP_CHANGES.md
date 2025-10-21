@@ -18,6 +18,8 @@ In order to apply changes on the K8 cluster, changes needs to be done on the git
 
 In case changes are needed for a current Argo App, then changes are needed just in the Gitea repo. Otherwise a new argo CD app is also needed
 
+![alt text](img/argo-gitea.png "Argo/Gitea workflow")
+
 ## Prerequisites
 
 Ensure the following tools are installed:
