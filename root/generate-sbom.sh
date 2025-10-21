@@ -61,8 +61,8 @@ cat > "$SBOM_FILE" << 'EOF'
 
 ## All Components
 
-| No | Name | Version | Project |
-|----|------|---------|---------|
+| No | Name | Version | Project | License |
+|----|------|---------|---------|---------|
 EOF
 
 # Generate all components table
@@ -71,6 +71,8 @@ for component in $component_names; do
     path=$(yq eval ".components.\"$component\".path" "$COMPONENTS_FILE")
     project_url=$(yq eval ".components.\"$component\".projectUrl // \"\"" "$COMPONENTS_FILE")
     source_url=$(yq eval ".components.\"$component\".sourceUrl // \"\"" "$COMPONENTS_FILE")
+    license=$(yq eval ".components.\"$component\".license // \"\"" "$COMPONENTS_FILE")
+    license_url=$(yq eval ".components.\"$component\".licenseUrl // \"\"" "$COMPONENTS_FILE")
     
     # Extract version from path
     version=$(extract_version "$path")
@@ -82,8 +84,15 @@ for component in $component_names; do
         version_link="$version"
     fi
     
+    # Format license with licenseUrl link if available
+    if [[ -n "$license_url" ]]; then
+        license_link="[$license]($license_url)"
+    else
+        license_link="$license"
+    fi
+    
     # Add to all components table
-    echo "| $counter | $component | $version_link | $project_url |" >> "$SBOM_FILE"
+    echo "| $counter | $component | $version_link | $project_url | $license_link |" >> "$SBOM_FILE"
     ((counter++))
 done
 
@@ -92,8 +101,8 @@ cat >> "$SBOM_FILE" << 'EOF'
 
 ## Helm Charts
 
-| No | Name | Version | Project |
-|----|------|---------|---------|
+| No | Name | Version | Project | License |
+|----|------|---------|---------|---------|
 EOF
 
 # Generate helm components table
@@ -102,6 +111,8 @@ for component in $component_names; do
     path=$(yq eval ".components.\"$component\".path" "$COMPONENTS_FILE")
     project_url=$(yq eval ".components.\"$component\".projectUrl // \"\"" "$COMPONENTS_FILE")
     source_url=$(yq eval ".components.\"$component\".sourceUrl // \"\"" "$COMPONENTS_FILE")
+    license=$(yq eval ".components.\"$component\".license // \"\"" "$COMPONENTS_FILE")
+    license_url=$(yq eval ".components.\"$component\".licenseUrl // \"\"" "$COMPONENTS_FILE")
     
     # Check if it's a helm component
     category=$(categorize_component "$component")
@@ -115,7 +126,14 @@ for component in $component_names; do
             version_link="$version"
         fi
         
-        echo "| $counter | $component | $version_link | $project_url |" >> "$SBOM_FILE"
+        # Format license with licenseUrl link if available
+        if [[ -n "$license_url" ]]; then
+            license_link="[$license]($license_url)"
+        else
+            license_link="$license"
+        fi
+        
+        echo "| $counter | $component | $version_link | $project_url | $license_link |" >> "$SBOM_FILE"
         ((counter++))
     fi
 done
@@ -125,8 +143,8 @@ cat >> "$SBOM_FILE" << 'EOF'
 
 ## Kubernetes Manifests
 
-| No | Name | Version | Project |
-|----|------|---------|---------|
+| No | Name | Version | Project | License |
+|----|------|---------|---------|---------|
 EOF
 
 # Generate manifest components table
@@ -135,6 +153,8 @@ for component in $component_names; do
     path=$(yq eval ".components.\"$component\".path" "$COMPONENTS_FILE")
     project_url=$(yq eval ".components.\"$component\".projectUrl // \"\"" "$COMPONENTS_FILE")
     source_url=$(yq eval ".components.\"$component\".sourceUrl // \"\"" "$COMPONENTS_FILE")
+    license=$(yq eval ".components.\"$component\".license // \"\"" "$COMPONENTS_FILE")
+    license_url=$(yq eval ".components.\"$component\".licenseUrl // \"\"" "$COMPONENTS_FILE")
     
     # Check if it's a manifest component
     category=$(categorize_component "$component")
@@ -148,7 +168,14 @@ for component in $component_names; do
             version_link="$version"
         fi
         
-        echo "| $counter | $component | $version_link | $project_url |" >> "$SBOM_FILE"
+        # Format license with licenseUrl link if available
+        if [[ -n "$license_url" ]]; then
+            license_link="[$license]($license_url)"
+        else
+            license_link="$license"
+        fi
+        
+        echo "| $counter | $component | $version_link | $project_url | $license_link |" >> "$SBOM_FILE"
         ((counter++))
     fi
 done
