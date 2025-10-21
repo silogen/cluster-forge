@@ -447,7 +447,53 @@ spec:
     - name: varlibdockercontainers
       readOnly: true
       mountPath: /var/lib/docker/containers
+---
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: otel-collector-logs-events
+  namespace: otel-lgtm-stack
+spec:
+  image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
+  mode: deployment
+  serviceAccount: otel-collector
+  config: 
+    receivers:
+      k8sobjects:
+        auth_type: serviceAccount
+        objects:
+          - name: events
+            mode: watch
+            group: events.k8s.io
+            namespaces: ["demo"] ## <-- add target namespace 
+            interval: 30s
+    processors:
+      attributes:
+        actions:
+          - key: k8s_cluster_name
+            action: insert
+            value: "app-dev-2" ## <-- add cluster name
 
+      # Transform processor to set resource attributes
+      transform:
+        error_mode: ignore
+        log_statements:
+          - context: log
+            statements:
+              - set(resource.attributes["k8s.cluster.name"], attributes["k8s_cluster_name"])
+    exporters:
+      otlp:
+        endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
+        tls:
+          insecure: true
+      debug:
+        verbosity: detailed
+    service:
+      pipelines:
+        logs:
+          receivers: [k8sobjects]
+          processors: [attributes, transform]
+          exporters: [otlp, debug]
 ---
 apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
