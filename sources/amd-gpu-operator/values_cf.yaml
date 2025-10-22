@@ -1,0 +1,3 @@
+crds:
+  defaultCR:
+    install: false

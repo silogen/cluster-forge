@@ -12,7 +12,7 @@ on:
         description: 'Is this a prerelease?'
         required: false
         type: boolean
-        default: 'false'
+        default: false
 
 jobs:
   version:
@@ -69,17 +69,17 @@ jobs:
   build:
     needs: [version]
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        release:
-          - type: enterprise-ai
-            name: Enterprise AI
-          - type: core
-            name: Core
-          - type: weka
-            name: WekaFS
-          - type: nuage
-            name: Nuage
+    # strategy:
+    #   matrix:
+    #     release:
+    #       - type: enterprise-ai
+    #         name: Enterprise AI
+    #       - type: core
+    #         name: Core
+    #       - type: weka
+    #         name: WekaFS
+    #       - type: nuage
+    #         name: Nuage
     steps:
       - uses: actions/checkout@v4
 
@@ -93,34 +93,38 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Smelt
+      - name: Create file with detailed commit info
         run: |
-          go run . smelt \
-            --config input/config-silogen-${{ matrix.release.type }}.yaml \
-            --non-interactive
-
-      - name: Cast
-        env:
-          VERSION: ${{ needs.version.outputs.new_version }}
-        run: |
-          go run . cast \
-            --config input/config-silogen-${{ matrix.release.type }}.yaml \
-            --imageName ghcr.io/silogen/clusterforge:$VERSION-${{ matrix.release.type }} \
-            --stackName ${{ matrix.release.type }}-$VERSION \
-            --non-interactive
+          echo "Commit SHA: ${{ github.sha }}" > commit-info.txt
+          echo "Commit Short SHA: $(git rev-parse --short HEAD)" >> commit-info.txt
+          echo "Commit Message: $(git log -1 --pretty=%B)" >> commit-info.txt
+          echo "Commit Author: $(git log -1 --pretty=%an)" >> commit-info.txt
+          echo "Commit Author Email: $(git log -1 --pretty=%ae)" >> commit-info.txt
+          echo "Commit Date: $(git log -1 --pretty=%ad)" >> commit-info.txt
+          echo "Event Name: ${{ github.event_name }}" >> commit-info.txt
+          echo "Actor: ${{ github.actor }}" >> commit-info.txt
+          
+          # Add PR-specific info if it's a PR
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "PR Number: ${{ github.event.pull_request.number }}" >> commit-info.txt
+            echo "PR Title: ${{ github.event.pull_request.title }}" >> commit-info.txt
+            echo "PR Branch: ${{ github.event.pull_request.head.ref }}" >> commit-info.txt
+          fi
 
       - name: Create release package
         env:
           VERSION: ${{ needs.version.outputs.new_version }}
         run: |
-          tar -C stacks/ -zcvf stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz ${{ matrix.release.type }}-$VERSION
+          tar -zcvf "release-enterprise-ai-${VERSION}.tar.gz" --transform 's,^,cluster-forge/,' root/ scripts/ sources commit-info.txt
+
+      - name: List files
+        run: ls release*
 
       - name: Upload Release Asset
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.version.outputs.new_version }}
         run: |
-          # Upload asset to the release
           gh release upload "$VERSION" \
-              "stacks/release-${{ matrix.release.type }}-$VERSION.tar.gz#ClusterForge ${{ matrix.release.name }} Package" \
+              "release-enterprise-ai-${VERSION}.tar.gz#ClusterForge Enterprise AI Package" \
               --clobber

@@ -11,8 +11,12 @@ spec:
   refreshInterval: 15m
   target:
     name: argocd-oidc-creds
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: argocd
   data:
     - secretKey: client_secret
       remoteRef:
-        key: secrets/data/argocd-oidc-creds
+        key: secrets/data/argocd-client-secret
         property: value

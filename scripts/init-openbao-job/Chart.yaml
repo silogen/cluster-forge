@@ -1,0 +1,4 @@
+apiVersion: v2
+name: init-openbao-job
+description: A Helm chart with init scripts for openbao
+version: 0.1.0
