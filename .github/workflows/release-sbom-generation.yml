@@ -26,7 +26,7 @@ jobs:
         sudo chmod +x /usr/local/bin/yq
         
     - name: Validate components.yaml structure
-      working-directory: ./root
+      working-directory: ./sbom
       run: |
         echo "Validating components.yaml structure and content..."
         
@@ -101,7 +101,7 @@ jobs:
         fi
         
     - name: Generate SBOM
-      working-directory: ./root
+      working-directory: ./sbom
       run: |
         echo "Generating SBOM for release ${{ github.event.release.tag_name || inputs.release_tag || github.sha }}..."
         
@@ -141,14 +141,14 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: sbom-${{ github.event.release.tag_name || inputs.release_tag || github.sha }}
-        path: root/sbom-*.md
+        path: sbom/sbom-*.md
         retention-days: 15
         
     - name: Upload SBOM to release (if release event)
       if: github.event_name == 'release'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      working-directory: ./root
+      working-directory: ./sbom
       run: |
         # Upload the renamed SBOM file to the release
         SBOM_FILE=$(ls sbom-*.md | head -1)

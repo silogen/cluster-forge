@@ -5,9 +5,9 @@ on:
   pull_request:
     branches: [ main ]
     paths:
-      - 'root/components.yaml'
+      - 'sbom/components.yaml'
       - 'root/values.yaml'
-      - 'root/generate-compare-components.sh'
+      - 'sbom/generate-compare-components.sh'
 
 jobs:
   validate-components:
@@ -23,13 +23,13 @@ jobs:
         sudo chmod +x /usr/local/bin/yq
         
     - name: Run generate-compare-components.sh
-      working-directory: ./root
+      working-directory: ./sbom
       run: |
         chmod +x generate-compare-components.sh
         ./generate-compare-components.sh
         
     - name: Validate component URLs
-      working-directory: ./root
+      working-directory: ./sbom
       run: |
         echo "Validating components.yaml for missing sourceUrl and projectUrl..."
         
@@ -108,7 +108,7 @@ jobs:
         fi
         
     - name: Check for uncommitted changes
-      working-directory: ./root
+      working-directory: ./sbom
       run: |
         if [[ -n $(git status --porcelain components.yaml) ]]; then
           echo "❌ components.yaml has uncommitted changes after running generate-compare-components.sh"
