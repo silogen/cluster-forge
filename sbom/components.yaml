@@ -107,7 +107,7 @@ components:
     licenseUrl: https://github.com/kyverno/kyverno/blob/main/LICENSE
   amd-gpu-operator:
     path: amd-gpu-operator/v1.4.0
-    valuesFile: values.yaml
+    valuesFile: ../values_cf.yaml
     sourceUrl: https://rocm.github.io/gpu-operator
     projectUrl: https://github.com/ROCm/ROCm
     license: MIT License
