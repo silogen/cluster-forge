@@ -6,7 +6,7 @@ set -euo pipefail
 # Only updates if there are new items or changes to existing ones
 # Preserves existing sourceUrl and projectUrl values
 
-VALUES_FILE="./values.yaml"
+VALUES_FILE="../root/values.yaml"
 OUTPUT_FILE="./components.yaml"
 TEMP_FILE="./components.yaml.tmp"
 
