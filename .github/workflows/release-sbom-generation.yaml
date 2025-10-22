@@ -1,0 +1,159 @@
+name: Release SBOM Generation
+
+on:
+  release:
+    types: [created, published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to generate SBOM for'
+        required: true
+        type: string
+
+jobs:
+  generate-sbom:
+    runs-on: ubuntu-latest
+    # Only run if release is from main branch or if manually triggered
+    if: github.event_name == 'workflow_dispatch' || github.event.release.target_commitish == 'main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.release.tag_name || inputs.release_tag || github.sha }}
+        
+    - name: Install yq
+      run: |
+        sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+        sudo chmod +x /usr/local/bin/yq
+        
+    - name: Validate components.yaml structure
+      working-directory: ./sbom
+      run: |
+        echo "Validating components.yaml structure and content..."
+        
+        # Check if components.yaml exists
+        if [[ ! -f "components.yaml" ]]; then
+          echo "❌ Error: components.yaml not found"
+          exit 1
+        fi
+        
+        # Validate YAML syntax
+        if ! yq eval '.' components.yaml > /dev/null 2>&1; then
+          echo "❌ Error: components.yaml has invalid YAML syntax"
+          exit 1
+        fi
+        
+        # Check if components section exists
+        if ! yq eval '.components' components.yaml > /dev/null 2>&1; then
+          echo "❌ Error: components.yaml missing 'components' section"
+          exit 1
+        fi
+        
+        # Get all component names
+        component_names=$(yq eval '.components | keys | .[]' components.yaml)
+        
+        if [[ -z "$component_names" ]]; then
+          echo "❌ Error: No components found in components.yaml"
+          exit 1
+        fi
+        
+        echo "✅ Found $(echo "$component_names" | wc -l) components"
+        
+        # Validate component structure
+        validation_errors=false
+        
+        for component in $component_names; do
+          echo "Validating component: $component"
+          
+          # Check required fields
+          path=$(yq eval ".components.\"$component\".path // \"\"" components.yaml)
+          source_url=$(yq eval ".components.\"$component\".sourceUrl // \"\"" components.yaml)
+          project_url=$(yq eval ".components.\"$component\".projectUrl // \"\"" components.yaml)
+          
+          if [[ -z "$path" ]]; then
+            echo "❌ Component $component missing 'path' field"
+            validation_errors=true
+          fi
+          
+          if [[ -z "$source_url" ]]; then
+            echo "❌ Component $component missing 'sourceUrl' field"
+            validation_errors=true
+          fi
+          
+          if [[ -z "$project_url" ]]; then
+            echo "❌ Component $component missing 'projectUrl' field"
+            validation_errors=true
+          fi
+          
+          # Check if referenced paths exist in sources directory
+          if [[ -n "$path" && ! -d "../sources/$path" ]]; then
+            echo "⚠️  Warning: Component $component references path '$path' but '../sources/$path' directory not found"
+          fi
+        done
+        
+        if [[ "$validation_errors" == true ]]; then
+          echo ""
+          echo "❌ VALIDATION FAILED!"
+          echo "components.yaml has structural issues that must be fixed before SBOM generation"
+          exit 1
+        else
+          echo ""
+          echo "✅ components.yaml validation passed!"
+        fi
+        
+    - name: Generate SBOM
+      working-directory: ./sbom
+      run: |
+        echo "Generating SBOM for release ${{ github.event.release.tag_name || inputs.release_tag || github.sha }}..."
+        
+        chmod +x generate-sbom.sh
+        ./generate-sbom.sh
+        
+        if [[ ! -f "SBOM.md" ]]; then
+          echo "❌ Error: SBOM.md was not generated"
+          exit 1
+        fi
+        
+        # Create the renamed SBOM file with release name and git hash
+        RELEASE_NAME="${{ github.event.release.tag_name || inputs.release_tag || github.sha }}"
+        SHORT_HASH=$(echo "${{ github.sha }}" | cut -c1-7)
+        NEW_SBOM_NAME="sbom-${RELEASE_NAME}-${SHORT_HASH}.md"
+        
+        cp SBOM.md "$NEW_SBOM_NAME"
+        echo "✅ SBOM generated successfully as $NEW_SBOM_NAME"
+        
+        # Show SBOM summary
+        echo ""
+        echo "=== SBOM Summary ==="
+        echo "Release: ${{ github.event.release.tag_name || inputs.release_tag || github.sha }}"
+        echo "Generated at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+        
+        # Count components in each category
+        all_components=$(yq eval '.components | keys | length' components.yaml)
+        helm_components=$(yq eval '.components | to_entries | map(select(.value.valuesFile != null)) | length' components.yaml)
+        manifest_components=$((all_components - helm_components))
+        
+        echo "Total components: $all_components"
+        echo "Helm charts: $helm_components"
+        echo "Kubernetes manifests: $manifest_components"
+        echo "===================="
+        
+    - name: Upload SBOM as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: sbom-${{ github.event.release.tag_name || inputs.release_tag || github.sha }}
+        path: sbom/sbom-*.md
+        retention-days: 15
+        
+    - name: Upload SBOM to release (if release event)
+      if: github.event_name == 'release'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      working-directory: ./sbom
+      run: |
+        # Upload the renamed SBOM file to the release
+        SBOM_FILE=$(ls sbom-*.md | head -1)
+        gh release upload ${{ github.event.release.tag_name }} "$SBOM_FILE" --clobber
+        
+        echo "✅ $SBOM_FILE uploaded to release ${{ github.event.release.tag_name }}"
