@@ -8,7 +8,7 @@ data:
     #!/bin/bash
 
     set -e
-    
+    DOMAIN={{ .Values.domain }}
     GITEA_URL="${GITEA_URL:-http://gitea-http.cf-gitea.svc:3000}"
     GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-silogen-admin}"
     
@@ -92,15 +92,15 @@ data:
         "auto_init": true
       }' || echo "Repository might already exist"
     
-    echo "Step 4: Creating user 'forge'..."
+    echo "Step 4: Creating user 'devuser'..."
     curl -X POST "${GITEA_URL}/api/v1/admin/users" \
       -H "Authorization: token ${GITEA_TOKEN}" \
       -H "Content-Type: application/json" \
       -d '{
-        "username": "forge",
-        "email": "forge@cluster-org.local",
-        "password": "TempPassword123!",
-        "full_name": "Forge User",
+        "username": "devuser",
+        "email": "devuser@'${DOMAIN}'",
+        "password": "password",
+        "full_name": "Dev User",
         "must_change_password": false,
         "send_notify": false
       }' || echo "User creation failed, might already exist or insufficient permissions"
@@ -110,8 +110,8 @@ data:
       "${GITEA_URL}/api/v1/orgs/cluster-org/teams" | \
       jq -r '.[] | select(.name == "Owners") | .id')
     
-    echo "Step 6: Adding user 'forge' to organization 'cluster-org' owners..."
-    curl -X PUT "${GITEA_URL}/api/v1/teams/${OWNERS_TEAM_ID}/members/forge" \
+    echo "Step 6: Adding user 'devuser' to organization 'cluster-org' owners..."
+    curl -X PUT "${GITEA_URL}/api/v1/teams/${OWNERS_TEAM_ID}/members/devuser" \
       -H "Authorization: token ${GITEA_TOKEN}" \
       -H "Content-Type: application/json" || echo "Failed to add user to organization"
     
