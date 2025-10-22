@@ -43,7 +43,7 @@ spec:
             - name: OPENID_CLIENT_ID
               value: "{{ .Values.keycloak.keycloakClientId }}"
             - name: OPENID_CONFIGURATION_URL
-              value: "http://{{ .Values.keycloak.prefixUrl }}.{{ .Values.airm.appDomain }}/realms/airm/.well-known/openid-configuration"
+              value: "https://{{ .Values.keycloak.prefixUrl }}.{{ .Values.airm.appDomain }}/realms/airm/.well-known/openid-configuration"
             - name: POST_REGISTRATION_REDIRECT_URL
               value: "https://{{ .Values.kgateway.airmui.prefixValue }}.{{ .Values.airm.appDomain }}/"
             - name: DATABASE_HOST
