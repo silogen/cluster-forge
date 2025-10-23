@@ -219,6 +219,34 @@ spec:
             capabilities:
               drop:
                 - ALL
+        - name: aim-metadata-registration
+          image: "{{ .Values.airm.backend.image.repository }}:{{ .Values.airm.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.airm.backend.image.pullPolicy }}
+          command: ["uv", "run", "-m", "app.aims.registration"]
+          env:
+            - name: DATABASE_HOST
+              value: "{{ .Release.Name }}-cnpg-rw.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: DATABASE_PORT
+              value: "{{ .Values.airm.backend.env.dbPort }}"
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-cnpg-user"
+                  key: username
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-cnpg-user"
+                  key: password
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop:
+                - ALL
         - name: check-rabbitmq-is-ready
           command:
             [
