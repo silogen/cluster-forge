@@ -9,6 +9,7 @@ This script bootstraps a complete GitOps environment with ArgoCD, OpenBao (secre
   - `kubectl`
   - `helm`
   - `yq`
+  - `openssl`
 
 ## Usage
 

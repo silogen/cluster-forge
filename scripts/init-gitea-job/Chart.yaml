@@ -1,0 +1,4 @@
+apiVersion: v2
+name: init-gitea-job
+description: A Helm chart with init scripts for gitea
+version: 0.1.0

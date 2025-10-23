@@ -343,6 +343,7 @@ data:
           "k8s": [],
           "admin-cli": [],
           "minio": [],
+          "gitea": [],
           "ci-service-account": [],
           "account-console": [],
           "broker": [
@@ -468,6 +469,19 @@ data:
           },
           "realmRoles": [],
           "clientRoles": {}
+        },
+        {
+          "id": "edbe36d4-bfe2-4ff3-a8db-a3c9843e8a46",
+          "name": "gitea-users",
+          "path": "/gitea-users",
+          "subGroups": [],
+          "attributes": {
+            "policy": [
+              "readwrite"
+            ]
+          },
+          "realmRoles": [],
+          "clientRoles": {}
         }
       ],
       "defaultRole": {
@@ -553,7 +567,8 @@ data:
           "notBefore": 0,
           "groups": [
             "/minio-users",
-            "/argocd-users"
+            "/argocd-users",
+            "/gitea-users"
           ]
         },
         {
@@ -1152,6 +1167,114 @@ data:
           "redirectUris": [
             "",
             "https://minio.{{ .Values.domain }}/*"
+          ],
+          "webOrigins": [
+            "*"
+          ],
+          "notBefore": 0,
+          "bearerOnly": false,
+          "consentRequired": false,
+          "standardFlowEnabled": true,
+          "implicitFlowEnabled": true,
+          "directAccessGrantsEnabled": true,
+          "serviceAccountsEnabled": true,
+          "publicClient": false,
+          "frontchannelLogout": true,
+          "protocol": "openid-connect",
+          "attributes": {
+            "realm_client": "false",
+            "oidc.ciba.grant.enabled": "false",
+            "client.secret.creation.time": "1756901765",
+            "backchannel.logout.session.required": "true",
+            "post.logout.redirect.uris": "+",
+            "oauth2.device.authorization.grant.enabled": "false",
+            "display.on.consent.screen": "false",
+            "backchannel.logout.revoke.offline.tokens": "false"
+          },
+          "authenticationFlowBindingOverrides": {},
+          "fullScopeAllowed": true,
+          "nodeReRegistrationTimeout": -1,
+          "protocolMappers": [
+            {
+              "id": "aa7debbf-865b-5eqs-b990-7e23304f7a46",
+              "name": "Client ID",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usersessionmodel-note-mapper",
+              "consentRequired": false,
+              "config": {
+                "user.session.note": "client_id",
+                "id.token.claim": "true",
+                "introspection.token.claim": "true",
+                "access.token.claim": "true",
+                "claim.name": "client_id",
+                "jsonType.label": "String"
+              }
+            },
+            {
+              "id": "74d68184-yre3-40a7-a7ed-b0e8cb8bdcc5",
+              "name": "Client IP Address",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usersessionmodel-note-mapper",
+              "consentRequired": false,
+              "config": {
+                "user.session.note": "clientAddress",
+                "id.token.claim": "true",
+                "introspection.token.claim": "true",
+                "access.token.claim": "true",
+                "claim.name": "clientAddress",
+                "jsonType.label": "String"
+              }
+            },
+            {
+              "id": "1539a7f8-a01a-8ike-8815-98ee03396d8c",
+              "name": "Client Host",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usersessionmodel-note-mapper",
+              "consentRequired": false,
+              "config": {
+                "user.session.note": "clientHost",
+                "id.token.claim": "true",
+                "introspection.token.claim": "true",
+                "access.token.claim": "true",
+                "claim.name": "clientHost",
+                "jsonType.label": "String"
+              }
+            }
+          ],
+          "defaultClientScopes": [
+            "web-origins",
+            "acr",
+            "roles",
+            "profile",
+            "groups",
+            "basic",
+            "email",
+            "policy"
+          ],
+          "optionalClientScopes": [
+            "address",
+            "phone",
+            "organization",
+            "offline_access",
+            "microprofile-jwt"
+          ]
+        },
+        {
+          "id": "efb12ee0-b3yw-4c7a-a032-74ce4730c425",
+          "clientId": "gitea",
+          "name": "",
+          "description": "",
+          "rootUrl": "",
+          "adminUrl": "",
+          "baseUrl": "",
+          "surrogateAuthRequired": false,
+          "enabled": true,
+          "alwaysDisplayInConsole": false,
+          "clientAuthenticatorType": "client-secret",
+          "secret": "__GITEA_CLIENT_SECRET__",
+          "redirectUris": [
+            "",
+            "https://gitea.{{ .Values.domain }}/*"
           ],
           "webOrigins": [
             "*"
@@ -3177,4 +3300,3 @@ data:
         "policies": []
       }
     }
-

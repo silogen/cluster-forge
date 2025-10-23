@@ -34,15 +34,19 @@ if ! kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -
 fi
 
 # Gitea bootstrap
+generate_password() {
+    openssl rand -hex 16 | tr 'a-f' 'A-F' | head -c 32
+}
+
 kubectl create secret generic gitea-admin-credentials \
   --namespace=cf-gitea \
   --from-literal=username=silogen-admin \
-  --from-literal=password=password
+  --from-literal=password=$(generate_password)
 kubectl create configmap initial-cf-values --from-file=../root/values_cf.yaml -n cf-gitea
 helm template --release-name gitea ../sources/gitea/12.3.0 -f ../sources/gitea/values_cf.yaml --namespace cf-gitea \
   --set clusterDomain="${DOMAIN}" --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}" | kubectl apply -f -
 kubectl rollout status deploy/gitea -n cf-gitea
-kubectl apply -f ./init-gitea-job/
+helm template --release-name gitea-init ./init-gitea-job --set domain="${DOMAIN}" | kubectl apply -f -
 if ! kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea; then
   echo "ERROR: Job gitea-init-job failed to complete or timed out!"
   exit 1
