@@ -15,6 +15,19 @@ kubectl create ns argocd
 kubectl create ns cf-gitea
 kubectl create ns cf-openbao
 
+# Validate Longhorn is ready before continuing:
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -x "$script_dir/wait_for_longhorn.sh" ]; then
+  "$script_dir/wait_for_longhorn.sh"
+else
+  if [ -f "$script_dir/wait_for_longhorn.sh" ]; then
+    bash "$script_dir/wait_for_longhorn.sh"
+  else
+    echo "ERROR: wait_for_longhorn.sh not found in $script_dir"
+    exit 1
+  fi
+fi
+
 # ArgoCD bootstrap
 helm template --release-name argocd ../sources/argocd/8.3.5 -f ../sources/argocd/values_cf.yaml --namespace argocd \
   --set global.domain="https://argocd.${DOMAIN}" | kubectl apply -f -
