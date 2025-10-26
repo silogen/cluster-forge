@@ -12,7 +12,7 @@
 #   4. Storage provisioning works via test PVC
 #
 # Globals:
-#   MAX_RETRIES - Maximum number of retry attempts (default: 30)
+#   MAX_RETRIES - Maximum number of retry attempts (default: 60)
 #   RETRY_DELAY - Delay between retries in seconds (default: 10)
 #   LONGHORN_NAMESPACE - Namespace where Longhorn is deployed (default: longhorn)
 #
@@ -23,7 +23,7 @@
 set -euo pipefail
 
 # Configuration
-MAX_RETRIES="${MAX_RETRIES:-30}"
+MAX_RETRIES="${MAX_RETRIES:-60}"
 RETRY_DELAY="${RETRY_DELAY:-10}"
 LONGHORN_NAMESPACE="${LONGHORN_NAMESPACE:-longhorn}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

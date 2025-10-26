@@ -18,10 +18,16 @@ kubectl create ns cf-openbao
 # Validate Longhorn is ready before continuing:
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -x "$script_dir/wait_for_longhorn.sh" ]; then
-  "$script_dir/wait_for_longhorn.sh"
+  if ! "$script_dir/wait_for_longhorn.sh"; then
+    echo "ERROR: Longhorn readiness check failed!"
+    exit 1
+  fi
 else
   if [ -f "$script_dir/wait_for_longhorn.sh" ]; then
-    bash "$script_dir/wait_for_longhorn.sh"
+    if ! bash "$script_dir/wait_for_longhorn.sh"; then
+      echo "ERROR: Longhorn readiness check failed!"
+      exit 1
+    fi
   else
     echo "ERROR: wait_for_longhorn.sh not found in $script_dir"
     exit 1
