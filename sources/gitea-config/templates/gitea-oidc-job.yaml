@@ -19,11 +19,6 @@ spec:
             secretKeyRef:
               name: gitea-admin-token
               key: token
-        - name: DOMAIN
-          valueFrom:
-            secretKeyRef:
-              name: gitea-oidc-secret
-              key: DOMAIN
         - name: CLIENT_SECRET
           valueFrom:
             secretKeyRef:

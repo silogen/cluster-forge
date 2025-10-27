@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitea-config-script
+  namespace: cf-gitea
+data:
+  configure-gitea.sh: |
+    #!/bin/bash
+
+    KC_URL={{ .Values.keycloak.url }}
+    KC_REALM={{ .Values.keycloak.realm }}
+
+    while ! kubectl get deployment keycloak -n keycloak >/dev/null 2>&1; do
+      echo "Waiting for keycloak to be ready..."
+      sleep 10
+    done
+    kubectl rollout status deploy/keycloak -n keycloak
+
+    echo "Getting existing oauth settings if any..."
+    OAUTH_ID=$(kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
+      gitea admin auth list | grep Keycloak | awk '{print $1}')
+
+    if [ -n "$OAUTH_ID" ]; then
+      echo "Found existing Keycloak OAuth configuration with ID: $OAUTH_ID"
+      echo "Updating existing OAuth configuration..."
+
+      kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
+        gitea admin auth update-oauth \
+        --id "$OAUTH_ID" \
+        --name "Keycloak" \
+        --provider openidConnect \
+        --key "gitea" \
+        --secret "${CLIENT_SECRET}" \
+        --group-claim-name "groups" \
+        --scopes "openid profile email groups" \
+        --group-team-map "{\"/gitea-users\":{\"cluster-org\":[\"Owners\"]}}" \
+        --auto-discover-url "${KC_URL}/realms/${KC_REALM}/.well-known/openid-configuration"
+
+        if [ $? -eq 0 ]; then
+          echo "✅ OAuth configuration updated successfully"
+        else
+          echo "❌ Failed to update OAuth configuration"
+          exit 1
+        fi
+    else
+      echo "No existing Keycloak OAuth configuration found"
+      echo "Creating new OAuth configuration..."
+
+      kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
+      gitea admin auth add-oauth \
+      --name "Keycloak" \
+      --provider openidConnect \
+      --key "gitea" \
+      --secret "${CLIENT_SECRET}" \
+      --group-claim-name "groups" \
+      --scopes "openid profile email groups" \
+      --group-team-map "{\"/gitea-users\":{\"cluster-org\":[\"Owners\"]}}" \
+      --auto-discover-url "${KC_URL}/realms/${KC_REALM}/.well-known/openid-configuration"
+
+      if [ $? -eq 0 ]; then
+        echo "✅ OAuth configuration created successfully"
+      else
+        echo "❌ Failed to create OAuth configuration"
+      exit 1
+      fi
+    fi
+    
+    echo "Restarting gitea..."
+    kubectl rollout restart deploy/gitea -n cf-gitea
+    
+    echo "Waiting for gitea to be ready..."
+    kubectl rollout status deploy/gitea -n cf-gitea

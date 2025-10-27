@@ -104,6 +104,8 @@ data:
   generate-secrets.sh: |
     #!/bin/bash
 
+    DOMAIN={{ .Values.domain }}
+
     set -e
 
     export BAO_TOKEN=$(kubectl get secret openbao-keys -n cf-openbao -o jsonpath='{.data.root_token}' | base64 -d)
@@ -114,7 +116,7 @@ data:
     
     echo "Generating secrets..."
     
-    bao kv put secrets/cluster-domain value={{ .Values.domain }};
+    bao kv put secrets/cluster-domain value=${DOMAIN};
     
     bao kv put secrets/airm-cnpg-user-username value=airm_user;
     bao kv put secrets/airm-cnpg-user-password value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
@@ -142,10 +144,11 @@ data:
     bao kv put secrets/minio-console-access-key value=default-user;
     bao kv put secrets/minio-console-secret-key value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/minio-root-password value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
-    
-    bao kv put secrets/k8s-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/minio-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+    bao kv put secrets/minio-openid-url value="kc.${DOMAIN}/realms/airm/.well-known/openid-configuration"
+
+    bao kv put secrets/k8s-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/gitea-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/argocd-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
-        
+
     echo "Secrets have been generated successfully!"
