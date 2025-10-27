@@ -23,6 +23,7 @@
 set -euo pipefail
 
 # Configuration
+SKIP_LONGHORN_READINESS_CHECK="${SKIP_LONGHORN_READINESS_CHECK:-false}"
 MAX_RETRIES="${MAX_RETRIES:-60}"
 RETRY_DELAY="${RETRY_DELAY:-10}"
 LONGHORN_NAMESPACE="${LONGHORN_NAMESPACE:-longhorn}"
@@ -428,6 +429,15 @@ EOF
 # Main function
 #######################################
 main() {
+    # Check if readiness check should be skipped
+    if [[ "${SKIP_LONGHORN_READINESS_CHECK}" == "true" ]]; then
+        log_warn "=========================================="
+        log_warn "SKIP_LONGHORN_READINESS_CHECK is set to true"
+        log_warn "Skipping Longhorn readiness checks"
+        log_warn "=========================================="
+        return 0
+    fi
+    
     log_info "=========================================="
     log_info "Starting Longhorn readiness check"
     log_info "=========================================="
