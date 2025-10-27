@@ -22,6 +22,13 @@ This script bootstraps a complete GitOps environment with ArgoCD, OpenBao (secre
 ./bootstrap.sh plat-dev-1.silogen.ai
 ```
 
+```
+Additional Args:
+
+  SKIP_LONGHORN_READINESS_CHECK=[true|false (deafult)]
+    - bypass Longhorn readiness check, which will abort bootstrap.sh if it fails normally. Useful if not using Longhorn for pvc management.
+```
+
 ## What Does It Do?
 
 The script performs the following steps in sequence:
