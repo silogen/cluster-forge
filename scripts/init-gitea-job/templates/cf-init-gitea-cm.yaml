@@ -1,0 +1,128 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitea-init-scripts
+  namespace: cf-gitea
+data:
+  init-gitea.sh: |
+    #!/bin/bash
+
+    set -e
+    DOMAIN={{ .Values.domain }}
+    GITEA_URL="${GITEA_URL:-http://gitea-http.cf-gitea.svc:3000}"
+    GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-silogen-admin}"
+    
+    echo "Step 0: Create admin access token"
+    GITEA_TOKEN=$(kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
+      gitea admin user generate-access-token --raw --username "$GITEA_ADMIN_USER" --token-name "api-token-$(date +%s)" --scopes all
+    )
+    kubectl create secret generic gitea-admin-token --from-literal=token="${GITEA_TOKEN}" --namespace=cf-gitea --dry-run=client -o yaml | kubectl apply -f -
+    
+    echo "Step 1: Creating organization 'cluster-org'..."
+    curl -X POST "${GITEA_URL}/api/v1/orgs" \
+      -H "Authorization: token ${GITEA_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "username": "cluster-org",
+        "full_name": "Cluster Organization",
+        "description": "Organization for cluster management repositories",
+        "visibility": "public"
+      }' || echo "Failed to create organization, might already exist"
+    
+    echo "Step 2: Creating repository 'cluster-forge' as mirror..."
+    if curl -s -f -H "Authorization: token ${GITEA_TOKEN}" "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" >/dev/null 2>&1; then
+      echo "Repository 'cluster-forge' already exists"
+    else
+        MAX_ATTEMPTS=5
+        ATTEMPT=1
+        SUCCESS=false
+        
+        while [ $ATTEMPT -le $MAX_ATTEMPTS ] && [ "$SUCCESS" = false ]; do
+            echo "Migration attempt $ATTEMPT/$MAX_ATTEMPTS..."
+            
+            HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/migration_response.json -X POST "${GITEA_URL}/api/v1/repos/migrate" \
+              -H "Authorization: token ${GITEA_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "clone_addr": "https://github.com/silogen/cluster-forge.git",
+                "repo_name": "cluster-forge",
+                "repo_owner": "cluster-org",
+                "service": "git",
+                "mirror": true,
+                "mirror_interval": "15m",
+                "private": false
+              }')
+            
+            case $HTTP_CODE in
+                201)
+                    echo "Repository migration completed successfully"
+                    SUCCESS=true
+                    ;;
+                *)
+                    echo "Attempt $ATTEMPT failed with HTTP $HTTP_CODE, retrying..."
+                    echo "Cleaning up failed repository..."
+                    sleep 1
+                    curl -s -X DELETE "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" \
+                      -H "Authorization: token ${GITEA_TOKEN}" >/dev/null 2>&1
+                    echo "Failed repository deleted..."
+                    ;;
+            esac
+            
+            if [ "$SUCCESS" = false ] && [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+                sleep 5
+            fi
+            
+            ATTEMPT=$((ATTEMPT + 1))
+        done
+        
+        if [ "$SUCCESS" = false ]; then
+            echo "ERROR: Failed to create mirror repository after $MAX_ATTEMPTS attempts"
+            exit 1
+        fi
+    fi
+    
+    echo "Step 3: Creating repository 'cluster-values'..."
+    curl -X POST "${GITEA_URL}/api/v1/orgs/cluster-org/repos" \
+      -H "Authorization: token ${GITEA_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "cluster-values",
+        "description": "Cluster configuration values repository",
+        "private": false,
+        "auto_init": true
+      }' || echo "Repository might already exist"
+    
+    echo "Step 4: Creating user 'devuser'..."
+    curl -X POST "${GITEA_URL}/api/v1/admin/users" \
+      -H "Authorization: token ${GITEA_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "username": "devuser",
+        "email": "devuser@'${DOMAIN}'",
+        "password": "password",
+        "full_name": "Dev User",
+        "must_change_password": false,
+        "send_notify": false
+      }' || echo "User creation failed, might already exist or insufficient permissions"
+    
+    echo "Step 5: Getting organization 'cluster-org' owners team id..."
+    OWNERS_TEAM_ID=$(curl -s -H "Authorization: token ${GITEA_TOKEN}" -H "Content-Type: application/json" \
+      "${GITEA_URL}/api/v1/orgs/cluster-org/teams" | \
+      jq -r '.[] | select(.name == "Owners") | .id')
+    
+    echo "Step 6: Adding user 'devuser' to organization 'cluster-org' owners..."
+    curl -X PUT "${GITEA_URL}/api/v1/teams/${OWNERS_TEAM_ID}/members/devuser" \
+      -H "Authorization: token ${GITEA_TOKEN}" \
+      -H "Content-Type: application/json" || echo "Failed to add user to organization"
+    
+    echo "Step 7: Copying values_cf.yaml file into cluster-values repo..."
+    curl -X POST "${GITEA_URL}/api/v1/repos/cluster-org/cluster-values/contents/values_cf.yaml" \
+      -H "Authorization: token ${GITEA_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "message": "Add values_cf.yaml file",
+        "content": "'$(base64 -w 0 < /tmp/values/values_cf.yaml)'",
+        "branch": "main"
+      }' || echo "Failed to copy values_cf.yaml file"
+    
+    echo "Setup completed successfully!"

@@ -1,5 +1,8 @@
 clusterDomain: # to be filled by cluster-forge app
 
+strategy:
+  type: "Recreate"
+
 gitea:
   admin:
     existingSecret: gitea-admin-credentials

@@ -11,10 +11,15 @@ tenant:
       storageClassName: direct
   buckets:
     - name: default-bucket
+      objectLock: true
     - name: cluster-forge-loki
+      objectLock: true
     - name: cluster-forge-mimir
+      objectLock: true
     - name: cluster-forge-tempo
+      objectLock: true
     - name: models
+      objectLock: true
   users:
     - name: default-user
   certificate:
