@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cluster-auth.fullname" . }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "cluster-auth.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "cluster-auth.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "cluster-auth.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: {{ .Chart.Name }}
+        {{- with .Values.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: grpc
+          containerPort: {{ .Values.service.grpc.port }}
+          protocol: TCP
+        - name: health
+          containerPort: {{ .Values.service.health.port }}
+          protocol: TCP
+        - name: rest-api
+          containerPort: {{ .Values.service.restApi.port }}
+          protocol: TCP
+        - name: metrics
+          containerPort: {{ .Values.service.metrics.port }}
+          protocol: TCP
+        args:
+        - "-config"
+        - "/etc/cluster-auth/config.yaml"
+        {{- if .Values.existingSecret }}
+        env:
+        - name: API_KEY_PREFIX
+          value: "amd_aim_api_key_"
+        - name: OPENBAO_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.existingSecret }}
+              key: openbao-token
+        - name: ADMIN_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.existingSecret }}
+              key: admin-token
+        {{- end }}
+        volumeMounts:
+        - name: config
+          mountPath: /etc/cluster-auth
+        {{- with .Values.livenessProbe }}
+        livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.readinessProbe }}
+        readinessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "cluster-auth.fullname" . }}-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
