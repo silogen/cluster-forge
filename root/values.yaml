@@ -34,6 +34,7 @@ enabledApps:
   - cnpg-operator
   - keycloak
   - kyverno
+  - kyverno-config
   - amd-gpu-operator
   - amd-gpu-operator-config
   - kuberay-operator
@@ -208,6 +209,11 @@ apps:
     path: kyverno/3.5.1
     namespace: kyverno
     valuesFile: values.yaml
+    syncWave: -3
+
+  kyverno-config:
+    path: kyverno-config
+    namespace: kyverno
     syncWave: -3
 
   # GPU
