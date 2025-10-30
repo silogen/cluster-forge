@@ -1,0 +1,19 @@
+apiVersion: v2
+name: cluster-auth
+description: External authorization service for Kubernetes Gateway with OpenBao integration
+type: application
+version: 0.5.0
+appVersion: "0.5.0"
+keywords:
+  - envoy
+  - authorization
+  - openbao
+  - vault
+  - gateway-api
+  - kubernetes
+home: https://github.com/silogen/cluster-auth
+sources:
+  - https://github.com/silogen/cluster-auth
+maintainers:
+  - name: Andy
+    email: andy@silogen.com

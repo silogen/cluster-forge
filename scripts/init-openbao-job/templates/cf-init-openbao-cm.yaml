@@ -71,7 +71,14 @@ data:
     else
      bao secrets enable -version=2 -path=secrets kv
     fi    
-    
+
+    echo "Enabling apikey-groups KV engine..."
+    if bao secrets list 2>/dev/null | grep -q "^apikey-groups/"; then
+      echo "apikey-groups engine already exists"
+    else
+     bao secrets enable -version=2 -path=apikey-groups kv
+    fi
+
     echo "Configuring userpass auth..."
     if bao auth list 2>/dev/null | grep -q "^userpass/"; then
       echo "userpass auth already exists"
@@ -150,5 +157,8 @@ data:
     bao kv put secrets/k8s-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/gitea-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/argocd-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+
+    bao kv put secrets/cluster-auth-admin-token value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+    bao kv put secrets/cluster-auth-openbao-token value=${BAO_TOKEN};
 
     echo "Secrets have been generated successfully!"

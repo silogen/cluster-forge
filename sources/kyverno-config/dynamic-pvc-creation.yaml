@@ -1,0 +1,73 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno-pvc-generator
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - persistentvolumeclaims
+    verbs:
+      - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kyverno-pvc-generator-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno-pvc-generator
+subjects:
+  - kind: ServiceAccount
+    name: kyverno-background-controller
+    namespace: kyverno
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: dynamic-pvc-creation
+spec:
+  admission: true
+  background: false
+  emitWarning: false
+  rules:
+    - generate:
+        apiVersion: v1
+        data:
+          spec:
+            accessModes:
+              - ReadWriteMany
+            resources:
+              requests:
+                storage: '{{ request.object.metadata.annotations."pvc.silogen.ai/user-pvc-size"
+                }}'
+            storageClassName: '{{ request.object.metadata.annotations."pvc.silogen.ai/user-pvc-storage-class-name"
+            }}'
+        kind: PersistentVolumeClaim
+        name: pvc-{{ request.object.metadata.annotations."pvc.silogen.ai/user-pvc-uid" }}
+        namespace: '{{ request.object.metadata.namespace }}'
+        synchronize: false
+      match:
+        resources:
+          kinds:
+            - Deployment
+            - Pod
+      name: create-pvc-if-annotated
+      preconditions:
+        all:
+          - key: '{{ request.object.metadata.annotations."pvc.silogen.ai/user-pvc-auto-create"
+          }}'
+            operator: Equals
+            value: "true"
+          - key: '{{ request.object.metadata.annotations."pvc.silogen.ai/user-pvc-size"
+          }}'
+            operator: NotEquals
+            value: ""
+          - key: '{{ request.object.metadata.annotations."pvc.silogen.ai/user-pvc-storage-class-name"
+          }}'
+            operator: NotEquals
+            value: ""
+      skipBackgroundRequests: true
+  validationFailureAction: Enforce
