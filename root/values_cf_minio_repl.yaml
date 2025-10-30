@@ -1,0 +1,54 @@
+clusterForge:
+  repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
+  targetRevision: main # cluster-forge version git tag
+
+externalValues:
+  enabled: true
+  repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
+  targetRevision: main
+  path: values_cf.yaml
+
+global:
+  domain: # to be filled by bootstrap script
+
+enabledApps:
+  - argocd
+  - argocd-config
+  - cert-manager
+  - openbao
+  - openbao-config
+  - external-secrets
+  - external-secrets-config
+  - gitea
+  - gitea-config
+  - gateway-api
+  - metallb
+  - kgateway-crds
+  - kgateway
+  - kgateway-config
+  - prometheus-crds
+  - opentelemetry-operator
+  - otel-lgtm-stack
+  - cnpg-operator
+  - keycloak
+  - kyverno
+  - amd-gpu-operator
+  - amd-gpu-operator-config
+  - kuberay-operator
+  - rabbitmq
+  - kueue
+  - kueue-config
+  - appwrapper
+  - minio-operator
+  - minio-tenant
+  - minio-tenant-config
+  - kaiwo
+  - kaiwo-config
+  - airm
+
+apps:
+  minio-tenant:
+    path: minio-tenant/7.1.1
+    namespace: minio-tenant-default
+    valuesFile: ../values_cf_minio_replicated.yaml
+    syncWave: -2

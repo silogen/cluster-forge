@@ -1,14 +1,15 @@
 #!/bin/bash
 
 DOMAIN="${1:-}"
+VALUES_FILE="${2:-values_cf.yaml}"
 if [ -z "$DOMAIN" ]; then
     echo "ERROR: Domain argument is required"
-    echo "Usage: $0 <domain>"
+    echo "Usage: $0 <domain> [values_file]"
     exit 1
 fi
 
-# Update values_cf.yaml
-yq eval '.global.domain = "'${DOMAIN}'"' -i ../root/values_cf.yaml
+# Update values file
+yq eval '.global.domain = "'${DOMAIN}'"' -i ../root/${VALUES_FILE}
 
 # Create namespaces
 kubectl create ns argocd
@@ -42,7 +43,7 @@ kubectl create secret generic gitea-admin-credentials \
   --namespace=cf-gitea \
   --from-literal=username=silogen-admin \
   --from-literal=password=$(generate_password)
-kubectl create configmap initial-cf-values --from-file=../root/values_cf.yaml -n cf-gitea
+kubectl create configmap initial-cf-values --from-file=../root/${VALUES_FILE} -n cf-gitea
 helm template --release-name gitea ../sources/gitea/12.3.0 -f ../sources/gitea/values_cf.yaml --namespace cf-gitea \
   --set clusterDomain="${DOMAIN}" --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}" | kubectl apply -f -
 kubectl rollout status deploy/gitea -n cf-gitea
@@ -53,4 +54,4 @@ if ! kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n 
 fi
 
 # Create ArgoCD cluster-forge app
-helm template ../root -f ../root/values_cf.yaml --set global.domain="${DOMAIN}" | kubectl apply -f -
+helm template ../root -f ../root/${VALUES_FILE} --set global.domain="${DOMAIN}" | kubectl apply -f -
