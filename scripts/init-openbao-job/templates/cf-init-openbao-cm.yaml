@@ -152,7 +152,7 @@ data:
     bao kv put secrets/minio-console-secret-key value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/minio-root-password value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/minio-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
-    bao kv put secrets/minio-openid-url value="kc.${DOMAIN}/realms/airm/.well-known/openid-configuration"
+    bao kv put secrets/minio-openid-url value="https://kc.${DOMAIN}/realms/airm/.well-known/openid-configuration"
 
     bao kv put secrets/k8s-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/gitea-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
