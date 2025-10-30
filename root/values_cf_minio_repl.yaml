@@ -6,7 +6,7 @@ externalValues:
   enabled: true
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
   targetRevision: main
-  path: values_cf.yaml
+  path: values_cf_minio_repl.yaml
 
 global:
   domain: # to be filled by bootstrap script
