@@ -1,0 +1,61 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+To verify the deployment:
+
+  kubectl get pods -n {{ .Values.namespace.name }} -l app.kubernetes.io/name={{ include "cluster-auth.name" . }}
+
+To check the logs:
+
+  kubectl logs -n {{ .Values.namespace.name }} -l app.kubernetes.io/name={{ include "cluster-auth.name" . }}
+
+To test the health endpoint:
+
+  kubectl port-forward -n {{ .Values.namespace.name }} svc/{{ include "cluster-auth.fullname" . }} 8080:{{ .Values.service.health.port }}
+  curl http://localhost:8080/health
+
+To access the REST API:
+
+  kubectl port-forward -n {{ .Values.namespace.name }} svc/{{ include "cluster-auth.fullname" . }} 8081:{{ .Values.service.restApi.port }}
+  curl -H "X-Admin-Token: <your-admin-token>" http://localhost:8081/apikey/groups | jq
+
+To access Prometheus metrics:
+
+  kubectl port-forward -n {{ .Values.namespace.name }} svc/{{ include "cluster-auth.fullname" . }} 9090:{{ .Values.service.metrics.port }}
+  curl http://localhost:9090/metrics
+
+{{- if not .Values.existingSecret }}
+
+WARNING: No existing secret configured!
+Please create a secret with OpenBao and admin tokens:
+
+  kubectl create secret generic cluster-auth-secrets \
+    --from-literal=openbao-token="<your-openbao-token>" \
+    --from-literal=admin-token="<your-admin-token>" \
+    --namespace={{ .Values.namespace.name }}
+
+Then update your values.yaml:
+  existingSecret: "cluster-auth-secrets"
+
+{{- end }}
+
+{{- if .Values.config.apikey.enabled }}
+
+API Key Management is enabled. Available endpoints:
+  - POST   /apikey/create  - Create API keys
+  - POST   /apikey/revoke  - Revoke API keys
+  - POST   /apikey/renew   - Renew API keys
+  - POST   /apikey/lookup  - Lookup API key metadata
+  - POST   /apikey/group   - Create groups
+  - DELETE /apikey/group   - Delete groups
+  - GET    /apikey/groups  - List all groups
+  - POST   /apikey/bind    - Bind key to group
+  - POST   /apikey/unbind  - Unbind key from group
+
+{{- end }}
+
+For more information, visit:
+  https://github.com/silogen/cluster-auth
+
+Happy authorizing!
