@@ -129,6 +129,12 @@ apps:
   gitea-config:
     path: gitea-config
     namespace: cf-gitea
+    valuesFile: values.yaml
+    helmParameters:
+      - name: keycloak.url
+        value: "https://kc.{{ .Values.global.domain }}"
+      - name: keycloak.realm
+        value: "airm"
     syncWave: -2
 
   # Network apps

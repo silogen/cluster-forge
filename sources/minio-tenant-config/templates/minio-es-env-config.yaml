@@ -24,7 +24,7 @@ spec:
           export MINIO_IDENTITY_OPENID_SCOPES="openid,profile,email,policy"
           export MINIO_IDENTITY_OPENID_CLIENT_ID=minio
           export MINIO_IDENTITY_OPENID_CLIENT_SECRET="{{ "{{" }}.client_secret{{ "}}"}}"
-          export MINIO_IDENTITY_OPENID_CONFIG_URL="https://kc.{{ "{{" }}.domain{{ "}}"}}/realms/airm/.well-known/openid-configuration"
+          export MINIO_IDENTITY_OPENID_CONFIG_URL="{{ "{{" }}.openid_url{{ "}}"}}"
   data:
     - secretKey: password
       remoteRef:
@@ -33,6 +33,10 @@ spec:
     - secretKey: client_secret
       remoteRef:
         key: secrets/data/minio-client-secret
+        property: value
+    - secretKey: openid_url
+      remoteRef:
+        key: secrets/data/minio-openid-url
         property: value
     - secretKey: domain
       remoteRef:
