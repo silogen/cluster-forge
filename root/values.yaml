@@ -32,8 +32,11 @@ enabledApps:
   - opentelemetry-operator
   - otel-lgtm-stack
   - cnpg-operator
+  - cluster-auth
+  - cluster-auth-config
   - keycloak
   - kyverno
+  - kyverno-config
   - amd-gpu-operator
   - amd-gpu-operator-config
   - kuberay-operator
@@ -188,6 +191,24 @@ apps:
     syncWave: -3
 
   # Access control
+  cluster-auth:
+    path: cluster-auth/0.5.0
+    namespace: cluster-auth
+    valuesFile: values.yaml
+    syncWave: -2
+
+  cluster-auth-config:
+    path: cluster-auth-config
+    namespace: cluster-auth
+    syncWave: -2
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+
   keycloak:
     path: keycloak-old
     namespace: keycloak
@@ -208,6 +229,11 @@ apps:
     path: kyverno/3.5.1
     namespace: kyverno
     valuesFile: values.yaml
+    syncWave: -3
+
+  kyverno-config:
+    path: kyverno-config
+    namespace: kyverno
     syncWave: -3
 
   # GPU

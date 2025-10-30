@@ -1,0 +1,20 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: cluster-auth-secrets
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao-secret-store
+  refreshInterval: 5m
+  target:
+    name: cluster-auth-secrets
+  data:
+    - secretKey: admin-token
+      remoteRef:
+        key: cluster-auth-admin-token
+        property: value
+    - secretKey: openbao-token
+      remoteRef:
+        key: cluster-auth-openbao-token
+        property: value
