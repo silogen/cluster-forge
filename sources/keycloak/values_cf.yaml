@@ -2,6 +2,10 @@ image:
   registry: docker.io
   repository: bitnamilegacy/keycloak
 
+extraEnvVars:
+  - name: KC_HOSTNAME
+    value: "http://kc.{{ .Values.domain }}"
+
 resources:
   requests:
     memory: "512Mi"
