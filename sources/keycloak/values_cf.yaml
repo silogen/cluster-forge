@@ -26,6 +26,10 @@ auth:
 
 extraStartupArgs: "--cache=ispn --features=scripts,admin-fine-grained-authz,token-exchange --import-realm"
 
+logging:
+  output: default
+  level: DEBUG
+
 initContainers:
   - command:
       - /bin/sh
