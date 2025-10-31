@@ -16,7 +16,7 @@ spec:
       kind: Service
       name: keycloak
       namespace: keycloak
-      port: 80
+      port: 8080
       weight: 1
     matches:
     - headers:
