@@ -1,0 +1,49 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: keycloak-cnpg
+  namespace: keycloak
+spec:
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: topology.kubernetes.io/zone
+  bootstrap:
+    initdb:
+      database: keycloak
+      owner: keycloak
+      postInitSQL:
+        - GRANT CREATE ON SCHEMA public TO keycloak
+      secret:
+        name: keycloak-cnpg-user
+  imageName: ghcr.io/cloudnative-pg/postgresql:17
+  instances: 1
+  nodeMaintenanceWindow:
+    inProgress: false
+    reusePVC: true
+  postgresql:
+    parameters:
+      auto_explain.log_min_duration: 10s
+      pg_stat_statements.max: "10000"
+      pg_stat_statements.track: all
+      shared_buffers: 256MB
+    pg_hba:
+      - host all all 10.244.0.0/16 md5
+  primaryUpdateStrategy: unsupervised
+  resources:
+    limits:
+      cpu: "2"
+      memory: 1Gi
+    requests:
+      cpu: "1"
+      memory: 512Mi
+  startDelay: 300
+  stopDelay: 300
+  storage:
+    size: 50Gi
+    storageClass: default
+  superuserSecret:
+    name: keycloak-cnpg-superuser
+  walStorage:
+    size: 50Gi
+    storageClass: default

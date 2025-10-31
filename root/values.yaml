@@ -35,6 +35,7 @@ enabledApps:
   - cluster-auth
   - cluster-auth-config
   - keycloak
+  - keycloak-config
   - kyverno
   - kyverno-config
   - amd-gpu-operator
@@ -216,13 +217,13 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
 
   keycloak:
-    path: keycloak-old
+    path: keycloak/25.2.0
     namespace: keycloak
-    valuesFile: values.yaml
+    valuesFile: ../values_cf.yaml
     helmParameters:
       - name: domain
         value: "{{ .Values.global.domain }}"
-    syncWave: -2
+    syncWave: -1
     ignoreDifferences:
       - group: external-secrets.io
         kind: ExternalSecret
@@ -230,6 +231,15 @@ apps:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
+
+  keycloak-config:
+    path: keycloak-config
+    namespace: keycloak
+    valuesFile: values.yaml
+    helmParameters:
+      - name: domain
+        value: "{{ .Values.global.domain }}"
+    syncWave: -2
 
   kyverno:
     path: kyverno/3.5.1
