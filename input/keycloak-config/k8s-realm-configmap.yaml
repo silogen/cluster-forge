@@ -406,7 +406,7 @@ data:
           "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
         } ],
         "disableableCredentialTypes" : [ ],
-        "requiredActions" : ["UPDATE_PASSWORD"],
+        "requiredActions" : [ ],
         "realmRoles" : [ "default-roles-k8s" ],
         "notBefore" : 0,
         "groups" : [ "/gitea-users" ]
