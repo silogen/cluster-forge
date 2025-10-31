@@ -1,13 +1,13 @@
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: # feature-branch name to be provided by developer
+  targetRevision: 299_create_keycloak_helm_chart # feature-branch name to be provided by developer
   valuesFile: values_dev.yaml
 
 externalValues:
   enabled: false
 
 global:
-  domain: # to be provided by developer
+  domain: plat-dev-2.silogen.ai # to be provided by developer
 
 enabledApps:
   - argocd
@@ -17,8 +17,6 @@ enabledApps:
   - openbao-config
   - external-secrets
   - external-secrets-config
-  - gitea
-  - gitea-config
   - gateway-api
   - metallb
   - kgateway-crds
@@ -31,6 +29,7 @@ enabledApps:
   - cluster-auth
   - cluster-auth-config
   - keycloak
+  - keycloak-config
   - kyverno
   - kyverno-config
   - amd-gpu-operator
