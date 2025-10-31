@@ -1,9 +1,10 @@
 #!/bin/bash
 
 DOMAIN="${1:-}"
+VALUES_FILE="${2:-values_dev.yaml}"
 if [ -z "$DOMAIN" ]; then
     echo "ERROR: Domain argument is required"
-    echo "Usage: $0 <domain>"
+    echo "Usage: $0 <domain> [values_file]"
     exit 1
 fi
 
@@ -29,4 +30,4 @@ if ! kubectl wait --for=condition=complete --timeout=60s job/openbao-init-job -n
 fi
 
 # Create ArgoCD cluster-forge app
-helm template ../root -f ../root/values_dev.yaml | kubectl apply -f -
+helm template ../root -f ../root/${VALUES_FILE} | kubectl apply -f -
