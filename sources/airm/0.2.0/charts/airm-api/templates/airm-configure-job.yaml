@@ -1,0 +1,147 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+{{- if .Values.airm.includeDemoSetup }}
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: "{{ .Release.Name }}-configure-sa"
+  namespace: "{{ .Release.Namespace }}"
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: "{{ .Release.Name }}-configure-role"
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: "{{ .Release.Name }}-configure-binding"
+subjects:
+  - kind: ServiceAccount
+    name: "{{ .Release.Name }}-configure-sa"
+    namespace: "{{ .Release.Namespace }}"
+roleRef:
+  kind: ClusterRole
+  name: "{{ .Release.Name }}-configure-role"
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}-configure"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: "{{ .Release.Name }}-configure"
+    spec:
+      restartPolicy: Never
+      serviceAccountName: "{{ .Release.Name }}-configure-sa"
+      initContainers:
+        - name: wait-for-dependencies
+          image: "{{ .Values.airm.utilities.curl.image.repository }}:{{ .Values.airm.utilities.curl.image.tag }}"
+          imagePullPolicy: "{{ .Values.airm.utilities.curl.image.pullPolicy }}"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Checking dependencies..."
+
+              # Wait for AIRM API
+              echo "Checking airm-api..."
+              while true; do
+                if curl -s --max-time 5 http://{{ .Release.Name }}-api.{{ .Release.Namespace }}.svc.cluster.local/v1/health > /dev/null 2>&1; then
+                  echo "AIRM API is ready!"
+                  break
+                else
+                  echo "Waiting for AIRM API..."
+                  sleep 10
+                fi
+              done
+
+              echo "All dependencies are ready!"
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: false
+            runAsUser: 0
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - SETUID
+                - SETGID
+                - CHOWN
+                - DAC_OVERRIDE
+                - FOWNER
+                - FSETID
+            seccompProfile:
+              type: RuntimeDefault
+      containers:
+        - name: configure
+          image: "{{ .Values.airm.configure.image.repository }}:{{ .Values.airm.configure.image.tag }}"
+          imagePullPolicy: {{ .Values.airm.configure.image.pullPolicy }}
+          env:
+            - name: DEBIAN_FRONTEND
+              value: "noninteractive"
+            - name: ORG_NAME
+              value: "demo"
+            - name: NEW_DOMAIN_NAME
+              value: "{{ .Values.airm.appDomain }}"
+            - name: KEYCLOAK_CLIENT_ID
+              value: "{{ .Values.airm.keycloak.clientId }}"
+            - name: KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: KEYCLOAK_SECRET
+                  name: "{{ .Release.Name }}-keycloak-ui-creds"
+            - name: USER_EMAIL
+              value: "devuser@{{ .Values.airm.appDomain }}"
+            - name: KEYCLOAK_URL
+              value: "{{ .Values.airm.keycloak.internalUrl }}"
+            - name: KEYCLOAK_ADMIN_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  key: client-id
+                  name: "{{ .Release.Name }}-keycloak-admin-client"
+            - name: KEYCLOAK_ADMIN_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: client-secret
+                  name: "{{ .Release.Name }}-keycloak-admin-client"
+            - name: AIRM_API_URL
+              value: "http://{{ .Release.Name }}-api.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: CLUSTER_BASE_URL
+              value: "https://{{ .Values.kgateway.workloads.prefixValue }}.{{ .Values.airm.appDomain }}/"
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: false
+            runAsUser: 0
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - SETUID
+                - SETGID
+                - CHOWN
+                - DAC_OVERRIDE
+                - FOWNER
+                - FSETID
+            seccompProfile:
+              type: RuntimeDefault
+
+{{- end }}
