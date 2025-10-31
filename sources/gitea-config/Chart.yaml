@@ -1,0 +1,4 @@
+apiVersion: v2
+name: gitea-config
+description: A Helm chart with config for gitea
+version: 0.1.0
