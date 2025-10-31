@@ -17,8 +17,6 @@ enabledApps:
   - openbao-config
   - external-secrets
   - external-secrets-config
-  - gitea
-  - gitea-config
   - gateway-api
   - metallb
   - kgateway-crds
@@ -31,6 +29,7 @@ enabledApps:
   - cluster-auth
   - cluster-auth-config
   - keycloak
+  - keycloak-config
   - kyverno
   - kyverno-config
   - amd-gpu-operator

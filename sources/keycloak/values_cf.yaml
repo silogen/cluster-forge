@@ -1,48 +1,84 @@
+image:
+  registry: docker.io
+  repository: bitnamilegacy/keycloak
+
+extraEnvVars:
+  - name: KC_HOSTNAME
+    value: "https://kc.{{ .Values.domain }}"
+  - name: KC_PROXY
+    value: edge
+  - name: KC_HOSTNAME_STRICT
+    value: "false"
+  - name: KC_PROXY_HEADERS
+    value: xforwarded
+
+httpEnabled: true
+
+service:
+  ports:
+    http: 8080
+
 resources:
   requests:
     memory: "512Mi"
     cpu: "500m"
   limits:
-    memory: "1Gi"
+    memory: "2Gi"
     cpu: "1000m"
 
 podLabels:
   app: keycloak
 
 auth:
-  adminUser: admin
+  adminUser: silogen-admin
   existingSecret: "keycloak-credentials"
   passwordSecretKey: "KEYCLOAK_INITIAL_ADMIN_PASSWORD"
 
 extraStartupArgs: "--cache=ispn --features=scripts,admin-fine-grained-authz,token-exchange --import-realm"
 
+logging:
+  output: default
+  level: DEBUG
+
 initContainers:
-  - command:
+  - name: init-auth-extensions
+    command:
       - /bin/sh
       - -c
       - |
         cd /opt/scripts
-        zip -r /opt/keycloak/providers/SilogenExtensionPackage.jar .
+        zip -r /opt/bitnami/keycloak/providers/SilogenExtensionPackage.jar .
     image: ghcr.io/silogen/keycloak-init:0.1
-    name: init-auth-extensions
     volumeMounts:
-      - mountPath: /opt/keycloak/providers
-        name: keycloak-package-volume
+      - mountPath: /opt/bitnami/keycloak/providers
+        name: empty-dir
+        subPath: app-providers-dir
       - mountPath: /opt/scripts
         name: keycloak-script-volume
-  - command:
+  - name: init-realm-scripts
+    command:
       - /bin/sh
       - -c
-      - |       
-        if [ -f "/opt/realm_templates/airm/airm-realm.json" ]; then
-            cp /opt/realm_templates/airm/airm-realm.json /opt/realms/airm-realm.json
-            sed -i -e "s/__AIRM_FRONTEND_CLIENT_SECRET__/$AIRM_FRONTEND_CLIENT_SECRET/g" /opt/realms/airm-realm.json
-            sed -i -e "s/__AIRM_ADMIN_CLIENT_ID__/$AIRM_ADMIN_CLIENT_ID/g" /opt/realms/airm-realm.json
-            sed -i -e "s/__AIRM_ADMIN_CLIENT_SECRET__/$AIRM_ADMIN_CLIENT_SECRET/g" /opt/realms/airm-realm.json
-            sed -i -e "s/__AIRM_CI_CLIENT_SECRET__/$AIRM_CI_CLIENT_SECRET/g" /opt/realms/airm-realm.json
+      - |
+        if [ -f "/opt/realm_templates/airm-realm.json" ]; then
+            cp /opt/realm_templates/airm-realm.json /opt/bitnami/keycloak/data/import/airm-realm.json
+            sed -i -e "s/__AIRM_FRONTEND_CLIENT_SECRET__/$AIRM_FRONTEND_CLIENT_SECRET/g" /opt/bitnami/keycloak/data/import/airm-realm.json
+            sed -i -e "s/__AIRM_ADMIN_CLIENT_ID__/$AIRM_ADMIN_CLIENT_ID/g" /opt/bitnami/keycloak/data/import/airm-realm.json
+            sed -i -e "s/__AIRM_ADMIN_CLIENT_SECRET__/$AIRM_ADMIN_CLIENT_SECRET/g" /opt/bitnami/keycloak/data/import/airm-realm.json
+            sed -i -e "s/__AIRM_CI_CLIENT_SECRET__/$AIRM_CI_CLIENT_SECRET/g" /opt/bitnami/keycloak/data/import/airm-realm.json
+            sed -i -e "s/__K8S_CLIENT_SECRET__/$K8S_CLIENT_SECRET/g" /opt/bitnami/keycloak/data/import/airm-realm.json
+            sed -i -e "s/__MINIO_CLIENT_SECRET__/$MINIO_CLIENT_SECRET/g" /opt/bitnami/keycloak/data/import/airm-realm.json
+            sed -i -e "s/__GITEA_CLIENT_SECRET__/$GITEA_CLIENT_SECRET/g" /opt/bitnami/keycloak/data/import/airm-realm.json
+            sed -i -e "s/__ARGOCD_CLIENT_SECRET__/$ARGOCD_CLIENT_SECRET/g" /opt/bitnami/keycloak/data/import/airm-realm.json
         else
-            echo "Warning: /opt/realm_templates/airm/airm-realm.json not found, skipping airm realm setup"
+            echo "Warning: /opt/realm_templates/airm-realm.json not found, skipping airm realm setup"
         fi
+    image: ghcr.io/silogen/keycloak-init:0.1
+    volumeMounts:
+      - mountPath: /opt/realm_templates
+        name: keycloak-realm-template-volume
+      - mountPath: /opt/bitnami/keycloak/data/import
+        name: keycloak-realm-volume
     env:
       - name: AIRM_FRONTEND_CLIENT_SECRET
         valueFrom:
@@ -64,40 +100,44 @@ initContainers:
           secretKeyRef:
             key: CI_CLIENT_SECRET
             name: airm-realm-credentials
-    image: ghcr.io/silogen/keycloak-init:0.1
-    name: init-realm-scripts
-    volumeMounts:
-      - mountPath: /opt/realm_templates/airm
-        name: keycloak-airm-realm-template-volume
-      - mountPath: /opt/realm_templates/k8s
-        name: keycloak-k8s-realm-template-volume
-      - mountPath: /opt/realms
-        name: keycloak-realm-volume
+      - name: K8S_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            key: K8S_CLIENT_SECRET
+            name: airm-realm-credentials
+      - name: MINIO_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            key: MINIO_CLIENT_SECRET
+            name: airm-realm-credentials
+      - name: GITEA_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            key: GITEA_CLIENT_SECRET
+            name: airm-realm-credentials
+      - name: ARGOCD_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            key: ARGOCD_CLIENT_SECRET
+            name: airm-realm-credentials
 
 extraVolumes:
-  - configMap:
+  - name: keycloak-script-volume
+    configMap:
       name: keycloak-scripts
       items:
         - key: keycloak-scripts.json
           path: META-INF/keycloak-scripts.json
         - key: domain-group-authenticator.js
           path: domain-group-authenticator.js
-    name: keycloak-script-volume
-  - emptyDir: {}
-    name: keycloak-package-volume
-  - configMap:
-      name: keycloak-realm-templates-7kgh2hc6b2
-    name: keycloak-airm-realm-template-volume
-  - emptyDir: {}
-    name: keycloak-realm-volume
-  - configMap:
-      name: keycloak-realm-templates-k8s
-    name: keycloak-k8s-realm-template-volume
+  - name: keycloak-realm-template-volume
+    configMap:
+      name: keycloak-realm-templates
+  - name: keycloak-realm-volume
+    emptyDir: {}
 
 extraVolumeMounts:
-  - mountPath: /opt/keycloak/providers
-    name: keycloak-package-volume
-  - mountPath: /opt/keycloak/data/import
+  - mountPath: /opt/bitnami/keycloak/data/import
     name: keycloak-realm-volume
 
 postgresql:
