@@ -3,6 +3,12 @@ global:
 configs:
   params:
     server.insecure: true
+  cm:
+    resource.customizations.health.opentelemetry.io_OpenTelemetryCollector: |
+      hs = {}
+      hs.status = "Healthy"
+      hs.message = "Always Healthy - See https://github.com/argoproj/argo-cd/pull/24284"
+      return hs
   rbac:
     policy.csv: |
       g, argocd-users, role:admin

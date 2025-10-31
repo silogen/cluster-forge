@@ -30,8 +30,11 @@ enabledApps:
   - opentelemetry-operator
   - otel-lgtm-stack
   - cnpg-operator
+  - cluster-auth
+  - cluster-auth-config
   - keycloak
   - kyverno
+  - kyverno-config
   - amd-gpu-operator
   - amd-gpu-operator-config
   - kuberay-operator
@@ -47,8 +50,8 @@ enabledApps:
   - airm
 
 apps:
+  argocd:
+    valuesFile: ../values_ha.yaml
+
   minio-tenant:
-    path: minio-tenant/7.1.1
-    namespace: minio-tenant-default
-    valuesFile: ../values_cf_minio_replicated.yaml
-    syncWave: -2
+    valuesFile: ../values_ha.yaml
