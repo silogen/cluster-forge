@@ -550,7 +550,7 @@ data:
             }
           ],
           "disableableCredentialTypes": [],
-          "requiredActions": ["UPDATE_PASSWORD"],
+          "requiredActions": [],
           "realmRoles": [
             "default-roles-airm",
             "Platform Administrator",
