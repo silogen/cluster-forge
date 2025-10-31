@@ -92,10 +92,8 @@ initContainers:
     image: ghcr.io/silogen/keycloak-init:0.1
     name: init-realm-scripts
     volumeMounts:
-      - mountPath: /opt/realm_templates/airm
-        name: keycloak-airm-realm-template-volume
-      - mountPath: /opt/realm_templates/k8s
-        name: keycloak-k8s-realm-template-volume
+      - mountPath: /opt/realm_templates
+        name: keycloak-realm-template-volume
       - mountPath: /opt/realms
         name: keycloak-realm-volume
 

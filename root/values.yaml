@@ -240,6 +240,13 @@ apps:
       - name: domain
         value: "{{ .Values.global.domain }}"
     syncWave: -2
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
 
   kyverno:
     path: kyverno/3.5.1
