@@ -6,6 +6,8 @@ extraEnvVars:
   - name: KC_HOSTNAME
     value: "http://kc.{{ .Values.domain }}"
 
+httpEnabled: true
+
 resources:
   requests:
     memory: "512Mi"
