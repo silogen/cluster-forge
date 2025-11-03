@@ -472,7 +472,10 @@ spec:
         actions:
           - key: k8s_cluster_name
             action: insert
-            value: "app-dev-2" ## <-- add cluster name
+            value: "app-dev" ## <-- add cluster name
+          - key: k8s_resource_type
+            action: insert
+            value: "event"
 
       # Transform processor to set resource attributes
       transform:
@@ -481,6 +484,9 @@ spec:
           - context: log
             statements:
               - set(resource.attributes["k8s.cluster.name"], attributes["k8s_cluster_name"])
+          - context: log
+            statements:
+              - set(resource.attributes["k8s.resource.type"], attributes["k8s_resource_type"])
     exporters:
       otlp:
         endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
