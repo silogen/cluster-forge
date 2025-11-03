@@ -1,0 +1,44 @@
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: default-minio-tenant-env-configuration-spec
+  namespace: minio-tenant-default
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao-secret-store
+  refreshInterval: 5m
+  target:
+    name: default-minio-tenant-env-configuration
+    template:
+      data:
+        config.env: |
+          export MINIO_SERVER_URL="http://minio:80"
+          export MINIO_API_ROOT_ACCESS="on"
+          export MINIO_ROOT_USER="minioroot"
+          export MINIO_ROOT_PASSWORD="{{ "{{" }}.password{{ "}}"}}"
+          export MINIO_BROWSER_REDIRECT_URL="https://minio.{{ "{{" }}.domain{{ "}}"}}"
+          export MINIO_IDENTITY_OPENID_SCOPES="openid,profile,email,policy"
+          export MINIO_IDENTITY_OPENID_CLIENT_ID=minio
+          export MINIO_IDENTITY_OPENID_CLIENT_SECRET="{{ "{{" }}.client_secret{{ "}}"}}"
+          export MINIO_IDENTITY_OPENID_CONFIG_URL="{{ "{{" }}.openid_url{{ "}}"}}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: secrets/data/minio-root-password
+        property: value
+    - secretKey: client_secret
+      remoteRef:
+        key: secrets/data/minio-client-secret
+        property: value
+    - secretKey: openid_url
+      remoteRef:
+        key: secrets/data/minio-openid-url
+        property: value
+    - secretKey: domain
+      remoteRef:
+        key: secrets/data/cluster-domain
+        property: value

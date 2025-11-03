@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cluster-auth.fullname" . }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "cluster-auth.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - name: grpc
+    port: {{ .Values.service.grpc.port }}
+    targetPort: grpc
+    protocol: TCP
+  - name: health
+    port: {{ .Values.service.health.port }}
+    targetPort: health
+    protocol: TCP
+  - name: rest-api
+    port: {{ .Values.service.restApi.port }}
+    targetPort: rest-api
+    protocol: TCP
+  - name: metrics
+    port: {{ .Values.service.metrics.port }}
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    {{- include "cluster-auth.selectorLabels" . | nindent 4 }}

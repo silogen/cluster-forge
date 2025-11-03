@@ -9,16 +9,21 @@ This script bootstraps a complete GitOps environment with ArgoCD, OpenBao (secre
   - `kubectl`
   - `helm`
   - `yq`
+  - `openssl`
 
 ## Usage
 
 ```bash
-./bootstrap.sh <domain>
+./bootstrap.sh <domain> [values_file]
 ```
 
-**Example:**
+**Examples:**
 ```bash
+# Using default values_cf.yaml
 ./bootstrap.sh plat-dev-1.silogen.ai
+
+# Using custom values file
+./bootstrap.sh plat-dev-1.silogen.ai custom_values.yaml
 ```
 
 ## What Does It Do?
@@ -27,7 +32,8 @@ The script performs the following steps in sequence:
 
 ### 1. Domain Configuration
 - Validates that a domain argument is provided
-- Updates the global domain value in `../root/values_cf.yaml`
+- Sets the values file to use (defaults to `values_cf.yaml` if not specified)
+- Updates the global domain value in the specified values file
 - This domain is used for all service endpoints (Gitea, ArgoCD, etc.)
 
 ### 2. Namespace Creation

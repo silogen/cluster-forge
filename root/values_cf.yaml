@@ -30,8 +30,11 @@ enabledApps:
   - opentelemetry-operator
   - otel-lgtm-stack
   - cnpg-operator
+  - cluster-auth
+  - cluster-auth-config
   - keycloak
   - kyverno
+  - kyverno-config
   - amd-gpu-operator
   - amd-gpu-operator-config
   - kuberay-operator

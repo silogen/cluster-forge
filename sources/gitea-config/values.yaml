@@ -1,0 +1,3 @@
+keycloak:
+  url: # to be filled by cluster-forge app
+  realm: # to be filled by cluster-forge app

@@ -1,0 +1,184 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/silogen/cluster-auth
+  pullPolicy: Always
+  tag: "0.5.0"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+namespace:
+  name: cluster-auth
+  create: true
+
+existingSecret: "cluster-auth-secrets"
+
+service:
+  type: ClusterIP
+  grpc:
+    port: 50051
+  health:
+    port: 8080
+  restApi:
+    port: 8081
+  metrics:
+    port: 9090
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: health
+  initialDelaySeconds: 10
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: health
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+
+config:
+  server:
+    grpc:
+      address: ":50051"
+      tls:
+        enabled: false
+    rest:
+      enabled: true
+      address: ":8081"
+    health:
+      address: ":8080"
+
+  authentication:
+    methods:
+      - type: openbao
+        name: openbao-default
+        enabled: true
+        openbao:
+          address: "http://openbao.cf-openbao.svc.cluster.local:8200"
+          token: "${OPENBAO_TOKEN}"
+          cacheTTL: "5m"
+      - type: bearer
+        name: fallback-bearer
+        enabled: false
+        staticTokens: {}
+    failureMode: deny
+
+  apikey:
+    enabled: true
+    prefix: "${API_KEY_PREFIX}"
+    adminTokens:
+      "${ADMIN_TOKEN}": "default-client"
+
+  authorization:
+    enabled: true
+    policyFile: "/etc/cluster-auth/policies.yaml"
+    defaultAction: deny
+
+  kubernetes:
+    enabled: true
+    inCluster: true
+    cacheDuration: "5m"
+
+  observability:
+    logging:
+      level: debug
+      format: json
+    metrics:
+      enabled: true
+      address: ":9090"
+    tracing:
+      enabled: false
+
+policies:
+  version: "1.0"
+  policies:
+    - name: allow-health
+      description: Allow health check endpoints
+      priority: 100
+      rules:
+        - effect: allow
+          paths:
+            - /health
+            - /healthz
+            - /ready
+          methods:
+            - GET
+          requireAuth: false
+
+    - name: httproute-group-based-access
+      description: Allow access only if HTTPRoute annotation matches user's group
+      priority: 85
+      rules:
+        - effect: allow
+          paths:
+            - /**
+          methods:
+            - "*"
+          requireAuth: true
+          httpRoute:
+            annotationMatch:
+              - key: "cluster-auth/allowed-group"
+                matchesUserGroup: true
+
+    - name: admin-full-access
+      description: Admin users have full access
+      priority: 90
+      rules:
+        - effect: allow
+          paths:
+            - /**
+          methods:
+            - "*"
+          roles:
+            - admin
+          requireAuth: true
+
+    - name: authenticated-users
+      description: Authenticated users can access non-admin endpoints
+      priority: 50
+      rules:
+        - effect: allow
+          paths:
+            - /**
+          methods:
+            - "*"
+          requireAuth: true
+
+    - name: deny-all
+      description: Deny all other requests
+      priority: 0
+      rules:
+        - effect: deny
+          paths:
+            - /**
+          methods:
+            - "*"

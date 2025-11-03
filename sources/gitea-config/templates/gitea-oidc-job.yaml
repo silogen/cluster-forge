@@ -1,0 +1,35 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gitea-oidc-job
+  namespace: cf-gitea
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      serviceAccountName: gitea-oidc-sa
+      containers:
+      - name: gitea-config
+        image: ghcr.io/silogen/cluster-tool:latest
+        command: ["bash", "-c", "/scripts/configure-gitea.sh"]
+        env:
+        - name: ADMIN_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: gitea-admin-token
+              key: token
+        - name: CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: gitea-oidc-secret
+              key: GITEA_CLIENT_SECRET
+        volumeMounts:
+        - name: script-volume
+          mountPath: /scripts
+      volumes:
+      - name: script-volume
+        configMap:
+          name: gitea-config-script
+          defaultMode: 0755
+      restartPolicy: OnFailure
