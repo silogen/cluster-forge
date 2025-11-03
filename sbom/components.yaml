@@ -1,0 +1,167 @@
+# Generated components metadata for SBOM creation
+# This file contains simplified component information extracted from values.yaml
+# Apps with "config" suffix are excluded
+
+components:
+  argocd:
+    path: argocd/8.3.5
+    valuesFile: ../values_cf.yaml
+    sourceUrl: https://argoproj.github.io/argo-helm
+    projectUrl: https://github.com/argoproj/argo-cd
+    license: Apache License 2.0
+    licenseUrl: https://github.com/argoproj/argo-cd/blob/master/LICENSE
+  cert-manager:
+    path: cert-manager/v1.18.2
+    valuesFile: ../values_cf.yaml
+    sourceUrl: oci://quay.io/jetstack/charts/cert-manager
+    projectUrl: https://github.com/cert-manager/cert-manager
+    license: Apache License 2.0
+    licenseUrl: https://github.com/cert-manager/cert-manager/blob/master/LICENSE
+  openbao:
+    path: openbao/0.18.2
+    valuesFile: ../values_cf.yaml
+    sourceUrl: https://openbao.github.io/openbao-helm
+    projectUrl: https://github.com/openbao/openbao
+    license: Mozilla Public License 2.0
+    licenseUrl: https://github.com/openbao/openbao/blob/main/LICENSE
+  external-secrets:
+    path: external-secrets/0.15.1
+    valuesFile: values.yaml
+    sourceUrl: https://charts.external-secrets.io
+    projectUrl: https://github.com/external-secrets/external-secrets
+    license: Apache License 2.0
+    licenseUrl: https://github.com/external-secrets/external-secrets/blob/main/LICENSE
+  gitea:
+    path: gitea/12.3.0
+    valuesFile: ../values_cf.yaml
+    sourceUrl: https://dl.gitea.com/charts/
+    projectUrl: https://github.com/go-gitea/gitea
+    license: MIT License
+    licenseUrl: https://github.com/go-gitea/gitea/blob/main/LICENSE
+  gateway-api:
+    path: gateway-api/v1.3.0
+    sourceUrl: https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml
+    projectUrl: https://github.com/kubernetes-sigs/gateway-api
+    license: Apache License 2.0
+    licenseUrl: https://github.com/kubernetes-sigs/gateway-api/blob/main/LICENSE
+  metallb:
+    path: metallb/v0.15.2
+    sourceUrl: https://raw.githubusercontent.com/metallb/metallb/v0.15.2/config/manifests/metallb-native.yaml
+    projectUrl: https://github.com/metallb/metallb/
+    license: Apache License 2.0
+    licenseUrl: https://github.com/metallb/metallb/blob/main/LICENSE
+  kgateway-crds:
+    path: kgateway-crds/v2.1.0-main
+    valuesFile: values.yaml
+    sourceUrl: oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds
+    projectUrl: https://github.com/kgateway-dev/kgateway
+    license: Apache License 2.0
+    licenseUrl: https://github.com/kgateway-dev/kgateway/blob/main/LICENSE
+  kgateway:
+    path: kgateway/v2.1.0-main
+    valuesFile: ../values_cf.yaml
+    sourceUrl: oci://cr.kgateway.dev/kgateway-dev/charts/kgateway
+    projectUrl: https://github.com/kgateway-dev/kgateway
+    license: Apache License 2.0
+    licenseUrl: https://github.com/kgateway-dev/kgateway/blob/main/LICENSE
+  prometheus-crds:
+    path: prometheus-operator-crds/23.0.0
+    valuesFile: values.yaml
+    sourceUrl: https://prometheus-community.github.io/helm-charts
+    projectUrl: https://github.com/prometheus-community/helm-charts
+    license: Apache License 2.0
+    licenseUrl: https://github.com/prometheus-community/helm-charts/blob/main/LICENSE
+  opentelemetry-operator:
+    path: opentelemetry-operator/0.93.1
+    valuesFile: values.yaml
+    sourceUrl: https://open-telemetry.github.io/opentelemetry-helm-charts
+    projectUrl: https://github.com/open-telemetry/opentelemetry-operator
+    license: Apache License 2.0
+    licenseUrl: https://github.com/open-telemetry/opentelemetry-operator/blob/main/LICENSE
+  otel-lgtm-stack:
+    path: otel-lgtm-stack
+    sourceUrl: https://github.com/silogen/docker-otel-lgtm
+    projectUrl: https://github.com/grafana/docker-otel-lgtm
+    license: Apache License 2.0
+    licenseUrl: https://github.com/grafana/docker-otel-lgtm/blob/main/LICENSE
+  cnpg-operator:
+    path: cnpg-operator/0.26.0
+    valuesFile: values.yaml
+    sourceUrl: https://cloudnative-pg.github.io/charts
+    projectUrl: https://github.com/cloudnative-pg/cloudnative-pg
+    license: Apache License 2.0
+    licenseUrl: https://github.com/cloudnative-pg/cloudnative-pg/blob/main/LICENSE
+  keycloak:
+    path: keycloak-old
+    valuesFile: values.yaml
+    sourceUrl: https://codecentric.github.io/helm-charts
+    projectUrl: https://github.com/keycloak/keycloak
+    license: Apache License 2.0
+    licenseUrl: https://github.com/keycloak/keycloak/blob/main/LICENSE.txt
+  kyverno:
+    path: kyverno/3.5.1
+    valuesFile: values.yaml
+    sourceUrl: https://kyverno.github.io/kyverno/
+    projectUrl: https://github.com/kyverno/kyverno
+    license: Apache License 2.0
+    licenseUrl: https://github.com/kyverno/kyverno/blob/main/LICENSE
+  amd-gpu-operator:
+    path: amd-gpu-operator/v1.4.0
+    valuesFile: ../values_cf.yaml
+    sourceUrl: https://rocm.github.io/gpu-operator
+    projectUrl: https://github.com/ROCm/ROCm
+    license: MIT License
+    licenseUrl: https://github.com/ROCm/ROCm/blob/develop/LICENSE
+  kuberay-operator:
+    path: kuberay-operator/1.4.2
+    valuesFile: values.yaml
+    sourceUrl: https://ray-project.github.io/kuberay-helm/
+    projectUrl: https://github.com/ray-project/kuberay
+    license: Apache License 2.0
+    licenseUrl: https://github.com/ray-project/kuberay/blob/master/LICENSE
+  rabbitmq:
+    path: rabbitmq/v2.15.0
+    sourceUrl: https://github.com/rabbitmq/cluster-operator/releases/download/v2.15.0/cluster-operator.yml
+    projectUrl: https://github.com/rabbitmq/cluster-operator/
+    license: Mozilla Public License 2.0
+    licenseUrl: https://github.com/rabbitmq/cluster-operator/blob/main/LICENSE.txt
+  kueue:
+    path: kueue/0.13.0
+    valuesFile: ../values_onenode.yaml
+    sourceUrl: oci://registry.k8s.io/kueue/charts/kueue
+    projectUrl: https://github.com/kubernetes-sigs/kueue
+    license: Apache License 2.0
+    licenseUrl: https://github.com/kubernetes-sigs/kueue/blob/main/LICENSE
+  appwrapper:
+    path: appwrapper/v1.1.2
+    sourceUrl: https://github.com/project-codeflare/appwrapper/releases/download/v1.1.2/install.yaml
+    projectUrl: https://github.com/project-codeflare/appwrapper
+    license: Apache License 2.0
+    licenseUrl: https://github.com/project-codeflare/appwrapper/blob/main/LICENSE
+  minio-operator:
+    path: minio-operator/7.1.1
+    valuesFile: values.yaml
+    sourceUrl: https://operator.min.io
+    projectUrl: https://github.com/minio/operator
+    license: GNU Affero General Public License v3.0
+    licenseUrl: https://github.com/minio/operator/blob/master/LICENSE
+  minio-tenant:
+    path: minio-tenant/7.1.1
+    valuesFile: ../values_cf.yaml
+    sourceUrl: https://operator.min.io
+    projectUrl: https://github.com/minio/operator
+    license: GNU Affero General Public License v3.0
+    licenseUrl: https://github.com/minio/operator/blob/master/LICENSE
+  kaiwo:
+    path: kaiwo/v0.1.7
+    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.1.7/install.yaml
+    projectUrl: https://github.com/silogen/kaiwo/
+    license: MIT License
+    licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
+  airm:
+    path: airm
+    valuesFile: values.yaml
+    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm
+    projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm
+    license: Apache License 2.0
+    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
