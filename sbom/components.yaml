@@ -91,6 +91,13 @@ components:
     projectUrl: https://github.com/cloudnative-pg/cloudnative-pg
     license: Apache License 2.0
     licenseUrl: https://github.com/cloudnative-pg/cloudnative-pg/blob/main/LICENSE
+  cluster-auth:
+    path: cluster-auth/0.5.0
+    valuesFile: values.yaml
+    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/cluster-auth
+    projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/cluster-auth
+    license: Apache License 2.0
+    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   keycloak:
     path: keycloak-old
     valuesFile: values.yaml
@@ -119,6 +126,20 @@ components:
     projectUrl: https://github.com/ray-project/kuberay
     license: Apache License 2.0
     licenseUrl: https://github.com/ray-project/kuberay/blob/master/LICENSE
+  kserve-crds:
+    path: kserve-crds/v0.15.2
+    valuesFile: values.yaml
+    sourceUrl: oci://ghcr.io/kserve/charts/kserve-crd
+    projectUrl: https://github.com/kserve/kserve
+    license: Apache License 2.0
+    licenseUrl: https://github.com/kserve/kserve/blob/master/LICENSE
+  kserve:
+    path: kserve/v0.15.2
+    valuesFile: ../values_cf.yaml
+    sourceUrl: oci://ghcr.io/kserve/charts/kserve
+    projectUrl: https://github.com/kserve/kserve
+    license: Apache License 2.0
+    licenseUrl: https://github.com/kserve/kserve/blob/master/LICENSE
   rabbitmq:
     path: rabbitmq/v2.15.0
     sourceUrl: https://github.com/rabbitmq/cluster-operator/releases/download/v2.15.0/cluster-operator.yml
@@ -159,7 +180,7 @@ components:
     license: MIT License
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
   airm:
-    path: airm
+    path: airm/0.2.0
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm
