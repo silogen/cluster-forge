@@ -550,7 +550,7 @@ data:
             }
           ],
           "disableableCredentialTypes": [],
-          "requiredActions": ["UPDATE_PASSWORD"],
+          "requiredActions": [],
           "realmRoles": [
             "default-roles-airm",
             "Platform Administrator",
@@ -823,7 +823,8 @@ data:
           "secret": "__AIRM_FRONTEND_CLIENT_SECRET__",
           "redirectUris": [
             "https://not-a-domain/*",
-            "https://airmui.not-a-domain/*"
+            "https://airmui.not-a-domain/*",
+            "https://airmapi.not-a-domain/*"
           ],
           "webOrigins": [
             "*"
