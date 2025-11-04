@@ -1,0 +1,120 @@
+name: PR Component Validation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'sbom/components.yaml'
+      - 'root/values.yaml'
+      - 'sbom/generate-compare-components.sh'
+
+jobs:
+  validate-components:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install yq
+      run: |
+        sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+        sudo chmod +x /usr/local/bin/yq
+        
+    - name: Run generate-compare-components.sh
+      working-directory: ./sbom
+      run: |
+        chmod +x generate-compare-components.sh
+        ./generate-compare-components.sh
+        
+    - name: Validate component URLs
+      working-directory: ./sbom
+      run: |
+        echo "Validating components.yaml for missing sourceUrl and projectUrl..."
+        
+        # Check if components.yaml exists
+        if [[ ! -f "components.yaml" ]]; then
+          echo "❌ Error: components.yaml not found"
+          exit 1
+        fi
+        
+        # Get all component names
+        component_names=$(yq eval '.components | keys | .[]' components.yaml)
+        
+        missing_fields=false
+        missing_components=()
+        
+        # Check each component for missing fields
+        for component in $component_names; do
+          source_url=$(yq eval ".components.\"$component\".sourceUrl // \"\"" components.yaml)
+          project_url=$(yq eval ".components.\"$component\".projectUrl // \"\"" components.yaml)
+          license=$(yq eval ".components.\"$component\".license // \"\"" components.yaml)
+          license_url=$(yq eval ".components.\"$component\".licenseUrl // \"\"" components.yaml)
+          
+          component_missing=false
+          
+          if [[ -z "$source_url" ]]; then
+            echo "❌ Missing sourceUrl for component: $component"
+            missing_fields=true
+            component_missing=true
+          fi
+          
+          if [[ -z "$project_url" ]]; then
+            echo "❌ Missing projectUrl for component: $component"
+            missing_fields=true
+            component_missing=true
+          fi
+          
+          if [[ -z "$license" ]]; then
+            echo "❌ Missing license for component: $component"
+            missing_fields=true
+            component_missing=true
+          fi
+          
+          if [[ -z "$license_url" ]]; then
+            echo "❌ Missing licenseUrl for component: $component"
+            missing_fields=true
+            component_missing=true
+          fi
+          
+          if [[ "$component_missing" == true ]]; then
+            missing_components+=("$component")
+          else
+            echo "✅ Component $component has all required fields (sourceUrl, projectUrl, license, licenseUrl)"
+          fi
+        done
+        
+        if [[ "$missing_fields" == true ]]; then
+          echo ""
+          echo "❌ VALIDATION FAILED!"
+          echo "The following components are missing required fields:"
+          for comp in "${missing_components[@]}"; do
+            echo "  - $comp"
+          done
+          echo ""
+          echo "Please ensure all components have 'sourceUrl', 'projectUrl', 'license', and 'licenseUrl' populated in components.yaml"
+          echo ""
+          echo "📝 Manual steps required:"
+          echo "   1. Fill in 'sourceUrl' and 'projectUrl' manually for missing components"
+          echo "   2. Run ./update_licenses.sh to auto-populate license fields from GitHub"
+          echo ""
+          echo "💡 Note: 'sourceUrl' and 'projectUrl' must be provided manually as they require"
+          echo "   human knowledge about where to find charts/manifests and project repositories."
+          exit 1
+        else
+          echo ""
+          echo "✅ All components have required fields (sourceUrl, projectUrl, license, licenseUrl)!"
+        fi
+        
+    - name: Check for uncommitted changes
+      working-directory: ./sbom
+      run: |
+        if [[ -n $(git status --porcelain components.yaml) ]]; then
+          echo "❌ components.yaml has uncommitted changes after running generate-compare-components.sh"
+          echo "Please commit the updated components.yaml file"
+          git diff components.yaml
+          exit 1
+        else
+          echo "✅ components.yaml is up to date"
+        fi
