@@ -40,6 +40,8 @@ enabledApps:
   - amd-gpu-operator
   - amd-gpu-operator-config
   - kuberay-operator
+  - kserve-crds
+  - kserve
   - rabbitmq
   - kueue
   - kueue-config
@@ -259,6 +261,19 @@ apps:
     namespace: default
     valuesFile: values.yaml
     syncWave: -1
+
+  # ML/AI
+  kserve-crds:
+    path: kserve-crds/v0.15.2
+    namespace: kserve-system
+    valuesFile: values.yaml
+    syncWave: -3
+
+  kserve:
+    path: kserve/v0.15.2
+    namespace: kserve-system
+    valuesFile: ../values_cf.yaml
+    syncWave: -2
 
   # Queues
   rabbitmq:
