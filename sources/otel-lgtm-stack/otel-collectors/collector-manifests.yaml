@@ -465,7 +465,6 @@ spec:
           - name: events
             mode: watch
             group: events.k8s.io
-            namespaces: ["demo"] ## <-- add target namespace 
             interval: 30s
     processors:
       attributes:
@@ -473,9 +472,32 @@ spec:
           - key: k8s_cluster_name
             action: insert
             value: "app-dev" ## <-- add cluster name
-          - key: k8s_resource_type
-            action: insert
-            value: "event"
+
+      k8sattributes:
+        auth_type: serviceAccount
+        extract:
+          labels:
+          - from: pod
+            key: airm.silogen.ai/component-id
+            tag_name: component.id
+          - from: pod
+            key: airm.silogen.ai/workload-id
+            tag_name: workload.id
+          metadata:
+          - k8s.namespace.name
+          - k8s.pod.name
+          - k8s.pod.uid
+          - k8s.node.name
+        passthrough: false
+        pod_association:
+        - sources:
+          - from: resource_attribute
+            name: k8s.pod.uid
+        - sources:
+          - from: resource_attribute
+            name: k8s.pod.name
+          - from: resource_attribute
+            name: k8s.namespace.name
 
       # Transform processor to set resource attributes
       transform:
@@ -484,6 +506,8 @@ spec:
           - context: log
             statements:
               - set(resource.attributes["k8s.cluster.name"], attributes["k8s_cluster_name"])
+              - set(resource.attributes["component.id"], attributes["component.id"])
+              - set(resource.attributes["workload.id"], attributes["workload.id"])
           - context: log
             statements:
               - set(resource.attributes["k8s.resource.type"], attributes["k8s_resource_type"])
@@ -498,7 +522,7 @@ spec:
       pipelines:
         logs:
           receivers: [k8sobjects]
-          processors: [attributes, transform]
+          processors: [k8sattributes, attributes, transform]
           exporters: [otlp, debug]
 ---
 apiVersion: opentelemetry.io/v1beta1
