@@ -175,7 +175,7 @@ components:
     licenseUrl: https://github.com/minio/operator/blob/master/LICENSE
   kaiwo-crds:
     path: kaiwo-crds/v0.2.0-rc3
-    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc3/install.yaml
+    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc3/crds.yamll
     projectUrl: //github.com/silogen/kaiwo/
     license: MIT License
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
