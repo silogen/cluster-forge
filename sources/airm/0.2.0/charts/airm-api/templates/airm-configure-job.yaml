@@ -54,9 +54,6 @@ kind: Job
 metadata:
   name: "{{ .Release.Name }}-configure"
   namespace: "{{ .Release.Namespace }}"
-  annotations:
-    "helm.sh/hook": post-install
-    "helm.sh/hook-delete-policy": hook-succeeded
 spec:
   backoffLimit: 3
   template:
