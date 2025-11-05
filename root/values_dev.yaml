@@ -45,6 +45,7 @@ enabledApps:
   - minio-operator
   - minio-tenant
   - minio-tenant-config
+  - kaiwo-crds
   - kaiwo
   - kaiwo-config
   - airm

@@ -49,6 +49,7 @@ enabledApps:
   - minio-operator
   - minio-tenant
   - minio-tenant-config
+  - kaiwo-crds
   - kaiwo
   - kaiwo-config
   - airm
@@ -327,14 +328,20 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
 
   # Kaiwo stuff
+  kaiwo-crds:
+    path: kaiwo-crds/v0.2.0-rc3
+    namespace: kaiwo-system
+    syncWave: -2
+
   kaiwo:
-    path: kaiwo/v0.1.7
-    namespace: kaiwo
+    path: kaiwo/v0.2.0-rc3
+    namespace: kaiwo-system
+    valuesFile: values.yaml
     syncWave: -1
 
   kaiwo-config:
     path: kaiwo-config
-    namespace: kaiwo
+    namespace: kaiwo-system
     syncWave: -1
     ignoreDifferences:
       - group: external-secrets.io
