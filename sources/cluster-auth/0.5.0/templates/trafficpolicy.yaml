@@ -1,0 +1,16 @@
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: TrafficPolicy
+metadata:
+  name: {{ include "cluster-auth.fullname" . }}-global
+  namespace: kgateway-system
+  labels:
+    {{- include "cluster-auth.labels" . | nindent 4 }}
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: https
+  extAuth:
+    extensionRef:
+      name: {{ include "cluster-auth.fullname" . }}-extauth
+      namespace: {{ .Values.namespace.name }}

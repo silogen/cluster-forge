@@ -40,6 +40,8 @@ enabledApps:
   - amd-gpu-operator
   - amd-gpu-operator-config
   - kuberay-operator
+  - kserve-crds
+  - kserve
   - rabbitmq
   - kueue
   - kueue-config
@@ -47,6 +49,7 @@ enabledApps:
   - minio-operator
   - minio-tenant
   - minio-tenant-config
+  - kaiwo-crds
   - kaiwo
   - kaiwo-config
   - airm
@@ -260,6 +263,19 @@ apps:
     valuesFile: values.yaml
     syncWave: -1
 
+  # ML/AI
+  kserve-crds:
+    path: kserve-crds/v0.15.2
+    namespace: kserve-system
+    valuesFile: values.yaml
+    syncWave: -3
+
+  kserve:
+    path: kserve/v0.15.2
+    namespace: kserve-system
+    valuesFile: ../values_cf.yaml
+    syncWave: -2
+
   # Queues
   rabbitmq:
     path: rabbitmq/v2.15.0
@@ -312,14 +328,20 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
 
   # Kaiwo stuff
+  kaiwo-crds:
+    path: kaiwo-crds/v0.2.0-rc3
+    namespace: kaiwo-system
+    syncWave: -2
+
   kaiwo:
-    path: kaiwo/v0.1.7
-    namespace: kaiwo
+    path: kaiwo/v0.2.0-rc3
+    namespace: kaiwo-system
+    valuesFile: values.yaml
     syncWave: -1
 
   kaiwo-config:
     path: kaiwo-config
-    namespace: kaiwo
+    namespace: kaiwo-system
     syncWave: -1
     ignoreDifferences:
       - group: external-secrets.io
@@ -331,7 +353,7 @@ apps:
 
   # Airm stuff
   airm:
-    path: airm
+    path: airm/0.2.0
     namespace: airm
     valuesFile: values.yaml
     helmParameters:

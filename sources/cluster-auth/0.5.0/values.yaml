@@ -3,7 +3,7 @@ replicaCount: 2
 image:
   repository: ghcr.io/silogen/cluster-auth
   pullPolicy: Always
-  tag: "0.5.0"
+  tag: "0.5.2"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -101,7 +101,7 @@ config:
   authorization:
     enabled: true
     policyFile: "/etc/cluster-auth/policies.yaml"
-    defaultAction: deny
+    defaultAction: allow
 
   kubernetes:
     enabled: true
@@ -161,24 +161,3 @@ policies:
           roles:
             - admin
           requireAuth: true
-
-    - name: authenticated-users
-      description: Authenticated users can access non-admin endpoints
-      priority: 50
-      rules:
-        - effect: allow
-          paths:
-            - /**
-          methods:
-            - "*"
-          requireAuth: true
-
-    - name: deny-all
-      description: Deny all other requests
-      priority: 0
-      rules:
-        - effect: deny
-          paths:
-            - /**
-          methods:
-            - "*"

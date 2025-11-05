@@ -36,6 +36,8 @@ enabledApps:
   - amd-gpu-operator
   - amd-gpu-operator-config
   - kuberay-operator
+  - kserve-crds
+  - kserve
   - rabbitmq
   - kueue
   - kueue-config
@@ -43,6 +45,7 @@ enabledApps:
   - minio-operator
   - minio-tenant
   - minio-tenant-config
+  - kaiwo-crds
   - kaiwo
   - kaiwo-config
   - airm

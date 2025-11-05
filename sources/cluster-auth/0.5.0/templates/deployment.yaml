@@ -20,6 +20,7 @@ spec:
       labels:
         {{- include "cluster-auth.selectorLabels" . | nindent 8 }}
     spec:
+      serviceAccountName: {{ include "cluster-auth.fullname" . }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}

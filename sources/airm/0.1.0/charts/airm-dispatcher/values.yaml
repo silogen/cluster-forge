@@ -1,0 +1,26 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+airm:
+  dispatcher:
+    core:
+      image:
+        repository: ghcr.io/silogen/airm-dispatcher
+        tag: v2025.09-rc.6
+        pullPolicy: IfNotPresent
+      servicePort: 80
+
+    env:
+      rabbitmqPort: 5672
+
+    heartbeat:
+      image:
+        repository: ghcr.io/silogen/airm-dispatcher
+        tag: v2025.09-rc.6
+        pullPolicy: IfNotPresent
+    nodes:
+      image:
+        repository: ghcr.io/silogen/airm-dispatcher
+        tag: v2025.09-rc.6
+        pullPolicy: IfNotPresent
