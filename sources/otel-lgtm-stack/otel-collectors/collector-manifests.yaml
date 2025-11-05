@@ -473,6 +473,9 @@ spec:
           - key: k8s_cluster_name
             action: insert
             value: "app-dev" ## <-- add cluster name
+          - key: k8s_event_type
+            action: insert
+            value: "k8s_event" 
 
       k8sattributes:
         auth_type: serviceAccount
@@ -507,6 +510,7 @@ spec:
           - context: log
             statements:
               - set(resource.attributes["k8s.cluster.name"], attributes["k8s_cluster_name"])
+              - set(resource.attributes["k8s.event.type"], attributes["k8s_event_type"])
               - set(resource.attributes["component.id"], attributes["component.id"])
               - set(resource.attributes["workload.id"], attributes["workload.id"])
     exporters:
