@@ -6,7 +6,7 @@ airm:
   dispatcher:
     image:
       repository: ghcr.io/silogen/airm-dispatcher
-      tag: 0.2.0-rc.1
+      tag: 0.2.0-rc.2
       pullPolicy: IfNotPresent
     servicePort: 80
     env:

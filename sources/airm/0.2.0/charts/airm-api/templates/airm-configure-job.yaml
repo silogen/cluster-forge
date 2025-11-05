@@ -6,6 +6,16 @@
 
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "{{ .Release.Name }}-configure-script"
+  namespace: "{{ .Release.Namespace }}"
+data:
+  configure.sh: |
+{{ .Files.Get "scripts/configure.sh" | indent 4 }}
+
+---
+apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: "{{ .Release.Name }}-configure-sa"
@@ -18,8 +28,8 @@ metadata:
   name: "{{ .Release.Name }}-configure-role"
 rules:
   - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["get", "list", "create", "delete"]
+    resources: ["secrets", "configmaps"]
+    verbs: ["get", "list", "create", "delete", "patch", "update"]
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list"]
@@ -28,7 +38,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: "{{ .Release.Name }}-configure-binding"
+  name: "{{ .Release.Name }}-configure-rolebinding"
 subjects:
   - kind: ServiceAccount
     name: "{{ .Release.Name }}-configure-sa"
@@ -44,6 +54,9 @@ kind: Job
 metadata:
   name: "{{ .Release.Name }}-configure"
   namespace: "{{ .Release.Namespace }}"
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-delete-policy": hook-succeeded
 spec:
   backoffLimit: 3
   template:
@@ -93,8 +106,10 @@ spec:
               type: RuntimeDefault
       containers:
         - name: configure
-          image: "{{ .Values.airm.configure.image.repository }}:{{ .Values.airm.configure.image.tag }}"
-          imagePullPolicy: {{ .Values.airm.configure.image.pullPolicy }}
+          image: "{{ .Values.airm.utilities.clusterTool.image.repository }}:{{ .Values.airm.utilities.clusterTool.image.tag }}"
+          imagePullPolicy: "{{ .Values.airm.utilities.clusterTool.image.pullPolicy }}"
+          command: ["/bin/bash"]
+          args: ["/scripts/configure.sh"]
           env:
             - name: DEBIAN_FRONTEND
               value: "noninteractive"
@@ -127,6 +142,9 @@ spec:
               value: "http://{{ .Release.Name }}-api.{{ .Release.Namespace }}.svc.cluster.local"
             - name: CLUSTER_BASE_URL
               value: "https://{{ .Values.kgateway.workloads.prefixValue }}.{{ .Values.airm.appDomain }}/"
+          volumeMounts:
+            - name: configure-script
+              mountPath: /scripts
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: false
@@ -143,5 +161,10 @@ spec:
                 - FSETID
             seccompProfile:
               type: RuntimeDefault
+      volumes:
+        - name: configure-script
+          configMap:
+            name: "{{ .Release.Name }}-configure-script"
+            defaultMode: 0755
 
 {{- end }}

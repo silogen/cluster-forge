@@ -45,7 +45,7 @@ rules:
     resources: ["kaiwoqueueconfigs"]
     verbs: ["*"]
   - apiGroups: ["aim.silogen.ai"]
-    resources: ["aimclusterimages", "aimclusterservicetemplates", "aimclusterruntimeconfigs"]
+    resources: ["aimclustermodels", "aimclusterservicetemplates", "aimclusterruntimeconfigs"]
     verbs: ["*"]
   - apiGroups: [""]
     resources: ["secrets"]

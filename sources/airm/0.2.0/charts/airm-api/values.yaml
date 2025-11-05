@@ -96,7 +96,7 @@ airm:
   frontend:
     image:
       repository: ghcr.io/silogen/airm-ui
-      tag: 0.2.0-rc.1
+      tag: 0.2.0-rc.2
       pullPolicy: IfNotPresent
     servicePort: 80
     resources:
@@ -106,16 +106,10 @@ airm:
         cpu: 500m
         memory: 4Gi
 
-  configure:
-    image:
-      repository: ghcr.io/silogen/airm-configure
-      tag: 0.2.0-rc.1
-      pullPolicy: IfNotPresent
-
   backend:
     image:
       repository: ghcr.io/silogen/airm-api
-      tag: 0.2.0-rc.1
+      tag: 0.2.0-rc.2
       pullPolicy: IfNotPresent
 
     servicePort: 80
@@ -156,4 +150,9 @@ airm:
       image:
         repository: docker.io/liquibase/liquibase
         tag: 4.31
+        pullPolicy: IfNotPresent
+    clusterTool:
+      image:
+        repository: ghcr.io/silogen/cluster-tool
+        tag: latest
         pullPolicy: IfNotPresent
