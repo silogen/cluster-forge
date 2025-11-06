@@ -9,6 +9,12 @@ on:
         description: 'Release tag to generate SBOM for'
         required: true
         type: string
+  workflow_call:
+    inputs:
+      release_tag:
+        description: 'Release tag to generate SBOM for'
+        required: true
+        type: string
 
 jobs:
   generate-sbom:
