@@ -20,7 +20,7 @@ jobs:
   generate-sbom:
     runs-on: ubuntu-latest
     # Only run if release is from main branch, manually triggered, or called from another workflow
-    # if: github.event_name == 'workflow_dispatch' || github.event.release.target_commitish == 'main' || github.event_name == 'workflow_call'  # Comment out for testing
+    if: github.event_name == 'workflow_dispatch' || github.event.release.target_commitish == 'main' || github.event_name == 'workflow_call'
     
     steps:
     - name: Checkout code
@@ -153,7 +153,7 @@ jobs:
         retention-days: 15
         
     - name: Upload SBOM to release (if release event)
-      # if: github.event_name == 'release'  # Comment out for testing
+      if: github.event_name == 'release'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       working-directory: ./sbom
