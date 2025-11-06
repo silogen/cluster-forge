@@ -160,6 +160,13 @@ jobs:
       run: |
         # Upload the renamed SBOM file to the release
         SBOM_FILE=$(ls sbom-*.md | head -1)
-        gh release upload ${{ github.event.release.tag_name }} "$SBOM_FILE" --clobber
+        RELEASE_TAG="${{ github.event.release.tag_name || inputs.release_tag }}"
         
-        echo "✅ $SBOM_FILE uploaded to release ${{ github.event.release.tag_name }}"
+        if [[ -n "$RELEASE_TAG" ]]; then
+          echo "📦 Uploading SBOM to release: $RELEASE_TAG"
+          gh release upload "$RELEASE_TAG" "$SBOM_FILE" --clobber
+          echo "✅ $SBOM_FILE uploaded to release $RELEASE_TAG"
+        else
+          echo "ℹ️  No release tag available - SBOM generated as artifact only"
+          echo "✅ SBOM available as workflow artifact: $SBOM_FILE"
+        fi
