@@ -353,7 +353,7 @@ apps:
 
   # Airm stuff
   airm:
-    path: airm/0.2.0
+    path: airm/0.2.1
     namespace: airm
     valuesFile: values.yaml
     helmParameters:
