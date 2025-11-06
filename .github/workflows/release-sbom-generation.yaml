@@ -153,7 +153,7 @@ jobs:
         retention-days: 15
         
     - name: Upload SBOM to release (if release event)
-      if: github.event_name == 'release'
+      # if: github.event_name == 'release'  # Comment out for testing
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       working-directory: ./sbom
