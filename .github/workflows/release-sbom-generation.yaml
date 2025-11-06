@@ -19,8 +19,8 @@ on:
 jobs:
   generate-sbom:
     runs-on: ubuntu-latest
-    # Only run if release is from main branch or if manually triggered
-    if: github.event_name == 'workflow_dispatch' || github.event.release.target_commitish == 'main'
+    # Only run if release is from main branch, manually triggered, or called from another workflow
+    if: github.event_name == 'workflow_dispatch' || github.event.release.target_commitish == 'main' || github.event_name == 'workflow_call'
     
     steps:
     - name: Checkout code
