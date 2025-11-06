@@ -131,7 +131,7 @@ jobs:
 
   generate-sbom:
     needs: [version, build]
-    if: github.event_name != 'pull_request'
+    # if: github.event_name != 'pull_request'  # Comment out for testing
     uses: ./.github/workflows/release-sbom-generation.yaml
     with:
       release_tag: ${{ needs.version.outputs.new_version }}
