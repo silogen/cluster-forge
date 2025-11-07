@@ -32,15 +32,15 @@ spec:
           volumeMounts:
             - mountPath: /run/chrony/
               name: chronyd-socket
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
       volumes:
         - name: chronyd-socket
           hostPath:
             path: /run/chrony/
             type: Directory
-      resources:
-        limits:
-          cpu: 100m
-          memory: 128Mi
-        requests:
-          cpu: 50m
-          memory: 64Mi
