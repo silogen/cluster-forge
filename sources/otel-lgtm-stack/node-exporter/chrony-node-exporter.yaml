@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nodeexporter-chrony-exporter
+  namespace: otel-lgtm-stack
+  labels:
+    app: chrony-exporter
+spec:
+  selector:
+    matchLabels:
+      app: chrony-exporter
+  template:
+    metadata:
+      labels:
+        app: chrony-exporter
+    spec:
+      containers:
+        - name: chrony-exporter
+          image: quay.io/superq/chrony-exporter:v0.12.1
+          args:
+            - "--chrony.address=unix:///run/chrony/chronyd.sock"
+            - "--collector.chmod-socket"
+            - "--collector.sources"
+            - "--collector.tracking"
+            - "--log.level=info"
+          securityContext:
+            runAsUser: 0
+          ports:
+            - containerPort: 9123
+              name: metrics
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /run/chrony/
+              name: chronyd-socket
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+      volumes:
+        - name: chronyd-socket
+          hostPath:
+            path: /run/chrony/
+            type: Directory
