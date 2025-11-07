@@ -1248,8 +1248,7 @@ data:
             "profile",
             "groups",
             "basic",
-            "email",
-            "policy"
+            "email"
           ],
           "optionalClientScopes": [
             "address",
