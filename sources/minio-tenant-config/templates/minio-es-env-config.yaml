@@ -22,6 +22,8 @@ spec:
           export MINIO_ROOT_PASSWORD="{{ "{{" }}.password{{ "}}"}}"
           export MINIO_BROWSER_REDIRECT_URL="https://minio.{{ "{{" }}.domain{{ "}}"}}"
           export MINIO_IDENTITY_OPENID_SCOPES="openid,profile,email,groups"
+          export MINIO_IDENTITY_OPENID_CLAIM_NAME="groups"
+          export MINIO_IDENTITY_OPENID_CLAIM_PREFIX=""
           export MINIO_IDENTITY_OPENID_CLIENT_ID=minio
           export MINIO_IDENTITY_OPENID_CLIENT_SECRET="{{ "{{" }}.client_secret{{ "}}"}}"
           export MINIO_IDENTITY_OPENID_CONFIG_URL="{{ "{{" }}.openid_url{{ "}}"}}"
