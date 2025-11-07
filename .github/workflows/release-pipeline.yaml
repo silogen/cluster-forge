@@ -128,3 +128,10 @@ jobs:
           gh release upload "$VERSION" \
               "release-enterprise-ai-${VERSION}.tar.gz#ClusterForge Enterprise AI Package" \
               --clobber
+
+  generate-sbom:
+    needs: [version, build]
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/release-sbom-generation.yaml
+    with:
+      release_tag: ${{ needs.version.outputs.new_version }}
