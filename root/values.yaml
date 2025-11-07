@@ -204,7 +204,7 @@ apps:
     path: cluster-auth/0.5.0
     namespace: cluster-auth
     valuesFile: values.yaml
-    syncWave: -2
+    syncWave: -1
 
   cluster-auth-config:
     path: cluster-auth-config
