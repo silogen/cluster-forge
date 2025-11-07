@@ -59,11 +59,16 @@ AIRM and Keycloak are two components which use Cloud Native Postgresql (CNPG) fo
     ```
   - run backup command from your local machine: `pg_dump -h 127.0.0.1 -U airm_user airm > /tmp/airm-<cluserName>-$(date +%Y-%m-%d).sql`
   - enter password for previously decoded airm_user
-  - perform needed operation, e.g. delete the CNPG cluster and wait for all pods to get deleted
-  - wait for atleast one cnpg pod to come up and again (triggered by Argo CD) and forward port 5432
+  - perform needed operation, and after done, delete the CNPG cluster and wait for all pods to be removed
+  - wait for at least one cnpg pod to come up and again (triggered by Argo CD) and forward port 5432
+  - if an existing db is there with tables, you need to drop it first:
+      - open shell to the AIRM CNPG pod (primary)
+      - `psql -U airm`
+      - `DROP DATABASE airm WITH (FORCE);`
+      - `CREATE DATABASE airm OWNER airm_user ENCODING 'UTF8' LC_COLLATE='C' LC_CTYPE='C' TEMPLATE template0;`
+      - `GRANT CREATE ON SCHEMA public TO airm_user;`
   - run the restoration: `psql -h 127.0.0.1 -U airm_user airm < /tmp/airm-<clusterName>-<date>.sql` using the same airm_user secret as before
   - restart airm api & ui pods
-
 
   2. <b>on-demand CNPG Backup</b>: this method leverages CNPG cluster.spec.backup specification and will become the preferred path after the process has been validated
 
@@ -85,7 +90,6 @@ AIRM and Keycloak are two components which use Cloud Native Postgresql (CNPG) fo
 
   - `kubectl apply -f on-demand-backup.yaml`
   - check the Backup object in the cluster, which will update the top-level `Status` section as it progresses.
-  - this method is presently failing during the `walArchivingFailing` phase, and requires an update to the `Cluster` `.backup` definition
 
 ## Known Issues
 
