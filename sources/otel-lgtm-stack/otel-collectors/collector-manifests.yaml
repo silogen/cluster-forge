@@ -517,7 +517,7 @@ spec:
         error_mode: ignore
         logs:
           log_record:
-            - 'body["object"]["note"] != nil and body["object"]["note"] != ""'
+            - '(body["object"]["note"] != nil and body["object"]["note"] != "") or (body["object"]["message"] != nil and body["object"]["message"] != "")'
 
       # Transform processor to extract Pod information from events for k8sattributes matching
       transform/extract-pod-info:
@@ -535,9 +535,6 @@ spec:
               - set(resource.attributes["k8s.pod.uid"], body["object"]["regarding"]["uid"]) where body["object"]["regarding"]["kind"] == "Pod"
               - set(resource.attributes["k8s.pod.name"], body["object"]["regarding"]["name"]) where body["object"]["regarding"]["kind"] == "Pod"
               - set(resource.attributes["k8s.namespace.name"], body["object"]["regarding"]["namespace"]) where body["object"]["regarding"]["kind"] == "Pod"
-              
-              # Keep only the note field in the body
-              - keep_keys(body["object"], ["note"])
 
       # Transform processor to set final resource attributes
       transform/set-attributes:
@@ -551,6 +548,9 @@ spec:
               # Copy enriched labels from k8sattributes to resource attributes
               - set(resource.attributes["component.id"], attributes["component.id"]) where attributes["component.id"] != nil
               - set(resource.attributes["workload.id"], attributes["workload.id"]) where attributes["workload.id"] != nil
+  
+              # Keep only the note field in the body
+              - keep_keys(body["object"], ["note", "message"])
     exporters:
       otlp:
         endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
