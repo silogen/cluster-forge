@@ -1,18 +1,15 @@
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: v1.0.2 # cluster-forge version git tag
+  targetRevision: v1.1.0 # cluster-forge version git tag
   valuesFile: values.yaml
-
 # source helm values file from separate git repo
 externalValues:
   enabled: false
-#  repoUrl: # define if enabled
+  #  repoUrl: # define if enabled
   targetRevision: main
   path: values.yaml
-
 global:
   domain: app.silogen.ai
-
 enabledApps:
   - argocd
   - argocd-config
@@ -53,9 +50,7 @@ enabledApps:
   - kaiwo
   - kaiwo-config
   - airm
-
 apps:
-
   # Core apps
   argocd:
     path: argocd/8.3.5
@@ -72,7 +67,6 @@ apps:
           clientSecret: $$argocd-oidc-creds:client_secret
           requestedScopes: ["openid", "profile", "email", "groups"]
     syncWave: -3
-
   argocd-config:
     path: argocd-config
     namespace: argocd
@@ -84,13 +78,11 @@ apps:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
-
   cert-manager:
     path: cert-manager/v1.18.2
     namespace: cert-manager
     valuesFile: ../values_cf.yaml
     syncWave: -3
-
   openbao:
     path: openbao/0.18.2
     namespace: cf-openbao
@@ -101,23 +93,19 @@ apps:
         kind: "Deployment"
         jsonPointers:
           - /spec/replicas
-
   openbao-config:
     path: openbao-config
     namespace: cf-openbao
     syncWave: -2
-
   external-secrets:
     path: external-secrets/0.15.1
     namespace: external-secrets
     valuesFile: values.yaml
     syncWave: -3
-
   external-secrets-config:
     path: external-secrets-config
     namespace: external-secrets
     syncWave: -3
-
   gitea:
     path: gitea/12.3.0
     namespace: cf-gitea
@@ -128,7 +116,6 @@ apps:
       - name: gitea.config.server.ROOT_URL
         value: "https://gitea.{{ .Values.global.domain }}"
     syncWave: -3
-
   gitea-config:
     path: gitea-config
     namespace: cf-gitea
@@ -139,30 +126,25 @@ apps:
       - name: keycloak.realm
         value: "airm"
     syncWave: -2
-
   # Network apps
   gateway-api:
     path: gateway-api/v1.3.0
     namespace: default
     syncWave: -3
-
   metallb:
     path: metallb/v0.15.2
     namespace: default
     syncWave: -3
-
   kgateway-crds:
     path: kgateway-crds/v2.1.0-main
     namespace: kgateway-system
     valuesFile: values.yaml
     syncWave: -3
-
   kgateway:
     path: kgateway/v2.1.0-main
     namespace: kgateway-system
     valuesFile: ../values_cf.yaml
     syncWave: -2
-
   kgateway-config:
     path: kgateway-config
     namespace: kgateway-system
@@ -171,41 +153,35 @@ apps:
       - name: domain
         value: "{{ .Values.global.domain }}"
     syncWave: -2
-
   # Monitoring
   prometheus-crds:
     path: prometheus-operator-crds/23.0.0
     namespace: prometheus-system
     valuesFile: values.yaml
     syncWave: -3
-
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
     namespace: opentelemetry-operator-system
     valuesFile: values.yaml
     syncWave: -3
-
   otel-lgtm-stack:
     path: otel-lgtm-stack
     namespace: otel-lgtm-stack
     directory:
       recurse: true
     syncWave: -2
-
   # Databases
   cnpg-operator:
     path: cnpg-operator/0.26.0
     namespace: cnpg-system
     valuesFile: values.yaml
     syncWave: -3
-
   # Access control
   cluster-auth:
     path: cluster-auth/0.5.0
     namespace: cluster-auth
     valuesFile: values.yaml
     syncWave: -2
-
   cluster-auth-config:
     path: cluster-auth-config
     namespace: cluster-auth
@@ -217,7 +193,6 @@ apps:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
-
   keycloak:
     path: keycloak-old
     namespace: keycloak
@@ -233,84 +208,70 @@ apps:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
-
   kyverno:
     path: kyverno/3.5.1
     namespace: kyverno
     valuesFile: values.yaml
     syncWave: -3
-
   kyverno-config:
     path: kyverno-config
     namespace: kyverno
     syncWave: -3
-
   # GPU
   amd-gpu-operator:
     path: amd-gpu-operator/v1.4.0
     namespace: kube-amd-gpu
     valuesFile: ../values_cf.yaml
     syncWave: -1
-
   amd-gpu-operator-config:
     path: amd-gpu-operator-config
     namespace: kube-amd-gpu
     syncWave: -1
-
   kuberay-operator:
     path: kuberay-operator/1.4.2
     namespace: default
     valuesFile: values.yaml
     syncWave: -1
-
   # ML/AI
   kserve-crds:
     path: kserve-crds/v0.15.2
     namespace: kserve-system
     valuesFile: values.yaml
     syncWave: -3
-
   kserve:
     path: kserve/v0.15.2
     namespace: kserve-system
     valuesFile: ../values_cf.yaml
     syncWave: -2
-
   # Queues
   rabbitmq:
     path: rabbitmq/v2.15.0
     namespace: rabbitmq-system
     syncWave: -1
-
   kueue:
     path: kueue/0.13.0
     namespace: kueue-system
     valuesFile: ../values_onenode.yaml
     syncWave: -1
-
   kueue-config:
     path: kueue-config
     namespace: kueue-system
     syncWave: -1
-
   appwrapper:
     path: appwrapper/v1.1.2
     namespace: appwrapper-system
     syncWave: -1
-
   # Storage
   minio-operator:
     path: minio-operator/7.1.1
     namespace: minio-operator
     valuesFile: values.yaml
     syncWave: -3
-
   minio-tenant:
     path: minio-tenant/7.1.1
     namespace: minio-tenant-default
     valuesFile: ../values_cf.yaml
     syncWave: -2
-
   minio-tenant-config:
     path: minio-tenant-config
     namespace: minio-tenant-default
@@ -326,19 +287,16 @@ apps:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
-
   # Kaiwo stuff
   kaiwo-crds:
     path: kaiwo-crds/v0.2.0-rc5
     namespace: kaiwo-system
     syncWave: -2
-
   kaiwo:
     path: kaiwo/v0.2.0-rc5
     namespace: kaiwo-system
     valuesFile: values.yaml
     syncWave: -1
-
   kaiwo-config:
     path: kaiwo-config
     namespace: kaiwo-system
@@ -350,7 +308,6 @@ apps:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
-
   # Airm stuff
   airm:
     path: airm/0.2.1
