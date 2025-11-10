@@ -475,7 +475,7 @@ spec:
             value: "app-dev" ## <-- add cluster name
           - key: log_type
             action: insert
-            value: "k8s_events"
+            value: "k8s_event"
 
       k8sattributes:
         auth_type: serviceAccount
@@ -511,13 +511,6 @@ spec:
             name: k8s.pod.name
           - from: resource_attribute
             name: k8s.namespace.name
-
-      # Filter processor to only process Pod events
-      filter/pod-events-only:
-        error_mode: ignore
-        logs:
-          log_record:
-            - 'body["object"]["involvedObject"]["kind"] == "Pod" or body["object"]["regarding"]["kind"] == "Pod"'
 
       # Transform processor to extract Pod information from events for k8sattributes matching
       transform/extract-pod-info:
@@ -559,7 +552,7 @@ spec:
       pipelines:
         logs:
           receivers: [k8sobjects]
-          processors: [filter/pod-events-only, transform/extract-pod-info, k8sattributes, attributes, transform/set-attributes]
+          processors: [transform/extract-pod-info, k8sattributes, attributes, transform/set-attributes]
           exporters: [otlp, debug]
 ---
 apiVersion: opentelemetry.io/v1beta1
