@@ -511,8 +511,6 @@ spec:
             name: k8s.pod.name
           - from: resource_attribute
             name: k8s.namespace.name
-        # Enable owner lookup to traverse from Job to Pod
-        owner_lookup_enabled: true
 
       # Transform processor to extract Pod information from events for k8sattributes matching
       transform/extract-pod-info:
