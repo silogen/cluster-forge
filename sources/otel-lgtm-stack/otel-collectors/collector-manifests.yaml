@@ -562,7 +562,7 @@ spec:
       pipelines:
         logs:
           receivers: [k8sobjects]
-          processors: [filter/non-empty-note, transform/extract-pod-info, k8sattributes, attributes, transform/set-attributes]
+          processors: [transform/extract-pod-info, k8sattributes, attributes, transform/set-attributes]
           exporters: [otlp, debug]
 ---
 apiVersion: opentelemetry.io/v1beta1
