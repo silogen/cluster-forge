@@ -487,12 +487,21 @@ spec:
           - from: pod
             key: airm.silogen.ai/workload-id
             tag_name: workload.id
+          # Extract annotations that might help identify related resources
+          annotations:
+          - from: pod
+            key: airm.silogen.ai/workload-id
+            tag_name: workload.id.annotation
           metadata: 
           - k8s.namespace.name
           - k8s.pod.name
           - k8s.pod.uid
           - k8s.node.name
+          - k8s.job.name
+          - k8s.job.uid
         passthrough: false
+        # For events: the k8sobjects receiver sets k8s.object.kind, k8s.object.name, k8s.namespace.name
+        # Pod association will only work for events directly about pods
         pod_association:
         - sources:
           - from: resource_attribute
@@ -502,17 +511,38 @@ spec:
             name: k8s.pod.name
           - from: resource_attribute
             name: k8s.namespace.name
+        # Enable owner lookup to traverse from Job to Pod
+        owner_lookup_enabled: true
 
-      # Transform processor to set resource attributes
-      transform:
-        error_mode: propagate
+      # Transform processor to extract Pod information from events for k8sattributes matching
+      transform/extract-pod-info:
+        error_mode: ignore
+        log_statements:
+          - context: log
+            statements:
+              # For v1 events (involvedObject field)
+              # Extract pod UID from involvedObject for k8sattributes processor matching
+              - set(resource.attributes["k8s.pod.uid"], body["object"]["involvedObject"]["uid"]) where body["object"]["involvedObject"]["kind"] == "Pod"
+              - set(resource.attributes["k8s.pod.name"], body["object"]["involvedObject"]["name"]) where body["object"]["involvedObject"]["kind"] == "Pod"
+              - set(resource.attributes["k8s.namespace.name"], body["object"]["involvedObject"]["namespace"]) where body["object"]["involvedObject"]["kind"] == "Pod"
+              
+              # For events.k8s.io/v1 events (regarding field)
+              - set(resource.attributes["k8s.pod.uid"], body["object"]["regarding"]["uid"]) where body["object"]["regarding"]["kind"] == "Pod"
+              - set(resource.attributes["k8s.pod.name"], body["object"]["regarding"]["name"]) where body["object"]["regarding"]["kind"] == "Pod"
+              - set(resource.attributes["k8s.namespace.name"], body["object"]["regarding"]["namespace"]) where body["object"]["regarding"]["kind"] == "Pod"
+
+      # Transform processor to set final resource attributes
+      transform/set-attributes:
+        error_mode: ignore
         log_statements:
           - context: log
             statements:
               - set(resource.attributes["k8s.cluster.name"], attributes["k8s_cluster_name"])
               - set(resource.attributes["log.type"], attributes["log_type"])
-              - set(resource.attributes["component.id"], attributes["component.id"])
-              - set(resource.attributes["workload.id"], attributes["workload.id"])
+              
+              # Copy enriched labels from k8sattributes to resource attributes
+              - set(resource.attributes["component.id"], attributes["component.id"]) where attributes["component.id"] != nil
+              - set(resource.attributes["workload.id"], attributes["workload.id"]) where attributes["workload.id"] != nil
     exporters:
       otlp:
         endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
@@ -524,7 +554,7 @@ spec:
       pipelines:
         logs:
           receivers: [k8sobjects]
-          processors: [k8sattributes, attributes, transform]
+          processors: [transform/extract-pod-info, k8sattributes, attributes, transform/set-attributes]
           exporters: [otlp, debug]
 ---
 apiVersion: opentelemetry.io/v1beta1
