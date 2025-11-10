@@ -549,8 +549,9 @@ spec:
               - set(resource.attributes["component.id"], attributes["component.id"]) where attributes["component.id"] != nil
               - set(resource.attributes["workload.id"], attributes["workload.id"]) where attributes["workload.id"] != nil
   
-              # Keep only the note field in the body
-              - keep_keys(body["object"], ["note", "message"])
+              # Replace body with plain text note or message
+              - set(body, body["object"]["message"]) where body["object"]["message"] != nil and body["object"]["note"] == nil
+              - set(body, body["object"]["note"]) where body["object"]["note"] != nil
     exporters:
       otlp:
         endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
