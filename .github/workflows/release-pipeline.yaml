@@ -21,8 +21,10 @@ jobs:
       new_version: ${{ steps.version.outputs.new_version }}
       extra_args: ${{ steps.version.outputs.extra_args }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
+          token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Get Next Version
@@ -54,6 +56,27 @@ jobs:
           echo "New version: $NEW_VERSION"
           echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
           echo "extra_args=${EXTRA_ARGS}" >> $GITHUB_OUTPUT
+
+      - name: Update helm values file
+        # Only for manually triggered workflows
+        if: github.event_name == 'workflow_dispatch'
+        uses: mikefarah/yq@master
+        env:
+          GIT_TAG: ${{ needs.version.outputs.new_version }}
+        with:
+          cmd: |
+            yq -i '.clusterForge.targetRevision = env(GIT_TAG)' root/values.yaml
+            yq -i '.clusterForge.targetRevision = env(GIT_TAG)' root/values_cf.yaml
+            yq -i '.clusterForge.targetRevision = env(GIT_TAG)' root/values_ha.yaml
+
+      - name: Commit and push changes
+        # Only for manually triggered workflows
+        if: github.event_name == 'workflow_dispatch'
+        uses: stefanzweifel/git-auto-commit-action@v4
+        env:
+          GIT_TAG: ${{ needs.version.outputs.new_version }}
+        with:
+          commit_message: 'Update version to ${{ env.GIT_TAG }} [actions skip]'
 
       - name: Create GitHub Release
         env:
@@ -96,28 +119,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update helm values file
-        # Only for manually triggered workflows
-        if: github.event_name == 'workflow_dispatch'
-        uses: mikefarah/yq@master
-        env:
-          GIT_TAG: ${{ needs.version.outputs.new_version }}
-        with:
-          cmd: |
-            yq -i '.clusterForge.targetRevision = env(GIT_TAG)' root/values.yaml
-            yq -i '.clusterForge.targetRevision = env(GIT_TAG)' root/values_cf.yaml
-            yq -i '.clusterForge.targetRevision = env(GIT_TAG)' root/values_ha.yaml
-
-      - name: Commit and push changes
-        # Only for manually triggered workflows
-        if: github.event_name == 'workflow_dispatch'
-        uses: stefanzweifel/git-auto-commit-action@v4
-        env:
-          GIT_TAG: ${{ needs.version.outputs.new_version }}
-        with:
-          commit_message: 'Update version to ${{ env.GIT_TAG }} [actions skip]'
-
-      # Should go after commit step
       - name: Create file with detailed commit info
         run: |
           echo "Commit SHA: ${{ github.sha }}" > commit-info.txt
