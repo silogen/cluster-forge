@@ -20,6 +20,7 @@ jobs:
     outputs:
       new_version: ${{ steps.version.outputs.new_version }}
       extra_args: ${{ steps.version.outputs.extra_args }}
+      new_sha: ${{ steps.get_sha.outputs.sha }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -89,25 +90,19 @@ jobs:
               --repo="$GITHUB_REPOSITORY" \
               --generate-notes || true # Ignore if release already exists
 
+      - name: Get Commit SHA
+        id: get_sha
+        run: echo "::set-output name=sha::$(git rev-parse HEAD)"
+
   build:
     needs: [version]
     runs-on: ubuntu-latest
-    # strategy:
-    #   matrix:
-    #     release:
-    #       - type: enterprise-ai
-    #         name: Enterprise AI
-    #       - type: core
-    #         name: Core
-    #       - type: weka
-    #         name: WekaFS
-    #       - type: nuage
-    #         name: Nuage
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
+          ref: ${{ needs.version.outputs.new_sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -121,7 +116,7 @@ jobs:
 
       - name: Create file with detailed commit info
         run: |
-          echo "Commit SHA: ${{ github.sha }}" > commit-info.txt
+          echo "Commit SHA: ${{ needs.version.outputs.new_sha }}" > commit-info.txt
           echo "Commit Short SHA: $(git rev-parse --short HEAD)" >> commit-info.txt
           echo "Commit Message: $(git log -1 --pretty=%B)" >> commit-info.txt
           echo "Commit Author: $(git log -1 --pretty=%an)" >> commit-info.txt
