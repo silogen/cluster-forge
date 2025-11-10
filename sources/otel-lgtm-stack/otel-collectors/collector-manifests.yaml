@@ -512,6 +512,13 @@ spec:
           - from: resource_attribute
             name: k8s.namespace.name
 
+      # Filter processor to drop events with empty notes
+      filter/non-empty-note:
+        error_mode: ignore
+        logs:
+          log_record:
+            - 'body["object"]["note"] != nil and body["object"]["note"] != ""'
+
       # Transform processor to extract Pod information from events for k8sattributes matching
       transform/extract-pod-info:
         error_mode: ignore
@@ -528,6 +535,9 @@ spec:
               - set(resource.attributes["k8s.pod.uid"], body["object"]["regarding"]["uid"]) where body["object"]["regarding"]["kind"] == "Pod"
               - set(resource.attributes["k8s.pod.name"], body["object"]["regarding"]["name"]) where body["object"]["regarding"]["kind"] == "Pod"
               - set(resource.attributes["k8s.namespace.name"], body["object"]["regarding"]["namespace"]) where body["object"]["regarding"]["kind"] == "Pod"
+              
+              # Keep only the note field in the body
+              - keep_keys(body["object"], ["note"])
 
       # Transform processor to set final resource attributes
       transform/set-attributes:
@@ -552,7 +562,7 @@ spec:
       pipelines:
         logs:
           receivers: [k8sobjects]
-          processors: [transform/extract-pod-info, k8sattributes, attributes, transform/set-attributes]
+          processors: [filter/non-empty-note, transform/extract-pod-info, k8sattributes, attributes, transform/set-attributes]
           exporters: [otlp, debug]
 ---
 apiVersion: opentelemetry.io/v1beta1
