@@ -111,6 +111,21 @@ jobs:
             echo "PR Branch: ${{ github.event.pull_request.head.ref }}" >> commit-info.txt
           fi
 
+      - name: Update version in values files
+        env:
+          VERSION: ${{ needs.version.outputs.new_version }}
+        run: |
+          # Update targetRevision in these values files
+          sed -i "s/targetRevision: \${VERSION}/targetRevision: ${VERSION}/g" root/values_ha.yaml
+          sed -i "s/targetRevision: \${VERSION}/targetRevision: ${VERSION}/g" root/values.yaml
+          sed -i "s/targetRevision: \${VERSION}/targetRevision: ${VERSION}/g" root/values_cf.yaml
+          
+          # Verify the changes
+          echo "Updated versions in values files:"
+          grep "targetRevision:" root/values_ha.yaml
+          grep "targetRevision:" root/values.yaml
+          grep "targetRevision:" root/values_cf.yaml
+
       - name: Create release package
         env:
           VERSION: ${{ needs.version.outputs.new_version }}
