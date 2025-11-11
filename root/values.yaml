@@ -310,7 +310,7 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
   # Airm stuff
   airm:
-    path: airm/0.2.3
+    path: airm/0.2.4
     namespace: airm
     valuesFile: values.yaml
     helmParameters:
