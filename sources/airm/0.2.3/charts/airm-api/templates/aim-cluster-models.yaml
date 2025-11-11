@@ -1,0 +1,17 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: aim.silogen.ai/v1alpha1
+kind: AIMClusterModel
+metadata:
+  name: aim-meta-llama-llama-3-1-8b-instruct-0-8-2-preview
+spec:
+  image: ghcr.io/silogen/aim-meta-llama-llama-3-1-8b-instruct:0.8.2-preview
+---
+apiVersion: aim.silogen.ai/v1alpha1
+kind: AIMClusterModel
+metadata:
+  name: aim-qwen-qwen3-4b-0-8-2-preview
+spec:
+  image: ghcr.io/silogen/aim-qwen-qwen3-4b:0.8.2-preview
