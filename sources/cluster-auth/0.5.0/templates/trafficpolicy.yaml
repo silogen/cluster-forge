@@ -13,4 +13,3 @@ spec:
   extAuth:
     extensionRef:
       name: {{ include "cluster-auth.fullname" . }}-extauth
-      namespace: {{ .Values.namespace.name }}
