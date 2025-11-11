@@ -19,7 +19,7 @@ kubectl create ns cf-gitea
 kubectl create ns cf-openbao
 
 # ArgoCD bootstrap
-helm template --release-name argocd ../sources/argocd/8.3.5 -f ../sources/argocd/values_cf.yaml --namespace argocd \
+helm template --release-name argocd ../sources/argocd/8.3.5 -f ../sources/argocd/${VALUES_FILE} --namespace argocd \
   --set global.domain="https://argocd.${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl rollout status statefulset/argocd-application-controller -n argocd
 kubectl rollout status deploy/argocd-applicationset-controller -n argocd
@@ -45,7 +45,7 @@ kubectl create secret generic gitea-admin-credentials \
   --namespace=cf-gitea \
   --from-literal=username=silogen-admin \
   --from-literal=password=$(generate_password)
-kubectl create configmap initial-cf-values --from-file=../root/${VALUES_FILE} -n cf-gitea
+kubectl create configmap initial-cf-values --from-file=initial-cf-values=../root/${VALUES_FILE} -n cf-gitea
 helm template --release-name gitea ../sources/gitea/12.3.0 -f ../sources/gitea/values_cf.yaml --namespace cf-gitea \
   --set clusterDomain="${DOMAIN}" --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl rollout status deploy/gitea -n cf-gitea
