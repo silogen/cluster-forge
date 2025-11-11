@@ -115,14 +115,14 @@ data:
       -H "Authorization: token ${GITEA_TOKEN}" \
       -H "Content-Type: application/json" || echo "Failed to add user to organization"
     
-    echo "Step 7: Copying values_cf.yaml file into cluster-values repo..."
+    echo "Step 7: Creating values_cf.yaml file from initial-cf-values configmap into cluster-values repo..."
     curl -X POST "${GITEA_URL}/api/v1/repos/cluster-org/cluster-values/contents/values_cf.yaml" \
       -H "Authorization: token ${GITEA_TOKEN}" \
       -H "Content-Type: application/json" \
       -d '{
         "message": "Add values_cf.yaml file",
-        "content": "'$(base64 -w 0 < /tmp/values/values_cf.yaml)'",
+        "content": "'$(base64 -w 0 < /tmp/values/initial-cf-values)'",
         "branch": "main"
-      }' || echo "Failed to copy values_cf.yaml file"
+      }' || echo "Failed to create values_cf.yaml file"
     
     echo "Setup completed successfully!"
