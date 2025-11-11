@@ -1,0 +1,33 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: kgateway-to-{{ include "cluster-auth.fullname" . }}-extauth
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "cluster-auth.labels" . | nindent 4 }}
+spec:
+  from:
+  - group: gateway.kgateway.dev
+    kind: TrafficPolicy
+    namespace: kgateway-system
+  to:
+  - group: gateway.kgateway.dev
+    kind: GatewayExtension
+    name: {{ include "cluster-auth.fullname" . }}-extauth
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: kgateway-extauth-to-{{ include "cluster-auth.fullname" . }}-service
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "cluster-auth.labels" . | nindent 4 }}
+spec:
+  from:
+  - group: gateway.kgateway.dev
+    kind: GatewayExtension
+    namespace: kgateway-system
+  to:
+  - group: ""
+    kind: Service
+    name: {{ include "cluster-auth.fullname" . }}
