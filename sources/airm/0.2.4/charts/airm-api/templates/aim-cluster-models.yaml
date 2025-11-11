@@ -1,0 +1,66 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: aim.silogen.ai/v1alpha1
+kind: AIMClusterModel
+metadata:
+  name: aim-meta-llama-llama-3-1-8b-instruct-0-8-4
+spec:
+  image: docker.io/amdenterpriseai/aim-meta-llama-llama-3-1-8b-instruct:0.8.4
+---
+apiVersion: aim.silogen.ai/v1alpha1
+kind: AIMClusterModel
+metadata:
+  name: aim-meta-llama-llama-3-3-70b-instruct-0-8-4-preview
+spec:
+  image: docker.io/amdenterpriseai/aim-meta-llama-llama-3-3-70b-instruct:0.8.4-preview
+---
+apiVersion: aim.silogen.ai/v1alpha1
+kind: AIMClusterModel
+metadata:
+  name: aim-qwen-qwen3-32b-0-8-4
+spec:
+  image: docker.io/amdenterpriseai/aim-qwen-qwen3-32b:0.8.4
+---
+apiVersion: aim.silogen.ai/v1alpha1
+kind: AIMClusterModel
+metadata:
+  name: aim-mistralai-mistral-small-3-2-24b-instruct-2506-0-8-4
+spec:
+  image: docker.io/amdenterpriseai/aim-mistralai-mistral-small-3-2-24b-instruct-2506:0.8.4
+---
+apiVersion: aim.silogen.ai/v1alpha1
+kind: AIMClusterModel
+metadata:
+  name: aim-meta-llama-llama-3-1-405b-instruct-0-8-4
+spec:
+  image: docker.io/amdenterpriseai/aim-meta-llama-llama-3-1-405b-instruct:0.8.4
+---
+apiVersion: aim.silogen.ai/v1alpha1
+kind: AIMClusterModel
+metadata:
+  name: aim-mistralai-mixtral-8x22b-instruct-v0-1-0-8-4
+spec:
+  image: docker.io/amdenterpriseai/aim-mistralai-mixtral-8x22b-instruct-v0-1:0.8.4
+---
+apiVersion: aim.silogen.ai/v1alpha1
+kind: AIMClusterModel
+metadata:
+  name: aim-mistralai-mixtral-8x7b-instruct-v0-1-0-8-4
+spec:
+  image: docker.io/amdenterpriseai/aim-mistralai-mixtral-8x7b-instruct-v0-1:0.8.4
+---
+apiVersion: aim.silogen.ai/v1alpha1
+kind: AIMClusterModel
+metadata:
+  name: aim-meta-llama-llama-3-2-1b-instruct-0-8-4
+spec:
+  image: docker.io/amdenterpriseai/aim-meta-llama-llama-3-2-1b-instruct:0.8.4
+---
+apiVersion: aim.silogen.ai/v1alpha1
+kind: AIMClusterModel
+metadata:
+  name: aim-meta-llama-llama-3-2-3b-instruct-0-8-4
+spec:
+  image: docker.io/amdenterpriseai/aim-meta-llama-llama-3-2-3b-instruct:0.8.4
