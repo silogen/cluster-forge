@@ -5,6 +5,10 @@ metadata:
   namespace: {{ .Values.namespace.name }}
   labels:
     {{- include "cluster-auth.labels" . | nindent 4 }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{{ .Values.service.metrics.port }}"
+    prometheus.io/path: "/metrics"
 spec:
   type: {{ .Values.service.type }}
   ports:

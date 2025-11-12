@@ -96,7 +96,7 @@ airm:
   frontend:
     image:
       repository: ghcr.io/silogen/airm-ui
-      tag: 0.2.2
+      tag: 0.2.3
       pullPolicy: IfNotPresent
     servicePort: 80
     resources:
@@ -109,7 +109,7 @@ airm:
   backend:
     image:
       repository: ghcr.io/silogen/airm-api
-      tag: 0.2.2
+      tag: 0.2.3
       pullPolicy: IfNotPresent
 
     servicePort: 80
