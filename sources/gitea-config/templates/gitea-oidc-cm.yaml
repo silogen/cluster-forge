@@ -33,7 +33,7 @@ data:
         --secret "${CLIENT_SECRET}" \
         --group-claim-name "groups" \
         --scopes "openid profile email groups" \
-        --group-team-map "{\"/gitea-users\":{\"cluster-org\":[\"Owners\"]}}" \
+        --group-team-map "{\"gitea-users\":{\"cluster-org\":[\"Owners\"]}}" \
         --auto-discover-url "${KC_URL}/realms/${KC_REALM}/.well-known/openid-configuration"
 
         if [ $? -eq 0 ]; then
@@ -54,7 +54,7 @@ data:
       --secret "${CLIENT_SECRET}" \
       --group-claim-name "groups" \
       --scopes "openid profile email groups" \
-      --group-team-map "{\"/gitea-users\":{\"cluster-org\":[\"Owners\"]}}" \
+      --group-team-map "{\"gitea-users\":{\"cluster-org\":[\"Owners\"]}}" \
       --auto-discover-url "${KC_URL}/realms/${KC_REALM}/.well-known/openid-configuration"
 
       if [ $? -eq 0 ]; then
