@@ -9,14 +9,19 @@ set -e
 # - Application removal
 # - Cluster-Forge reinstallation
 # - Database restoration
-#
-# Usage: ./update.sh [VERSION]
-#   VERSION: Git tag/version to checkout (e.g., v1.5.0, v1.6.0)
-#            If not provided, will use v1.5.0 as default
+# Usage: ./update.sh VERSION
+#   VERSION: Git tag/version to checkout (e.g., v1.5.0, v1.6.0) [REQUIRED]
 # =============================================================================
 
 # Check for version argument
-VERSION=${1:-v1.5.0}
+if [ -z "$1" ]; then
+    echo "ERROR: Version parameter is required!"
+    echo "Usage: $0 VERSION"
+    echo "Example: $0 v1.5.0"
+    exit 1
+fi
+
+VERSION=$1
 echo "Using Cluster-Forge version: $VERSION"
 
 # Global variables
