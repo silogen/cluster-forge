@@ -1,4 +1,4 @@
-# Cluster Forge V2 
+# Bootstrap Script
 
 This script bootstraps a complete GitOps environment with ArgoCD, OpenBao (secret management), and Gitea (Git repository) on a Kubernetes cluster.
 
