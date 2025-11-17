@@ -1,7 +1,0 @@
-name: grafana-loki
-namespace: "grafana-loki"
-helm-chart-name: "loki"
-helm-name: loki
-helm-url: "https://grafana.github.io/helm-charts"
-values: grafana-loki-values.yaml
-helm-version: "6.15.0"

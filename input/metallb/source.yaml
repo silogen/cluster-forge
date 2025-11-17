@@ -1,3 +1,0 @@
-name: metallb
-namespace: metallb-system
-manifest-url: https://raw.githubusercontent.com/metallb/metallb/v0.14.8/config/manifests/metallb-native.yaml

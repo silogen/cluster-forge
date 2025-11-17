@@ -1,7 +1,0 @@
-name: openobserve
-namespace: "openobserve"
-helm-chart-name: "openobserve-standalone"
-helm-name: o2
-helm-url: "https://charts.openobserve.ai"
-values: openobserve-standalone-values.yaml
-helm-version: "0.14.1"

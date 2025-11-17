@@ -1,5 +1,0 @@
-alias clean='devbox run clean'
-alias reset='devbox run resetKind'
-alias smelt='devbox run clean && go run . smelt'
-alias cast='go run . cast'
-alias forge='devbox run clean && go run . forge'

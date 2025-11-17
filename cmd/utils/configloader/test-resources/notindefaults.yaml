@@ -1,4 +1,0 @@
-- name: test5
-  namespace: testnamespace5
-  manifestpath: 
-  - test5/path1

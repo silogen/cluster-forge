@@ -1,8 +1,0 @@
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    app.kubernetes.io/name: kaiwo
-    control-plane: kaiwo-controller-manager
-  name: kaiwo-system

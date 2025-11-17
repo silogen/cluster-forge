@@ -1,7 +1,0 @@
-name: kueue
-namespace: kueue-system
-helm-chart-name: "oci://registry.k8s.io/kueue/charts/kueue"
-helm-name: kueue
-helm-url: ""
-helm-version: "0.12.3"
-values: values.yaml

@@ -1,3 +1,0 @@
-pluginConfig:
-  # -- Allow insecure HTTPS (skip TLS certificate verification)
-  allowInsecureHttps: true

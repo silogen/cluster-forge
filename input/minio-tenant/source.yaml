@@ -1,7 +1,0 @@
-name: minio-tenant
-namespace: minio-tenant-default
-helm-chart-name: "tenant"
-helm-name: minio-tenant
-helm-url: "https://operator.min.io"
-helm-version: "v7.0.0"
-values: values.yaml
