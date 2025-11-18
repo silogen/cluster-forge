@@ -1,8 +1,0 @@
----
-apiVersion: v1
-data:
-  kaiwo-scheduler-config.yaml: "apiVersion: kubescheduler.config.k8s.io/v1\nkind: KubeSchedulerConfiguration\nprofiles:\n  - schedulerName: kaiwo-scheduler\n    pluginConfig:\n      - name: NodeResourcesFit\n        args:\n          scoringStrategy:\n            type: RequestedToCapacityRatio\n            resources:\n              - name: nvidia.com/gpu\n                weight: 5\n              - name: amd.com/gpu\n                weight: 5\n            requestedToCapacityRatio:\n              shape:\n                - utilization: 0\n                  score: 0\n                - utilization: 100\n                  score: 10\nleaderElection:\n  leaderElect: true\n  resourceNamespace: kube-system \n  resourceName: kaiwo-scheduler    \n"
-kind: ConfigMap
-metadata:
-  name: kaiwo-scheduler-config
-  namespace: kube-system

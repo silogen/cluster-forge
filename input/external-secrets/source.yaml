@@ -1,8 +1,0 @@
-name: external-secrets
-namespace: "external-secrets"
-helm-chart-name: "external-secrets"
-helm-name: external-secrets
-helm-url: "https://charts.external-secrets.io"
-# values: external-secrets-values.yaml
-values: values.yaml
-helm-version: "0.15.1"

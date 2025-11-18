@@ -1,8 +1,0 @@
-name: keycloak
-namespace: "keycloak"
-helm-chart-name: "keycloak"
-helm-name: "keycloak"
-helm-url: "https://codecentric.github.io/helm-charts"
-values: keycloak-values.yaml
-helm-version: 18.4.0
-# syncWave: "2"  # Adjust based on your deployment sequence needs
