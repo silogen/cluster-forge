@@ -50,42 +50,35 @@ AIRM and Keycloak are two components which use Cloud Native Postgresql (CNPG) fo
 ## RabbitMQ Backup & Restore
 
 ### I. Backup:
-  
-  - Scope includes definitions (schema of queues, exchanges, and bindings, as well as users, vhosts, and policies), and messages in the queues.
-<hr>  
 
-  - Stop RabbitMQ:
+Scope includes definitions (schema of queues, exchanges, and bindings, as well as users, vhosts, and policies), and messages in the queues.
+  
   ```
+  # Stop RabbitMQ
   sudo systemctl stop rabbitmq-server
-  ```
-  - Create a backup of the RabbitMQ data directory:
-  ```
+  
+  # Create a backup of the RabbitMQ data directory
   sudo tar -cvf rabbitmq-backup.tar /var/lib/rabbitmq/mnesia
-  ```
-  - Start RabbitMQ (or skip if immediately proceeding to restore):
-  ```
+  
+  # Start RabbitMQ (or skip if immediately proceeding to restore):
   sudo systemctl start rabbitmq-server
   ```
 
 ### II. Restore:
 
-  - Stop RabbitMQ:
-  ```
-  sudo systemctl stop rabbitmq-server
-  ```
-  - Remove default Mnesia directory:
-  ```
-  sudo rm -rf /var/lib/rabbitmq/mnesia
-  ``` 
-  - Restore the RabbitMQ data directory from the backup:
-  ```
-  sudo tar -xvf rabbitmq-backup.tar -C /
-  ```
-  - Fix ownershiop of the restored files:
-  ```
-  sudo chown -R rabbitmq:rabbitmq /var/lib/rabbitmq
-  ```
-  - Start RabbitMQ:
-  ```
-  sudo systemctl start rabbitmq-server
-  ```
+```
+# Stop RabbitMQ:
+sudo systemctl stop rabbitmq-server
+
+# Remove default Mnesia directory:
+sudo rm -rf /var/lib/rabbitmq/mnesia 
+
+# Restore the RabbitMQ data directory from the backup:
+sudo tar -xvf rabbitmq-backup.tar -C /
+
+# Fix ownershiop of the restored files:
+sudo chown -R rabbitmq:rabbitmq /var/lib/rabbitmq
+
+# Start RabbitMQ:
+sudo systemctl start rabbitmq-server
+```
