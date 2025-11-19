@@ -15,7 +15,7 @@ kubectl create ns argocd
 kubectl create ns cf-openbao
 
 # ArgoCD bootstrap
-helm template --release-name argocd ../sources/argocd/8.3.0 --namespace argocd --kube-version=${KUBE_VERSION} | kubectl apply -f -
+helm template --release-name argocd ../sources/argocd/8.3.5 --namespace argocd --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl rollout status statefulset/argocd-application-controller -n argocd
 kubectl rollout status deploy/argocd-applicationset-controller -n argocd
 kubectl rollout status deploy/argocd-redis -n argocd
