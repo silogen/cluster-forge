@@ -470,9 +470,6 @@ spec:
     processors:
       attributes:
         actions:
-          - key: k8s_cluster_name
-            action: insert
-            value: "app-dev" ## <-- add cluster name
           - key: log_type
             action: insert
             value: "k8s_event"
@@ -542,7 +539,6 @@ spec:
         log_statements:
           - context: log
             statements:
-              - set(resource.attributes["k8s.cluster.name"], attributes["k8s_cluster_name"])
               - set(resource.attributes["log.type"], attributes["log_type"])
               
               # Copy enriched labels from k8sattributes to resource attributes
