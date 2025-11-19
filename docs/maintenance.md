@@ -20,7 +20,7 @@ AIRM and Keycloak are two components which use Cloud Native Postgresql (CNPG) fo
          sudo apt-get update
          sudo apt-get install postgresql-17 postgresql-client-17
        ```
-     - run backup command from your local machine: `pg_dump -h 127.0.0.1 -U airm_user airm > /tmp/airm-<cluserName>-$(date +%Y-%m-%d).sql`
+     - run backup command from your local machine: `pg_dump --clean -h 127.0.0.1 -U airm_user airm > /tmp/airm-<cluserName>-$(date +%Y-%m-%d).sql`
      - enter password for previously decoded airm_user
      - perform needed operation, e.g. delete the CNPG cluster and wait for all pods to get deleted
      - wait for atleast one cnpg pod to come up and again (triggered by Argo CD) and forward port 5432
@@ -46,3 +46,46 @@ AIRM and Keycloak are two components which use Cloud Native Postgresql (CNPG) fo
      - `kubectl apply -f on-demand-backup.yaml`
      - check the Backup object in the cluster, which will update the top-level `Status` section as it progresses.
      - this method is presently failing during the `walArchivingFailing` phase, and requires an update to the `Cluster` `.backup` definition
+
+## RabbitMQ Backup & Restore
+
+### I. Backup:
+  
+  - Scope includes definitions (schema of queues, exchanges, and bindings, as well as users, vhosts, and policies), and messages in the queues.
+<hr>  
+
+  - Stop RabbitMQ:
+  ```
+  sudo systemctl stop rabbitmq-server
+  ```
+  - Create a backup of the RabbitMQ data directory:
+  ```
+  sudo tar -cvf rabbitmq-backup.tar /var/lib/rabbitmq/mnesia
+  ```
+  - Start RabbitMQ (or skip if immediately proceeding to restore):
+  ```
+  sudo systemctl start rabbitmq-server
+  ```
+
+### II. Restore:
+
+  - Stop RabbitMQ:
+  ```
+  sudo systemctl stop rabbitmq-server
+  ```
+  - Remove default Mnesia directory:
+  ```
+  sudo rm -rf /var/lib/rabbitmq/mnesia
+  ``` 
+  - Restore the RabbitMQ data directory from the backup:
+  ```
+  sudo tar -xvf rabbitmq-backup.tar -C /
+  ```
+  - Fix ownershiop of the restored files:
+  ```
+  sudo chown -R rabbitmq:rabbitmq /var/lib/rabbitmq
+  ```
+  - Start RabbitMQ:
+  ```
+  sudo systemctl start rabbitmq-server
+  ```
