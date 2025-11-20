@@ -3,6 +3,7 @@
 This document covers backup and restore procedures for:
   1. Database Backup & Restore (AIRM & Keycloak)
   2. RabbitMQ Backup & Restore
+  3. MinIO Backup & Restore (Bucket replication)
 
 ## Prerequisites
 
@@ -180,3 +181,46 @@ All backup and restore scripts are located in `scripts/utils/`:
 - `install_postgres_17.sh` - Install PostgreSQL 17 client tools
 - `export_databases.sh` - Export AIRM and Keycloak databases
 - `import_databases.sh` - Import AIRM and Keycloak databases
+
+## 3. MinIO Backup & Restore (Bucket replication)
+Setup Two-Way Replication
+
+From a local machine
+1. Configure MinIO Aliases
+```
+# Set up source and destination MinIO endpoints
+mc alias set source https://SOURCE_MINIO_ENDPOINT/ ACCESS_KEY SECRET_KEY
+mc alias set dest https://DEST_MINIO_ENDPOINT/ ACCESS_KEY SECRET_KEY
+
+ex) mc alias set dest https://minio.example.com/ myuser mypsword
+```
+
+2. Enable Versioning (Required for Replication)
+```
+# Enable versioning on both source and destination buckets
+mc version enable source/SOURCE_BUCKET_NAME/
+mc version enable dest/DEST_BUCKET_NAME/
+```
+
+3. Setup Replication Rule
+```
+# Create a replication: source → dest
+mc replicate add source/SOURCE_BUCKET_NAME/ \
+   --remote-bucket 'https://ACCESS_KEY:SECRET_KEY@DEST_MINIO_ENDPOINT/DEST_BUCKET_NAME' \
+   --replicate "delete,delete-marker,existing-objects"
+
+# Create a reverse replication: dest → source
+mc replicate add dest/DEST_BUCKET_NAME/ \
+   --remote-bucket 'https://ACCESS_KEY:SECRET_KEY@SOURCE_MINIO_ENDPOINT/SOURCE_BUCKET_NAME' \
+   --replicate "delete,delete-marker,existing-objects"
+
+ex) mc replicate add source/my-source-bucket/ \
+   --remote-bucket 'https://myuser:mypsword@minio.example.com/my-dest-bucket' \
+   --replicate "delete,delete-marker,existing-objects"
+```
+
+4. Restore when source is broken
+```
+mc replicate resync start dest/DEST_BUCKET_NAME/ --remote-bucket $(mc replicate status dest/DEST_BUCKET_NAME/ --json | jq -r '.remoteTargets[].arn')
+ex) mc replicate resync start dest/my-dest-bucket/ --remote-bucket $(mc replicate status dest/my-dest-bucket/ --json | jq -r '.remoteTargets[].arn')
+```
