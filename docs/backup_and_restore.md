@@ -1,16 +1,26 @@
-# AMD Enterprise AI Suite Maintenance
+# AMD Enterprise AI Suite - Backup and Restore Procedures
 
-This document provides some useful steps/scripts to maintain your k8s cluster with AMD Enterprise AI Suite.
+  1. Database Backup & Restore
+  2. RabbitMQ Backup & Restore
 
-## Database Backup & Restore
+## 1. Database Backup & Restore
 
-AIRM and Keycloak are two components which use Cloud Native Postgresql (CNPG) for data persistence. There are two backup paths documented here, the presently used method via the pg_dump and psql binaries, and a pending, but soon to be preferred, on-demand method.
+AIRM and Keycloak are two components which use Cloud Native Postgresql (CNPG) for data persistence. Follow this procedure to backup and restore the databases.
 
-  1. **pg_dump utility with psql client for restoration** (this example uses AIRM, but process is essentially the same for Keycloak):
-     - use k9s or kubectl to forward port 5432 of a running CNPG pod
-       - `kubectl port-forward -n airm pod/$(kubectl get pods -n airm | grep -P "airm-cnpg-\d" | head -1 | sed 's/^\([^[:space:]]*\).*$/\1/') 5432:5432`
-       - verify port forward is active: `ps -f | grep 'kubectl' | grep 'port-forward'`
-     - find the secret `airm-cnpg-user` in namespace `airm` and decode the `password` key
+  1. Backup:
+  
+This method uses the **pg_dump** utility:
+```
+     # Gather credentials:find the secret `airm-cnpg-user` in namespace `airm` and decode the `password` key
+     # use k9s or kubectl to forward port 5432 of a running CNPG pod
+
+     # AIRM example:
+    kubectl port-forward -n airm pod/$(kubectl get pods -n airm | grep -P "airm-cnpg-\d" | head -1 | sed 's/^\([^[:space:]]*\).*$/\1/') 5432:5432
+
+    # Keycloak example (*note: mapping to local port 5433 to avoid conflict with AIRM CNPG*):
+     kubectl port-forward -n keycloak pod/$(kubectl get pods -n keycloak | grep -P "keycloak-cnpg-\d" | head -1 | sed 's/^\([^[:space:]]*\).*$/\1/') 5433:5432
+
+     - verify port forward is active: `ps -f | grep 'kubectl' | grep 'port-forward'`
      - check for compatible pg_dump and pgsql binaries / Docker image on localhost
      - if not present, install (example here for Debian/Ubuntu):
        ```
@@ -26,26 +36,7 @@ AIRM and Keycloak are two components which use Cloud Native Postgresql (CNPG) fo
      - wait for atleast one cnpg pod to come up and again (triggered by Argo CD) and forward port 5432
      - run the restoration: `psql -h 127.0.0.1 -U airm_user airm < /tmp/airm-<clusterName>-<date>.sql` using the same airm_user secret as before
      - restart airm api & ui pods
-
-  2. **on-demand CNPG Backup** (this method leverages CNPG cluster.spec.backup specification and will become the preferred path after the process has been validated):
-     - sample manifest:
-       ```
-         # on-demand-backup.yaml
-         apiVersion: postgresql.cnpg.io/v1
-         kind: Backup
-         metadata:
-           name: on-demand
-           namespace: airm
-         spec:
-           cluster:
-             name: airm-cnpg
-           method: barmanObjectStore
-           target: prefer-standby
-       ```
-     
-     - `kubectl apply -f on-demand-backup.yaml`
-     - check the Backup object in the cluster, which will update the top-level `Status` section as it progresses.
-     - this method is presently failing during the `walArchivingFailing` phase, and requires an update to the `Cluster` `.backup` definition
+```
 
 ## RabbitMQ Backup & Restore
 
