@@ -484,7 +484,7 @@ spec:
           - from: pod
             key: airm.silogen.ai/workload-id
             tag_name: workload.id
-          # Extract annotations that might help identify related resources
+          # Extract annotations that might help identify related resources 
           annotations:
           - from: pod
             key: airm.silogen.ai/workload-id
