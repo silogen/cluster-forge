@@ -42,13 +42,40 @@ get_db_credentials() {
 
 enable_port_forward() {
     local DB_TYPE=$1
+    local NAMESPACE=""
+    local POD_PATTERN=""
     
     if [ "$DB_TYPE" = "AIRM" ]; then
-        echo "Starting port-forward for AIRM database..."
+        NAMESPACE="airm"
+        POD_PATTERN="airm-cnpg"
+    elif [ "$DB_TYPE" = "KC" ]; then
+        NAMESPACE="keycloak"
+        POD_PATTERN="keycloak-cnpg"
+    fi
+    
+    # Check if port-forward is already active on port 5432
+    local EXISTING_PF=$(ps -ef | grep -v grep | grep "kubectl port-forward" | grep "5432:5432" || true)
+    
+    if [ -n "$EXISTING_PF" ]; then
+        # Check if it's for the correct namespace AND pod pattern
+        if echo "$EXISTING_PF" | grep -q "\-n $NAMESPACE" && echo "$EXISTING_PF" | grep -q "$POD_PATTERN"; then
+            echo "Port-forward for $DB_TYPE database is already active, reusing existing connection..."
+            PORT_FORWARD_PID=""
+            return 0
+        else
+            # Port-forward exists but for wrong namespace or pod, kill it
+            echo "Port-forward exists for different database, stopping it..."
+            local EXISTING_PID=$(echo "$EXISTING_PF" | awk '{print $2}')
+            kill $EXISTING_PID 2>/dev/null || true
+            sleep 1
+        fi
+    fi
+    
+    echo "Starting port-forward for $DB_TYPE database..."
+    if [ "$DB_TYPE" = "AIRM" ]; then
         kubectl port-forward -n airm pod/$(kubectl get pods -n airm | grep -P "airm-cnpg-\d" | head -1 | sed 's/^\([^[:space:]]*\).*$/\1/') 5432:5432 &
         PORT_FORWARD_PID=$!
     elif [ "$DB_TYPE" = "KC" ]; then
-        echo "Starting port-forward for Keycloak database..."
         kubectl port-forward -n keycloak pod/$(kubectl get pods -n keycloak | grep -P "keycloak-cnpg-\d" | head -1 | sed 's/^\([^[:space:]]*\).*$/\1/') 5432:5432 &
         PORT_FORWARD_PID=$!
     fi
@@ -58,6 +85,7 @@ enable_port_forward() {
 }
 
 disable_port_forward() {
+    # Only kill port-forward if we started it (have a PID)
     if [ -n "$PORT_FORWARD_PID" ]; then
         echo "Stopping port-forward (PID: $PORT_FORWARD_PID)..."
         kill $PORT_FORWARD_PID 2>/dev/null || true
@@ -69,8 +97,7 @@ disable_port_forward() {
 backup_airm_database() {   
     echo "Backing up AIRM database to $AIRM_DB_FILE..."
     enable_port_forward "AIRM"
-    export PGPASSWORD=$AIRM_DB_PASSWORD
-    pg_dump --clean -h 127.0.0.1 -U $AIRM_DB_USERNAME airm > $AIRM_DB_FILE
+    PGPASSWORD=$AIRM_DB_PASSWORD pg_dump --clean -h 127.0.0.1 -U $AIRM_DB_USERNAME airm > $AIRM_DB_FILE
     unset PGPASSWORD
     disable_port_forward
     echo "AIRM database backup completed."
@@ -79,17 +106,18 @@ backup_airm_database() {
 backup_keycloak_database() {
     echo "Backing up Keycloak database to $KEYCLOAK_DB_FILE..."
     enable_port_forward "KC"
-    export PGPASSWORD=$KEYCLOAK_DB_PASSWORD
-    pg_dump --clean -h 127.0.0.1 -U $KEYCLOAK_DB_USERNAME keycloak > $KEYCLOAK_DB_FILE
+    PGPASSWORD=$KEYCLOAK_DB_PASSWORD pg_dump --clean -h 127.0.0.1 -U $KEYCLOAK_DB_USERNAME keycloak > $KEYCLOAK_DB_FILE
     unset PGPASSWORD
     disable_port_forward
     echo "Keycloak database backup completed."
 }
 
 main() {
+    set +o history
     get_db_credentials
     backup_airm_database
     backup_keycloak_database
+    set -o history
 }
 
 # Run main function
