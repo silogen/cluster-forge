@@ -1,10 +1,38 @@
 #!/bin/bash
 set -e
 
-# Global variables
-export CURRENT_DATE=$(date +%Y-%m-%d)
-export AIRM_DB_FILE=$HOME/airm_db_backup_$CURRENT_DATE.sql
-export KEYCLOAK_DB_FILE=$HOME/keycloak_db_backup_$CURRENT_DATE.sql
+# Usage: ./import_databases.sh <AIRM_DB_FILE|skip> <KEYCLOAK_DB_FILE>
+# Example: ./import_databases.sh /path/to/airm_backup.sql /path/to/keycloak_backup.sql
+# Example: ./import_databases.sh skip /path/to/keycloak_backup.sql
+
+# Check if psql is available
+if ! command -v psql &> /dev/null; then
+    echo "Error: psql utility not found."
+    echo "Please install PostgreSQL client tools by running: ./scripts/utils/install_postgres_17.sh from the repository root."
+    exit 1
+fi
+
+# Check arguments
+if [ $# -lt 2 ]; then
+    echo "Usage: $0 <AIRM_DB_FILE|skip> <KEYCLOAK_DB_FILE>"
+    echo "  AIRM_DB_FILE: Path to AIRM database backup file or 'skip' to skip AIRM restoration"
+    echo "  KEYCLOAK_DB_FILE: Path to Keycloak database backup file"
+    exit 1
+fi
+
+export AIRM_DB_FILE=$1
+export KEYCLOAK_DB_FILE=$2
+
+# Validate files exist (unless skipping AIRM)
+if [ "$AIRM_DB_FILE" != "skip" ] && [ ! -f "$AIRM_DB_FILE" ]; then
+    echo "ERROR: AIRM database file not found: $AIRM_DB_FILE"
+    exit 1
+fi
+
+if [ ! -f "$KEYCLOAK_DB_FILE" ]; then
+    echo "ERROR: Keycloak database file not found: $KEYCLOAK_DB_FILE"
+    exit 1
+fi
 
 get_db_credentials() {
     echo "Retrieving database credentials..."
@@ -18,28 +46,58 @@ get_db_credentials() {
     echo "Database credentials retrieved successfully."
 }
 
-restore_airm_database() {
-    echo "Restoring AIRM database..."
+enable_port_forward() {
+    local DB_TYPE=$1
+    local NAMESPACE=""
+    local POD_PATTERN=""
     
-    # Wait for AIRM database pod to be ready
-    wait_for_pod "airm-cnpg-1" "airm" 600
+    if [ "$DB_TYPE" = "AIRM" ]; then
+        NAMESPACE="airm"
+        POD_PATTERN="airm-cnpg"
+    elif [ "$DB_TYPE" = "KC" ]; then
+        NAMESPACE="keycloak"
+        POD_PATTERN="keycloak-cnpg"
+    fi
     
-    # Restore AIRM database
-    echo "Restoring AIRM database from $AIRM_DB_FILE..."
-    export PGPASSWORD=$AIRM_DB_PASSWORD
-    psql -h 127.0.0.1 -U $AIRM_DB_USERNAME airm < $AIRM_DB_FILE
-    unset PGPASSWORD
-    echo "AIRM database restored successfully."
+    # Check if port-forward is already active on port 5432
+    local EXISTING_PF=$(ps -ef | grep -v grep | grep "kubectl port-forward" | grep "5432:5432" || true)
     
-    # Wait for Keycloak database pod to be ready
-    wait_for_pod "keycloak-cnpg-1" "keycloak" 600
+    if [ -n "$EXISTING_PF" ]; then
+        # Check if it's for the correct namespace AND pod pattern
+        if echo "$EXISTING_PF" | grep -q "\-n $NAMESPACE" && echo "$EXISTING_PF" | grep -q "$POD_PATTERN"; then
+            echo "Port-forward for $DB_TYPE database is already active, reusing existing connection..."
+            PORT_FORWARD_PID=""
+            return 0
+        else
+            # Port-forward exists but for wrong namespace or pod, kill it
+            echo "Port-forward exists for different database, stopping it..."
+            local EXISTING_PID=$(echo "$EXISTING_PF" | awk '{print $2}')
+            kill $EXISTING_PID 2>/dev/null || true
+            sleep 1
+        fi
+    fi
     
-    # Restore Keycloak database
-    echo "Restoring Keycloak database from $KEYCLOAK_DB_FILE..."
-    export PGPASSWORD=$KEYCLOAK_DB_PASSWORD
-    psql -h 127.0.0.1 -U $KEYCLOAK_DB_USERNAME keycloak < $KEYCLOAK_DB_FILE
-    unset PGPASSWORD
-    echo "Keycloak database restored successfully."
+    echo "Starting port-forward for $DB_TYPE database..."
+    if [ "$DB_TYPE" = "AIRM" ]; then
+        kubectl port-forward -n airm pod/$(kubectl get pods -n airm | grep -P "airm-cnpg-\d" | head -1 | sed 's/^\([^[:space:]]*\).*$/\1/') 5432:5432 &
+        PORT_FORWARD_PID=$!
+    elif [ "$DB_TYPE" = "KC" ]; then
+        kubectl port-forward -n keycloak pod/$(kubectl get pods -n keycloak | grep -P "keycloak-cnpg-\d" | head -1 | sed 's/^\([^[:space:]]*\).*$/\1/') 5432:5432 &
+        PORT_FORWARD_PID=$!
+    fi
+    
+    # Wait for port-forward to be ready
+    sleep 2
+}
+
+disable_port_forward() {
+    # Only kill port-forward if we started it (have a PID)
+    if [ -n "$PORT_FORWARD_PID" ]; then
+        echo "Stopping port-forward (PID: $PORT_FORWARD_PID)..."
+        kill $PORT_FORWARD_PID 2>/dev/null || true
+        wait $PORT_FORWARD_PID 2>/dev/null || true
+        PORT_FORWARD_PID=""
+    fi
 }
 
 wait_for_pod() {
@@ -65,31 +123,74 @@ wait_for_pod() {
     return 1
 }
 
-verify_airm_database_restore() {
-    echo "Verifying AIRM database restore..."
+restore_airm_database() {
+    if [ "$AIRM_DB_FILE" = "skip" ]; then
+        echo "Skipping AIRM database restoration as requested."
+        return 0
+    fi
     
-    # Check AIRM database pod status
-    echo "Checking AIRM database pod status..."
-    kubectl get pods -n airm | grep airm-cnpg-1
-    kubectl describe pod -n airm -l cnpg.io/cluster=airm-cnpg | grep -A 5 "Status:"
+    echo "Restoring AIRM database..."
     
-    echo "AIRM database restore verification completed."
+    # Wait for AIRM database pod to be ready
+    wait_for_pod "airm-cnpg-" "airm" 600
+    
+    # Enable port-forward and restore
+    enable_port_forward "AIRM"
+    echo "Restoring AIRM database from $AIRM_DB_FILE..."
+    PGPASSWORD=$AIRM_DB_PASSWORD psql -h 127.0.0.1 -U $AIRM_DB_USERNAME airm < $AIRM_DB_FILE
+    disable_port_forward
+    echo "AIRM database restored successfully."
+}
+
+restore_keycloak_database() {
+    echo "Restoring Keycloak database..."
+    
+    # Wait for Keycloak database pod to be ready
+    wait_for_pod "keycloak-cnpg-" "keycloak" 600
+    
+    # Enable port-forward and restore
+    enable_port_forward "KC"
+    echo "Restoring Keycloak database from $KEYCLOAK_DB_FILE..."
+    PGPASSWORD=$KEYCLOAK_DB_PASSWORD psql -h 127.0.0.1 -U $KEYCLOAK_DB_USERNAME keycloak < $KEYCLOAK_DB_FILE
+    disable_port_forward
+    echo "Keycloak database restored successfully."
 }
 
 verify_airm_database_restore() {
+    if [ "$AIRM_DB_FILE" = "skip" ]; then
+        echo "Skipping AIRM database verification."
+    else
+        echo "Verifying AIRM database restore..."
+        
+        # Check AIRM database pod status
+        echo "Checking AIRM database pod status..."
+        kubectl get pods -n airm | grep airm-cnpg-
+        kubectl describe pod -n airm -l cnpg.io/cluster=airm-cnpg | grep -A 5 "Status:"
+        
+        echo "AIRM database restore verification completed."
+    fi
+}
+
+verify_keycloak_database_restore() {
     echo "Verifying Keycloak database restore..."
         
     # Check Keycloak database pod status
     echo "Checking Keycloak database pod status..."
-    kubectl get pods -n keycloak | grep keycloak-cnpg-1
+    kubectl get pods -n keycloak | grep keycloak-cnpg-
     kubectl describe pod -n keycloak -l cnpg.io/cluster=keycloak-cnpg | grep -A 5 "Status:"
     
-    echo "Database restore verification completed."
+    echo "Keycloak database restore verification completed."
 }
 
 main() {
-    get_db_credentials  # Get new credentials after reinstall
-    restore_airm_databases
-    restore_keycloak_databases
-    verify_database_restore
+    set +o history
+    get_db_credentials
+    restore_airm_database
+    restore_keycloak_database
+    verify_airm_database_restore
+    verify_keycloak_database_restore
+    set -o history
 }
+
+# Run main function
+main
