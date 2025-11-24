@@ -129,8 +129,10 @@ All backup and restore scripts are located in `scripts/utils/`:
 - [`export_databases.sh`](../scripts/utils/export_databases.sh) - Export AIRM and Keycloak databases
 - [`import_databases.sh`](../scripts/utils/import_databases.sh) - Import AIRM and Keycloak databases
 
-## 3. MinIO Backup & Restore (Bucket replication)
-### 1. Setup Two-Way Replication
+## 3. MinIO Backup & Restore
+### 1. Setup Two-Way Replication (Bucket replication)
+
+- **note:** bucket replication and site replication are mutually exclusive, so only one method can be used at a time.
 
 From a local machine
 1. Configure MinIO Aliases
@@ -172,13 +174,13 @@ mc replicate resync start dest/DEST_BUCKET_NAME/ --remote-bucket $(mc replicate 
 ex) mc replicate resync start dest/my-dest-bucket/ --remote-bucket $(mc replicate status dest/my-dest-bucket/ --json | jq -r '.remoteTargets[].arn')
 ```
 
-### 2. MinIO One-Time Backup to NFS Filesystem
+### 2. MinIO One-Time Backup to Filesystem (e.g. local or NFS)
 Create mount point
 ```
 sudo mkdir -p /mnt/minio-backup
 ```
 
-Mount NFS share
+If needed, mount NFS share
 ```
 sudo mount -t nfs NFS_SERVER:/path/to/minio/backup /mnt/minio-backup
 ```
