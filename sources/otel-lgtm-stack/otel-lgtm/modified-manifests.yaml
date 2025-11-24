@@ -217,8 +217,29 @@ spec:
           readinessProbe:
             exec:
               command:
-                - cat
-                - /tmp/ready
+                - /bin/sh
+                - -c
+                - |
+                  curl -f http://localhost:9090/-/ready &&
+                  curl -f http://localhost:3100/ready &&
+                  curl -f http://localhost:3000/api/health
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 2
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  curl -f http://localhost:9090/-/ready &&
+                  curl -f http://localhost:3100/ready &&
+                  curl -f http://localhost:3000/api/health
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 15
+            failureThreshold: 3
           resources:
             requests:
               cpu: "500m"
