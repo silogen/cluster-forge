@@ -1,26 +1,13 @@
 name: Release Pipeline
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches: [main]
-  release:
-    types: [created, edited]
   workflow_dispatch:
-    inputs:
-      is_prerelease:
-        description: 'Is this a prerelease?'
-        required: false
-        type: boolean
-        default: false
 
 jobs:
-  version:
+  release:
     runs-on: ubuntu-latest
     outputs:
-      new_version: ${{ steps.version.outputs.new_version }}
-      extra_args: ${{ steps.version.outputs.extra_args }}
-      new_sha: ${{ steps.get_sha.outputs.sha }}
+      new_version: ${{ steps.semver.outputs.next }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,7 +16,6 @@ jobs:
           fetch-depth: 0
 
       - name: Get Next Version
-        if: github.event_name == 'workflow_dispatch'
         id: semver
         uses: ietf-tools/semver-action@v1
         with:
@@ -38,32 +24,10 @@ jobs:
           skipInvalidTags: true
           patchAll: true
 
-      - name: Calculate new version and args
-        id: version
-        run: |
-          EXTRA_ARGS="--latest=false --prerelease"
-          # For pull requests, use a test version
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            NEW_VERSION="pr-${{ github.head_ref }}"
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            if [[ "${{ github.event.inputs.is_prerelease }}" == "true" ]]; then
-              EXTRA_ARGS="--latest=false --prerelease"
-            else
-              EXTRA_ARGS="--latest=false"
-            fi
-            NEW_VERSION="${{ steps.semver.outputs.next }}"
-          fi
-          echo "Args: ${EXTRA_ARGS}"
-          echo "New version: $NEW_VERSION"
-          echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
-          echo "extra_args=${EXTRA_ARGS}" >> $GITHUB_OUTPUT
-
       - name: Update helm values file
-        # Only for manually triggered workflows
-        if: github.event_name == 'workflow_dispatch'
         uses: mikefarah/yq@master
         env:
-          GIT_TAG: ${{ steps.version.outputs.new_version }}
+          GIT_TAG: ${{ steps.semver.outputs.next }}
         with:
           cmd: |
             yq -i '.clusterForge.targetRevision = env(GIT_TAG)' root/values.yaml
@@ -71,88 +35,86 @@ jobs:
             yq -i '.clusterForge.targetRevision = env(GIT_TAG)' root/values_ha.yaml
 
       - name: Commit and push changes
-        # Only for manually triggered workflows
-        if: github.event_name == 'workflow_dispatch'
         uses: stefanzweifel/git-auto-commit-action@v4
         env:
-          GIT_TAG: ${{ steps.version.outputs.new_version }}
+          GIT_TAG: ${{ steps.semver.outputs.next }}
         with:
           commit_message: 'Update version to ${{ env.GIT_TAG }} [actions skip]'
 
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.version.outputs.new_version }}
+          VERSION: ${{ steps.semver.outputs.next }}
           EXTRA_ARGS: ${{ steps.version.outputs.extra_args }}
         run: |
-          gh release create "$VERSION" $EXTRA_ARGS \
-              --title="ClusterForge Release $VERSION" \
-              --repo="$GITHUB_REPOSITORY" \
-              --generate-notes || true # Ignore if release already exists
+          # Prepare release artifact
+          tar -zcvf "release-enterprise-ai-${VERSION}.tar.gz" --transform 's,^,cluster-forge/,' root/ scripts/ sources
+          
+          # Create release
+          gh release create "$VERSION" "release-enterprise-ai-${VERSION}.tar.gz#ClusterForge Enterprise AI Package" \
+            --title="ClusterForge Release $VERSION" \
+            --generate-notes \
+            --prerelease || true # Ignore if release already exists
 
-      - name: Get Commit SHA
-        id: get_sha
-        run: echo "::set-output name=sha::$(git rev-parse HEAD)"
-
-  build:
-    needs: [version]
+  sbom:
+    needs: [release]
     runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.release.outputs.new_version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
-          ref: ${{ needs.version.outputs.new_sha }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create file with detailed commit info
+      - name: Install yq
         run: |
-          echo "Commit SHA: ${{ needs.version.outputs.new_sha }}" > commit-info.txt
-          echo "Commit Short SHA: $(git rev-parse --short HEAD)" >> commit-info.txt
-          echo "Commit Message: $(git log -1 --pretty=%B)" >> commit-info.txt
-          echo "Commit Author: $(git log -1 --pretty=%an)" >> commit-info.txt
-          echo "Commit Author Email: $(git log -1 --pretty=%ae)" >> commit-info.txt
-          echo "Commit Date: $(git log -1 --pretty=%ad)" >> commit-info.txt
-          echo "Event Name: ${{ github.event_name }}" >> commit-info.txt
-          echo "Actor: ${{ github.actor }}" >> commit-info.txt
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
 
-          # Add PR-specific info if it's a PR
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "PR Number: ${{ github.event.pull_request.number }}" >> commit-info.txt
-            echo "PR Title: ${{ github.event.pull_request.title }}" >> commit-info.txt
-            echo "PR Branch: ${{ github.event.pull_request.head.ref }}" >> commit-info.txt
+      - name: Generate SBOM
+        id: generate_sbom
+        working-directory: ./sbom
+        run: |
+          echo "Generating SBOM for release ${VERSION}..."
+          
+          chmod +x generate-sbom.sh
+          ./generate-sbom.sh
+          
+          if [[ ! -f "SBOM.md" ]]; then
+            echo "❌ Error: SBOM.md was not generated"
+            exit 1
           fi
+          
+          # Create the renamed SBOM file with release name and git hash
+          SHORT_HASH=$(echo "${{ github.sha }}" | cut -c1-7)
+          NEW_SBOM_NAME="sbom-${VERSION}-${SHORT_HASH}.md"
+          
+          cp SBOM.md "$NEW_SBOM_NAME"
+          echo "✅ SBOM generated successfully as $NEW_SBOM_NAME"
+          
+          # Show SBOM summary
+          echo ""
+          echo "=== SBOM Summary ==="
+          echo "Release: ${VERSION}"
+          echo "Generated at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          
+          # Count components in each category
+          all_components=$(yq eval '.components | keys | length' components.yaml)
+          helm_components=$(yq eval '.components | to_entries | map(select(.value.valuesFile != null)) | length' components.yaml)
+          manifest_components=$((all_components - helm_components))
+          
+          echo "Total components: $all_components"
+          echo "Helm charts: $helm_components"
+          echo "Kubernetes manifests: $manifest_components"
+          echo "===================="
+          
+          echo "sbom_name=${NEW_SBOM_NAME}" >> $GITHUB_OUTPUT
 
-      - name: Create release package
-        env:
-          VERSION: ${{ needs.version.outputs.new_version }}
-        run: |
-          tar -zcvf "release-enterprise-ai-${VERSION}.tar.gz" --transform 's,^,cluster-forge/,' root/ scripts/ sources commit-info.txt
-
-      - name: List files
-        run: ls release*
-
-      - name: Upload Release Asset
+      - name: Upload SBOM as artifact
+        working-directory: ./sbom
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.version.outputs.new_version }}
+          SBOM_NAME: ${{ steps.generate_sbom.outputs.sbom_name }}
         run: |
-          gh release upload "$VERSION" \
-              "release-enterprise-ai-${VERSION}.tar.gz#ClusterForge Enterprise AI Package" \
-              --clobber
-
-  generate-sbom:
-    needs: [version, build]
-    if: github.event_name != 'pull_request'
-    uses: ./.github/workflows/release-sbom-generation.yaml
-    with:
-      release_tag: ${{ needs.version.outputs.new_version }}
+          gh release upload ${VERSION} ${SBOM_NAME} --clobber
