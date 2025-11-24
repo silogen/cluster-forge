@@ -242,6 +242,7 @@ Create Backup
 mkdir -p /mnt/minio-backup/backup-$(date +%Y-%m-%d_%H-%M)
 
 # Set up source MinIO endpoints
+# Use "CONSOLE_ACCESS_KEY" in the default-user secret, which having enough permissions
 mc alias set source https://SOURCE_MINIO_ENDPOINT/ ACCESS_KEY SECRET_KEY
 ex) mc alias set source https://minio.<mydomain>/ myuser mypsword
 
@@ -265,4 +266,23 @@ mc ls --recursive source/BUCKET_NAME/ | wc -l
 
 # Check backup
 find /mnt/minio-backup/backup-YYYY-MM-DD_HH-MM/BUCKET_NAME/ -type f | wc -l
+```
+
+Restore from NFS Backup
+```
+# Mount NFS share
+sudo mount -t nfs NFS_SERVER:/path/to/minio/backup /mnt/minio-backup
+
+# List available backups
+ls -la /mnt/minio-backup/
+
+# Restore from specific backup date
+mc mirror /mnt/minio-backup/backup-YYYY-MM-DD_HH-MM/BUCKET_NAME/ source/BUCKET_NAME/ --overwrite
+ex) mc mirror /mnt/minio-backup/backup-2024-11-24_14-30/default-bucket/ source/default-bucket/ --overwrite
+
+# Verify restoration
+mc ls source/BUCKET_NAME/
+
+# Unmount when done
+sudo umount /mnt/minio-backup
 ```
