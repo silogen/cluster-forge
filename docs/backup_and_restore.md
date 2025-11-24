@@ -7,25 +7,19 @@ This document covers backup and restore procedures for:
 
 ## Prerequisites
 
-### Install PostgreSQL 17 Client Tools
-
-If you don't have `pg_dump` and `psql` installed locally, use the provided installation script:
-
-```bash
-./scripts/utils/install_postgres_17.sh
-```
-
-This script will install PostgreSQL 17 client tools on your system (supports Debian/Ubuntu).
+  - shell access to a machine with `kubectl` configured for the target Kubernetes cluster
+  - Access to the AIRM and KEYCLOAK namespaces in the Kubernetes cluster
+  - Note: the backup scripts use the PostgreSQL tools already available inside the CNPG database pods.
 
 ## 1. Database Backup & Restore
 
-AIRM and Keycloak use Cloud Native PostgreSQL (CNPG) for data persistence. Use the provided scripts for backup and restore operations.
+AIRM and Keycloak use Cloud Native PostgreSQL (CNPG) for data persistence. Use the provided script for backup and restore operations.
 
 ### Database Backup
 
 #### Using the Export Script
 
-The `export_databases.sh` script automates the backup process:
+The [`export_databases.sh`](../scripts/utils/export_databases.sh) script automates the backup process:
 
 ```bash
 # Export to default location ($HOME)
@@ -37,52 +31,25 @@ mkdir -p /path/to/backup/directory
 ```
 
 **What the script does:**
-- Validates the output directory exists (exits with error if not found)
-- Retrieves database credentials from Kubernetes secrets
-- Creates timestamped backup files:
-  - `airm_db_backup_YYYY-MM-DD.sql`
-  - `keycloak_db_backup_YYYY-MM-DD.sql`
-- Uses `pg_dump --clean` for complete schema and data backup, and preventing manual cleanup during restore (when initial schema exists)
+1. Retrieves database credentials from Kubernetes secrets
+2. Finds the CNPG pods for AIRM and Keycloak databases
+3. Executes `pg_dump` inside each pod to create backups in `/var/lib/postgresql/data/`
+4. Copies the backup files to your local machine via `kubectl cp`
+5. Cleans up temporary files from the containers
+6. Creates timestamped backup files:
+   - `airm_db_backup_YYYY-MM-DD.sql`
+   - `keycloak_db_backup_YYYY-MM-DD.sql`
 
-#### Manual Backup Process
-
-If you need to perform manual backups:
-
-1. **Port Forward to CNPG Pods:**
-
-   ```bash
-   # AIRM database (port 5432):
-   kubectl port-forward -n airm pod/$(kubectl get pods -n airm | grep -P "airm-cnpg-\d" | head -1 | sed 's/^\([^[:space:]]*\).*$/\1/') 5432:5432
-
-   # Keycloak database (port 5433 to avoid conflict):
-   kubectl port-forward -n keycloak pod/$(kubectl get pods -n keycloak | grep -P "keycloak-cnpg-\d" | head -1 | sed 's/^\([^[:space:]]*\).*$/\1/') 5433:5432
-   ```
-
-2. **Retrieve Credentials:**
-   ```bash
-   # AIRM credentials
-   kubectl get secret airm-cnpg-user -n airm -o jsonpath='{.data.username}' | base64 --decode
-   kubectl get secret airm-cnpg-user -n airm -o jsonpath='{.data.password}' | base64 --decode
-
-   # Keycloak credentials
-   kubectl get secret keycloak-cnpg-user -n keycloak -o jsonpath='{.data.username}' | base64 --decode
-   kubectl get secret keycloak-cnpg-user -n keycloak -o jsonpath='{.data.password}' | base64 --decode
-   ```
-
-3. **Run Backup:**
-   ```bash
-   # AIRM backup
-   pg_dump --clean -h 127.0.0.1 -U <airm_username> airm > airm_backup_$(date +%Y-%m-%d).sql
-
-   # Keycloak backup (note port 5433)
-   pg_dump --clean -h 127.0.0.1 -p 5433 -U <keycloak_username> keycloak > keycloak_backup_$(date +%Y-%m-%d).sql
-   ```
+**Key Features:**
+- No Docker or local PostgreSQL installation required
+- Uses the exact PostgreSQL version from the database pods
+- Automatic credential retrieval and cleanup
 
 ### Database Restore
 
 #### Using the Import Script
 
-The `import_databases.sh` script automates the restore process:
+The [`import_databases.sh`](../scripts/utils/import_databases.sh) script automates the restore process:
 
 ```bash
 # Restore both databases
@@ -95,6 +62,7 @@ The `import_databases.sh` script automates the restore process:
 **What the script does:**
 - Retrieves current database credentials from Kubernetes secrets
 - Waits for CNPG pods to be ready (up to 600 seconds)
+- Establishes port-forward connections to the database pods
 - Restores databases using `psql`
 - Verifies pod status after restoration
 
@@ -103,26 +71,6 @@ The `import_databases.sh` script automates the restore process:
   ```bash
   kubectl rollout restart deployment -n airm
   ```
-
-#### Manual Restore Process
-
-If you need to perform manual restore:
-
-1. **Port Forward to CNPG Pods** (same as backup step 1)
-
-2. **Run Restore:**
-   ```bash
-   # AIRM restore
-   psql -h 127.0.0.1 -U <airm_username> airm < airm_backup_YYYY-MM-DD.sql
-
-   # Keycloak restore (note port 5433)
-   psql -h 127.0.0.1 -p 5433 -U <keycloak_username> keycloak < keycloak_backup_YYYY-MM-DD.sql
-   ```
-
-3. **Restart AIRM pods:**
-   ```bash
-   kubectl rollout restart deployment -n airm
-   ```
 
 ## 2. RabbitMQ Backup & Restore
 
@@ -178,12 +126,11 @@ rabbitmqctl import_definitions /tmp/rmq_restore.json
 
 All backup and restore scripts are located in `scripts/utils/`:
 
-- `install_postgres_17.sh` - Install PostgreSQL 17 client tools
-- `export_databases.sh` - Export AIRM and Keycloak databases
-- `import_databases.sh` - Import AIRM and Keycloak databases
+- [`export_databases.sh`](../scripts/utils/export_databases.sh) - Export AIRM and Keycloak databases
+- [`import_databases.sh`](../scripts/utils/import_databases.sh) - Import AIRM and Keycloak databases
 
 ## 3. MinIO Backup & Restore (Bucket replication)
-Setup Two-Way Replication
+### 1. Setup Two-Way Replication
 
 From a local machine
 1. Configure MinIO Aliases
@@ -192,7 +139,7 @@ From a local machine
 mc alias set source https://SOURCE_MINIO_ENDPOINT/ ACCESS_KEY SECRET_KEY
 mc alias set dest https://DEST_MINIO_ENDPOINT/ ACCESS_KEY SECRET_KEY
 
-ex) mc alias set dest https://minio.example.com/ myuser mypsword
+ex) mc alias set dest https://minio.<mydomain>/ myuser mypsword
 ```
 
 2. Enable Versioning (Required for Replication)
@@ -223,4 +170,66 @@ ex) mc replicate add source/my-source-bucket/ \
 ```
 mc replicate resync start dest/DEST_BUCKET_NAME/ --remote-bucket $(mc replicate status dest/DEST_BUCKET_NAME/ --json | jq -r '.remoteTargets[].arn')
 ex) mc replicate resync start dest/my-dest-bucket/ --remote-bucket $(mc replicate status dest/my-dest-bucket/ --json | jq -r '.remoteTargets[].arn')
+```
+
+### 2. MinIO One-Time Backup to NFS Filesystem
+Create mount point
+```
+sudo mkdir -p /mnt/minio-backup
+```
+
+Mount NFS share
+```
+sudo mount -t nfs NFS_SERVER:/path/to/minio/backup /mnt/minio-backup
+```
+
+Create Backup
+```
+# Create backup directory with timestamp
+mkdir -p /mnt/minio-backup/backup-$(date +%Y-%m-%d_%H-%M)
+
+# Set up source MinIO endpoints
+# Use "CONSOLE_ACCESS_KEY" in the default-user secret, which having enough permissions
+mc alias set source https://SOURCE_MINIO_ENDPOINT/ ACCESS_KEY SECRET_KEY
+ex) mc alias set source https://minio.<mydomain>/ myuser mypsword
+
+# Mirror bucket contents to NFS
+mc mirror source/BUCKET_NAME/ /mnt/minio-backup/backup-$(date+%Y-%m-%d_%H-%M)/BUCKET_NAME/ --overwrite
+ex) mc mirror source/default-bucket/ /mnt/minio-backup/backup-$(date+%Y-%m-%d_%H-%M)/default-bucket/ --overwrite 
+
+# Unmount when done
+sudo umount /mnt/minio-backup
+```
+
+Verify Backup
+```
+# Re-mount and check
+sudo mount -t nfs NFS_SERVER:/path/to/minio/backup /mnt/minio-backup
+ls -la /mnt/minio-backup/backup-YYYY-MM-DD_HH-MM/BUCKET_NAME/
+
+# Compare file counts
+# Check original bucket
+mc ls --recursive source/BUCKET_NAME/ | wc -l
+
+# Check backup
+find /mnt/minio-backup/backup-YYYY-MM-DD_HH-MM/BUCKET_NAME/ -type f | wc -l
+```
+
+Restore from NFS Backup
+```
+# Mount NFS share
+sudo mount -t nfs NFS_SERVER:/path/to/minio/backup /mnt/minio-backup
+
+# List available backups
+ls -la /mnt/minio-backup/
+
+# Restore from specific backup date
+mc mirror /mnt/minio-backup/backup-YYYY-MM-DD_HH-MM/BUCKET_NAME/ source/BUCKET_NAME/ --overwrite
+ex) mc mirror /mnt/minio-backup/backup-2024-11-24_14-30/default-bucket/ source/default-bucket/ --overwrite
+
+# Verify restoration
+mc ls source/BUCKET_NAME/
+
+# Unmount when done
+sudo umount /mnt/minio-backup
 ```
