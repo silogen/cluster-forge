@@ -183,7 +183,7 @@ All backup and restore scripts are located in `scripts/utils/`:
 - `import_databases.sh` - Import AIRM and Keycloak databases
 
 ## 3. MinIO Backup & Restore (Bucket replication)
-Setup Two-Way Replication
+### 1. Setup Two-Way Replication
 
 From a local machine
 1. Configure MinIO Aliases
@@ -192,7 +192,7 @@ From a local machine
 mc alias set source https://SOURCE_MINIO_ENDPOINT/ ACCESS_KEY SECRET_KEY
 mc alias set dest https://DEST_MINIO_ENDPOINT/ ACCESS_KEY SECRET_KEY
 
-ex) mc alias set dest https://minio.example.com/ myuser mypsword
+ex) mc alias set dest https://minio.<mydomain>/ myuser mypsword
 ```
 
 2. Enable Versioning (Required for Replication)
@@ -223,4 +223,46 @@ ex) mc replicate add source/my-source-bucket/ \
 ```
 mc replicate resync start dest/DEST_BUCKET_NAME/ --remote-bucket $(mc replicate status dest/DEST_BUCKET_NAME/ --json | jq -r '.remoteTargets[].arn')
 ex) mc replicate resync start dest/my-dest-bucket/ --remote-bucket $(mc replicate status dest/my-dest-bucket/ --json | jq -r '.remoteTargets[].arn')
+```
+
+### 2. MinIO One-Time Backup to NFS Filesystem
+Create mount point
+```
+sudo mkdir -p /mnt/minio-backup
+```
+
+Mount NFS share
+```
+sudo mount -t nfs NFS_SERVER:/path/to/minio/backup /mnt/minio-backup
+```
+
+Create Backup
+```
+# Create backup directory with timestamp
+mkdir -p /mnt/minio-backup/backup-$(date +%Y-%m-%d_%H-%M)
+
+# Set up source MinIO endpoints
+mc alias set source https://SOURCE_MINIO_ENDPOINT/ ACCESS_KEY SECRET_KEY
+ex) mc alias set source https://minio.<mydomain>/ myuser mypsword
+
+# Mirror bucket contents to NFS
+mc mirror source/BUCKET_NAME/ /mnt/minio-backup/backup-$(date+%Y-%m-%d_%H-%M)/BUCKET_NAME/ --overwrite
+ex) mc mirror source/default-bucket/ /mnt/minio-backup/backup-$(date+%Y-%m-%d_%H-%M)/default-bucket/ --overwrite 
+
+# Unmount when done
+sudo umount /mnt/minio-backup
+```
+
+Verify Backup
+```
+# Re-mount and check
+sudo mount -t nfs NFS_SERVER:/path/to/minio/backup /mnt/minio-backup
+ls -la /mnt/minio-backup/backup-YYYY-MM-DD_HH-MM/BUCKET_NAME/
+
+# Compare file counts
+# Check original bucket
+mc ls --recursive source/BUCKET_NAME/ | wc -l
+
+# Check backup
+find /mnt/minio-backup/backup-YYYY-MM-DD_HH-MM/BUCKET_NAME/ -type f | wc -l
 ```
