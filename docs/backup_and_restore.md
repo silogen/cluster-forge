@@ -175,12 +175,14 @@ ex) mc replicate resync start dest/my-dest-bucket/ --remote-bucket $(mc replicat
 ```
 
 ### 2. MinIO One-Time Backup to Filesystem (e.g. local or NFS)
+
+- This example uses NFS, if using local filesystem, skip the mount steps.
+
 Create mount point
 ```
 sudo mkdir -p /mnt/minio-backup
 ```
 
-If needed, mount NFS share
 ```
 sudo mount -t nfs NFS_SERVER:/path/to/minio/backup /mnt/minio-backup
 ```
