@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 DOMAIN="${1:-}"
 VALUES_FILE="${2:-values_dev.yaml}"
 KUBE_VERSION=1.33
