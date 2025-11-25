@@ -1,0 +1,19 @@
+# Local Kind Development Options
+# Override defaults for local development with Kind clusters
+
+argocdui: "true"
+config: input/config-local-kind.yaml
+gitea: internal  # Use internal gitea for local development
+gitopsbranch: HEAD
+gitopspathprefix: ""
+gitopsurl: http://gitea-http.cf-gitea.svc:3000/forge/clusterforge.git
+help: "false"
+imagename: ""
+non-interactive: "false"
+private: "false"
+stackname: ""
+
+# Kind-specific settings
+kind-cluster: "true"
+dev-mode: "true"
+reduced-resources: "true"

@@ -1,0 +1,16 @@
+keycloakConfigCli:
+  enabled: true
+  configuration:
+    airm-realm.json: |
+      # This will be populated from the keycloak-realm-templates ConfigMap
+  extraVolumes:
+    - name: realm-config
+      configMap:
+        name: keycloak-realm-templates
+  extraVolumeMounts:
+    - name: realm-config
+      mountPath: /config
+      readOnly: true
+  args:
+    - --import.path=/config
+    - --import.var-substitution-enabled=true

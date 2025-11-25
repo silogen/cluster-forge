@@ -1,0 +1,30 @@
+tenant:
+  name: default-minio-tenant
+  configSecret:
+    name: default-minio-tenant-env-configuration
+    existingSecret: true
+  pools:
+    - servers: 1
+      name: pool-0
+      volumesPerServer: 1
+      size: 10Gi  # Reduced from 500Gi for local development
+      storageClassName: standard  # Use standard storage class for kind
+      resources:
+        requests:
+          memory: 512Mi  # Reduced memory requirements
+          cpu: 100m
+        limits:
+          memory: 1Gi
+          cpu: 500m
+  buckets:
+    - name: default-bucket
+      objectLock: false  # Disabled for simplicity
+    - name: models
+      objectLock: false
+  users:
+    - name: default-user
+  certificate:
+    requestAutoCert: false
+  env:
+    - name: MINIO_PROMETHEUS_AUTH_TYPE
+      value: "public"
