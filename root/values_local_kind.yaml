@@ -7,7 +7,7 @@ externalValues:
   targetRevision: main
   path: values_local_kind.yaml
 global:
-  domain: localhost.local # to be filled by bootstrap script or use localhost
+  domain: localhost # to be filled by bootstrap script or use localhost
 enabledApps:
   # Minimal set for local development
   - argocd
@@ -27,8 +27,6 @@ enabledApps:
   # Monitoring (required by AIRM)
   - prometheus-crds
   - opentelemetry-operator
-  # Note: otel-lgtm-stack disabled for local-kind to save memory
-  # If you need Prometheus metrics, increase Colima memory or reduce other resources
   # Database operator
   - cnpg-operator
   # Minimal storage (with reduced resources)
@@ -48,103 +46,34 @@ enabledApps:
   - kaiwo-config
   - airm
   # Optional: Add other components as needed
-  - kuberay-operator
-  - kserve-crds
-  - appwrapper
-  - kueue
-  - kueue-config
-# Component-specific overrides for memory reduction  
+  # - kuberay-operator
+  # - kueue
+  # - kueue-config
+# Override minio-tenant to use local-friendly values
 apps:
   minio-tenant:
     path: minio-tenant/7.1.1
     namespace: minio-tenant-default
-    helmParameters:
-      - name: tenant.pools[0].servers
-        value: "1"
-      - name: tenant.pools[0].volumesPerServer
-        value: "1"
-      - name: tenant.pools[0].size
-        value: "10Gi"
-      - name: tenant.pools[0].storageClassName
-        value: "standard"
-      - name: tenant.pools[0].resources.requests.memory
-        value: "512Mi"
-      - name: tenant.pools[0].resources.requests.cpu
-        value: "100m"
-      - name: tenant.pools[0].resources.limits.memory
-        value: "1Gi"
-      - name: tenant.pools[0].resources.limits.cpu
-        value: "500m"
+    valuesFile: ../values_local_kind.yaml  # Use local kind values
     syncWave: -2
   keycloak:
-    path: keycloak-old
+    path: keycloak/25.2.0
     namespace: keycloak
-    valuesFile: values.yaml
-    helmParameters:
-      - name: hostname
-        value: "http://localhost:8080" # Override for local port-forwarding
-      - name: localDev
-        value: "true" # Enable HTTP and relaxed cookie settings
-      - name: domain
-        value: "localhost.local" # Domain for user emails
-      - name: enableNodePort
-        value: "true" # Enable NodePort service for local kind (maps to hostPort 8080)
-      # Reduce Keycloak resources
-      - name: resources.requests.memory
-        value: "256Mi"
-      - name: resources.limits.memory
-        value: "512Mi"
-      # Reduce PostgreSQL resources
-      - name: cnpg.cluster.instances.resources.requests.memory
-        value: "256Mi"
-      - name: cnpg.cluster.instances.resources.limits.memory
-        value: "512Mi"
+    valuesFile: ../values_local_kind.yaml  # Enable realm import
     syncWave: -2
   keycloak-config:
-    path: keycloak-config
+    path: keycloak-config/1.0.0
     namespace: keycloak-config
     valuesFile: values.yaml
     helmParameters:
       - name: domain
-        value: "localhost.local" # Use valid TLD for devuser email
+        value: "localhost.local"  # Use valid TLD for devuser email
     syncWave: -1
   airm:
-    repoURL: "http://gitea-http.cf-gitea.svc:3000/cluster-org/core.git"
-    targetRevision: "main"
-    path: services/airm/helm/airm
+    path: airm/0.2.7
     namespace: airm
     valuesFile: values.yaml
     helmParameters:
       - name: airm-api.airm.appDomain
-        value: "localhost.local" # Use valid TLD for email validation
-      - name: airm-api.airm.frontend.nextauthUrl
-        value: "http://localhost:8000" # Override for local port-forwarding
-      # Note: image.tag for api and dispatcher can be overridden via --build-local flag
-      # Reduce UI resources for local development
-      - name: airm-api.airm.frontend.resources.requests.memory
-        value: "256Mi"
-      - name: airm-api.airm.frontend.resources.limits.memory
-        value: "512Mi"
-      # Reduce API resources
-      - name: airm-api.resources.requests.memory
-        value: "512Mi"
-      - name: airm-api.resources.limits.memory
-        value: "512Mi"
-      # Reduce dispatcher resources
-      - name: airm-dispatcher.resources.requests.memory
-        value: "512Mi"
-      - name: airm-dispatcher.resources.limits.memory
-        value: "512Mi"
-      # Reduce RabbitMQ resources
-      - name: airm-rabbitmq.resources.requests.memory
-        value: "512Mi"
-      - name: airm-rabbitmq.resources.limits.memory
-        value: "512Mi"
-      # Reduce PostgreSQL resources
-      - name: airm-cnpg.cluster.instances.resources.requests.memory
-        value: "256Mi"
-      - name: airm-cnpg.cluster.instances.resources.limits.memory
-        value: "512Mi"
-    syncOptions:
-      - ServerSideApply=false # Disable SSA for hooks to work properly
+        value: "localhost.local"  # Use valid TLD for email validation
     syncWave: 0

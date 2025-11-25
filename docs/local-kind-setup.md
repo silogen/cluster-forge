@@ -40,53 +40,60 @@ sudo mv ./kind /usr/local/bin/kind
 
 ### 1. Create a Kind Cluster
 
+Create a Kind cluster with appropriate configuration:
+
 ```bash
 cd cluster-forge
 
-# Delete existing cluster if any
-kind delete cluster --name cluster-forge-local
+# Create cluster with default configuration
+kind create cluster --name cluster-forge-local
 
-# Create new cluster with configuration
-kind create cluster --name cluster-forge-local --config kind-cluster-config.yaml
+# OR with custom configuration (recommended for larger deployments)
+cat > kind-config.yaml <<EOF
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+  extraPortMappings:
+  - containerPort: 80
+    hostPort: 80
+    protocol: TCP
+  - containerPort: 443
+    hostPort: 443
+    protocol: TCP
+  extraMounts:
+  - hostPath: /tmp/kind-storage
+    containerPath: /var/local-path-provisioner
+EOF
+
+kind create cluster --name cluster-forge-local --config kind-config.yaml
 ```
 
 ### 2. Run the Setup Script
 
 ```bash
-./scripts/bootstrap-kind-cluster.sh [OPTIONS]
+./scripts/setup-local-dev.sh [domain]
+
+# Example with default localhost:
+./scripts/setup-local-dev.sh localhost
+
+# Example with custom domain (requires /etc/hosts setup):
+./scripts/setup-local-dev.sh local.dev
 ```
 
-**Options:**
-- `-s, --silogen-core PATH` - Path to silogen-core repository (default: auto-detect)
-- `-b, --build-local` - Build and use local AIRM images instead of published ones
-- `-i, --skip-preload` - Skip image preloading (faster initial setup, but images won't be cached in host Docker for cluster recreation)
-- `-h, --help` - Show help message
-
-**Examples:**
-
-```bash
-# Basic setup (uses localhost.local domain)
-./scripts/bootstrap-kind-cluster.sh
-
-# Build local images from custom path
-./scripts/bootstrap-kind-cluster.sh --build-local --silogen-core ~/code/silogen-core
-
-# Quick setup skipping image preload
-./scripts/bootstrap-kind-cluster.sh --skip-preload
-```
-
-The script will automatically:
-1. Apply AMD certificates (if available)
-2. Verify prerequisites
-3. Create necessary namespaces
-4. Deploy ArgoCD
-5. Deploy and initialize OpenBao (secrets management)
-6. Deploy and initialize Gitea (internal git repository)
-7. Create all cluster-forge ArgoCD applications
-
-The setup takes approximately 2-3 minutes to complete.
-
-**⚠️ Important:** The bootstrap script is **not idempotent**. Running it multiple times will regenerate secrets, which may cause issues with existing deployments. If you need to update configurations, see the "Updating Application Configurations" section below.
+The script will:
+1. Verify prerequisites
+2. Create necessary namespaces
+3. Deploy ArgoCD
+4. Deploy and initialize OpenBao (secrets management)
+5. Deploy and initialize Gitea (internal git repository)
+6. Create the root cluster-forge ArgoCD application
 
 ### 3. Monitor Deployment
 
@@ -97,13 +104,10 @@ Watch ArgoCD applications sync:
 kubectl get applications -n argocd
 
 # Watch application status
-watch kubectl get applications -n argocd
+kubectl get applications -n argocd -w
 
 # Check specific app details
 kubectl describe application <app-name> -n argocd
-
-# Check pod status across all namespaces
-kubectl get pods -A
 ```
 
 ## Architecture
@@ -153,7 +157,7 @@ Components commented out by default to reduce resource usage:
 
 - **Main config:** `root/values_local_kind.yaml`
 - **MinIO config:** `sources/minio-tenant/values_local_kind.yaml`
-- **Setup script:** `scripts/bootstrap-kind-cluster.sh`
+- **Setup script:** `scripts/setup-local-dev.sh`
 
 ### Customization
 
@@ -220,19 +224,14 @@ kubectl -n cf-openbao get secret openbao-keys \
 # Open: http://localhost:8200
 ```
 
-### AIRM UI (Local Development)
+### MinIO Console
 
 ```bash
-# Port forward AIRM services
-kubectl port-forward -n airm svc/airm-ui 8000:80
-kubectl port-forward -n airm svc/airm-api 8001:80
-kubectl port-forward -n keycloak svc/keycloak-old-http 8080:80
+kubectl port-forward svc/default-minio-tenant-console -n minio-tenant-default 9443:9443
 
-# Open: http://localhost:8000
-# Login with: devuser@localhost.local / (password from Keycloak realm)
+# Get credentials from OpenBao or external secrets
+# Open: https://localhost:9443
 ```
-
-**Note:** The AIRM UI is pre-configured for local port-forwarding with `NEXTAUTH_URL=http://localhost:8000` in the local Kind values.
 
 ## Troubleshooting
 
@@ -244,14 +243,11 @@ kubectl port-forward -n keycloak svc/keycloak-old-http 8080:80
 # Check application details
 kubectl describe application <app-name> -n argocd
 
-# View application sync status
-kubectl get application <app-name> -n argocd -o yaml
+# View application events
+kubectl get events -n <app-namespace> --sort-by='.lastTimestamp'
 
 # Check pod status
 kubectl get pods -n <namespace>
-
-# View pod logs
-kubectl logs -n <namespace> <pod-name>
 ```
 
 #### 2. Insufficient Resources
@@ -261,54 +257,93 @@ If pods fail to schedule due to insufficient resources:
 ```bash
 # Check node resources
 kubectl top nodes
-kubectl describe nodes
+kubectl describe node <node-name>
 
-# Check pod resource requests
-kubectl get pods -A -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,CPU_REQ:.spec.containers[*].resources.requests.cpu,MEM_REQ:.spec.containers[*].resources.requests.memory
-
-# Scale down or disable optional components in root/values_local_kind.yaml
+# Scale down or disable optional components in values_local_kind.yaml
 ```
 
-#### 3. AIRM Not Starting
+#### 3. Storage Issues
 
-Common issues with AIRM deployment:
+MinIO and other components require persistent storage:
 
 ```bash
-# Check AIRM application sync status
-kubectl get application airm -n argocd -o yaml
+# Check storage classes
+kubectl get storageclass
 
-# Check ExternalSecrets (should exist and be synced)
-kubectl get externalsecrets -n airm
+# Check PVCs
+kubectl get pvc -A
 
-# Check if secrets were created
-kubectl get secrets -n airm
+# If PVCs are pending with "storageclass 'default' not found":
+kubectl create -f - <<EOF
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: default
+provisioner: rancher.io/local-path
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: false
+EOF
 
-# Check pod status
-kubectl get pods -n airm
-
-# View logs from failing pods
-kubectl logs -n airm <pod-name>
+# If using custom storage location, ensure Docker can access it
 ```
 
-#### 4. Keycloak Realm Issues
+#### 4. AIRM Namespace Issues
+
+If AIRM fails to sync with "namespace not found" errors:
 
 ```bash
-# Check if realm was imported
-kubectl logs -n keycloak deployment/keycloak-old | grep "Realm 'airm' imported"
+# Create the airm namespace manually
+kubectl create namespace airm
 
-# Check realm configuration
-kubectl get configmap keycloak-realm-templates -n keycloak-config -o yaml
+# Manually trigger sync
+kubectl patch application airm -n argocd --type merge -p '{"operation":{"initiatedBy":{"username":"admin"},"sync":{"revision":"HEAD"}}}'
 ```
 
-#### 5. Gitea Repository Initialization
+#### 5. Missing CRDs
+
+If applications fail with "CRD not found" errors:
 
 ```bash
-# Check Gitea init job logs
+# Check what CRDs are installed
+kubectl get crd
+
+# Ensure prometheus-crds and opentelemetry-operator are enabled in values_local_kind.yaml
+# They are required for AIRM and cluster-auth
+
+# Wait for CRD installation, then retry sync
+kubectl wait --for condition=established --timeout=60s crd/servicemonitors.monitoring.coreos.com
+kubectl wait --for condition=established --timeout=60s crd/opentelemetrycollectors.opentelemetry.io
+```
+
+#### 4. Initialization Jobs Failing
+
+```bash
+# Check OpenBao init job
+kubectl logs -n cf-openbao job/openbao-init-job
+
+# Check Gitea init job
 kubectl logs -n cf-gitea job/gitea-init-job
 
-# Verify repositories were created
-kubectl port-forward -n cf-gitea svc/gitea-http 3000:3000
-# Then check http://localhost:3000/cluster-org
+# Restart job if needed
+kubectl delete job <job-name> -n <namespace>
+# Re-run setup script
+```
+
+### Getting Logs
+
+```bash
+# Application logs
+kubectl logs -n <namespace> <pod-name>
+
+# Previous container logs (if crashed)
+kubectl logs -n <namespace> <pod-name> --previous
+
+# Follow logs
+kubectl logs -n <namespace> <pod-name> -f
+
+# All pods in namespace
+kubectl logs -n <namespace> --all-containers=true --prefix=true
 ```
 
 ### Resetting the Cluster
@@ -319,9 +354,11 @@ To start fresh:
 # Delete the Kind cluster
 kind delete cluster --name cluster-forge-local
 
-# Recreate and setup
-kind create cluster --name cluster-forge-local --config kind-cluster-config.yaml
-./scripts/bootstrap-kind-cluster.sh
+# Recreate
+kind create cluster --name cluster-forge-local
+
+# Re-run setup
+./scripts/setup-local-dev.sh localhost
 ```
 
 ## Resource Requirements
@@ -329,114 +366,123 @@ kind create cluster --name cluster-forge-local --config kind-cluster-config.yaml
 ### Minimum System Requirements
 
 - **CPU:** 8 cores recommended (4 cores minimum for basic setup)
-- **Memory:** 16GB RAM recommended (8GB minimum for basic setup, 12GB+ for full AIRM stack)
+- **Memory:** 16GB RAM recommended (8GB minimum for basic setup, 12GB+ for AIRM)
 - **Disk:** 30GB free space for Docker images and storage
 
 ### Estimated Resource Usage
 
-**Infrastructure only (without AIRM):**
+**Minimal configuration (without AIRM):**
 - **Control plane:** ~1GB memory, 1 CPU
 - **ArgoCD:** ~500MB memory
 - **Gitea + PostgreSQL:** ~1GB memory
 - **OpenBao:** ~256MB memory
-- **Operators:** ~1-2GB memory
+- **MinIO:** ~1GB memory (as configured)
+- **Other components:** ~2-3GB memory
 
-Total: ~4-5GB memory usage
+Total: ~6-8GB memory usage
 
 **With AIRM enabled (full stack):**
-- All infrastructure above plus:
+- All of the above plus:
 - **Keycloak:** ~1GB memory
 - **RabbitMQ:** ~512MB memory
 - **PostgreSQL (CNPG):** ~512MB memory
 - **Kyverno:** ~500MB memory
-- **MinIO:** ~1GB memory
+- **Cluster-auth:** ~256MB memory
+- **Kaiwo:** ~512MB memory
 - **AIRM services:** ~2-3GB memory
-- **Monitoring:** ~500MB memory
+- **Monitoring (OpenTelemetry):** ~500MB memory
 
-Total: ~10-12GB memory usage
+Total: ~12-14GB memory usage
 
-## Configuration Files
+**Note:** Running the full AIRM stack on a single-node Kind cluster may require significant system resources and may not be suitable for laptops with limited RAM/CPU.
 
-### Key Files
+## Development Workflow
 
-- **Kind cluster config:** `kind-cluster-config.yaml` - Defines the Kind cluster with port mappings
-- **Main values:** `root/values_local_kind.yaml` - Configuration for all cluster-forge applications
-- **Setup script:** `scripts/bootstrap-kind-cluster.sh` - Automated deployment script
+### Making Changes
 
-### Customization
+1. **Update configurations** in `root/values_local_kind.yaml` or component-specific values
+2. **Commit changes** to your local Git branch
+3. **Push to Gitea** (happens automatically during setup)
+4. **Sync in ArgoCD** - Changes will be detected and applied automatically
 
-To enable or disable components, edit `root/values_local_kind.yaml`:
+### Testing Components
 
-```yaml
-enabledApps:
-  - argocd
-  - argocd-config
-  # ... core infrastructure ...
-  
-  # Optional: Comment out to disable
-  # - kyverno
-  # - kyverno-config
-  # - opentelemetry-operator
+To test specific components:
+
+```bash
+# Add component to enabledApps in values_local_kind.yaml
+# ArgoCD will detect and deploy it
+
+# Or manually sync
+kubectl get applications -n argocd
+argocd app sync <app-name>
 ```
 
-To adjust AIRM configuration for local development:
+### Cleaning Up
+
+```bash
+# Remove specific application
+argocd app delete <app-name>
+
+# Remove all cluster-forge apps
+argocd app delete -l app.kubernetes.io/part-of=cluster-forge
+
+# Full cluster reset
+kind delete cluster --name cluster-forge-local
+```
+
+## Advanced Configuration
+
+### Custom Domain with /etc/hosts
+
+For a more realistic setup with custom domains:
+
+```bash
+# Add to /etc/hosts
+sudo bash -c 'cat >> /etc/hosts << EOF
+127.0.0.1 argocd.local.dev
+127.0.0.1 gitea.local.dev
+127.0.0.1 minio.local.dev
+EOF'
+
+# Run setup with custom domain
+./scripts/setup-local-dev.sh local.dev
+
+# Access via custom domains (still need port-forwarding)
+```
+
+### Multi-Node Cluster
+
+For testing distributed scenarios:
 
 ```yaml
-apps:
-  airm:
-    path: airm/0.2.7
-    namespace: airm
-    helmParameters:
-      - name: airm-api.airm.appDomain
-        value: "localhost.local"
-      - name: airm-api.airm.frontend.nextauthUrl
-        value: "http://localhost:8000"  # For local port-forwarding
+# kind-config.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+- role: worker
+- role: worker
+```
+
+### Persistent Storage
+
+To preserve data between cluster recreations:
+
+```bash
+# Use Docker volumes for persistence
+docker volume create kind-storage
+
+# Reference in kind config extraMounts
 ```
 
 ## Next Steps
 
-- **Monitor deployment:** `watch kubectl get applications -n argocd`
-- **Access ArgoCD UI** to observe GitOps workflow
-- **Port-forward services** for local development and testing
+- **Explore ArgoCD UI** to understand the GitOps workflow
+- **Review component configurations** in the `sources/` directory
+- **Enable additional components** as needed for your use case
+- **Experiment with customizations** to understand the architecture
 - **Check the main README.md** for production deployment guidelines
-
-## Common Development Tasks
-
-### Updating Application Configurations
-
-```bash
-# 1. Edit configuration
-vim root/values_local_kind.yaml
-
-# 2. Apply changes (recreates ArgoCD applications)
-helm template root -f root/values_local_kind.yaml --kube-version=1.33 | kubectl apply -f -
-
-# 3. Wait for sync (automatic with automated sync policy)
-watch kubectl get applications -n argocd
-```
-
-### Viewing Logs
-
-```bash
-# All AIRM pods
-kubectl logs -n airm -l app.kubernetes.io/part-of=airm --tail=50
-
-# Specific service
-kubectl logs -n airm deployment/airm-api -f
-
-# ArgoCD application controller (for sync issues)
-kubectl logs -n argocd statefulset/argocd-application-controller
-```
-
-### Quick Reset Without Rebuilding Cluster
-
-```bash
-# Delete all ArgoCD applications (keeps ArgoCD itself)
-kubectl delete applications -n argocd --all
-
-# Reapply configuration
-./scripts/bootstrap-kind-cluster.sh
-```
 
 ## References
 

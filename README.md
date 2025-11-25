@@ -34,6 +34,21 @@ This tool is ideal for scenarios such as:
 
 For detailed deployment instructions, see the [Bootstrap Guide](docs/bootstrap_guide.md).
 
+
+### 🏠 Local Development with Kind
+
+For local development and testing with Kind (Kubernetes in Docker), use the dedicated setup script:
+
+```bash
+# Create a Kind cluster first
+kind create cluster --name cluster-forge-local
+
+# Run the local setup
+./scripts/setup-local-dev.sh localhost
+```
+
+See the [Local Kind Setup Guide](./docs/local-kind-setup.md) for detailed instructions, configuration options, and troubleshooting.
+
 ## 📋 Workflow
 
 Cluster-Forge deploys all necessary components within the cluster using GitOps-controller [ArgoCD](https://argo-cd.readthedocs.io/)
