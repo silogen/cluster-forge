@@ -1,5 +1,10 @@
 clusterDomain: # to be filled by cluster-forge app
 
+image:
+  registry: "docker.io"
+  repository: "gitea/gitea"
+  rootless: true
+
 strategy:
   type: "Recreate"
 
