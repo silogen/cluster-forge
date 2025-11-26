@@ -20,3 +20,15 @@ spec:
             kind: Secret	
             name: cluster-tls
         mode: Terminate
+    - allowedRoutes:
+        kinds:
+          - group: gateway.networking.k8s.io
+            kind: TLSRoute
+        namespaces:
+          from: All
+      hostname: k8s.{{ .Values.domain }}
+      name: k8s-passthrough
+      port: 443
+      protocol: TLS
+      tls:
+        mode: Passthrough
