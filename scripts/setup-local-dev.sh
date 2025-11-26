@@ -7,7 +7,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-DOMAIN="${1:-localhost}"
+DOMAIN="${1:-localhost.local}"
 
 echo "🔧 Setting up cluster-forge for local Kind development..."
 echo "📋 Domain: ${DOMAIN}"
@@ -69,10 +69,24 @@ helm template --release-name argocd sources/argocd/8.3.5 \
   --kube-version=1.33 | kubectl apply -f -
 
 echo "⏳ Waiting for ArgoCD to be ready..."
-kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd || true
-kubectl rollout status statefulset/argocd-application-controller -n argocd --timeout=300s || true
-kubectl rollout status deploy/argocd-redis -n argocd --timeout=300s || true
-kubectl rollout status deploy/argocd-repo-server -n argocd --timeout=300s || true
+if ! kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd 2>&1; then
+    echo "⚠️  WARNING: argocd-server deployment not ready, continuing anyway..."
+    kubectl get pods -n argocd
+fi
+
+if ! kubectl rollout status statefulset/argocd-application-controller -n argocd --timeout=300s 2>&1; then
+    echo "⚠️  WARNING: application-controller not ready, continuing anyway..."
+fi
+
+if ! kubectl rollout status deploy/argocd-redis -n argocd --timeout=180s 2>&1; then
+    echo "⚠️  WARNING: argocd-redis not ready, continuing anyway..."
+fi
+
+if ! kubectl rollout status deploy/argocd-repo-server -n argocd --timeout=180s 2>&1; then
+    echo "⚠️  WARNING: repo-server not ready, continuing anyway..."
+fi
+
+echo "✅ ArgoCD deployment phase complete"
 
 # Bootstrap OpenBao
 echo "🔐 Deploying OpenBao..."
@@ -82,16 +96,22 @@ helm template --release-name openbao sources/openbao/0.18.2 \
   --kube-version=1.33 | kubectl apply -f -
 
 echo "⏳ Waiting for OpenBao to be ready..."
-kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s
+if ! kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s 2>&1; then
+    echo "❌ ERROR: OpenBao pod failed to start. Checking status:"
+    kubectl get pods -n cf-openbao
+    kubectl describe pod/openbao-0 -n cf-openbao | tail -30
+    exit 1
+fi
 
 echo "🔧 Initializing OpenBao..."
 helm template --release-name openbao-init scripts/init-openbao-job \
   --set domain="${DOMAIN}" \
   --kube-version=1.33 | kubectl apply -f -
 
-if ! kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao; then
-    echo "⚠️  WARNING: OpenBao initialization job did not complete. Check logs:"
-    echo "   kubectl logs -n cf-openbao job/openbao-init-job"
+if ! kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao 2>&1; then
+    echo "❌ ERROR: OpenBao initialization failed. Check logs:"
+    kubectl logs -n cf-openbao job/openbao-init-job --tail=50
+    exit 1
 fi
 
 # Bootstrap Gitea
@@ -121,16 +141,22 @@ helm template --release-name gitea sources/gitea/12.3.0 \
   --kube-version=1.33 | kubectl apply -f -
 
 echo "⏳ Waiting for Gitea to be ready..."
-kubectl rollout status deploy/gitea -n cf-gitea --timeout=300s
+if ! kubectl rollout status deploy/gitea -n cf-gitea --timeout=300s 2>&1; then
+    echo "❌ ERROR: Gitea deployment failed. Checking status:"
+    kubectl get pods -n cf-gitea
+    kubectl logs -n cf-gitea deployment/gitea --tail=50
+    exit 1
+fi
 
 echo "🔧 Initializing Gitea repositories..."
 helm template --release-name gitea-init scripts/init-gitea-job \
   --set domain="${DOMAIN}" \
   --kube-version=1.33 | kubectl apply -f -
 
-if ! kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea; then
-    echo "⚠️  WARNING: Gitea initialization job did not complete. Check logs:"
-    echo "   kubectl logs -n cf-gitea job/gitea-init-job"
+if ! kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea 2>&1; then
+    echo "❌ ERROR: Gitea initialization failed. Check logs:"
+    kubectl logs -n cf-gitea job/gitea-init-job --tail=50
+    exit 1
 fi
 
 # Deploy cluster-forge ArgoCD application
@@ -141,6 +167,15 @@ helm template root -f root/values_local_kind.yaml \
 
 echo ""
 echo "✅ Local Kind cluster-forge setup complete!"
+echo ""
+echo "📊 Checking deployment status..."
+kubectl get applications -n argocd -o custom-columns=NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status 2>/dev/null | head -20
+
+echo ""
+echo "⏳ Key applications status (may take a few minutes to sync):"
+echo "   MinIO: $(kubectl get application minio-tenant -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo 'Not yet synced')"
+echo "   Keycloak: $(kubectl get application keycloak -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo 'Not yet synced')"
+echo "   AIRM: $(kubectl get application airm -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo 'Not yet synced')"
 echo ""
 echo "⚠️  Resource Warning:"
 echo "   AIRM and all dependencies require significant resources."

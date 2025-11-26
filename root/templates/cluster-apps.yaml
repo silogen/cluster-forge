@@ -49,5 +49,10 @@ spec:
       {{- if .ignoreDifferences }}
       - RespectIgnoreDifferences=true
       {{- end }}
+      {{- if .syncOptions }}
+      {{- range .syncOptions }}
+      - {{ . }}
+      {{- end }}
+      {{- end }}
 {{- end }}
 {{- end }}
