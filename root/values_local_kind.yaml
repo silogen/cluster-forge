@@ -7,7 +7,7 @@ externalValues:
   targetRevision: main
   path: values_local_kind.yaml
 global:
-  domain: localhost # to be filled by bootstrap script or use localhost
+  domain: localhost.local # to be filled by bootstrap script or use localhost
 enabledApps:
   # Minimal set for local development
   - argocd
@@ -54,20 +54,36 @@ apps:
   minio-tenant:
     path: minio-tenant/7.1.1
     namespace: minio-tenant-default
-    valuesFile: ../values_local_kind.yaml  # Use local kind values
+    helmParameters:
+      - name: tenant.pools[0].servers
+        value: "1"
+      - name: tenant.pools[0].volumesPerServer
+        value: "1"
+      - name: tenant.pools[0].size
+        value: "10Gi"
+      - name: tenant.pools[0].storageClassName
+        value: "standard"
+      - name: tenant.pools[0].resources.requests.memory
+        value: "512Mi"
+      - name: tenant.pools[0].resources.requests.cpu
+        value: "100m"
+      - name: tenant.pools[0].resources.limits.memory
+        value: "1Gi"
+      - name: tenant.pools[0].resources.limits.cpu
+        value: "500m"
     syncWave: -2
   keycloak:
-    path: keycloak/25.2.0
+    path: keycloak-old
     namespace: keycloak
-    valuesFile: ../values_local_kind.yaml  # Enable realm import
+    valuesFile: values.yaml
     syncWave: -2
   keycloak-config:
-    path: keycloak-config/1.0.0
+    path: keycloak-config
     namespace: keycloak-config
     valuesFile: values.yaml
     helmParameters:
       - name: domain
-        value: "localhost.local"  # Use valid TLD for devuser email
+        value: "localhost.local" # Use valid TLD for devuser email
     syncWave: -1
   airm:
     path: airm/0.2.7
@@ -75,5 +91,9 @@ apps:
     valuesFile: values.yaml
     helmParameters:
       - name: airm-api.airm.appDomain
-        value: "localhost.local"  # Use valid TLD for email validation
+        value: "localhost.local" # Use valid TLD for email validation
+      - name: airm-api.airm.frontend.nextauthUrl
+        value: "http://localhost:8000" # Override for local port-forwarding
+    syncOptions:
+      - ServerSideApply=false # Disable SSA for hooks to work properly
     syncWave: 0
