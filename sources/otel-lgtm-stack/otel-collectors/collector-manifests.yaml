@@ -411,14 +411,6 @@ spec:
         endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
         tls:
           insecure: true
-      otlphttp/ops-loki: ##
-        endpoint: http://otel-collector-log-proxy.headscale.svc.cluster.local:80/otlp
-        tls:
-          insecure: true
-        headers:
-          "X-Scope-OrgID": "loki-tenant-cluster-name" ##
-        auth: ##
-          authenticator: basicauth/loki-tenant
 
       # Debug exporter - can remove in production
       debug:
@@ -430,7 +422,7 @@ spec:
         logs:
           receivers: [filelog/std]
           processors: [batch, k8sattributes, attributes, transform]
-          exporters: [otlp, otlphttp/ops-loki]
+          exporters: [otlp]
           #exporters: [otlp, debug]
   volumes:
     - name: varlog
