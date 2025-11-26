@@ -745,16 +745,12 @@ data:
             "https://airmui.{{ .Values.domain }}/*",
             "https://{{ .Values.domain }}/*",
             "http://localhost:8000/*",
-            "http://localhost:8001/*",
-            "http://localhost:8010/*",
-            "http://localhost:8011/*"
+            "http://localhost:8001/*"
           ],
           "webOrigins": [
             "*",
             "http://localhost:8000",
-            "http://localhost:8001",
-            "http://localhost:8010",
-            "http://localhost:8011"
+            "http://localhost:8001"
           ],
           "notBefore": 0,
           "bearerOnly": false,
