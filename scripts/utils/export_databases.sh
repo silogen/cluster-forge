@@ -27,6 +27,10 @@ Options:
   --port-forward [PORT]   Use kubectl port-forward instead of direct pod exec.
                           Optional PORT argument specifies local port (default: 5432).
                           Useful when direct pod access is restricted or for debugging.
+  
+  --airm                  Backup only the AIRM database (mutually exclusive with --keycloak)
+  
+  --keycloak              Backup only the Keycloak database (mutually exclusive with --airm)
 
 Behavior:
   - Creates timestamped SQL dump files: *_backup_YYYY-MM-DD.sql
@@ -65,6 +69,8 @@ HELPEOF
 USE_PORT_FORWARD=false
 LOCAL_PORT=5432
 PORT_FORWARD_PID=""
+BACKUP_AIRM=true
+BACKUP_KEYCLOAK=true
 
 # Parse arguments
 if [[ "$1" == "--help" ]]; then
@@ -91,6 +97,24 @@ while [ $# -gt 0 ]; do
             fi
             shift
             ;;
+        --airm)
+            if [ "$BACKUP_KEYCLOAK" = false ]; then
+                echo "Error: Cannot specify both --airm and --keycloak"
+                exit 1
+            fi
+            BACKUP_AIRM=true
+            BACKUP_KEYCLOAK=false
+            shift
+            ;;
+        --keycloak)
+            if [ "$BACKUP_AIRM" = false ]; then
+                echo "Error: Cannot specify both --airm and --keycloak"
+                exit 1
+            fi
+            BACKUP_AIRM=false
+            BACKUP_KEYCLOAK=true
+            shift
+            ;;
         *)
             echo "Unknown option: $1"
             echo "Run with --help for usage information"
@@ -105,6 +129,19 @@ if [ ! -d "$OUTPUT_DIR" ]; then
     echo "Please create the directory first: mkdir -p '$OUTPUT_DIR'"
     exit 1
 fi
+
+# Get current kubectl context cluster name
+get_cluster_prefix() {
+    local CURRENT_CONTEXT=$(kubectl config current-context 2>/dev/null || echo "default")
+    local CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CURRENT_CONTEXT')].context.cluster}" 2>/dev/null || echo "default")
+    
+    # If cluster name is "default", return empty prefix
+    if [ "$CLUSTER_NAME" = "default" ]; then
+        echo ""
+    else
+        echo "${CLUSTER_NAME}_"
+    fi
+}
 
 # Function to get versioned filename if file exists
 get_versioned_filename() {
@@ -130,20 +167,25 @@ get_versioned_filename() {
 
 # Global variables
 export CURRENT_DATE=$(date +%Y-%m-%d)
-AIRM_DB_FILE_BASE=$OUTPUT_DIR/airm_db_backup_$CURRENT_DATE.sql
-KEYCLOAK_DB_FILE_BASE=$OUTPUT_DIR/keycloak_db_backup_$CURRENT_DATE.sql
+CLUSTER_PREFIX=$(get_cluster_prefix)
+AIRM_DB_FILE_BASE=$OUTPUT_DIR/${CLUSTER_PREFIX}airm_db_backup_$CURRENT_DATE.sql
+KEYCLOAK_DB_FILE_BASE=$OUTPUT_DIR/${CLUSTER_PREFIX}keycloak_db_backup_$CURRENT_DATE.sql
 
 export AIRM_DB_FILE=$(get_versioned_filename "$AIRM_DB_FILE_BASE")
 export KEYCLOAK_DB_FILE=$(get_versioned_filename "$KEYCLOAK_DB_FILE_BASE")
 
 get_db_credentials() {
-    echo "Retrieving database credentials..."
+    if [ "$BACKUP_AIRM" = true ]; then
+        echo "Retrieving AIRM database credentials..."
+        export AIRM_DB_USERNAME=$(kubectl get secret airm-cnpg-user -n airm -o jsonpath='{.data.username}' | base64 --decode)
+        export AIRM_DB_PASSWORD=$(kubectl get secret airm-cnpg-user -n airm -o jsonpath='{.data.password}' | base64 --decode)
+    fi
     
-    export AIRM_DB_USERNAME=$(kubectl get secret airm-cnpg-user -n airm -o jsonpath='{.data.username}' | base64 --decode)
-    export AIRM_DB_PASSWORD=$(kubectl get secret airm-cnpg-user -n airm -o jsonpath='{.data.password}' | base64 --decode)
-    
-    export KEYCLOAK_DB_USERNAME=$(kubectl get secret keycloak-cnpg-user -n keycloak -o jsonpath='{.data.username}' | base64 --decode)
-    export KEYCLOAK_DB_PASSWORD=$(kubectl get secret keycloak-cnpg-user -n keycloak -o jsonpath='{.data.password}' | base64 --decode)
+    if [ "$BACKUP_KEYCLOAK" = true ]; then
+        echo "Retrieving Keycloak database credentials..."
+        export KEYCLOAK_DB_USERNAME=$(kubectl get secret keycloak-cnpg-user -n keycloak -o jsonpath='{.data.username}' | base64 --decode)
+        export KEYCLOAK_DB_PASSWORD=$(kubectl get secret keycloak-cnpg-user -n keycloak -o jsonpath='{.data.password}' | base64 --decode)
+    fi
     
     echo "Database credentials retrieved successfully."
 }
@@ -287,19 +329,32 @@ main() {
     trap disable_port_forward EXIT INT TERM
     
     get_db_credentials
-    backup_airm_database
-    backup_keycloak_database
+    #backup_airm_database
+    if [ "$BACKUP_KEYCLOAK" = true ]; then
+        backup_keycloak_database
+    fi
     
+    # Summary output
     # Summary output
     echo ""
     echo "========================================"
     echo "Database Export Complete"
     echo "========================================"
-    echo "AIRM database exported to:"
-    echo "  $AIRM_DB_FILE"
-    echo ""
-    echo "Keycloak database exported to:"
-    echo "  $KEYCLOAK_DB_FILE"
+    
+    if [ "$BACKUP_AIRM" = true ]; then
+        echo "AIRM database exported to:"
+        echo "  $AIRM_DB_FILE"
+    fi
+    
+    if [ "$BACKUP_AIRM" = true ] && [ "$BACKUP_KEYCLOAK" = true ]; then
+        echo ""
+    fi
+    
+    if [ "$BACKUP_KEYCLOAK" = true ]; then
+        echo "Keycloak database exported to:"
+        echo "  $KEYCLOAK_DB_FILE"
+    fi
+    
     echo "========================================"
     
     set -o history
