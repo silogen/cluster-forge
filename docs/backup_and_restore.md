@@ -38,10 +38,10 @@ AIRM and Keycloak use Cloud Native PostgreSQL (CNPG) for data persistence. Use t
 The [`export_databases.sh`](../scripts/utils/export_databases.sh) script automates the backup process:
 
 ```bash
-# Export both databases to default location ($HOME)
+# Export both AIRM and KEYCLOAK databases to default location the present working directory
 ./scripts/utils/export_databases.sh
 
-# Export to custom directory (directory must exist)
+# Export to custom directory (directory must exist and be writable)
 mkdir -p /path/to/backup/directory
 ./scripts/utils/export_databases.sh /path/to/backup/directory
 
@@ -51,7 +51,7 @@ mkdir -p /path/to/backup/directory
 # Export only Keycloak database
 ./scripts/utils/export_databases.sh /path/to/backup/directory --keycloak
 
-# Use port-forward (useful when direct pod exec is restricted)
+# Use port-forward (useful when direct pod exec is restricted or for larger databases / slower connections)
 ./scripts/utils/export_databases.sh /path/to/backup/directory --port-forward
 
 # Use port-forward with custom port and selective backup
@@ -60,14 +60,14 @@ mkdir -p /path/to/backup/directory
 
 **What the script does:**
 1. Retrieves database credentials from Kubernetes secrets
-2. Finds the CNPG pods for AIRM and Keycloak databases
+2. Finds the primary CNPG pod for AIRM and Keycloak databases
 3. Executes `pg_dump` inside each pod to create backups in `/var/lib/postgresql/data/`
 4. Copies the backup files to your local machine via `kubectl cp`
 5. Cleans up temporary files from the containers
 6. Creates timestamped backup files with cluster prefix:
    - `airm_db_backup_YYYY-MM-DD.sql` (for 'default' context)
-   - `<cluster>_airm_db_backup_YYYY-MM-DD.sql` (e.g., `production_airm_db_backup_2025-11-28.sql`)
-   - `<cluster>_keycloak_db_backup_YYYY-MM-DD.sql`
+   - `<cluster_name>_airm_db_backup_YYYY-MM-DD.sql` (for contexts other than 'default')
+   - appends `_02`, `_03`, etc. for multiple backups on the same day to prevent overwriting
 
 **Key Features:**
 - No Docker or local PostgreSQL installation required
@@ -90,14 +90,32 @@ The [`import_databases.sh`](../scripts/utils/import_databases.sh) script automat
 
 # Skip AIRM, restore only Keycloak
 ./scripts/utils/import_databases.sh skip /path/to/keycloak_backup.sql
+
+# Restore both databases using port-forward
+./scripts/utils/import_databases.sh /path/to/airm_backup.sql /path/to/keycloak_backup.sql --port-forward
+
+# Restore with custom port-forward port
+./scripts/utils/import_databases.sh /path/to/airm_backup.sql /path/to/keycloak_backup.sql --port-forward 5433
 ```
 
 **What the script does:**
 - Retrieves current database credentials from Kubernetes secrets
-- Waits for CNPG pods to be ready (up to 600 seconds)
-- Establishes port-forward connections to the database pods
-- Restores databases using `psql`
+- Queries CNPG cluster status to determine primary pod for multi-replica scenarios
+- Waits for CNPG pods to be ready (up to 300 seconds)
+- Checks workloads table count and prompts for confirmation if data exists
+- Restores databases using one of two modes:
+  - **Port-forward mode** (with `--port-forward` flag): Establishes port-forward and runs `psql` locally
+  - **Direct mode** (default): Pipes SQL file directly through `kubectl exec` into the container
+- Uses TCP authentication (`-h localhost`) to avoid peer authentication issues
+- Validates port-forward connections with retry logic (5 attempts, 3-second delays)
 - Verifies pod status after restoration
+
+**Key Features:**
+- Automatic primary pod selection for high-availability clusters
+- Port-forward support with validation and retry logic
+- Direct in-container restore via stdin piping (no filesystem writes)
+- Interactive confirmation when overwriting existing data
+- Proper cleanup with trap handlers for port-forward processes
 
 **After restoration:**
 - Restart AIRM API & UI pods to ensure they pick up the restored data:

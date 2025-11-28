@@ -71,13 +71,14 @@ LOCAL_PORT=5432
 PORT_FORWARD_PID=""
 BACKUP_AIRM=true
 BACKUP_KEYCLOAK=true
+CONTAINER_NAME="postgres"
 
 # Parse arguments
 if [[ "$1" == "--help" ]]; then
     show_help
 fi
 
-OUTPUT_DIR=${1:-$HOME}
+OUTPUT_DIR=${1:-$PWD}
 # Remove trailing slash if present
 OUTPUT_DIR=${OUTPUT_DIR%/}
 shift || true
@@ -213,15 +214,15 @@ run_pg_dump() {
     echo "Running pg_dump inside pod $POD_NAME..."
     
     # Run pg_dump inside the container
-    kubectl exec -n $NAMESPACE $POD_NAME --container='postgres' -- bash -c "PGPASSWORD='$PASSWORD' pg_dump --clean -h $HOST -U $USERNAME $DBNAME > $CONTAINER_BACKUP_FILE"
+    kubectl exec -n $NAMESPACE $POD_NAME --container=$CONTAINER_NAME -- bash -c "PGPASSWORD='$PASSWORD' pg_dump --clean -h $HOST -U $USERNAME $DBNAME > $CONTAINER_BACKUP_FILE"
     
     # Copy the backup file from container to host
     echo "Copying backup from container to $OUTPUT_FILE..."
-    kubectl cp ${NAMESPACE}/${POD_NAME}:${CONTAINER_BACKUP_FILE} $OUTPUT_FILE --container='postgres'
+    kubectl cp ${NAMESPACE}/${POD_NAME}:${CONTAINER_BACKUP_FILE} $OUTPUT_FILE --container=$CONTAINER_NAME
     
     # Clean up the backup file from the container
     echo "Cleaning up backup file from container..."
-    kubectl exec -n $NAMESPACE $POD_NAME -- rm -f $CONTAINER_BACKUP_FILE
+    kubectl exec -n $NAMESPACE $POD_NAME --container=$CONTAINER_NAME -- rm -f $CONTAINER_BACKUP_FILE
 }
 
 backup_airm_database() {
@@ -329,7 +330,7 @@ main() {
     trap disable_port_forward EXIT INT TERM
     
     get_db_credentials
-    #backup_airm_database
+    backup_airm_database
     if [ "$BACKUP_KEYCLOAK" = true ]; then
         backup_keycloak_database
     fi
