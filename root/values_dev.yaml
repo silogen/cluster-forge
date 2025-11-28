@@ -1,13 +1,13 @@
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: # feature-branch name to be provided by developer
+  targetRevision: feature_k8s_domain_tlsroute
   valuesFile: values_dev.yaml
 
 externalValues:
   enabled: false
 
 global:
-  domain: # to be provided by developer
+  domain: plat-dev-3.silogen.ai
 
 enabledApps:
   - argocd
