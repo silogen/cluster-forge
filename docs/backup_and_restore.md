@@ -11,7 +11,23 @@ This document covers backup and restore procedures for:
   - Access to the AIRM and KEYCLOAK namespaces in the Kubernetes cluster
   - Note: the backup scripts use the PostgreSQL tools already available inside the CNPG database pods.
 
-## 1. Database Backup & Restore
+## Preparation:
+
+  - Inform users about the planned backup/restore operation, as services will be temporarily unavailable.
+  - Cordon off the nodes hosting the database pods to prevent scheduling new pods during the operation:
+    ```bash
+    # Identify nodes hosting the CNPG pods
+    kubectl get pods -n airm -o wide | grep cnpg
+    kubectl get pods -n keycloak -o wide | grep cnpg
+
+    # Cordon the identified nodes
+    kubectl cordon <node-name-1>
+    kubectl cordon <node-name-2>
+    ```
+
+
+
+## 1. CNPG (CloudNative Postgres)  Backup & Restore
 
 AIRM and Keycloak use Cloud Native PostgreSQL (CNPG) for data persistence. Use the provided script for backup and restore operations.
 
@@ -22,12 +38,24 @@ AIRM and Keycloak use Cloud Native PostgreSQL (CNPG) for data persistence. Use t
 The [`export_databases.sh`](../scripts/utils/export_databases.sh) script automates the backup process:
 
 ```bash
-# Export to default location ($HOME)
+# Export both databases to default location ($HOME)
 ./scripts/utils/export_databases.sh
 
 # Export to custom directory (directory must exist)
 mkdir -p /path/to/backup/directory
 ./scripts/utils/export_databases.sh /path/to/backup/directory
+
+# Export only AIRM database
+./scripts/utils/export_databases.sh /path/to/backup/directory --airm
+
+# Export only Keycloak database
+./scripts/utils/export_databases.sh /path/to/backup/directory --keycloak
+
+# Use port-forward (useful when direct pod exec is restricted)
+./scripts/utils/export_databases.sh /path/to/backup/directory --port-forward
+
+# Use port-forward with custom port and selective backup
+./scripts/utils/export_databases.sh /path/to/backup/directory --port-forward 5433 --keycloak
 ```
 
 **What the script does:**
@@ -36,14 +64,19 @@ mkdir -p /path/to/backup/directory
 3. Executes `pg_dump` inside each pod to create backups in `/var/lib/postgresql/data/`
 4. Copies the backup files to your local machine via `kubectl cp`
 5. Cleans up temporary files from the containers
-6. Creates timestamped backup files:
-   - `airm_db_backup_YYYY-MM-DD.sql`
-   - `keycloak_db_backup_YYYY-MM-DD.sql`
+6. Creates timestamped backup files with cluster prefix:
+   - `airm_db_backup_YYYY-MM-DD.sql` (for 'default' context)
+   - `<cluster>_airm_db_backup_YYYY-MM-DD.sql` (e.g., `production_airm_db_backup_2025-11-28.sql`)
+   - `<cluster>_keycloak_db_backup_YYYY-MM-DD.sql`
 
 **Key Features:**
 - No Docker or local PostgreSQL installation required
 - Uses the exact PostgreSQL version from the database pods
 - Automatic credential retrieval and cleanup
+- Selective backup: Use `--airm` or `--keycloak` flags to backup individual databases
+- Port-forward support: Use `--port-forward` when direct pod exec is restricted
+- Cluster-aware filenames: Automatically prefixes files with cluster name (e.g., `production_`)
+- Automatic file versioning: Creates `_02`, `_03` suffixes for same-day backups
 
 ### Database Restore
 
