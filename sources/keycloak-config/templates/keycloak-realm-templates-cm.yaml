@@ -2173,8 +2173,7 @@ data:
             }
           }
         ],
-        "org.keycloak.keys.KeyProvider": [
-]
+        "org.keycloak.keys.KeyProvider": []
       },
       "internationalizationEnabled": false,
       "supportedLocales": [],
