@@ -59,6 +59,8 @@ spec:
             {{- if eq (.Values.localDev | toString) "true" }}
             - name: KC_HTTP_ENABLED
               value: "true"
+            - name: KEYCLOAK_FRONTEND_URL
+              value: "http://localhost:8080"
             {{- end }}
             - name: KC_PROXY_HEADERS
               value: xforwarded
