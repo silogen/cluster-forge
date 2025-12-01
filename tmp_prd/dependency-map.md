@@ -4,164 +4,165 @@
 ### Visual Dependency Flow
 
 ```mermaid
-graph TB
-    %% cluster-bloom Prerequisites
-    subgraph CB["cluster-bloom Outputs (Prerequisites for CF)"]
-        SC["Working Storage Class"]
-        DN["Domain Name"]
-        TLS["cluster-tls Secret<br/>(kgateway-system namespace)"]
+flowchart TD
+    %% Prerequisites (Top)
+    subgraph PREREQ["🔧 Prerequisites"]
+        direction TB
+        CB_SC["cluster-bloom:<br/>Storage Class"]
+        CB_DN["cluster-bloom:<br/>Domain Name"] 
+        CB_TLS["cluster-bloom:<br/>cluster-tls Secret"]
+        TOOLS["Tools: kubectl, helm, openssl"]
     end
     
-    %% Tools Required
-    subgraph TOOLS["Required Tools"]
-        KUBECTL["kubectl"]
-        HELM["helm 3.0+"]
-        SSL["openssl"]
+    %% Bootstrap Foundation
+    subgraph BOOTSTRAP["⚡ Layer 1: Bootstrap Foundation"]
+        direction TB
+        CF_ARGO["ArgoCD<br/>(GitOps Controller)"]
+        CF_GITEA["Gitea<br/>(Git Repository)"]
+        CF_VAULT["OpenBao<br/>(Secret Management)"]
     end
     
-    %% Bootstrap Foundation (Layer 1)
-    subgraph L1["Layer 1: Bootstrap Foundation"]
-        ARGO["ArgoCD<br/>(GitOps Controller)"]
-        GITEA["Gitea<br/>(Git Repository)"]
-        OPENBAO["OpenBao<br/>(Secret Management)"]
-    end
-    
-    %% Core Infrastructure (Layer 2)
-    subgraph L2["Layer 2: Core Infrastructure"]
-        subgraph NET["Networking & Security"]
-            GWAPI["Gateway API"]
-            KGWAY["KGateway"]
-            CERT["cert-manager"]
-            MLB["MetalLB"]
-            EXTSEC["external-secrets"]
-            KYV["Kyverno"]
+    %% Core Infrastructure Layer
+    subgraph INFRA["🏗️ Layer 2: Core Infrastructure"]
+        direction TB
+        subgraph NET["Networking"]
+            I_GWAPI["Gateway API"]
+            I_KGWAY["KGateway"]
+            I_CERT["cert-manager"]
+            I_MLB["MetalLB"]
         end
-        subgraph STOR["Storage & Database"]
-            CNPG["CNPG Operator"]
-            MINIO_OP["MinIO Operator"]
-            MINIO_TEN["MinIO Tenant"]
+        subgraph SEC["Security"]
+            I_EXTSEC["external-secrets"]
+            I_KYV["Kyverno"]
+        end
+        subgraph STOR["Storage"]
+            I_CNPG["CNPG Operator"]
+            I_MINIO_OP["MinIO Operator"]
         end
     end
     
-    %% AI/ML Stack (Layer 3)
-    subgraph L3["Layer 3: AI/ML Compute Stack"]
-        subgraph GPU["GPU & Compute"]
-            AMD_GPU["AMD GPU Operator"]
-            KUBERAY["KubeRay Operator"]
-            KSERVE["KServe + CRDs"]
-            KUEUE["Kueue"]
-            APPW["AppWrapper"]
+    %% AI/ML Compute Layer  
+    subgraph AIML["🤖 Layer 3: AI/ML Stack"]
+        direction TB
+        subgraph COMPUTE["Compute"]
+            A_GPU["AMD GPU Operator"]
+            A_RAY["KubeRay Operator"] 
+            A_SERVE["KServe + CRDs"]
         end
-        subgraph WF["Workflow & Messaging"]
-            KAIWO["Kaiwo + CRDs"]
-            RABBIT["RabbitMQ"]
+        subgraph SCHEDULE["Scheduling"]
+            A_KUEUE["Kueue"]
+            A_APPW["AppWrapper"]
+        end
+        subgraph WORKFLOW["Workflow"]
+            A_KAIWO["Kaiwo + CRDs"]
+            A_RABBIT["RabbitMQ"]
         end
     end
     
-    %% Observability (Layer 4)
-    subgraph L4["Layer 4: Observability"]
-        PROM["Prometheus CRDs"]
-        OTEL["OpenTelemetry Operator"]
-        LGTM["OTEL-LGTM Stack"]
+    %% Observability Layer
+    subgraph OBS["📊 Layer 4: Observability"]
+        direction TB
+        O_PROM["Prometheus CRDs"]
+        O_OTEL["OpenTelemetry Operator"]
+        O_LGTM["OTEL-LGTM Stack"]
     end
     
-    %% Identity (Layer 5)  
-    subgraph L5["Layer 5: Identity & Access"]
-        KC["Keycloak"]
-        AUTH["cluster-auth"]
+    %% Identity Layer
+    subgraph IDENTITY["🔐 Layer 5: Identity & Access"]
+        direction TB
+        ID_KC["Keycloak"]
+        ID_AUTH["cluster-auth"]
     end
     
-    %% AIRM Application (Final Deliverable)
-    subgraph AIRM_APP["🎯 AIRM Platform (Main Deliverable)"]
+    %% Final Deliverable
+    subgraph AIRM["🎯 AIRM Platform (Main Deliverable)"]
+        direction TB
         AIRM_UI["AIRM Frontend<br/>(Web Dashboard)"]
-        AIRM_API["AIRM Backend<br/>(REST API)"]
+        AIRM_API["AIRM Backend<br/>(REST API)"] 
         AIRM_DISP["AIRM Dispatcher<br/>(Job Scheduler)"]
     end
     
-    %% Dependencies: cluster-bloom → CF Bootstrap
-    SC --> ARGO
-    SC --> CNPG
-    SC --> MINIO_TEN
-    DN --> ARGO
-    DN --> KGWAY
-    TLS --> KGWAY
-    KUBECTL --> ARGO
-    HELM --> ARGO
-    SSL --> OPENBAO
+    %% Top-Down Dependencies
+    PREREQ --> BOOTSTRAP
+    CB_SC --> CF_ARGO
+    CB_DN --> CF_ARGO  
+    CB_TLS --> I_KGWAY
+    TOOLS --> CF_ARGO
     
-    %% Bootstrap Dependencies
-    ARGO --> GITEA
-    ARGO --> OPENBAO
+    BOOTSTRAP --> INFRA
+    CF_ARGO --> I_GWAPI
+    CF_ARGO --> I_CERT
+    CF_ARGO --> I_MLB
+    CF_ARGO --> I_CNPG
+    CF_ARGO --> I_MINIO_OP
+    CF_VAULT --> I_EXTSEC
     
-    %% Layer 1 → Layer 2
-    OPENBAO --> EXTSEC
-    ARGO --> CERT
-    ARGO --> GWAPI
-    ARGO --> MLB
-    ARGO --> CNPG
-    ARGO --> MINIO_OP
+    INFRA --> AIML
+    I_CNPG --> A_RABBIT
+    I_MINIO_OP --> A_RABBIT
+    CF_ARGO --> A_GPU
+    CF_ARGO --> A_RAY
+    CF_ARGO --> A_SERVE
+    CF_ARGO --> A_KUEUE
+    CF_ARGO --> A_KAIWO
     
-    %% Layer 2 → Layer 3
-    CNPG --> RABBIT
-    MINIO_OP --> MINIO_TEN
-    GWAPI --> KGWAY
-    CERT --> KGWAY
-    ARGO --> AMD_GPU
-    ARGO --> KUBERAY
-    ARGO --> KSERVE
-    ARGO --> KUEUE
-    ARGO --> KAIWO
+    INFRA --> OBS
+    CF_ARGO --> O_PROM
+    CF_ARGO --> O_OTEL
+    O_PROM --> O_LGTM
+    O_OTEL --> O_LGTM
     
-    %% Layer 2/3 → Layer 4
-    ARGO --> PROM
-    ARGO --> OTEL
-    PROM --> LGTM
-    OTEL --> LGTM
+    INFRA --> IDENTITY
+    CF_ARGO --> ID_KC
+    CF_ARGO --> ID_AUTH
     
-    %% Layer 2 → Layer 5
-    ARGO --> KC
-    ARGO --> AUTH
+    %% All Layers Converge to AIRM
+    BOOTSTRAP --> AIRM
+    INFRA --> AIRM
+    AIML --> AIRM
+    OBS --> AIRM
+    IDENTITY --> AIRM
     
-    %% All Layers → AIRM (Critical Dependencies)
-    CNPG --> AIRM_API
-    RABBIT --> AIRM_API
-    RABBIT --> AIRM_DISP
-    MINIO_TEN --> AIRM_API
-    KC --> AIRM_API
-    KC --> AIRM_UI
-    OPENBAO --> AIRM_API
-    EXTSEC --> AIRM_API
-    KGWAY --> AIRM_UI
-    KGWAY --> AIRM_API
-    CERT --> AIRM_UI
-    LGTM --> AIRM_API
+    %% Critical AIRM Dependencies
+    I_CNPG --> AIRM_API
+    A_RABBIT --> AIRM_API
+    A_RABBIT --> AIRM_DISP
+    I_MINIO_OP --> AIRM_API
+    ID_KC --> AIRM_API
+    ID_KC --> AIRM_UI
+    CF_VAULT --> AIRM_API
+    I_EXTSEC --> AIRM_API
+    I_KGWAY --> AIRM_UI
+    I_KGWAY --> AIRM_API
+    I_CERT --> AIRM_UI
+    O_LGTM --> AIRM_API
     
-    %% AI/ML Stack → AIRM (Compute Dependencies)
-    AMD_GPU --> AIRM_DISP
-    KUBERAY --> AIRM_DISP
-    KSERVE --> AIRM_DISP
-    KUEUE --> AIRM_DISP
-    APPW --> AIRM_DISP
-    KAIWO --> AIRM_DISP
-    KYV --> AIRM_DISP
-    AUTH --> AIRM_DISP
+    %% AI/ML to AIRM
+    A_GPU --> AIRM_DISP
+    A_RAY --> AIRM_DISP
+    A_SERVE --> AIRM_DISP
+    A_KUEUE --> AIRM_DISP
+    A_APPW --> AIRM_DISP
+    A_KAIWO --> AIRM_DISP
+    I_KYV --> AIRM_DISP
+    ID_AUTH --> AIRM_DISP
     
-    %% Styling
-    classDef prereq fill:#ffcccc,stroke:#ff6666,stroke-width:2px
-    classDef bootstrap fill:#ccffcc,stroke:#66cc66,stroke-width:2px
-    classDef infra fill:#ccccff,stroke:#6666ff,stroke-width:2px
-    classDef aiml fill:#ffffcc,stroke:#cccc66,stroke-width:2px
-    classDef obs fill:#ffccff,stroke:#cc66cc,stroke-width:2px
-    classDef identity fill:#ccffff,stroke:#66cccc,stroke-width:2px
-    classDef airm fill:#ff9999,stroke:#cc3333,stroke-width:3px
+    %% Styling for better readability
+    classDef prereqStyle fill:#fff2cc,stroke:#d6b656,stroke-width:2px
+    classDef bootstrapStyle fill:#d5e8d4,stroke:#82b366,stroke-width:2px
+    classDef infraStyle fill:#dae8fc,stroke:#6c8ebf,stroke-width:2px
+    classDef aimlStyle fill:#ffe6cc,stroke:#d79b00,stroke-width:2px
+    classDef obsStyle fill:#f8cecc,stroke:#b85450,stroke-width:2px
+    classDef identityStyle fill:#e1d5e7,stroke:#9673a6,stroke-width:2px
+    classDef airmStyle fill:#ff9999,stroke:#cc0000,stroke-width:4px
     
-    class CB,TOOLS prereq
-    class L1 bootstrap
-    class L2 infra
-    class L3 aiml
-    class L4 obs
-    class L5 identity
-    class AIRM_APP airm
+    class PREREQ prereqStyle
+    class BOOTSTRAP bootstrapStyle  
+    class INFRA infraStyle
+    class AIML aimlStyle
+    class OBS obsStyle
+    class IDENTITY identityStyle
+    class AIRM airmStyle
 ```
 
 ### Critical Dependency Paths
