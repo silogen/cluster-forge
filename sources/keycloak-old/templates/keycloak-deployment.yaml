@@ -24,7 +24,7 @@ spec:
             - --import-realm
           env:
             - name: KC_HOSTNAME
-              value: {{ .Values.hostname | default (printf "https://kc.%s" .Values.domain) }}
+              value: {{ .Values.hostname | default (printf "https://kc.%s" .Values.domain) | quote }}
             - name: KC_DB
               value: postgres
             - name: KC_DB_URL_HOST
@@ -56,11 +56,9 @@ spec:
               value: edge
             - name: KC_HOSTNAME_STRICT
               value: "false"
-            {{- if eq (.Values.localDev | toString) "true" }}
+            {{- if .Values.localDev }}
             - name: KC_HTTP_ENABLED
               value: "true"
-            - name: KEYCLOAK_FRONTEND_URL
-              value: "http://localhost:8080"
             {{- end }}
             - name: KC_PROXY_HEADERS
               value: xforwarded
