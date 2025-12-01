@@ -76,6 +76,9 @@ apps:
     path: keycloak-old
     namespace: keycloak
     valuesFile: values.yaml
+    helmParameters:
+      - name: hostname
+        value: "http://localhost:8080" # Override for local port-forwarding
     syncWave: -2
   keycloak-config:
     path: keycloak-config
