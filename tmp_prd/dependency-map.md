@@ -148,13 +148,13 @@ flowchart TD
     ID_AUTH --> AIRM_DISP
     
     %% Styling for better readability
-    classDef prereqStyle fill:#fff2cc,stroke:#d6b656,stroke-width:2px
-    classDef bootstrapStyle fill:#d5e8d4,stroke:#82b366,stroke-width:2px
-    classDef infraStyle fill:#dae8fc,stroke:#6c8ebf,stroke-width:2px
-    classDef aimlStyle fill:#ffe6cc,stroke:#d79b00,stroke-width:2px
-    classDef obsStyle fill:#f8cecc,stroke:#b85450,stroke-width:2px
-    classDef identityStyle fill:#e1d5e7,stroke:#9673a6,stroke-width:2px
-    classDef airmStyle fill:#ff9999,stroke:#cc0000,stroke-width:4px
+    classDef prereqStyle fill:#fff2cc,stroke:#d6b656,stroke-width:2px,color:#000000
+    classDef bootstrapStyle fill:#d5e8d4,stroke:#82b366,stroke-width:2px,color:#000000
+    classDef infraStyle fill:#dae8fc,stroke:#6c8ebf,stroke-width:2px,color:#000000
+    classDef aimlStyle fill:#ffe6cc,stroke:#d79b00,stroke-width:2px,color:#000000
+    classDef obsStyle fill:#f8cecc,stroke:#b85450,stroke-width:2px,color:#000000
+    classDef identityStyle fill:#e1d5e7,stroke:#9673a6,stroke-width:2px,color:#000000
+    classDef airmStyle fill:#ff9999,stroke:#cc0000,stroke-width:4px,color:#000000
     
     class PREREQ prereqStyle
     class BOOTSTRAP bootstrapStyle
