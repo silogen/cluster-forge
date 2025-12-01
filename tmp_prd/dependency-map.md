@@ -4,82 +4,54 @@
 ### Visual Dependency Flow
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#ffffff','primaryTextColor':'#000000','primaryBorderColor':'#7C0000','lineColor':'#000000','fontSize':'16px'}}}%%
 flowchart TD
     %% Prerequisites (Top)
     subgraph PREREQ["🔧 Prerequisites"]
-        direction TB
-        CB_SC["cluster-bloom:<br/>Storage Class"]
-        CB_DN["cluster-bloom:<br/>Domain Name"] 
-        CB_TLS["cluster-bloom:<br/>cluster-tls Secret"]
+        CB_SC["cluster-bloom: Storage Class"]
+        CB_DN["cluster-bloom: Domain Name"] 
+        CB_TLS["cluster-bloom: cluster-tls Secret"]
         TOOLS["Tools: kubectl, helm, openssl"]
     end
     
     %% Bootstrap Foundation
     subgraph BOOTSTRAP["⚡ Layer 1: Bootstrap Foundation"]
-        direction TB
-        CF_ARGO["ArgoCD<br/>(GitOps Controller)"]
-        CF_GITEA["Gitea<br/>(Git Repository)"]
-        CF_VAULT["OpenBao<br/>(Secret Management)"]
+        CF_ARGO["ArgoCD (GitOps Controller)"]
+        CF_GITEA["Gitea (Git Repository)"]
+        CF_VAULT["OpenBao (Secret Management)"]
     end
     
-    %% Core Infrastructure Layer
+    %% Core Infrastructure Layer - More Compact
     subgraph INFRA["🏗️ Layer 2: Core Infrastructure"]
-        direction TB
-        subgraph NET["Networking"]
-            I_GWAPI["Gateway API"]
-            I_KGWAY["KGateway"]
-            I_CERT["cert-manager"]
-            I_MLB["MetalLB"]
-        end
-        subgraph SEC["Security"]
-            I_EXTSEC["external-secrets"]
-            I_KYV["Kyverno"]
-        end
-        subgraph STOR["Storage"]
-            I_CNPG["CNPG Operator"]
-            I_MINIO_OP["MinIO Operator"]
-        end
+        I_GWAPI["Gateway API"] & I_KGWAY["KGateway"] & I_CERT["cert-manager"]
+        I_MLB["MetalLB"] & I_EXTSEC["external-secrets"] & I_KYV["Kyverno"]
+        I_CNPG["CNPG Operator"] & I_MINIO_OP["MinIO Operator"]
     end
     
-    %% AI/ML Compute Layer  
+    %% AI/ML Compute Layer - More Compact
     subgraph AIML["🤖 Layer 3: AI/ML Stack"]
-        direction TB
-        subgraph COMPUTE["Compute"]
-            A_GPU["AMD GPU Operator"]
-            A_RAY["KubeRay Operator"] 
-            A_SERVE["KServe + CRDs"]
-        end
-        subgraph SCHEDULE["Scheduling"]
-            A_KUEUE["Kueue"]
-            A_APPW["AppWrapper"]
-        end
-        subgraph WORKFLOW["Workflow"]
-            A_KAIWO["Kaiwo + CRDs"]
-            A_RABBIT["RabbitMQ"]
-        end
+        A_GPU["AMD GPU Operator"] & A_RAY["KubeRay Operator"] & A_SERVE["KServe + CRDs"]
+        A_KUEUE["Kueue"] & A_APPW["AppWrapper"] & A_KAIWO["Kaiwo + CRDs"]
+        A_RABBIT["RabbitMQ"]
     end
     
-    %% Observability Layer
+    %% Observability & Identity - Side by Side
     subgraph OBS["📊 Layer 4: Observability"]
-        direction TB
         O_PROM["Prometheus CRDs"]
         O_OTEL["OpenTelemetry Operator"]
         O_LGTM["OTEL-LGTM Stack"]
     end
     
-    %% Identity Layer
     subgraph IDENTITY["🔐 Layer 5: Identity & Access"]
-        direction TB
         ID_KC["Keycloak"]
         ID_AUTH["cluster-auth"]
     end
     
     %% Final Deliverable
     subgraph AIRM["🎯 AIRM Platform (Main Deliverable)"]
-        direction TB
-        AIRM_UI["AIRM Frontend<br/>(Web Dashboard)"]
-        AIRM_API["AIRM Backend<br/>(REST API)"] 
-        AIRM_DISP["AIRM Dispatcher<br/>(Job Scheduler)"]
+        AIRM_UI["AIRM Frontend (Web Dashboard)"]
+        AIRM_API["AIRM Backend (REST API)"] 
+        AIRM_DISP["AIRM Dispatcher (Job Scheduler)"]
     end
     
     %% Top-Down Dependencies
