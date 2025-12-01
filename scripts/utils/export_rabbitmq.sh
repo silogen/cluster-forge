@@ -63,7 +63,7 @@ CONTAINER_NAME="rabbitmq"
 TMP_FILE="/tmp/rmq_defs.json"
 
 # Default output location
-OUTPUT_DIR="${1:-$HOME}"
+OUTPUT_DIR="${1:-$PWD}"
 TIMESTAMP=$(date +%Y-%m-%d)
 OUTPUT_FILE="${OUTPUT_DIR}/rmq_export_${TIMESTAMP}.json"
 
