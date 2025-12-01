@@ -56,7 +56,7 @@ spec:
               value: edge
             - name: KC_HOSTNAME_STRICT
               value: "false"
-            {{- if .Values.localDev }}
+            {{- if eq (.Values.localDev | toString) "true" }}
             - name: KC_HTTP_ENABLED
               value: "true"
             {{- end }}
