@@ -157,7 +157,7 @@ flowchart TD
     classDef airmStyle fill:#ff9999,stroke:#cc0000,stroke-width:4px
     
     class PREREQ prereqStyle
-    class BOOTSTRAP bootstrapStyle  
+    class BOOTSTRAP bootstrapStyle
     class INFRA infraStyle
     class AIML aimlStyle
     class OBS obsStyle
