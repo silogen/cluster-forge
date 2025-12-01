@@ -32,8 +32,8 @@ chmod u+x ./mc
 ./mc alias set local http://localhost:${NODE_PORT} $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
 
 # mirror to local filesystem, with checksum verification, retries, and logging
-mkdir minio_restore
-./mc mirror local/default-bucket minio_restore \
+mkdir minio_mirror
+./mc mirror local/default-bucket minio_mirror \
   --overwrite \
   --remove \
   > >(tee mirror-stdout.log) 2> >(tee mirror-stderr.log >&2)
