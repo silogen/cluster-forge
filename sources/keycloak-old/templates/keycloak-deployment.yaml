@@ -24,7 +24,7 @@ spec:
             - --import-realm
           env:
             - name: KC_HOSTNAME
-              value: https://kc.{{ .Values.domain }}
+              value: {{ .Values.hostname | default (printf "https://kc.%s" .Values.domain) }}
             - name: KC_DB
               value: postgres
             - name: KC_DB_URL_HOST
