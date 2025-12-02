@@ -32,7 +32,7 @@ The script performs the following steps in sequence:
 ### 1. Domain Configuration
 - Validates that a domain argument is provided
 - Sets the values file to use (defaults to `values_cf.yaml` if not specified)
-- Updates the global domain value in the specified values file
+- Uses the global domain value to render [root](../root) helm chart
 - This domain is used for all service endpoints (Gitea, ArgoCD, etc.)
 
 ### 2. Namespace Creation
