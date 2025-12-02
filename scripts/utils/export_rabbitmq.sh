@@ -1,15 +1,69 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# RabbitMQ Backup Script
-# Exports RabbitMQ definitions (exchanges, queues, bindings, policies) from the cluster
+###################################################################################################
+#                                                                                                 #
+# Description:  Exports RabbitMQ definitions to JSON file                                        #
+#                                                                                                 #
+# Run with --help flag for usage information and flag descriptions                               #
+#                                                                                                 #
+###################################################################################################
+
+show_help() {
+    cat << 'HELPEOF'
+Usage: ./export_rabbitmq.sh [OUTPUT_DIR] [OPTIONS]
+
+Description:
+  Exports RabbitMQ definitions (exchanges, queues, bindings, policies) from the
+  cluster to a timestamped JSON file. Useful for backup and migration purposes.
+
+Arguments:
+  OUTPUT_DIR              Directory to save the export file (default: $HOME)
+
+Options:
+  --help                  Display this help message and exit
+
+Behavior:
+  - Finds the RabbitMQ pod in the 'airm' namespace
+  - Exports definitions using rabbitmqctl inside the pod
+  - Copies the export file to the specified local directory
+  - Cleans up temporary files from the pod
+  - Creates timestamped files: rmq_export_YYYY-MM-DD.json
+
+Requirements:
+  - kubectl configured and authenticated
+  - Access to 'airm' namespace
+  - RabbitMQ pod running with label app.kubernetes.io/name=airm-rabbitmq
+
+Output Files:
+  - rmq_export_YYYY-MM-DD.json
+
+Examples:
+  # Export to home directory (default)
+  ./export_rabbitmq.sh
+
+  # Export to custom directory
+  ./export_rabbitmq.sh /path/to/backups
+
+Exit Codes:
+  0 - Success (export completed successfully)
+  1 - Error (missing pod, export failure)
+
+HELPEOF
+    exit 0
+}
+
+# Check for --help flag
+if [[ "${1:-}" == "--help" ]]; then
+    show_help
+fi
 
 NAMESPACE="airm"
 CONTAINER_NAME="rabbitmq"
 TMP_FILE="/tmp/rmq_defs.json"
 
 # Default output location
-OUTPUT_DIR="${1:-$HOME}"
+OUTPUT_DIR="${1:-$PWD}"
 TIMESTAMP=$(date +%Y-%m-%d)
 OUTPUT_FILE="${OUTPUT_DIR}/rmq_export_${TIMESTAMP}.json"
 
@@ -21,6 +75,13 @@ echo ""
 # Find RabbitMQ pod (use lowest numbered instance)
 echo "Finding RabbitMQ pod in namespace $NAMESPACE..."
 POD_NAME=$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=airm-rabbitmq -o jsonpath='{.items[*].metadata.name}' 2>/dev/null | tr ' ' '\n' | sort -V | head -n 1)
+
+# Fallback to generic airm label if airm-rabbitmq not found
+if [[ -z "$POD_NAME" ]]; then
+    echo "  No pods found with label app.kubernetes.io/name=airm-rabbitmq"
+    echo "  Trying fallback label app.kubernetes.io/name=rabbitmq..."
+    POD_NAME=$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=rabbitmq -o jsonpath='{.items[*].metadata.name}' 2>/dev/null | grep -i rabbitmq | sort -V | head -n 1)
+fi
 
 if [[ -z "$POD_NAME" ]]; then
     echo "ERROR: No RabbitMQ pod found in namespace $NAMESPACE"
@@ -75,3 +136,4 @@ echo "Backup file: $OUTPUT_FILE"
 echo ""
 echo "To restore this backup, use:"
 echo "  ./scripts/utils/import_rabbitmq.sh $OUTPUT_FILE"
+echo ""
