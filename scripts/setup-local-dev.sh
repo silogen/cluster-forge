@@ -60,64 +60,126 @@ volumeBindingMode: WaitForFirstConsumer
 allowVolumeExpansion: false
 EOF
 
-# Bootstrap ArgoCD
-echo "🚀 Deploying ArgoCD..."
-helm template --release-name argocd sources/argocd/8.3.5 \
-  -f sources/argocd/values_cf.yaml \
-  --namespace argocd \
-  --set global.domain="https://argocd.${DOMAIN}" \
-  --kube-version=1.33 | kubectl apply -f -
+# Pre-load container images
+preload_images() {
+    echo "🖼️  Pre-loading container images from Helm charts..."
+    
+    # Temporary directory for rendered manifests
+    TEMP_DIR=$(mktemp -d)
+    trap "rm -rf $TEMP_DIR" EXIT
+    
+    echo "📋 Discovering charts from cluster-forge..."
+    
+    # Render cluster-forge to get the list of source paths
+    helm template cluster-forge root/ \
+        --values root/values_local_kind.yaml \
+        > "$TEMP_DIR/cluster-forge.yaml" 2>/dev/null
+    
+    # Extract source paths that will actually be deployed
+    CHART_PATHS=$(grep "path: sources/" "$TEMP_DIR/cluster-forge.yaml" | \
+        sed 's/.*path:[[:space:]]*\(sources\/[^[:space:]]*\).*/\1/' | \
+        sort -u)
+    
+    if [ -z "$CHART_PATHS" ]; then
+        echo "⚠️  No chart paths found, skipping pre-load"
+        return 0
+    fi
+    
+    echo "Found $(echo "$CHART_PATHS" | wc -l | tr -d ' ') charts to render"
+    echo ""
+    
+    # Render each chart that will be deployed
+    for CHART_PATH in $CHART_PATHS; do
+        if [ -f "$CHART_PATH/Chart.yaml" ]; then
+            CHART_NAME=$(basename "$CHART_PATH")
+            echo "  Rendering $CHART_NAME..."
+            
+            VALUES_FILE="$CHART_PATH/values.yaml"
+            if [ -f "$VALUES_FILE" ]; then
+                helm template "$CHART_NAME" "$CHART_PATH" \
+                    --values "$VALUES_FILE" \
+                    >> "$TEMP_DIR/all-manifests.yaml" 2>/dev/null || echo "    ⚠️  Failed to render"
+            fi
+        fi
+    done
+    
+    # Extract all unique images from rendered manifests
+    echo ""
+    echo "📦 Extracting images from manifests..."
+    IMAGES=$(cat "$TEMP_DIR"/*.yaml 2>/dev/null | \
+        grep -E "^\s+image:" | \
+        sed 's/.*image:[[:space:]]*["\x27]\?\([^"[:space:]]*\).*/\1/' | \
+        grep -v "{{" | \
+        sort -u)
+    
+    if [ -z "$IMAGES" ]; then
+        echo "⚠️  No images found in rendered manifests"
+        return 0
+    fi
+    
+    TOTAL=$(echo "$IMAGES" | wc -l | tr -d ' ')
+    echo "Found $TOTAL unique images to pre-load"
+    echo ""
+    
+    CURRENT=0
+    FAILED=0
+    LOADED=0
+    
+    for IMAGE in $IMAGES; do
+        CURRENT=$((CURRENT + 1))
+        printf "[%d/%d] %s\n" "$CURRENT" "$TOTAL" "$IMAGE"
+        
+        # Pull to Docker if not present
+        if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+            docker pull "$IMAGE" >/dev/null 2>&1 || {
+                echo "  ⚠️  Failed to pull"
+                FAILED=$((FAILED + 1))
+                continue
+            }
+        fi
+        
+        # Load into Kind
+        kind load docker-image "$IMAGE" --name cluster-forge-local >/dev/null 2>&1 && {
+            echo "  ✅"
+            LOADED=$((LOADED + 1))
+        } || {
+            echo "  ⚠️  Failed to load"
+            FAILED=$((FAILED + 1))
+        }
+    done
+    
+    echo ""
+    echo "📊 Loaded: $LOADED, Failed: $FAILED"
+    echo "✅ Pre-loading complete!"
+    echo ""
+}
 
-echo "⏳ Waiting for ArgoCD to be ready..."
-if ! kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd 2>&1; then
-    echo "⚠️  WARNING: argocd-server deployment not ready, continuing anyway..."
-    kubectl get pods -n argocd
-fi
+# Pre-load images (comment out to skip)
+preload_images
 
-if ! kubectl rollout status statefulset/argocd-application-controller -n argocd --timeout=300s 2>&1; then
-    echo "⚠️  WARNING: application-controller not ready, continuing anyway..."
-fi
+# Bootstrap components in parallel
+echo "🚀 Deploying ArgoCD, OpenBao, and Gitea in parallel..."
 
-if ! kubectl rollout status deploy/argocd-redis -n argocd --timeout=180s 2>&1; then
-    echo "⚠️  WARNING: argocd-redis not ready, continuing anyway..."
-fi
+# Deploy ArgoCD
+(
+    helm template --release-name argocd sources/argocd/8.3.5 \
+      -f sources/argocd/values_cf.yaml \
+      --namespace argocd \
+      --set global.domain="https://argocd.${DOMAIN}" \
+      --kube-version=1.33 | kubectl apply -f - 2>&1 | sed 's/^/[ArgoCD] /'
+) &
+ARGOCD_PID=$!
 
-if ! kubectl rollout status deploy/argocd-repo-server -n argocd --timeout=180s 2>&1; then
-    echo "⚠️  WARNING: repo-server not ready, continuing anyway..."
-fi
+# Deploy OpenBao
+(
+    helm template --release-name openbao sources/openbao/0.18.2 \
+      -f sources/openbao/values_cf.yaml \
+      --namespace cf-openbao \
+      --kube-version=1.33 | kubectl apply -f - 2>&1 | sed 's/^/[OpenBao] /'
+) &
+OPENBAO_PID=$!
 
-echo "✅ ArgoCD deployment phase complete"
-
-# Bootstrap OpenBao
-echo "🔐 Deploying OpenBao..."
-helm template --release-name openbao sources/openbao/0.18.2 \
-  -f sources/openbao/values_cf.yaml \
-  --namespace cf-openbao \
-  --kube-version=1.33 | kubectl apply -f -
-
-echo "⏳ Waiting for OpenBao to be ready..."
-if ! kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s 2>&1; then
-    echo "❌ ERROR: OpenBao pod failed to start. Checking status:"
-    kubectl get pods -n cf-openbao
-    kubectl describe pod/openbao-0 -n cf-openbao | tail -30
-    exit 1
-fi
-
-echo "🔧 Initializing OpenBao..."
-helm template --release-name openbao-init scripts/init-openbao-job \
-  --set domain="${DOMAIN}" \
-  --kube-version=1.33 | kubectl apply -f -
-
-if ! kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao 2>&1; then
-    echo "❌ ERROR: OpenBao initialization failed. Check logs:"
-    kubectl logs -n cf-openbao job/openbao-init-job --tail=50
-    exit 1
-fi
-
-# Bootstrap Gitea
-echo "📚 Deploying Gitea..."
-
-# Generate admin password
+# Prepare Gitea secrets
 generate_password() {
     openssl rand -hex 16 | tr 'a-f' 'A-F' | head -c 32
 }
@@ -126,41 +188,116 @@ kubectl create secret generic gitea-admin-credentials \
   --namespace=cf-gitea \
   --from-literal=username=silogen-admin \
   --from-literal=password=$(generate_password) \
-  --dry-run=client -o yaml | kubectl apply -f -
+  --dry-run=client -o yaml | kubectl apply -f - > /dev/null 2>&1
 
 kubectl create configmap initial-cf-values \
   --from-file=initial-cf-values=root/values_local_kind.yaml \
   -n cf-gitea \
-  --dry-run=client -o yaml | kubectl apply -f -
+  --dry-run=client -o yaml | kubectl apply -f - > /dev/null 2>&1
 
-helm template --release-name gitea sources/gitea/12.3.0 \
-  -f sources/gitea/values_cf.yaml \
-  --namespace cf-gitea \
-  --set clusterDomain="${DOMAIN}" \
-  --set gitea.config.server.ROOT_URL="http://gitea.${DOMAIN}" \
-  --kube-version=1.33 | kubectl apply -f -
+# Deploy Gitea
+(
+    helm template --release-name gitea sources/gitea/12.3.0 \
+      -f sources/gitea/values_cf.yaml \
+      --namespace cf-gitea \
+      --set clusterDomain="${DOMAIN}" \
+      --set gitea.config.server.ROOT_URL="http://gitea.${DOMAIN}" \
+      --kube-version=1.33 | kubectl apply -f - 2>&1 | sed 's/^/[Gitea] /'
+) &
+GITEA_PID=$!
 
-echo "⏳ Waiting for Gitea to be ready..."
-if ! kubectl rollout status deploy/gitea -n cf-gitea --timeout=300s 2>&1; then
-    echo "❌ ERROR: Gitea deployment failed. Checking status:"
-    kubectl get pods -n cf-gitea
-    kubectl logs -n cf-gitea deployment/gitea --tail=50
-    exit 1
-fi
+# Wait for all deployments to complete
+echo "⏳ Waiting for parallel deployments to apply..."
+wait $ARGOCD_PID $OPENBAO_PID $GITEA_PID
 
-echo "🔧 Initializing Gitea repositories..."
-helm template --release-name gitea-init scripts/init-gitea-job \
+echo "⏳ Waiting for all components to become ready..."
+
+# Wait for ArgoCD
+echo "  Waiting for ArgoCD..."
+kubectl wait --for=condition=available --timeout=600s deployment/argocd-server -n argocd > /dev/null 2>&1 &
+WAIT_ARGOCD_SERVER=$!
+
+kubectl rollout status statefulset/argocd-application-controller -n argocd --timeout=600s > /dev/null 2>&1 &
+WAIT_ARGOCD_CONTROLLER=$!
+
+kubectl rollout status deploy/argocd-redis -n argocd --timeout=600s > /dev/null 2>&1 &
+WAIT_ARGOCD_REDIS=$!
+
+kubectl rollout status deploy/argocd-repo-server -n argocd --timeout=600s > /dev/null 2>&1 &
+WAIT_ARGOCD_REPO=$!
+
+# Wait for OpenBao
+echo "  Waiting for OpenBao..."
+kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=600s > /dev/null 2>&1 &
+WAIT_OPENBAO=$!
+
+# Wait for Gitea
+echo "  Waiting for Gitea..."
+kubectl rollout status deploy/gitea -n cf-gitea --timeout=600s > /dev/null 2>&1 &
+WAIT_GITEA=$!
+
+# Wait for all readiness checks
+wait $WAIT_ARGOCD_SERVER $WAIT_ARGOCD_CONTROLLER $WAIT_ARGOCD_REDIS $WAIT_ARGOCD_REPO
+echo "✅ ArgoCD is ready"
+
+wait $WAIT_OPENBAO
+echo "✅ OpenBao is ready"
+
+wait $WAIT_GITEA
+echo "✅ Gitea is ready"
+
+# Initialize OpenBao
+echo "🔧 Initializing OpenBao..."
+helm template --release-name openbao-init scripts/init-openbao-job \
   --set domain="${DOMAIN}" \
-  --kube-version=1.33 | kubectl apply -f -
+  --kube-version=1.33 | kubectl apply -f - > /dev/null
 
-if ! kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea 2>&1; then
-    echo "❌ ERROR: Gitea initialization failed. Check logs:"
-    kubectl logs -n cf-gitea job/gitea-init-job --tail=50
-    exit 1
-fi
+kubectl wait --for=condition=complete --timeout=600s job/openbao-init-job -n cf-openbao > /dev/null 2>&1 &
+WAIT_OPENBAO_INIT=$!
 
-# Deploy cluster-forge ArgoCD application
-echo "🎯 Deploying cluster-forge ArgoCD application..."
+# Initialize Gitea
+echo "🔧 Initializing Gitea..."
+helm template --release-name gitea-init scripts/init-gitea-local-job \
+  --set domain="${DOMAIN}" \
+  --kube-version=1.33 | kubectl apply -f - > /dev/null
+
+kubectl wait --for=condition=complete --timeout=600s job/gitea-init-local-job -n cf-gitea > /dev/null 2>&1 &
+WAIT_GITEA_INIT=$!
+
+# Wait for both init jobs
+wait $WAIT_OPENBAO_INIT
+echo "✅ OpenBao initialized"
+
+wait $WAIT_GITEA_INIT
+echo "✅ Gitea initialized"
+
+echo "📤 Pushing local repository to Gitea..."
+# Get Gitea admin credentials
+GITEA_USER=$(kubectl get secret gitea-admin-credentials -n cf-gitea -o jsonpath='{.data.username}' | base64 -d)
+GITEA_PASS=$(kubectl get secret gitea-admin-credentials -n cf-gitea -o jsonpath='{.data.password}' | base64 -d)
+GITEA_URL="http://gitea.${DOMAIN}:3000"
+
+# Add Gitea as a remote and push (via port-forward)
+kubectl port-forward -n cf-gitea svc/gitea-http 3000:3000 &
+PF_PID=$!
+sleep 3
+
+# Configure git if needed
+git remote remove gitea-local 2>/dev/null || true
+git remote add gitea-local "http://${GITEA_USER}:${GITEA_PASS}@localhost:3000/cluster-org/cluster-forge.git"
+
+# Push current branch to main
+echo "Pushing $(git branch --show-current) to Gitea main branch..."
+git push gitea-local HEAD:main --force
+
+# Cleanup
+kill $PF_PID 2>/dev/null || true
+git remote remove gitea-local
+
+echo "✅ Repository pushed to Gitea"
+
+# Deploy cluster-forge ArgoCD applications
+echo "🎯 Deploying cluster-forge ArgoCD applications..."
 helm template root -f root/values_local_kind.yaml \
   --set global.domain="${DOMAIN}" \
   --kube-version=1.33 | kubectl apply -f -
