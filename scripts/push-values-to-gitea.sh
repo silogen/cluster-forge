@@ -27,10 +27,6 @@ trap cleanup EXIT
 
 ORIGINAL_DIR=$(pwd)
 
-# Get the script directory and cluster-forge root
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CLUSTER_FORGE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-
 # Clone the cluster-values repo
 echo "📥 Cloning cluster-values repo..."
 rm -rf /tmp/cluster-values-local
@@ -38,7 +34,7 @@ git clone "http://${GITEA_USER}:${GITEA_PASSWORD}@localhost:3000/cluster-org/clu
 
 # Copy the values file
 echo "📝 Copying values_local_kind.yaml..."
-cp "$CLUSTER_FORGE_ROOT/root/values_local_kind.yaml" /tmp/cluster-values-local/
+cp root/values_local_kind.yaml /tmp/cluster-values-local/
 
 # Commit and push
 cd /tmp/cluster-values-local
