@@ -29,99 +29,103 @@ This document covers backup and restore procedures for:
 
 ## 1. CNPG (CloudNative Postgres)  Backup & Restore
 
-AIRM and Keycloak use Cloud Native PostgreSQL (CNPG) for data persistence. Use the provided script for backup and restore operations.
+AIRM and Keycloak use Cloud Native PostgreSQL (CNPG) for data persistence.
 
 ### Database Backup
 
-#### Using the Export Script
-
-The [`export_databases.sh`](../scripts/utils/export_databases.sh) script automates the backup process:
+**Note:** This is an example process specific to Ubuntu/Linux environments. Adjust paths and commands as needed for your system.
 
 ```bash
-# Export both AIRM and KEYCLOAK databases to default location the present working directory
-./scripts/utils/export_databases.sh
+# Set backup directory
+BACKUP_DIR="$HOME/db_backups"
+mkdir -p "$BACKUP_DIR"
+BACKUP_DATE=$(date +%Y-%m-%d)
 
-# Export to custom directory (directory must exist and be writable)
-mkdir -p /path/to/backup/directory
-./scripts/utils/export_databases.sh /path/to/backup/directory
+# Get AIRM database credentials
+AIRM_USER=$(kubectl get secret -n airm airm-cnpg-app -o jsonpath='{.data.username}' | base64 -d)
+AIRM_PASSWORD=$(kubectl get secret -n airm airm-cnpg-app -o jsonpath='{.data.password}' | base64 -d)
+AIRM_DB=$(kubectl get secret -n airm airm-cnpg-app -o jsonpath='{.data.dbname}' | base64 -d)
 
-# Export only AIRM database
-./scripts/utils/export_databases.sh /path/to/backup/directory --airm
+# Get Keycloak database credentials
+KEYCLOAK_USER=$(kubectl get secret -n keycloak keycloak-cnpg-app -o jsonpath='{.data.username}' | base64 -d)
+KEYCLOAK_PASSWORD=$(kubectl get secret -n keycloak keycloak-cnpg-app -o jsonpath='{.data.password}' | base64 -d)
+KEYCLOAK_DB=$(kubectl get secret -n keycloak keycloak-cnpg-app -o jsonpath='{.data.dbname}' | base64 -d)
 
-# Export only Keycloak database
-./scripts/utils/export_databases.sh /path/to/backup/directory --keycloak
+# Find primary AIRM pod
+AIRM_POD=$(kubectl get pod -n airm -l cnpg.io/cluster=airm-cnpg,role=primary -o jsonpath='{.items[0].metadata.name}')
 
-# Use port-forward (useful when direct pod exec is restricted or for larger databases / slower connections)
-./scripts/utils/export_databases.sh /path/to/backup/directory --port-forward
+# Find primary Keycloak pod
+KEYCLOAK_POD=$(kubectl get pod -n keycloak -l cnpg.io/cluster=keycloak-cnpg,role=primary -o jsonpath='{.items[0].metadata.name}')
 
-# Use port-forward with custom port and selective backup
-./scripts/utils/export_databases.sh /path/to/backup/directory --port-forward 5433 --keycloak
+# Backup AIRM database
+kubectl exec -n airm "$AIRM_POD" -- bash -c "PGPASSWORD='$AIRM_PASSWORD' pg_dump -U '$AIRM_USER' -d '$AIRM_DB' > /var/lib/postgresql/data/airm_backup.sql"
+kubectl cp -n airm "$AIRM_POD":/var/lib/postgresql/data/airm_backup.sql "$BACKUP_DIR/airm_db_backup_$BACKUP_DATE.sql"
+kubectl exec -n airm "$AIRM_POD" -- rm /var/lib/postgresql/data/airm_backup.sql
+
+# Backup Keycloak database
+kubectl exec -n keycloak "$KEYCLOAK_POD" -- bash -c "PGPASSWORD='$KEYCLOAK_PASSWORD' pg_dump -U '$KEYCLOAK_USER' -d '$KEYCLOAK_DB' > /var/lib/postgresql/data/keycloak_backup.sql"
+kubectl cp -n keycloak "$KEYCLOAK_POD":/var/lib/postgresql/data/keycloak_backup.sql "$BACKUP_DIR/keycloak_db_backup_$BACKUP_DATE.sql"
+kubectl exec -n keycloak "$KEYCLOAK_POD" -- rm /var/lib/postgresql/data/keycloak_backup.sql
+
+echo "Backups completed:"
+ls -lh "$BACKUP_DIR"/*_$BACKUP_DATE.sql
 ```
 
-**What the script does:**
+**What this does:**
 1. Retrieves database credentials from Kubernetes secrets
 2. Finds the primary CNPG pod for AIRM and Keycloak databases
-3. Executes `pg_dump` inside each pod to create backups in `/var/lib/postgresql/data/`
-4. Copies the backup files to your local machine via `kubectl cp`
+3. Executes `pg_dump` inside each pod to create backups
+4. Copies the backup files to your local machine
 5. Cleans up temporary files from the containers
-6. Creates timestamped backup files with cluster prefix:
-   - `airm_db_backup_YYYY-MM-DD.sql` (for 'default' context)
-   - `<cluster_name>_airm_db_backup_YYYY-MM-DD.sql` (for contexts other than 'default')
-   - appends `_02`, `_03`, etc. for multiple backups on the same day to prevent overwriting
-
-**Key Features:**
-- No Docker or local PostgreSQL installation required
-- Uses the exact PostgreSQL version from the database pods
-- Automatic credential retrieval and cleanup
-- Selective backup: Use `--airm` or `--keycloak` flags to backup individual databases
-- Port-forward support: Use `--port-forward` when direct pod exec is restricted
-- Cluster-aware filenames: Automatically prefixes files with cluster name (e.g., `production_`)
-- Automatic file versioning: Creates `_02`, `_03` suffixes for same-day backups
+6. Creates timestamped backup files: `airm_db_backup_YYYY-MM-DD.sql` and `keycloak_db_backup_YYYY-MM-DD.sql`
 
 ### Database Restore
 
-#### Using the Import Script
-
-The [`import_databases.sh`](../scripts/utils/import_databases.sh) script automates the restore process:
+**Note:** This is an example process specific to Ubuntu/Linux environments. Adjust paths and commands as needed for your system.
 
 ```bash
-# Restore both databases
-./scripts/utils/import_databases.sh /path/to/airm_backup.sql /path/to/keycloak_backup.sql
+# Set paths to your backup files
+AIRM_BACKUP="$HOME/db_backups/airm_db_backup_2025-12-03.sql"
+KEYCLOAK_BACKUP="$HOME/db_backups/keycloak_db_backup_2025-12-03.sql"
 
-# Skip AIRM, restore only Keycloak
-./scripts/utils/import_databases.sh skip /path/to/keycloak_backup.sql
+# Get AIRM database credentials
+AIRM_USER=$(kubectl get secret -n airm airm-cnpg-app -o jsonpath='{.data.username}' | base64 -d)
+AIRM_PASSWORD=$(kubectl get secret -n airm airm-cnpg-app -o jsonpath='{.data.password}' | base64 -d)
+AIRM_DB=$(kubectl get secret -n airm airm-cnpg-app -o jsonpath='{.data.dbname}' | base64 -d)
 
-# Restore both databases using port-forward
-./scripts/utils/import_databases.sh /path/to/airm_backup.sql /path/to/keycloak_backup.sql --port-forward
+# Get Keycloak database credentials
+KEYCLOAK_USER=$(kubectl get secret -n keycloak keycloak-cnpg-app -o jsonpath='{.data.username}' | base64 -d)
+KEYCLOAK_PASSWORD=$(kubectl get secret -n keycloak keycloak-cnpg-app -o jsonpath='{.data.password}' | base64 -d)
+KEYCLOAK_DB=$(kubectl get secret -n keycloak keycloak-cnpg-app -o jsonpath='{.data.dbname}' | base64 -d)
 
-# Restore with custom port-forward port
-./scripts/utils/import_databases.sh /path/to/airm_backup.sql /path/to/keycloak_backup.sql --port-forward 5433
+# Find primary AIRM pod
+AIRM_POD=$(kubectl get pod -n airm -l cnpg.io/cluster=airm-cnpg,role=primary -o jsonpath='{.items[0].metadata.name}')
+
+# Find primary Keycloak pod
+KEYCLOAK_POD=$(kubectl get pod -n keycloak -l cnpg.io/cluster=keycloak-cnpg,role=primary -o jsonpath='{.items[0].metadata.name}')
+
+# Wait for pods to be ready
+kubectl wait --for=condition=ready pod -n airm "$AIRM_POD" --timeout=300s
+kubectl wait --for=condition=ready pod -n keycloak "$KEYCLOAK_POD" --timeout=300s
+
+# Restore AIRM database
+cat "$AIRM_BACKUP" | kubectl exec -i -n airm "$AIRM_POD" -- bash -c "PGPASSWORD='$AIRM_PASSWORD' psql -U '$AIRM_USER' -d '$AIRM_DB' -h localhost"
+
+# Restore Keycloak database
+cat "$KEYCLOAK_BACKUP" | kubectl exec -i -n keycloak "$KEYCLOAK_POD" -- bash -c "PGPASSWORD='$KEYCLOAK_PASSWORD' psql -U '$KEYCLOAK_USER' -d '$KEYCLOAK_DB' -h localhost"
+
+# Restart AIRM deployments to pick up restored data
+kubectl rollout restart deployment -n airm
+
+echo "Database restore completed"
 ```
 
-**What the script does:**
-- Retrieves current database credentials from Kubernetes secrets
-- Queries CNPG cluster status to determine primary pod for multi-replica scenarios
-- Waits for CNPG pods to be ready (up to 300 seconds)
-- Checks workloads table count and prompts for confirmation if data exists
-- Restores databases using one of two modes:
-  - **Port-forward mode** (with `--port-forward` flag): Establishes port-forward and runs `psql` locally
-  - **Direct mode** (default): Pipes SQL file directly through `kubectl exec` into the container
-- Uses TCP authentication (`-h localhost`) to avoid peer authentication issues
-- Validates port-forward connections with retry logic (5 attempts, 3-second delays)
-- Verifies pod status after restoration
-
-**Key Features:**
-- Automatic primary pod selection for high-availability clusters
-- Port-forward support with validation and retry logic
-- Direct in-container restore via stdin piping (no filesystem writes)
-- Interactive confirmation when overwriting existing data
-- Proper cleanup with trap handlers for port-forward processes
-
-**After restoration:**
-- Restart AIRM API & UI pods to ensure they pick up the restored data:
-  ```bash
-  kubectl rollout restart deployment -n airm
-  ```
+**What this does:**
+1. Retrieves database credentials from Kubernetes secrets
+2. Finds the primary CNPG pod for each database
+3. Waits for pods to be ready
+4. Pipes SQL backup files directly into the database containers
+5. Restarts AIRM deployments to apply the restored data
 
 ## 2. RabbitMQ Backup & Restore
 
@@ -173,13 +177,6 @@ rabbitmqctl import_definitions /tmp/rmq_restore.json
 
 ---
 
-## Script Locations
-
-All backup and restore scripts are located in `scripts/utils/`:
-
-- [`export_databases.sh`](../scripts/utils/export_databases.sh) - Export AIRM and Keycloak databases
-- [`import_databases.sh`](../scripts/utils/import_databases.sh) - Import AIRM and Keycloak databases
-
 ## 3. MinIO Backup & Restore
 ### 1. Setup Two-Way Replication (Bucket replication)
 
@@ -192,7 +189,7 @@ From a local machine
 mc alias set source https://SOURCE_MINIO_ENDPOINT/ ACCESS_KEY SECRET_KEY
 mc alias set dest https://DEST_MINIO_ENDPOINT/ ACCESS_KEY SECRET_KEY
 
-ex) mc alias set dest https://minio.<mydomain>/ myuser mypsword
+ex) mc alias set dest https://minio.\<mydomain\>/ myuser mypsword
 ```
 
 2. Enable Versioning (Required for Replication)
@@ -246,7 +243,7 @@ mkdir -p /mnt/minio-backup/backup-$(date +%Y-%m-%d_%H-%M)
 # Set up source MinIO endpoints
 # Use "CONSOLE_ACCESS_KEY" in the default-user secret, which having enough permissions
 mc alias set source https://SOURCE_MINIO_ENDPOINT/ ACCESS_KEY SECRET_KEY
-ex) mc alias set source https://minio.<mydomain>/ myuser mypsword
+ex) mc alias set source https://minio.\<mydomain\>/ myuser mypsword
 
 # Mirror bucket contents to NFS
 mc mirror source/BUCKET_NAME/ /mnt/minio-backup/backup-$(date+%Y-%m-%d_%H-%M)/BUCKET_NAME/ --overwrite
