@@ -63,9 +63,23 @@ EOF
 # Pre-load container images
 preload_images() {
     echo "🖼️  Pre-loading container images from Helm charts..."
+    echo "   (Press Ctrl+C to skip and continue deployment)"
     
     # Temporary directory for rendered manifests
     TEMP_DIR=$(mktemp -d)
+    
+    # Cleanup function
+    cleanup_preload() {
+        echo ""
+        echo "⚠️  Image pre-loading interrupted (Ctrl+C)"
+        # Kill all background jobs
+        jobs -p | xargs -r kill 2>/dev/null || true
+        rm -rf "$TEMP_DIR" 2>/dev/null || true
+        exit 1
+    }
+    
+    # Handle Ctrl+C gracefully
+    trap cleanup_preload INT TERM
     trap "rm -rf $TEMP_DIR" EXIT
     
     echo "📋 Discovering charts from cluster-forge..."
@@ -107,9 +121,12 @@ preload_images() {
     echo ""
     echo "📦 Extracting images from manifests..."
     IMAGES=$(cat "$TEMP_DIR"/*.yaml 2>/dev/null | \
-        grep -E "^\s+image:" | \
-        sed 's/.*image:[[:space:]]*["\x27]\?\([^"[:space:]]*\).*/\1/' | \
+        grep -E "^\s+image:\s+" | \
+        sed -E 's/.*image:[[:space:]]+([^[:space:]]+).*/\1/' | \
+        sed 's/^["'\'']*//;s/["'\'']*$//' | \
         grep -v "{{" | \
+        grep -v "^image:$" | \
+        grep "/" | \
         sort -u)
     
     if [ -z "$IMAGES" ]; then
@@ -117,45 +134,78 @@ preload_images() {
         return 0
     fi
     
+    MAX_PARALLEL=5
     TOTAL=$(echo "$IMAGES" | wc -l | tr -d ' ')
     echo "Found $TOTAL unique images to pre-load"
+    echo "Pulling up to $MAX_PARALLEL images in parallel..."
     echo ""
     
     CURRENT=0
-    FAILED=0
-    LOADED=0
     
-    for IMAGE in $IMAGES; do
+    # Process images in parallel batches
+    while IFS= read -r IMAGE; do
         CURRENT=$((CURRENT + 1))
-        printf "[%d/%d] %s\n" "$CURRENT" "$TOTAL" "$IMAGE"
         
-        # Pull to Docker if not present
-        if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
-            docker pull "$IMAGE" >/dev/null 2>&1 || {
-                echo "  ⚠️  Failed to pull"
-                FAILED=$((FAILED + 1))
-                continue
-            }
+        # Skip invalid image names
+        if [[ ! "$IMAGE" =~ ^[a-zA-Z0-9][a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+$ ]]; then
+            echo "[$CURRENT/$TOTAL] Skipping invalid: $IMAGE"
+            continue
         fi
         
-        # Load into Kind
-        kind load docker-image "$IMAGE" --name cluster-forge-local >/dev/null 2>&1 && {
-            echo "  ✅"
-            LOADED=$((LOADED + 1))
-        } || {
-            echo "  ⚠️  Failed to load"
-            FAILED=$((FAILED + 1))
-        }
-    done
+        # Wait for a slot to open if we're at max parallel
+        while [ $(jobs -r | wc -l) -ge $MAX_PARALLEL ]; do
+            sleep 0.1
+        done
+        
+        # Start background job to pull and load one image
+        (
+            NUM=$CURRENT
+            printf "[%d/%d] %s\n" "$NUM" "$TOTAL" "$IMAGE"
+            
+            # Pull to Docker if not present
+            if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+                echo "  ⬇️  Pulling..."
+                if docker pull "$IMAGE" >/dev/null 2>&1; then
+                    echo "  ✅ Pulled"
+                else
+                    echo "  ⚠️  Failed to pull"
+                    exit 1
+                fi
+            else
+                echo "  ✓ Already cached"
+            fi
+            
+            # Load into Kind
+            echo "  📦 Loading into Kind..."
+            if kind load docker-image "$IMAGE" --name cluster-forge-local >/dev/null 2>&1; then
+                echo "  ✅ Loaded"
+            else
+                echo "  ⚠️  Failed to load"
+                exit 1
+            fi
+        ) &
+    done <<< "$IMAGES"
+    
+    # Wait for all background jobs
+    echo ""
+    echo "⏳ Waiting for all image operations to complete..."
+    wait
+    
+    # Count results
+    LOADED=$(docker exec cluster-forge-local-control-plane ctr --namespace k8s.io images ls -q 2>/dev/null | wc -l | tr -d ' ')
     
     echo ""
-    echo "📊 Loaded: $LOADED, Failed: $FAILED"
+    echo "📊 Total images in Kind cluster: $LOADED"
     echo "✅ Pre-loading complete!"
     echo ""
 }
 
-# Pre-load images (comment out to skip)
-preload_images
+# Pre-load images (skip with SKIP_IMAGE_PRELOAD=1)
+if [ "${SKIP_IMAGE_PRELOAD:-0}" = "1" ]; then
+    echo "⏭️  Skipping image pre-load (SKIP_IMAGE_PRELOAD=1)"
+else
+    preload_images || echo "⚠️  Image pre-loading failed, continuing anyway..."
+fi
 
 # Bootstrap components in parallel
 echo "🚀 Deploying ArgoCD, OpenBao, and Gitea in parallel..."
