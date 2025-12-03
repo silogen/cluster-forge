@@ -1,0 +1,5 @@
+apiVersion: v2
+name: gitea-init-local
+description: Gitea initialization job for local development (pushes from local filesystem)
+version: 0.1.0
+appVersion: "1.0"
