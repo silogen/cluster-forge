@@ -25,9 +25,6 @@ kubectl rollout status deploy/argocd-applicationset-controller -n argocd
 kubectl rollout status deploy/argocd-redis -n argocd
 kubectl rollout status deploy/argocd-repo-server -n argocd
 
-# Create cluster-forge app-of-apps
-helm template ../root -f ../root/${VALUES_FILE} --set global.domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
-
 # OpenBao bootstrap
 helm template --release-name openbao ../sources/openbao/0.18.2 -f ../sources/openbao/values_cf.yaml \
   --namespace cf-openbao --kube-version=${KUBE_VERSION} | kubectl apply -f -
@@ -39,6 +36,11 @@ kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-
 generate_password() {
     openssl rand -hex 16 | tr 'a-f' 'A-F' | head -c 32
 }
+
+# Create initial-cf-values configmap
+VALUES=$(yq ".global.domain = \"${DOMAIN}\"" ../root/${VALUES_FILE} -o yaml)
+kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$VALUES" --dry-run=client -o yaml | kubectl apply -n cf-gitea -f -
+
 kubectl create secret generic gitea-admin-credentials \
   --namespace=cf-gitea \
   --from-literal=username=silogen-admin \
@@ -48,3 +50,6 @@ helm template --release-name gitea ../sources/gitea/12.3.0 -f ../sources/gitea/v
 kubectl rollout status deploy/gitea -n cf-gitea
 helm template --release-name gitea-init ./init-gitea-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
+
+# Create cluster-forge app-of-apps
+helm template ../root -f ../root/${VALUES_FILE} --set global.domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
