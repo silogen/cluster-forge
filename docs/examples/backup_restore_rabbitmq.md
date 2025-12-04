@@ -2,7 +2,14 @@
 
 This document provides the step-by-step commands for backing up and restoring RabbitMQ definitions (exchanges, queues, bindings, policies).
 
-**Note:** Since messages in RabbitMQ are typically transient and processed within seconds, this backup focuses on configuration rather than message content. This is an example process specific to Ubuntu/Linux environments. Adjust paths and commands as needed for your system.
+**Note:** Since messages in RabbitMQ are typically processed within seconds, this backup is scoped to the schema alone, and excludes potentnial lingering messages. This is an example process specific to Ubuntu/Linux environments. Adjust paths and commands as needed for your system.
+
+
+## Prerequisites
+
+- Shell access to a machine with `kubectl` configured for the target Kubernetes cluster
+- Access to the AIRM namespace in the Kubernetes cluster
+- The `rabbitmqctl` tool is already available inside the RabbitMQ container
 
 ## RabbitMQ Backup
 
