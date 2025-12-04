@@ -1,9 +1,10 @@
 # AMD Enterprise AI Suite - Backup and Restore Procedures
 
 This document covers backup and restore procedures for:
-  1. Database Backup & Restore (AIRM & Keycloak)
-  2. RabbitMQ Backup & Restore
-  3. MinIO Backup & Restore (Bucket replication and one-off filesystem backup)
+  1. [Database Backup & Restore (AIRM & Keycloak)](#1-cnpg-cloudnative-postgres-backup--restore)
+  2. [RabbitMQ Backup & Restore](#2-rabbitmq-backup--restore)
+  3. [MinIO Backup & Restore (Bucket replication and one-off filesystem backup)](#3-minio-backup--restore)
+  4. [Longhorn Backup & Restore](#4-longhorn-backup--restore)
 
 **Note:** Each detailed command file includes specific prerequisites for that backup type.
 
@@ -94,3 +95,51 @@ MinIO supports two backup strategies:
 ### Detailed Commands
 
 For a backup & restore example (not officially supported), see:: [`backup_restore_minio.md`](examples/backup_restore_minio.md)
+
+---
+
+## 4. Longhorn Backup & Restore
+
+Longhorn provides block storage for Kubernetes workloads and supports snapshots and backups to external storage targets.
+
+### Overview
+
+**Backup Configuration:**
+1. Configure a backup target (S3-compatible storage, NFS, or other supported backends)
+2. Set up backup credentials if using S3
+3. Configure backup settings in the Longhorn UI or via YAML
+
+**Backup Process:**
+1. Create snapshots of volumes
+2. Back up snapshots to the configured backup target
+3. Optionally configure recurring backup jobs for automated backups
+
+**Restore Process:**
+1. List available backups from the backup target
+2. Restore volumes from backups
+3. For StatefulSets, follow specific procedures to maintain pod identity
+4. Restore recurring job configurations from backups
+
+**Additional Operations:**
+- Manually synchronize backup volumes when needed
+- Restore volume recurring jobs from backup metadata
+
+### Detailed Procedures
+
+#### Setting a Backup Target
+Configure where Longhorn will store backups. See: [Set Backup Target Documentation](https://longhorn.io/docs/1.8.0/snapshots-and-backups/backup-and-restore/set-backup-target/)
+
+#### Create a Backup
+Create on-demand or scheduled backups of your volumes. See: [Create a Backup Documentation](https://longhorn.io/docs/1.8.0/snapshots-and-backups/backup-and-restore/create-a-backup/)
+
+#### Restore from a Backup
+Restore volumes from previously created backups. See: [Restore from a Backup Documentation](https://longhorn.io/docs/1.8.0/snapshots-and-backups/backup-and-restore/restore-from-a-backup/)
+
+#### Restore Volumes for Kubernetes StatefulSets
+Special procedures for restoring StatefulSet volumes while maintaining pod identity. See: [Restore StatefulSet Volumes Documentation](https://longhorn.io/docs/1.8.0/snapshots-and-backups/backup-and-restore/restore-statefulset/)
+
+#### Restore Volume Recurring Jobs from a Backup
+Restore recurring backup job configurations from backup metadata. See: [Restore Recurring Jobs Documentation](https://longhorn.io/docs/1.8.0/snapshots-and-backups/backup-and-restore/restore-recurring-jobs-from-a-backup/)
+
+#### Synchronize Backup Volumes Manually
+Manually sync backup volumes when automatic synchronization is disabled or needs to be triggered. See: [Synchronize Backup Volumes Documentation](https://longhorn.io/docs/1.8.0/snapshots-and-backups/backup-and-restore/synchronize_backup_volumes_manually/)
