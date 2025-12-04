@@ -4,6 +4,13 @@ This document provides the step-by-step commands for backing up and restoring AI
 
 **Note:** This is an example process specific to Ubuntu/Linux environments. Adjust paths and commands as needed for your system.
 
+
+## Prerequisites
+
+- Shell access to a machine with `kubectl` configured for the target Kubernetes cluster
+- Access to the AIRM / Keycloak namespaces in the Kubernetes cluster
+- Sufficient local disk space for database backups (database size + 20% recommended)
+
 ## Database Backup
 
 ```bash

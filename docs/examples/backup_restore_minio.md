@@ -4,6 +4,17 @@ This document provides the step-by-step commands for MinIO backup and restore op
 
 **Note:** This is an example process specific to Ubuntu/Linux environments. Adjust paths and commands as needed for your system.
 
+
+## Prerequisites
+
+- Shell access to a machine with `kubectl` configured for the target Kubernetes cluster
+- MinIO client (`mc`) installed on your local machine, **OR** access to run commands inside the `minio` pod in the MinIO tenant namespace
+  - To install `mc` locally: [https://min.io/docs/minio/linux/reference/minio-mc.html](https://min.io/docs/minio/linux/reference/minio-mc.html)
+  - To run inside the pod: `kubectl exec -it -n <minio-namespace> <minio-pod-name> -- sh`
+- For NFS backups: Access to mount NFS shares (requires `sudo` privileges)
+- For bucket replication: Access to both source and destination MinIO endpoints
+- The `jq` command-line JSON processor (for replication resync commands)
+
 ## 1. Setup Two-Way Replication (Bucket replication)
 
 **Important:** Bucket replication and site replication are mutually exclusive, so only one method can be used at a time.
