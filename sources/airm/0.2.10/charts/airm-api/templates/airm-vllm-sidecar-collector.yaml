@@ -1,0 +1,84 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: "{{ .Release.Name }}-{{ .Values.aims.otelCollector.name }}"
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    argocd.argoproj.io/ignore-healthcheck: "true"
+spec:
+  mode: sidecar
+  image: "{{ .Values.aims.otelCollector.image }}"
+  env:
+  - name: WORKLOAD_ID
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.labels['airm.silogen.ai/workload-id']
+  - name: SERVICE_INSTANCE_ID
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.name
+  - name: SERVICE_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.labels['app']
+  config:
+    receivers:
+      prometheus:
+        config:
+          scrape_configs:
+          - job_name: 'vllm'
+            metrics_path: /metrics
+            scrape_interval: "{{ .Values.aims.otelCollector.receivers.prometheus.config.scrape_configs.scrape_interval }}"
+            static_configs:
+            - targets: [ 'localhost:8000' ]
+      otlp:
+        protocols:
+          grpc: {}
+          http: {}
+
+    processors:
+      resource:
+        attributes:
+        - key: airm.silogen.ai/workload-id
+          value: ${env:WORKLOAD_ID}
+          action: upsert
+        - key: service.instance.id
+          value: ${env:SERVICE_INSTANCE_ID}
+          action: upsert
+        - key: service.name
+          value: ${env:SERVICE_NAME}
+          action: upsert
+
+      transform:
+        metric_statements:
+        - context: datapoint
+          statements:
+          - set(attributes["workload_id"], resource.attributes["airm.silogen.ai/workload-id"])
+          - set(attributes["service_instance_id"], resource.attributes["service.instance.id"])
+          - set(attributes["service"], resource.attributes["service.name"])
+
+    exporters:
+      otlphttp:
+        endpoint: "{{ .Values.aims.otelCollector.exporters.otlphttp.endpoint }}"
+
+    service:
+      pipelines:
+        metrics:
+          receivers: [ prometheus ]
+          processors: [ resource, transform ]
+          exporters: [ otlphttp ]
+
+        traces:
+          receivers: [ otlp ]
+          processors: [ resource ]
+          exporters: [ otlphttp ]
+
+        logs:
+          receivers: [ otlp ]
+          processors: [ resource ]
+          exporters: [ otlphttp ]
