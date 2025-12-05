@@ -93,7 +93,9 @@ apps:
         value: "localhost.local" # Use valid TLD for devuser email
     syncWave: -1
   airm:
-    path: airm/0.2.7
+    repoURL: "http://gitea-http.cf-gitea.svc:3000/cluster-org/core.git"
+    targetRevision: "main"
+    path: services/airm/helm/airm
     namespace: airm
     valuesFile: values.yaml
     helmParameters:
@@ -101,6 +103,10 @@ apps:
         value: "localhost.local" # Use valid TLD for email validation
       - name: airm-api.airm.frontend.nextauthUrl
         value: "http://localhost:8000" # Override for local port-forwarding
+      - name: airm-api.api.image.tag
+        value: local
+      - name: airm-dispatcher.dispatcher.image.tag
+        value: local
     syncOptions:
       - ServerSideApply=false # Disable SSA for hooks to work properly
     syncWave: 0

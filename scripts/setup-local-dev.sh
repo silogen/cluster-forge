@@ -2,15 +2,24 @@
 
 # Local Kind Development Setup Script for Cluster-Forge
 # This script sets up a minimal cluster-forge deployment for local Kind clusters
+#
+# Environment variables:
+#   SKIP_IMAGE_PRELOAD=1     - Skip pre-loading container images
+#   BUILD_LOCAL_IMAGES=1     - Build and use local AIRM images instead of published ones
+#   LLM_STUDIO_CORE_PATH     - Path to llm-studio-core repo (default: ../llm-studio-core)
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 DOMAIN="${1:-localhost.local}"
+LLM_STUDIO_CORE_PATH="${LLM_STUDIO_CORE_PATH:-${ROOT_DIR}/../llm-studio-core}"
 
 echo "🔧 Setting up cluster-forge for local Kind development..."
 echo "📋 Domain: ${DOMAIN}"
+if [ "${BUILD_LOCAL_IMAGES}" = "1" ]; then
+    echo "🔨 Will build local AIRM images from: ${LLM_STUDIO_CORE_PATH}"
+fi
 
 # Check if kind cluster exists
 if ! kubectl cluster-info &> /dev/null; then
@@ -60,7 +69,8 @@ volumeBindingMode: WaitForFirstConsumer
 allowVolumeExpansion: false
 EOF
 
-# Pre-load container images
+# Pre-load container images to the host Docker and load them to Kind
+# to avoid re-downloading images on every cluster recreation
 preload_images() {
     echo "🖼️  Pre-loading container images from Helm charts..."
     echo "   (Press Ctrl+C to skip and continue deployment)"
@@ -72,13 +82,12 @@ preload_images() {
     cleanup_preload() {
         echo ""
         echo "⚠️  Image pre-loading interrupted (Ctrl+C)"
-        # Kill all background jobs
-        jobs -p | xargs -r kill 2>/dev/null || true
-        rm -rf "$TEMP_DIR" 2>/dev/null || true
-        exit 1
+        echo "🛑 Stopping deployment..."
+        rm -rf "$TEMP_DIR" 2>/dev/null
+        exit 130  # Standard exit code for Ctrl+C
     }
     
-    # Handle Ctrl+C gracefully
+    # Handle Ctrl+C - exit entire script
     trap cleanup_preload INT TERM
     trap "rm -rf $TEMP_DIR" EXIT
     
@@ -134,69 +143,202 @@ preload_images() {
         return 0
     fi
     
-    MAX_PARALLEL=5
     TOTAL=$(echo "$IMAGES" | wc -l | tr -d ' ')
     echo "Found $TOTAL unique images to pre-load"
-    echo "Pulling up to $MAX_PARALLEL images in parallel..."
     echo ""
     
     CURRENT=0
+    FAILED=0
+    LOADED=0
+    INTERRUPTED=false
     
-    # Process images in parallel batches
-    while IFS= read -r IMAGE; do
+    for IMAGE in $IMAGES; do
+        # Check if interrupted
+        if [ "$INTERRUPTED" = "true" ]; then
+            echo "Skipping remaining images..."
+            break
+        fi
+        
         CURRENT=$((CURRENT + 1))
         
         # Skip invalid image names
         if [[ ! "$IMAGE" =~ ^[a-zA-Z0-9][a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+$ ]]; then
             echo "[$CURRENT/$TOTAL] Skipping invalid: $IMAGE"
+            FAILED=$((FAILED + 1))
             continue
         fi
         
-        # Wait for a slot to open if we're at max parallel
-        while [ $(jobs -r | wc -l) -ge $MAX_PARALLEL ]; do
-            sleep 0.1
-        done
+        # Skip large AIRM/AIM images (will be pulled by Kubernetes during deployment)
+        if [[ "$IMAGE" =~ amdenterpriseai/(airm-|aim-) ]]; then
+            echo "[$CURRENT/$TOTAL] Skipping large image: $IMAGE"
+            continue
+        fi
         
-        # Start background job to pull and load one image
-        (
-            NUM=$CURRENT
-            printf "[%d/%d] %s\n" "$NUM" "$TOTAL" "$IMAGE"
-            
-            # Pull to Docker if not present
-            if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
-                echo "  ⬇️  Pulling..."
-                if docker pull "$IMAGE" >/dev/null 2>&1; then
-                    echo "  ✅ Pulled"
-                else
-                    echo "  ⚠️  Failed to pull"
-                    exit 1
-                fi
+        printf "[%d/%d] %s\n" "$CURRENT" "$TOTAL" "$IMAGE"
+        
+        # Pull to Docker if not present
+        if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+            echo "  ⬇️  Pulling..."
+            if docker pull "$IMAGE"; then
+                echo "  ✅ Pulled successfully"
             else
-                echo "  ✓ Already cached"
+                echo "  ⚠️  Failed to pull"
+                FAILED=$((FAILED + 1))
+                continue
             fi
-            
-            # Load into Kind
-            echo "  📦 Loading into Kind..."
-            if kind load docker-image "$IMAGE" --name cluster-forge-local >/dev/null 2>&1; then
-                echo "  ✅ Loaded"
-            else
-                echo "  ⚠️  Failed to load"
-                exit 1
-            fi
-        ) &
-    done <<< "$IMAGES"
-    
-    # Wait for all background jobs
-    echo ""
-    echo "⏳ Waiting for all image operations to complete..."
-    wait
-    
-    # Count results
-    LOADED=$(docker exec cluster-forge-local-control-plane ctr --namespace k8s.io images ls -q 2>/dev/null | wc -l | tr -d ' ')
+        else
+            echo "  ✓ Cached in Docker"
+        fi
+        
+        # Load into Kind
+        echo "  📦 Loading into Kind..."
+        if kind load docker-image "$IMAGE" --name cluster-forge-local 2>&1 | tail -3; then
+            echo "  ✅ Loaded"
+            LOADED=$((LOADED + 1))
+        else
+            echo "  ⚠️  Failed to load"
+            FAILED=$((FAILED + 1))
+        fi
+    done
     
     echo ""
-    echo "📊 Total images in Kind cluster: $LOADED"
+    echo "� Loaded: $LOADED, Failed: $FAILED"
     echo "✅ Pre-loading complete!"
+    echo ""
+}
+# Build local AIRM images from source and load into Kind
+build_local_images() {
+    echo "🔨 Building local AIRM images from source..."
+    echo ""
+    
+    # Validate llm-studio-core path
+    if [ ! -d "${LLM_STUDIO_CORE_PATH}" ]; then
+        echo "❌ Error: llm-studio-core repo not found at: ${LLM_STUDIO_CORE_PATH}"
+        echo "   Set LLM_STUDIO_CORE_PATH environment variable to the correct path"
+        exit 1
+    fi
+    
+    local DOCKER_DIR="${LLM_STUDIO_CORE_PATH}/services/airm/docker"
+    if [ ! -d "${DOCKER_DIR}" ]; then
+        echo "❌ Error: Docker directory not found at: ${DOCKER_DIR}"
+        exit 1
+    fi
+    
+    echo "📂 Source: ${LLM_STUDIO_CORE_PATH}"
+    echo ""
+    
+    # Build images
+    # Note: UI build is skipped as it takes a very long time (Next.js build with all dependencies)
+    # Use the published image for UI, or build manually if needed:
+    #   cd ${LLM_STUDIO_CORE_PATH}/services/airm/ui && docker build -f ../docker/ui.Dockerfile -t amdenterpriseai/airm-ui:local .
+    local IMAGES=(
+        "api:amdenterpriseai/airm-api:local"
+        # "ui:amdenterpriseai/airm-ui:local"  # Skipped - very slow build
+        "dispatcher:amdenterpriseai/airm-dispatcher:local"
+    )
+    
+    local BUILT=0
+    local FAILED=0
+    
+    for IMAGE_SPEC in "${IMAGES[@]}"; do
+        local SERVICE="${IMAGE_SPEC%%:*}"
+        local IMAGE_TAG="${IMAGE_SPEC#*:}"
+        local DOCKERFILE="${DOCKER_DIR}/${SERVICE}.Dockerfile"
+        
+        echo "🏗️  Building ${SERVICE}..."
+        echo "   Image: ${IMAGE_TAG}"
+        echo "   Dockerfile: ${DOCKERFILE}"
+        
+        if [ ! -f "${DOCKERFILE}" ]; then
+            echo "   ❌ Dockerfile not found!"
+            FAILED=$((FAILED + 1))
+            continue
+        fi
+        
+        # UI uses its own directory as build context, others use repo root
+        local BUILD_CONTEXT="${LLM_STUDIO_CORE_PATH}"
+        if [ "${SERVICE}" = "ui" ]; then
+            BUILD_CONTEXT="${LLM_STUDIO_CORE_PATH}/services/airm/ui"
+        fi
+        
+        echo "   Building..."
+        if docker build \
+            -f "${DOCKERFILE}" \
+            -t "${IMAGE_TAG}" \
+            "${BUILD_CONTEXT}"; then
+            echo "   ✅ Built successfully"
+            BUILT=$((BUILT + 1))
+        else
+            echo "   ❌ Build failed"
+            FAILED=$((FAILED + 1))
+            continue
+        fi
+        
+        # Load into Kind
+        echo "   📦 Loading into Kind..."
+        if kind load docker-image "${IMAGE_TAG}" --name cluster-forge-local; then
+            echo "   ✅ Loaded into Kind"
+        else
+            echo "   ❌ Failed to load into Kind"
+            FAILED=$((FAILED + 1))
+        fi
+        echo ""
+    done
+    
+    echo "📊 Results: Built $BUILT, Failed: $FAILED"
+    
+    if [ $FAILED -gt 0 ]; then
+        echo "⚠️  Some images failed to build"
+        exit 1
+    fi
+    
+    echo "✅ Local images built and loaded!"
+    echo ""
+    
+    # Update values file to use local images
+    echo "📝 Updating Helm values to use local images..."
+    local VALUES_FILE="${ROOT_DIR}/root/values_local_kind.yaml"
+    
+    # Check if we need to add image tag parameters
+    if grep -A 25 "^  airm:" "${VALUES_FILE}" | grep -q "name: airm-api.image.tag"; then
+        echo "   ℹ️  Image tag overrides already present in helmParameters"
+    else
+        # Find the last complete helmParameter entry and add image overrides after it
+        local TEMP_FILE=$(mktemp)
+        awk '
+        /^  airm:/ { in_airm=1 }
+        in_airm && /^  [^ ]/ && !/^  airm:/ { in_airm=0 }
+        in_airm && /helmParameters:/ { in_params=1 }
+        # Find lines that are complete parameter entries (have both name and value on consecutive lines)
+        in_airm && in_params && /^      - name:.*/ { 
+            param_name=$0
+            getline
+            if (/^        value:/) {
+                print param_name
+                print
+                last_complete_param=NR
+            } else {
+                print param_name
+                print
+            }
+            next
+        }
+        {
+            print
+            # After the last complete parameter, insert our image overrides
+            if (NR == last_complete_param && !inserted) {
+                print "      - name: airm-api.api.image.tag"
+                print "        value: local"
+                print "      - name: airm-dispatcher.dispatcher.image.tag"
+                print "        value: local"
+                inserted=1
+            }
+        }
+        ' "${VALUES_FILE}" > "${TEMP_FILE}"
+        mv "${TEMP_FILE}" "${VALUES_FILE}"
+        echo "   ✅ Added image tag overrides to helmParameters"
+    fi
+    
     echo ""
 }
 
@@ -205,6 +347,11 @@ if [ "${SKIP_IMAGE_PRELOAD:-0}" = "1" ]; then
     echo "⏭️  Skipping image pre-load (SKIP_IMAGE_PRELOAD=1)"
 else
     preload_images || echo "⚠️  Image pre-loading failed, continuing anyway..."
+fi
+
+# Build local images (only if BUILD_LOCAL_IMAGES=1)
+if [ "${BUILD_LOCAL_IMAGES}" = "1" ]; then
+    build_local_images
 fi
 
 # Bootstrap components in parallel
@@ -321,30 +468,20 @@ echo "✅ OpenBao initialized"
 wait $WAIT_GITEA_INIT
 echo "✅ Gitea initialized"
 
-echo "📤 Pushing local repository to Gitea..."
-# Get Gitea admin credentials
-GITEA_USER=$(kubectl get secret gitea-admin-credentials -n cf-gitea -o jsonpath='{.data.username}' | base64 -d)
-GITEA_PASS=$(kubectl get secret gitea-admin-credentials -n cf-gitea -o jsonpath='{.data.password}' | base64 -d)
-GITEA_URL="http://gitea.${DOMAIN}:3000"
+echo "📤 Pushing repositories to Gitea..."
 
-# Add Gitea as a remote and push (via port-forward)
-kubectl port-forward -n cf-gitea svc/gitea-http 3000:3000 &
-PF_PID=$!
-sleep 3
+# Push cluster-forge repo
+"${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${ROOT_DIR}" "cluster-org" "cluster-forge"
 
-# Configure git if needed
-git remote remove gitea-local 2>/dev/null || true
-git remote add gitea-local "http://${GITEA_USER}:${GITEA_PASS}@localhost:3000/cluster-org/cluster-forge.git"
+# Push llm-studio-core repo if it exists
+if [ -d "${LLM_STUDIO_CORE_PATH}" ]; then
+    "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${LLM_STUDIO_CORE_PATH}" "cluster-org" "core"
+else
+    echo "⚠️  llm-studio-core not found at ${LLM_STUDIO_CORE_PATH}"
+    echo "   AIRM will use charts from cluster-forge/sources/airm/0.2.7"
+fi
 
-# Push current branch to main
-echo "Pushing $(git branch --show-current) to Gitea main branch..."
-git push gitea-local HEAD:main --force
-
-# Cleanup
-kill $PF_PID 2>/dev/null || true
-git remote remove gitea-local
-
-echo "✅ Repository pushed to Gitea"
+echo "✅ Repositories pushed to Gitea"
 
 # Deploy cluster-forge ArgoCD applications
 echo "🎯 Deploying cluster-forge ArgoCD applications..."
