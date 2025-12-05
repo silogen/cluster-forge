@@ -294,52 +294,6 @@ build_local_images() {
     
     echo "✅ Local images built and loaded!"
     echo ""
-    
-    # Update values file to use local images
-    echo "📝 Updating Helm values to use local images..."
-    local VALUES_FILE="${ROOT_DIR}/root/values_local_kind.yaml"
-    
-    # Check if we need to add image tag parameters
-    if grep -A 25 "^  airm:" "${VALUES_FILE}" | grep -q "name: airm-api.image.tag"; then
-        echo "   ℹ️  Image tag overrides already present in helmParameters"
-    else
-        # Find the last complete helmParameter entry and add image overrides after it
-        local TEMP_FILE=$(mktemp)
-        awk '
-        /^  airm:/ { in_airm=1 }
-        in_airm && /^  [^ ]/ && !/^  airm:/ { in_airm=0 }
-        in_airm && /helmParameters:/ { in_params=1 }
-        # Find lines that are complete parameter entries (have both name and value on consecutive lines)
-        in_airm && in_params && /^      - name:.*/ { 
-            param_name=$0
-            getline
-            if (/^        value:/) {
-                print param_name
-                print
-                last_complete_param=NR
-            } else {
-                print param_name
-                print
-            }
-            next
-        }
-        {
-            print
-            # After the last complete parameter, insert our image overrides
-            if (NR == last_complete_param && !inserted) {
-                print "      - name: airm-api.api.image.tag"
-                print "        value: local"
-                print "      - name: airm-dispatcher.dispatcher.image.tag"
-                print "        value: local"
-                inserted=1
-            }
-        }
-        ' "${VALUES_FILE}" > "${TEMP_FILE}"
-        mv "${TEMP_FILE}" "${VALUES_FILE}"
-        echo "   ✅ Added image tag overrides to helmParameters"
-    fi
-    
-    echo ""
 }
 
 # Pre-load images (skip with SKIP_IMAGE_PRELOAD=1)

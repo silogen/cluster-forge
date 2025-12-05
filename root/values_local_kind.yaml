@@ -103,9 +103,9 @@ apps:
         value: "localhost.local" # Use valid TLD for email validation
       - name: airm-api.airm.frontend.nextauthUrl
         value: "http://localhost:8000" # Override for local port-forwarding
-      - name: airm-api.api.image.tag
+      - name: airm-api.airm.backend.image.tag
         value: local
-      - name: airm-dispatcher.dispatcher.image.tag
+      - name: airm-dispatcher.airm.backend.image.tag
         value: local
     syncOptions:
       - ServerSideApply=false # Disable SSA for hooks to work properly
