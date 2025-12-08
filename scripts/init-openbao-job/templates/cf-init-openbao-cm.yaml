@@ -141,6 +141,7 @@ data:
     bao kv put secrets/airm-keycloak-admin-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
         
     bao kv put secrets/keycloak-initial-admin-password value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
+    bao kv put secrets/keycloak-initial-devuser-password value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
     bao kv put secrets/keycloak-cnpg-user-username value=keycloak;
     bao kv put secrets/keycloak-cnpg-user-password value=keycloak;
     bao kv put secrets/keycloak-cnpg-superuser-username value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";

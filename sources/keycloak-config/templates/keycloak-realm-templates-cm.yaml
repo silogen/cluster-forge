@@ -545,12 +545,9 @@ data:
           "totp": false,
           "credentials": [
             {
-              "id": "596f57d5-41d0-4dd8-bd6f-bb16db235be2",
               "type": "password",
-              "userLabel": "My password",
-              "createdDate": 1746628471958,
-              "secretData": "{\"value\":\"15oUl8X/o/maH7BWBI4mGDj7WFXPXSc+BbPsIBTcqHE=\",\"salt\":\"RDnI5bojai0rUPa5j7T1rQ==\",\"additionalParameters\":{}}",
-              "credentialData": "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+              "value": "__DEVUSER_INITIAL_PASSWORD__",
+              "temporary": false
             }
           ],
           "disableableCredentialTypes": [],
