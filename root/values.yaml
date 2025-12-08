@@ -289,11 +289,11 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
   # Kaiwo stuff
   kaiwo-crds:
-    path: kaiwo-crds/v0.2.0-rc5
+    path: kaiwo-crds/v0.2.0-rc6
     namespace: kaiwo-system
     syncWave: -2
   kaiwo:
-    path: kaiwo/v0.2.0-rc5
+    path: kaiwo/v0.2.0-rc6
     namespace: kaiwo-system
     valuesFile: values.yaml
     syncWave: -1
