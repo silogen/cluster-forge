@@ -53,5 +53,13 @@ kubectl rollout status deploy/gitea -n cf-gitea
 helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
 
+# Copy the cluster-tls secret from kgateway-system to the minio tenant default namespace, unless it already exists
+if kubectl get ns kgateway-system &> /dev/null && kubectl get ns minio-tenant-default &> /dev/null; then
+  if ! kubectl get secret cluster-tls -n minio-tenant-default &> /dev/null; then
+    kubectl get secret cluster-tls -n kgateway-system -o yaml | sed 's/namespace: kgateway-system/namespace: minio-tenant-default/' | kubectl apply -f -
+  fi
+fi
+
+
 # Create cluster-forge app-of-apps
 helm template ${SCRIPT_DIR}/../root -f ${SCRIPT_DIR}/../root/${VALUES_FILE} --set global.domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
