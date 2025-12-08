@@ -90,6 +90,12 @@ Creates three namespaces for core components:
    kubectl -n cf-openbao get secret openbao-keys -o jsonpath='{.data.root_token}' | base64 -d
    ```
 
+4. **Devuser secret:**
+   ```bash
+   # Devuser secret
+   kubectl -n keycloak get secret airm-devuser-credentials -o jsonpath="{.data.KEYCLOAK_INITIAL_DEVUSER_PASSWORD}"| base64 -d
+   ```
+
 ## Development
 
 For development purposes there is a way to sync all apps directly from cluster-forge GitHub repo bypassing gitea. Here is the possible development flow: 
