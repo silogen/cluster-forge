@@ -49,8 +49,8 @@ enabledApps:
   - airm
   # Optional: Add other components as needed
   # - kuberay-operator
-  # - kueue
-  # - kueue-config
+  - kueue
+  - kueue-config
 # Override minio-tenant to use local-friendly values
 apps:
   minio-tenant:
