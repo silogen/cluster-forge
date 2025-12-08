@@ -27,6 +27,7 @@ enabledApps:
   # Monitoring (required by AIRM)
   - prometheus-crds
   - opentelemetry-operator
+  - otel-lgtm-stack
   # Database operator
   - cnpg-operator
   # Minimal storage (with reduced resources)
