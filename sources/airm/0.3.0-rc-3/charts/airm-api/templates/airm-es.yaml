@@ -1,0 +1,194 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: "{{ .Release.Name }}-cnpg-superuser"
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    helm.sh/hook: pre-install
+spec:
+  data:
+    - remoteRef:
+        key: airm-cnpg-superuser-username
+        property: value
+      secretKey: username
+    - remoteRef:
+        key: airm-cnpg-superuser-password
+        property: value
+      secretKey: password
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.airm.externalSecretStore.airm.name }}
+  target:
+    name: "{{ .Release.Name }}-cnpg-superuser"
+    template:
+      type: Opaque
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: "{{ .Release.Name }}-cnpg-user"
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    helm.sh/hook: pre-install
+spec:
+  data:
+    - remoteRef:
+        key: airm-cnpg-user-username
+        property: value
+      secretKey: username
+    - remoteRef:
+        key: airm-cnpg-user-password
+        property: value
+      secretKey: password
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.airm.externalSecretStore.airm.name }}
+  target:
+    name: "{{ .Release.Name }}-cnpg-user"
+    template:
+      type: Opaque
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: "{{ .Release.Name }}-keycloak-admin-client"
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    helm.sh/hook: pre-install
+spec:
+  data:
+    - remoteRef:
+        key: airm-keycloak-admin-client-id
+        property: value
+      secretKey: client-id
+    - remoteRef:
+        key: airm-keycloak-admin-client-secret
+        property: value
+      secretKey: client-secret
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.airm.externalSecretStore.keycloak.name }}
+  target:
+    name: "{{ .Release.Name }}-keycloak-admin-client"
+    template:
+      type: Opaque
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: "{{ .Release.Name }}-rabbitmq-admin"
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    helm.sh/hook: pre-install
+spec:
+  data:
+    - remoteRef:
+        key: airm-rabbitmq-user-username
+        property: value
+      secretKey: username
+    - remoteRef:
+        key: airm-rabbitmq-user-password
+        property: value
+      secretKey: password
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.airm.externalSecretStore.airm.name }}
+  target:
+    name: "{{ .Release.Name }}-rabbitmq-admin"
+    template:
+      data:
+        default_user.conf: |
+          default_user = {{ "{{ .username }}" }}
+          default_pass = {{ "{{ .password }}" }}
+        password: '{{ "{{ .password }}" }}'
+        username: '{{ "{{ .username }}" }}'
+      type: Opaque
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: "{{ .Release.Name }}-api-minio-credentials"
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    helm.sh/hook: pre-install
+spec:
+  data:
+    - remoteRef:
+        key: minio-api-access-key
+        property: value
+      secretKey: minio-access-key
+    - remoteRef:
+        key: minio-api-secret-key
+        property: value
+      secretKey: minio-secret-key
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.airm.externalSecretStore.minio.name }}
+  target:
+    name: "{{ .Release.Name }}-api-minio-credentials"
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: "{{ .Release.Name }}-secrets-airm"
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    helm.sh/hook: pre-install
+spec:
+  data:
+    - remoteRef:
+        key: airm-ui-auth-nextauth-secret
+        property: value
+      secretKey: NEXTAUTH_SECRET
+  refreshInterval: 15s
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.airm.externalSecretStore.airm.name }}
+  target:
+    name: "{{ .Release.Name }}-secrets-airm"
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: "{{ .Release.Name }}-keycloak-ui-client"
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    helm.sh/hook: pre-install
+spec:
+  data:
+    - remoteRef:
+        key: airm-ui-keycloak-secret
+        property: value
+      secretKey: KEYCLOAK_SECRET
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.airm.externalSecretStore.keycloak.name }}
+  target:
+    name: "{{ .Release.Name }}-keycloak-ui-creds"
+    template:
+      type: Opaque
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: "{{ .Release.Name }}-cluster-auth-secrets"
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    helm.sh/hook: pre-install
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.airm.externalSecretStore.airm.name }}
+  refreshInterval: 5m
+  target:
+    name: "{{ .Release.Name }}-cluster-auth-admin"
+  data:
+    - secretKey: admin-token
+      remoteRef:
+        key: cluster-auth-admin-token
+        property: value
