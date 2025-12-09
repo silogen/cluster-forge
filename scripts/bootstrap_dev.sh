@@ -33,12 +33,5 @@ if ! kubectl wait --for=condition=complete --timeout=60s job/openbao-init-job -n
   exit 1
 fi
 
-# Copy the cluster-tls secret from kgateway-system to the minio tenant default namespace, unless it already exists
-if kubectl get ns kgateway-system &> /dev/null && kubectl get ns minio-tenant-default &> /dev/null; then
-  if ! kubectl get secret cluster-tls -n minio-tenant-default &> /dev/null; then
-    kubectl get secret cluster-tls -n kgateway-system -o yaml | sed 's/namespace: kgateway-system/namespace: minio-tenant-default/' | kubectl apply -f -
-  fi
-fi
-
 # Create ArgoCD cluster-forge app
 helm template ../root -f ../root/${VALUES_FILE} --kube-version=${KUBE_VERSION} | kubectl apply -f -
