@@ -144,7 +144,7 @@ KEYCLOAK_BACKUP="$HOME/db_backups/keycloak_db_backup_DATE.sql"
 # Retrieves the current database credentials from Kubernetes secrets
 KEYCLOAK_USER=$(kubectl get secret -n keycloak keycloak-cnpg-user -o jsonpath='{.data.username}' | base64 -d)
 KEYCLOAK_PASSWORD=$(kubectl get secret -n keycloak keycloak-cnpg-user -o jsonpath='{.data.password}' | base64 -d)
-KEYCLOAK_DB=$(kubectl get secret -n keycloak keycloak-cnpg-user -o jsonpath='{.data.dbname}' | base64 -d)
+KEYCLOAK_DB=keycloak
 
 # Find primary Keycloak pod
 # Locates the primary PostgreSQL pod for Keycloak
