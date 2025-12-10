@@ -45,6 +45,18 @@ if [ -f "${SCRIPT_DIR}/fix_kind_certs.sh" ]; then
     bash "${SCRIPT_DIR}/fix_kind_certs.sh"
 fi
 
+# Fix DNS issues caused by corporate network search domains
+echo "🔧 Fixing DNS configuration in Kind cluster..."
+for node in $(kind get nodes --name cluster-forge-local 2>/dev/null); do
+    docker exec "$node" bash -c 'cat > /etc/resolv.conf << "EOF"
+nameserver 172.18.0.1
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+options edns0 trust-ad ndots:0
+EOF'
+    echo "   ✓ Updated DNS config on $node"
+done
+
 # Check prerequisites
 echo "🔍 Checking prerequisites..."
 for cmd in kubectl helm yq openssl; do
