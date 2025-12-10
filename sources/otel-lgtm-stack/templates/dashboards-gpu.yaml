@@ -10,7 +10,6 @@ metadata:
      grafana_folder: "common"
 data:
   amd-gpu-dashboard.json: |-
-{{`
     {
       "annotations": {
         "list": [
@@ -1103,4 +1102,3 @@ data:
       "version": 25,
       "weekStart": ""
     }
-`}}
