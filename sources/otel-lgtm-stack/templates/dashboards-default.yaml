@@ -10,7 +10,7 @@ metadata:
      grafana_folder: "common"
 data:
   k8s-nodes-overview.json: |-
-    {
+{{`    {
       "annotations": {
         "list": [
           {
@@ -4719,6 +4719,7 @@ data:
       "version": 1,
       "weekStart": ""
     }
+`}}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -4731,7 +4732,7 @@ metadata:
      grafana_folder: "common"
 data:
   k8s-volume-information.json: |-
-    {
+{{`    {
       "__inputs": [
         {
           "name": "DS_OPENSHIFT_PROMETHEUS",
@@ -7071,3 +7072,4 @@ data:
       "timezone": "",
       "title": "K8s / Storage / Volumes / Cluster"
     }
+`}}

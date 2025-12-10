@@ -1,4 +1,8 @@
 ---
+{{- /*
+This template contains Grafana dashboard JSON with Prometheus template expressions like {{job}}.
+We use the 'raw' block to prevent Helm from interpreting these as Helm templates.
+*/ -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,7 +13,8 @@ metadata:
   annotations:
      grafana_folder: "common"
 data:
-  lgtm-minio-dashboard.json: |-
+  lgtm-minio-dashboard.json: |
+{{`
     {
       "annotations": {
         "list": [
@@ -655,3 +660,4 @@ data:
       "uid": "minioSimple",
       "version": 5
     }
+`}}

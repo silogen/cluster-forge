@@ -1,0 +1,30 @@
+# OpenTelemetry LGTM Stack Configuration
+# Basic values.yaml for Phase 0 - minimal structure
+
+# Namespace configuration
+namespace: otel-lgtm
+
+# LGTM Stack configuration
+lgtm:
+  # Basic configuration placeholder
+  enabled: true
+
+# Collectors configuration
+collectors:
+  # Basic configuration placeholder
+  enabled: true
+
+# Dashboards configuration
+dashboards:
+  # Basic configuration placeholder
+  enabled: true
+
+# Node exporter configuration
+nodeExporter:
+  # Basic configuration placeholder
+  enabled: true
+
+# Kube state metrics configuration
+kubeStateMetrics:
+  # Basic configuration placeholder
+  enabled: true

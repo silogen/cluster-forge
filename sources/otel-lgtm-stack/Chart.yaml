@@ -1,0 +1,4 @@
+apiVersion: v2
+name: otel-lgtm-stack
+description: A Helm chart for OpenTelemetry LGTM (Loki, Grafana, Tempo, Mimir) stack
+version: 0.1.0
