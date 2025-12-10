@@ -1,6 +1,14 @@
 #!/bin/bash
 set -e
 
+## ⚠️ Important Disclaimers
+##
+## This is only an example script only, adjust paths and commands as needed for your system.
+## This is for illustration purposes only and **not officially supported.**
+##
+## Always test backup and restore procedures in a safe environment before relying on them in production.
+## The backup and restore process is **not guaranteed to be backwards compatible between two arbitrary versions.** 
+
 # Usage: ./import_databases.sh <AIRM_DB_FILE|skip> [KEYCLOAK_DB_FILE] [--port-forward [PORT]]
 # Example: ./import_databases.sh /path/to/airm_backup.sql
 # Example: ./import_databases.sh /path/to/airm_backup.sql /path/to/keycloak_backup.sql

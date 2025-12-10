@@ -2,7 +2,11 @@
 
 This document provides the step-by-step commands for MinIO backup and restore operations.
 
-**Note:** This is an example process specific to Ubuntu/Linux environments. Adjust paths and commands as needed for your system.
+⚠️ Important Disclaimers
+  - This is only an example script only, adjust paths and commands as needed for your system.
+  - This is for illustration purposes only and **not officially supported.**
+  - Always test backup and restore procedures in a safe environment before relying on them in production.
+  - The backup and restore process is **not guaranteed to be backwards compatible between two arbitrary versions.**
 
 
 ## Prerequisites
