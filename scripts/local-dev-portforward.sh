@@ -19,18 +19,23 @@ echo ""
 echo "Press Ctrl+C to stop all port-forwards"
 echo ""
 
+# Initialize status tracking using files (bash 3.2 compatible)
+STATUS_DIR="/tmp/airm-portforward-status"
+mkdir -p "$STATUS_DIR"
+rm -f "$STATUS_DIR"/*
+
 # Function to run port-forward in background and track PID
 start_forward() {
     local display_name=$1
     local namespace=$2
     local service=$3
     local ports=$4
-    
-    echo "▶ Starting $display_name port-forward..."
+    local safe_name=$(echo "$display_name" | tr ' ' '_')
     
     # Check if service exists
     if ! kubectl get svc -n "$namespace" "$service" >/dev/null 2>&1; then
-        echo "   ⚠️  Service $service not found in namespace $namespace - skipping"
+        echo "⚠️  Not Found" > "$STATUS_DIR/${safe_name}_status"
+        echo "Service $service not found in namespace $namespace" > "$STATUS_DIR/${safe_name}_error"
         return 1
     fi
     
@@ -39,26 +44,46 @@ start_forward() {
         while true; do
             kubectl port-forward -n "$namespace" "svc/$service" $ports 2>&1 | \
                 grep -v "Handling connection" | \
-                sed "s/^/[$display_name] /"
-            echo "[$display_name] Connection lost, restarting in 2 seconds..."
+                while IFS= read -r line; do
+                    if [[ "$line" =~ "Forwarding from" ]]; then
+                        echo "✓ Running" > "$STATUS_DIR/${safe_name}_status"
+                        rm -f "$STATUS_DIR/${safe_name}_error"
+                    elif [[ "$line" =~ "error" ]] || [[ "$line" =~ "unable" ]]; then
+                        echo "❌ Error" > "$STATUS_DIR/${safe_name}_status"
+                        echo "$line" > "$STATUS_DIR/${safe_name}_error"
+                    fi
+                done
+            echo "🔄 Reconnecting" > "$STATUS_DIR/${safe_name}_status"
             sleep 2
         done
     ) &
     local pid=$!
+    echo "$pid" > "$STATUS_DIR/${safe_name}_pid"
+    echo "🔄 Starting" > "$STATUS_DIR/${safe_name}_status"
     echo "$pid" >> /tmp/airm-portforward-pids.txt
     sleep 1
     
     # Check if the process is still running
     if kill -0 $pid 2>/dev/null; then
-        echo "   ✓ Started (PID: $pid)"
+        echo "✓ Running" > "$STATUS_DIR/${safe_name}_status"
+        return 0
     else
-        echo "   ⚠️  Failed to start"
+        echo "❌ Failed" > "$STATUS_DIR/${safe_name}_status"
+        echo "Failed to start" > "$STATUS_DIR/${safe_name}_error"
         return 1
     fi
 }
 
 # Cleanup function
 cleanup() {
+    # Clear the monitoring loop flag
+    MONITORING=false
+    
+    # Kill the monitor background process
+    if [ -n "$MONITOR_PID" ]; then
+        kill "$MONITOR_PID" 2>/dev/null
+    fi
+    
     echo ""
     echo "🛑 Stopping all port-forwards..."
     if [ -f /tmp/airm-portforward-pids.txt ]; then
@@ -69,8 +94,183 @@ cleanup() {
         done < /tmp/airm-portforward-pids.txt
         rm /tmp/airm-portforward-pids.txt
     fi
+    
+    # Clean up status directory
+    rm -rf "$STATUS_DIR"
+    
+    # Clear screen and show final message
+    clear
     echo "✅ All port-forwards stopped"
     exit 0
+}
+
+# Helper function to get status for a service
+get_status() {
+    local service=$1
+    local safe_name=$(echo "$service" | tr ' ' '_')
+    if [ -f "$STATUS_DIR/${safe_name}_status" ]; then
+        cat "$STATUS_DIR/${safe_name}_status"
+    else
+        echo "⚠️  Not Started"
+    fi
+}
+
+# Helper function to get PID for a service
+get_pid() {
+    local service=$1
+    local safe_name=$(echo "$service" | tr ' ' '_')
+    if [ -f "$STATUS_DIR/${safe_name}_pid" ]; then
+        cat "$STATUS_DIR/${safe_name}_pid"
+    else
+        echo "-"
+    fi
+}
+
+# Helper function to get error for a service
+get_error() {
+    local service=$1
+    local safe_name=$(echo "$service" | tr ' ' '_')
+    if [ -f "$STATUS_DIR/${safe_name}_error" ]; then
+        cat "$STATUS_DIR/${safe_name}_error"
+    else
+        echo ""
+    fi
+}
+
+# Function to display resource monitoring
+show_monitoring() {
+    clear
+    echo "╔════════════════════════════════════════════════════════════════════════════╗"
+    echo "║               🔌 AIRM Local Development Port-Forward Monitor               ║"
+    echo "╚════════════════════════════════════════════════════════════════════════════╝"
+    echo ""
+    
+    # Cluster Resources
+    echo "┌─ 📊 Cluster Resources ─────────────────────────────────────────────────────┐"
+    
+    # Get node information
+    local node_info=$(kubectl get nodes -o json 2>/dev/null)
+    if [ $? -eq 0 ]; then
+        local node_name=$(echo "$node_info" | jq -r '.items[0].metadata.name')
+        local cpu_capacity=$(echo "$node_info" | jq -r '.items[0].status.capacity.cpu')
+        local memory_capacity=$(echo "$node_info" | jq -r '.items[0].status.capacity.memory' | sed 's/Ki//')
+        local storage_capacity=$(echo "$node_info" | jq -r '.items[0].status.capacity["ephemeral-storage"]' | sed 's/Ki//')
+        
+        # Convert to human-readable
+        memory_capacity_gb=$(awk "BEGIN {printf \"%.1f\", $memory_capacity/1024/1024}")
+        storage_capacity_gb=$(awk "BEGIN {printf \"%.1f\", $storage_capacity/1024/1024}")
+        
+        # Get resource allocation
+        local node_desc=$(kubectl describe node "$node_name" 2>/dev/null)
+        local cpu_requests=$(echo "$node_desc" | grep -A 10 "Allocated resources:" | grep "cpu" | awk '{print $3}' | tr -d '()%')
+        local memory_requests=$(echo "$node_desc" | grep -A 10 "Allocated resources:" | grep "memory" | awk '{print $3}' | tr -d '()%')
+        local storage_requests=$(echo "$node_desc" | grep -A 10 "Allocated resources:" | grep "ephemeral-storage" | awk '{print $3}' | tr -d '()%')
+        
+        # Get actual disk usage from the node
+        local disk_usage=""
+        local disk_usage_percent=0
+        if command -v docker &> /dev/null && [[ "$node_name" == *"control-plane"* ]]; then
+            # For kind clusters, check the docker container's disk usage
+            local container_name=$(docker ps --filter "name=$node_name" --format "{{.Names}}" 2>/dev/null | head -1)
+            if [ -n "$container_name" ]; then
+                disk_usage=$(docker exec "$container_name" df -h / 2>/dev/null | tail -1 | awk '{print $5, "of", $2, "used"}')
+                disk_usage_percent=$(docker exec "$container_name" df / 2>/dev/null | tail -1 | awk '{print $5}' | tr -d '%')
+            fi
+        fi
+        
+        # If we couldn't get docker info, try kubectl debug (works for any cluster)
+        if [ -z "$disk_usage" ]; then
+            local debug_output=$(kubectl debug node/"$node_name" -it --image=busybox -- df -h / 2>/dev/null | grep -v "Defaulting\|Removing\|pod/" | tail -1)
+            if [ -n "$debug_output" ]; then
+                disk_usage=$(echo "$debug_output" | awk '{print $5, "of", $2, "used"}')
+                disk_usage_percent=$(echo "$debug_output" | awk '{print $5}' | tr -d '%')
+            fi
+        fi
+        
+        # Default to 0 if empty
+        cpu_requests=${cpu_requests:-0}
+        memory_requests=${memory_requests:-0}
+        storage_requests=${storage_requests:-0}
+        disk_usage_percent=${disk_usage_percent:-0}
+        
+        # Create visual bars
+        local cpu_bar=$(create_bar $cpu_requests)
+        local mem_bar=$(create_bar $memory_requests)
+        local disk_bar=$(create_bar $disk_usage_percent)
+        
+        echo "│ Node: $node_name"
+        echo "│"
+        echo "│ CPU:     ${cpu_bar} ${cpu_requests}% (${cpu_capacity} cores)"
+        echo "│ Memory:  ${mem_bar} ${memory_requests}% (${memory_capacity_gb}Gi)"
+        if [ -n "$disk_usage" ]; then
+            echo "│ Disk:    ${disk_bar} ${disk_usage}"
+        else
+            echo "│ Disk:    Unable to fetch disk usage"
+        fi
+    else
+        echo "│ ❌ Unable to fetch cluster resource information"
+    fi
+    
+    # Pod count
+    local pod_count=$(kubectl get pods --all-namespaces --no-headers 2>/dev/null | wc -l | tr -d ' ')
+    local pod_running=$(kubectl get pods --all-namespaces --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l | tr -d ' ')
+    local pod_pending=$(kubectl get pods --all-namespaces --field-selector=status.phase=Pending --no-headers 2>/dev/null | wc -l | tr -d ' ')
+    local pod_failed=$(kubectl get pods --all-namespaces --field-selector=status.phase=Failed --no-headers 2>/dev/null | wc -l | tr -d ' ')
+    
+    echo "│"
+    echo "│ Pods:    ${pod_running}/${pod_count} running"
+    if [ "$pod_pending" -gt 0 ]; then
+        echo "│          ⚠️  ${pod_pending} pending"
+    fi
+    if [ "$pod_failed" -gt 0 ]; then
+        echo "│          ❌ ${pod_failed} failed"
+    fi
+    echo "└────────────────────────────────────────────────────────────────────────────┘"
+    echo ""
+    
+    # Port-forward status
+    echo "┌─ 🔌 Port-Forward Status ───────────────────────────────────────────────────┐"
+    printf "│ %-20s %-15s %s\n" "Service" "Status" "PID"
+    echo "├────────────────────────────────────────────────────────────────────────────┤"
+    
+    for service in "PostgreSQL" "Keycloak" "RabbitMQ" "MinIO" "Cluster Auth"; do
+        local status=$(get_status "$service")
+        local pid=$(get_pid "$service")
+        printf "│ %-20s %-15s %s\n" "$service" "$status" "$pid"
+        
+        # Show error if exists
+        local error=$(get_error "$service")
+        if [ -n "$error" ]; then
+            echo "│   └─ Error: $error"
+        fi
+    done
+    echo "└────────────────────────────────────────────────────────────────────────────┘"
+    echo ""
+    echo "Press Ctrl+C to stop all port-forwards"
+    echo "Last updated: $(date '+%Y-%m-%d %H:%M:%S')"
+}
+
+# Function to create a visual progress bar
+create_bar() {
+    local percentage=$1
+    local bar_length=20
+    local filled=$((percentage * bar_length / 100))
+    local empty=$((bar_length - filled))
+    
+    # Color coding based on usage
+    local color=""
+    if [ "$percentage" -ge 90 ]; then
+        color="🔴"  # Red for critical
+    elif [ "$percentage" -ge 75 ]; then
+        color="🟡"  # Yellow for warning
+    else
+        color="🟢"  # Green for OK
+    fi
+    
+    printf "%s [" "$color"
+    printf "%${filled}s" | tr ' ' '█'
+    printf "%${empty}s" | tr ' ' '░'
+    printf "]"
 }
 
 trap cleanup SIGINT SIGTERM EXIT
@@ -78,7 +278,7 @@ trap cleanup SIGINT SIGTERM EXIT
 # Clean up any previous PIDs file
 rm -f /tmp/airm-portforward-pids.txt
 
-# Start all port-forwards
+# Start all port-forwards (silently in background)
 start_forward "PostgreSQL" "airm" "airm-cnpg-rw" "5432:5432"
 start_forward "Keycloak" "keycloak" "keycloak" "8080:8080"
 start_forward "RabbitMQ" "airm" "airm-rabbitmq" "5672:5672 15672:15672"
@@ -87,9 +287,8 @@ start_forward "Cluster Auth" "cluster-auth" "cluster-auth" "48012:8081"
 # Optional: Prometheus (uncomment if otel-lgtm-stack is deployed)
 # start_forward "Prometheus" "otel-lgtm-stack" "lgtm-stack" "9090:3000"
 
-echo ""
-echo "✅ All port-forwards started!"
-echo ""
+# Wait a moment for port-forwards to initialize
+sleep 2
 
 # Configure kubectl OIDC authentication for AIRM API testing
 echo ""
@@ -245,12 +444,23 @@ EOF
     echo "   - $API_ENV_FILE"
     echo "   - $UI_ENV_FILE"
 fi
-echo ""
-echo "📝 Next steps:"
-echo "   1. Run API: cd ${LLM_STUDIO_CORE_PATH}/services/airm/api && uv run fastapi dev"
-echo "   2. Run UI: cd ${LLM_STUDIO_CORE_PATH}/services/airm/ui && pnpm dev"
-echo "   3. Open UI: http://localhost:8010"
-echo ""
+
+# Start monitoring loop
+MONITORING=true
+
+# Display initial screen
+show_monitoring
+
+# Background loop to refresh display
+(
+    while $MONITORING; do
+        sleep 5
+        if $MONITORING; then
+            show_monitoring
+        fi
+    done
+) &
+MONITOR_PID=$!
 
 # Wait for Ctrl+C
 wait
