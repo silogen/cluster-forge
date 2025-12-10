@@ -51,7 +51,7 @@ enabledApps:
   # - kuberay-operator
   - kueue
   - kueue-config
-# Override minio-tenant to use local-friendly values
+# Component-specific overrides for memory reduction  
 apps:
   minio-tenant:
     path: minio-tenant/7.1.1
@@ -85,6 +85,16 @@ apps:
         value: "true" # Enable HTTP and relaxed cookie settings
       - name: domain
         value: "localhost.local" # Domain for user emails
+      # Reduce Keycloak resources
+      - name: resources.requests.memory
+        value: "256Mi"
+      - name: resources.limits.memory
+        value: "512Mi"
+      # Reduce PostgreSQL resources
+      - name: cnpg.cluster.instances.resources.requests.memory
+        value: "256Mi"
+      - name: cnpg.cluster.instances.resources.limits.memory
+        value: "512Mi"
     syncWave: -2
   keycloak-config:
     path: keycloak-config
@@ -113,6 +123,26 @@ apps:
       - name: airm-ui.resources.requests.memory
         value: "256Mi"
       - name: airm-ui.resources.limits.memory
+        value: "512Mi"
+      # Reduce API resources
+      - name: airm-api.resources.requests.memory
+        value: "512Mi"
+      - name: airm-api.resources.limits.memory
+        value: "512Mi"
+      # Reduce dispatcher resources
+      - name: airm-dispatcher.resources.requests.memory
+        value: "512Mi"
+      - name: airm-dispatcher.resources.limits.memory
+        value: "512Mi"
+      # Reduce RabbitMQ resources
+      - name: airm-rabbitmq.resources.requests.memory
+        value: "512Mi"
+      - name: airm-rabbitmq.resources.limits.memory
+        value: "512Mi"
+      # Reduce PostgreSQL resources
+      - name: airm-cnpg.cluster.instances.resources.requests.memory
+        value: "256Mi"
+      - name: airm-cnpg.cluster.instances.resources.limits.memory
         value: "512Mi"
     syncOptions:
       - ServerSideApply=false # Disable SSA for hooks to work properly
