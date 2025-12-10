@@ -46,16 +46,15 @@ fi
 
 cd "$REPO_PATH"
 
-# Add or update gitea-local remote
-if git remote | grep -q "^gitea-local$"; then
-    git remote set-url gitea-local "http://${GITEA_USER}:${GITEA_PASS}@localhost:3000/${GITEA_ORG}/${GITEA_REPO}.git"
-else
-    git remote add gitea-local "http://${GITEA_USER}:${GITEA_PASS}@localhost:3000/${GITEA_ORG}/${GITEA_REPO}.git"
-fi
+# Remove existing gitea-local remote if present to ensure fresh credentials
+git remote remove gitea-local 2>/dev/null || true
+
+# Add gitea-local remote with credentials
+git remote add gitea-local "http://${GITEA_USER}:${GITEA_PASS}@localhost:3000/${GITEA_ORG}/${GITEA_REPO}.git"
 
 # Force push current HEAD to main branch
 echo "⬆️  Pushing to $GITEA_ORG/$GITEA_REPO..."
-git push gitea-local HEAD:main --force
+git push gitea-local HEAD:refs/heads/main --force
 
 echo "✅ Successfully pushed to $GITEA_ORG/$GITEA_REPO!"
 echo "📝 Use repoURL: http://gitea-http.cf-gitea.svc:3000/${GITEA_ORG}/${GITEA_REPO}.git in your values"
