@@ -100,12 +100,12 @@ CURRENT_CONTEXT=$(kubectl config current-context)
 CURRENT_USER="${CURRENT_CONTEXT}"
 echo "   Current context: ${CURRENT_CONTEXT}"
 
-# Get Keycloak admin client credentials
-ADMIN_CLIENT_ID=$(kubectl get secret -n keycloak airm-realm-credentials -o jsonpath='{.data.ADMIN_CLIENT_ID}' 2>/dev/null | base64 -d)
-ADMIN_CLIENT_SECRET=$(kubectl get secret -n keycloak airm-realm-credentials -o jsonpath='{.data.ADMIN_CLIENT_SECRET}' 2>/dev/null | base64 -d)
+# Get Keycloak k8s client credentials (configured with groups scope)
+K8S_CLIENT_ID="k8s"
+K8S_CLIENT_SECRET=$(kubectl get secret -n keycloak airm-realm-credentials -o jsonpath='{.data.K8S_CLIENT_SECRET}' 2>/dev/null | base64 -d)
 
-if [ -n "$ADMIN_CLIENT_ID" ] && [ -n "$ADMIN_CLIENT_SECRET" ]; then
-    echo "   Found admin client ID: ${ADMIN_CLIENT_ID}"
+if [ -n "$K8S_CLIENT_SECRET" ]; then
+    echo "   Found k8s client ID: ${K8S_CLIENT_ID}"
     
     # Check if kubectl oidc-login plugin is installed
     if kubectl oidc-login --version &>/dev/null; then
@@ -126,8 +126,8 @@ if [ -n "$ADMIN_CLIENT_ID" ] && [ -n "$ADMIN_CLIENT_SECRET" ]; then
             --exec-arg=oidc-login \
             --exec-arg=get-token \
             --exec-arg=--oidc-issuer-url="http://localhost:8080/realms/airm" \
-            --exec-arg=--oidc-client-id="${ADMIN_CLIENT_ID}" \
-            --exec-arg=--oidc-client-secret="${ADMIN_CLIENT_SECRET}" \
+            --exec-arg=--oidc-client-id="${K8S_CLIENT_ID}" \
+            --exec-arg=--oidc-client-secret="${K8S_CLIENT_SECRET}" \
             --exec-arg=--username="${KC_USERNAME}" \
             --exec-arg=--password="${KC_PASSWORD}" \
             --exec-arg=--grant-type=password \
@@ -146,8 +146,8 @@ if [ -n "$ADMIN_CLIENT_ID" ] && [ -n "$ADMIN_CLIENT_SECRET" ]; then
             --exec-arg=oidc-login \
             --exec-arg=get-token \
             --exec-arg=--oidc-issuer-url="http://keycloak.keycloak.svc.cluster.local:8080/realms/airm" \
-            --exec-arg=--oidc-client-id="${ADMIN_CLIENT_ID}" \
-            --exec-arg=--oidc-client-secret="${ADMIN_CLIENT_SECRET}" \
+            --exec-arg=--oidc-client-id="${K8S_CLIENT_ID}" \
+            --exec-arg=--oidc-client-secret="${K8S_CLIENT_SECRET}" \
             --exec-arg=--username="${KC_USERNAME}" \
             --exec-arg=--password="${KC_PASSWORD}" \
             --exec-arg=--grant-type=password \
