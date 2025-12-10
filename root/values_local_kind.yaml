@@ -107,7 +107,7 @@ apps:
         value: "http://localhost:8000" # Override for local port-forwarding
       - name: airm-api.airm.backend.image.tag
         value: local
-      - name: airm-dispatcher.airm.backend.image.tag
+      - name: airm-dispatcher.airm.dispatcher.image.tag
         value: local
       # Reduce UI resources for local development
       - name: airm-ui.resources.requests.memory
