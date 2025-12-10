@@ -6,19 +6,30 @@
 # Environment variables:
 #   SKIP_IMAGE_PRELOAD=1     - Skip pre-loading container images
 #   BUILD_LOCAL_IMAGES=1     - Build and use local AIRM images instead of published ones
-#   LLM_STUDIO_CORE_PATH     - Path to llm-studio-core repo (default: ../llm-studio-core)
+#   SILOGEN_CORE_PATH        - Path to silogen-core repo (auto-detected if not set)
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 DOMAIN="${1:-localhost.local}"
-LLM_STUDIO_CORE_PATH="${LLM_STUDIO_CORE_PATH:-${ROOT_DIR}/../llm-studio-core}"
+
+# Auto-detect silogen-core path if not explicitly set
+if [ -z "${SILOGEN_CORE_PATH}" ]; then
+    # Try to find silogen-core in parent directories (up to 2 levels)
+    if [ -d "${ROOT_DIR}/../silogen-core" ]; then
+        SILOGEN_CORE_PATH="${ROOT_DIR}/../silogen-core"
+    elif [ -d "${ROOT_DIR}/../../silogen-core" ]; then
+        SILOGEN_CORE_PATH="${ROOT_DIR}/../../silogen-core"
+    else
+        SILOGEN_CORE_PATH="${ROOT_DIR}/../silogen-core"  # Fallback default
+    fi
+fi
 
 echo "🔧 Setting up cluster-forge for local Kind development..."
 echo "📋 Domain: ${DOMAIN}"
 if [ "${BUILD_LOCAL_IMAGES}" = "1" ]; then
-    echo "🔨 Will build local AIRM images from: ${LLM_STUDIO_CORE_PATH}"
+    echo "🔨 Will build local AIRM images from: ${SILOGEN_CORE_PATH}"
 fi
 
 # Check if kind cluster exists
@@ -211,30 +222,30 @@ build_local_images() {
     echo "🔨 Building local AIRM images from source..."
     echo ""
     
-    # Validate llm-studio-core path
-    if [ ! -d "${LLM_STUDIO_CORE_PATH}" ]; then
-        echo "❌ Error: llm-studio-core repo not found at: ${LLM_STUDIO_CORE_PATH}"
-        echo "   Set LLM_STUDIO_CORE_PATH environment variable to the correct path"
+    # Validate silogen-core path
+    if [ ! -d "${SILOGEN_CORE_PATH}" ]; then
+        echo "❌ Error: silogen-core repo not found at: ${SILOGEN_CORE_PATH}"
+        echo "   Set SILOGEN_CORE_PATH environment variable to the correct path"
         exit 1
     fi
     
-    local DOCKER_DIR="${LLM_STUDIO_CORE_PATH}/services/airm/docker"
+    local DOCKER_DIR="${SILOGEN_CORE_PATH}/services/airm/docker"
     if [ ! -d "${DOCKER_DIR}" ]; then
         echo "❌ Error: Docker directory not found at: ${DOCKER_DIR}"
         exit 1
     fi
     
-    echo "📂 Source: ${LLM_STUDIO_CORE_PATH}"
+    echo "📂 Source: ${SILOGEN_CORE_PATH}"
     echo ""
     
     # Build images
     # Note: UI build is skipped as it takes a very long time (Next.js build with all dependencies)
     # Use the published image for UI, or build manually if needed:
-    #   cd ${LLM_STUDIO_CORE_PATH}/services/airm/ui && docker build -f ../docker/ui.Dockerfile -t amdenterpriseai/airm-ui:local .
+    #   cd ${SILOGEN_CORE_PATH}/services/airm/ui && docker build -f ../docker/ui.Dockerfile -t amdenterpriseai/airm-ui:local .
     local IMAGES=(
         "api:amdenterpriseai/airm-api:local"
-        # "ui:amdenterpriseai/airm-ui:local"  # Skipped - very slow build
         "dispatcher:amdenterpriseai/airm-dispatcher:local"
+        # "ui:amdenterpriseai/airm-ui:local"  # Skipped - very slow build
     )
     
     local BUILT=0
@@ -256,9 +267,9 @@ build_local_images() {
         fi
         
         # UI uses its own directory as build context, others use repo root
-        local BUILD_CONTEXT="${LLM_STUDIO_CORE_PATH}"
+        local BUILD_CONTEXT="${SILOGEN_CORE_PATH}"
         if [ "${SERVICE}" = "ui" ]; then
-            BUILD_CONTEXT="${LLM_STUDIO_CORE_PATH}/services/airm/ui"
+            BUILD_CONTEXT="${SILOGEN_CORE_PATH}/services/airm/ui"
         fi
         
         echo "   Building..."
@@ -427,11 +438,11 @@ echo "📤 Pushing repositories to Gitea..."
 # Push cluster-forge repo
 "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${ROOT_DIR}" "cluster-org" "cluster-forge"
 
-# Push llm-studio-core repo if it exists
-if [ -d "${LLM_STUDIO_CORE_PATH}" ]; then
-    "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${LLM_STUDIO_CORE_PATH}" "cluster-org" "core"
+# Push silogen-core repo if it exists
+if [ -d "${SILOGEN_CORE_PATH}" ]; then
+    "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${SILOGEN_CORE_PATH}" "cluster-org" "core"
 else
-    echo "⚠️  llm-studio-core not found at ${LLM_STUDIO_CORE_PATH}"
+    echo "⚠️  silogen-core not found at ${SILOGEN_CORE_PATH}"
     echo "   AIRM will use charts from cluster-forge/sources/airm/0.2.7"
 fi
 
