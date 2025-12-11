@@ -165,7 +165,7 @@ apps:
     valuesFile: values.yaml
     syncWave: -3
   otel-lgtm-stack:
-    path: otel-lgtm-stack
+    path: otel-lgtm-stack/v1.0.7
     namespace: otel-lgtm-stack
     valuesFile: ../values_cf.yaml
     helmParameters:
