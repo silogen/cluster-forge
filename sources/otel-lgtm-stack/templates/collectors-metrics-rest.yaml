@@ -1,0 +1,280 @@
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: otel-collector-metrics-rest
+  namespace: {{ .Release.Namespace }}
+spec:
+  image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
+  mode: deployment
+  podAnnotations:
+    prometheus.io/port: "8888"
+    prometheus.io/scrape: "true"
+  replicas: 1
+  resources:
+    limits:
+      cpu: {{ .Values.collectors.resources.metrics.limits.cpu | quote }}
+      memory: {{ .Values.collectors.resources.metrics.limits.memory }}
+    requests:
+      cpu: {{ .Values.collectors.resources.metrics.requests.cpu | quote }}
+      memory: {{ .Values.collectors.resources.metrics.requests.memory }}
+  serviceAccount: otel-collector
+  config:
+    exporters:
+      debug:
+        verbosity: detailed
+      otlp:
+        endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
+        tls:
+          insecure: true
+    processors:
+      attributes:
+        actions:
+          - action: insert
+            key: k8s_cluster_name
+            value: cluster-name
+      batch:
+        send_batch_size: 2000
+        timeout: 10s
+      memory_limiter:
+        check_interval: 5s
+        limit_percentage: 80
+        spike_limit_percentage: 25
+    receivers:
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: otel-collector
+              scrape_interval: 30s
+              static_configs:
+                - targets:
+                    - localhost:8888
+            - dns_sd_configs:
+                - names:
+                    - opencost-prometheus-opencost-exporter.monitoring
+                  port: 9003
+                  type: A
+              honor_labels: true
+              job_name: opencost
+              metrics_path: /metrics
+              scheme: http
+              scrape_interval: 1m
+              scrape_timeout: 10s
+            - job_name: gpu-operator-metrics-exporter
+              kubernetes_sd_configs:
+                - role: node
+              metrics_path: /metrics
+              relabel_configs:
+                - action: keep
+                  regex: true
+                  source_labels:
+                    - __meta_kubernetes_node_label_feature_node_kubernetes_io_amd_gpu
+                - regex: (.+)
+                  replacement: $1:32500
+                  source_labels:
+                    - __meta_kubernetes_node_address_InternalIP
+                  target_label: __address__
+                - source_labels:
+                    - __meta_kubernetes_node_name
+                  target_label: hostname
+            - job_name: minio-cluster-metrics
+              metrics_path: /minio/v2/metrics/cluster
+              scheme: http
+              static_configs:
+                - targets:
+                    - minio.minio-tenant-default.svc.cluster.local
+            - job_name: minio-bucket-metrics
+              metrics_path: /minio/v2/metrics/bucket
+              scheme: http
+              static_configs:
+                - targets:
+                    - minio.minio-tenant-default.svc.cluster.local
+            - job_name: minio-resource-metrics
+              metrics_path: /minio/v2/metrics/resource
+              scheme: http
+              static_configs:
+                - targets:
+                    - minio.minio-tenant-default.svc.cluster.local
+            - job_name: argocd-controller
+              metrics_path: /metrics
+              scheme: http
+              static_configs:
+                - targets:
+                    - argocd-metrics.argocd.svc.cluster.local:8082
+            - job_name: argocd-applicationset
+              metrics_path: /metrics
+              scheme: http
+              static_configs:
+                - targets:
+                    - argocd-applicationset-controller.argocd.svc.cluster.local:8080
+            - job_name: argocd-repo-server
+              metrics_path: /metrics
+              scheme: http
+              static_configs:
+                - targets:
+                    - argocd-repo-server.argocd.svc.cluster.local:8084
+            - job_name: longhorn
+              metrics_path: /metrics
+              scheme: http
+              static_configs:
+                - targets:
+                    - longhorn-backend.longhorn.svc.cluster.local:9500
+    service:
+      pipelines:
+        metrics:
+          exporters:
+            - otlp
+          processors:
+            - memory_limiter
+            - batch
+            - attributes
+          receivers:
+            - prometheus
+
+---
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: otel-collector-metrics-chrony
+  namespace: {{ .Release.Namespace }}
+spec:
+  image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
+  mode: deployment
+  podAnnotations:
+    prometheus.io/port: "8888"
+    prometheus.io/scrape: "true"
+  replicas: 1
+  resources:
+    limits:
+      cpu: {{ .Values.collectors.resources.metrics.limits.cpu | quote }}
+      memory: {{ .Values.collectors.resources.metrics.limits.memory }}
+    requests:
+      cpu: {{ .Values.collectors.resources.metrics.requests.cpu | quote }}
+      memory: {{ .Values.collectors.resources.metrics.requests.memory }}
+  serviceAccount: otel-collector
+  config:
+    exporters:
+      debug:
+        verbosity: detailed
+      otlp:
+        endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
+        tls:
+          insecure: true
+    processors:
+      attributes:
+        actions:
+          - action: insert
+            key: k8s_cluster_name
+            value: cluster-name
+      batch:
+        send_batch_size: 2000
+        timeout: 10s
+      memory_limiter:
+        check_interval: 5s
+        limit_percentage: 80
+        spike_limit_percentage: 25
+    receivers:
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: chrony-exporter
+              kubernetes_sd_configs:
+                - role: pod
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_pod_label_app]
+                  regex: chrony-exporter
+                  action: keep
+                - source_labels: [__meta_kubernetes_pod_ip]
+                  target_label: __address__
+                  regex: (.*)
+                  replacement: $1:9123
+                - source_labels: [__meta_kubernetes_pod_node_name]
+                  target_label: k8s_node_name
+    service:
+      pipelines:
+        metrics:
+          exporters:
+            - otlp
+          processors:
+            - memory_limiter
+            - batch
+            - attributes
+          receivers:
+            - prometheus
+
+---
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: otel-collector-metrics-airm
+  namespace: {{ .Release.Namespace }}
+spec:
+  image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
+  mode: deployment
+  podAnnotations:
+    prometheus.io/port: "8888"
+    prometheus.io/scrape: "true"
+  replicas: 1
+  resources:
+    limits:
+      cpu: {{ .Values.collectors.resources.metrics.limits.cpu | quote }}
+      memory: {{ .Values.collectors.resources.metrics.limits.memory }}
+    requests:
+      cpu: {{ .Values.collectors.resources.metrics.requests.cpu | quote }}
+      memory: {{ .Values.collectors.resources.metrics.requests.memory }}
+  serviceAccount: otel-collector
+  config:
+    exporters:
+      debug:
+        verbosity: detailed
+      otlp:
+        endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
+        tls:
+          insecure: true
+    processors:
+      attributes:
+        actions:
+          - action: insert
+            key: k8s_cluster_name
+            value: cluster-name
+      batch:
+        send_batch_size: 2000
+        timeout: 10s
+      memory_limiter:
+        check_interval: 5s
+        limit_percentage: 80
+        spike_limit_percentage: 25
+    receivers:
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: airm-custom-metrics
+              scrape_interval: 30s
+              kubernetes_sd_configs:
+                - role: pod
+              metrics_path: /
+              relabel_configs:
+                - action: keep
+                  source_labels:
+                    - __meta_kubernetes_pod_label_app
+                  regex: airm-api
+                - regex: (.+)
+                  replacement: $1:9009
+                  source_labels:
+                    - __meta_kubernetes_node_address_InternalIP
+                  target_label: __address__
+                  action: replace
+                - source_labels:
+                    - __meta_kubernetes_node_name
+                  target_label: hostname
+
+    service:
+      pipelines:
+        metrics:
+          exporters:
+            - otlp
+          processors:
+            - memory_limiter
+            - batch
+            - attributes
+          receivers:
+            - prometheus
