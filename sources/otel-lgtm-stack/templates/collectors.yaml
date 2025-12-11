@@ -231,10 +231,10 @@ spec:
     prometheus.io/port: "8888"
   resources:
     limits:
-      cpu: {{ .Values.collectors.resources.logs.limits.cpu }}
+      cpu: {{ .Values.collectors.resources.logs.limits.cpu | quote }}
       memory: {{ .Values.collectors.resources.logs.limits.memory }}
     requests:
-      cpu: {{ .Values.collectors.resources.logs.requests.cpu }}
+      cpu: {{ .Values.collectors.resources.logs.requests.cpu | quote }}
       memory: {{ .Values.collectors.resources.logs.requests.memory }}
   securityContext: ####
     privileged: true
@@ -569,10 +569,10 @@ spec:
     prometheus.io/port: "8888"
   resources:
     limits:
-      cpu: {{ .Values.collectors.resources.metrics.limits.cpu }}
+      cpu: {{ .Values.collectors.resources.metrics.limits.cpu | quote }}
       memory: {{ .Values.collectors.resources.metrics.limits.memory }}
     requests:
-      cpu: {{ .Values.collectors.resources.metrics.requests.cpu }}
+      cpu: {{ .Values.collectors.resources.metrics.requests.cpu | quote }}
       memory: {{ .Values.collectors.resources.metrics.requests.memory }}
   config:
     receivers:
@@ -920,10 +920,10 @@ spec:
   replicas: 1
   resources:
     limits:
-      cpu: {{ .Values.collectors.resources.metrics.limits.cpu }}
+      cpu: {{ .Values.collectors.resources.metrics.limits.cpu | quote }}
       memory: {{ .Values.collectors.resources.metrics.limits.memory }}
     requests:
-      cpu: {{ .Values.collectors.resources.metrics.requests.cpu }}
+      cpu: {{ .Values.collectors.resources.metrics.requests.cpu | quote }}
       memory: {{ .Values.collectors.resources.metrics.requests.memory }}
   serviceAccount: otel-collector
   config:
@@ -1053,10 +1053,10 @@ spec:
   replicas: 1
   resources:
     limits:
-      cpu: {{ .Values.collectors.resources.metrics.limits.cpu }}
+      cpu: {{ .Values.collectors.resources.metrics.limits.cpu | quote }}
       memory: {{ .Values.collectors.resources.metrics.limits.memory }}
     requests:
-      cpu: {{ .Values.collectors.resources.metrics.requests.cpu }}
+      cpu: {{ .Values.collectors.resources.metrics.requests.cpu | quote }}
       memory: {{ .Values.collectors.resources.metrics.requests.memory }}
   serviceAccount: otel-collector
   config:
@@ -1124,10 +1124,10 @@ spec:
   replicas: 1
   resources:
     limits:
-      cpu: {{ .Values.collectors.resources.metrics.limits.cpu }}
+      cpu: {{ .Values.collectors.resources.metrics.limits.cpu | quote }}
       memory: {{ .Values.collectors.resources.metrics.limits.memory }}
     requests:
-      cpu: {{ .Values.collectors.resources.metrics.requests.cpu }}
+      cpu: {{ .Values.collectors.resources.metrics.requests.cpu | quote }}
       memory: {{ .Values.collectors.resources.metrics.requests.memory }}
   serviceAccount: otel-collector
   config:
