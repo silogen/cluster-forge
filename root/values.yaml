@@ -167,8 +167,7 @@ apps:
   otel-lgtm-stack:
     path: otel-lgtm-stack
     namespace: otel-lgtm-stack
-    directory:
-      recurse: true
+    valuesFile: values.yaml
     syncWave: -2
   # Databases
   cnpg-operator:
