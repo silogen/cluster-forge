@@ -99,9 +99,9 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   keycloak:
-    path: keycloak-old
-    valuesFile: values.yaml
-    sourceUrl: https://codecentric.github.io/helm-charts
+    path: keycloak/25.2.0
+    valuesFile: ../values_cf.yaml
+    sourceUrl: oci://registry-1.docker.io/bitnamicharts/keycloak
     projectUrl: https://github.com/keycloak/keycloak
     license: Apache License 2.0
     licenseUrl: https://github.com/keycloak/keycloak/blob/main/LICENSE.txt
