@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: nodeexporter-chrony-exporter
-  namespace: {{ .Values.namespace }}
+  namespace: otel-lgtm-stack
   labels:
     app: chrony-exporter
 spec:
