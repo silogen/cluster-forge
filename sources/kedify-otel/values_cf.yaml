@@ -1,0 +1,3 @@
+# Cluster-forge specific values for kedify-otel
+validatingAdmissionPolicy:
+  enabled: false

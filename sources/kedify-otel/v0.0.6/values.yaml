@@ -1,0 +1,180 @@
+#otel-add-on:
+#------------
+replicaCount: 1
+namespace: keda
+
+image:
+  # -- Image to use for the Deployment
+  repository: ghcr.io/kedify/otel-add-on
+  # -- Image pull policy, consult [docs](https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy)
+  pullPolicy: Always
+  # -- Image version to use for the Deployment, if not specified, it defaults to `.Chart.AppVersion`
+  tag: ""
+
+settings:
+  metricStore:
+    # -- how long the metrics should be kept in the short term (in memory) storage
+    retentionSeconds: 120
+
+    # -- if enabled, no metrics will be stored until there is a request for such metric
+    # from KEDA operator.
+    lazySeries: false
+
+    # -- if enabled, the only aggregate that will be calculated on the fly is the one referenced in the metric query
+    #  (by default, we calculate and store all of them - sum, rate, min, max, etc.)
+    lazyAggregates: false
+
+  # -- how often (in milliseconds) should the IsActive method be tried
+  isActivePollingIntervalMilliseconds: 500
+
+  # -- internal (mostly golang) metrics will be exposed on `:8080/metrics`
+  internalMetricsPort: 8080
+
+  # -- port where rest api should be listening
+  restApiPort: 9090
+
+  logs:
+    # -- Can be one of 'debug', 'info', 'error', or any integer value > 0
+    # which corresponds to custom debug levels of increasing verbosity
+    logLvl: info
+
+    # -- one of: info, error, panic
+    stackTracesLvl: error
+
+    # -- if anything else than 'false', the log will not contain colors
+    noColor: false
+
+    # -- if anything else than 'false', the log will not print the ascii logo
+    noBanner: false
+
+validatingAdmissionPolicy:
+  # -- whether the ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding resources should be also rendered
+  enabled: true
+  name: well-formed-otel-scalers
+
+# -- should the ascii logo be printed when this helm chart is installed
+asciiArt: true
+
+# -- [details](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod)
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # -- should the service account be also created and linked in the deployment
+  create: true
+  automount: true
+  # -- further custom annotation that will be added on the service account
+  annotations: {}
+  # -- name of the service account, defaults to `otel-add-on.fullname` ~ release name if not overriden
+  name: ""
+
+# -- additional custom pod annotations that will be used for pod
+podAnnotations: {}
+
+# -- additional custom pod labels that will be used for pod
+podLabels: {}
+
+# -- [details](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod)
+podSecurityContext: {}
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  # -- [details](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
+  readOnlyRootFilesystem: true
+  # -- [details](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#implicit-group-memberships-defined-in-etc-group-in-the-container-image)
+  runAsNonRoot: true
+  # -- [details](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#implicit-group-memberships-defined-in-etc-group-in-the-container-image)
+  runAsUser: 1000
+
+service:
+  # -- Under this service, the otel add on needs to be reachable by KEDA operator and OTel collector
+  # ([details](https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types))
+  type: ClusterIP
+  # -- OTLP receiver will be opened on this port. OTel exporter configured in the OTel collector needs to have this value set.
+  otlpReceiverPort: 4317
+  # -- KEDA external scaler will be opened on this port. ScaledObject's `.spec.triggers[].metadata.scalerAddress` needs to be set to this svc and this port.
+  kedaExternalScalerPort: 4318
+
+resources:
+  limits:
+    # -- cpu limit for the pod, enforced by cgroups ([details](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/))
+    cpu: 500m
+    # -- memory limit for the pod, used by oomkiller ([details](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/))
+    memory: 256Mi
+  requests:
+    # -- cpu request for the pod, used by k8s scheduler ([details](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/))
+    cpu: 500m
+    # -- memory request for the pod, used by k8s scheduler ([details](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/))
+    memory: 128Mi
+
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+# -- [details](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector)
+nodeSelector: {}
+
+# -- [details](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
+tolerations: []
+
+# -- [details](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity)
+affinity: {}
+
+# otel collector helm chart:
+# https://github.com/open-telemetry/opentelemetry-helm-charts/tree/opentelemetry-collector-0.110.0/charts/opentelemetry-collector/values.yaml
+#--------------------------
+# example configuration of otel collector to work as an opencensus receiver and forwarder to otel-add-on
+opentelemetry-collector:
+  enabled: true
+  mode: deployment
+  image:
+    repository: otel/opentelemetry-collector-k8s
+  fullnameOverride: otelcol
+
+  ports:
+    opencensus:
+      enabled: true
+      containerPort: 55678
+      servicePort: 55678
+      hostPort: 55678
+      protocol: TCP
+  alternateConfig:
+    receivers:
+      # https://grafana.com/docs/alloy/latest/reference/components/otelcol/otelcol.receiver.opencensus/
+      opencensus:
+        endpoint: 0.0.0.0:55678
+        include_metadata: true
+    exporters:
+      otlp:
+        # make sure this is the same hostname and port as .service (when using different namespace)
+        endpoint: keda-otel-scaler.keda.svc:4317
+        compression: "none"
+        tls:
+          insecure: true
+      debug:
+        verbosity: detailed
+
+    service:
+      extensions:
+        - health_check
+      pipelines:
+        metrics:
+          receivers:
+            - opencensus
+          exporters:
+            - debug
+            - otlp
+
+    extensions:
+      health_check:
+        endpoint: ${env:MY_POD_IP}:13133

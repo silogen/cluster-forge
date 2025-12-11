@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: keda-otel-scaler
+  namespace: {{ .Values.namespace | default .Release.Namespace }}
+  labels:
+    {{- include "otel-add-on.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.otlpReceiverPort }}
+      targetPort: {{ .Values.service.otlpReceiverPort }}
+      protocol: TCP
+      name: grpc-otlp-receiver
+    - port: {{ .Values.service.kedaExternalScalerPort }}
+      targetPort: {{ .Values.service.kedaExternalScalerPort }}
+      protocol: TCP
+      name: keda-external-scaler
+    - port: {{ .Values.settings.internalMetricsPort }}
+      targetPort: {{ .Values.settings.internalMetricsPort }}
+      protocol: TCP
+      name: internal-metrics
+    - port: {{ .Values.settings.restApiPort }}
+      targetPort: {{ .Values.settings.restApiPort }}
+      protocol: TCP
+      name: rest-api
+  selector:
+    {{- include "otel-add-on.selectorLabels" . | nindent 4 }}

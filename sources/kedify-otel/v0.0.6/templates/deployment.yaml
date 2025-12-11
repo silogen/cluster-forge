@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "otel-add-on.name" . }}-scaler
+  namespace: {{ .Values.namespace | default .Release.Namespace }}
+  labels:
+    {{- include "otel-add-on.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "otel-add-on.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+    {{- with .Values.podAnnotations }}
+      annotations:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "otel-add-on.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "otel-add-on.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: OTLP_RECEIVER_PORT
+              value: {{ .Values.service.otlpReceiverPort | quote }}
+            - name: KEDA_EXTERNAL_SCALER_PORT
+              value: {{ .Values.service.kedaExternalScalerPort | quote }}
+            - name: METRIC_STORE_RETENTION_SECONDS
+              value: {{ .Values.settings.metricStore.retentionSeconds | quote }}
+            - name: METRIC_STORE_LAZY_SERIES
+              value: {{ .Values.settings.metricStore.lazySeries | quote }}
+            - name: METRIC_STORE_LAZY_AGGREGATES
+              value: {{ .Values.settings.metricStore.lazyAggregates | quote }}
+            - name: IS_ACTIVE_POLLING_INTERVAL_MS
+              value: {{ .Values.settings.isActivePollingIntervalMilliseconds | quote }}
+            - name: INTERNAL_METRICS_PORT
+              value: {{ .Values.settings.internalMetricsPort | quote }}
+            - name: REST_API_PORT
+              value: {{ .Values.settings.restApiPort | quote }}
+      {{- if .Values.settings.noColor }}
+            - name: NO_COLOR
+              value: {{ .Values.settings.logs.noColor | quote }}
+      {{- end }}
+      {{- if .Values.settings.noBanner }}
+            - name: NO_BANNER
+              value: {{ .Values.settings.logs.noBanner | quote }}
+      {{- end }}
+          args:
+            - --zap-log-level={{ .Values.settings.logs.logLvl }}
+            - --zap-stacktrace-level={{ .Values.settings.logs.stackTracesLvl }}
+          livenessProbe:
+            grpc:
+              port: {{ .Values.service.kedaExternalScalerPort }}
+              service: liveness
+            timeoutSeconds: 5
+            periodSeconds: 5
+            successThreshold: 1
+            failureThreshold: 6
+          readinessProbe:
+            grpc:
+              port: {{ .Values.service.kedaExternalScalerPort }}
+              service: readiness
+            timeoutSeconds: 1
+            periodSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -37,6 +37,8 @@ enabledApps:
   - amd-gpu-operator
   - amd-gpu-operator-config
   - kuberay-operator
+  - keda
+  - kedify-otel
   - kserve-crds
   - kserve
   - rabbitmq
@@ -162,7 +164,7 @@ apps:
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
     namespace: opentelemetry-operator-system
-    valuesFile: values.yaml
+    valuesFile: ../values_cf.yaml
     syncWave: -3
   otel-lgtm-stack:
     path: otel-lgtm-stack
@@ -232,14 +234,25 @@ apps:
     namespace: default
     valuesFile: values.yaml
     syncWave: -1
+  # Autoscaling
+  keda:
+    path: keda/2.18.1
+    namespace: keda
+    valuesFile: values.yaml
+    syncWave: -2
+  kedify-otel:
+    path: kedify-otel/v0.0.6
+    namespace: keda
+    valuesFile: ../values_cf.yaml
+    syncWave: -2
   # ML/AI
   kserve-crds:
-    path: kserve-crds/v0.15.2
+    path: kserve-crds/v0.16.0
     namespace: kserve-system
     valuesFile: values.yaml
     syncWave: -3
   kserve:
-    path: kserve/v0.15.2
+    path: kserve/v0.16.0
     namespace: kserve-system
     valuesFile: ../values_cf.yaml
     syncWave: -2

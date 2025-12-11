@@ -1,0 +1,117 @@
+{{ template "chart.header" . }}
+
+{{ template "chart.deprecationWarning" . }}
+
+{{ template "chart.badgesSection" . }}
+
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/otel-add-on)](https://artifacthub.io/packages/search?repo=otel-add-on)
+
+{{ template "chart.description" . }}
+
+```
+:::^.     .::::^:     :::::::::::::::    .:::::::::.                   .^.
+7???~   .^7????~.     7??????????????.   :?????????77!^.              .7?7.
+7???~  ^7???7~.       ~!!!!!!!!!!!!!!.   :????!!!!7????7~.           .7???7.
+7???~^7????~.                            :????:    :~7???7.         :7?????7.
+7???7????!.           ::::::::::::.      :????:      .7???!        :7??77???7.
+7????????7:           7???????????~      :????:       :????:      :???7?5????7.
+7????!~????^          !77777777777^      :????:       :????:     ^???7?#P7????7.
+7???~  ^????~                            :????:      :7???!     ^???7J#@J7?????7.
+7???~   :7???!.                          :????:   .:~7???!.    ~???7Y&@#7777????7.
+7???~    .7???7:      !!!!!!!!!!!!!!!    :????7!!77????7^     ~??775@@@GJJYJ?????7.
+7???~     .!????^     7?????????????7.   :?????????7!~:      !????G@@@@@@@@5??????7:
+::::.       :::::     :::::::::::::::    .::::::::..        .::::JGGGB@@@&7:::::::::
+        _       _               _     _                               ?@@#~
+   ___ | |_ ___| |     __ _  __| | __| |     ___  _ __                P@B^
+  / _ \| __/ _ \ |    / _` |/ _` |/ _` |___ / _ \| '_ \             :&G:
+ | (_) | ||  __/ |   | (_| | (_| | (_| |___| (_) | | | |            !5.
+  \___/ \__\___|_|    \__,_|\__,_|\__,_|    \___/|_| |_|            ,
+                                                                    .
+```
+
+{{ template "chart.homepageLine" . }}
+
+## Usage
+
+Check available version in OCI repo:
+```
+crane ls ghcr.io/kedify/charts/otel-add-on | grep -E '^v?[0-9]'
+```
+
+Install specific version:
+```
+helm upgrade -i oci://ghcr.io/kedify/charts/otel-add-on --version=v0.0.5
+```
+
+{{ template "chart.maintainersSection" . }}
+
+{{ template "chart.sourcesSection" . }}
+
+{{ template "chart.requirementsSection" . }}
+
+## OTel Collector Sub-Chart
+
+This helm chart, if not disabled by `--set opentelemetry-collector.enabled=false`, installs the OTel collector using
+its upstream [helm chart](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/main/charts/opentelemetry-collector).
+
+To check all the possible values for this dependent helm chart, consult [values.yaml](https://github.com/open-telemetry/opentelemetry-helm-charts/blob/main/charts/opentelemetry-collector/values.yaml)
+or [docs](https://github.com/open-telemetry/opentelemetry-helm-charts/blob/main/charts/opentelemetry-collector/README.md).
+
+## Values
+
+{{ define "chart.customValueColumnRender" }}
+{{- $defaultValue := (default .Default .AutoDefault)  -}}
+{{- $notationType := .NotationType }}
+{{- if (and (hasPrefix "`" $defaultValue) (hasSuffix "`" $defaultValue) ) -}}
+{{- $defaultValue = (toPrettyJson (fromJson (trimAll "`" (default .Default .AutoDefault) ) ) ) -}}
+{{- $notationType = "json" }}
+{{- end -}}
+{{- if (eq $notationType "tpl" ) }}
+<pre lang="{{ $notationType }}">
+{{ .Key }}: |
+{{- $defaultValue | nindent 2 }}
+</pre>
+{{- else }}
+<pre lang="{{ $notationType }}">
+{{ $defaultValue }}
+</pre>
+{{- end }}
+{{ end }}
+
+{{ define "chart.customDescriptionColumnRender" }}
+{{- $defaultDescription := (default .Description .AutoDescription)  -}}
+{{- $defaultDescription :=  regexReplaceAll "`([^`]+)`" $defaultDescription "<code>${1}</code>"  -}}
+{{- $defaultDescription :=  regexReplaceAll "\\[([^\\]]+)\\]\\(([^\\)]+)\\)" $defaultDescription "<a href=\"${2}\">${1}</a>" -}}
+{{- $defaultDescription -}}
+{{ end }}
+
+{{ define "chart.valuesTableHtml" }}
+<table>
+     <thead>
+          <th>Key</th>
+          <th>Description</th>
+          <th>Default</th>
+     </thead>
+     <tbody>
+     {{- range .Values }}
+          <tr>
+               <td id="{{ .Key | replace "." "--" }}">
+               <a href="./values.yaml#L{{ .LineNumber }}">{{ .Key }}</a><br/>
+               ({{ .Type }})
+               </td>
+               <td>
+               {{ template "chart.customDescriptionColumnRender" . }}
+               </td>
+               <td>
+                    <div style="max-width: 200px;">{{ template "chart.customValueColumnRender" . }}</div>
+               </td>
+          </tr>
+     {{- end }}
+     </tbody>
+</table>
+{{ end }}
+
+{{ template "chart.valuesSectionHtml" . }}
+
+<!-- uncomment this for markdown style (use either valuesTableHtml or valuesSection)
+(( template "chart.valuesSection" . )) -->
