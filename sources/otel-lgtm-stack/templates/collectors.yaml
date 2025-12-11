@@ -3,7 +3,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: otel-collector
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
 ---    
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -100,14 +100,14 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: otel-collector
-    namespace: {{ .Values.namespace }}
+    namespace: {{ .Release.Namespace }}
 ---
 # Source: openobserve-collector/templates/instrumentation-dotnet.yaml
 apiVersion: opentelemetry.io/v1alpha1
 kind: Instrumentation
 metadata:
   name: lgtm-dotnet
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   exporter:
     endpoint: http://lgtm.lgtm-stack.svc.cluster.local:4318 ###
@@ -129,7 +129,7 @@ apiVersion: opentelemetry.io/v1alpha1
 kind: Instrumentation
 metadata:
   name: lgtm-go
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   go:
     # image: ghcr.io/openobserve/opentelemetry-go-instrumentation/autoinstrumentation-go:v0.7.0-alpha-5
@@ -148,7 +148,7 @@ apiVersion: opentelemetry.io/v1alpha1
 kind: Instrumentation
 metadata:
   name: lgtm-java
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   exporter:
     endpoint: http://lgtm.lgtm-stack.svc.cluster.local:4318 ###
@@ -170,7 +170,7 @@ apiVersion: opentelemetry.io/v1alpha1
 kind: Instrumentation
 metadata:
   name: lgtm-nodejs
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   exporter:
     endpoint: http://lgtm.lgtm-stack.svc.cluster.local:4318 ###
@@ -186,7 +186,7 @@ apiVersion: opentelemetry.io/v1alpha1
 kind: Instrumentation
 metadata:
   name: lgtm-python
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   exporter:
     endpoint: http://lgtm.lgtm-stack.svc.cluster.local:4318 ###
@@ -211,7 +211,7 @@ apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
   name: otel-collector-logs
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   mode: daemonset
   serviceAccount: otel-collector
@@ -444,7 +444,7 @@ apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
   name: otel-collector-logs-events
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
   mode: deployment
@@ -558,7 +558,7 @@ apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
   name: otel-collector-metrics-k8s
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   mode: deployment
   serviceAccount: otel-collector
@@ -910,7 +910,7 @@ apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
   name: otel-collector-metrics-rest
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
   mode: deployment
@@ -1043,7 +1043,7 @@ apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
   name: otel-collector-metrics-chrony
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
   mode: deployment
@@ -1114,7 +1114,7 @@ apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
   name: otel-collector-metrics-airm
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
   mode: deployment
