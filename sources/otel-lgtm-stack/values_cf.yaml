@@ -1,14 +1,21 @@
-# OpenTelemetry LGTM Stack Configuration
-# Phase 1: Essential Infrastructure Parameters
+# Cluster-forge specific configuration for OpenTelemetry LGTM Stack
+# This file overrides values.yaml for cluster-forge deployments
 
-# Cluster identification
+# Cluster identification - will be populated by root/values.yaml helmParameters
 cluster:
-  name: "cluster-name"  # Update this to your actual cluster name
+  name: # to be filled by cluster-forge app based on domain
 
-# Namespace configuration
-namespace: otel-lgtm-stack
+# Component enablement (cluster-forge defaults)
+dashboards:
+  enabled: true
 
-# LGTM Stack storage configuration
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
+
+# Storage configuration optimized for cluster-forge
 lgtm:
   storage:
     # Tempo storage for traces
@@ -21,11 +28,11 @@ lgtm:
     mimir: 50Gi
     # Loki additional storage
     extra: 50Gi
-  
-# OpenTelemetry Collectors resource configuration  
+
+# Resource configuration optimized for cluster-forge
 collectors:
   resources:
-    # Metrics collector (deployment mode) - original values
+    # Metrics collector (deployment mode)
     metrics:
       limits:
         memory: 8Gi
@@ -33,14 +40,14 @@ collectors:
       requests:
         memory: 1Gi
         cpu: 500m
-    # Logs collector (daemonset mode) - original conservative values  
+    # Logs collector (daemonset mode)  
     logs:
       limits:
         memory: 2Gi
         cpu: '1'
       requests:
-        memory: 400Mi  # Conservative default
-        cpu: 200m    # Conservative default
+        memory: 400Mi
+        cpu: 200m
 
 # Service configuration
 services:
@@ -57,13 +64,3 @@ services:
   # Node exporter service port
   nodeExporter:
     metrics: 9100
-
-# Component enablement
-dashboards:
-  enabled: true
-
-nodeExporter:
-  enabled: true
-
-kubeStateMetrics:
-  enabled: true

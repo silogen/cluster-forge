@@ -106,7 +106,7 @@ spec:
         actions:
           - key: k8s_cluster_name
             action: insert
-            value: "cluster-name" ### value should be updated based on cluster
+            value: {{ .Values.cluster.name | quote }}
       transform: ### this adds k8s.cluster.name as a label filter
         error_mode: ignore
         log_statements:
@@ -679,7 +679,7 @@ spec:
         actions:
           - key: k8s_cluster_name
             action: insert
-            value: "cluster-name" ### value should be updated based on cluster
+            value: {{ .Values.cluster.name | quote }}
 
     exporters:
       # Configure your actual backend exporters here

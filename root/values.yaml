@@ -167,7 +167,10 @@ apps:
   otel-lgtm-stack:
     path: otel-lgtm-stack
     namespace: otel-lgtm-stack
-    valuesFile: values.yaml
+    valuesFile: ../values_cf.yaml
+    helmParameters:
+      - name: cluster.name
+        value: "{{ .Values.global.domain }}"
     syncWave: -2
   # Databases
   cnpg-operator:

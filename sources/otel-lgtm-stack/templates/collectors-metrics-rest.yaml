@@ -31,7 +31,7 @@ spec:
         actions:
           - action: insert
             key: k8s_cluster_name
-            value: cluster-name
+            value: {{ .Values.cluster.name | quote }}
       batch:
         send_batch_size: 2000
         timeout: 10s
@@ -164,7 +164,7 @@ spec:
         actions:
           - action: insert
             key: k8s_cluster_name
-            value: cluster-name
+            value: {{ .Values.cluster.name | quote }}
       batch:
         send_batch_size: 2000
         timeout: 10s
@@ -235,7 +235,7 @@ spec:
         actions:
           - action: insert
             key: k8s_cluster_name
-            value: cluster-name
+            value: {{ .Values.cluster.name | quote }}
       batch:
         send_batch_size: 2000
         timeout: 10s
