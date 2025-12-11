@@ -1,0 +1,46 @@
+{{- if .Values.validatingAdmissionPolicy.enabled -}}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ .Values.validatingAdmissionPolicy.name }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   ["keda.sh"]
+        apiVersions: ["v1alpha1"]
+        operations:  ["CREATE", "UPDATE"]
+        resources:   ["scaledobjects"]
+  variables:
+    - name: otelScalersWithSugar
+      expression: "object.spec.triggers.filter(t, t.type == 'kedify-otel')"
+    - name: otelScalersNoSugar
+      expression: "object.spec.triggers.filter(t, t.type == 'external' && has(t.metadata.scalerAddress) && t.metadata.scalerAddress.contains('otel'))"
+    - name: triggers
+      expression: "variables.otelScalersWithSugar + variables.otelScalersNoSugar"
+    - name: noTriggers
+      expression: "variables.triggers.size() == 0"
+    - name: allowedOpsOverTime
+      expression: "['avg', 'count', 'last_one', 'min', 'max', 'rate']"
+    - name: allowedOpsOverVectors
+      expression: "['avg', 'count', 'min', 'max', 'sum']"
+    - name: mqRegexp
+      expression: "'^((' + variables.allowedOpsOverVectors.join('|') + ')\\\\()?[a-zA-Z][a-zA-Z0-9-_]*(\\\\{[^,=]+=[^,=]+(,[^,=]+=[^,=]+)*?\\\\})?\\\\)?$'"
+  validations:
+    - expression: "variables.noTriggers || variables.triggers.all(t, has(t.metadata.targetValue))"
+      messageExpression: "'Missing \\'targetValue\\' on ScaledObject\\' otel trigger: ' + object.metadata.name"
+
+    - expression: "variables.noTriggers || variables.triggers.all(t, !has(t.metadata.operationOverTime) || t.metadata.operationOverTime in variables.allowedOpsOverTime)"
+      messageExpression: "'Malformed trigger in ScaledObject: ' + object.metadata.name + ' unsupported operationOverTime: ' + variables.triggers.filter(t, has(t.metadata.operationOverTime) && !(t.metadata.operationOverTime in variables.allowedOpsOverTime))[0].metadata.operationOverTime + ' supported operations: ' + variables.allowedOpsOverTime.join(', ')"
+
+    - expression: "variables.noTriggers || variables.triggers.all(t, has(t.metadata.metricQuery) && t.metadata.metricQuery.matches(variables.mqRegexp))"
+      messageExpression: "'Malformed trigger in ScaledObject: ' + object.metadata.name + ' unsupported metricQuery: ' + variables.triggers.filter(t, !has(t.metadata.metricQuery) || !t.metadata.metricQuery.matches(variables.mqRegexp)).map(t, has(t.metadata.metricQuery) ? t.metadata.metricQuery : 'missing')[0]"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: "{{ .Values.validatingAdmissionPolicy.name }}-binding"
+spec:
+  policyName: "well-formed-otel-scalers"
+  validationActions: [Deny]
+{{- end }}

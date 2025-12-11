@@ -62,6 +62,10 @@ and [app-of-apps pattern](https://argo-cd.readthedocs.io/en/stable/operator-manu
 - **AppWrapper** - Application wrapper for job scheduling
 - **Kaiwo** - ML workflow management
 
+### Autoscaling
+- **KEDA** - Kubernetes Event-driven Autoscaling
+- **Kedify OTEL** - OpenTelemetry add-on for KEDA
+
 ### Security & Management
 - **Kyverno** - Kubernetes policy engine
 - **KeyCloak** - SSO and identity & access management

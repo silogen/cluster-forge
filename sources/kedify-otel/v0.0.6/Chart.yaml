@@ -1,0 +1,31 @@
+annotations:
+  artifacthub.io/category: networking
+  artifacthub.io/images: |
+    - name: scaler
+      image: ghcr.io/kedify/otel-add-on
+      platforms:
+        - linux/amd64
+        - linux/arm64
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/links: |
+    - name: gh repo
+      url: https://github.com/kedify/otel-add-on
+    - name: helm repo
+      url: https://kedify.github.io/otel-add-on
+apiVersion: v2
+appVersion: v0.0.6
+dependencies:
+- condition: opentelemetry-collector.enabled
+  name: opentelemetry-collector
+  repository: https://open-telemetry.github.io/opentelemetry-helm-charts
+  version: 0.110.0
+description: A Helm chart for KEDA otel-add-on
+home: https://github.com/kedify/otel-add-on
+icon: https://raw.githubusercontent.com/kedacore/keda/main/images/keda-logo-500x500-white.png
+kubeVersion: '>= 1.19.0-0'
+name: otel-add-on
+sources:
+- https://github.com/kedify/otel-add-on
+- https://github.com/open-telemetry/opentelemetry-helm-charts
+type: application
+version: v0.0.6
