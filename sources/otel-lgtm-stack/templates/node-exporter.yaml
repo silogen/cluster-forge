@@ -4,7 +4,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: nodeexporter-prometheus-node-exporter
-  namespace: otel-lgtm-stack
+  namespace: {{ .Values.namespace }}
   labels:
     helm.sh/chart: prometheus-node-exporter-4.44.1
     app.kubernetes.io/managed-by: Helm
@@ -20,7 +20,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: nodeexporter-prometheus-node-exporter
-  namespace: otel-lgtm-stack
+  namespace: {{ .Values.namespace }}
   labels:
     helm.sh/chart: prometheus-node-exporter-4.44.1
     app.kubernetes.io/managed-by: Helm
@@ -34,8 +34,8 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - port: 9100
-      targetPort: 9100
+    - port: {{ .Values.services.nodeExporter.metrics }}
+      targetPort: {{ .Values.services.nodeExporter.metrics }}
       protocol: TCP
       name: metrics
   selector:
@@ -47,7 +47,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: nodeexporter-prometheus-node-exporter
-  namespace: otel-lgtm-stack
+  namespace: {{ .Values.namespace }}
   labels:
     helm.sh/chart: prometheus-node-exporter-4.44.1
     app.kubernetes.io/managed-by: Helm
