@@ -1,6 +1,14 @@
 #!/bin/bash
 set -e
 
+## ⚠️ Important Disclaimers
+##
+## This is only an example script only, adjust paths and commands as needed for your system.
+## This is for illustration purposes only and **not officially supported.**
+##
+## Always test backup and restore procedures in a safe environment before relying on them in production.
+## The backup and restore process is **not guaranteed to be backwards compatible between two arbitrary versions.** 
+
 # Usage: ./import_databases.sh <AIRM_DB_FILE|skip> [KEYCLOAK_DB_FILE] [--port-forward [PORT]]
 # Example: ./import_databases.sh /path/to/airm_backup.sql
 # Example: ./import_databases.sh /path/to/airm_backup.sql /path/to/keycloak_backup.sql
@@ -251,11 +259,12 @@ check_workloads_table() {
     fi
     
     if [ -z "$WORKLOAD_COUNT" ]; then
-        echo "Warning: Could not query workloads table. Table may not exist yet."
+        echo "Info: Could not query workloads table. Table may not exist yet."
         return 0
+    else
+        echo "Found $WORKLOAD_COUNT entries in workloads table."
     fi
     
-    echo "Found $WORKLOAD_COUNT entries in workloads table."
     
     if [ "$WORKLOAD_COUNT" -gt 0 ]; then
         echo ""
@@ -272,7 +281,22 @@ check_workloads_table() {
         
         echo "Continuing with database restoration..."
     fi
-}
+    
+    # Delete and wait for CNPG clusters to be recreated for clean restore
+    echo "Deleting CNPG clusters for clean restore..."
+    
+    if [ "$AIRM_DB_FILE" != "skip" ]; then
+        echo "Deleting AIRM CNPG cluster..."
+        kubectl delete cluster airm-cnpg -n airm --ignore-not-found=true
+        echo "Waiting for AIRM CNPG cluster to be recreated..."
+        kubectl wait --for=condition=Ready pod -l cnpg.io/cluster=airm-cnpg -n airm --timeout=300s
+    fi
+    
+    if [ -n "$KEYCLOAK_DB_FILE" ]; then
+        echo "Deleting Keycloak CNPG cluster..."
+        kubectl delete cluster keycloak-cnpg -n keycloak --ignore-not-found=true
+        echo "Waiting for Keycloak CNPG cluster to be recreated..."
+        kubectl wait --for=condition=Ready pod -l cnpg.io/cluster=keycloak-cnpg -n keycloak --timeout=300s
 
 restore_airm_database() {
     if [ "$AIRM_DB_FILE" = "skip" ]; then
@@ -323,6 +347,10 @@ restore_airm_database() {
     
     if [ $restore_status -eq 0 ]; then
         echo "AIRM database restored successfully."
+        
+        # Restart AIRM deployments to pick up restored data
+        echo "Restarting AIRM deployments..."
+        kubectl rollout restart deployment airm-api -n airm
     else
         echo "Failed to restore AIRM database."
         exit 1
@@ -378,33 +406,14 @@ restore_keycloak_database() {
     
     if [ $restore_status -eq 0 ]; then
         echo "Keycloak database restored successfully."
+        
+        # Restart Keycloak deployments to pick up restored data
+        echo "Restarting Keycloak deployments..."
+        kubectl rollout restart deployment keycloak -n keycloak
     else
         echo "Failed to restore Keycloak database."
         exit 1
     fi
-}
-
-wait_for_pod() {
-    local pod_pattern=$1
-    local namespace=$2
-    local timeout=${3:-300}
-    local elapsed=0
-    local interval=10
-    
-    echo "Waiting for pod matching '$pod_pattern' in namespace '$namespace' to be ready..."
-    
-    while [ $elapsed -lt $timeout ]; do
-        if kubectl get pods -n $namespace | grep -q "$pod_pattern.*Running"; then
-            echo "Pod '$pod_pattern' is running in namespace '$namespace'."
-            return 0
-        fi
-        sleep $interval
-        elapsed=$((elapsed + interval))
-        echo "Still waiting... (${elapsed}s/${timeout}s)"
-    done
-    
-    echo "ERROR: Timeout waiting for pod '$pod_pattern' in namespace '$namespace'"
-    return 1
 }
 
 verify_airm_database_restore() {
@@ -447,10 +456,10 @@ main() {
     # Check workloads table before restoration
     check_workloads_table
     
-    # restore_airm_database
-    # restore_keycloak_database
-    # verify_airm_database_restore
-    # verify_keycloak_database_restore
+    restore_airm_database
+    restore_keycloak_database
+    verify_airm_database_restore
+    verify_keycloak_database_restore
 }
 
 # Run main function
