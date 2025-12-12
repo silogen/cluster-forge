@@ -21,6 +21,14 @@ lgtm:
     mimir: 50Gi
     # Loki additional storage
     extra: 50Gi
+
+  # LGTM stack main deployment resources
+  resources:
+    limits:
+      memory: 8Gi
+    requests:
+      memory: 2Gi
+      cpu: '1'
   
 # OpenTelemetry Collectors resource configuration  
 collectors:
