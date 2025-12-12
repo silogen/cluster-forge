@@ -1,56 +1,86 @@
-# Required tools
+# OpenTelemetry LGTM Stack
+
+A comprehensive observability stack providing Logs, Grafana, Tempo, and Mimir (LGTM) for Kubernetes clusters using OpenTelemetry.
+
+## Required Tools
+
 - cert-manager
 - opentelemetry-operator
 - prometheus-crds
 - node-exporter
 - kube-state-metrics
 
-# This tool consists of
-- otel-collectors for metrics and logs
-- otel-lgtm
+## This Tool Consists Of
 
-# How this otel-collector manifests created
-There are two otel-collectors for lgtm-stack, otel-collector-metrics and otel-collector-logs
+- **OpenTelemetry Collectors** - Metrics, logs, and events collection
+- **LGTM Stack** - Integrated Loki, Grafana, Tempo, Mimir observability platform
+- **Auto-instrumentation** - Support for .NET, Go, Java, Node.js, Python applications
+- **Kubernetes Monitoring** - Node and cluster-level metrics collection
 
+## How This OpenTelemetry Collector Manifests Created
 
-Node level and cluster level metrics are collected and exposed by "node-exporter" 
-and "kube-state-metrics", respectively. Otel-collector-metrics pod is a dedicated collector 
-controlled by deployment to scrape metrics. So "scrape_configs" and 
-giving annotation like "prometheus.io/scrape: 'true'", prometheus.io/path: '/metrics'  to pods
-is the key to control what metrics should be scraped.
-ref: https://grafana.com/docs/grafana-cloud/monitor-infrastructure/kubernetes-monitoring/configuration/helm-chart-config/otel-collector/
+### Metrics Collection
+Node-level and cluster-level metrics are collected by dedicated collectors:
+- **Node Exporter** and **Kube State Metrics** expose metrics endpoints
+- **otel-collector-metrics** pods (deployment) scrape configured endpoints  
+- Control collection via `scrape_configs` and pod annotations:
+  - `prometheus.io/scrape: 'true'`
+  - `prometheus.io/path: '/metrics'`
 
-Node level and cluster level logs are collected by "otel-collector-logs" pods which are 
-controlled by daemonset to collect logs.
+Reference: [Grafana Kubernetes Monitoring Guide](https://grafana.com/docs/grafana-cloud/monitor-infrastructure/kubernetes-monitoring/configuration/helm-chart-config/otel-collector/)
 
-This otel-collector-logs manifest is created from the modification of openobserve-collector manifests. 
+### Logs Collection
+- **otel-collector-logs** pods (daemonset) collect container logs cluster-wide
+- **otel-collector-logs-events** (deployment) collects Kubernetes events
+- Based on modified [openobserve-collector](https://github.com/openobserve/openobserve-collector) manifests
 
-Current instrumentations are configured to send telemetries to the endpoint of otel-lgtm. 
-Users/Developers who want to use auto instrumation need to implement by giving an annotation to their pods.
+### Auto-Instrumentation
+Pre-configured instrumentation resources for automatic telemetry injection. Applications can enable auto-instrumentation by adding pod annotations.
 
-# Source of otel-lgtm stack
-- https://github.com/grafana/docker-otel-lgtm/tree/main
+## Source of OTEL-LGTM Stack
 
-# How to access the grafana of lgtm
+- **Silogen Fork**: [silogen/docker-otel-lgtm](https://github.com/silogen/docker-otel-lgtm)
+- **Upstream**: [grafana/docker-otel-lgtm](https://github.com/grafana/docker-otel-lgtm/tree/main)
+- **Version**: v1.0.7
+- **Image**: `ghcr.io/silogen/docker-otel-lgtm:v1.0.7`
+
+## How to Access Grafana
+
+```bash
 kubectl port-forward -n otel-lgtm-stack service/lgtm-stack 3000:3000 4317:4317 4318:4318
-
-id/password of grafana: admin/admin
-
-# Simple use case(Log)
-1. Login
-2. Go to explore
-3. Select "Loki" datasource
-4. Use label filters
-
-# Disclaimer
-[docker-otel-lgtm](https://github.com/grafana/docker-otel-lgtm/tree/main/docker) is added Cluster-Forge for development, demo, and testing. The only changed part is as follows at "otelcol-config.yaml" to make a custom image. We don't manage/develop this.
 ```
+
+**Default Credentials**: admin/admin
+
+**Access URLs**:
+- Grafana: http://localhost:3000
+- OTLP gRPC: http://localhost:4317  
+- OTLP HTTP: http://localhost:4318
+
+### Simple Log Exploration
+1. Login to Grafana
+2. Navigate to **Explore**
+3. Select **Loki** datasource
+4. Use label filters to query logs
+
+## Architecture & Management
+
+**LGTM Stack Image**: We maintain a [silogen/docker-otel-lgtm](https://github.com/silogen/docker-otel-lgtm) fork specifically for managing and updating the LGTM container image. This fork is based on the upstream [grafana/docker-otel-lgtm](https://github.com/grafana/docker-otel-lgtm) project.
+
+**Kubernetes Resources**: All Kubernetes manifests (OpenTelemetry Collectors, RBAC, instrumentation, etc.) are managed through our custom Helm chart stored in Cluster-Forge, **not** from the upstream docker-otel-lgtm repository.
+
+**Custom LGTM Image Modifications**: Our fork includes the following changes in `otelcol-config.yaml`:
+
+```yaml
 receivers:
   otlp:
     protocols:
       grpc:
         endpoint: 0.0.0.0:4317
-        max_recv_msg_size_mib: 128 <-- added
+        max_recv_msg_size_mib: 128 # <-- added
 ```
 
-
+**Scope of Management**:
+- 🔧 **Image Management**: Silogen maintains the docker-otel-lgtm fork for LGTM container updates
+- 📦 **Resource Management**: All OpenTelemetry collectors, RBAC, and Kubernetes resources are managed via this Cluster-Forge Helm chart
+- 🎯 **Integration**: The chart integrates the custom LGTM image with our OpenTelemetry collector architecture

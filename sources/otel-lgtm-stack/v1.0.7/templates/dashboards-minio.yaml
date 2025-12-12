@@ -3,7 +3,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: lgtm-minio-dashboard
-  namespace: otel-lgtm-stack
+  namespace: {{ .Release.Namespace }}
   labels:
      grafana_dashboard: "1"
   annotations:
@@ -305,7 +305,7 @@ data:
               "editorMode": "code",
               "expr": "minio_cluster_bucket_total{job=\"minio-cluster-metrics\"}",
               "instant": false,
-              "legendFormat": "{{job}}",
+              "legendFormat": "{{ "{{" }}job{{ "}}" }}",
               "range": true,
               "refId": "A"
             }
@@ -369,7 +369,7 @@ data:
               "editorMode": "code",
               "expr": "minio_bucket_usage_total_bytes{}",
               "instant": false,
-              "legendFormat": "{{bucket}}",
+              "legendFormat": "{{ "{{" }}bucket{{ "}}" }}",
               "range": true,
               "refId": "A"
             }
@@ -492,7 +492,7 @@ data:
               "editorMode": "code",
               "expr": "increase(minio_bucket_usage_total_bytes[10m])\n",
               "instant": false,
-              "legendFormat": "{{bucket}}",
+              "legendFormat": "{{ "{{" }}bucket{{ "}}" }}",
               "range": true,
               "refId": "A"
             }

@@ -79,7 +79,8 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/open-telemetry/opentelemetry-operator/blob/main/LICENSE
   otel-lgtm-stack:
-    path: otel-lgtm-stack
+    path: otel-lgtm-stack/v1.0.7
+    valuesFile: ../values_cf.yaml
     sourceUrl: https://github.com/silogen/docker-otel-lgtm
     projectUrl: https://github.com/grafana/docker-otel-lgtm
     license: Apache License 2.0

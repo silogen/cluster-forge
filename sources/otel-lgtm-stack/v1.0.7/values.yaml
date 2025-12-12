@@ -1,0 +1,77 @@
+# OpenTelemetry LGTM Stack Configuration
+# Phase 1: Essential Infrastructure Parameters
+
+# Cluster identification
+cluster:
+  name: "cluster-name"  # Update this to your actual cluster name
+
+# Namespace configuration
+namespace: otel-lgtm-stack
+
+# LGTM Stack storage configuration
+lgtm:
+  storage:
+    # Tempo storage for traces
+    tempo: 50Gi
+    # Loki storage for logs  
+    loki: 50Gi
+    # Grafana storage for dashboards/config  
+    grafana: 10Gi
+    # Mimir/Prometheus storage for metrics
+    mimir: 50Gi
+    # Loki additional storage
+    extra: 50Gi
+
+  # LGTM stack main deployment resources
+  resources:
+    limits:
+      memory: 8Gi
+    requests:
+      memory: 2Gi
+      cpu: '1'
+  
+# OpenTelemetry Collectors resource configuration  
+collectors:
+  resources:
+    # Metrics collector (deployment mode) - original values
+    metrics:
+      limits:
+        memory: 8Gi
+        cpu: '2'
+      requests:
+        memory: 1Gi
+        cpu: 500m
+    # Logs collector (daemonset mode) - original conservative values  
+    logs:
+      limits:
+        memory: 2Gi
+        cpu: '1'
+      requests:
+        memory: 400Mi  # Conservative default
+        cpu: 200m    # Conservative default
+
+# Service configuration
+services:
+  # Main LGTM stack service ports
+  lgtm:
+    grafana: 3000
+    otelGrpc: 4317
+    otelHttp: 4318
+    prometheus: 9090
+    loki: 3100
+  # Kube state metrics service port
+  kubeStateMetrics:
+    http: 8080
+  # Node exporter service port
+  nodeExporter:
+    metrics: 9100
+
+# Component enablement
+dashboards:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
