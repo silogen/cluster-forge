@@ -1,0 +1,284 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Generated schema for Root",
+  "type": "object",
+  "properties": {
+    "replicaCount": {
+      "type": "number"
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "repository": {
+          "type": "string"
+        },
+        "pullPolicy": {
+          "type": "string"
+        },
+        "tag": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository",
+        "pullPolicy",
+        "tag"
+      ]
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "metricStore": {
+          "type": "object",
+          "properties": {
+            "retentionSeconds": {
+              "type": "number"
+            },
+            "lazySeries": {
+              "type": "boolean"
+            },
+            "lazyAggregates": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "retentionSeconds",
+            "lazySeries",
+            "lazyAggregates"
+          ]
+        },
+        "isActivePollingIntervalMilliseconds": {
+          "type": "number"
+        },
+        "internalMetricsPort": {
+          "type": "number"
+        },
+        "restApiPort": {
+          "type": "number"
+        },
+        "logs": {
+          "type": "object",
+          "properties": {
+            "logLvl": {
+              "type": "string"
+            },
+            "stackTracesLvl": {
+              "type": "string"
+            },
+            "noColor": {
+              "type": "boolean"
+            },
+            "noBanner": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "logLvl",
+            "stackTracesLvl",
+            "noColor",
+            "noBanner"
+          ]
+        }
+      },
+      "required": [
+        "metricStore",
+        "isActivePollingIntervalMilliseconds",
+        "internalMetricsPort",
+        "restApiPort",
+        "logs"
+      ]
+    },
+    "asciiArt": {
+      "type": "boolean"
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {}
+    },
+    "nameOverride": {
+      "type": "string"
+    },
+    "fullnameOverride": {
+      "type": "string"
+    },
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean"
+        },
+        "automount": {
+          "type": "boolean"
+        },
+        "annotations": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "create",
+        "automount",
+        "annotations",
+        "name"
+      ]
+    },
+    "podAnnotations": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "podLabels": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "podSecurityContext": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "securityContext": {
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "type": "object",
+          "properties": {
+            "drop": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "drop"
+          ]
+        },
+        "readOnlyRootFilesystem": {
+          "type": "boolean"
+        },
+        "runAsNonRoot": {
+          "type": "boolean"
+        },
+        "runAsUser": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "capabilities",
+        "readOnlyRootFilesystem",
+        "runAsNonRoot",
+        "runAsUser"
+      ]
+    },
+    "service": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "otlpReceiverPort": {
+          "type": "number"
+        },
+        "kedaExternalScalerPort": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "type",
+        "otlpReceiverPort",
+        "kedaExternalScalerPort"
+      ]
+    },
+    "resources": {
+      "type": "object",
+      "properties": {
+        "limits": {
+          "type": "object",
+          "properties": {
+            "cpu": {
+              "type": "string"
+            },
+            "memory": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cpu",
+            "memory"
+          ]
+        },
+        "requests": {
+          "type": "object",
+          "properties": {
+            "cpu": {
+              "type": "string"
+            },
+            "memory": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cpu",
+            "memory"
+          ]
+        }
+      },
+      "required": [
+        "limits",
+        "requests"
+      ]
+    },
+    "volumes": {
+      "type": "array",
+      "items": {}
+    },
+    "volumeMounts": {
+      "type": "array",
+      "items": {}
+    },
+    "nodeSelector": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "tolerations": {
+      "type": "array",
+      "items": {}
+    },
+    "affinity": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "opentelemetry-collector": {
+      "type": "object",
+      "$ref": "https://raw.githubusercontent.com/open-telemetry/opentelemetry-helm-charts/refs/tags/opentelemetry-collector-0.117.3/charts/opentelemetry-collector/values.schema.json#/properties"
+    }
+  },
+  "required": [
+    "replicaCount",
+    "image",
+    "settings",
+    "asciiArt",
+    "imagePullSecrets",
+    "nameOverride",
+    "fullnameOverride",
+    "serviceAccount",
+    "podAnnotations",
+    "podLabels",
+    "podSecurityContext",
+    "securityContext",
+    "service",
+    "resources",
+    "volumes",
+    "volumeMounts",
+    "nodeSelector",
+    "tolerations",
+    "affinity"
+  ]
+}

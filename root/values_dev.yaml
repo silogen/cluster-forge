@@ -36,6 +36,8 @@ enabledApps:
   - amd-gpu-operator
   - amd-gpu-operator-config
   - kuberay-operator
+  - keda
+  - kedify-otel
   - kserve-crds
   - kserve
   - rabbitmq

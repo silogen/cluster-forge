@@ -1,0 +1,6 @@
+# Cluster-forge specific values for opentelemetry-operator
+# Sets the collector image to use contrib version (required for kaiwo/kedify-otel)
+manager:
+  collectorImage:
+    repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
+    tag: "0.140.0"
