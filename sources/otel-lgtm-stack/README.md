@@ -5,7 +5,7 @@ A comprehensive observability stack providing Logs, Grafana, Tempo, and Mimir (L
 ## Required Tools
 
 - cert-manager
-- opentelemetry-operator  
+- opentelemetry-operator
 - prometheus-crds
 - node-exporter
 - kube-state-metrics
