@@ -11,6 +11,7 @@ externalValues:
 global:
   domain: app.silogen.ai
 enabledApps:
+  - aim-cluster-model-source
   - argocd
   - argocd-config
   - cert-manager
