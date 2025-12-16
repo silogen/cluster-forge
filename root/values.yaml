@@ -302,6 +302,10 @@ apps:
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
   # Kaiwo stuff
+  aim-cluster-model-source:
+    path: aim-cluster-model-source
+    namespace: kaiwo-system
+    syncWave: -2
   kaiwo-crds:
     path: kaiwo-crds/v0.2.0-rc8
     namespace: kaiwo-system
