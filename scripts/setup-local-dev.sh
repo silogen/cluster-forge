@@ -92,6 +92,28 @@ volumeBindingMode: WaitForFirstConsumer
 allowVolumeExpansion: false
 EOF
 
+# Create additional storage classes for Kaiwo workloads
+echo "💾 Creating mlstorage and multinode StorageClasses..."
+kubectl create -f - <<EOF || true
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: mlstorage
+provisioner: rancher.io/local-path
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: false
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: multinode
+provisioner: rancher.io/local-path
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: false
+EOF
+
 # Pre-load container images to the host Docker and load them to Kind
 # to avoid re-downloading images on every cluster recreation
 preload_images() {
