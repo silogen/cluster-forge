@@ -21,10 +21,12 @@ spec:
           export MINIO_ROOT_USER="minioroot"
           export MINIO_ROOT_PASSWORD="{{ "{{" }}.password{{ "}}"}}"
           export MINIO_BROWSER_REDIRECT_URL="https://minio.{{ "{{" }}.domain{{ "}}"}}"
+          {{ "{{" }} if ne .domain "localhost.local" {{ "}}" }}
           export MINIO_IDENTITY_OPENID_SCOPES="openid,profile,email,policy"
           export MINIO_IDENTITY_OPENID_CLIENT_ID=minio
           export MINIO_IDENTITY_OPENID_CLIENT_SECRET="{{ "{{" }}.client_secret{{ "}}"}}"
           export MINIO_IDENTITY_OPENID_CONFIG_URL="{{ "{{" }}.openid_url{{ "}}"}}"
+          {{ "{{" }} end {{ "}}" }}
   data:
     - secretKey: password
       remoteRef:
