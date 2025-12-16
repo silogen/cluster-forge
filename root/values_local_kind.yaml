@@ -48,7 +48,9 @@ enabledApps:
   - kaiwo-config
   - airm
   # Optional: Add other components as needed
-  # - kuberay-operator
+  - kuberay-operator
+  - kserve-crds
+  - appwrapper
   - kueue
   - kueue-config
 # Component-specific overrides for memory reduction  
