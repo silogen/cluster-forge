@@ -3,7 +3,7 @@ set -e
 
 if [ -z "$1" ]; then
     echo "Usage: $0 <repo-path> <gitea-org> <gitea-repo-name>"
-    echo "Example: $0 /path/to/llm-studio-core cluster-org core"
+    echo "Example: $0 /path/to/silogen-core cluster-org core"
     exit 1
 fi
 

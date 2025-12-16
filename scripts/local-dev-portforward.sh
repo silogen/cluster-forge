@@ -5,7 +5,8 @@
 # Get script directory and derive paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLUSTER_FORGE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-LLM_STUDIO_CORE_PATH="${LLM_STUDIO_CORE_PATH:-${CLUSTER_FORGE_ROOT}/../llm-studio-core}"
+# Default to parent directory (silogen-core is parent of cluster-forge)
+SILOGEN_CORE_PATH="${SILOGEN_CORE_PATH:-$(cd "$CLUSTER_FORGE_ROOT/.." && pwd)}"
 
 echo "🔌 Setting up port-forwards for local AIRM development..."
 echo ""
@@ -368,10 +369,10 @@ fi
 echo ""
 echo "📝 Generating .env files with cluster credentials..."
 
-# Check if llm-studio-core path exists
-if [ ! -d "$LLM_STUDIO_CORE_PATH" ]; then
-    echo "⚠️  LLM Studio Core path not found: $LLM_STUDIO_CORE_PATH"
-    echo "   Set LLM_STUDIO_CORE_PATH environment variable to the correct path"
+# Check if silogen-core path exists
+if [ ! -d "$SILOGEN_CORE_PATH" ]; then
+    echo "⚠️  Silogen Core path not found: $SILOGEN_CORE_PATH"
+    echo "   Set SILOGEN_CORE_PATH environment variable to the correct path"
     echo "   Skipping .env file generation"
 else
     # Get credentials
@@ -385,7 +386,7 @@ else
     RABBITMQ_PASS=$(kubectl get secret airm-rabbitmq-admin -n airm -o jsonpath='{.data.password}' | base64 -d)
 
     # Create API .env file
-    API_ENV_FILE="${LLM_STUDIO_CORE_PATH}/services/airm/api/.env"
+    API_ENV_FILE="${SILOGEN_CORE_PATH}/services/airm/api/.env"
     mkdir -p "$(dirname "$API_ENV_FILE")"
     cat > "$API_ENV_FILE" <<EOF
 # Database
@@ -424,7 +425,7 @@ POST_REGISTRATION_REDIRECT_URL="http://localhost:8010"
 EOF
 
     # Create UI .env.local file
-    UI_ENV_FILE="${LLM_STUDIO_CORE_PATH}/services/airm/ui/.env.local"
+    UI_ENV_FILE="${SILOGEN_CORE_PATH}/services/airm/ui/.env.local"
     mkdir -p "$(dirname "$UI_ENV_FILE")"
     cat > "$UI_ENV_FILE" <<EOF
 # Next.js
