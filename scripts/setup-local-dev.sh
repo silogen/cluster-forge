@@ -35,7 +35,7 @@ fi
 # Check if kind cluster exists
 if ! kubectl cluster-info &> /dev/null; then
     echo "❌ ERROR: No Kubernetes cluster found. Please create a Kind cluster first:"
-    echo "   kind create cluster --name cluster-forge-local --config options/local-kind.yaml"
+    echo "   kind create cluster --name cluster-forge-local --config kind-cluster-config.yaml"
     exit 1
 fi
 
