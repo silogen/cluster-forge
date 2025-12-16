@@ -122,9 +122,9 @@ apps:
       - name: airm-dispatcher.airm.dispatcher.image.tag
         value: local
       # Reduce UI resources for local development
-      - name: airm-ui.resources.requests.memory
+      - name: airm-api.airm.frontend.resources.requests.memory
         value: "256Mi"
-      - name: airm-ui.resources.limits.memory
+      - name: airm-api.airm.frontend.resources.limits.memory
         value: "512Mi"
       # Reduce API resources
       - name: airm-api.resources.requests.memory
