@@ -38,7 +38,7 @@ spec:
         data:
           spec:
             accessModes:
-              - ReadWriteMany
+              - ReadWriteOnce
             resources:
               requests:
                 storage: '{{ request.object.metadata.annotations."pvc.silogen.ai/user-pvc-size"
