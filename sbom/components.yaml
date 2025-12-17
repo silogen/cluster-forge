@@ -188,15 +188,15 @@ components:
     license: GNU Affero General Public License v3.0
     licenseUrl: https://github.com/minio/operator/blob/master/LICENSE
   kaiwo-crds:
-    path: kaiwo-crds/v0.2.0-rc9
-    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc9/crds.yaml
+    path: kaiwo-crds/v0.2.0-rc10
+    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc10/crds.yaml
     projectUrl: //github.com/silogen/kaiwo/
     license: MIT License
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
   kaiwo:
-    path: kaiwo/v0.2.0-rc9
+    path: kaiwo/v0.2.0-rc10
     valuesFile: values.yaml
-    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc9/install.yaml
+    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc10/install.yaml
     projectUrl: https://github.com/silogen/kaiwo/
     license: MIT License
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
