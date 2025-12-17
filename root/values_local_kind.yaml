@@ -87,6 +87,8 @@ apps:
         value: "true" # Enable HTTP and relaxed cookie settings
       - name: domain
         value: "localhost.local" # Domain for user emails
+      - name: enableNodePort
+        value: "true" # Enable NodePort service for local kind (maps to hostPort 8080)
       # Reduce Keycloak resources
       - name: resources.requests.memory
         value: "256Mi"

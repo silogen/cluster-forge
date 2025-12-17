@@ -1,0 +1,19 @@
+{{- if .Values.enableNodePort }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: keycloak
+  name: keycloak-nodeport
+  namespace: keycloak
+spec:
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 30082
+  selector:
+    app: keycloak
+  type: NodePort
+{{- end }}

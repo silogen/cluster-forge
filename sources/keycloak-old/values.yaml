@@ -1,1 +1,2 @@
 domain: # to be filled by cluster-forge app
+enableNodePort: false # Enable NodePort service for local development
