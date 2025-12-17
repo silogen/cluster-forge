@@ -307,11 +307,11 @@ apps:
     namespace: kaiwo-system
     syncWave: -2
   kaiwo-crds:
-    path: kaiwo-crds/v0.2.0-rc9
+    path: kaiwo-crds/v0.2.0-rc10
     namespace: kaiwo-system
     syncWave: -2
   kaiwo:
-    path: kaiwo/v0.2.0-rc9
+    path: kaiwo/v0.2.0-rc10
     namespace: kaiwo-system
     valuesFile: values.yaml
     syncWave: -1
