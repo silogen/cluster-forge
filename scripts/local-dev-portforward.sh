@@ -12,10 +12,11 @@ echo "🔌 Setting up port-forwards for local AIRM development..."
 echo ""
 echo "This will port-forward the following services:"
 echo "  - PostgreSQL (5432)"
-echo "  - Keycloak (8080)"
 echo "  - RabbitMQ (5672, 15672)"
 echo "  - MinIO (9000)"
 echo "  - Cluster Auth (48012)"
+echo ""
+echo "Note: Keycloak is accessible via NodePort at http://localhost:8080"
 echo ""
 echo "Press Ctrl+C to stop all port-forwards"
 echo ""
@@ -99,8 +100,6 @@ cleanup() {
     # Clean up status directory
     rm -rf "$STATUS_DIR"
     
-    # Clear screen and show final message
-    clear
     echo "✅ All port-forwards stopped"
     exit 0
 }
@@ -234,7 +233,7 @@ show_monitoring() {
     printf "│ %-20s %-15s %s\n" "Service" "Status" "PID"
     echo "├────────────────────────────────────────────────────────────────────────────┤"
     
-    for service in "PostgreSQL" "Keycloak" "RabbitMQ" "MinIO" "Cluster Auth"; do
+    for service in "PostgreSQL" "RabbitMQ" "MinIO" "Cluster Auth"; do
         local status=$(get_status "$service")
         local pid=$(get_pid "$service")
         printf "│ %-20s %-15s %s\n" "$service" "$status" "$pid"
@@ -245,6 +244,8 @@ show_monitoring() {
             echo "│   └─ Error: $error"
         fi
     done
+    echo "├────────────────────────────────────────────────────────────────────────────┤"
+    echo "│ Keycloak             ✓ NodePort      (http://localhost:8080)              │"
     echo "└────────────────────────────────────────────────────────────────────────────┘"
     echo ""
     echo "Press Ctrl+C to stop all port-forwards"
@@ -279,19 +280,47 @@ trap cleanup SIGINT SIGTERM EXIT
 # Clean up any previous PIDs file
 rm -f /tmp/airm-portforward-pids.txt
 
-# Start all port-forwards (silently in background)
-start_forward "PostgreSQL" "airm" "airm-cnpg-rw" "5432:5432"
-start_forward "Keycloak" "keycloak" "keycloak" "8080:8080"
-start_forward "RabbitMQ" "airm" "airm-rabbitmq" "5672:5672 15672:15672"
-start_forward "MinIO" "minio-tenant-default" "minio" "9000:80"
-start_forward "Cluster Auth" "cluster-auth" "cluster-auth" "48012:8081"
-# Optional: Prometheus (uncomment if otel-lgtm-stack is deployed)
-# start_forward "Prometheus" "otel-lgtm-stack" "lgtm-stack" "9090:3000"
+# Wait for Keycloak to be ready
+echo "⏳ Waiting for Keycloak to be ready..."
+if ! kubectl wait --for=condition=available --timeout=60s deployment/keycloak -n keycloak > /dev/null 2>&1; then
+    echo "❌ ERROR: Keycloak is not ready"
+    echo "   Please ensure Keycloak deployment is running: kubectl get deployment -n keycloak keycloak"
+    exit 1
+fi
 
-# Wait a moment for port-forwards to initialize
-sleep 2
+echo "✅ Keycloak is ready"
 
-# Configure kubectl OIDC authentication for AIRM API testing
+# Check if devuser needs password reset
+echo "🔧 Configuring devuser account..."
+KEYCLOAK_POD=$(kubectl get pod -n keycloak -l app=keycloak -o jsonpath='{.items[0].metadata.name}')
+
+# Get admin credentials
+ADMIN_PASSWORD=$(kubectl get secret -n keycloak keycloak-credentials -o jsonpath='{.data.KEYCLOAK_INITIAL_ADMIN_PASSWORD}' | base64 -d)
+
+# Use kcadm.sh to reset password (non-temporary)
+if ! kubectl exec -n keycloak "$KEYCLOAK_POD" -- /opt/keycloak/bin/kcadm.sh config credentials \
+    --server http://localhost:8080 \
+    --realm master \
+    --user silogen-admin \
+    --password "$ADMIN_PASSWORD" > /dev/null 2>&1; then
+    echo "❌ ERROR: Could not authenticate to Keycloak admin API"
+    echo "   Please check Keycloak admin credentials"
+    exit 1
+fi
+
+# Reset password to non-temporary
+if ! kubectl exec -n keycloak "$KEYCLOAK_POD" -- /opt/keycloak/bin/kcadm.sh set-password \
+    --server http://localhost:8080 \
+    --target-realm airm \
+    --username "devuser@localhost.local" \
+    --new-password "password" > /dev/null 2>&1; then
+    echo "❌ ERROR: Could not configure devuser password"
+    echo "   OIDC authentication will not work without password reset"
+    exit 1
+fi
+
+echo "   ✓ devuser password configured (non-temporary)"
+
 echo ""
 echo "🔐 Configuring kubectl OIDC authentication..."
 
@@ -317,7 +346,7 @@ if [ -n "$K8S_CLIENT_SECRET" ]; then
         echo "   Creating OIDC kubectl configurations..."
         echo "   Using default dev credentials (devuser@localhost.local)"
         
-        # Context 1: localhost (for local dev with port-forward)
+        # Context 1: localhost (for local dev - uses NodePort, no port-forward needed)
         OIDC_USER_LOCAL="${CURRENT_USER}-oidc"
         OIDC_CONTEXT_LOCAL="${CURRENT_CONTEXT}-oidc"
         kubectl config set-credentials "${OIDC_USER_LOCAL}" \
@@ -335,28 +364,7 @@ if [ -n "$K8S_CLIENT_SECRET" ]; then
         kubectl config set-context "${OIDC_CONTEXT_LOCAL}" \
             --cluster="${CLUSTER_NAME}" \
             --user="${OIDC_USER_LOCAL}" >/dev/null 2>&1
-        echo "   ✓ Local OIDC context created: ${OIDC_CONTEXT_LOCAL} (requires port-forward)"
-        
-        # Context 2: cluster-internal (for e2e tests)
-        OIDC_USER_CLUSTER="${CURRENT_USER}-oidc-cluster"
-        OIDC_CONTEXT_CLUSTER="${CURRENT_CONTEXT}-oidc-cluster"
-        kubectl config set-credentials "${OIDC_USER_CLUSTER}" \
-            --exec-command=kubectl \
-            --exec-api-version=client.authentication.k8s.io/v1beta1 \
-            --exec-arg=oidc-login \
-            --exec-arg=get-token \
-            --exec-arg=--oidc-issuer-url="http://keycloak.keycloak.svc.cluster.local:8080/realms/airm" \
-            --exec-arg=--oidc-client-id="${K8S_CLIENT_ID}" \
-            --exec-arg=--oidc-client-secret="${K8S_CLIENT_SECRET}" \
-            --exec-arg=--username="${KC_USERNAME}" \
-            --exec-arg=--password="${KC_PASSWORD}" \
-            --exec-arg=--grant-type=password \
-            --exec-arg=--insecure-skip-tls-verify >/dev/null 2>&1
-        kubectl config set-context "${OIDC_CONTEXT_CLUSTER}" \
-            --cluster="${CLUSTER_NAME}" \
-            --user="${OIDC_USER_CLUSTER}" >/dev/null 2>&1
-        echo "   ✓ Cluster OIDC context created: ${OIDC_CONTEXT_CLUSTER} (for e2e tests)"
-        
+        echo "   ✓ Local OIDC context created: ${OIDC_CONTEXT_LOCAL}"
         echo "   ℹ️  Switch contexts with: kubectl config use-context <context-name>"
     else
         echo "   ⚠️  kubectl oidc-login plugin not found. Install with: kubectl krew install oidc-login"
@@ -364,6 +372,20 @@ if [ -n "$K8S_CLIENT_SECRET" ]; then
 else
     echo "   ⚠️  Could not retrieve Keycloak client credentials - skipping OIDC setup"
 fi
+
+echo ""
+echo "🔌 Starting port-forwards..."
+
+# Start all port-forwards (silently in background)
+start_forward "PostgreSQL" "airm" "airm-cnpg-rw" "5432:5432"
+start_forward "RabbitMQ" "airm" "airm-rabbitmq" "5672:5672 15672:15672"
+start_forward "MinIO" "minio-tenant-default" "minio" "9000:80"
+start_forward "Cluster Auth" "cluster-auth" "cluster-auth" "48012:8081"
+# Optional: Prometheus (uncomment if otel-lgtm-stack is deployed)
+# start_forward "Prometheus" "otel-lgtm-stack" "lgtm-stack" "9090:3000"
+
+# Wait a moment for port-forwards to initialize
+sleep 2
 
 # Generate .env files with credentials from cluster
 echo ""
@@ -437,8 +459,11 @@ KEYCLOAK_ID="354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
 KEYCLOAK_SECRET="$KC_UI_SECRET"
 KEYCLOAK_ISSUER=http://localhost:8080/realms/airm
 
-# AIRM API - use 127.0.0.1 instead of localhost to avoid IPv6
-AIRM_API_SERVICE_URL=http://127.0.0.1:8001
+# AIRM API
+AIRM_API_SERVICE_URL=http://localhost:8001
+
+# Force Node.js to prefer IPv4 to avoid IPv6 connection issues
+NODE_OPTIONS="--dns-result-order=ipv4first"
 EOF
 
     echo "✅ Generated .env files:"
