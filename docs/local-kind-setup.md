@@ -53,7 +53,26 @@ kind create cluster --name cluster-forge-local --config kind-cluster-config.yaml
 ### 2. Run the Setup Script
 
 ```bash
+./scripts/bootstrap-kind-cluster.sh [OPTIONS]
+```
+
+**Options:**
+- `-s, --silogen-core PATH` - Path to silogen-core repository (default: auto-detect)
+- `-b, --build-local` - Build and use local AIRM images instead of published ones
+- `-i, --skip-preload` - Skip image preloading (faster initial setup, but images won't be cached in host Docker for cluster recreation)
+- `-h, --help` - Show help message
+
+**Examples:**
+
+```bash
+# Basic setup (uses localhost.local domain)
 ./scripts/bootstrap-kind-cluster.sh
+
+# Build local images from custom path
+./scripts/bootstrap-kind-cluster.sh --build-local --silogen-core ~/code/silogen-core
+
+# Quick setup skipping image preload
+./scripts/bootstrap-kind-cluster.sh --skip-preload
 ```
 
 The script will automatically:
