@@ -53,7 +53,7 @@ kind create cluster --name cluster-forge-local --config kind-cluster-config.yaml
 ### 2. Run the Setup Script
 
 ```bash
-./scripts/setup-local-dev.sh localhost.local
+./scripts/bootstrap-kind-cluster.sh
 ```
 
 The script will automatically:
@@ -132,7 +132,7 @@ Components commented out by default to reduce resource usage:
 
 - **Main config:** `root/values_local_kind.yaml`
 - **MinIO config:** `sources/minio-tenant/values_local_kind.yaml`
-- **Setup script:** `scripts/setup-local-dev.sh`
+- **Setup script:** `scripts/bootstrap-kind-cluster.sh`
 
 ### Customization
 
@@ -300,7 +300,7 @@ kind delete cluster --name cluster-forge-local
 
 # Recreate and setup
 kind create cluster --name cluster-forge-local --config kind-cluster-config.yaml
-./scripts/setup-local-dev.sh localhost.local
+./scripts/bootstrap-kind-cluster.sh
 ```
 
 ## Resource Requirements
@@ -340,7 +340,7 @@ Total: ~10-12GB memory usage
 
 - **Kind cluster config:** `kind-cluster-config.yaml` - Defines the Kind cluster with port mappings
 - **Main values:** `root/values_local_kind.yaml` - Configuration for all cluster-forge applications
-- **Setup script:** `scripts/setup-local-dev.sh` - Automated deployment script
+- **Setup script:** `scripts/bootstrap-kind-cluster.sh` - Automated deployment script
 
 ### Customization
 
@@ -414,7 +414,7 @@ kubectl logs -n argocd statefulset/argocd-application-controller
 kubectl delete applications -n argocd --all
 
 # Reapply configuration
-./scripts/setup-local-dev.sh localhost.local
+./scripts/bootstrap-kind-cluster.sh
 ```
 
 ## References

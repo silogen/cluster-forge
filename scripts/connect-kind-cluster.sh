@@ -5,49 +5,8 @@
 # Get script directory and derive paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLUSTER_FORGE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-
-# Function to show help
-show_help() {
-    cat << EOF
-Usage: $(basename "$0") [OPTIONS]
-
-Connect to Kind cluster with port-forwards, configure authentication, and generate .env files.
-
-OPTIONS:
-    -s, --silogen-core PATH    Path to silogen-core directory (default: parent directory of cluster-forge)
-    -h, --help                 Show this help message
-
-EXAMPLES:
-    # Use default silogen-core path (parent directory)
-    $(basename "$0")
-    
-    # Specify custom silogen-core path
-    $(basename "$0") -s /path/to/silogen-core
-
-EOF
-    exit 0
-}
-
 # Default to parent directory (silogen-core is parent of cluster-forge)
-SILOGEN_CORE_PATH="$(cd "$CLUSTER_FORGE_ROOT/.." && pwd)"
-
-# Parse command line arguments
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        -s|--silogen-core)
-            SILOGEN_CORE_PATH="$2"
-            shift 2
-            ;;
-        -h|--help)
-            show_help
-            ;;
-        *)
-            echo "Unknown option: $1"
-            echo "Use -h or --help for usage information"
-            exit 1
-            ;;
-    esac
-done
+SILOGEN_CORE_PATH="${SILOGEN_CORE_PATH:-$(cd "$CLUSTER_FORGE_ROOT/.." && pwd)}"
 
 echo "🔌 Setting up port-forwards for local AIRM development..."
 echo ""
@@ -487,7 +446,7 @@ CLUSTER_AUTH_ADMIN_TOKEN=""
 POST_REGISTRATION_REDIRECT_URL="http://localhost:8010"
 EOF
 
-    # Create UI .env.local file (old unsplit app)
+    # Create UI .env.local file
     UI_ENV_FILE="${SILOGEN_CORE_PATH}/services/airm/ui/.env.local"
     mkdir -p "$(dirname "$UI_ENV_FILE")"
     cat > "$UI_ENV_FILE" <<EOF
@@ -507,159 +466,9 @@ AIRM_API_SERVICE_URL=http://localhost:8001
 NODE_OPTIONS="--dns-result-order=ipv4first"
 EOF
 
-    # Create .env.local for new split apps
-    # AI Workbench (aiwb) UI - port 8011
-    AIWB_UI_ENV_FILE="${SILOGEN_CORE_PATH}/apps/ui/aiwb/.env.local"
-    mkdir -p "$(dirname "$AIWB_UI_ENV_FILE")"
-    cat > "$AIWB_UI_ENV_FILE" <<EOF
-# Next.js
-NEXTAUTH_URL=http://localhost:8011
-NEXTAUTH_SECRET="local-dev-secret-change-in-production"
-
-# Keycloak
-KEYCLOAK_ID="354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
-KEYCLOAK_SECRET="$KC_UI_SECRET"
-KEYCLOAK_ISSUER=http://localhost:8080/realms/airm
-
-# AIRM API
-AIRM_API_SERVICE_URL=http://localhost:8001
-
-# Force Node.js to prefer IPv4 to avoid IPv6 connection issues
-NODE_OPTIONS="--dns-result-order=ipv4first"
-EOF
-
-    # AI Workbench (aiwb) API - port 8002
-    AIWB_API_ENV_FILE="${SILOGEN_CORE_PATH}/apps/api/aiwb/.env"
-    mkdir -p "$(dirname "$AIWB_API_ENV_FILE")"
-    cat > "$AIWB_API_ENV_FILE" <<EOF
-# Database Configuration
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_NAME=aiwb
-DATABASE_USER=$DB_USER
-DATABASE_PASSWORD=$DB_PASSWORD
-
-# Keycloak Configuration (shared instance)
-KEYCLOAK_URL=http://localhost:8080
-KEYCLOAK_REALM=airm
-KEYCLOAK_CLIENT_ID=$KC_ADMIN_ID
-KEYCLOAK_CLIENT_SECRET=$KC_ADMIN_SECRET
-DISABLE_JWT_VALIDATION=true
-
-# MinIO Configuration
-MINIO_URL=http://localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET=default-bucket
-
-# Cluster Auth (for API keys)
-CLUSTER_AUTH_URL=http://localhost:48012
-CLUSTER_AUTH_ADMIN_TOKEN=
-
-# Metrics Configuration
-PROMETHEUS_URL=http://localhost:9090
-
-# Kubernetes Configuration
-USE_LOCAL_KUBE_CONTEXT=true
-
-# Syncer Configuration (seconds)
-# Interval for polling all resources (workloads, secrets, aims)
-SYNCER_POLLING_INTERVAL_SECONDS=5
-# Timeout before marking workloads with no CRD as DELETED
-SYNCER_PENDING_TIMEOUT_SECONDS=60
-
-# Dataset Configuration
-MAX_FILE_SIZE_MB=100
-
-# Loki / Logging Configuration (optional)
-LOKI_URL=http://localhost:3100
-LOKI_TIMEOUT_SECONDS=30
-LOKI_DEFAULT_TIME_RANGE_DAYS=15
-
-# Common configuration
-CLUSTER_HOST=http://localhost:8080
-API_SERVICE_PORT=8002
-LOG_LEVEL=INFO
-EOF
-
-    # Resource Manager (airm) - port 8010
-    AIRM_ENV_FILE="${SILOGEN_CORE_PATH}/apps/ui/airm/.env.local"
-    mkdir -p "$(dirname "$AIRM_ENV_FILE")"
-    cat > "$AIRM_ENV_FILE" <<EOF
-# Next.js
-NEXTAUTH_URL=http://localhost:8010
-NEXTAUTH_SECRET="local-dev-secret-change-in-production"
-
-# Keycloak
-KEYCLOAK_ID="354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
-KEYCLOAK_SECRET="$KC_UI_SECRET"
-KEYCLOAK_ISSUER=http://localhost:8080/realms/airm
-
-# AIRM API
-AIRM_API_SERVICE_URL=http://localhost:8001
-
-# Force Node.js to prefer IPv4 to avoid IPv6 connection issues
-NODE_OPTIONS="--dns-result-order=ipv4first"
-EOF
-
-    # AI Workbench API - port 8002
-    AIWB_API_ENV_FILE="${SILOGEN_CORE_PATH}/apps/api/aiwb/.env"
-    mkdir -p "$(dirname "$AIWB_API_ENV_FILE")"
-    cat > "$AIWB_API_ENV_FILE" <<EOF
-# Database Configuration
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_NAME=aiwb
-DATABASE_USER=$DB_USER
-DATABASE_PASSWORD=$DB_PASSWORD
-
-# Keycloak Configuration (shared instance)
-KEYCLOAK_URL=http://localhost:8080
-KEYCLOAK_REALM=airm
-KEYCLOAK_CLIENT_ID=$KC_ADMIN_ID
-KEYCLOAK_CLIENT_SECRET=$KC_ADMIN_SECRET
-DISABLE_JWT_VALIDATION=true
-
-# MinIO Configuration
-MINIO_URL=http://localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET=default-bucket
-
-# Cluster Auth (for API keys)
-CLUSTER_AUTH_URL=http://localhost:48012
-CLUSTER_AUTH_ADMIN_TOKEN=
-
-# Metrics Configuration
-PROMETHEUS_URL=http://localhost:9090
-
-# Kubernetes Configuration
-USE_LOCAL_KUBE_CONTEXT=true
-
-# Syncer Configuration (seconds)
-SYNCER_POLLING_INTERVAL_SECONDS=5
-SYNCER_PENDING_TIMEOUT_SECONDS=60
-
-# Dataset Configuration
-MAX_FILE_SIZE_MB=100
-
-# Loki / Logging Configuration (optional)
-LOKI_URL=http://localhost:3100
-LOKI_TIMEOUT_SECONDS=30
-LOKI_DEFAULT_TIME_RANGE_DAYS=15
-
-# Common configuration
-CLUSTER_HOST=http://localhost:8080
-API_SERVICE_PORT=8002
-LOG_LEVEL=INFO
-EOF
-
     echo "✅ Generated .env files:"
-    echo "   - $API_ENV_FILE (AIRM API)"
-    echo "   - $UI_ENV_FILE (legacy UI)"
-    echo "   - $AIWB_ENV_FILE (AI Workbench UI)"
-    echo "   - $AIRM_ENV_FILE (Resource Manager UI)"
-    echo "   - $AIWB_API_ENV_FILE (AI Workbench API)"
+    echo "   - $API_ENV_FILE"
+    echo "   - $UI_ENV_FILE"
 fi
 
 # Start monitoring loop

@@ -3,82 +3,16 @@
 # Local Kind Development Setup Script for Cluster-Forge
 # This script sets up a minimal cluster-forge deployment for local Kind clusters
 #
-# Usage:
-#   ./bootstrap-kind-cluster.sh [OPTIONS] [DOMAIN]
-#
-# Options:
-#   -s, --silogen-core PATH    Path to silogen-core repository (default: auto-detect)
-#   -b, --build-local          Build and use local AIRM images instead of published ones
-#   -i, --skip-preload         Skip pre-loading container images
-#   -h, --help                 Show this help message
-#
-# Arguments:
-#   DOMAIN                     Domain for the cluster (default: localhost.local)
-#
-# Examples:
-#   ./bootstrap-kind-cluster.sh
-#   ./bootstrap-kind-cluster.sh --build-local --silogen-core ~/projects/silogen-core
-#   ./bootstrap-kind-cluster.sh -b -s ~/code/silogen-core localhost.local
+# Environment variables:
+#   SKIP_IMAGE_PRELOAD=1     - Skip pre-loading container images
+#   BUILD_LOCAL_IMAGES=1     - Build and use local AIRM images instead of published ones
+#   SILOGEN_CORE_PATH        - Path to silogen-core repo (auto-detected if not set)
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-
-# Default values
-BUILD_LOCAL_IMAGES=0
-SKIP_IMAGE_PRELOAD=0
-SILOGEN_CORE_PATH=""
-DOMAIN="localhost.local"
-
-# Parse command line arguments
-show_help() {
-    cat << 'EOF'
-Local Kind Development Setup Script for Cluster-Forge
-
-This script sets up a minimal cluster-forge deployment for local Kind clusters
-
-Usage:
-  ./bootstrap-kind-cluster.sh [OPTIONS]
-
-Options:
-  -s, --silogen-core PATH    Path to silogen-core repository (default: auto-detect)
-  -b, --build-local          Build and use local AIRM images instead of published ones
-  -i, --skip-preload         Skip pre-loading container images
-  -h, --help                 Show this help message
-
-Examples:
-  ./bootstrap-kind-cluster.sh
-  ./bootstrap-kind-cluster.sh --build-local --silogen-core ~/projects/silogen-core
-  ./bootstrap-kind-cluster.sh -b -s ~/code/silogen-core
-EOF
-    exit 0
-}
-
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        -s|--silogen-core)
-            SILOGEN_CORE_PATH="$2"
-            shift 2
-            ;;
-        -b|--build-local)
-            BUILD_LOCAL_IMAGES=1
-            shift
-            ;;
-        -i|--skip-preload)
-            SKIP_IMAGE_PRELOAD=1
-            shift
-            ;;
-        -h|--help)
-            show_help
-            ;;
-        *)
-            echo "❌ Unknown option: $1"
-            echo "Run '$0 --help' for usage information"
-            exit 1
-            ;;
-    esac
-done
+DOMAIN="${1:-localhost.local}"
 
 # Auto-detect silogen-core path if not explicitly set
 if [ -z "${SILOGEN_CORE_PATH}" ]; then
@@ -111,33 +45,17 @@ if [ -f "${SCRIPT_DIR}/fix_kind_certs.sh" ]; then
     bash "${SCRIPT_DIR}/fix_kind_certs.sh"
 fi
 
-# Fix DNS configuration for both node (containerd) and pod (CoreDNS) resolution
-echo "🔧 Configuring DNS for reliable resolution..."
-
-# Fix node DNS so containerd can pull images
+# Fix DNS issues caused by corporate network search domains
+echo "🔧 Fixing DNS configuration in Kind cluster..."
 for node in $(kind get nodes --name cluster-forge-local 2>/dev/null); do
     docker exec "$node" bash -c 'cat > /etc/resolv.conf << "EOF"
+nameserver 172.18.0.1
 nameserver 8.8.8.8
 nameserver 8.8.4.4
 options edns0 trust-ad ndots:0
 EOF'
     echo "   ✓ Updated DNS config on $node"
 done
-
-# Restart containerd to pick up new DNS
-for node in $(kind get nodes --name cluster-forge-local 2>/dev/null); do
-    docker exec "$node" systemctl restart containerd
-done
-echo "   ✓ Restarted containerd with new DNS config"
-
-# Fix CoreDNS to use reliable DNS servers directly (for pod DNS resolution)
-kubectl get configmap coredns -n kube-system -o yaml | \
-    sed 's|forward . /etc/resolv.conf {|forward . 8.8.8.8 8.8.4.4 {|' | \
-    kubectl apply -f - > /dev/null
-kubectl rollout restart deployment/coredns -n kube-system > /dev/null
-echo "   ✓ Waiting for CoreDNS to be ready..."
-kubectl wait --for=condition=available --timeout=120s deployment/coredns -n kube-system > /dev/null
-echo "   ✓ DNS configured successfully"
 
 # Check prerequisites
 echo "🔍 Checking prerequisites..."
@@ -159,10 +77,7 @@ echo "📦 Creating namespaces..."
 kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
 kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
 kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
-# Create airm namespace only if AIRM is enabled in values
-if grep -q "^  - airm" "${ROOT_DIR}/root/values_local_kind.yaml" 2>/dev/null; then
-    kubectl create ns airm --dry-run=client -o yaml | kubectl apply -f -
-fi
+kubectl create ns airm --dry-run=client -o yaml | kubectl apply -f -
 
 # Create default storage class for compatibility
 echo "💾 Creating default StorageClass..."
@@ -256,13 +171,6 @@ preload_images() {
         fi
     done
     
-    # Also render AIRM chart from silogen-core if it exists
-    if [ -d "${SILOGEN_CORE_PATH}/services/airm/helm/airm" ]; then
-        echo "  Rendering airm (from silogen-core)..."
-        helm template airm "${SILOGEN_CORE_PATH}/services/airm/helm/airm" \
-            >> "$TEMP_DIR/all-manifests.yaml" 2>/dev/null || echo "    ⚠️  Failed to render"
-    fi
-    
     # Extract all unique images from rendered manifests
     echo ""
     echo "📦 Extracting images from manifests..."
@@ -351,7 +259,7 @@ build_local_images() {
     # Validate silogen-core path
     if [ ! -d "${SILOGEN_CORE_PATH}" ]; then
         echo "❌ Error: silogen-core repo not found at: ${SILOGEN_CORE_PATH}"
-        echo "   Use --silogen-core flag to specify the correct path"
+        echo "   Set SILOGEN_CORE_PATH environment variable to the correct path"
         exit 1
     fi
     
@@ -364,56 +272,38 @@ build_local_images() {
     echo "📂 Source: ${SILOGEN_CORE_PATH}"
     echo ""
     
-    # Determine which images to build based on enabled apps
-    local IMAGES=()
-    
-    # Check if AIRM is enabled
-    if grep -q "^  - airm" "${ROOT_DIR}/root/values_local_kind.yaml" 2>/dev/null; then
-        echo "🔨 Building AIRM images..."
-        # Build AIRM images
-        # Note: UI build is skipped as it takes a very long time (Next.js build with all dependencies)
-        # Use the published image for UI, or build manually if needed:
-        #   cd ${SILOGEN_CORE_PATH}/services/airm/ui && docker build -f ../docker/ui.Dockerfile -t amdenterpriseai/airm-ui:local .
-        local DOCKER_DIR="${SILOGEN_CORE_PATH}/services/airm/docker"
-        if [ ! -d "${DOCKER_DIR}" ]; then
-            echo "❌ Error: AIRM Docker directory not found at: ${DOCKER_DIR}"
-            exit 1
-        fi
-        IMAGES+=(
-            "airm-api|amdenterpriseai/airm-api:local|${DOCKER_DIR}/api.Dockerfile|${SILOGEN_CORE_PATH}"
-            "airm-dispatcher|amdenterpriseai/airm-dispatcher:local|${DOCKER_DIR}/dispatcher.Dockerfile|${SILOGEN_CORE_PATH}"
-        )
-    fi
-    
-    # Check if AIWB is enabled
-    if grep -q "^  - aiwb" "${ROOT_DIR}/root/values_local_kind.yaml" 2>/dev/null; then
-        echo "🔨 Building AIWB images..."
-        IMAGES+=(
-            "aiwb-api|aiwb-api:latest|${SILOGEN_CORE_PATH}/apps/api/aiwb/Dockerfile|${SILOGEN_CORE_PATH}"
-            "aiwb-ui|aiwb-ui:latest|${SILOGEN_CORE_PATH}/apps/ui/aiwb/Dockerfile|${SILOGEN_CORE_PATH}/apps/ui"
-        )
-    fi
-    
-    if [ ${#IMAGES[@]} -eq 0 ]; then
-        echo "ℹ️  No images to build (neither AIRM nor AIWB enabled)"
-        return 0
-    fi
+    # Build images
+    # Note: UI build is skipped as it takes a very long time (Next.js build with all dependencies)
+    # Use the published image for UI, or build manually if needed:
+    #   cd ${SILOGEN_CORE_PATH}/services/airm/ui && docker build -f ../docker/ui.Dockerfile -t amdenterpriseai/airm-ui:local .
+    local IMAGES=(
+        "api:amdenterpriseai/airm-api:local"
+        "dispatcher:amdenterpriseai/airm-dispatcher:local"
+        # "ui:amdenterpriseai/airm-ui:local"  # Skipped - very slow build
+    )
     
     local BUILT=0
     local FAILED=0
     
     for IMAGE_SPEC in "${IMAGES[@]}"; do
-        # Parse: SERVICE|IMAGE_TAG|DOCKERFILE|BUILD_CONTEXT
-        IFS='|' read -r SERVICE IMAGE_TAG DOCKERFILE BUILD_CONTEXT <<< "${IMAGE_SPEC}"
+        local SERVICE="${IMAGE_SPEC%%:*}"
+        local IMAGE_TAG="${IMAGE_SPEC#*:}"
+        local DOCKERFILE="${DOCKER_DIR}/${SERVICE}.Dockerfile"
         
         echo "🏗️  Building ${SERVICE}..."
         echo "   Image: ${IMAGE_TAG}"
         echo "   Dockerfile: ${DOCKERFILE}"
         
         if [ ! -f "${DOCKERFILE}" ]; then
-            echo "   ❌ Dockerfile not found: ${DOCKERFILE}"
+            echo "   ❌ Dockerfile not found!"
             FAILED=$((FAILED + 1))
             continue
+        fi
+        
+        # UI uses its own directory as build context, others use repo root
+        local BUILD_CONTEXT="${SILOGEN_CORE_PATH}"
+        if [ "${SERVICE}" = "ui" ]; then
+            BUILD_CONTEXT="${SILOGEN_CORE_PATH}/services/airm/ui"
         fi
         
         echo "   Building..."
@@ -451,27 +341,27 @@ build_local_images() {
     echo ""
 }
 
-# Pre-load images (skip with --skip-preload flag)
-if [ "${SKIP_IMAGE_PRELOAD}" = "1" ]; then
-    echo "⏭️  Skipping image pre-load"
+# Pre-load images (skip with SKIP_IMAGE_PRELOAD=1)
+if [ "${SKIP_IMAGE_PRELOAD:-0}" = "1" ]; then
+    echo "⏭️  Skipping image pre-load (SKIP_IMAGE_PRELOAD=1)"
 else
     preload_images || echo "⚠️  Image pre-loading failed, continuing anyway..."
 fi
 
-# Build local images (only if --build-local flag is set)
+# Build local images (only if BUILD_LOCAL_IMAGES=1)
 if [ "${BUILD_LOCAL_IMAGES}" = "1" ]; then
     build_local_images
 fi
 
 # Bootstrap components in parallel
-echo "🚀 Deploying ArgoCD, OpenBao, and Gitea..."
+echo "🚀 Deploying ArgoCD, OpenBao, and Gitea in parallel..."
 
 # Deploy ArgoCD
 (
     helm template --release-name argocd sources/argocd/8.3.5 \
+      -f sources/argocd/values_cf.yaml \
       --namespace argocd \
       --set global.domain="https://argocd.${DOMAIN}" \
-      --set configs.params."server\.insecure"=true \
       --kube-version=1.33 | kubectl apply -f - 2>&1 | sed 's/^/[ArgoCD] /'
 ) &
 ARGOCD_PID=$!
@@ -479,9 +369,8 @@ ARGOCD_PID=$!
 # Deploy OpenBao
 (
     helm template --release-name openbao sources/openbao/0.18.2 \
+      -f sources/openbao/values_cf.yaml \
       --namespace cf-openbao \
-      --set injector.enabled=false \
-      --set server.ha.enabled=false \
       --kube-version=1.33 | kubectl apply -f - 2>&1 | sed 's/^/[OpenBao] /'
 ) &
 OPENBAO_PID=$!
@@ -497,24 +386,18 @@ kubectl create secret generic gitea-admin-credentials \
   --from-literal=password=$(generate_password) \
   --dry-run=client -o yaml | kubectl apply -f - > /dev/null 2>&1
 
+kubectl create configmap initial-cf-values \
+  --from-file=initial-cf-values=root/values_local_kind.yaml \
+  -n cf-gitea \
+  --dry-run=client -o yaml | kubectl apply -f - > /dev/null 2>&1
+
 # Deploy Gitea
 (
     helm template --release-name gitea sources/gitea/12.3.0 \
+      -f sources/gitea/values_cf.yaml \
       --namespace cf-gitea \
       --set clusterDomain="${DOMAIN}" \
       --set gitea.config.server.ROOT_URL="http://gitea.${DOMAIN}" \
-      --set gitea.admin.existingSecret=gitea-admin-credentials \
-      --set gitea.config.database.DB_TYPE=sqlite3 \
-      --set gitea.config.session.PROVIDER=memory \
-      --set gitea.config.cache.ADAPTER=memory \
-      --set gitea.config.queue.TYPE=level \
-      --set valkey-cluster.enabled=false \
-      --set valkey.enabled=false \
-      --set postgresql.enabled=false \
-      --set postgresql-ha.enabled=false \
-      --set persistence.enabled=true \
-      --set test.enabled=false \
-      --set strategy.type=Recreate \
       --kube-version=1.33 | kubectl apply -f - 2>&1 | sed 's/^/[Gitea] /'
 ) &
 GITEA_PID=$!
@@ -561,116 +444,51 @@ echo "✅ Gitea is ready"
 
 # Initialize OpenBao
 echo "🔧 Initializing OpenBao..."
-
-# Create static ConfigMaps needed for init job
-echo "  Creating OpenBao secret manager scripts..."
-helm template --release-name openbao-config-static scripts/init-openbao-job \
-  --set domain="${DOMAIN}" \
-  --kube-version=1.33 \
-  --show-only templates/openbao-secret-manager-cm.yaml | kubectl apply -f - > /dev/null
-
-# Create initial secrets config for init job (separate from ArgoCD-managed version)
-echo "  Creating initial OpenBao secrets configuration..."
-cat sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml | \
-  sed "s|{{ .Values.domain }}|${DOMAIN}|g" | \
-  sed "s|name: openbao-secrets-config|name: openbao-secrets-init-config|g" | kubectl apply -f - > /dev/null
-
-# Deploy init job
-echo "  Deploying OpenBao init job..."
 helm template --release-name openbao-init scripts/init-openbao-job \
   --set domain="${DOMAIN}" \
   --kube-version=1.33 | kubectl apply -f - > /dev/null
 
-kubectl wait --for=condition=complete --timeout=600s job/openbao-init-job -n cf-openbao > /dev/null 2>&1
-echo "✅ OpenBao initialized"
+kubectl wait --for=condition=complete --timeout=600s job/openbao-init-job -n cf-openbao > /dev/null 2>&1 &
+WAIT_OPENBAO_INIT=$!
 
 # Initialize Gitea
 echo "🔧 Initializing Gitea..."
-
-# Create initial-cf-values configmap for Gitea init job
-VALUES=$(cat "${ROOT_DIR}/root/values_local_kind.yaml" | yq ".global.domain = \"${DOMAIN}\"")
-kubectl create configmap initial-cf-values \
-  --from-literal=initial-cf-values="$VALUES" \
-  -n cf-gitea \
-  --dry-run=client -o yaml | kubectl apply -f - > /dev/null 2>&1 || true
-
 helm template --release-name gitea-init scripts/init-gitea-local-job \
   --set domain="${DOMAIN}" \
-  --kube-version=1.33 | kubectl apply -f - > /dev/null 2>&1 || true
+  --kube-version=1.33 | kubectl apply -f - > /dev/null
 
-kubectl wait --for=condition=complete --timeout=600s job/gitea-init-local-job -n cf-gitea > /dev/null 2>&1
+kubectl wait --for=condition=complete --timeout=600s job/gitea-init-local-job -n cf-gitea > /dev/null 2>&1 &
+WAIT_GITEA_INIT=$!
+
+# Wait for both init jobs
+wait $WAIT_OPENBAO_INIT
+echo "✅ OpenBao initialized"
+
+wait $WAIT_GITEA_INIT
 echo "✅ Gitea initialized"
 
-# Push cluster-forge repo to Gitea (current branch)
-echo "📤 Pushing cluster-forge repository to Gitea..."
+echo "📤 Pushing repositories to Gitea..."
+
+# Push cluster-forge repo
 "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${ROOT_DIR}" "cluster-org" "cluster-forge"
 
-# Push silogen-core repo to Gitea if AIRM is enabled (needed for AIRM deployment)
-if grep -q "^  - airm" "${ROOT_DIR}/root/values_local_kind.yaml" 2>/dev/null; then
-    if [ -d "${SILOGEN_CORE_PATH}" ]; then
-        # If building local images, create a temporary worktree with modified values
-        if [ "${BUILD_LOCAL_IMAGES}" = "1" ]; then
-            echo "   Creating temporary worktree with local image tags"
-            TEMP_WORKTREE="/tmp/silogen-core-local-tags-$$"
-            cd "${SILOGEN_CORE_PATH}"
-            git worktree add --detach "${TEMP_WORKTREE}" HEAD
-            cd "${TEMP_WORKTREE}"
-            yq eval '.airm-api.airm.backend.image.tag = "local" | .airm-dispatcher.airm.dispatcher.image.tag = "local"' \
-                -i services/airm/helm/airm/values.yaml
-            git add services/airm/helm/airm/values.yaml
-            git commit -m "temp: use local image tags for kind development" --no-verify
-            
-            # Push from temporary worktree
-            echo "📤 Pushing silogen-core (with local tags) to Gitea..."
-            "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${TEMP_WORKTREE}" "cluster-org" "core"
-            
-            # Clean up worktree
-            cd "${SILOGEN_CORE_PATH}"
-            git worktree remove "${TEMP_WORKTREE}" --force
-            echo "✅ silogen-core pushed to Gitea"
-        else
-            echo "📤 Pushing silogen-core repository to Gitea..."
-            "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${SILOGEN_CORE_PATH}" "cluster-org" "core"
-            echo "✅ silogen-core pushed to Gitea"
-        fi
-    else
-        echo "⚠️  AIRM enabled but silogen-core not found at ${SILOGEN_CORE_PATH}"
-        echo "   AIRM will use charts from cluster-forge/sources/airm/"
-    fi
+# Push silogen-core repo if it exists
+if [ -d "${SILOGEN_CORE_PATH}" ]; then
+    "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${SILOGEN_CORE_PATH}" "cluster-org" "core"
 else
-    echo "ℹ️  AIRM not enabled - skipping silogen-core push"
-    echo "✅ cluster-forge pushed to Gitea"
+    echo "⚠️  silogen-core not found at ${SILOGEN_CORE_PATH}"
+    echo "   AIRM will use charts from cluster-forge/sources/airm/0.2.7"
 fi
+
+echo "✅ Repositories pushed to Gitea"
 
 # Deploy cluster-forge ArgoCD applications
 echo "🎯 Deploying cluster-forge ArgoCD applications..."
-
-cd "${ROOT_DIR}"
 helm template root -f root/values_local_kind.yaml \
   --set global.domain="${DOMAIN}" \
   --kube-version=1.33 | kubectl apply -f -
 
 echo ""
-echo "⏳ ArgoCD applications created - they will sync automatically"
-echo "   (Infrastructure and AIRM will deploy over the next few minutes)"
-
-echo ""
-echo "✅ Bootstrap complete!"
-echo ""
-echo "📊 Cluster Status:"
-kubectl get nodes
-echo ""
-echo "📦 ArgoCD Applications:"
-kubectl get applications -n argocd
-echo ""
-echo "🎯 Applications will be deployed by ArgoCD and will be available shortly"
-echo "   Monitor progress with: kubectl get pods -A -w"
-echo ""
-echo "Access services:"
-echo "  ArgoCD UI: kubectl port-forward svc/argocd-server -n argocd 8080:443"
-echo "  Gitea: kubectl port-forward svc/gitea-http -n cf-gitea 3000:3000"
-echo ""
-
 echo "✅ Local Kind cluster-forge setup complete!"
 echo ""
 echo "📊 Checking deployment status..."
@@ -680,17 +498,12 @@ echo ""
 echo "⏳ Key applications status (may take a few minutes to sync):"
 echo "   MinIO: $(kubectl get application minio-tenant -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo 'Not yet synced')"
 echo "   Keycloak: $(kubectl get application keycloak -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo 'Not yet synced')"
-if kubectl get application airm -n argocd &>/dev/null; then
-    echo "   AIRM: $(kubectl get application airm -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo 'Not yet synced')"
-fi
-if kubectl get application aiwb -n argocd &>/dev/null; then
-    echo "   AIWB: $(kubectl get application aiwb -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo 'Not yet synced')"
-fi
+echo "   AIRM: $(kubectl get application airm -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo 'Not yet synced')"
 echo ""
 echo "⚠️  Resource Warning:"
-echo "   All applications and dependencies require significant resources."
+echo "   AIRM and all dependencies require significant resources."
 echo "   If pods are pending due to insufficient CPU/memory, consider:"
-echo "   - Disabling optional apps in root/values_local_kind.yaml"
+echo "   - Commenting out some apps in root/values_local_kind.yaml"
 echo "   - Using a multi-node Kind cluster"
 echo "   - Increasing Docker Desktop resource limits"
 echo ""
@@ -702,31 +515,18 @@ echo "   Open: https://localhost:8080 (accept self-signed cert)"
 echo "   Username: admin"
 echo "   Password: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath=\"{.data.password}\" | base64 -d"
 echo ""
-echo "2. OpenBao UI:"
+echo "2. Gitea UI:"
+echo "   kubectl port-forward svc/gitea-http -n cf-gitea 3000:3000"
+echo "   Open: http://localhost:3000"
+echo "   Username: kubectl -n cf-gitea get secret gitea-admin-credentials -o jsonpath=\"{.data.username}\" | base64 -d"
+echo "   Password: kubectl -n cf-gitea get secret gitea-admin-credentials -o jsonpath=\"{.data.password}\" | base64 -d"
+echo ""
+echo "3. OpenBao UI:"
 echo "   kubectl port-forward svc/openbao-active -n cf-openbao 8200:8200"
 echo "   Open: http://localhost:8200"
 echo "   Token: kubectl -n cf-openbao get secret openbao-keys -o jsonpath='{.data.root_token}' | base64 -d"
 echo ""
-if [ -d "${SILOGEN_CORE_PATH}/services/airm/helm/airm" ]; then
-    echo "3. AIRM UI (after deployment completes):"
-    echo "   kubectl port-forward -n airm svc/airm-ui 8000:80"
-    echo "   kubectl port-forward -n airm svc/airm-api 8001:80"
-    echo "   kubectl port-forward -n keycloak svc/keycloak-old-http 8080:80"
-    echo "   Open: http://localhost:8000"
-    echo ""
-fi
 echo "💡 Tips:"
-echo "   - Monitor ArgoCD apps: kubectl get applications -n argocd"
-echo "   - Monitor all pods: watch kubectl get pods -A"
-echo "   - View application pods: kubectl get pods -n <namespace>"
-echo "   - View logs: kubectl logs -n <namespace> <pod-name>"
-if [ -d "${SILOGEN_CORE_PATH}/services/airm/helm/airm" ]; then
-    echo ""
-    echo "🔄 To update AIRM after making changes:"
-    echo "   helm template airm ${SILOGEN_CORE_PATH}/services/airm/helm/airm \\"
-    echo "     --namespace airm --kube-version=1.33 | kubectl apply -f -"
-fi
-echo ""
 echo "   - Monitor ArgoCD apps: kubectl get applications -n argocd"
 echo "   - Check sync status: argocd app list"
 echo "   - View logs: kubectl logs -n <namespace> <pod-name>"
