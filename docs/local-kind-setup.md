@@ -86,6 +86,8 @@ The script will automatically:
 
 The setup takes approximately 2-3 minutes to complete.
 
+**⚠️ Important:** The bootstrap script is **not idempotent**. Running it multiple times will regenerate secrets, which may cause issues with existing deployments. If you need to update configurations, see the "Updating Application Configurations" section below.
+
 ### 3. Monitor Deployment
 
 Watch ArgoCD applications sync:
