@@ -3,16 +3,82 @@
 # Local Kind Development Setup Script for Cluster-Forge
 # This script sets up a minimal cluster-forge deployment for local Kind clusters
 #
-# Environment variables:
-#   SKIP_IMAGE_PRELOAD=1     - Skip pre-loading container images
-#   BUILD_LOCAL_IMAGES=1     - Build and use local AIRM images instead of published ones
-#   SILOGEN_CORE_PATH        - Path to silogen-core repo (auto-detected if not set)
+# Usage:
+#   ./bootstrap-kind-cluster.sh [OPTIONS] [DOMAIN]
+#
+# Options:
+#   -s, --silogen-core PATH    Path to silogen-core repository (default: auto-detect)
+#   -b, --build-local          Build and use local AIRM images instead of published ones
+#   -i, --skip-preload         Skip pre-loading container images
+#   -h, --help                 Show this help message
+#
+# Arguments:
+#   DOMAIN                     Domain for the cluster (default: localhost.local)
+#
+# Examples:
+#   ./bootstrap-kind-cluster.sh
+#   ./bootstrap-kind-cluster.sh --build-local --silogen-core ~/projects/silogen-core
+#   ./bootstrap-kind-cluster.sh -b -s ~/code/silogen-core localhost.local
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-DOMAIN="${1:-localhost.local}"
+
+# Default values
+BUILD_LOCAL_IMAGES=0
+SKIP_IMAGE_PRELOAD=0
+SILOGEN_CORE_PATH=""
+DOMAIN="localhost.local"
+
+# Parse command line arguments
+show_help() {
+    cat << 'EOF'
+Local Kind Development Setup Script for Cluster-Forge
+
+This script sets up a minimal cluster-forge deployment for local Kind clusters
+
+Usage:
+  ./bootstrap-kind-cluster.sh [OPTIONS]
+
+Options:
+  -s, --silogen-core PATH    Path to silogen-core repository (default: auto-detect)
+  -b, --build-local          Build and use local AIRM images instead of published ones
+  -i, --skip-preload         Skip pre-loading container images
+  -h, --help                 Show this help message
+
+Examples:
+  ./bootstrap-kind-cluster.sh
+  ./bootstrap-kind-cluster.sh --build-local --silogen-core ~/projects/silogen-core
+  ./bootstrap-kind-cluster.sh -b -s ~/code/silogen-core
+EOF
+    exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -s|--silogen-core)
+            SILOGEN_CORE_PATH="$2"
+            shift 2
+            ;;
+        -b|--build-local)
+            BUILD_LOCAL_IMAGES=1
+            shift
+            ;;
+        -i|--skip-preload)
+            SKIP_IMAGE_PRELOAD=1
+            shift
+            ;;
+        -h|--help)
+            show_help
+            ;;
+        *)
+            echo "❌ Unknown option: $1"
+            echo "Run '$0 --help' for usage information"
+            exit 1
+            ;;
+    esac
+done
 
 # Auto-detect silogen-core path if not explicitly set
 if [ -z "${SILOGEN_CORE_PATH}" ]; then
@@ -259,7 +325,7 @@ build_local_images() {
     # Validate silogen-core path
     if [ ! -d "${SILOGEN_CORE_PATH}" ]; then
         echo "❌ Error: silogen-core repo not found at: ${SILOGEN_CORE_PATH}"
-        echo "   Set SILOGEN_CORE_PATH environment variable to the correct path"
+        echo "   Use --silogen-core flag to specify the correct path"
         exit 1
     fi
     
@@ -341,14 +407,14 @@ build_local_images() {
     echo ""
 }
 
-# Pre-load images (skip with SKIP_IMAGE_PRELOAD=1)
-if [ "${SKIP_IMAGE_PRELOAD:-0}" = "1" ]; then
-    echo "⏭️  Skipping image pre-load (SKIP_IMAGE_PRELOAD=1)"
+# Pre-load images (skip with --skip-preload flag)
+if [ "${SKIP_IMAGE_PRELOAD}" = "1" ]; then
+    echo "⏭️  Skipping image pre-load"
 else
     preload_images || echo "⚠️  Image pre-loading failed, continuing anyway..."
 fi
 
-# Build local images (only if BUILD_LOCAL_IMAGES=1)
+# Build local images (only if --build-local flag is set)
 if [ "${BUILD_LOCAL_IMAGES}" = "1" ]; then
     build_local_images
 fi
