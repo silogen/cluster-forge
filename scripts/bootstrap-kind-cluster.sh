@@ -237,6 +237,13 @@ preload_images() {
         fi
     done
     
+    # Also render AIRM chart from silogen-core if it exists
+    if [ -d "${SILOGEN_CORE_PATH}/services/airm/helm/airm" ]; then
+        echo "  Rendering airm (from silogen-core)..."
+        helm template airm "${SILOGEN_CORE_PATH}/services/airm/helm/airm" \
+            >> "$TEMP_DIR/all-manifests.yaml" 2>/dev/null || echo "    ⚠️  Failed to render"
+    fi
+    
     # Extract all unique images from rendered manifests
     echo ""
     echo "📦 Extracting images from manifests..."
