@@ -30,7 +30,7 @@ For local development and testing with Kind (Kubernetes in Docker), use the dedi
 kind create cluster --name cluster-forge-local
 
 # Run the local setup
-./scripts/setup-local-dev.sh localhost
+./scripts/bootstrap-kind-cluster.sh localhost
 ```
 
 See the [Local Kind Setup Guide](./docs/local-kind-setup.md) for detailed instructions, configuration options, and troubleshooting.
