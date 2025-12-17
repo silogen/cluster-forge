@@ -5,8 +5,49 @@
 # Get script directory and derive paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLUSTER_FORGE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Function to show help
+show_help() {
+    cat << EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Connect to Kind cluster with port-forwards, configure authentication, and generate .env files.
+
+OPTIONS:
+    -s, --silogen-core PATH    Path to silogen-core directory (default: parent directory of cluster-forge)
+    -h, --help                 Show this help message
+
+EXAMPLES:
+    # Use default silogen-core path (parent directory)
+    $(basename "$0")
+    
+    # Specify custom silogen-core path
+    $(basename "$0") -s /path/to/silogen-core
+
+EOF
+    exit 0
+}
+
 # Default to parent directory (silogen-core is parent of cluster-forge)
-SILOGEN_CORE_PATH="${SILOGEN_CORE_PATH:-$(cd "$CLUSTER_FORGE_ROOT/.." && pwd)}"
+SILOGEN_CORE_PATH="$(cd "$CLUSTER_FORGE_ROOT/.." && pwd)"
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -s|--silogen-core)
+            SILOGEN_CORE_PATH="$2"
+            shift 2
+            ;;
+        -h|--help)
+            show_help
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use -h or --help for usage information"
+            exit 1
+            ;;
+    esac
+done
 
 echo "🔌 Setting up port-forwards for local AIRM development..."
 echo ""
