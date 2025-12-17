@@ -119,10 +119,7 @@ apps:
         value: "localhost.local" # Use valid TLD for email validation
       - name: airm-api.airm.frontend.nextauthUrl
         value: "http://localhost:8000" # Override for local port-forwarding
-      - name: airm-api.airm.backend.image.tag
-        value: local
-      - name: airm-dispatcher.airm.dispatcher.image.tag
-        value: local
+      # Note: image.tag for api and dispatcher can be overridden via --build-local flag
       # Reduce UI resources for local development
       - name: airm-api.airm.frontend.resources.requests.memory
         value: "256Mi"

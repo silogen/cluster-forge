@@ -540,7 +540,27 @@ echo "📤 Pushing repositories to Gitea..."
 
 # Push silogen-core repo if it exists
 if [ -d "${SILOGEN_CORE_PATH}" ]; then
-    "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${SILOGEN_CORE_PATH}" "cluster-org" "core"
+    # If building local images, create a temporary worktree with modified values
+    if [ "${BUILD_LOCAL_IMAGES}" = "1" ]; then
+        echo "   Creating temporary worktree with local image tags"
+        TEMP_WORKTREE="/tmp/silogen-core-local-tags-$$"
+        cd "${SILOGEN_CORE_PATH}"
+        git worktree add --detach "${TEMP_WORKTREE}" HEAD
+        cd "${TEMP_WORKTREE}"
+        yq eval '.airm-api.airm.backend.image.tag = "local" | .airm-dispatcher.airm.dispatcher.image.tag = "local"' \
+            -i services/airm/helm/airm/values.yaml
+        git add services/airm/helm/airm/values.yaml
+        git commit -m "temp: use local image tags for kind development" --no-verify
+        
+        # Push from temporary worktree
+        "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${TEMP_WORKTREE}" "cluster-org" "core"
+        
+        # Clean up worktree
+        cd "${SILOGEN_CORE_PATH}"
+        git worktree remove "${TEMP_WORKTREE}" --force
+    else
+        "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${SILOGEN_CORE_PATH}" "cluster-org" "core"
+    fi
 else
     echo "⚠️  silogen-core not found at ${SILOGEN_CORE_PATH}"
     echo "   AIRM will use charts from cluster-forge/sources/airm/0.2.7"
@@ -550,6 +570,8 @@ echo "✅ Repositories pushed to Gitea"
 
 # Deploy cluster-forge ArgoCD applications
 echo "🎯 Deploying cluster-forge ArgoCD applications..."
+
+cd "${ROOT_DIR}"
 helm template root -f root/values_local_kind.yaml \
   --set global.domain="${DOMAIN}" \
   --kube-version=1.33 | kubectl apply -f -
