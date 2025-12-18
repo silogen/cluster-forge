@@ -18,6 +18,9 @@ tenant:
     - name: default-user
   certificate:
     requestAutoCert: false
+    externalCaCertSecret:
+    - name: cluster-tls
+      type: kubernetes.io/secret/v1
   env:
     - name: MINIO_PROMETHEUS_AUTH_TYPE
       value: "public"
