@@ -110,6 +110,8 @@ spec:
           env:
             - name: DEBIAN_FRONTEND
               value: "noninteractive"
+            - name: ORG_NAME
+              value: "demo"
             - name: NEW_DOMAIN_NAME
               value: "{{ .Values.airm.appDomain }}"
             - name: KEYCLOAK_CLIENT_ID

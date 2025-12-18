@@ -12,6 +12,11 @@ echo ""
 # --- Configuration Variables ---
 # Get values from bloom configmap mounted as env
 
+# NOTE: ORG_NAME is hardcoded to demo because gpu operator metrics has same org name hardcoded there
+# Otherwise the following line can be uncommented to consider the real org name from domain config
+# ORG_NAME=$(echo $NEW_DOMAIN_NAME | awk -F '.' '{ print $2 }')
+ORG_NAME="demo"
+ORG_DOMAINS="[\"${NEW_DOMAIN_NAME}\"]"
 CLUSTER_WORKLOADS_BASE_URL="https://workspaces.${NEW_DOMAIN_NAME}/"
 CLUSTER_KUBE_API_URL="https://k8s.${NEW_DOMAIN_NAME}"
 USER_EMAIL="devuser@${NEW_DOMAIN_NAME}"
@@ -57,8 +62,51 @@ function refresh_token() {
     fi
 }
 
+function create_org() {
+    # Try to get ORG_ID by name
+    ORG_ID=$(curl -s -X GET "${AIRM_API_URL}/v1/organizations" \
+        -H "Authorization: Bearer ${TOKEN}" \
+        -H 'Content-Type: application/json' | jq -r --arg name "$ORG_NAME" '.organizations[] | select(.name==$name) | .id')
+
+    # If not found, create the org and fetch the ID again
+    if [ -z "$ORG_ID" ] || [ "$ORG_ID" == "null" ]; then
+        ORG_RESP=$(curl -s -o /dev/null -X POST -w "%{http_code}" "${AIRM_API_URL}/v1/organizations" \
+        -H "Authorization: Bearer ${TOKEN}" \
+        -H 'Content-Type: application/json' \
+        -d "{ \"name\": \"$ORG_NAME\", \"domains\": $ORG_DOMAINS }")
+        echo "$ORG_RESP"
+        check_success "$([[ "$ORG_RESP" == "200" || "$ORG_RESP" == "201" ]] && echo 0 || echo 1)" "Failed to create organization"
+
+        ORG_ID=$(curl -s -X GET "${AIRM_API_URL}/v1/organizations" \
+        -H "Authorization: Bearer ${TOKEN}" \
+        -H 'Content-Type: application/json' | jq -r --arg name "$ORG_NAME" '.organizations[] | select(.name==$name) | .id')
+    fi
+
+    if [ -z "$ORG_ID" ] || [ "$ORG_ID" == "null" ]; then
+        echo "ERROR: Failed to create or retrieve organization ID."
+        exit 1
+    else
+        echo "ORG_ID=${ORG_ID}"
+    fi
+}
+
+function add_user_to_org() {
+    # Check if user exists in org
+    USER_EXISTS=$(curl -s -X GET "${AIRM_API_URL}/v1/users" -H 'accept: application/json' -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' | jq -r --arg email "$USER_EMAIL" '.data? // [] | .[] | select(.email==$email) | .email')
+    # Add user to org if they don't exist
+    if [ -z "$USER_EXISTS" ] || [ "$USER_EXISTS" == "null" ]; then
+        echo "$USER_EXISTS"
+        echo "User '$USER_EMAIL' not found in organization. Adding..."
+        ADD_USER_RESP=$(curl -w "%{http_code}" -X 'POST' "${AIRM_API_URL}/v1/organizations/${ORG_ID}/users" -H 'accept: application/json' -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{ "email": "'"$USER_EMAIL"'", "roles": ["Platform Administrator"]}')
+        echo "$ADD_USER_RESP"
+        check_success "$([[ "$ADD_USER_RESP" == "200" || "$ADD_USER_RESP" == "201" || "$ADD_USER_RESP" == "null201" ]] && echo 0 || echo 1)" "Failed to add user to organization"
+    else
+        echo "User '$USER_EMAIL' already exists in organization."
+    fi
+}
+
 function create_project() {
-    PROJECT_ID=$(curl -s -X GET "${AIRM_API_URL}/v1/projects" -H 'accept: application/json' -H "Authorization: Bearer ${TOKEN}" | jq -r '.data[] | select(.name=="'$PROJECT_NAME'") | .id')
+    PROJECT_ID=$(curl -s -X GET "${AIRM_API_URL}/v1/projects" -H 'accept: application/json' -H "Authorization: Bearer ${TOKEN}" | jq -r '.projects[] | select(.name=="'$PROJECT_NAME'") | .id')
 
     for (( i=0; i<=TIMEOUT; i+=SLEEP_INTERVAL )); do
         CLUSTER_STATUS=$(curl -s -X GET "${AIRM_API_URL}/v1/clusters/$CLUSTER_ID" \
@@ -123,7 +171,7 @@ function add_minio_secret_and_storage_to_project() {
     SECRET_IN_PROJECT=$(curl -X 'GET' \
     "${AIRM_API_URL}/v1/projects/${PROJECT_ID}/secrets" \
     -H 'accept: application/json' \
-    -H "Authorization: Bearer ${TOKEN}" | jq -r '.data[] | select(.secret.name=="'"$SECRET_NAME"'") | .id')
+    -H "Authorization: Bearer ${TOKEN}" | jq -r '.project_secrets[] | select(.secret.name=="'"$SECRET_NAME"'") | .id')
     EXTERNAL_SECRET_API_VERSION="v1beta1"
     EXTERNAL_SECRET_MANIFEST=$(cat <<EOF
 apiVersion: external-secrets.io/${EXTERNAL_SECRET_API_VERSION}
@@ -181,8 +229,8 @@ EOF
         -H "Authorization: Bearer ${TOKEN}" \
         -H 'Content-Type: application/json')
 
-        SECRET_STATUS=$(echo $SECRET_RESP | jq -r '.data[] | select(.name=="'"$SECRET_NAME"'") | .status')
-        SECRET_ID=$(echo $SECRET_RESP | jq -r '.data[] | select(.name=="'"$SECRET_NAME"'") | .id')
+        SECRET_STATUS=$(echo $SECRET_RESP | jq -r '.secrets[] | select(.name=="'"$SECRET_NAME"'") | .status')
+        SECRET_ID=$(echo $SECRET_RESP | jq -r '.secrets[] | select(.name=="'"$SECRET_NAME"'") | .id')
 
         if [ "$SECRET_STATUS" == "Synced" ] || [ "$SECRET_STATUS" == "Unassigned" ]; then
             echo "Secret is ready!"
@@ -195,7 +243,7 @@ EOF
     STORAGE_IN_PROJECT=$(curl -X 'GET' \
     "${AIRM_API_URL}/v1/projects/${PROJECT_ID}/storages" \
     -H 'accept: application/json' \
-    -H "Authorization: Bearer ${TOKEN}" | jq -r '.data[] | select(.storage.name=="'"$STORAGE_NAME"'") | .id')
+    -H "Authorization: Bearer ${TOKEN}" | jq -r '.project_storages[] | select(.storage.name=="'"$STORAGE_NAME"'") | .id')
 
     if [ -z "$STORAGE_IN_PROJECT" ] || [ "$STORAGE_IN_PROJECT" == "null" ]; then
         echo "Adding storage configuration to project '$PROJECT_ID'..."
@@ -253,7 +301,7 @@ function create_cluster() {
     # Check if cluster exists
     CLUSTER_EXISTS=$(curl -s -X GET "${AIRM_API_URL}/v1/clusters" \
         -H "Authorization: Bearer ${TOKEN}" \
-        -H 'Content-Type: application/json' | jq -r '.data[] | select(.name=="'$CLUSTER_NAME'") | .id')
+        -H 'Content-Type: application/json' | jq -r '.clusters[] | select(.name=="'$CLUSTER_NAME'") | .id')
 
     if [ -z "$CLUSTER_EXISTS" ] || [ "$CLUSTER_EXISTS" == "null" ]; then
         # Create cluster
@@ -319,6 +367,16 @@ function request_password_reset() {
 }
 
 function main() {
+    refresh_token
+    echo "create_org..."
+    create_org
+    echo ""
+
+    refresh_token
+    echo "add_user_to_org..."
+    add_user_to_org
+    echo ""
+
     refresh_token
     echo "create_cluster..."
     create_cluster
