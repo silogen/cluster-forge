@@ -1,0 +1,23 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: aim.silogen.ai/v1alpha1
+kind: AIMClusterRuntimeConfig
+metadata:
+  name: amd-aim-cluster-runtime-config
+spec:
+  pvcHeadroomPercent: 100
+  routing:
+    enabled: true
+    gatewayRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.kgateway.gatewayName }}
+      namespace: {{ .Values.kgateway.namespace }}
+    pathTemplate: "{.metadata.namespace}/{.metadata.labels['airm.silogen.ai/workload-id']}"
+    requestTimeout: 30m
+  labelPropagation:
+    enabled: true
+    match:
+      - "airm.silogen.ai/*"
