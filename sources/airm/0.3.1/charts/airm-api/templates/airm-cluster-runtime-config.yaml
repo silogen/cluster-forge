@@ -17,7 +17,3 @@ spec:
       namespace: {{ .Values.kgateway.namespace }}
     pathTemplate: "{.metadata.namespace}/{.metadata.labels['airm.silogen.ai/workload-id']}"
     requestTimeout: 30m
-  labelPropagation:
-    enabled: true
-    match:
-      - "airm.silogen.ai/*"

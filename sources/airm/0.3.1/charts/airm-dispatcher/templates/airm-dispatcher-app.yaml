@@ -216,6 +216,8 @@ spec:
           env:
             - name: KUBE_CLUSTER_NAME
               value: demo-cluster
+            - name: ORG_NAME
+              value: demo
             - name: RABBITMQ_HOST
               value: "{{ .Release.Name }}-rabbitmq.{{ .Release.Namespace }}.svc.cluster.local"
             - name: RABBITMQ_PORT
