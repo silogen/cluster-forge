@@ -1,0 +1,124 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: "{{ .Release.Name }}-otel-collector-pod-reader"
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - nodes
+      - services
+      - endpoints
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources:
+      - nodes/metrics
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: "{{ .Release.Name }}-{{ .Values.aims.otelCollector.name }}-pod-reader"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: "{{ .Release.Name }}-otel-collector-pod-reader"
+subjects:
+  - kind: ServiceAccount
+    name: "{{ .Release.Name }}-{{ .Values.aims.otelCollector.name }}-collector"
+    namespace: "{{ .Release.Namespace }}"
+---
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: "{{ .Release.Name }}-{{ .Values.aims.otelCollector.name }}"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  mode: daemonset
+  image: "{{ .Values.aims.otelCollector.image }}"
+  nodeSelector:
+    feature.node.kubernetes.io/amd-gpu: "true"
+  config:
+    receivers:
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: "vllm"
+              metrics_path: /metrics
+              scrape_interval: "{{ .Values.aims.otelCollector.receivers.prometheus.config.scrape_configs.scrape_interval }}"
+              kubernetes_sd_configs:
+                - role: pod
+              relabel_configs:
+                # Only scrape pods with the workload-id label
+                - source_labels:
+                    [__meta_kubernetes_pod_label_airm_silogen_ai_workload_id]
+                  action: keep
+                  regex: .+
+                # Only scrape pods with app label starting with isvc.
+                - source_labels: [__meta_kubernetes_pod_label_app]
+                  action: keep
+                  regex: isvc\..*
+                # Set the workload_id from the label
+                - source_labels:
+                    [__meta_kubernetes_pod_label_airm_silogen_ai_workload_id]
+                  target_label: workload_id
+                # Set service name from app label
+                - source_labels: [__meta_kubernetes_pod_label_app]
+                  target_label: service
+                # Set service instance id from pod name
+                - source_labels: [__meta_kubernetes_pod_name]
+                  target_label: service_instance_id
+                # Set the scrape target to port 8000
+                - source_labels: [__meta_kubernetes_pod_ip]
+                  target_label: __address__
+                  replacement: $1:8000
+      otlp:
+        protocols:
+          grpc: {}
+          http: {}
+
+    processors:
+      resource:
+        attributes:
+          - key: airm.silogen.ai/workload-id
+            from_attribute: workload_id
+            action: upsert
+          - key: service.instance.id
+            from_attribute: service_instance_id
+            action: upsert
+          - key: service.name
+            from_attribute: service
+            action: upsert
+
+      transform:
+        metric_statements:
+          - context: datapoint
+            statements:
+              - set(attributes["workload_id"], resource.attributes["airm.silogen.ai/workload-id"]) where attributes["workload_id"] == nil
+              - set(attributes["service_instance_id"], resource.attributes["service.instance.id"]) where attributes["service_instance_id"] == nil
+              - set(attributes["service"], resource.attributes["service.name"]) where attributes["service"] == nil
+
+    exporters:
+      otlphttp:
+        endpoint: "{{ .Values.aims.otelCollector.exporters.otlphttp.endpoint }}"
+
+    service:
+      pipelines:
+        metrics:
+          receivers: [prometheus]
+          processors: [resource, transform]
+          exporters: [otlphttp]
+
+        traces:
+          receivers: [otlp]
+          processors: [resource]
+          exporters: [otlphttp]
+
+        logs:
+          receivers: [otlp]
+          processors: [resource]
+          exporters: [otlphttp]

@@ -1,0 +1,27 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+airm:
+  dispatcher:
+    image:
+      repository: amdenterpriseai/airm-dispatcher
+      tag: 0.3.0
+      pullPolicy: IfNotPresent
+    servicePort: 80
+    env:
+      rabbitmqPort: 5672
+  utilities:
+    netcat:
+      image:
+        repository: busybox
+        tag: 1.37.0
+        pullPolicy: IfNotPresent
+    curl:
+      image:
+        repository: curlimages/curl
+        tag: 8.16.0
+        pullPolicy: IfNotPresent
+  additionalClusterRoles:
+    platformAdmin: []
+    projectMember: []
