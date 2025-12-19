@@ -1,0 +1,36 @@
+global:
+  domain: # to be filled by cluster-forge app
+configs:
+  params:
+    server.insecure: true
+  cm:
+    resource.customizations.health.opentelemetry.io_OpenTelemetryCollector: |
+      hs = {}
+      hs.status = "Healthy"
+      hs.message = "Always Healthy - See https://github.com/argoproj/argo-cd/pull/24284"
+      return hs
+  rbac:
+    policy.csv: |
+      g, argocd-users, role:admin
+
+# Single-node deployment configuration
+redis:
+  enabled: true
+redis-ha:
+  enabled: false
+
+controller:
+  replicas: 1
+
+server:
+  replicas: 1
+  autoscaling:
+    enabled: false
+
+repoServer:
+  replicas: 1
+  autoscaling:
+    enabled: false
+
+applicationSet:
+  replicas: 1

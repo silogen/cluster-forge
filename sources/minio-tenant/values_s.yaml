@@ -1,0 +1,24 @@
+# Small/workstation configuration with single server and reduced storage
+tenant:
+  name: default-minio-tenant
+  configSecret:
+    name: default-minio-tenant-env-configuration
+    existingSecret: true
+  pools:
+    - servers: 1
+      name: pool-0
+      volumesPerServer: 1
+      size: 250Gi  # Reduced from 500Gi for workstation
+      storageClassName: direct
+  buckets:
+    - name: default-bucket
+      objectLock: true
+    - name: models
+      objectLock: true
+  users:
+    - name: default-user
+  certificate:
+    requestAutoCert: false
+  env:
+    - name: MINIO_PROMETHEUS_AUTH_TYPE
+      value: "public"
