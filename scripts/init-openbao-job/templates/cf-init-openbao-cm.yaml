@@ -9,6 +9,12 @@ data:
     
     set -e
     
+    {{- if eq (.Values.server.ha.enabled | toString) "true" }}
+    REPLICAS={{ .Values.server.ha.replicas | default 3 }}
+    {{- else }}
+    REPLICAS=1
+    {{- end }}
+    
     echo "Checking OpenBao status on openbao-0..."
     if kubectl exec openbao-0 -n cf-openbao -- bao status 2>&1 | grep -q "Initialized.*true"; then
       echo "OpenBao is already initialized. Skipping initialization."
@@ -31,17 +37,18 @@ data:
     kubectl exec openbao-0 -n cf-openbao -- bao operator unseal "$BAO_UNSEAL_KEY"
     kubectl wait --for=condition=ready pod/openbao-0 --timeout=300s -n cf-openbao
     
-    echo "Unsealing openbao-1 & joining to Raft cluster..."
-    kubectl exec openbao-1 -n cf-openbao -- bao operator raft join http://openbao-0.openbao-internal:8200
-    kubectl exec openbao-1 -n cf-openbao -- bao operator unseal "$BAO_UNSEAL_KEY"
-    kubectl wait --for=condition=ready pod/openbao-1 --timeout=300s -n cf-openbao
-    
-    echo "Unsealing openbao-2 & joining to Raft cluster..."
-    kubectl exec openbao-2 -n cf-openbao -- bao operator raft join http://openbao-0.openbao-internal:8200
-    kubectl exec openbao-2 -n cf-openbao -- bao operator unseal "$BAO_UNSEAL_KEY"
-    kubectl wait --for=condition=ready pod/openbao-2 --timeout=300s -n cf-openbao
-    
-    echo "OpenBao Raft cluster initialization completed successfully!"
+    if [ "$REPLICAS" -gt 1 ]; then
+      echo "Setting up Raft cluster with $REPLICAS replicas..."
+      for i in $(seq 1 $((REPLICAS - 1))); do
+        echo "Unsealing openbao-$i & joining to Raft cluster..."
+        kubectl exec openbao-$i -n cf-openbao -- bao operator raft join http://openbao-0.openbao-internal:8200
+        kubectl exec openbao-$i -n cf-openbao -- bao operator unseal "$BAO_UNSEAL_KEY"
+        kubectl wait --for=condition=ready pod/openbao-$i --timeout=300s -n cf-openbao
+      done
+      echo "OpenBao Raft cluster initialization completed successfully!"
+    else
+      echo "OpenBao standalone initialization completed successfully!"
+    fi
     
   setup-openbao.sh: |
     #!/bin/bash
