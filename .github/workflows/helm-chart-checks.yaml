@@ -1,0 +1,30 @@
+name: Helm chart checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  root-chart:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        values:
+          [
+            ./root/values.yaml,
+            ./root/values_cf.yaml,
+            ./root/values_ha.yaml,
+            ./root/values_dev.yaml
+          ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4.3.0
+
+      - name: Helm lint
+        run: helm lint ./root -f ${{ matrix.values }}
+
+      - name: Helm template
+        run: helm template ./root -f ${{ matrix.values }}
