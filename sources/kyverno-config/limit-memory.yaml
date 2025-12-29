@@ -1,19 +1,23 @@
 apiVersion: kyverno.io/v1
-kind: Policy
+kind: ClusterPolicy
 metadata:
-  name: enforcement-project-workloads-for-memory-limits
-  namespace: test-inaki
+  name: enforcement-for-memory-limits
 spec:
   admission: true
   background: false
   emitWarning: false
-  validationFailureAction: Enforce # NOTE: set "Audit" like a soft disable mode or "Enforce" if needed
+  validationFailureAction: Audit # NOTE: set "Audit" like a soft disable mode or "Enforce" if needed
   rules:
   - name: require-memory-limits-pods
     match:
       resources:
         kinds:
         - Pod
+    preconditions:
+      all:
+      - key: "kaiwo.silogen.ai/run-id"
+        operator: AnyIn
+        value: "{{ request.object.metadata.annotations | keys(@) || `[]` }}"
     validate:
       message: "Memory limits are required for all containers"
       pattern:
@@ -27,6 +31,11 @@ spec:
       resources:
         kinds:
         - Deployment
+    preconditions:
+      all:
+      - key: "kaiwo.silogen.ai/run-id"
+        operator: AnyIn
+        value: "{{ request.object.spec.template.metadata.annotations | keys(@) || `[]` }}"
     validate:
       message: "Memory limits are required for all containers"
       pattern:
@@ -42,6 +51,11 @@ spec:
       resources:
         kinds:
         - Job
+    preconditions:
+      all:
+      - key: "kaiwo.silogen.ai/run-id"
+        operator: AnyIn
+        value: "{{ request.object.spec.template.metadata.annotations | keys(@) || `[]` }}"
     validate:
       message: "Memory limits are required for all containers"
       pattern:
