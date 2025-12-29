@@ -1,0 +1,39 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforcement-for-trusted-registries
+  annotations:
+    desc: "docker hub images must be allowed individually. Otherwise image values must be implicit (e.g. using docker.io/library/ubuntu:latest instead of ubuntu:latest)"
+spec:
+  admission: true
+  background: false
+  validationFailureAction: Audit # NOTE: set "Audit" like a soft disable mode or "Enforce" if needed
+  rules:
+  - name: validate-trusted-registries
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Images must come from trusted registries: docker.io"
+      pattern:
+        spec:
+          containers:
+          - image: "docker.io/library/ubuntu*"
+  - name: validate-trusted-registries-initcontainers
+    match:
+      resources:
+        kinds:
+        - Pod
+    preconditions:
+      all:
+      - key: "{{ request.object.spec.initContainers || `[]` | length(@) }}"
+        operator: GreaterThan
+        value: 0
+    validate:
+      message: "Init container images must come from trusted registries: ghcr.io/silogen, docker.io/"
+      pattern:
+        spec:
+          initContainers:
+          - image: "ghcr.io/silogen/* | docker.io/* | ubuntu:latest"
+

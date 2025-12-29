@@ -1,0 +1,36 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforcement-for-specific-storageclasses
+spec:
+  admission: true
+  background: false
+  validationFailureAction: Audit # NOTE: set "Audit" like a soft disable mode or "Enforce" if needed
+  rules:
+  - name: validate-storageclass-pvc
+    match:
+      resources:
+        kinds:
+        - PersistentVolumeClaim
+    validate:
+      message: "PVCs must use an approved StorageClass: default, direct, longhorn-static, mlstorage, or multinode"
+      pattern:
+        spec:
+          storageClassName: "default | direct | longhorn-static | mlstorage | multinode"
+  - name: validate-storageclass-statefulset
+    match:
+      resources:
+        kinds:
+        - StatefulSet
+    preconditions:
+      all:
+      - key: "{{ request.object.spec.volumeClaimTemplates || `[]` | length(@) }}"
+        operator: GreaterThan
+        value: 0
+    validate:
+      message: "StatefulSet volumeClaimTemplates must use an approved StorageClass: default, direct, longhorn-static, mlstorage, or multinode"
+      pattern:
+        spec:
+          volumeClaimTemplates:
+          - spec:
+              storageClassName: "default | direct | longhorn-static | mlstorage | multinode"

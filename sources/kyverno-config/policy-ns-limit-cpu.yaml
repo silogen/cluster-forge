@@ -1,0 +1,55 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: enforcement-project-workloads-for-cpu-limits
+  namespace: test-inaki
+spec:
+  admission: true
+  background: false
+  emitWarning: false
+  validationFailureAction: Enforce # NOTE: set "Audit" like a soft disable mode or "Enforce" if needed
+  rules:
+  - name: require-cpu-limits-pods
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "CPU limits are required for all containers"
+      pattern:
+        spec:
+          containers:
+          - resources:
+              limits:
+                cpu: "?*"
+  - name: require-cpu-limits-deployments
+    match:
+      resources:
+        kinds:
+        - Deployment
+    validate:
+      message: "CPU limits are required for all containers"
+      pattern:
+        spec:
+          template:
+            spec:
+              containers:
+              - resources:
+                  limits:
+                    cpu: "?*"
+  - name: require-cpu-limits-jobs
+    match:
+      resources:
+        kinds:
+        - Job
+    validate:
+      message: "CPU limits are required for all containers"
+      pattern:
+        spec:
+          template:
+            spec:
+              containers:
+              - resources:
+                  limits:
+                    cpu: "?*"
+

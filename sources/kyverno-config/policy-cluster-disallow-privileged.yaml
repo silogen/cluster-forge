@@ -1,0 +1,56 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforcement-for-privileged-containers
+spec:
+  admission: true
+  background: false
+  validationFailureAction: Audit # NOTE: set "Audit" like a soft disable mode or "Enforce" if needed
+  rules:
+  - name: deny-privileged-containers
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Privileged containers are not allowed. Set securityContext.privileged to false."
+      pattern:
+        spec:
+          containers:
+          - securityContext:
+              privileged: "false"
+  - name: deny-privileged-initcontainers
+    match:
+      resources:
+        kinds:
+        - Pod
+    preconditions:
+      all:
+      - key: "{{ request.object.spec.initContainers || `[]` | length(@) }}"
+        operator: GreaterThan
+        value: 0
+    validate:
+      message: "Privileged init containers are not allowed. Set securityContext.privileged to false."
+      pattern:
+        spec:
+          initContainers:
+          - securityContext:
+              privileged: "false"
+  - name: deny-privileged-ephemeralcontainers
+    match:
+      resources:
+        kinds:
+        - Pod
+    preconditions:
+      all:
+      - key: "{{ request.object.spec.ephemeralContainers || `[]` | length(@) }}"
+        operator: GreaterThan
+        value: 0
+    validate:
+      message: "Privileged ephemeral containers are not allowed. Set securityContext.privileged to false."
+      pattern:
+        spec:
+          ephemeralContainers:
+          - securityContext:
+              privileged: "false"
+

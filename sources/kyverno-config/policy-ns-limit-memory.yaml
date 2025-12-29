@@ -1,0 +1,54 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: enforcement-project-workloads-for-memory-limits
+  namespace: test-inaki
+spec:
+  admission: true
+  background: false
+  emitWarning: false
+  validationFailureAction: Enforce # NOTE: set "Audit" like a soft disable mode or "Enforce" if needed
+  rules:
+  - name: require-memory-limits-pods
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Memory limits are required for all containers"
+      pattern:
+        spec:
+          containers:
+          - resources:
+              limits:
+                memory: "?*"
+  - name: require-memory-limits-deployments
+    match:
+      resources:
+        kinds:
+        - Deployment
+    validate:
+      message: "Memory limits are required for all containers"
+      pattern:
+        spec:
+          template:
+            spec:
+              containers:
+              - resources:
+                  limits:
+                    memory: "?*"
+  - name: require-memory-limits-jobs
+    match:
+      resources:
+        kinds:
+        - Job
+    validate:
+      message: "Memory limits are required for all containers"
+      pattern:
+        spec:
+          template:
+            spec:
+              containers:
+              - resources:
+                  limits:
+                    memory: "?*"
