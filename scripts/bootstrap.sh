@@ -49,9 +49,11 @@ kubectl create secret generic gitea-admin-credentials \
   --namespace=cf-gitea \
   --from-literal=username=silogen-admin \
   --from-literal=password=$(generate_password)
+
 helm template --release-name gitea ${SCRIPT_DIR}/../sources/gitea/12.3.0 -f ${SCRIPT_DIR}/../sources/gitea/${VALUES_FILE} --namespace cf-gitea \
   --set clusterDomain="${DOMAIN}" --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl rollout status deploy/gitea -n cf-gitea
+
 helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
 
