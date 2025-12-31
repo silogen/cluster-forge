@@ -108,7 +108,7 @@ apps:
   external-secrets-config:
     path: external-secrets-config
     namespace: external-secrets
-    syncWave: -3
+    syncWave: -2
   gitea:
     path: gitea/12.3.0
     namespace: cf-gitea
