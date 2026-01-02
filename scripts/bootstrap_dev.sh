@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 DOMAIN="${1:-}"
 VALUES_FILE="${2:-values_dev.yaml}"
 KUBE_VERSION=1.33
@@ -13,8 +15,8 @@ if [ -z "$DOMAIN" ]; then
 fi
 
 # Create namespaces
-kubectl create ns argocd
-kubectl create ns cf-openbao
+kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
+kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
 
 # ArgoCD bootstrap
 helm template --release-name argocd ../sources/argocd/8.3.5 --namespace argocd --kube-version=${KUBE_VERSION} | kubectl apply -f -
@@ -28,10 +30,10 @@ helm template --release-name openbao ../sources/openbao/0.18.2 -f ../sources/ope
   --namespace cf-openbao --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s
 helm template --release-name openbao-init ./init-openbao-job --set domain="$DOMAIN" --kube-version=${KUBE_VERSION} | kubectl apply -f -
-if ! kubectl wait --for=condition=complete --timeout=60s job/openbao-init-job -n cf-openbao; then
+if ! kubectl wait --for=condition=complete --timeout=360s job/openbao-init-job -n cf-openbao; then
   echo "ERROR: Job openbao-init-job failed to complete or timed out!"
   exit 1
 fi
 
-# Create ArgoCD cluster-forge app
-helm template ../root -f ../root/${VALUES_FILE} --kube-version=${KUBE_VERSION} | kubectl apply -f -
+# Create cluster-forge app-of-apps
+helm template ${SCRIPT_DIR}/../root -f ${SCRIPT_DIR}/../root/${VALUES_FILE} --set global.domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
