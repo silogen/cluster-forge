@@ -54,6 +54,25 @@ enabledApps:
 apps:
   openbao:
     valuesFile: ../values_dev.yaml
+  airm:
+    path: airm/0.3.0
+    namespace: airm
+    valuesFile: values.yaml
+    helmParameters:
+      - name: airm-api.airm.appDomain
+        value: "{{ .Values.global.domain }}"
+    syncWave: 0
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+      - group: kyverno.io
+        kind: ClusterPolicy
+        jqPathExpressions:
+          - ".spec.rules"
   minio-operator:
     path: minio-operator/7.1.1
     namespace: minio-operator

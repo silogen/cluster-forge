@@ -8,6 +8,8 @@ kind: ExternalSecret
 metadata:
   name: "{{ .Release.Name }}-cnpg-superuser"
   namespace: "{{ .Release.Namespace }}"
+  annotations:
+    helm.sh/hook: pre-install
 spec:
   data:
     - remoteRef:
@@ -31,6 +33,8 @@ kind: ExternalSecret
 metadata:
   name: "{{ .Release.Name }}-cnpg-user"
   namespace: "{{ .Release.Namespace }}"
+  annotations:
+    helm.sh/hook: pre-install
 spec:
   data:
     - remoteRef:
@@ -54,6 +58,8 @@ kind: ExternalSecret
 metadata:
   name: "{{ .Release.Name }}-keycloak-admin-client"
   namespace: "{{ .Release.Namespace }}"
+  annotations:
+    helm.sh/hook: pre-install
 spec:
   data:
     - remoteRef:
@@ -77,6 +83,8 @@ kind: ExternalSecret
 metadata:
   name: "{{ .Release.Name }}-rabbitmq-admin"
   namespace: "{{ .Release.Namespace }}"
+  annotations:
+    helm.sh/hook: pre-install
 spec:
   data:
     - remoteRef:
@@ -106,6 +114,8 @@ kind: ExternalSecret
 metadata:
   name: "{{ .Release.Name }}-api-minio-credentials"
   namespace: "{{ .Release.Namespace }}"
+  annotations:
+    helm.sh/hook: pre-install
 spec:
   data:
     - remoteRef:
@@ -127,6 +137,8 @@ kind: ExternalSecret
 metadata:
   name: "{{ .Release.Name }}-secrets-airm"
   namespace: "{{ .Release.Namespace }}"
+  annotations:
+    helm.sh/hook: pre-install
 spec:
   data:
     - remoteRef:
@@ -145,6 +157,8 @@ kind: ExternalSecret
 metadata:
   name: "{{ .Release.Name }}-keycloak-ui-client"
   namespace: "{{ .Release.Namespace }}"
+  annotations:
+    helm.sh/hook: pre-install
 spec:
   data:
     - remoteRef:
@@ -164,6 +178,8 @@ kind: ExternalSecret
 metadata:
   name: "{{ .Release.Name }}-cluster-auth-secrets"
   namespace: "{{ .Release.Namespace }}"
+  annotations:
+    helm.sh/hook: pre-install
 spec:
   secretStoreRef:
     kind: ClusterSecretStore
