@@ -26,7 +26,7 @@ kubectl rollout status deploy/argocd-redis -n argocd
 kubectl rollout status deploy/argocd-repo-server -n argocd
 
 # OpenBao bootstrap
-helm template --release-name openbao ../sources/openbao/0.18.2 -f ../sources/openbao/values_cf.yaml \
+helm template --release-name openbao ../sources/openbao/0.18.2 -f ../sources/openbao/${VALUES_FILE} \
   --namespace cf-openbao --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s
 helm template --release-name openbao-init ./init-openbao-job --set domain="$DOMAIN" --kube-version=${KUBE_VERSION} | kubectl apply -f -
