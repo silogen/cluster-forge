@@ -51,7 +51,10 @@ enabledApps:
   - airm
 apps:
   openbao:
+    path: openbao/0.18.2
+    namespace: cf-openbao
     valuesFile: ../values_dev.yaml
+    syncWave: -3
   airm:
     path: airm/0.3.0
     namespace: airm
