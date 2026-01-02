@@ -15,9 +15,9 @@ server:
             topologyKey: kubernetes.io/hostname
 
   ha:
-    enabled: true
+    enabled: false
     raft:
-      enabled: true
+      enabled: false
 
 ui:
   enabled: true
