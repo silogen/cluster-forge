@@ -54,6 +54,14 @@ enabledApps:
 apps:
   openbao:
     valuesFile: ../values_dev.yaml
+  minio-operator:
+    path: minio-operator/7.1.1
+    namespace: minio-operator
+    valuesFile: values.yaml
+    helmParameters:
+      - name: operator.replicaCount
+        value: "1"
+    syncWave: -3
   airm:
     path: airm/0.3.0
     namespace: airm
