@@ -1,6 +1,6 @@
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: main
+  targetRevision: creating_small_configuration
   # feature-branch name to be provided by developer
   valuesFile: values_dev.yaml
 
