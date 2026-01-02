@@ -29,7 +29,7 @@ kubectl rollout status deploy/argocd-repo-server -n argocd
 helm template --release-name openbao ../sources/openbao/0.18.2 -f ../sources/openbao/${VALUES_FILE} \
   --namespace cf-openbao --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s
-helm template --release-name openbao-init ./init-openbao-job --set domain="$DOMAIN" --kube-version=${KUBE_VERSION} | kubectl apply -f -
+helm template --release-name openbao-init ./init-openbao-job -f ./init-openbao-job/${VALUES_FILE} --set domain="$DOMAIN" --kube-version=${KUBE_VERSION} | kubectl apply -f -
 if ! kubectl wait --for=condition=complete --timeout=360s job/openbao-init-job -n cf-openbao; then
   echo "ERROR: Job openbao-init-job failed to complete or timed out!"
   exit 1

@@ -51,3 +51,6 @@ enabledApps:
   - kaiwo
   - kaiwo-config
   - airm
+apps:
+  openbao:
+    valuesFile: ../values_dev.yaml
