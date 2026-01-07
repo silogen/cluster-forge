@@ -1,5 +1,11 @@
 # AMD Enterprise AI Suite - Backup and Restore Procedures
 
+⚠️ Important Disclaimers
+  - This is only an example script only, adjust paths and commands as needed for your system.
+  - This is for illustration purposes only and **not officially supported.**
+  - Always test backup and restore procedures in a safe environment before relying on them in production.
+  - The backup and restore process is **not guaranteed to be backwards compatible between two arbitrary versions.**
+<hr>
 This document covers backup and restore procedures for:
   1. [Database Backup & Restore (AIRM & Keycloak)](#1-cnpg-cloudnative-postgres-backup--restore)
   2. [RabbitMQ Backup & Restore](#2-rabbitmq-backup--restore)

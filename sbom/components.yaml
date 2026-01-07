@@ -73,7 +73,7 @@ components:
     licenseUrl: https://github.com/prometheus-community/helm-charts/blob/main/LICENSE
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
-    valuesFile: values.yaml
+    valuesFile: ../values_cf.yaml
     sourceUrl: https://open-telemetry.github.io/opentelemetry-helm-charts
     projectUrl: https://github.com/open-telemetry/opentelemetry-operator
     license: Apache License 2.0
@@ -126,15 +126,29 @@ components:
     projectUrl: https://github.com/ray-project/kuberay
     license: Apache License 2.0
     licenseUrl: https://github.com/ray-project/kuberay/blob/master/LICENSE
+  keda:
+    path: keda/2.18.1
+    valuesFile: values.yaml
+    sourceUrl: https://kedacore.github.io/charts
+    projectUrl: https://github.com/kedacore/keda
+    license: Apache License 2.0
+    licenseUrl: https://github.com/kedacore/keda/blob/main/LICENSE
+  kedify-otel:
+    path: kedify-otel/v0.0.6
+    valuesFile: ../values_cf.yaml
+    sourceUrl: oci://ghcr.io/kedify/charts/otel-add-on
+    projectUrl: https://github.com/kedify/otel-add-on
+    license: Apache License 2.0
+    licenseUrl: https://github.com/kedify/otel-add-on/blob/main/LICENSE
   kserve-crds:
-    path: kserve-crds/v0.15.2
+    path: kserve-crds/v0.16.0
     valuesFile: values.yaml
     sourceUrl: oci://ghcr.io/kserve/charts/kserve-crd
     projectUrl: https://github.com/kserve/kserve
     license: Apache License 2.0
     licenseUrl: https://github.com/kserve/kserve/blob/master/LICENSE
   kserve:
-    path: kserve/v0.15.2
+    path: kserve/v0.16.0
     valuesFile: ../values_cf.yaml
     sourceUrl: oci://ghcr.io/kserve/charts/kserve
     projectUrl: https://github.com/kserve/kserve
@@ -174,20 +188,20 @@ components:
     license: GNU Affero General Public License v3.0
     licenseUrl: https://github.com/minio/operator/blob/master/LICENSE
   kaiwo-crds:
-    path: kaiwo-crds/v0.2.0-rc5
-    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc5/crds.yaml
+    path: kaiwo-crds/v0.2.0-rc11
+    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc11/crds.yaml
     projectUrl: //github.com/silogen/kaiwo/
     license: MIT License
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
   kaiwo:
-    path: kaiwo/v0.2.0-rc5
+    path: kaiwo/v0.2.0-rc11
     valuesFile: values.yaml
-    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc5/install.yaml
+    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc11/install.yaml
     projectUrl: https://github.com/silogen/kaiwo/
     license: MIT License
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
   airm:
-    path: airm/0.2.11
+    path: airm/0.3.1
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm

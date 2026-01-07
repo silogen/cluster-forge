@@ -1,0 +1,167 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+{{- if .Values.airm.includeDemoSetup }}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "{{ .Release.Name }}-configure-script"
+  namespace: "{{ .Release.Namespace }}"
+data:
+  configure.sh: |
+{{ .Files.Get "files/configure.sh" | indent 4 }}
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: "{{ .Release.Name }}-configure-sa"
+  namespace: "{{ .Release.Namespace }}"
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: "{{ .Release.Name }}-configure-role"
+rules:
+  - apiGroups: [""]
+    resources: ["secrets", "configmaps"]
+    verbs: ["get", "list", "create", "delete", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: "{{ .Release.Name }}-configure-rolebinding"
+subjects:
+  - kind: ServiceAccount
+    name: "{{ .Release.Name }}-configure-sa"
+    namespace: "{{ .Release.Namespace }}"
+roleRef:
+  kind: ClusterRole
+  name: "{{ .Release.Name }}-configure-role"
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}-configure"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: "{{ .Release.Name }}-configure"
+    spec:
+      restartPolicy: Never
+      serviceAccountName: "{{ .Release.Name }}-configure-sa"
+      initContainers:
+        - name: wait-for-dependencies
+          image: "{{ .Values.airm.utilities.curl.image.repository }}:{{ .Values.airm.utilities.curl.image.tag }}"
+          imagePullPolicy: "{{ .Values.airm.utilities.curl.image.pullPolicy }}"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Checking dependencies..."
+
+              # Wait for AIRM API
+              echo "Checking airm-api..."
+              while true; do
+                if curl -s --max-time 5 http://{{ .Release.Name }}-api.{{ .Release.Namespace }}.svc.cluster.local/v1/health > /dev/null 2>&1; then
+                  echo "AIRM API is ready!"
+                  break
+                else
+                  echo "Waiting for AIRM API..."
+                  sleep 10
+                fi
+              done
+
+              echo "All dependencies are ready!"
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: false
+            runAsUser: 0
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - SETUID
+                - SETGID
+                - CHOWN
+                - DAC_OVERRIDE
+                - FOWNER
+                - FSETID
+            seccompProfile:
+              type: RuntimeDefault
+      containers:
+        - name: configure
+          image: "{{ .Values.airm.utilities.clusterTool.image.repository }}:{{ .Values.airm.utilities.clusterTool.image.tag }}"
+          imagePullPolicy: "{{ .Values.airm.utilities.clusterTool.image.pullPolicy }}"
+          command: ["/bin/bash"]
+          args: ["/scripts/configure.sh"]
+          env:
+            - name: DEBIAN_FRONTEND
+              value: "noninteractive"
+            - name: ORG_NAME
+              value: "demo"
+            - name: NEW_DOMAIN_NAME
+              value: "{{ .Values.airm.appDomain }}"
+            - name: KEYCLOAK_CLIENT_ID
+              value: "{{ .Values.airm.keycloak.clientId }}"
+            - name: KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: KEYCLOAK_SECRET
+                  name: "{{ .Release.Name }}-keycloak-ui-creds"
+            - name: USER_EMAIL
+              value: "devuser@{{ .Values.airm.appDomain }}"
+            - name: KEYCLOAK_URL
+              value: "{{ .Values.airm.keycloak.internalUrl }}"
+            - name: KEYCLOAK_REALM
+              value: "{{ .Values.airm.keycloak.realm }}"
+            - name: KEYCLOAK_ADMIN_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  key: client-id
+                  name: "{{ .Release.Name }}-keycloak-admin-client"
+            - name: KEYCLOAK_ADMIN_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: client-secret
+                  name: "{{ .Release.Name }}-keycloak-admin-client"
+            - name: AIRM_API_URL
+              value: "http://{{ .Release.Name }}-api.{{ .Release.Namespace }}.svc.cluster.local"
+          volumeMounts:
+            - name: configure-script
+              mountPath: /scripts
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: false
+            runAsUser: 0
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - SETUID
+                - SETGID
+                - CHOWN
+                - DAC_OVERRIDE
+                - FOWNER
+                - FSETID
+            seccompProfile:
+              type: RuntimeDefault
+      volumes:
+        - name: configure-script
+          configMap:
+            name: "{{ .Release.Name }}-configure-script"
+            defaultMode: 0755
+
+{{- end }}

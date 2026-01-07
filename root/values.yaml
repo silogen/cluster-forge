@@ -1,6 +1,6 @@
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: v1.7.3 # cluster-forge version git tag
+  targetRevision: v1.7.0 # cluster-forge version git tag
   valuesFile: values.yaml
 # source helm values file from separate git repo
 externalValues:
@@ -11,6 +11,7 @@ externalValues:
 global:
   domain: app.silogen.ai
 enabledApps:
+  - aim-cluster-model-source
   - argocd
   - argocd-config
   - cert-manager
@@ -37,6 +38,8 @@ enabledApps:
   - amd-gpu-operator
   - amd-gpu-operator-config
   - kuberay-operator
+  - keda
+  - kedify-otel
   - kserve-crds
   - kserve
   - rabbitmq
@@ -162,7 +165,7 @@ apps:
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
     namespace: opentelemetry-operator-system
-    valuesFile: values.yaml
+    valuesFile: ../values_cf.yaml
     syncWave: -3
   otel-lgtm-stack:
     path: otel-lgtm-stack
@@ -232,14 +235,25 @@ apps:
     namespace: default
     valuesFile: values.yaml
     syncWave: -1
+  # Autoscaling
+  keda:
+    path: keda/2.18.1
+    namespace: keda
+    valuesFile: values.yaml
+    syncWave: -2
+  kedify-otel:
+    path: kedify-otel/v0.0.6
+    namespace: keda
+    valuesFile: ../values_cf.yaml
+    syncWave: -2
   # ML/AI
   kserve-crds:
-    path: kserve-crds/v0.15.2
+    path: kserve-crds/v0.16.0
     namespace: kserve-system
     valuesFile: values.yaml
     syncWave: -3
   kserve:
-    path: kserve/v0.15.2
+    path: kserve/v0.16.0
     namespace: kserve-system
     valuesFile: ../values_cf.yaml
     syncWave: -2
@@ -288,12 +302,16 @@ apps:
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
   # Kaiwo stuff
+  aim-cluster-model-source:
+    path: aim-cluster-model-source
+    namespace: kaiwo-system
+    syncWave: -2
   kaiwo-crds:
-    path: kaiwo-crds/v0.2.0-rc5
+    path: kaiwo-crds/v0.2.0-rc11
     namespace: kaiwo-system
     syncWave: -2
   kaiwo:
-    path: kaiwo/v0.2.0-rc5
+    path: kaiwo/v0.2.0-rc11
     namespace: kaiwo-system
     valuesFile: values.yaml
     syncWave: -1
@@ -310,7 +328,7 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
   # Airm stuff
   airm:
-    path: airm/0.2.11
+    path: airm/0.3.1
     namespace: airm
     valuesFile: values.yaml
     helmParameters:
