@@ -53,9 +53,10 @@ check_env_variable "KEYCLOAK_CLIENT_SECRET"
 check_env_variable "KEYCLOAK_CLIENT_ID"
 check_env_variable "KEYCLOAK_ADMIN_CLIENT_ID"
 check_env_variable "KEYCLOAK_ADMIN_CLIENT_SECRET"
+check_env_variable "INITIAL_USER_PASSWORD"
 
 function refresh_token() {
-    TOKEN=$(curl -s -d "client_id=${KEYCLOAK_CLIENT_ID}" -d "username=${USER_EMAIL}" -d 'password=password' -d 'grant_type=password' -d "client_secret=${KEYCLOAK_CLIENT_SECRET}" "${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token" | jq -r '.access_token')
+    TOKEN=$(curl -s -d "client_id=${KEYCLOAK_CLIENT_ID}" -d "username=${USER_EMAIL}" -d "password=${INITIAL_USER_PASSWORD}" -d 'grant_type=password' -d "client_secret=${KEYCLOAK_CLIENT_SECRET}" "${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token" | jq -r '.access_token')
     if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
         echo "ERROR: Failed to obtain access token from Keycloak."
         exit 1

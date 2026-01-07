@@ -137,6 +137,11 @@ spec:
                 secretKeyRef:
                   key: client-secret
                   name: "{{ .Release.Name }}-keycloak-admin-client"
+            - name: INITIAL_USER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: KEYCLOAK_INITIAL_DEVUSER_PASSWORD
+                  name: "{{ .Release.Name }}-devuser-credentials"
             - name: AIRM_API_URL
               value: "http://{{ .Release.Name }}-api.{{ .Release.Namespace }}.svc.cluster.local"
           volumeMounts:
