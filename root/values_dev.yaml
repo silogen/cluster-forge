@@ -1,13 +1,13 @@
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: 574_set_initial_pws
+  targetRevision: # feature-branch name to be provided by developer
   valuesFile: values_dev.yaml
 
 externalValues:
   enabled: false
 
 global:
-  domain: plat-dev-1.silogen.ai
+  domain: # to be provided by developer
 
 enabledApps:
   - argocd
