@@ -1,0 +1,7 @@
+domain: # to be filled by bootstrap script
+
+# OpenBao server configuration (inherited from openbao helm chart)
+server:
+  ha:
+    enabled: false
+    replicas: 1
