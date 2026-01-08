@@ -1,0 +1,74 @@
+# Cluster-forge specific configuration for OpenTelemetry LGTM Stack
+# This file overrides values.yaml for cluster-forge deployments
+
+# Cluster identification - will be populated by root/values.yaml helmParameters
+cluster:
+  name: # to be filled by cluster-forge app based on domain
+
+# Component enablement (cluster-forge defaults)
+dashboards:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
+
+# Storage configuration optimized for cluster-forge
+lgtm:
+  storage:
+    # Tempo storage for traces
+    tempo: 50Gi
+    # Loki storage for logs  
+    loki: 50Gi
+    # Grafana storage for dashboards/config  
+    grafana: 10Gi
+    # Mimir/Prometheus storage for metrics
+    mimir: 50Gi
+    # Loki additional storage
+    extra: 50Gi
+
+  # LGTM stack main deployment resources
+  resources:
+    limits:
+      memory: 8Gi
+    requests:
+      memory: 2Gi
+      cpu: '1'
+
+# Resource configuration optimized for cluster-forge
+collectors:
+  resources:
+    # Metrics collector (deployment mode)
+    metrics:
+      limits:
+        memory: 8Gi
+        cpu: '2'
+      requests:
+        memory: 1Gi
+        cpu: 500m
+    # Logs collector (daemonset mode)  
+    logs:
+      limits:
+        memory: 2Gi
+        cpu: '1'
+      requests:
+        memory: 400Mi
+        cpu: 200m
+
+# Service configuration
+services:
+  # Main LGTM stack service ports
+  lgtm:
+    grafana: 3000
+    otelGrpc: 4317
+    otelHttp: 4318
+    prometheus: 9090
+    loki: 3100
+  # Kube state metrics service port
+  kubeStateMetrics:
+    http: 8080
+  # Node exporter service port
+  nodeExporter:
+    metrics: 9100
