@@ -11,6 +11,7 @@ externalValues:
 global:
   domain: app.silogen.ai
 enabledApps:
+  - aim-cluster-model-source
   - argocd
   - argocd-config
   - cert-manager
@@ -303,12 +304,16 @@ apps:
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
   # Kaiwo stuff
+  aim-cluster-model-source:
+    path: aim-cluster-model-source
+    namespace: kaiwo-system
+    syncWave: -2
   kaiwo-crds:
-    path: kaiwo-crds/v0.2.0-rc7
+    path: kaiwo-crds/v0.2.0-rc11
     namespace: kaiwo-system
     syncWave: -2
   kaiwo:
-    path: kaiwo/v0.2.0-rc7
+    path: kaiwo/v0.2.0-rc11
     namespace: kaiwo-system
     valuesFile: values.yaml
     syncWave: -1
@@ -325,7 +330,7 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
   # Airm stuff
   airm:
-    path: airm/0.3.0
+    path: airm/0.3.1
     namespace: airm
     valuesFile: values.yaml
     helmParameters:

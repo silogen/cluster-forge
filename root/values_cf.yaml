@@ -9,6 +9,7 @@ externalValues:
 global:
   domain: # to be filled by bootstrap script
 enabledApps:
+  - aim-cluster-model-source
   - argocd
   - argocd-config
   - cert-manager
