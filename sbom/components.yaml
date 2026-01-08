@@ -79,7 +79,8 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/open-telemetry/opentelemetry-operator/blob/main/LICENSE
   otel-lgtm-stack:
-    path: otel-lgtm-stack
+    path: otel-lgtm-stack/v1.0.7
+    valuesFile: ../values_cf.yaml
     sourceUrl: https://github.com/silogen/docker-otel-lgtm
     projectUrl: https://github.com/grafana/docker-otel-lgtm
     license: Apache License 2.0
@@ -187,10 +188,16 @@ components:
     projectUrl: https://github.com/minio/operator
     license: GNU Affero General Public License v3.0
     licenseUrl: https://github.com/minio/operator/blob/master/LICENSE
+  aim-cluster-model-source: # This will be part of kaiwo-crds in near future
+    path: aim-cluster-model-source
+    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc11/crds.yaml
+    projectUrl: https://github.com/silogen/kaiwo/
+    license: MIT License
+    licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
   kaiwo-crds:
     path: kaiwo-crds/v0.2.0-rc11
     sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc11/crds.yaml
-    projectUrl: //github.com/silogen/kaiwo/
+    projectUrl: https://github.com/silogen/kaiwo/
     license: MIT License
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
   kaiwo:
