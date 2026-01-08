@@ -1,0 +1,17 @@
+injector:
+  enabled: false
+
+server:
+  # Single-node standalone mode for workstation deployment
+  standalone:
+    enabled: true
+
+  replicas: 1
+  
+  ha:
+    enabled: false
+    raft:
+      enabled: false
+
+ui:
+  enabled: true
