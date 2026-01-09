@@ -3,7 +3,7 @@ name: PR Component Validation
 on:
   workflow_dispatch:
   pull_request:
-    branches: [ main, update_sbom_workflow ]
+    branches: [ main ]
     paths:
       - 'sbom/components.yaml'
       - 'root/values.yaml'
