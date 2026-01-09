@@ -27,4 +27,4 @@ echo "🎉 SUCCESS! All SBOM sync validations passed!"
 echo "✅ values.yaml and components.yaml are properly synchronized"
 echo "✅ All required metadata fields are populated"
 echo ""
-echo "Your changes are ready for commit and PR!"
+echo "Your changes are ready for commit and PR!"# Test comment
