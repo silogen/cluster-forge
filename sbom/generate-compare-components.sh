@@ -2,24 +2,64 @@
 
 set -euo pipefail
 
-# Script to update components.yaml from values.yaml
+# Script to update components.yaml from enabledApps in values.yaml
 # Only updates if there are new items or changes to existing ones
 # Preserves existing sourceUrl and projectUrl values
+# Only includes apps that are in the enabledApps list (excluding -config apps)
 
 VALUES_FILE="../root/values.yaml"
 OUTPUT_FILE="./components.yaml"
 TEMP_FILE="./components.yaml.tmp"
 
+echo "⚙️ Generating/Updating components.yaml from enabledApps..."
+
+# Self-validation: Check enabledApps consistency before processing (fail-fast)
+echo "🔍 Pre-validation: Checking enabledApps consistency..."
+if [[ -f "./validate-enabled-apps.sh" ]]; then
+    if ! ./validate-enabled-apps.sh; then
+        echo ""
+        echo "❌ Pre-validation failed! Cannot generate components.yaml with invalid enabledApps."
+        echo "Please fix the enabledApps issues above before running generation."
+        exit 1
+    fi
+    echo "✅ Pre-validation passed - proceeding with generation..."
+else
+    echo "⚠️  Warning: validate-enabled-apps.sh not found, skipping pre-validation"
+fi
+
+echo ""
 echo "Checking for updates to components.yaml..."
 
 # Check if values.yaml exists
 if [[ ! -f "$VALUES_FILE" ]]; then
-    echo "Error: $VALUES_FILE not found"
+    echo "❌ Error: $VALUES_FILE not found"
     exit 1
 fi
 
-# Get all app names that don't end with -config from values.yaml
-app_names=$(yq eval '.apps | keys | .[] | select(. | test("-config$") | not)' "$VALUES_FILE")
+# Get all enabled app names that don't end with -config from values.yaml
+enabled_apps=$(yq eval '.enabledApps[]' "$VALUES_FILE" 2>/dev/null || echo "")
+
+if [[ -z "$enabled_apps" ]]; then
+    echo "Warning: No enabled apps found in enabledApps list"
+    if [[ -f "$OUTPUT_FILE" ]]; then
+        backup_file="./components-old-$(date +%Y%m%d-%H%M%S).yaml"
+        echo "Backing up existing $OUTPUT_FILE to $backup_file"
+        mv "$OUTPUT_FILE" "$backup_file"
+    fi
+    exit 0
+fi
+
+app_names=$(echo "$enabled_apps" | grep -v -- '-config$' || echo "")
+
+if [[ -z "$app_names" ]]; then
+    echo "Warning: No non-config apps found in enabledApps list"
+    if [[ -f "$OUTPUT_FILE" ]]; then
+        backup_file="./components-old-$(date +%Y%m%d-%H%M%S).yaml"
+        echo "Backing up existing $OUTPUT_FILE to $backup_file (only config apps enabled)"
+        mv "$OUTPUT_FILE" "$backup_file"
+    fi
+    exit 0
+fi
 
 # Check if components.yaml exists
 if [[ ! -f "$OUTPUT_FILE" ]]; then
@@ -29,9 +69,9 @@ else
     echo "Existing $OUTPUT_FILE found. Checking for changes..."
     needs_update=false
     
-    # Check each app from values.yaml
+    # Check each enabled app from values.yaml
     for app in $app_names; do
-        # Get current values from values.yaml
+        # Get current values from values.yaml apps section
         current_path=$(yq eval ".apps.\"$app\".path" "$VALUES_FILE")
         current_values_file=$(yq eval ".apps.\"$app\".valuesFile // \"null\"" "$VALUES_FILE")
         
@@ -61,12 +101,12 @@ else
         fi
     done
     
-    # Check for removed apps (apps in components.yaml that are no longer in values.yaml)
+    # Check for removed apps (apps in components.yaml that are no longer in enabledApps)
     if [[ "$needs_update" == "false" ]]; then
-        existing_components=$(yq eval '.components | keys | .[]' "$OUTPUT_FILE")
+        existing_components=$(yq eval '.components | keys | .[]' "$OUTPUT_FILE" 2>/dev/null || echo "")
         for existing_component in $existing_components; do
             if ! echo "$app_names" | grep -q "^$existing_component$"; then
-                echo "  Removed app found: $existing_component"
+                echo "  Removed app found: $existing_component (no longer in enabledApps)"
                 needs_update=true
                 break
             fi
@@ -84,8 +124,8 @@ echo "Updating $OUTPUT_FILE..."
 # Create components.yaml header
 cat > "$TEMP_FILE" << 'EOF'
 # Generated components metadata for SBOM creation
-# This file contains simplified component information extracted from values.yaml
-# Apps with "config" suffix are excluded
+# This file contains simplified component information for apps in enabledApps
+# Apps with "config" suffix are excluded from this SBOM
 
 components:
 EOF
@@ -146,9 +186,9 @@ done
 # Replace the original file
 mv "$TEMP_FILE" "$OUTPUT_FILE"
 
-echo "Updated $OUTPUT_FILE successfully"
+echo "✅ Updated $OUTPUT_FILE successfully"
 echo ""
-echo "Summary of components:"
+echo "📊 Summary of components:"
 echo "$app_names" | wc -l | xargs echo "Total components:"
 echo ""
 echo "Components with valuesFile:"
@@ -158,3 +198,16 @@ for app in $app_names; do
         echo "  - $app"
     fi
 done
+
+echo ""
+echo "✅ Components generated/updated successfully!"
+echo ""
+echo "📝 Next steps:"
+echo "  1. Fill in 'sourceUrl' and 'projectUrl' for any components with empty values"
+echo "  2. Run ./update_licenses.sh to auto-populate license fields from GitHub"  
+echo "  3. Run ./validate-sync.sh to verify everything is ready for commit"
+echo ""
+echo "💡 Tip: Use individual validation scripts for targeted debugging:"
+echo "  - ./validate-enabled-apps.sh     (check app definitions)"
+echo "  - ./validate-components-sync.sh  (check sync status)"
+echo "  - ./validate-metadata.sh         (check required fields)"
