@@ -1,3 +1,0 @@
-kserve:
-  controller:
-    deploymentMode: "Standard"

@@ -18,24 +18,30 @@ spec:
     repoURL: {{ $clusterForgeRepoUrl }}
     targetRevision: {{ $clusterForgeTargetRevision }}
     path: sources/{{ .path }}
-    {{- if .valuesFile }}
+    {{- if or .valuesObject .valuesFile .helmParameters }}
     helm:
+      {{- if .valuesObject }}
+      valuesObject:
+      {{ .valuesObject | toYaml | nindent 8 }}
+      {{- end }}
+      {{- if .valuesFile }}
       valueFiles:
         - {{ .valuesFile }}
-    {{- end }}
+      {{- end }}
       {{- if .helmParameters }}
       parameters:
       {{- range $parameter := .helmParameters }}
         - name: {{ include "common.tplvalues.render" ( dict "value" $parameter.name "context" $) | quote }}
           value: {{ include "common.tplvalues.render" ( dict "value" $parameter.value "context" $) | quote }}
       {{- end }}
+      {{- end }}
     {{- end }}
     {{- with .directory }}
     directory: {{ . | toYaml | nindent 6 }}
     {{- end }}
-{{- with .ignoreDifferences }}
-  ignoreDifferences: {{ . | toYaml | nindent 2 }}
-{{- end }}
+  {{- with .ignoreDifferences }}
+  ignoreDifferences: {{ . | toYaml | nindent 4 }}
+  {{- end }}
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .namespace }}
