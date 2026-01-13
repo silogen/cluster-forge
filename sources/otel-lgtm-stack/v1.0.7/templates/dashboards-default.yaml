@@ -3,7 +3,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: lgtm-k8s-nodes-overview
-  namespace: otel-lgtm-stack
+  namespace: {{ .Release.Namespace }}
   labels:
      grafana_dashboard: "1"
   annotations:
@@ -2081,7 +2081,7 @@ data:
               "hide": false,
               "instant": false,
               "interval": "",
-              "legendFormat": "{{node}}",
+              "legendFormat": "{{ "{{" }}node{{ "}}" }}",
               "refId": "I"
             }
           ],
@@ -2184,7 +2184,7 @@ data:
               "hide": false,
               "instant": false,
               "interval": "",
-              "legendFormat": "{{node}}",
+              "legendFormat": "{{ "{{" }}node{{ "}}" }}",
               "refId": "I"
             }
           ],
@@ -2287,7 +2287,7 @@ data:
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
-              "legendFormat": " update :{{node}}",
+              "legendFormat": " update :{{ "{{" }}node{{ "}}" }}",
               "metric": "network",
               "refId": "A",
               "step": 10
@@ -2302,7 +2302,7 @@ data:
               "instant": false,
               "interval": "",
               "intervalFactor": 1,
-              "legendFormat": " restart :{{node}}",
+              "legendFormat": " restart :{{ "{{" }}node{{ "}}" }}",
               "metric": "network",
               "refId": "B",
               "step": 10
@@ -2989,7 +2989,7 @@ data:
                   "instant": false,
                   "interval": "",
                   "intervalFactor": 1,
-                  "legendFormat": "{{ container}}",
+                  "legendFormat": "{{ "{{" }} container{{ "}}" }}",
                   "metric": "container_cpu",
                   "refId": "A",
                   "step": 10
@@ -3097,7 +3097,7 @@ data:
                   "expr": "sum (container_memory_working_set_bytes{origin_prometheus=~\"$origin_prometheus\",container =~\"$Container\",container !=\"\",container!=\"POD\",namespace=~\"$NameSpace\"}) by (container)/ sum(container_spec_memory_limit_bytes{origin_prometheus=~\"$origin_prometheus\",container =~\"$Container\",container !=\"\",container!=\"POD\",namespace=~\"$NameSpace\"}) by (container) * 100",
                   "interval": "",
                   "intervalFactor": 1,
-                  "legendFormat": "WSS：{{ container }}",
+                  "legendFormat": "WSS：{{ "{{" }} container{{ "}}" }}",
                   "metric": "container_memory_usage:sort_desc",
                   "refId": "A",
                   "step": 10
@@ -3110,7 +3110,7 @@ data:
                   "expr": "sum (container_memory_rss{origin_prometheus=~\"$origin_prometheus\",container =~\"$Container\",container !=\"\",container!=\"POD\",namespace=~\"$NameSpace\"}) by (container)/ sum(container_spec_memory_limit_bytes{origin_prometheus=~\"$origin_prometheus\",container =~\"$Container\",container !=\"\",container!=\"POD\",namespace=~\"$NameSpace\"}) by (container) * 100",
                   "interval": "",
                   "intervalFactor": 1,
-                  "legendFormat": "RSS：{{ container }}",
+                  "legendFormat": "RSS：{{ "{{" }} container{{ "}}" }}",
                   "metric": "container_memory_usage:sort_desc",
                   "refId": "B",
                   "step": 10
@@ -3222,7 +3222,7 @@ data:
                   "hide": false,
                   "interval": "",
                   "intervalFactor": 1,
-                  "legendFormat": " update :{{ container }}",
+                  "legendFormat": " update :{{ "{{" }} container{{ "}}" }}",
                   "metric": "network",
                   "refId": "A",
                   "step": 10
@@ -3236,7 +3236,7 @@ data:
                   "expr": "sum(sum(irate(container_network_transmit_bytes_total{origin_prometheus=~\"$origin_prometheus\",image!=\"\",name=~\"^k8s_.*\",node=~\"^$Node$\",namespace=~\"$NameSpace\",pod=~\".*$Container.*\"}[2m])) by (pod)* on(pod) group_right kube_pod_container_info) by(container) *8",
                   "interval": "",
                   "intervalFactor": 1,
-                  "legendFormat": " restart :{{ container }}",
+                  "legendFormat": " restart :{{ "{{" }} container{{ "}}" }}",
                   "metric": "network",
                   "refId": "B",
                   "step": 10
@@ -3250,7 +3250,7 @@ data:
                   "hide": true,
                   "interval": "",
                   "intervalFactor": 1,
-                  "legendFormat": "-> {{ pod }}",
+                  "legendFormat": "-> {{ "{{" }} pod{{ "}}" }}",
                   "metric": "network",
                   "refId": "C",
                   "step": 10
@@ -3264,7 +3264,7 @@ data:
                   "hide": true,
                   "interval": "",
                   "intervalFactor": 1,
-                  "legendFormat": "<- {{ pod }}",
+                  "legendFormat": "<- {{ "{{" }} pod{{ "}}" }}",
                   "metric": "network",
                   "refId": "D",
                   "step": 10
@@ -4171,7 +4171,7 @@ data:
                   "instant": false,
                   "interval": "",
                   "intervalFactor": 1,
-                  "legendFormat": "{{ pod }}",
+                  "legendFormat": "{{ "{{" }} pod{{ "}}" }}",
                   "metric": "container_cpu",
                   "refId": "A",
                   "step": 10
@@ -4280,7 +4280,7 @@ data:
                   "expr": "sum (container_memory_working_set_bytes{origin_prometheus=~\"$origin_prometheus\",pod=~\"$Pod\",container =~\"$Container\",container !=\"\",container!=\"POD\",node=~\"^$Node$\",namespace=~\"$NameSpace\"}) by (container, pod)/ sum(container_spec_memory_limit_bytes{origin_prometheus=~\"$origin_prometheus\",pod=~\"$Pod\",container =~\"$Container\",container !=\"\",container!=\"POD\",node=~\"^$Node$\",namespace=~\"$NameSpace\"}) by (container, pod) * 100",
                   "interval": "",
                   "intervalFactor": 1,
-                  "legendFormat": "WSS：{{ pod }}",
+                  "legendFormat": "WSS：{{ "{{" }} pod{{ "}}" }}",
                   "metric": "container_memory_usage:sort_desc",
                   "refId": "A",
                   "step": 10
@@ -4294,7 +4294,7 @@ data:
                   "expr": "sum (container_memory_rss{origin_prometheus=~\"$origin_prometheus\",pod=~\"$Pod\",container =~\"$Container\",container !=\"\",container!=\"POD\",node=~\"^$Node$\",namespace=~\"$NameSpace\"}) by (container, pod)/ sum(container_spec_memory_limit_bytes{origin_prometheus=~\"$origin_prometheus\",pod=~\"$Pod\",container =~\"$Container\",container !=\"\",container!=\"POD\",node=~\"^$Node$\",namespace=~\"$NameSpace\"}) by (container, pod) * 100",
                   "interval": "",
                   "intervalFactor": 1,
-                  "legendFormat": "RSS：{{ pod }}",
+                  "legendFormat": "RSS：{{ "{{" }} pod{{ "}}" }}",
                   "metric": "container_memory_usage:sort_desc",
                   "refId": "B",
                   "step": 10
@@ -4309,7 +4309,7 @@ data:
                   "instant": false,
                   "interval": "",
                   "intervalFactor": 1,
-                  "legendFormat": "Heap：{{ pod }}",
+                  "legendFormat": "Heap：{{ "{{" }} pod{{ "}}" }}",
                   "metric": "container_memory_usage:sort_desc",
                   "refId": "C",
                   "step": 10
@@ -4422,7 +4422,7 @@ data:
                   "hide": false,
                   "interval": "",
                   "intervalFactor": 1,
-                  "legendFormat": " update :{{ pod}}",
+                  "legendFormat": " update :{{ "{{" }} pod{{ "}}" }}",
                   "metric": "network",
                   "refId": "A",
                   "step": 10
@@ -4436,7 +4436,7 @@ data:
                   "expr": "sum(sum(irate(container_network_transmit_bytes_total{origin_prometheus=~\"$origin_prometheus\",pod=~\"$Pod\",image!=\"\",name=~\"^k8s_.*\",node=~\"^$Node$\",namespace=~\"$NameSpace\",pod=~\".*$Container.*\"}[2m])) by (pod)* on(pod) group_right kube_pod_container_info) by(pod) *8",
                   "interval": "",
                   "intervalFactor": 1,
-                  "legendFormat": " restart :{{ pod}}",
+                  "legendFormat": " restart :{{ "{{" }} pod{{ "}}" }}",
                   "metric": "network",
                   "refId": "B",
                   "step": 10
@@ -4450,7 +4450,7 @@ data:
                   "hide": true,
                   "interval": "",
                   "intervalFactor": 1,
-                  "legendFormat": "-> {{ pod }}",
+                  "legendFormat": "-> {{ "{{" }} pod{{ "}}" }}",
                   "metric": "network",
                   "refId": "C",
                   "step": 10
@@ -4464,7 +4464,7 @@ data:
                   "hide": true,
                   "interval": "",
                   "intervalFactor": 1,
-                  "legendFormat": "<- {{ pod }}",
+                  "legendFormat": "<- {{ "{{" }} pod{{ "}}" }}",
                   "metric": "network",
                   "refId": "D",
                   "step": 10
@@ -4724,7 +4724,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: lgtm-k8s-volume-information
-  namespace: otel-lgtm-stack
+  namespace: {{ .Release.Namespace }}
   labels:
      grafana_dashboard: "1"
   annotations:
@@ -5368,7 +5368,7 @@ data:
                   "expr": "(\n  (\n    ((kubelet_volume_stats_used_bytes {namespace=~\"(openshift-.*|kube-.*|default|logging)\"} ) * 0) + 1\n    and\n    (predict_linear(kubelet_volume_stats_available_bytes {namespace=~\"(openshift-.*|kube-.*|default|logging)\"}[1d], 7 * 24 * 60 * 60) < 0)\n  )\n)",
                   "instant": false,
                   "intervalFactor": 1,
-                  "legendFormat": "{{namespace}} ({{persistentvolumeclaim}})",
+                  "legendFormat": "{{ "{{" }}namespace{{ "}}" }} ({{ "{{" }}persistentvolumeclaim{{ "}}" }})",
                   "refId": "A"
                 }
               ],
@@ -5472,7 +5472,7 @@ data:
                   "hide": false,
                   "instant": false,
                   "intervalFactor": 1,
-                  "legendFormat": "{{namespace}} ({{persistentvolumeclaim}})",
+                  "legendFormat": "{{ "{{" }}namespace{{ "}}" }} ({{ "{{" }}persistentvolumeclaim{{ "}}" }})",
                   "refId": "A"
                 }
               ],
@@ -5707,7 +5707,7 @@ data:
                   "expr": "(\n  (\n    (\n      (\n        (kubelet_volume_stats_used_bytes {namespace!~\"(openshift-.*|kube-.*|default|logging)\"})\n      )\n      * 0 + 1\n    )\n    and\n    (predict_linear(kubelet_volume_stats_available_bytes[1d], 7 * 24 * 60 * 60) < 0)\n  )\n)",
                   "instant": false,
                   "intervalFactor": 1,
-                  "legendFormat": "{{namespace}} ({{persistentvolumeclaim}})",
+                  "legendFormat": "{{ "{{" }}namespace{{ "}}" }} ({{ "{{" }}persistentvolumeclaim{{ "}}" }})",
                   "refId": "A"
                 }
               ],
@@ -5811,7 +5811,7 @@ data:
                   "hide": false,
                   "instant": false,
                   "intervalFactor": 1,
-                  "legendFormat": "{{namespace}} ({{persistentvolumeclaim}})",
+                  "legendFormat": "{{ "{{" }}namespace{{ "}}" }} ({{ "{{" }}persistentvolumeclaim{{ "}}" }})",
                   "refId": "A"
                 }
               ],
@@ -6547,7 +6547,7 @@ data:
                   "expr": "(max by (persistentvolumeclaim,namespace) (kubelet_volume_stats_used_bytes ))",
                   "instant": false,
                   "intervalFactor": 1,
-                  "legendFormat": "{{namespace}} ({{persistentvolumeclaim}})",
+                  "legendFormat": "{{ "{{" }}namespace{{ "}}" }} ({{ "{{" }}persistentvolumeclaim{{ "}}" }})",
                   "refId": "A"
                 }
               ],
@@ -6640,7 +6640,7 @@ data:
                 {
                   "expr": "(max by (persistentvolumeclaim,namespace) (kubelet_volume_stats_used_bytes )) / (max by (persistentvolumeclaim,namespace) (kubelet_volume_stats_capacity_bytes )) * 100",
                   "intervalFactor": 1,
-                  "legendFormat": "{{namespace}} ({{persistentvolumeclaim}})",
+                  "legendFormat": "{{ "{{" }}namespace{{ "}}" }} ({{ "{{" }}persistentvolumeclaim{{ "}}" }})",
                   "refId": "A"
                 }
               ],
@@ -6746,7 +6746,7 @@ data:
                   "format": "time_series",
                   "instant": false,
                   "intervalFactor": 1,
-                  "legendFormat": "{{namespace}} ({{persistentvolumeclaim}})",
+                  "legendFormat": "{{ "{{" }}namespace{{ "}}" }} ({{ "{{" }}persistentvolumeclaim{{ "}}" }})",
                   "refId": "A"
                 }
               ],
@@ -6840,7 +6840,7 @@ data:
                   "format": "time_series",
                   "instant": false,
                   "intervalFactor": 1,
-                  "legendFormat": "{{namespace}} ({{persistentvolumeclaim}})",
+                  "legendFormat": "{{ "{{" }}namespace{{ "}}" }} ({{ "{{" }}persistentvolumeclaim{{ "}}" }})",
                   "refId": "A"
                 }
               ],
@@ -6936,7 +6936,7 @@ data:
                   "format": "time_series",
                   "instant": false,
                   "intervalFactor": 1,
-                  "legendFormat": "{{namespace}} ({{persistentvolumeclaim}})",
+                  "legendFormat": "{{ "{{" }}namespace{{ "}}" }} ({{ "{{" }}persistentvolumeclaim{{ "}}" }})",
                   "refId": "A"
                 }
               ],

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: nodeexporter-chrony-exporter
-  namespace: otel-lgtm-stack
+  namespace: {{ .Release.Namespace }}
   labels:
     app: chrony-exporter
 spec:
@@ -34,10 +34,10 @@ spec:
               name: chronyd-socket
           resources:
             limits:
-              cpu: 100m
+              cpu: "100m"
               memory: 128Mi
             requests:
-              cpu: 50m
+              cpu: "50m"
               memory: 64Mi
       volumes:
         - name: chronyd-socket

@@ -1,0 +1,5 @@
+# This file contains dashboard ConfigMaps with Prometheus template expressions
+# It's kept outside templates/ to avoid Helm templating conflicts
+# ArgoCD can deploy this file directly alongside the Helm chart
+
+# This approach will be used if the raw block method doesn't work with ArgoCD
