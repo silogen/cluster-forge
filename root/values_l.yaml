@@ -211,9 +211,12 @@ apps:
       extraStartupArgs: "--cache=ispn --features=scripts,admin-fine-grained-authz,token-exchange,account3 --import-realm --spi-sticky-session-encoder-infinispan-should-attach-route=false"
   openbao:
     valuesObject:
-      ha:
-        enabled: true
-        replicas: 3
+      server:
+        ha:
+          enabled: true
+          replicas: 3
+          raft:
+            enabled: true
   # Large tier: Enhanced monitoring stack
   otel-lgtm-stack:
     valuesObject:
