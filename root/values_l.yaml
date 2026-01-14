@@ -11,12 +11,11 @@
 apps:
   argocd:
     valuesObject:
+      # Large tier: Production scale with 3 replicas and enhanced PDB
       applicationSet:
         pdb:
-          enabled: true
           minAvailable: 2
-        replicas: 3  # Large tier: increased for production scale
-        # Large tier application set resources
+        replicas: 3
         resources:
           limits:
             cpu: "2000m"
@@ -26,26 +25,21 @@ apps:
             memory: "1Gi"
       controller:
         pdb:
-          enabled: true
           minAvailable: 2
-        replicas: 3  # Large tier: increased replicas for production HA
-        # Large tier controller resources (higher for scale)
+        replicas: 3
         resources:
           limits:
-            cpu: "4000m"    # More CPU for large-scale operations
-            memory: "8Gi"   # More memory for large repos/apps
+            cpu: "4000m"
+            memory: "8Gi"
           requests:
             cpu: "1000m"
             memory: "2Gi"
-      redis:
-        enabled: false
       redis-ha:
         enabled: true
-        # Large tier Redis HA configuration
         redis:
           resources:
             limits:
-              cpu: "2000m"    # Production-grade Redis resources
+              cpu: "2000m"
               memory: "4Gi"
             requests:
               cpu: "500m"
@@ -60,27 +54,22 @@ apps:
               memory: "128Mi"
       repoServer:
         pdb:
-          enabled: true
           minAvailable: 2  
-        replicas: 3  # Large tier: increased for production scale
-        # Large tier repo server resources (handle large repos/concurrent users)
+        replicas: 3
         resources:
           limits:
-            cpu: "3000m"    # More CPU for Git operations
-            memory: "6Gi"   # More memory for large repositories
+            cpu: "3000m"
+            memory: "6Gi"
           requests:
             cpu: "750m"
             memory: "1.5Gi"
-        # Large tier: enable parallel processing
         env:
           - name: ARGOCD_REPO_SERVER_PARALLELISM_LIMIT
             value: "10"
       server:
         pdb:
-          enabled: true
           minAvailable: 2
-        replicas: 3  # Large tier: production HA
-        # Large tier server resources
+        replicas: 3
         resources:
           limits:
             cpu: "1000m"
@@ -88,7 +77,6 @@ apps:
           requests:
             cpu: "250m"
             memory: "512Mi"
-        # Large tier: production-grade ingress
         ingress:
           enabled: true
           annotations:
@@ -98,6 +86,7 @@ apps:
   minio-tenant:
     valuesObject:
       tenant:
+        # Large tier: Additional buckets for production workloads
         buckets:
           - name: default-bucket
             objectLock: true
@@ -108,32 +97,28 @@ apps:
           - name: artifacts
             objectLock: false
           - name: backup
-            objectLock: true  # For backup retention
-        certificate:
-          requestAutoCert: false
-        configSecret:
-          existingSecret: true
-          name: default-minio-tenant-env-configuration
+            objectLock: true
+        # Large tier: Production optimizations
         env:
           - name: MINIO_PROMETHEUS_AUTH_TYPE
             value: "public"
           - name: MINIO_COMPRESSION_ENABLE
-            value: "on"  # Large tier: enable compression for storage efficiency
+            value: "on"
           - name: MINIO_COMPRESSION_ALLOW_ENCRYPTION
             value: "on"
-        name: default-minio-tenant
+        # Large tier: Multi-pool production storage (30TB main + 8TB hot)
         pools:
           - name: pool-0
-            servers: 6  # Large tier: more servers for production scale
-            size: 5Ti   # Large tier: 10-100TB range, starting at 30TB total (6x5TB)
-            storageClassName: fast-ssd  # Large tier: use faster storage class
-            volumesPerServer: 4  # Large tier: more volumes for better performance/redundancy
-          # Large tier: additional pool for hot data
+            servers: 6
+            size: 5Ti
+            storageClassName: default
+            volumesPerServer: 4
           - name: pool-hot
             servers: 4
             size: 2Ti
-            storageClassName: nvme-fast  # Fastest storage for hot data
+            storageClassName: mlstorage
             volumesPerServer: 2
+        # Large tier: Additional production users
         users:
           - name: default-user
           - name: backup-user

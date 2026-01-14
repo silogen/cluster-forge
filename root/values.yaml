@@ -523,7 +523,7 @@ apps:
           - name: pool-0
             servers: 1
             size: 2Ti  # Small tier: 1-4TB range, starting at 2TB
-            storageClassName: direct
+            storageClassName: direct  # Small tier: uses direct storage (local-path or Longhorn driver)
             volumesPerServer: 1
         users:
           - name: default-user

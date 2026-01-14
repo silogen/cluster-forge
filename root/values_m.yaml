@@ -9,15 +9,11 @@
 apps:
   argocd:
     valuesObject:
+      # Medium tier: Enable HA with 2 replicas
       applicationSet:
-        pdb:
-          enabled: true
         replicas: 2
       controller:
-        pdb:
-          enabled: true
         replicas: 2
-        # Medium tier resource allocation  
         resources:
           limits:
             cpu: "2000m"
@@ -25,11 +21,8 @@ apps:
           requests:
             cpu: "500m" 
             memory: "1Gi"
-      redis:
-        enabled: false
       redis-ha:
         enabled: true
-        # Medium tier Redis HA resources
         redis:
           resources:
             limits:
@@ -39,10 +32,7 @@ apps:
               cpu: "250m"
               memory: "512Mi"
       repoServer:
-        pdb:
-          enabled: true
         replicas: 2
-        # Medium tier repo server resources
         resources:
           limits:
             cpu: "1000m" 
@@ -51,10 +41,7 @@ apps:
             cpu: "250m"
             memory: "512Mi"
       server:
-        pdb:
-          enabled: true
         replicas: 2
-        # Medium tier server resources
         resources:
           limits:
             cpu: "500m"
@@ -65,42 +52,33 @@ apps:
   minio-tenant:
     valuesObject:
       tenant:
+        # Medium tier: Add datasets bucket for team collaboration
         buckets:
           - name: default-bucket
             objectLock: true
           - name: models
             objectLock: true
           - name: datasets
-            objectLock: false  # Additional bucket for team datasets
-        certificate:
-          requestAutoCert: false
-        configSecret:
-          existingSecret: true
-          name: default-minio-tenant-env-configuration
-        env:
-          - name: MINIO_PROMETHEUS_AUTH_TYPE
-            value: "public"
-        name: default-minio-tenant
+            objectLock: false
+        # Medium tier: Scale up to 3 servers with multinode storage  
         pools:
           - name: pool-0
             servers: 3
-            size: 2Ti  # Medium tier: 4-16TB range, starting at 6TB total (3x2TB)
-            storageClassName: direct
-            volumesPerServer: 2  # Better performance with multiple volumes per server
-        users:
-          - name: default-user
-        # Medium tier resource configuration (team environment)
+            size: 2Ti  # Medium tier: 6TB total (3x2TB)
+            storageClassName: multinode
+            volumesPerServer: 2
+        # Medium tier: Enhanced resources for team workloads
         resources:
           limits:
-            cpu: "4000m"    # More CPU for concurrent team usage
-            memory: "8Gi"   # More memory for team workloads
+            cpu: "4000m"
+            memory: "8Gi"
           requests:
             cpu: "1000m"
             memory: "2Gi"
-        # Medium tier security and lifecycle policies
+        # Medium tier: Data lifecycle management
         lifecycle:
           - id: team-data-transition
             status: Enabled
             transition:
               days: 30
-              storageClass: IA  # Move to infrequent access after 30 days
+              storageClass: IA
