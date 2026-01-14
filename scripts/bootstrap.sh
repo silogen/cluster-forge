@@ -2,19 +2,106 @@
 
 set -euo pipefail
 
-DOMAIN="${1:-}"
-if [ -z "$DOMAIN" ]; then
-    echo "ERROR: Domain argument is required"
-    echo "Usage: $0 <domain> [values_file]"
-    echo ""
-    echo "If values_file is not provided, cluster size will be auto-detected from:"
-    echo "  - bloom configmap in default namespace (CLUSTER_SIZE key)"
-    echo "  - Supported sizes: small (default), medium, large"
-    echo ""
-    echo "Examples:"
-    echo "  $0 my-cluster.example.com              # Auto-detect size"
-    echo "  $0 my-cluster.example.com values_m.yaml    # Force medium"
-    echo "  $0 my-cluster.example.com values_l.yaml    # Force large"
+# Function to display help
+show_help() {
+    cat << 'EOF'
+Cluster-Forge Bootstrap Script
+
+USAGE:
+    bootstrap.sh [DOMAIN] [VALUES_FILE]
+    bootstrap.sh [VALUES_FILE]
+    bootstrap.sh [-h|--help]
+
+DESCRIPTION:
+    Bootstraps a Cluster-Forge deployment by setting up ArgoCD, OpenBao, 
+    Gitea, and deploying the main Cluster-Forge application.
+    
+    Both domain and cluster size can be auto-detected from the bloom 
+    configmap in the default namespace, or provided as arguments.
+
+ARGUMENTS:
+    DOMAIN          Cluster domain (e.g., my-cluster.example.com)
+                    If omitted, reads from bloom configmap (data.domain key)
+                    
+    VALUES_FILE     Helm values file to use (values.yaml, values_m.yaml, values_l.yaml)
+                    If omitted, cluster size is auto-detected from bloom configmap 
+                    (data.CLUSTER_SIZE key) and mapped to appropriate values file
+
+OPTIONS:
+    -h, --help      Show this help message and exit
+
+CLUSTER SIZES:
+    small           Single-node deployment (values.yaml)
+                    - Target: Workstation/Gaming PC/Single Developer
+                    - 1 node, 16-32 vCPU, 64-128 GB RAM, 1-2 GPUs
+                    - Storage: 1-4 TB NVMe, direct storage class
+                    
+    medium          Team environment (values.yaml + values_m.yaml)  
+                    - Target: Small team, shared environment (5-20 users)
+                    - 1-3 nodes, 32-64 vCPU, 128-256 GB RAM, up to 8 GPUs
+                    - Storage: 4-16 TB NVMe, multinode storage class
+                    
+    large           Production scale (values.yaml + values_l.yaml)
+                    - Target: Production deployment (10s-100s users)
+                    - 6+ nodes, 32-96 vCPU workers, 256-1024 GB RAM, 8+ GPUs
+                    - Storage: 10-100+ TB NVMe, default + mlstorage classes
+
+EXAMPLES:
+    # Auto-detect both domain and cluster size from bloom configmap
+    bootstrap.sh
+    
+    # Use provided domain, auto-detect cluster size
+    bootstrap.sh my-cluster.example.com
+    
+    # Auto-detect domain, force medium cluster size
+    bootstrap.sh values_m.yaml
+    
+    # Use provided domain, force large cluster size  
+    bootstrap.sh my-cluster.example.com values_l.yaml
+
+BLOOM CONFIGMAP:
+    The script can read configuration from a bloom configmap:
+    
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: bloom
+      namespace: default
+    data:
+      domain: "your-cluster.example.com"      # Required if no domain argument
+      CLUSTER_SIZE: "medium"                  # Optional: small, medium, large
+
+PREREQUISITES:
+    - kubectl configured and connected to target cluster
+    - helm CLI available
+    - yq CLI available for YAML processing
+    - openssl available for password generation
+
+EXIT CODES:
+    0    Success
+    1    Missing required arguments or configuration
+    2    Validation failure (missing files, charts, etc.)
+
+For more information, see scripts/bootstrap.md
+EOF
+}
+
+# Check for help flag
+case "${1:-}" in
+    -h|--help)
+        show_help
+        exit 0
+        ;;
+esac
+    echo "ERROR: Domain is required but not provided" >&2
+    echo "" >&2
+    echo "Domain can be provided as an argument or via bloom configmap." >&2
+    echo "Use 'bootstrap.sh --help' for detailed usage information." >&2
+    echo "" >&2
+    echo "Quick examples:" >&2
+    echo "  bootstrap.sh                              # Auto-detect from bloom configmap" >&2  
+    echo "  bootstrap.sh my-cluster.example.com       # Explicit domain" >&2
+    echo "  bootstrap.sh values_m.yaml                # Auto-detect domain, force medium" >&2
     exit 1
 fi
 
@@ -51,7 +138,7 @@ SOURCES_DIR="$PROJECT_ROOT/sources"
 
 # Detect cluster size and build values file arguments
 detect_cluster_config() {
-    local provided_values_file="${2:-}"
+    local provided_values_file="$PARSED_VALUES_FILE"
     
     # If a values file was explicitly provided, determine what it is
     if [ -n "$provided_values_file" ]; then
@@ -106,8 +193,8 @@ detect_cluster_config() {
     echo "small values.yaml"
 }
 
-# Parse cluster configuration
-CLUSTER_CONFIG="$(detect_cluster_config "$@")"
+# Parse cluster configuration (using already parsed values file)
+CLUSTER_CONFIG="$(detect_cluster_config)"
 CLUSTER_SIZE="$(echo "$CLUSTER_CONFIG" | cut -d' ' -f1)"
 VALUES_FILES="$(echo "$CLUSTER_CONFIG" | cut -d' ' -f2-)"
 
@@ -149,7 +236,16 @@ for values_file in $VALUES_FILES; do
 done
 
 echo "✓ Project root: $PROJECT_ROOT"
-echo "✓ Values files: $VALUES_FILES"
+if [ -n "$PARSED_VALUES_FILE" ]; then
+    echo "✓ Domain: $DOMAIN (auto-detected from bloom configmap)"
+    echo "✓ Values files: $VALUES_FILES (provided as argument)"
+elif [ "${1:-}" = "$DOMAIN" ]; then
+    echo "✓ Domain: $DOMAIN (provided as argument)"
+    echo "✓ Values files: $VALUES_FILES (auto-detected from bloom configmap)"
+else
+    echo "✓ Domain: $DOMAIN (auto-detected from bloom configmap)"
+    echo "✓ Values files: $VALUES_FILES (auto-detected from bloom configmap)"
+fi
 
 # Display cluster size information
 case "$CLUSTER_SIZE" in
