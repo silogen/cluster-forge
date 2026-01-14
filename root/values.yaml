@@ -574,6 +574,8 @@ apps:
                       app.kubernetes.io/instance: openbao
                       component: server
                   topologyKey: kubernetes.io/hostname
+      ha:
+        replicas: 1
       ui:
         enabled: true
   openbao-config:
