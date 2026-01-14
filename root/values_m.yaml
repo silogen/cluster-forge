@@ -6,6 +6,9 @@
 # Storage: 4-16 TB total NVMe, Internal S3: 2-10 TB via MinIO
 # Networking: 10 GbE recommended
 
+# MEDIUM CLUSTER: All apps enabled (inherited from base values.yaml)
+# Only resource scaling overrides below - no need to redefine enabledApps
+
 apps:
   argocd:
     valuesObject:
@@ -82,3 +85,8 @@ apps:
             transition:
               days: 30
               storageClass: IA
+  openbao:
+    valuesObject:
+      ha:
+        enabled: true
+        replicas: 3

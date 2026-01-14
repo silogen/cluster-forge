@@ -8,6 +8,9 @@
 # Networking: 25 GbE or more, optional separate storage network
 # RKE2: Dedicated, tainted CP nodes, etcd snapshots + full backup/restore plan
 
+# LARGE CLUSTER: All apps enabled (inherited from base values.yaml)  
+# Only resource scaling overrides below - no need to redefine enabledApps
+
 apps:
   argocd:
     valuesObject:
@@ -206,6 +209,11 @@ apps:
         replicaCount: 3
       # Large tier: advanced security
       extraStartupArgs: "--cache=ispn --features=scripts,admin-fine-grained-authz,token-exchange,account3 --import-realm --spi-sticky-session-encoder-infinispan-should-attach-route=false"
+  openbao:
+    valuesObject:
+      ha:
+        enabled: true
+        replicas: 3
   # Large tier: Enhanced monitoring stack
   otel-lgtm-stack:
     valuesObject:
@@ -240,3 +248,4 @@ apps:
             requests:
               cpu: 2000m
               memory: 4Gi
+ 
