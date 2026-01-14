@@ -815,7 +815,7 @@ print_header "Final Deployment Status"
 check_existing_deployment
 
 # Show application count in ArgoCD
-local app_count=$(kubectl get applications -n argocd --no-headers 2>/dev/null | wc -l)
+app_count=$(kubectl get applications -n argocd --no-headers 2>/dev/null | wc -l)
 if [ "$app_count" -gt 0 ]; then
   echo "  🎯 ArgoCD Applications: $app_count deployed" | tee -a "$LOG_FILE" >&3
   echo "  🔍 Key Apps Status:" | tee -a "$LOG_FILE" >&3
