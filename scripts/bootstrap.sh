@@ -158,6 +158,93 @@ fi
 
 KUBE_VERSION=1.33
 
+# Setup logging
+LOG_FILE="/tmp/cluster-forge-bootstrap-$(date +%Y%m%d-%H%M%S).log"
+exec 3>&1 4>&2  # Save original stdout/stderr
+exec 1> >(tee -a "$LOG_FILE")
+exec 2> >(tee -a "$LOG_FILE" >&2)
+
+# Pretty output functions
+print_header() {
+    local message="$1"
+    echo ""
+    echo "🚀 $message" | tee -a "$LOG_FILE" >&3
+}
+
+print_step() {
+    local step="$1"
+    local message="$2"
+    echo "[$step/4] 🔧 $message" | tee -a "$LOG_FILE" >&3
+}
+
+print_substep() {
+    local message="$1"
+    echo "  ⚙️  $message" | tee -a "$LOG_FILE" >&3
+}
+
+print_success() {
+    local message="$1"
+    echo "  ✅ $message" | tee -a "$LOG_FILE" >&3
+}
+
+print_info() {
+    local message="$1"
+    echo "  ℹ️  $message" | tee -a "$LOG_FILE" >&3
+}
+
+print_warning() {
+    local message="$1"
+    echo "  ⚠️  $message" | tee -a "$LOG_FILE" >&3
+}
+
+print_final() {
+    local message="$1"
+    echo ""
+    echo "🎉 $message" | tee -a "$LOG_FILE" >&3
+}
+
+# Spinner for long operations
+spinner() {
+    local pid=$1
+    local message="$2"
+    local delay=0.1
+    local spinstr='|/-\'
+    
+    echo -n "  ⏳ $message " >&3
+    
+    while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr" >&3
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b" >&3
+    done
+    
+    wait $pid
+    local exit_code=$?
+    
+    if [ $exit_code -eq 0 ]; then
+        printf "   ✅\n" >&3
+    else
+        printf "   ❌\n" >&3
+        return $exit_code
+    fi
+}
+
+# Function to run commands with pretty output
+run_with_spinner() {
+    local message="$1"
+    shift
+    
+    # Run command in background and capture its PID
+    "$@" &
+    local pid=$!
+    
+    # Show spinner while command runs
+    spinner $pid "$message"
+    return $?
+}
+
 # Determine project root directory - work from any execution location
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -317,9 +404,10 @@ case "$CLUSTER_SIZE" in
 esac
 
 bootstrapArgocd() {
-  echo "=== Bootstrapping ArgoCD ==="
+  print_step "1" "Bootstrapping ArgoCD GitOps Controller"
   
-  kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
+  print_substep "Creating argocd namespace"
+  kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f - >/dev/null 2>&1
 
   # Verify ArgoCD chart directory exists
   local argocd_chart="$SOURCES_DIR/argocd/8.3.5"
@@ -328,6 +416,7 @@ bootstrapArgocd() {
     exit 1
   fi
 
+  print_substep "Preparing ArgoCD configuration"
   # Create temporary merged values file for ArgoCD  
   local merged_config="/tmp/bootstrap-argocd-$$.yaml"
   
@@ -339,33 +428,36 @@ bootstrapArgocd() {
   for values_file in $VALUES_FILES; do
     if yq -e '.apps.argocd.valuesObject' "$ROOT_DIR/$values_file" >/dev/null 2>&1; then
       yq eval-all 'select(fileIndex == 0).apps.argocd.valuesObject *= select(fileIndex == 1).apps.argocd.valuesObject' \
-        "$merged_config" "$ROOT_DIR/$values_file" > "${merged_config}.tmp"
+        "$merged_config" "$ROOT_DIR/$values_file" > "${merged_config}.tmp" 2>>"$LOG_FILE"
       mv "${merged_config}.tmp" "$merged_config"
     fi
   done
 
+  print_substep "Deploying ArgoCD components"
   helm template --release-name argocd  \
     "$argocd_chart" \
     --kube-version="${KUBE_VERSION}" \
     --namespace argocd \
     --set global.domain="https://argocd.${DOMAIN}" \
     --values <(yq '.apps.argocd.valuesObject' "$merged_config") \
-    | kubectl apply -f -
+    2>>"$LOG_FILE" | kubectl apply -f - >/dev/null 2>&1
   
   rm -f "$merged_config"
   
-  echo "Waiting for ArgoCD components to be ready..."
-  kubectl rollout status statefulset/argocd-application-controller -n argocd --timeout=300s
-  kubectl rollout status deploy/argocd-applicationset-controller -n argocd --timeout=300s
-  kubectl rollout status deploy/argocd-redis -n argocd --timeout=300s
-  kubectl rollout status deploy/argocd-repo-server -n argocd --timeout=300s
-  echo "ArgoCD bootstrap complete"
+  # Wait for components with pretty spinner
+  run_with_spinner "Waiting for ArgoCD controller" kubectl rollout status statefulset/argocd-application-controller -n argocd --timeout=300s
+  run_with_spinner "Waiting for ArgoCD applicationset" kubectl rollout status deploy/argocd-applicationset-controller -n argocd --timeout=300s  
+  run_with_spinner "Waiting for ArgoCD redis" kubectl rollout status deploy/argocd-redis -n argocd --timeout=300s
+  run_with_spinner "Waiting for ArgoCD repo server" kubectl rollout status deploy/argocd-repo-server -n argocd --timeout=300s
+  
+  print_success "ArgoCD bootstrap complete"
 }
 
 bootstrapOpenbao() {
-  echo "=== Bootstrapping OpenBao ==="
+  print_step "2" "Bootstrapping OpenBao Secret Management"
   
-  kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
+  print_substep "Creating cf-openbao namespace"
+  kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f - >/dev/null 2>&1
 
   # Verify OpenBao chart directory exists
   local openbao_chart="$SOURCES_DIR/openbao/0.18.2"
@@ -374,6 +466,7 @@ bootstrapOpenbao() {
     exit 1
   fi
 
+  print_substep "Preparing OpenBao configuration"
   # Create temporary merged values file for OpenBao
   local merged_config="/tmp/bootstrap-openbao-$$.yaml"
   
@@ -384,22 +477,22 @@ bootstrapOpenbao() {
   for values_file in $VALUES_FILES; do
     if yq -e '.apps.openbao.valuesObject' "$ROOT_DIR/$values_file" >/dev/null 2>&1; then
       yq eval-all 'select(fileIndex == 0).apps.openbao.valuesObject *= select(fileIndex == 1).apps.openbao.valuesObject' \
-        "$merged_config" "$ROOT_DIR/$values_file" > "${merged_config}.tmp"
+        "$merged_config" "$ROOT_DIR/$values_file" > "${merged_config}.tmp" 2>>"$LOG_FILE"
       mv "${merged_config}.tmp" "$merged_config"
     fi
   done
 
+  print_substep "Deploying OpenBao components"
   helm template --release-name openbao \
     "$openbao_chart" \
     --kube-version="${KUBE_VERSION}" \
     --namespace cf-openbao \
     --values <(yq '.apps.openbao.valuesObject' "$merged_config") \
-    | kubectl apply -f -
+    2>>"$LOG_FILE" | kubectl apply -f - >/dev/null 2>&1
   
   rm -f "$merged_config"
 
-  echo "Waiting for OpenBao pod to be ready..."
-  kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s
+  run_with_spinner "Waiting for OpenBao pod startup" kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s
 
   # Verify init job template exists
   local init_job_template="$SCRIPT_DIR/init-openbao-job"
@@ -408,24 +501,25 @@ bootstrapOpenbao() {
     exit 1
   fi
 
+  print_substep "Running OpenBao initialization"
   helm template --release-name openbao-init \
     "$init_job_template" \
     --kube-version="${KUBE_VERSION}" \
     --set domain="${DOMAIN}" \
-    | kubectl apply -f -
+    2>>"$LOG_FILE" | kubectl apply -f - >/dev/null 2>&1
 
-  echo "Waiting for OpenBao initialization to complete..."
-  kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
-  echo "OpenBao bootstrap complete"
+  run_with_spinner "Waiting for OpenBao initialization" kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
+  print_success "OpenBao bootstrap complete"
 }
 
 bootstrapGitea() {
-  echo "=== Bootstrapping Gitea ==="
+  print_step "3" "Bootstrapping Gitea Git Repository Server"
   
-  kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
+  print_substep "Creating cf-gitea namespace"
+  kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f - >/dev/null 2>&1
 
+  print_substep "Creating cluster-forge configuration"
   # Create initial-cf-values configmap with merged configuration
-  echo "Creating cluster-forge values configmap..."
   local merged_values="/tmp/bootstrap-cf-values-$$.yaml"
   
   # Merge all values files
@@ -433,24 +527,25 @@ bootstrapGitea() {
   for values_file in $(echo $VALUES_FILES | cut -d' ' -f2-); do
     if [ -f "$ROOT_DIR/$values_file" ]; then
       yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
-        "$merged_values" "$ROOT_DIR/$values_file" > "${merged_values}.tmp"
+        "$merged_values" "$ROOT_DIR/$values_file" > "${merged_values}.tmp" 2>>"$LOG_FILE"
       mv "${merged_values}.tmp" "$merged_values"
     fi
   done
   
-  VALUES=$(cat "$merged_values" | yq ".global.domain = \"${DOMAIN}\"")
-  kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$VALUES" --dry-run=client -o yaml | kubectl apply -n cf-gitea -f -
+  VALUES=$(cat "$merged_values" | yq ".global.domain = \"${DOMAIN}\"" 2>>"$LOG_FILE")
+  kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$VALUES" --dry-run=client -o yaml | kubectl apply -n cf-gitea -f - >/dev/null 2>&1
   
   rm -f "$merged_values"
   
   # Generate admin password  
+  print_substep "Generating Gitea admin credentials"
   GITEA_INITIAL_ADMIN_PASSWORD=$(openssl rand -hex 16 | tr 'a-f' 'A-F' | head -c 32)
-  echo "Creating Gitea admin credentials (password: $GITEA_INITIAL_ADMIN_PASSWORD)"
+  echo "    🔑 Admin password: $GITEA_INITIAL_ADMIN_PASSWORD" | tee -a "$LOG_FILE" >&3
   kubectl create secret generic gitea-admin-credentials \
     --namespace=cf-gitea \
     --from-literal=username=silogen-admin \
     --from-literal=password="$GITEA_INITIAL_ADMIN_PASSWORD" \
-    --dry-run=client -o yaml | kubectl apply -f -
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null 2>&1
 
   # Verify Gitea chart directory exists
   local gitea_chart="$SOURCES_DIR/gitea/12.3.0"
@@ -458,7 +553,8 @@ bootstrapGitea() {
     echo "ERROR: Gitea chart not found at $gitea_chart" >&2
     exit 1
   fi
-  
+
+  print_substep "Preparing Gitea configuration"
   # Create temporary merged values file for Gitea
   local merged_config="/tmp/bootstrap-gitea-$$.yaml"
   
@@ -469,11 +565,12 @@ bootstrapGitea() {
   for values_file in $VALUES_FILES; do
     if yq -e '.apps.gitea.valuesObject' "$ROOT_DIR/$values_file" >/dev/null 2>&1; then
       yq eval-all 'select(fileIndex == 0).apps.gitea.valuesObject *= select(fileIndex == 1).apps.gitea.valuesObject' \
-        "$merged_config" "$ROOT_DIR/$values_file" > "${merged_config}.tmp"
+        "$merged_config" "$ROOT_DIR/$values_file" > "${merged_config}.tmp" 2>>"$LOG_FILE"
       mv "${merged_config}.tmp" "$merged_config"
     fi
   done
   
+  print_substep "Deploying Gitea components"
   helm template --release-name gitea \
     "$gitea_chart" \
     --kube-version="${KUBE_VERSION}" \
@@ -481,12 +578,11 @@ bootstrapGitea() {
     --set clusterDomain="${DOMAIN}" \
     --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}" \
     --values <(yq '.apps.gitea.valuesObject' "$merged_config") \
-    | kubectl apply -f -
+    2>>"$LOG_FILE" | kubectl apply -f - >/dev/null 2>&1
   
   rm -f "$merged_config"
   
-  echo "Waiting for Gitea deployment to be ready..."
-  kubectl rollout status deploy/gitea -n cf-gitea --timeout=300s
+  run_with_spinner "Waiting for Gitea deployment" kubectl rollout status deploy/gitea -n cf-gitea --timeout=300s
   
   # Verify init job template exists
   local gitea_init_template="$SCRIPT_DIR/init-gitea-job"
@@ -495,19 +591,19 @@ bootstrapGitea() {
     exit 1
   fi
 
+  print_substep "Running Gitea initialization"
   helm template --release-name gitea-init \
     "$gitea_init_template" \
     --kube-version="${KUBE_VERSION}" \
     --set domain="${DOMAIN}" \
-    | kubectl apply -f -
+    2>>"$LOG_FILE" | kubectl apply -f - >/dev/null 2>&1
   
-  echo "Waiting for Gitea initialization to complete..."
-  kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
-  echo "Gitea bootstrap complete"
+  run_with_spinner "Waiting for Gitea initialization" kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
+  print_success "Gitea bootstrap complete"
 }
 
 deployClusterForge() {
-  echo "=== Deploying Cluster-Forge ==="
+  print_step "4" "Deploying Cluster-Forge Applications"
   
   # Verify root chart exists
   if [ ! -f "$ROOT_DIR/Chart.yaml" ]; then
@@ -515,28 +611,41 @@ deployClusterForge() {
     exit 1
   fi
 
+  print_substep "Deploying ArgoCD applications"
   helm template "$ROOT_DIR" \
     --kube-version="${KUBE_VERSION}" \
     --set global.domain="${DOMAIN}" \
     $VALUES_ARGS \
-    | kubectl apply -f -
+    2>>"$LOG_FILE" | kubectl apply -f - >/dev/null 2>&1
   
-  echo "Cluster-Forge deployment complete"
+  print_success "Cluster-Forge applications deployed"
+  print_info "ArgoCD will now sync all enabled applications"
 }
 
 #### MAIN ####
-echo "🚀 Starting Cluster-Forge bootstrap for domain: $DOMAIN"
+print_header "Starting Cluster-Forge Bootstrap"
+echo "  🌐 Domain: $DOMAIN" | tee -a "$LOG_FILE" >&3
+echo "  🏷️  Size: $(echo "$CLUSTER_SIZE" | tr '[:lower:]' '[:upper:]')" | tee -a "$LOG_FILE" >&3  
+echo "  📄 Config: $VALUES_FILES" | tee -a "$LOG_FILE" >&3
+echo "  📋 Log: $LOG_FILE" | tee -a "$LOG_FILE" >&3
 
 bootstrapArgocd
-echo ""
 bootstrapOpenbao  
-echo ""
 bootstrapGitea
-echo ""
 deployClusterForge
+
+print_final "Cluster-Forge Bootstrap Complete!"
 echo ""
-echo "✅ Cluster-Forge bootstrap complete! 🎉"
-echo "🏷️  Cluster size: $(echo "$CLUSTER_SIZE" | tr '[:lower:]' '[:upper:]')"
-echo "📄 Values files used: $VALUES_FILES"
-echo "🌐 ArgoCD will be available at: https://argocd.$DOMAIN"
-echo "📚 Gitea will be available at: https://gitea.$DOMAIN"
+echo "🎯 Access Your Cluster:" | tee -a "$LOG_FILE" >&3
+echo "  🌐 ArgoCD:  https://argocd.$DOMAIN" | tee -a "$LOG_FILE" >&3
+echo "  📚 Gitea:   https://gitea.$DOMAIN" | tee -a "$LOG_FILE" >&3
+echo "  🔐 OpenBao: https://openbao.$DOMAIN" | tee -a "$LOG_FILE" >&3
+echo ""
+echo "📋 Detailed logs available at: $LOG_FILE" | tee -a "$LOG_FILE" >&3
+echo ""
+echo "🚀 Next Steps:" | tee -a "$LOG_FILE" >&3
+echo "  1. Check ArgoCD for application sync status" | tee -a "$LOG_FILE" >&3
+echo "  2. Retrieve credentials using 'kubectl get secrets'" | tee -a "$LOG_FILE" >&3  
+echo "  3. Monitor deployment progress in ArgoCD UI" | tee -a "$LOG_FILE" >&3
+echo ""
+echo "✨ Happy GitOps! The fire of the forge eliminates impurities! 🔥" | tee -a "$LOG_FILE" >&3
