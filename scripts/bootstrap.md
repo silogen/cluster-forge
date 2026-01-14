@@ -14,7 +14,7 @@ The bootstrap script sets up a complete GitOps environment with ArgoCD, OpenBao 
 ## Quick Start
 
 ```bash
-# Auto-detect everything from bloom configmap
+# Auto-detect everything from bloom-config configmap
 ./scripts/bootstrap.sh
 
 # Or provide explicit domain
@@ -69,13 +69,13 @@ The script supports three deployment tiers that correspond to different infrastr
 
 ### Bloom ConfigMap
 
-The script can automatically detect both domain and cluster size from a `bloom` configmap:
+The script can automatically detect both domain and cluster size from a `bloom-config` configmap (which is created by **cluster-bloom** during cluster provisioning):
 
 ```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: bloom
+  name: bloom-config
   namespace: default
 data:
   domain: "your-cluster.example.com"      # Required if no domain argument
@@ -100,19 +100,19 @@ The script uses intelligent argument detection:
 
 ### Full Auto-Detection
 ```bash
-# Both domain and cluster size from bloom configmap
+# Both domain and cluster size from bloom-config configmap
 ./bootstrap.sh
 ```
 
 ### Mixed Usage
 ```bash
-# Explicit domain, auto-detect size from bloom configmap
+# Explicit domain, auto-detect size from bloom-config configmap
 ./bootstrap.sh my-cluster.example.com
 
-# Auto-detect domain from bloom configmap, force medium size
+# Auto-detect domain from bloom-config configmap, force medium size
 ./bootstrap.sh values_m.yaml
 
-# Auto-detect domain from bloom configmap, force large size  
+# Auto-detect domain from bloom-config configmap, force large size  
 ./bootstrap.sh values_l.yaml
 ```
 
@@ -226,11 +226,11 @@ This bootstrap script is designed to work seamlessly with **cluster-bloom**:
 
 **Domain not found**: 
 ```bash
-# Check if bloom configmap exists
-kubectl get configmap bloom -n default
+# Check if bloom-config configmap exists
+kubectl get configmap bloom-config -n default
 
 # Check domain value
-kubectl get configmap bloom -n default -o jsonpath='{.data.domain}'
+kubectl get configmap bloom-config -n default -o jsonpath='{.data.domain}'
 ```
 
 **Values file not found**:

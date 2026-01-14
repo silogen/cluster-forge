@@ -16,15 +16,15 @@ DESCRIPTION:
     Bootstraps a Cluster-Forge deployment by setting up ArgoCD, OpenBao, 
     Gitea, and deploying the main Cluster-Forge application.
     
-    Both domain and cluster size can be auto-detected from the bloom 
+    Both domain and cluster size can be auto-detected from the bloom-config 
     configmap in the default namespace, or provided as arguments.
 
 ARGUMENTS:
     DOMAIN          Cluster domain (e.g., my-cluster.example.com)
-                    If omitted, reads from bloom configmap (data.domain key)
+                    If omitted, reads from bloom-config configmap (data.domain key)
                     
     VALUES_FILE     Helm values file to use (values.yaml, values_m.yaml, values_l.yaml)
-                    If omitted, cluster size is auto-detected from bloom configmap 
+                    If omitted, cluster size is auto-detected from bloom-config configmap 
                     (data.CLUSTER_SIZE key) and mapped to appropriate values file
 
 OPTIONS:
@@ -47,7 +47,7 @@ CLUSTER SIZES:
                     - Storage: 10-100+ TB NVMe, default + mlstorage classes
 
 EXAMPLES:
-    # Auto-detect both domain and cluster size from bloom configmap
+    # Auto-detect both domain and cluster size from bloom-config configmap
     bootstrap.sh
     
     # Use provided domain, auto-detect cluster size
@@ -60,12 +60,12 @@ EXAMPLES:
     bootstrap.sh my-cluster.example.com values_l.yaml
 
 BLOOM CONFIGMAP:
-    The script can read configuration from a bloom configmap:
+    The script can read configuration from a bloom-config configmap:
     
     apiVersion: v1
     kind: ConfigMap
     metadata:
-      name: bloom
+      name: bloom-config
       namespace: default
     data:
       domain: "your-cluster.example.com"      # Required if no domain argument
@@ -93,13 +93,64 @@ case "${1:-}" in
         exit 0
         ;;
 esac
+
+# Parse arguments intelligently 
+parse_arguments() {
+    local arg1="${1:-}"
+    local arg2="${2:-}"
+    
+    # Detect if arg1 is a domain or values file
+    local domain=""
+    local values_file=""
+    
+    # Check if arg1 looks like a values file
+    if [[ "$arg1" =~ ^values.*\.yaml$ ]]; then
+        # arg1 is a values file, no domain provided
+        values_file="$arg1"
+        values_file_arg_pos=1
+    elif [ -n "$arg1" ] && [[ ! "$arg1" =~ ^values.*\.yaml$ ]]; then
+        # arg1 looks like a domain
+        domain="$arg1"
+        values_file="$arg2"
+        values_file_arg_pos=2
+    else
+        # No arguments provided or arg1 is empty
+        values_file_arg_pos=1
+    fi
+    
+    # If no domain was provided as argument, try bloom-config configmap
+    if [ -z "$domain" ]; then
+        if kubectl get configmap bloom-config -n default >/dev/null 2>&1; then
+            domain=$(kubectl get configmap bloom-config -n default -o jsonpath='{.data.domain}' 2>/dev/null || echo "")
+            
+            if [ -n "$domain" ]; then
+                echo "Detected domain from bloom-config configmap: $domain" >&2
+            else
+                echo "INFO: bloom-config configmap found but no domain key present" >&2
+            fi
+        else
+            echo "INFO: bloom-config configmap not found in default namespace" >&2
+        fi
+    fi
+    
+    # Export results
+    PARSED_DOMAIN="$domain"
+    PARSED_VALUES_FILE="$values_file"
+    VALUES_FILE_ARG_POS="$values_file_arg_pos"
+}
+
+# Parse command line arguments
+parse_arguments "$@"
+DOMAIN="$PARSED_DOMAIN"
+
+if [ -z "$DOMAIN" ]; then
     echo "ERROR: Domain is required but not provided" >&2
     echo "" >&2
-    echo "Domain can be provided as an argument or via bloom configmap." >&2
+    echo "Domain can be provided as an argument or via bloom-config configmap." >&2
     echo "Use 'bootstrap.sh --help' for detailed usage information." >&2
     echo "" >&2
     echo "Quick examples:" >&2
-    echo "  bootstrap.sh                              # Auto-detect from bloom configmap" >&2  
+    echo "  bootstrap.sh                              # Auto-detect from bloom-config configmap" >&2  
     echo "  bootstrap.sh my-cluster.example.com       # Explicit domain" >&2
     echo "  bootstrap.sh values_m.yaml                # Auto-detect domain, force medium" >&2
     exit 1
@@ -160,13 +211,13 @@ detect_cluster_config() {
         return 0
     fi
     
-    # Try to detect cluster size from bloom configmap
+    # Try to detect cluster size from bloom-config configmap
     local cluster_size=""
-    if kubectl get configmap bloom -n default >/dev/null 2>&1; then
-        cluster_size=$(kubectl get configmap bloom -n default -o jsonpath='{.data.CLUSTER_SIZE}' 2>/dev/null || echo "")
+    if kubectl get configmap bloom-config -n default >/dev/null 2>&1; then
+        cluster_size=$(kubectl get configmap bloom-config -n default -o jsonpath='{.data.CLUSTER_SIZE}' 2>/dev/null || echo "")
         
         if [ -n "$cluster_size" ]; then
-            echo "Detected cluster size from bloom configmap: $cluster_size" >&2
+            echo "Detected cluster size from bloom-config configmap: $cluster_size" >&2
             
             case "$cluster_size" in
                 "small"|"")
@@ -179,14 +230,14 @@ detect_cluster_config() {
                     echo "large values.yaml values_l.yaml"
                     ;;
                 *)
-                    echo "WARNING: Unknown cluster size '$cluster_size' in bloom configmap, defaulting to small" >&2
+                    echo "WARNING: Unknown cluster size '$cluster_size' in bloom-config configmap, defaulting to small" >&2
                     echo "small values.yaml"
                     ;;
             esac
             return 0
         fi
     else
-        echo "INFO: bloom configmap not found, defaulting to small cluster" >&2
+        echo "INFO: bloom-config configmap not found, defaulting to small cluster" >&2
     fi
     
     # Default to small
