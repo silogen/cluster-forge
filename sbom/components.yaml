@@ -1,8 +1,14 @@
 # Generated components metadata for SBOM creation
-# This file contains simplified component information extracted from values.yaml
-# Apps with "config" suffix are excluded
+# This file contains simplified component information for apps in enabledApps
+# Apps with "config" suffix are excluded from this SBOM
 
 components:
+  aim-cluster-model-source:
+    path: aim-cluster-model-source
+    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc11/crds.yaml
+    projectUrl: https://github.com/silogen/kaiwo/
+    license: MIT License
+    licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
   argocd:
     path: argocd/8.3.5
     valuesFile: ../values_cf.yaml
