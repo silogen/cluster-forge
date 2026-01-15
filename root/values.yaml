@@ -1,15 +1,15 @@
 clusterForge:
-  repoUrl: "https://github.com/silogen/cluster-forge.git"
+  repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
   targetRevision: v1.7.0 # cluster-forge version git tag
   valuesFile: values.yaml
 # source helm values file from separate git repo
 externalValues:
-  enabled: false
-  #  repoUrl: # define if enabled
+  enabled: true
+  repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
   targetRevision: main
-  path: values.yaml
+  path: values_cf.yaml
 global:
-  domain: app.silogen.ai
+  domain: # to be filled by bootstrap script
 enabledApps:
   - aim-cluster-model-source
   - argocd
@@ -58,7 +58,21 @@ apps:
   argocd:
     path: argocd/8.3.5
     namespace: argocd
-    valuesFile: ../values_cf.yaml
+    valuesObject:
+      global:
+        domain: # to be filled by cluster-forge app
+      configs:
+        params:
+          server.insecure: true
+        cm:
+          resource.customizations.health.opentelemetry.io_OpenTelemetryCollector: |
+            hs = {}
+            hs.status = "Healthy"
+            hs.message = "Always Healthy - See https://github.com/argoproj/argo-cd/pull/24284"
+            return hs
+        rbac:
+          policy.csv: |
+            g, argocd-users, role:admin
     helmParameters:
       - name: global.domain
         value: "argocd.{{ .Values.global.domain }}"
@@ -84,12 +98,33 @@ apps:
   cert-manager:
     path: cert-manager/v1.18.2
     namespace: cert-manager
-    valuesFile: ../values_cf.yaml
+    valuesObject:
+      installCRDs: true
     syncWave: -3
   openbao:
     path: openbao/0.18.2
     namespace: cf-openbao
-    valuesFile: ../values_cf.yaml
+    valuesObject:
+      injector:
+        enabled: false
+      server:
+        affinity: |
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: openbao
+                      app.kubernetes.io/instance: openbao
+                      component: server
+                  topologyKey: kubernetes.io/hostname
+        ha:
+          enabled: true
+          raft:
+            enabled: true
+      ui:
+        enabled: true
     syncWave: -3
     ignoreDifferences:
       - group: "apps"
@@ -112,7 +147,36 @@ apps:
   gitea:
     path: gitea/12.3.0
     namespace: cf-gitea
-    valuesFile: ../values_cf.yaml
+    valuesObject:
+      clusterDomain: # to be filled by cluster-forge app
+      strategy:
+        type: "Recreate"
+      gitea:
+        admin:
+          existingSecret: gitea-admin-credentials
+        config:
+          server:
+            ROOT_URL: # to be filled by cluster-forge app
+          database:
+            DB_TYPE: sqlite3
+          session:
+            PROVIDER: memory
+          cache:
+            ADAPTER: memory
+          queue:
+            TYPE: level
+      valkey-cluster:
+        enabled: false
+      valkey:
+        enabled: false
+      postgresql:
+        enabled: false
+      postgresql-ha:
+        enabled: false
+      persistence:
+        enabled: true
+      test:
+        enabled: false
     helmParameters:
       - name: clusterDomain
         value: "{{ .Values.global.domain }}"
@@ -146,7 +210,12 @@ apps:
   kgateway:
     path: kgateway/v2.1.0-main
     namespace: kgateway-system
-    valuesFile: ../values_cf.yaml
+    valuesObject:
+      controller:
+        image:
+          registry: "ghcr.io"
+          repository: silogen/kgateway-v2.1.0-main-websocket
+          tag: "0.0.1"
     syncWave: -2
   kgateway-config:
     path: kgateway-config
@@ -165,12 +234,84 @@ apps:
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
     namespace: opentelemetry-operator-system
-    valuesFile: ../values_cf.yaml
+    valuesObject:
+      # Cluster-forge specific values for opentelemetry-operator
+      # Sets the collector image to use contrib version (required for kaiwo/kedify-otel)
+      manager:
+        collectorImage:
+          repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
+          tag: "0.140.0"
     syncWave: -3
   otel-lgtm-stack:
     path: otel-lgtm-stack/v1.0.7
     namespace: otel-lgtm-stack
-    valuesFile: ../values_cf.yaml
+    valuesObject:
+      # Cluster-forge specific configuration for OpenTelemetry LGTM Stack
+      # This file overrides values.yaml for cluster-forge deployments
+      # Cluster identification - will be populated by root/values.yaml helmParameters
+      cluster:
+        name: # to be filled by cluster-forge app based on domain
+      # Component enablement (cluster-forge defaults)
+      dashboards:
+        enabled: true
+      nodeExporter:
+        enabled: true
+      kubeStateMetrics:
+        enabled: true
+      # Storage configuration optimized for cluster-forge
+      lgtm:
+        storage:
+          # Tempo storage for traces
+          tempo: 50Gi
+          # Loki storage for logs  
+          loki: 50Gi
+          # Grafana storage for dashboards/config  
+          grafana: 10Gi
+          # Mimir/Prometheus storage for metrics
+          mimir: 50Gi
+          # Loki additional storage
+          extra: 50Gi
+        # LGTM stack main deployment resources
+        resources:
+          limits:
+            memory: 8Gi
+          requests:
+            memory: 2Gi
+            cpu: '1'
+      # Resource configuration optimized for cluster-forge
+      collectors:
+        resources:
+          # Metrics collector (deployment mode)
+          metrics:
+            limits:
+              memory: 8Gi
+              cpu: '2'
+            requests:
+              memory: 1Gi
+              cpu: 500m
+          # Logs collector (daemonset mode)  
+          logs:
+            limits:
+              memory: 2Gi
+              cpu: '1'
+            requests:
+              memory: 400Mi
+              cpu: 200m
+      # Service configuration
+      services:
+        # Main LGTM stack service ports
+        lgtm:
+          grafana: 3000
+          otelGrpc: 4317
+          otelHttp: 4318
+          prometheus: 9090
+          loki: 3100
+        # Kube state metrics service port
+        kubeStateMetrics:
+          http: 8080
+        # Node exporter service port
+        nodeExporter:
+          metrics: 9100
     helmParameters:
       - name: cluster.name
         value: "{{ .Values.global.domain }}"
@@ -226,7 +367,10 @@ apps:
   amd-gpu-operator:
     path: amd-gpu-operator/v1.4.0
     namespace: kube-amd-gpu
-    valuesFile: ../values_cf.yaml
+    valuesObject:
+      crds:
+        defaultCR:
+          install: false
     syncWave: -1
   amd-gpu-operator-config:
     path: amd-gpu-operator-config
@@ -246,7 +390,10 @@ apps:
   kedify-otel:
     path: kedify-otel/v0.0.6
     namespace: keda
-    valuesFile: ../values_cf.yaml
+    valuesObject:
+      # Cluster-forge specific values for kedify-otel
+      validatingAdmissionPolicy:
+        enabled: false
     syncWave: -2
   # ML/AI
   kserve-crds:
@@ -257,7 +404,10 @@ apps:
   kserve:
     path: kserve/v0.16.0
     namespace: kserve-system
-    valuesFile: ../values_cf.yaml
+    valuesObject:
+      kserve:
+        controller:
+          deploymentMode: "Standard"
     syncWave: -2
   # Queues
   rabbitmq:
@@ -286,7 +436,33 @@ apps:
   minio-tenant:
     path: minio-tenant/7.1.1
     namespace: minio-tenant-default
-    valuesFile: ../values_cf.yaml
+    valuesObject:
+      tenant:
+        name: default-minio-tenant
+        configSecret:
+          name: default-minio-tenant-env-configuration
+          existingSecret: true
+        pools:
+          - servers: 1
+            name: pool-0
+            volumesPerServer: 1
+            size: 500Gi
+            storageClassName: direct
+        buckets:
+          - name: default-bucket
+            objectLock: true
+          - name: models
+            objectLock: true
+        users:
+          - name: default-user
+        certificate:
+          requestAutoCert: false
+          externalCaCertSecret:
+            - name: cluster-tls
+              type: kubernetes.io/secret/v1
+        env:
+          - name: MINIO_PROMETHEUS_AUTH_TYPE
+            value: "public"
     syncWave: -2
   minio-tenant-config:
     path: minio-tenant-config
