@@ -1,217 +1,8 @@
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: otel-collector
-  namespace: otel-lgtm-stack
----    
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: otel-collector
-rules:
-  - apiGroups: [""]
-    resources:
-      - configmaps
-      - endpoints
-      - events
-      - namespaces
-      - namespaces/status
-      - nodes
-      - nodes/spec
-      - nodes/stats
-      - nodes/metrics
-      - nodes/proxy
-      - persistentvolumes
-      - persistentvolumeclaims
-      - pods
-      - pods/status
-      - replicationcontrollers
-      - replicationcontrollers/status
-      - resourcequotas
-      - services
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
-    resources:
-      - ingresses
-    verbs: ["get", "list", "watch"]
-  - apiGroups: [""]
-    resources:
-      - configmaps
-    verbs: ["get"]
-  - apiGroups: [""]
-    resources:
-      - namespaces
-    verbs: ["get", "list", "watch"]
-  # Added permission for non-resource URLs to access metrics endpoints
-  - nonResourceURLs: 
-      - "/metrics"
-      - "/metrics/cadvisor"
-      - "/stats/summary"
-      - "/api/v1/nodes/*/proxy/metrics"
-      - "/api/v1/nodes/*/proxy/metrics/cadvisor"
-    verbs: ["get"]
-  # Added networking.k8s.io API group for newer Kubernetes versions
-  - apiGroups: ["networking.k8s.io"]
-    resources:
-      - ingresses
-    verbs: ["get", "list", "watch"]
-  # Added permission to access custom resource definitions if using any
-  - apiGroups: ["apiextensions.k8s.io"]
-    resources:
-      - customresourcedefinitions
-    verbs: ["get", "list", "watch"]
-  # Added events.k8s.io API group for newer Kubernetes events
-  - apiGroups: ["events.k8s.io"]
-    resources:
-      - events
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["monitoring.coreos.com"]
-    resources:
-    - servicemonitors
-    - podmonitors
-    - probes
-    - scrapeconfigs
-    verbs: ["*"]
-  - apiGroups: ["apps"]
-    resources:
-    - daemonsets
-    - deployments
-    - replicasets
-    - statefulset
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["autoscaling"]
-    resources:
-      - horizontalpodautoscalers
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["discovery.k8s.io"]
-    resources:
-    - endpointslices
-    verbs: ["get", "list", "watch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: otel-collector
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: otel-collector
-subjects:
-  - kind: ServiceAccount
-    name: otel-collector
-    namespace: otel-lgtm-stack
----
-# Source: openobserve-collector/templates/instrumentation-dotnet.yaml
-apiVersion: opentelemetry.io/v1alpha1
-kind: Instrumentation
-metadata:
-  name: lgtm-dotnet
-  namespace: otel-lgtm-stack
-spec:
-  exporter:
-    endpoint: http://lgtm.lgtm-stack.svc.cluster.local:4318 ###
-  propagators:
-    - tracecontext
-    - baggage
-  sampler:
-    type: parentbased_traceidratio
-    argument: "1"
-  dotnet:
-    env:
-      - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
-        value: http/protobuf
-      - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
-        value: http/protobuf
----
-# Source: openobserve-collector/templates/instrumentation-go.yaml
-apiVersion: opentelemetry.io/v1alpha1
-kind: Instrumentation
-metadata:
-  name: lgtm-go
-  namespace: otel-lgtm-stack
-spec:
-  go:
-    # image: ghcr.io/openobserve/opentelemetry-go-instrumentation/autoinstrumentation-go:v0.7.0-alpha-5
-    image: ghcr.io/open-telemetry/opentelemetry-go-instrumentation/autoinstrumentation-go:v0.19.0-alpha
-  exporter:
-    endpoint: http://lgtm.lgtm-stack.svc.cluster.local:4318 ##
-  propagators:
-    - tracecontext
-    - baggage
-  sampler:
-    type: parentbased_traceidratio
-    argument: "1"
----
-# Source: openobserve-collector/templates/instrumentation-java.yaml
-apiVersion: opentelemetry.io/v1alpha1
-kind: Instrumentation
-metadata:
-  name: lgtm-java
-  namespace: otel-lgtm-stack
-spec:
-  exporter:
-    endpoint: http://lgtm.lgtm-stack.svc.cluster.local:4318 ###
-  propagators:
-    - tracecontext
-    - baggage
-  sampler:
-    type: parentbased_traceidratio
-    argument: "1"
-  java:
-    env:
-      - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
-        value: http/protobuf
-      - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
-        value: http/protobuf
----
-# Source: openobserve-collector/templates/instrumentation-nodejs.yaml
-apiVersion: opentelemetry.io/v1alpha1
-kind: Instrumentation
-metadata:
-  name: lgtm-nodejs
-  namespace: otel-lgtm-stack
-spec:
-  exporter:
-    endpoint: http://lgtm.lgtm-stack.svc.cluster.local:4318 ###
-  propagators:
-    - tracecontext
-    - baggage
-  sampler:
-    type: parentbased_traceidratio
-    argument: "1"
----
-# Source: openobserve-collector/templates/instrumentation-python.yaml
-apiVersion: opentelemetry.io/v1alpha1
-kind: Instrumentation
-metadata:
-  name: lgtm-python
-  namespace: otel-lgtm-stack
-spec:
-  exporter:
-    endpoint: http://lgtm.lgtm-stack.svc.cluster.local:4318 ###
-  propagators:
-    - tracecontext
-    - baggage
-  sampler:
-    type: parentbased_traceidratio
-    argument: "1"
-  python:
-    env:
-      - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
-        value: http/protobuf
-      - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
-        value: http/protobuf
-      - name: OTEL_LOGS_EXPORTER
-        value: otlp_proto_http
-      - name: OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED
-        value: "false" # set to true to enable auto instrumentation for logs
----
 apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
   name: otel-collector-logs
-  namespace: otel-lgtm-stack
+  namespace: {{ .Release.Namespace }}
 spec:
   mode: daemonset
   serviceAccount: otel-collector
@@ -231,11 +22,11 @@ spec:
     prometheus.io/port: "8888"
   resources:
     limits:
-      cpu: '1'
-      memory: 2Gi
+      cpu: {{ .Values.collectors.resources.logs.limits.cpu | quote }}
+      memory: {{ .Values.collectors.resources.logs.limits.memory }}
     requests:
-      cpu: 200m
-      memory: 400Mi
+      cpu: {{ .Values.collectors.resources.logs.requests.cpu | quote }}
+      memory: {{ .Values.collectors.resources.logs.requests.memory }}
   securityContext: ####
     privileged: true
     runAsUser: 0 ####
@@ -315,7 +106,7 @@ spec:
         actions:
           - key: k8s_cluster_name
             action: insert
-            value: "cluster-name" ### value should be updated based on cluster
+            value: {{ .Values.cluster.name | quote }}
       transform: ### this adds k8s.cluster.name as a label filter
         error_mode: ignore
         log_statements:
@@ -444,7 +235,7 @@ apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
   name: otel-collector-logs-events
-  namespace: otel-lgtm-stack
+  namespace: {{ .Release.Namespace }}
 spec:
   image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
   mode: deployment
@@ -558,7 +349,7 @@ apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
   name: otel-collector-metrics-k8s
-  namespace: otel-lgtm-stack
+  namespace: {{ .Release.Namespace }}
 spec:
   mode: deployment
   serviceAccount: otel-collector
@@ -569,11 +360,11 @@ spec:
     prometheus.io/port: "8888"
   resources:
     limits:
-      cpu: '2'
-      memory: 8Gi
+      cpu: {{ .Values.collectors.resources.metrics.limits.cpu | quote }}
+      memory: {{ .Values.collectors.resources.metrics.limits.memory }}
     requests:
-      cpu: 500m
-      memory: 1Gi
+      cpu: {{ .Values.collectors.resources.metrics.requests.cpu | quote }}
+      memory: {{ .Values.collectors.resources.metrics.requests.memory }}
   config:
     receivers:
       prometheus:
@@ -888,7 +679,7 @@ spec:
         actions:
           - key: k8s_cluster_name
             action: insert
-            value: "cluster-name" ### value should be updated based on cluster
+            value: {{ .Values.cluster.name | quote }}
 
     exporters:
       # Configure your actual backend exporters here
@@ -905,284 +696,3 @@ spec:
           receivers: [prometheus]
           processors: [memory_limiter, batch, attributes]
           exporters: [otlp]
----
-apiVersion: opentelemetry.io/v1beta1
-kind: OpenTelemetryCollector
-metadata:
-  name: otel-collector-metrics-rest
-  namespace: otel-lgtm-stack
-spec:
-  image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
-  mode: deployment
-  podAnnotations:
-    prometheus.io/port: "8888"
-    prometheus.io/scrape: "true"
-  replicas: 1
-  resources:
-    limits:
-      cpu: "2"
-      memory: 8Gi
-    requests:
-      cpu: 500m
-      memory: 1Gi
-  serviceAccount: otel-collector
-  config:
-    exporters:
-      debug:
-        verbosity: detailed
-      otlp:
-        endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
-        tls:
-          insecure: true
-    processors:
-      attributes:
-        actions:
-          - action: insert
-            key: k8s_cluster_name
-            value: cluster-name
-      batch:
-        send_batch_size: 2000
-        timeout: 10s
-      memory_limiter:
-        check_interval: 5s
-        limit_percentage: 80
-        spike_limit_percentage: 25
-    receivers:
-      prometheus:
-        config:
-          scrape_configs:
-            - job_name: otel-collector
-              scrape_interval: 30s
-              static_configs:
-                - targets:
-                    - localhost:8888
-            - dns_sd_configs:
-                - names:
-                    - opencost-prometheus-opencost-exporter.monitoring
-                  port: 9003
-                  type: A
-              honor_labels: true
-              job_name: opencost
-              metrics_path: /metrics
-              scheme: http
-              scrape_interval: 1m
-              scrape_timeout: 10s
-            - job_name: gpu-operator-metrics-exporter
-              kubernetes_sd_configs:
-                - role: node
-              metrics_path: /metrics
-              relabel_configs:
-                - action: keep
-                  regex: true
-                  source_labels:
-                    - __meta_kubernetes_node_label_feature_node_kubernetes_io_amd_gpu
-                - regex: (.+)
-                  replacement: $1:32500
-                  source_labels:
-                    - __meta_kubernetes_node_address_InternalIP
-                  target_label: __address__
-                - source_labels:
-                    - __meta_kubernetes_node_name
-                  target_label: hostname
-            - job_name: minio-cluster-metrics
-              metrics_path: /minio/v2/metrics/cluster
-              scheme: http
-              static_configs:
-                - targets:
-                    - minio.minio-tenant-default.svc.cluster.local
-            - job_name: minio-bucket-metrics
-              metrics_path: /minio/v2/metrics/bucket
-              scheme: http
-              static_configs:
-                - targets:
-                    - minio.minio-tenant-default.svc.cluster.local
-            - job_name: minio-resource-metrics
-              metrics_path: /minio/v2/metrics/resource
-              scheme: http
-              static_configs:
-                - targets:
-                    - minio.minio-tenant-default.svc.cluster.local
-            - job_name: argocd-controller
-              metrics_path: /metrics
-              scheme: http
-              static_configs:
-                - targets:
-                    - argocd-metrics.argocd.svc.cluster.local:8082
-            - job_name: argocd-applicationset
-              metrics_path: /metrics
-              scheme: http
-              static_configs:
-                - targets:
-                    - argocd-applicationset-controller.argocd.svc.cluster.local:8080
-            - job_name: argocd-repo-server
-              metrics_path: /metrics
-              scheme: http
-              static_configs:
-                - targets:
-                    - argocd-repo-server.argocd.svc.cluster.local:8084
-            - job_name: longhorn
-              metrics_path: /metrics
-              scheme: http
-              static_configs:
-                - targets:
-                    - longhorn-backend.longhorn.svc.cluster.local:9500
-    service:
-      pipelines:
-        metrics:
-          exporters:
-            - otlp
-          processors:
-            - memory_limiter
-            - batch
-            - attributes
-          receivers:
-            - prometheus
-
----
-apiVersion: opentelemetry.io/v1beta1
-kind: OpenTelemetryCollector
-metadata:
-  name: otel-collector-metrics-chrony
-  namespace: otel-lgtm-stack
-spec:
-  image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
-  mode: deployment
-  podAnnotations:
-    prometheus.io/port: "8888"
-    prometheus.io/scrape: "true"
-  replicas: 1
-  resources:
-    limits:
-      cpu: "2"
-      memory: 8Gi
-    requests:
-      cpu: 500m
-      memory: 1Gi
-  serviceAccount: otel-collector
-  config:
-    exporters:
-      debug:
-        verbosity: detailed
-      otlp:
-        endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
-        tls:
-          insecure: true
-    processors:
-      attributes:
-        actions:
-          - action: insert
-            key: k8s_cluster_name
-            value: cluster-name
-      batch:
-        send_batch_size: 2000
-        timeout: 10s
-      memory_limiter:
-        check_interval: 5s
-        limit_percentage: 80
-        spike_limit_percentage: 25
-    receivers:
-      prometheus:
-        config:
-          scrape_configs:
-            - job_name: chrony-exporter
-              kubernetes_sd_configs:
-                - role: pod
-              relabel_configs:
-                - source_labels: [__meta_kubernetes_pod_label_app]
-                  regex: chrony-exporter
-                  action: keep
-                - source_labels: [__meta_kubernetes_pod_ip]
-                  target_label: __address__
-                  regex: (.*)
-                  replacement: $1:9123
-                - source_labels: [__meta_kubernetes_pod_node_name]
-                  target_label: k8s_node_name
-    service:
-      pipelines:
-        metrics:
-          exporters:
-            - otlp
-          processors:
-            - memory_limiter
-            - batch
-            - attributes
-          receivers:
-            - prometheus
-
----
-apiVersion: opentelemetry.io/v1beta1
-kind: OpenTelemetryCollector
-metadata:
-  name: otel-collector-metrics-airm
-  namespace: otel-lgtm-stack
-spec:
-  image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
-  mode: deployment
-  podAnnotations:
-    prometheus.io/port: "8888"
-    prometheus.io/scrape: "true"
-  replicas: 1
-  resources:
-    limits:
-      cpu: "2"
-      memory: 8Gi
-    requests:
-      cpu: 500m
-      memory: 1Gi
-  serviceAccount: otel-collector
-  config:
-    exporters:
-      debug:
-        verbosity: detailed
-      otlp:
-        endpoint: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
-        tls:
-          insecure: true
-    processors:
-      attributes:
-        actions:
-          - action: insert
-            key: k8s_cluster_name
-            value: cluster-name
-      batch:
-        send_batch_size: 2000
-        timeout: 10s
-      memory_limiter:
-        check_interval: 5s
-        limit_percentage: 80
-        spike_limit_percentage: 25
-    receivers:
-      prometheus:
-        config:
-          scrape_configs:
-            - job_name: airm-custom-metrics
-              scrape_interval: 30s
-              kubernetes_sd_configs:
-                - role: pod
-              metrics_path: /
-              relabel_configs:
-                - action: keep
-                  source_labels:
-                    - __meta_kubernetes_pod_label_app
-                  regex: airm-api
-                - regex: (.+)
-                  replacement: $1:9009
-                  source_labels:
-                    - __meta_kubernetes_node_address_InternalIP
-                  target_label: __address__
-                  action: replace
-                - source_labels:
-                    - __meta_kubernetes_node_name
-                  target_label: hostname
-
-    service:
-      pipelines:
-        metrics:
-          exporters:
-            - otlp
-          processors:
-            - memory_limiter
-            - batch
-            - attributes
-          receivers:
-            - prometheus
