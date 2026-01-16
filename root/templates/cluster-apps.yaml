@@ -15,8 +15,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: {{ $clusterForgeRepoUrl }}
-    targetRevision: {{ $clusterForgeTargetRevision }}
+    repoURL: {{ .repoURL | default $clusterForgeRepoUrl }}
+    targetRevision: {{ .repoVersion | default $clusterForgeTargetRevision }}
     path: sources/{{ .path }}
     {{- if .valuesFile }}
     helm:
