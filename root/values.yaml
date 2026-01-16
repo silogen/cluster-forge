@@ -102,7 +102,7 @@ apps:
         namespace: cert-manager
         valuesObject:
             installCRDs: true
-        syncWave: -3
+        syncWave: -4
     openbao:
         path: openbao/0.18.2
         namespace: cf-openbao
@@ -139,11 +139,11 @@ apps:
         path: external-secrets/0.15.1
         namespace: external-secrets
         valuesFile: values.yaml
-        syncWave: -3
+        syncWave: -4
     external-secrets-config:
         path: external-secrets-config
         namespace: external-secrets
-        syncWave: -3
+        syncWave: -2
     gitea:
         path: gitea/12.3.0
         namespace: cf-gitea
@@ -197,11 +197,11 @@ apps:
     gateway-api:
         path: gateway-api/v1.3.0
         namespace: default
-        syncWave: -3
+        syncWave: -5
     metallb:
         path: metallb/v0.15.2
         namespace: default
-        syncWave: -3
+        syncWave: -4
     kgateway-crds:
         path: kgateway-crds/v2.1.0-main
         namespace: kgateway-system
@@ -230,7 +230,7 @@ apps:
         path: prometheus-operator-crds/23.0.0
         namespace: prometheus-system
         valuesFile: values.yaml
-        syncWave: -3
+        syncWave: -5
     opentelemetry-operator:
         path: opentelemetry-operator/0.93.1
         namespace: opentelemetry-operator-system
@@ -362,7 +362,7 @@ apps:
     kyverno-config:
         path: kyverno-config
         namespace: kyverno
-        syncWave: -3
+        syncWave: -2
     # GPU
     amd-gpu-operator:
         path: amd-gpu-operator/v1.4.0
@@ -375,7 +375,7 @@ apps:
     amd-gpu-operator-config:
         path: amd-gpu-operator-config
         namespace: kube-amd-gpu
-        syncWave: -1
+        syncWave: 0
     kuberay-operator:
         path: kuberay-operator/1.4.2
         namespace: default
@@ -386,7 +386,7 @@ apps:
         path: keda/2.18.1
         namespace: keda
         valuesFile: values.yaml
-        syncWave: -2
+        syncWave: -1
     kedify-otel:
         path: kedify-otel/v0.0.6
         namespace: keda
@@ -394,7 +394,7 @@ apps:
             # Cluster-forge specific values for kedify-otel
             validatingAdmissionPolicy:
                 enabled: false
-        syncWave: -2
+        syncWave: 0
     # ML/AI
     kserve-crds:
         path: kserve-crds/v0.16.0
@@ -408,7 +408,7 @@ apps:
             kserve:
                 controller:
                     deploymentMode: "Standard"
-        syncWave: -2
+        syncWave: -1
     # Queues
     rabbitmq:
         path: rabbitmq/v2.15.0
@@ -432,7 +432,7 @@ apps:
         path: minio-operator/7.1.1
         namespace: minio-operator
         valuesFile: values.yaml
-        syncWave: -3
+        syncWave: -1
     minio-tenant:
         path: minio-tenant/7.1.1
         namespace: minio-tenant-default
@@ -463,7 +463,7 @@ apps:
                 env:
                     - name: MINIO_PROMETHEUS_AUTH_TYPE
                       value: "public"
-        syncWave: -2
+        syncWave: 0
     minio-tenant-config:
         path: minio-tenant-config
         namespace: minio-tenant-default
@@ -471,7 +471,7 @@ apps:
         helmParameters:
             - name: domain
               value: "{{ .Values.global.domain }}"
-        syncWave: -1
+        syncWave: 0
         ignoreDifferences:
             - group: external-secrets.io
               kind: ExternalSecret
@@ -496,7 +496,7 @@ apps:
     kaiwo-config:
         path: kaiwo-config
         namespace: kaiwo-system
-        syncWave: -1
+        syncWave: 0
         ignoreDifferences:
             - group: external-secrets.io
               kind: ExternalSecret
