@@ -50,6 +50,7 @@ dev-debug.log
 node_modules/
 # Environment variables
 .env
+.k8s*
 # Editor directories and files
 .vscode
 *.suo
