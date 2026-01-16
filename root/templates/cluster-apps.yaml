@@ -17,7 +17,11 @@ spec:
   source:
     repoURL: {{ .repoURL | default $clusterForgeRepoUrl }}
     targetRevision: {{ .repoVersion | default $clusterForgeTargetRevision }}
+    {{- if .repoURL }}
+    path: {{ .path }}
+    {{- else }}
     path: sources/{{ .path }}
+    {{- end }}
     {{- if .valuesFile }}
     helm:
       valueFiles:
