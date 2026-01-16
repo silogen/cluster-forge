@@ -1,14 +1,15 @@
 clusterForge:
     repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
-    targetRevision: v1.7.0 # cluster-forge version git tag
-    valuesFile: values.yaml
+    #targetRevision: v1.7.0 # cluster-forge version git tag
+    targetRevision: t_shirt_small
+    #valuesFile: values.yaml
 # source helm values file from separate git repo
 externalValues:
     enabled: true
     repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
-    #targetRevision: main
+    targetRevision: main
     #path: values_cf.yaml
-    targetRevision: t_shirt_small
+    #targetRevision: t_shirt_small
     path: values.yaml
 global:
     domain: # to be filled by bootstrap script
@@ -123,7 +124,7 @@ apps:
                                 component: server
                             topologyKey: kubernetes.io/hostname
                 ha:
-                  replicas: 1
+                    replicas: 1
             ui:
                 enabled: true
         syncWave: -3
