@@ -110,6 +110,7 @@ spec:
                   sed -i -e "s/__MINIO_CLIENT_SECRET__/$MINIO_CLIENT_SECRET/g" /opt/realms/airm-realm.json
                   sed -i -e "s/__GITEA_CLIENT_SECRET__/$GITEA_CLIENT_SECRET/g" /opt/realms/airm-realm.json
                   sed -i -e "s/__ARGOCD_CLIENT_SECRET__/$ARGOCD_CLIENT_SECRET/g" /opt/realms/airm-realm.json
+                  sed -i -e "s/__DEVUSER_INITIAL_PASSWORD__/$DEVUSER_INITIAL_PASSWORD/g" /opt/realms/airm-realm.json
               else
                   echo "Warning: /opt/realm_templates/airm-realm.json not found, skipping airm realm setup"
               fi
@@ -154,6 +155,11 @@ spec:
                 secretKeyRef:
                   key: ARGOCD_CLIENT_SECRET
                   name: airm-realm-credentials
+            - name: DEVUSER_INITIAL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: KEYCLOAK_INITIAL_DEVUSER_PASSWORD
+                  name: airm-realm-credentials #double check this
           image: ghcr.io/silogen/keycloak-init:0.1
           name: init-realm-scripts
           volumeMounts:
