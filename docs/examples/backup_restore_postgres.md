@@ -9,14 +9,14 @@
 ## Prerequisites
 
 - Shell access to a machine with `kubectl` configured for the target Kubernetes cluster
-- Access to the AIRM / Keycloak namespaces in the Kubernetes cluster
+- Access to the AMD Resource Manager (airm) / Keycloak namespaces in the Kubernetes cluster
 - Sufficient local disk space for database backups (database size + 20% recommended)
 
 ## What These Commands Do
 
 **Backup Process:**
 1. Retrieves database credentials from Kubernetes secrets
-2. Finds the primary CNPG pod for AIRM and Keycloak databases
+2. Finds the primary CNPG pod for AMD Resource Manager (AIRM) and Keycloak databases
 3. Executes `pg_dump` inside each pod to create backups
 4. Copies the backup files to your local machine
 5. Cleans up temporary files from the containers
@@ -27,9 +27,9 @@
 2. Finds the primary CNPG pod for each database
 3. Waits for pods to be ready
 4. Pipes SQL backup files directly into the database containers
-5. Restarts AIRM / Keycloak deployments to apply the restored data
+5. Restarts AMD Resource Manager (AIRM) / Keycloak deployments to apply the restored data
 
-## Database Backup - AIRM
+## Database Backup - AMD Resource Manager (AIRM)
 
 ```bash
 # Set backup directory
@@ -38,17 +38,17 @@ BACKUP_DIR="$HOME/db_backups"
 mkdir -p "$BACKUP_DIR"
 BACKUP_DATE=$(date +%Y-%m-%d)
 
-# Get AIRM database credentials
+# Get AMD Resource Manager (AIRM) database credentials
 # Retrieves the database username, password, and database name from Kubernetes secrets
 AIRM_USER=$(kubectl get secret -n airm airm-cnpg-user -o jsonpath='{.data.username}' | base64 -d)
 AIRM_PASSWORD=$(kubectl get secret -n airm airm-cnpg-user -o jsonpath='{.data.password}' | base64 -d)
 AIRM_DB=airm
 
-# Find primary AIRM pod
-# Locates the primary PostgreSQL pod for AIRM (important for multi-replica setups)
+# Find primary AMD Resource Manager (AIRM) pod
+# Locates the primary PostgreSQL pod for AMD Resource Manager (important for multi-replica setups)
 AIRM_POD=$(kubectl get pod -n airm -l cnpg.io/cluster=airm-cnpg,role=primary -o jsonpath='{.items[0].metadata.name}')
 
-# Backup AIRM database
+# Backup AMD Resource Manager (AIRM) database
 # Step 1: Run pg_dump inside the container to create a SQL backup file
 kubectl exec -n airm "$AIRM_POD" -- bash -c "PGPASSWORD='$AIRM_PASSWORD' pg_dump -U '$AIRM_USER' -d '$AIRM_DB' > /var/lib/postgresql/data/airm_backup.sql"
 
@@ -95,7 +95,7 @@ echo "Backups completed:"
 ls -lh "$BACKUP_DIR"/*_$BACKUP_DATE.sql
 ```
 
-## Database Restore - AIRM
+## Database Restore - AMD Resource Manager (AIRM)
 
 ```bash
 # In the event of having an exisitng cluster, you can delete the existing CNPG cluster to ensure a clean restore 

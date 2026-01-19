@@ -1,13 +1,14 @@
 # AMD Enterprise AI Suite - Backup and Restore Procedures
 
-⚠️ Important Disclaimers
+⚠️ Important Notes & Disclaimers
+  - The AMD Resouce Manager is internally referenced as `airm`, hence the namespace and resource prefixes (understand that they are the same). 
   - This is only an example script only, adjust paths and commands as needed for your system.
   - This is for illustration purposes only and **not officially supported.**
   - Always test backup and restore procedures in a safe environment before relying on them in production.
   - The backup and restore process is **not guaranteed to be backwards compatible between two arbitrary versions.**
 <hr>
 This document covers backup and restore procedures for:
-  1. [Database Backup & Restore (AIRM & Keycloak)](#1-cnpg-cloudnative-postgres-backup--restore)
+  1. [Database Backup & Restore (AMD Resource Manager & Keycloak)](#1-cnpg-cloudnative-postgres-backup--restore)
   2. [RabbitMQ Backup & Restore](#2-rabbitmq-backup--restore)
   3. [MinIO Backup & Restore (Bucket replication and one-off filesystem backup)](#3-minio-backup--restore)
   4. [Longhorn Backup & Restore](#4-longhorn-backup--restore)
@@ -26,30 +27,30 @@ This document covers backup and restore procedures for:
 
 ## 1. CNPG (CloudNative Postgres)  Backup & Restore
 
-AIRM and Keycloak use Cloud Native PostgreSQL (CNPG) for data persistence.
+The AMD Resource Manager and Keycloak both use Cloud Native PostgreSQL (CNPG) for data persistence.
 
 ### Overview
 
 **Backup Process:**
 1. Retrieve database credentials from Kubernetes secrets
-2. Find the primary CNPG pod for AIRM and Keycloak databases
+2. Find the primary CNPG pod for AMD Resource Manager and Keycloak databases
 3. Execute `pg_dump` inside each pod to create backups
 4. Copy the backup files to your local machine
 5. Clean up temporary files from the containers
-6. Create timestamped backup files: `airm_db_backup_YYYY-MM-DD.sql` and `keycloak_db_backup_YYYY-MM-DD.sql`
+6. Create timestamped backup files: `amd_resource_manager_db_backup_YYYY-MM-DD.sql` and `keycloak_db_backup_YYYY-MM-DD.sql`
 
 **Restore Process:**
 1. Retrieve database credentials from Kubernetes secrets
 2. Find the primary CNPG pod for each database
 3. Wait for pods to be ready
 4. Pipe SQL backup files directly into the database containers
-5. Restart AIRM deployments to apply the restored data
+5. Restart AMD Resource Manager (airm) deployments to apply the restored data
 
 ### Detailed Command Example
 
 For a backup & restore example (not officially supported), see: [`backup_restore_postgres.md`](examples/backup_restore_postgres.md)
 
-## 2. RabbitMQ Backup & Restore
+## 2. RabbitMQ Backup & Restore 
 
 RabbitMQ definitions (exchanges, queues, bindings, policies) can be exported and restored. Since messages in RabbitMQ are typically transient and processed within seconds, the backup focuses on configuration rather than message content.
 
