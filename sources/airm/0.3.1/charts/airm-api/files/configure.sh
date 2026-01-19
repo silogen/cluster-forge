@@ -354,7 +354,7 @@ function request_password_reset() {
     USER_ID=$(echo "$USER" | jq -r '.id')
     echo "Fetched user ID: $USER_ID"
 
-    UPDATED_USER=$(echo "$USER" | jq '.requiredActions = ["UPDATE_PASSWORD"]')
+    UPDATED_USER=$(echo "$USER" | jq '.requiredActions = []')
 
     UPDATE_USER_RESP=$(curl -w "%{http_code}" -o /dev/null -s -X PUT \
         "${KEYCLOAK_URL}/admin/realms/${KEYCLOAK_REALM}/users/${USER_ID}" \
