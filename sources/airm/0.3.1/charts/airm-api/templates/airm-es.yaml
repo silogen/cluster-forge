@@ -176,6 +176,27 @@ spec:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
+  name: "{{ .Release.Name }}-user-credentials"
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    helm.sh/hook: pre-install
+spec:
+  data:
+    - remoteRef:
+        key: keycloak-initial-devuser-password
+        property: value
+      secretKey: USER_PASSWORD
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.airm.externalSecretStore.airm.name }}
+  target:
+    name: "{{ .Release.Name }}-user-credentials"
+    template:
+      type: Opaque
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
   name: "{{ .Release.Name }}-cluster-auth-secrets"
   namespace: "{{ .Release.Namespace }}"
   annotations:

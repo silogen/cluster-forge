@@ -139,6 +139,11 @@ spec:
                   name: "{{ .Release.Name }}-keycloak-admin-client"
             - name: AIRM_API_URL
               value: "http://{{ .Release.Name }}-api.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: USER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: USER_PASSWORD
+                  name: "{{ .Release.Name }}-user-credentials"
           volumeMounts:
             - name: configure-script
               mountPath: /scripts
