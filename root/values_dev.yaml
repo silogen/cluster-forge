@@ -7,7 +7,7 @@ externalValues:
   enabled: false
 
 global:
-  domain: plat-dev-4 # to be provided by developer
+  domain: plat-dev-4.silogen.ai # to be provided by developer
 
 enabledApps:
   - argocd
