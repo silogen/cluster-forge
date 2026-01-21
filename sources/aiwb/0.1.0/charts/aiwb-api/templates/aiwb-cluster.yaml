@@ -1,0 +1,47 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: "{{ .Release.Name }}-cnpg"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: topology.kubernetes.io/zone
+  bootstrap:
+    initdb:
+      database: aiwb
+      owner: aiwb_user
+      postInitSQL:
+        - GRANT CREATE ON SCHEMA public TO aiwb_user
+      secret:
+        name: "{{ .Release.Name }}-cnpg-user"
+  imageName: {{ .Values.aiwb.postgresql.cnpg.image }}
+  instances: {{ .Values.aiwb.postgresql.cnpg.instance }}
+  nodeMaintenanceWindow:
+    inProgress: false
+    reusePVC: true
+  postgresql:
+    parameters:
+      auto_explain.log_min_duration: "10s"
+      pg_stat_statements.max: "10000"
+      pg_stat_statements.track: "all"
+      shared_buffers: "256MB"
+      wal_compression: "pglz"
+    pg_hba:
+      - host all all 10.244.0.0/16 md5
+  primaryUpdateStrategy: unsupervised
+  resources:
+    {{- toYaml .Values.aiwb.postgresql.cnpg.resources | nindent 4 }}
+  startDelay: 300
+  stopDelay: 300
+  storage:
+    {{- toYaml .Values.aiwb.postgresql.cnpg.storage | nindent 4 }}
+  superuserSecret:
+    name: "{{ .Release.Name }}-cnpg-superuser"
+  walStorage:
+    {{- toYaml .Values.aiwb.postgresql.cnpg.walStorage | nindent 4 }}

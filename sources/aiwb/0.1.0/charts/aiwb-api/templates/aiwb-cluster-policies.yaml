@@ -1,0 +1,43 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+{{- if eq .Values.aiwb.config.deploymentMode "standalone" }}
+---
+# Kyverno policy that creates the default workbench namespace in standalone mode
+# This ensures AIWB can discover and use the namespace without requiring AIRM
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: aiwb-create-default-namespace
+  annotations:
+    policies.kyverno.io/title: Create AIWB Default Namespace
+    policies.kyverno.io/category: AIWB
+    policies.kyverno.io/subject: Namespace
+    policies.kyverno.io/description: >-
+      Creates the default workbench namespace when AIWB is deployed in standalone mode.
+      The namespace is labeled with aiwb.amd.com/enabled=true so AIWB can discover it.
+spec:
+  background: true
+  rules:
+    - name: create-default-workbench-namespace
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              names:
+                - "{{ .Release.Namespace }}"
+      generate:
+        apiVersion: v1
+        kind: Namespace
+        name: "{{ .Values.aiwb.config.defaultNamespace }}"
+        synchronize: true
+        data:
+          metadata:
+            labels:
+              aiwb.amd.com/enabled: "true"
+              aiwb.amd.com/managed-by: "{{ .Release.Name }}"
+              app.kubernetes.io/created-by: aiwb
+              app.kubernetes.io/part-of: aiwb
+{{- end }}
