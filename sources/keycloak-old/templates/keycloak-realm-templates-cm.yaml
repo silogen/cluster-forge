@@ -746,13 +746,15 @@ data:
             "https://{{ .Values.domain }}/*",
             "http://localhost:8000/*",
             "http://localhost:8001/*",
-            "http://localhost:8010/*"
+            "http://localhost:8010/*",
+            "http://localhost:8011/*"
           ],
           "webOrigins": [
             "*",
             "http://localhost:8000",
             "http://localhost:8001",
-            "http://localhost:8010"
+            "http://localhost:8010",
+            "http://localhost:8011"
           ],
           "notBefore": 0,
           "bearerOnly": false,
