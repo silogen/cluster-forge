@@ -1,0 +1,152 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+kgateway:
+  namespace: kgateway-system
+  gatewayName: https
+  aiwbapi:
+    servicePort: 80
+    prefixValue: aiwbapi
+    timeouts:
+      backendRequest: 10m
+      request: 10m
+
+aiwb:
+  appDomain: PUBLIC-IP
+  includeDemoSetup: true
+
+  externalSecretStore:
+    aiwb:
+      name: openbao-secret-store
+    minio:
+      name: openbao-secret-store
+    keycloak:
+      name: openbao-secret-store
+    clusterAuth:
+      name: openbao-secret-store
+
+  postgresql:
+    enabled: true
+    cnpg:
+      image: ghcr.io/cloudnative-pg/postgresql:17
+      instance: 1
+      resources:
+        limits:
+          cpu: "2"
+          memory: 1Gi
+        requests:
+          cpu: "1"
+          memory: 512Mi
+      storage:
+        size: 50Gi
+        storageClass: default
+      walStorage:
+        size: 50Gi
+        storageClass: default
+
+  keycloak:
+    internalUrl: http://keycloak.keycloak.svc.cluster.local:8080
+    clientId: "aiwb-client"
+    realm: aiwb
+
+  clusterAuth:
+    url: http://cluster-auth.cluster-auth.svc.cluster.local:8081
+
+  backend:
+    image:
+      repository: amdenterpriseai/aiwb-api
+      tag: 0.1.0
+      pullPolicy: IfNotPresent
+
+    servicePort: 80
+    servicePortMetrics: 9009
+    env:
+      dbPort: 5432
+      minioUrl: http://minio.minio-tenant-default.svc.cluster.local:80
+      minioBucket: default-bucket
+      prometheusUrl: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:9090
+
+    resources:
+      limits:
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 512Mi
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      runAsUser: 1000
+      seccompProfile:
+        type: RuntimeDefault
+
+  # AIWB Application Configuration
+  config:
+    deploymentMode: "standalone"
+    defaultNamespace: "workbench"
+    namespaceLabelSelector: "aiwb.amd.com/enabled=true"
+
+  # Polling Intervals (seconds)
+  polling:
+    workloadInterval: 5
+    reconciliationInterval: 300
+    pendingTimeout: 60
+
+  # Charts Configuration (workload templates)
+  charts:
+    finetuning: "llm-finetune-silogen-engine"
+    inference: "llm-inference-vllm"
+    vscode: "dev-workspace-vscode"
+    jupyterlab: "dev-workspace-jupyterlab"
+    comfyui: "dev-text2image-comfyui"
+    mlflow: "dev-tracking-mlflow"
+
+  # Dataset Configuration
+  datasets:
+    maxFileSizeMB: 100
+
+  # Loki / Logging Configuration
+  loki:
+    enabled: false
+    url: "http://loki.observability.svc.cluster.local:3100"
+    timeoutSeconds: 30
+    defaultTimeRangeDays: 15
+
+  # AIM Configuration
+  aim:
+    enabled: true
+    runtimeConfigName: "amd-aim-cluster-runtime-config"
+
+  # Metrics Configuration
+  metrics:
+    enabled: true
+    configMapNamespace: "kube-amd-gpu"
+    configMapName: "gpu-config"
+
+  # MinIO retry configuration
+  minio:
+    maxAttempts: 3
+    minWait: 4
+    maxWait: 60
+
+  utilities:
+    netcat:
+      image:
+        repository: busybox
+        tag: 1.37.0
+        pullPolicy: IfNotPresent
+    curl:
+      image:
+        repository: curlimages/curl
+        tag: 8.16.0
+        pullPolicy: IfNotPresent
+    liquibase:
+      image:
+        repository: docker.io/liquibase/liquibase
+        tag: 4.31
+        pullPolicy: IfNotPresent
+    clusterTool:
+      image:
+        repository: amdenterpriseai/cluster-tool
+        tag: latest
+        pullPolicy: IfNotPresent
