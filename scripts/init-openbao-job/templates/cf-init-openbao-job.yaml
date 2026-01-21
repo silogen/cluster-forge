@@ -29,8 +29,19 @@ spec:
           volumeMounts:
             - name: scripts
               mountPath: /tmp/scripts
+            - name: secrets-config
+              mountPath: /tmp/secrets
+            - name: secret-manager
+              mountPath: /tmp/secret-manager
       volumes:
         - name: scripts
           configMap:
             name: openbao-init-scripts
+            defaultMode: 0755
+        - name: secrets-config
+          configMap:
+            name: openbao-secrets-config
+        - name: secret-manager
+          configMap:
+            name: openbao-secret-manager-scripts
             defaultMode: 0755
