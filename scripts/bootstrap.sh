@@ -115,8 +115,19 @@ kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
 
 # ArgoCD bootstrap
 echo "Bootstrapping ArgoCD..."
-helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 -f ${SCRIPT_DIR}/../sources/argocd/${VALUES_FILE} --namespace argocd \
-  --set global.domain="https://argocd.${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
+helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 --namespace argocd \
+  --set global.domain="https://argocd.${DOMAIN}" \
+  --set configs.params.server.insecure=true \
+  --set configs.cm.create=true \
+  --set configs.rbac.create=true \
+  --set "configs.rbac.policy\.csv=g, argocd-users, role:admin" \
+  --set controller.replicas=1 \
+  --set applicationSet.replicas=1 \
+  --set repoServer.replicas=1 \
+  --set server.replicas=1 \
+  --set redis.enabled=true \
+  --set redis-ha.enabled=false \
+  --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl rollout status statefulset/argocd-application-controller -n argocd
 kubectl rollout status deploy/argocd-applicationset-controller -n argocd
 kubectl rollout status deploy/argocd-redis -n argocd
@@ -124,8 +135,13 @@ kubectl rollout status deploy/argocd-repo-server -n argocd
 
 # OpenBao bootstrap
 echo "Bootstrapping OpenBao..."
-helm template --release-name openbao ${SCRIPT_DIR}/../sources/openbao/0.18.2 -f ${SCRIPT_DIR}/../sources/openbao/values_cf.yaml \
-  --namespace cf-openbao --kube-version=${KUBE_VERSION} | kubectl apply -f -
+helm template --release-name openbao ${SCRIPT_DIR}/../sources/openbao/0.18.2 --namespace cf-openbao \
+  --set injector.enabled=false \
+  --set server.ha.enabled=false \
+  --set server.ha.raft.enabled=false \
+  --set server.ha.replicas=1 \
+  --set ui.enabled=true \
+  --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
 helm template --release-name openbao-init ${SCRIPT_DIR}/init-openbao-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
@@ -157,8 +173,22 @@ kubectl create secret generic gitea-admin-credentials \
   --from-literal=password=$(generate_password) \
   --dry-run=client -o yaml | kubectl apply -f -
 
-helm template --release-name gitea ${SCRIPT_DIR}/../sources/gitea/12.3.0 -f ${SCRIPT_DIR}/../sources/gitea/values_cf.yaml --namespace cf-gitea \
-  --set clusterDomain="${DOMAIN}" --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
+helm template --release-name gitea ${SCRIPT_DIR}/../sources/gitea/12.3.0 --namespace cf-gitea \
+  --set clusterDomain="${DOMAIN}" \
+  --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}" \
+  --set gitea.config.database.DB_TYPE="sqlite3" \
+  --set gitea.config.session.PROVIDER="memory" \
+  --set gitea.config.cache.ADAPTER="memory" \
+  --set gitea.config.queue.TYPE="level" \
+  --set gitea.admin.existingSecret="gitea-admin-credentials" \
+  --set strategy.type="Recreate" \
+  --set valkey-cluster.enabled=false \
+  --set valkey.enabled=false \
+  --set postgresql.enabled=false \
+  --set postgresql-ha.enabled=false \
+  --set persistence.enabled=true \
+  --set test.enabled=false \
+  --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl rollout status deploy/gitea -n cf-gitea
 helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
