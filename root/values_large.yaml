@@ -1,0 +1,251 @@
+# LARGE CLUSTER CONFIGURATION
+# Target: Production-Path / Scale-Out (10s-100s users)  
+# Nodes: 3-5 dedicated CP servers + 3-6 GPU nodes to start, scale to 100s
+# CPU: Workers: 32-96 vCPU, CP nodes: 8-16 vCPU
+# Memory: Workers: 256-1024 GB, CP nodes: 32-64 GB
+# GPU: 8+ GPUs baseline, mixed families, heterogeneous, partitionable
+# Storage: 10-100+ TB NVMe, External HA S3 object storage (recommended)
+# Networking: 25 GbE or more, optional separate storage network
+# RKE2: Dedicated, tainted CP nodes, etcd snapshots + full backup/restore plan
+
+# LARGE CLUSTER: All apps enabled (inherited from base values.yaml)  
+# Only resource scaling overrides below - no need to redefine enabledApps
+
+apps:
+  argocd:
+    valuesObject:
+      # Large tier: Production scale with 3 replicas and enhanced PDB
+      applicationSet:
+        pdb:
+          minAvailable: 2
+        replicas: 3
+        resources:
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+      controller:
+        pdb:
+          minAvailable: 2
+        replicas: 3
+        resources:
+          limits:
+            cpu: "4000m"
+            memory: "8Gi"
+          requests:
+            cpu: "1000m"
+            memory: "2Gi"
+      redis-ha:
+        enabled: true
+        redis:
+          resources:
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+        haproxy:
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+      repoServer:
+        pdb:
+          minAvailable: 2  
+        replicas: 3
+        resources:
+          limits:
+            cpu: "3000m"
+            memory: "6Gi"
+          requests:
+            cpu: "750m"
+            memory: "1.5Gi"
+        env:
+          - name: ARGOCD_REPO_SERVER_PARALLELISM_LIMIT
+            value: "10"
+      server:
+        pdb:
+          minAvailable: 2
+        replicas: 3
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+        ingress:
+          enabled: true
+          annotations:
+            nginx.ingress.kubernetes.io/ssl-redirect: "true"
+            nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+            cert-manager.io/cluster-issuer: "cluster-issuer"
+  minio-tenant:
+    valuesObject:
+      tenant:
+        # Large tier: Additional buckets for production workloads
+        buckets:
+          - name: default-bucket
+            objectLock: true
+          - name: models
+            objectLock: true
+          - name: datasets
+            objectLock: false
+          - name: artifacts
+            objectLock: false
+          - name: backup
+            objectLock: true
+        # Large tier: Production optimizations
+        env:
+          - name: MINIO_PROMETHEUS_AUTH_TYPE
+            value: "public"
+          - name: MINIO_COMPRESSION_ENABLE
+            value: "on"
+          - name: MINIO_COMPRESSION_ALLOW_ENCRYPTION
+            value: "on"
+        # Large tier: Multi-pool production storage (30TB main + 8TB hot)
+        pools:
+          - name: pool-0
+            servers: 6
+            size: 5Ti
+            storageClassName: default
+            volumesPerServer: 4
+          - name: pool-hot
+            servers: 4
+            size: 2Ti
+            storageClassName: mlstorage
+            volumesPerServer: 2
+        # Large tier: Additional production users
+        users:
+          - name: default-user
+          - name: backup-user
+          - name: analytics-user
+        # Large tier production resources
+        resources:
+          limits:
+            cpu: "8000m"    # High CPU for production workloads
+            memory: "16Gi"  # High memory for large-scale operations
+          requests:
+            cpu: "2000m"
+            memory: "4Gi"
+        # Large tier: production security policies
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          fsGroup: 1001
+        # Large tier: advanced lifecycle and tier management
+        lifecycle:
+          - id: production-data-management
+            status: Enabled
+            transition:
+              days: 30
+              storageClass: IA
+          - id: archive-old-data
+            status: Enabled
+            transition:
+              days: 365
+              storageClass: GLACIER
+          - id: cleanup-temp-data  
+            status: Enabled
+            expiration:
+              days: 7
+              prefix: "temp/"
+        # Large tier: monitoring and logging
+        monitoring:
+          enabled: true
+          namespace: monitoring
+        logging:
+          enabled: true
+          audit: true
+        # Large tier: backup configuration
+        features:
+          bucketDNS: true
+          enableSFTP: false
+        # Large tier: performance optimization  
+        configuration: |-
+          storage_class standard
+          cache drives="/tmp/cache"
+          cache exclude="*.tmp"
+        # Large tier: node affinity for dedicated storage nodes
+        affinity:
+          nodeAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                preference:
+                  matchExpressions:
+                    - key: node-role.kubernetes.io/storage
+                      operator: In
+                      values: ["true"]
+        # Large tier: tolerations for dedicated nodes
+        tolerations:
+          - key: "storage-node"
+            operator: "Equal"
+            value: "true"
+            effect: "NoSchedule"
+  # Large tier: Enhanced Keycloak for production scale
+  keycloak:
+    valuesObject:
+      # Large tier: production HA setup
+      replicaCount: 3
+      resources:
+        limits:
+          cpu: "2000m"
+          memory: "4Gi"
+        requests:
+          cpu: "500m"
+          memory: "1Gi"
+      # Large tier: production database
+      postgresql:
+        enabled: false  # Use external DB for production
+      # Note: infinispan configuration removed - not supported by keycloak-old chart
+      # Large tier: advanced security
+      extraStartupArgs: "--cache=ispn --features=scripts,admin-fine-grained-authz,token-exchange,account3 --import-realm --spi-sticky-session-encoder-infinispan-should-attach-route=false"
+  openbao:
+    valuesObject:
+      server:
+        ha:
+          enabled: true
+          replicas: 3
+          raft:
+            enabled: true
+  # Large tier: Enhanced monitoring stack
+  otel-lgtm-stack:
+    valuesObject:
+      # Large tier: production-scale monitoring resources  
+      lgtm:
+        resources:
+          limits:
+            memory: 32Gi  # Much more memory for large-scale monitoring
+          requests:
+            cpu: '4'      # More CPU for production monitoring
+            memory: 8Gi
+        storage:
+          # Large tier: much larger storage for production monitoring
+          extra: 500Gi    # Extra storage for large-scale data
+          grafana: 50Gi   # More Grafana storage
+          loki: 500Gi     # Much more log storage  
+          mimir: 500Gi    # Much more metrics storage
+          tempo: 200Gi    # More trace storage
+      collectors:
+        resources:
+          logs:
+            limits:
+              cpu: '4'      # More resources for log collection at scale
+              memory: 8Gi
+            requests:
+              cpu: 1000m
+              memory: 2Gi
+          metrics:
+            limits:
+              cpu: '8'      # Much more for metrics at scale
+              memory: 32Gi
+            requests:
+              cpu: 2000m
+              memory: 4Gi
+ 
