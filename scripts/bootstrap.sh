@@ -86,27 +86,20 @@ else
 fi
 
 # ArgoCD bootstrap
-# Create temporary merged values file for ArgoCD
-ARGOCD_MERGED_CONFIG="/tmp/bootstrap-argocd-$$.yaml"
-echo "apps:" > "$ARGOCD_MERGED_CONFIG"
-echo "  argocd:" >> "$ARGOCD_MERGED_CONFIG" 
-echo "    valuesObject: {}" >> "$ARGOCD_MERGED_CONFIG"
-
-# Merge valuesObject from values files with size overrides
 # Create a temporary merged values file for extracting valuesObject
 TEMP_VALUES="/tmp/merged-values-$$.yaml"
 yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' ${SCRIPT_DIR}/../root/values_cf.yaml ${SCRIPT_DIR}/../root/values_${CLUSTER_SIZE}.yaml > "$TEMP_VALUES" 2>/dev/null || \
     cp ${SCRIPT_DIR}/../root/values_cf.yaml "$TEMP_VALUES"
-yq eval '.apps.argocd.valuesObject' "$TEMP_VALUES" > /tmp/argocd-values-$$.yaml 2>/dev/null || \
-    echo "{}" > /tmp/argocd-values-$$.yaml
 
-yq eval '.apps.argocd.valuesObject = load("/tmp/argocd-values-'$$'.yaml")' "$ARGOCD_MERGED_CONFIG" > "${ARGOCD_MERGED_CONFIG}.tmp"
-mv "${ARGOCD_MERGED_CONFIG}.tmp" "$ARGOCD_MERGED_CONFIG"
-rm -f /tmp/argocd-values-$$.yaml
-
-# Extract valuesObject to a temporary file for helm
+# Extract valuesObject directly to a temporary file for helm
 ARGOCD_VALUES_FILE="/tmp/argocd-final-values-$$.yaml"
-yq '.apps.argocd.valuesObject' "$ARGOCD_MERGED_CONFIG" > "$ARGOCD_VALUES_FILE"
+yq eval '.apps.argocd.valuesObject' "$TEMP_VALUES" > "$ARGOCD_VALUES_FILE" 2>/dev/null || \
+    echo "{}" > "$ARGOCD_VALUES_FILE"
+
+# Debug: show what we extracted
+echo "DEBUG: ArgoCD valuesObject content:"
+cat "$ARGOCD_VALUES_FILE"
+echo "DEBUG: End of ArgoCD valuesObject"
 
 ARGOCD_MANIFEST=$(helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 \
   --values "$ARGOCD_VALUES_FILE" \
@@ -114,7 +107,6 @@ ARGOCD_MANIFEST=$(helm template --release-name argocd ${SCRIPT_DIR}/../sources/a
   --set global.domain="https://argocd.${DOMAIN}" --kube-version=${KUBE_VERSION})
 
 kubectl apply -f - <<< "$ARGOCD_MANIFEST"
-rm -f "$ARGOCD_MERGED_CONFIG"
 rm -f "$ARGOCD_VALUES_FILE"
 kubectl rollout status statefulset/argocd-application-controller -n argocd
 kubectl rollout status deploy/argocd-applicationset-controller -n argocd
@@ -122,30 +114,16 @@ kubectl rollout status deploy/argocd-redis -n argocd
 kubectl rollout status deploy/argocd-repo-server -n argocd
 
 # OpenBao bootstrap
-# Create temporary merged values file for OpenBao
-OPENBAO_MERGED_CONFIG="/tmp/bootstrap-openbao-$$.yaml"
-echo "apps:" > "$OPENBAO_MERGED_CONFIG"
-echo "  openbao:" >> "$OPENBAO_MERGED_CONFIG"
-echo "    valuesObject: {}" >> "$OPENBAO_MERGED_CONFIG"
-
-# Merge valuesObject from values files with size overrides
-yq eval '.apps.openbao.valuesObject' "$TEMP_VALUES" > /tmp/openbao-values-$$.yaml 2>/dev/null || \
-    echo "{}" > /tmp/openbao-values-$$.yaml
-
-yq eval '.apps.openbao.valuesObject = load("/tmp/openbao-values-'$$'.yaml")' "$OPENBAO_MERGED_CONFIG" > "${OPENBAO_MERGED_CONFIG}.tmp"
-mv "${OPENBAO_MERGED_CONFIG}.tmp" "$OPENBAO_MERGED_CONFIG"
-rm -f /tmp/openbao-values-$$.yaml
-
-# Extract valuesObject to a temporary file for helm
+# Extract valuesObject directly to a temporary file for helm
 OPENBAO_VALUES_FILE="/tmp/openbao-final-values-$$.yaml"
-yq '.apps.openbao.valuesObject' "$OPENBAO_MERGED_CONFIG" > "$OPENBAO_VALUES_FILE"
+yq eval '.apps.openbao.valuesObject' "$TEMP_VALUES" > "$OPENBAO_VALUES_FILE" 2>/dev/null || \
+    echo "{}" > "$OPENBAO_VALUES_FILE"
 
 OPENBAO_MANIFEST=$(helm template --release-name openbao ${SCRIPT_DIR}/../sources/openbao/0.18.2 \
   --values "$OPENBAO_VALUES_FILE" \
   --namespace cf-openbao --kube-version=${KUBE_VERSION})
 
 kubectl apply -f - <<< "$OPENBAO_MANIFEST"
-rm -f "$OPENBAO_MERGED_CONFIG"
 rm -f "$OPENBAO_VALUES_FILE"
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
 helm template --release-name openbao-init ${SCRIPT_DIR}/init-openbao-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
@@ -167,23 +145,10 @@ kubectl create secret generic gitea-admin-credentials \
   --namespace=cf-gitea \
   --from-literal=username=silogen-admin \
   --from-literal=password=$(generate_password)
-# Create temporary merged values file for Gitea  
-GITEA_MERGED_CONFIG="/tmp/bootstrap-gitea-$$.yaml"
-echo "apps:" > "$GITEA_MERGED_CONFIG"
-echo "  gitea:" >> "$GITEA_MERGED_CONFIG"
-echo "    valuesObject: {}" >> "$GITEA_MERGED_CONFIG"
-
-# Merge valuesObject from values files with size overrides
-yq eval '.apps.gitea.valuesObject' "$TEMP_VALUES" > /tmp/gitea-values-$$.yaml 2>/dev/null || \
-    echo "{}" > /tmp/gitea-values-$$.yaml
-
-yq eval '.apps.gitea.valuesObject = load("/tmp/gitea-values-'$$'.yaml")' "$GITEA_MERGED_CONFIG" > "${GITEA_MERGED_CONFIG}.tmp"
-mv "${GITEA_MERGED_CONFIG}.tmp" "$GITEA_MERGED_CONFIG"
-rm -f /tmp/gitea-values-$$.yaml
-
-# Extract valuesObject to a temporary file for helm
+# Extract valuesObject directly to a temporary file for helm  
 GITEA_VALUES_FILE="/tmp/gitea-final-values-$$.yaml"
-yq '.apps.gitea.valuesObject' "$GITEA_MERGED_CONFIG" > "$GITEA_VALUES_FILE"
+yq eval '.apps.gitea.valuesObject' "$TEMP_VALUES" > "$GITEA_VALUES_FILE" 2>/dev/null || \
+    echo "{}" > "$GITEA_VALUES_FILE"
 
 GITEA_MANIFEST=$(helm template --release-name gitea ${SCRIPT_DIR}/../sources/gitea/12.3.0 \
   --values "$GITEA_VALUES_FILE" \
@@ -191,7 +156,6 @@ GITEA_MANIFEST=$(helm template --release-name gitea ${SCRIPT_DIR}/../sources/git
   --set clusterDomain="${DOMAIN}" --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}" --kube-version=${KUBE_VERSION})
 
 kubectl apply -f - <<< "$GITEA_MANIFEST"
-rm -f "$GITEA_MERGED_CONFIG"
 rm -f "$GITEA_VALUES_FILE"
 rm -f "$TEMP_VALUES"
 kubectl rollout status deploy/gitea -n cf-gitea
