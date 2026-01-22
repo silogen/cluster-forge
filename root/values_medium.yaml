@@ -1,0 +1,151 @@
+# MEDIUM CLUSTER CONFIGURATION  
+# Target: Team Cluster (5-20 users)
+# Nodes: 1-3 nodes (Option A: 1×CP + 1-2 GPU workers, Option B: 3×CP + GPU workers)
+# CPU: 32-64 vCPU per GPU node, Memory: 128-256 GB RAM per GPU node  
+# GPU: Up to 8 GPUs total, partitioning optional
+# Storage: 4-16 TB total NVMe, Internal S3: 2-10 TB via MinIO
+# Networking: 10 GbE recommended
+
+# MEDIUM CLUSTER: All apps enabled (inherited from base values_cf.yaml)
+# Only resource scaling overrides below - no need to redefine enabledApps
+
+apps:
+  argocd:
+    valuesObject:
+      # Medium tier: Single replica to start (users can override via gitea values repo)
+      applicationSet:
+        replicas: 1
+        # resources:  # TODO: May add later for fine-tuning
+        #   limits:
+        #     cpu: "1000m"
+        #     memory: "2Gi"
+        #   requests:
+        #     cpu: "250m"
+        #     memory: "512Mi"
+      controller:
+        replicas: 1
+        # resources:  # TODO: May add later for fine-tuning
+        #   limits:
+        #     cpu: "2000m"
+        #     memory: "4Gi"
+        #   requests:
+        #     cpu: "500m" 
+        #     memory: "1Gi"
+      redis-ha:
+        enabled: false
+        # redis:  # TODO: May add later for fine-tuning
+        #   resources:
+        #     limits:
+        #       cpu: "1000m"
+        #       memory: "2Gi"
+        #     requests:
+        #       cpu: "250m"
+        #       memory: "512Mi"
+      repoServer:
+        replicas: 1
+        # resources:  # TODO: May add later for fine-tuning
+        #   limits:
+        #     cpu: "1000m" 
+        #     memory: "2Gi"
+        #   requests:
+        #     cpu: "250m"
+        #     memory: "512Mi"
+      server:
+        replicas: 1
+        # resources:  # TODO: May add later for fine-tuning
+        #   limits:
+        #     cpu: "500m"
+        #     memory: "1Gi"
+        #   requests:
+        #     cpu: "125m"
+        #     memory: "256Mi"
+
+  minio-tenant:
+    valuesObject:
+      tenant:
+        # Medium tier: Add datasets bucket for team collaboration
+        buckets:
+          - name: default-bucket
+            objectLock: true
+          - name: models
+            objectLock: true
+          - name: datasets
+            objectLock: false
+        # Medium tier: Scale up to 3 servers with multinode storage  
+        pools:
+          - name: pool-0
+            servers: 1
+            size: 2Ti  # Medium tier: 2TB total 
+            storageClassName: direct  # rancher.io/local-provisioner for small/medium
+            volumesPerServer: 1
+        # Medium tier: Enhanced resources for team workloads
+        # resources:  # TODO: May add later for fine-tuning
+        #   limits:
+        #     cpu: "4000m"
+        #     memory: "8Gi"
+        #   requests:
+        #     cpu: "1000m"
+        #     memory: "2Gi"
+        # Medium tier: Data lifecycle management
+        # lifecycle:  # TODO: May add later for advanced features
+        #   - id: team-data-transition
+        #     status: Enabled
+        #     transition:
+        #       days: 30
+        #       storageClass: IA
+
+  openbao:
+    valuesObject:
+      server:
+        ha:
+          enabled: true
+          replicas: 1
+          raft:
+            enabled: true
+        # resources:  # TODO: May add later for fine-tuning
+        #   limits:
+        #     cpu: "1000m"
+        #     memory: "2Gi"
+        #   requests:
+        #     cpu: "250m"
+        #     memory: "512Mi"
+
+  otel-lgtm-stack:
+    valuesObject:
+      # Medium tier: Keep original monitoring configuration  
+      # TODO: May add later for resource scaling
+      # lgtm:
+      #   resources:
+      #     limits:
+      #       memory: 12Gi  # Moderate memory for team monitoring
+      #     requests:
+      #       cpu: '2'      # More CPU for team monitoring
+      #       memory: 3Gi
+      #   storage:
+      #     extra: 100Gi
+      #     grafana: 20Gi
+      #     loki: 150Gi
+      #     mimir: 200Gi
+      #     tempo: 100Gi
+      # collectors:
+      #   resources:
+      #     logs:
+      #       limits:
+      #         cpu: '2'      # More resources for team log collection
+      #         memory: 4Gi
+      #       requests:
+      #         cpu: 500m
+      #         memory: 1Gi
+      #     metrics:
+      #       limits:
+      #         cpu: '4'      # More for team metrics
+      #         memory: 12Gi
+      #       requests:
+      #         cpu: 1000m
+      #         memory: 2Gi
+
+  keycloak:
+    valuesObject:
+      # Medium tier: Single replica to start (users can override via gitea values repo)  
+      replicaCount: 1
+      # Keep original resources from component values_cf.yaml (no changes)

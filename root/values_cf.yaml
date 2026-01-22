@@ -1,6 +1,8 @@
 clusterForge:
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
   targetRevision: v1.7.1 # cluster-forge version git tag
+  valuesFile: values_cf.yaml
+# source helm values file from separate git repo
 externalValues:
   enabled: true
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
@@ -51,3 +53,542 @@ enabledApps:
   - kaiwo
   - kaiwo-config
   - airm
+apps:
+  # Core apps
+  argocd:
+    path: argocd/8.3.5
+    namespace: argocd
+    valuesObject:
+      global:
+        domain: # to be filled by cluster-forge app
+      configs:
+        params:
+          server.insecure: true
+        cm:
+          resource.customizations.health.opentelemetry.io_OpenTelemetryCollector: |
+            hs = {}
+            hs.status = "Healthy"
+            hs.message = "Always Healthy - See https://github.com/argoproj/argo-cd/pull/24284"
+            return hs
+        rbac:
+          policy.csv: |
+            g, argocd-users, role:admin
+    helmParameters:
+      - name: global.domain
+        value: "argocd.{{ .Values.global.domain }}"
+      - name: configs.cm.oidc\.config
+        value: |
+          name: Keycloak
+          issuer: https://kc.{{ .Values.global.domain }}/realms/airm
+          clientID: argocd
+          clientSecret: $$argocd-oidc-creds:client_secret
+          requestedScopes: ["openid", "profile", "email", "groups"]
+    syncWave: -3
+  argocd-config:
+    path: argocd-config
+    namespace: argocd
+    syncWave: -2
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+  cert-manager:
+    path: cert-manager/v1.18.2
+    namespace: cert-manager
+    valuesObject:
+      installCRDs: true
+    syncWave: -3
+  openbao:
+    path: openbao/0.18.2
+    namespace: cf-openbao
+    valuesObject:
+      injector:
+        enabled: false
+      server:
+        affinity: |
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: openbao
+                      app.kubernetes.io/instance: openbao
+                      component: server
+                  topologyKey: kubernetes.io/hostname
+        ha:
+          enabled: true
+          raft:
+            enabled: true
+      ui:
+        enabled: true
+    syncWave: -3
+    ignoreDifferences:
+      - group: "apps"
+        kind: "Deployment"
+        jsonPointers:
+          - /spec/replicas
+  openbao-config:
+    path: openbao-config
+    namespace: cf-openbao
+    syncWave: -2
+  external-secrets:
+    path: external-secrets/0.15.1
+    namespace: external-secrets
+    valuesFile: values.yaml
+    syncWave: -3
+  external-secrets-config:
+    path: external-secrets-config
+    namespace: external-secrets
+    syncWave: -3
+  gitea:
+    path: gitea/12.3.0
+    namespace: cf-gitea
+    valuesObject:
+      clusterDomain: # to be filled by cluster-forge app
+      strategy:
+        type: "Recreate"
+      gitea:
+        admin:
+          existingSecret: gitea-admin-credentials
+        config:
+          server:
+            ROOT_URL: # to be filled by cluster-forge app
+          database:
+            DB_TYPE: sqlite3
+          session:
+            PROVIDER: memory
+          cache:
+            ADAPTER: memory
+          queue:
+            TYPE: level
+      valkey-cluster:
+        enabled: false
+      valkey:
+        enabled: false
+      postgresql:
+        enabled: false
+      postgresql-ha:
+        enabled: false
+      persistence:
+        enabled: true
+      test:
+        enabled: false
+    helmParameters:
+      - name: clusterDomain
+        value: "{{ .Values.global.domain }}"
+      - name: gitea.config.server.ROOT_URL
+        value: "https://gitea.{{ .Values.global.domain }}"
+    syncWave: -3
+  gitea-config:
+    path: gitea-config
+    namespace: cf-gitea
+    valuesFile: values.yaml
+    helmParameters:
+      - name: keycloak.url
+        value: "https://kc.{{ .Values.global.domain }}"
+      - name: keycloak.realm
+        value: "airm"
+    syncWave: -2
+  # Network apps
+  gateway-api:
+    path: gateway-api/v1.3.0
+    namespace: default
+    syncWave: -3
+  metallb:
+    path: metallb/v0.15.2
+    namespace: default
+    syncWave: -3
+  kgateway-crds:
+    path: kgateway-crds/v2.1.0-main
+    namespace: kgateway-system
+    valuesFile: values.yaml
+    syncWave: -3
+  kgateway:
+    path: kgateway/v2.1.0-main
+    namespace: kgateway-system
+    valuesObject:
+      controller:
+        image:
+          registry: "ghcr.io"
+          repository: silogen/kgateway-v2.1.0-main-websocket
+          tag: "0.0.1"
+    syncWave: -2
+  kgateway-config:
+    path: kgateway-config
+    namespace: kgateway-system
+    syncWave: -1
+  # Prometheus
+  prometheus-crds:
+    path: prometheus-crds/v73.2.0
+    namespace: default
+    valuesFile: values.yaml
+    syncWave: -3
+  # Telemetry apps
+  opentelemetry-operator:
+    path: opentelemetry-operator/0.79.1
+    namespace: opentelemetry-system
+    valuesObject:
+      manager:
+        collectorImage:
+          repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
+          tag: "0.140.0"
+    syncWave: -2
+  otel-lgtm-stack:
+    path: otel-lgtm-stack/0.8.2
+    namespace: otel-lgtm-stack
+    valuesObject:
+      cluster:
+        name: # to be filled by cluster-forge app based on domain
+      dashboards:
+        enabled: true
+      nodeExporter:
+        enabled: true
+      kubeStateMetrics:
+        enabled: true
+      lgtm:
+        storage:
+          tempo: 50Gi
+          loki: 50Gi
+          grafana: 10Gi
+          mimir: 50Gi
+          extra: 50Gi
+        resources:
+          limits:
+            memory: 8Gi
+          requests:
+            memory: 2Gi
+            cpu: '1'
+      collectors:
+        resources:
+          metrics:
+            limits:
+              memory: 8Gi
+              cpu: '2'
+            requests:
+              memory: 1Gi
+              cpu: 500m
+          logs:
+            limits:
+              memory: 2Gi
+              cpu: '1'
+            requests:
+              memory: 400Mi
+              cpu: 200m
+      services:
+        lgtm:
+          grafana: 3000
+          otelGrpc: 4317
+          otelHttp: 4318
+          prometheus: 9090
+          loki: 3100
+        kubeStateMetrics:
+          http: 8080
+        nodeExporter:
+          metrics: 9100
+    helmParameters:
+      - name: cluster.name
+        value: "{{ .Values.global.domain | replace \".\" \"-\" }}"
+    syncWave: -1
+  # Database apps
+  cnpg-operator:
+    path: cnpg-operator/0.28.0
+    namespace: cnpg-system
+    valuesFile: values.yaml
+    syncWave: -3
+  # Auth apps
+  cluster-auth:
+    path: cluster-auth/v1.2.1
+    namespace: cluster-auth
+    valuesFile: values.yaml
+    syncWave: -2
+  cluster-auth-config:
+    path: cluster-auth-config
+    namespace: cluster-auth
+    valuesFile: values.yaml
+    helmParameters:
+      - name: keycloak.url
+        value: "https://kc.{{ .Values.global.domain }}"
+      - name: keycloak.realm
+        value: "airm"
+    syncWave: -2
+  keycloak:
+    path: keycloak/26.3.1
+    namespace: keycloak
+    valuesObject:
+      resources:
+        requests:
+          memory: "512Mi"
+          cpu: "500m"
+        limits:
+          memory: "1Gi"
+          cpu: "1000m"
+      podLabels:
+        app: keycloak
+      auth:
+        adminUser: admin
+        existingSecret: "keycloak-credentials"
+        passwordSecretKey: "KEYCLOAK_INITIAL_ADMIN_PASSWORD"
+      extraStartupArgs: "--cache=ispn --features=scripts,admin-fine-grained-authz,token-exchange --import-realm"
+      initContainers:
+        - command:
+            - /bin/sh
+            - -c
+            - |
+              cd /opt/scripts
+              zip -r /opt/keycloak/providers/SilogenExtensionPackage.jar .
+          image: ghcr.io/silogen/keycloak-init:0.1
+          name: init-auth-extensions
+          volumeMounts:
+            - mountPath: /opt/keycloak/providers
+              name: keycloak-package-volume
+            - mountPath: /opt/scripts
+              name: keycloak-script-volume
+        - command:
+            - /bin/sh
+            - -c
+            - |       
+              if [ -f "/opt/realm_templates/airm/airm-realm.json" ]; then
+                  cp /opt/realm_templates/airm/airm-realm.json /opt/realms/airm-realm.json
+                  sed -i -e "s/__AIRM_FRONTEND_CLIENT_SECRET__/$AIRM_FRONTEND_CLIENT_SECRET/g" /opt/realms/airm-realm.json
+                  sed -i -e "s/__AIRM_ADMIN_CLIENT_ID__/$AIRM_ADMIN_CLIENT_ID/g" /opt/realms/airm-realm.json
+                  sed -i -e "s/__AIRM_ADMIN_CLIENT_SECRET__/$AIRM_ADMIN_CLIENT_SECRET/g" /opt/realms/airm-realm.json
+                  sed -i -e "s/__AIRM_CI_CLIENT_SECRET__/$AIRM_CI_CLIENT_SECRET/g" /opt/realms/airm-realm.json
+              else
+                  echo "Warning: /opt/realm_templates/airm/airm-realm.json not found, skipping airm realm setup"
+              fi
+          env:
+            - name: AIRM_FRONTEND_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: FRONTEND_CLIENT_SECRET
+                  name: airm-realm-credentials
+            - name: AIRM_ADMIN_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  key: ADMIN_CLIENT_ID
+                  name: airm-realm-credentials
+            - name: AIRM_ADMIN_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: ADMIN_CLIENT_SECRET
+                  name: airm-realm-credentials
+            - name: AIRM_CI_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: CI_CLIENT_SECRET
+                  name: airm-realm-credentials
+          image: ghcr.io/silogen/keycloak-init:0.1
+          name: init-realm-scripts
+          volumeMounts:
+            - mountPath: /opt/realm_templates/airm
+              name: keycloak-airm-realm-template-volume
+            - mountPath: /opt/realm_templates/k8s
+              name: keycloak-k8s-realm-template-volume
+            - mountPath: /opt/realms
+              name: keycloak-realm-volume
+      extraVolumes:
+        - configMap:
+            name: keycloak-scripts
+            items:
+              - key: keycloak-scripts.json
+                path: META-INF/keycloak-scripts.json
+              - key: domain-group-authenticator.js
+                path: domain-group-authenticator.js
+          name: keycloak-script-volume
+        - emptyDir: {}
+          name: keycloak-package-volume
+        - configMap:
+            name: keycloak-realm-templates-7kgh2hc6b2
+          name: keycloak-airm-realm-template-volume
+        - emptyDir: {}
+          name: keycloak-realm-volume
+        - configMap:
+            name: keycloak-realm-templates-k8s
+          name: keycloak-k8s-realm-template-volume
+      extraVolumeMounts:
+        - mountPath: /opt/keycloak/providers
+          name: keycloak-package-volume
+        - mountPath: /opt/keycloak/data/import
+          name: keycloak-realm-volume
+      postgresql:
+        enabled: false
+      externalDatabase:
+        host: "keycloak-cnpg-rw.keycloak.svc.cluster.local"
+        port: 5432
+        database: keycloak
+        schema: public
+        existingSecret: "keycloak-cnpg-user"
+        existingSecretUserKey: "username"
+        existingSecretPasswordKey: "password"
+    syncWave: -1
+  # Policy apps
+  kyverno:
+    path: kyverno/3.5.1
+    namespace: kyverno
+    valuesFile: values.yaml
+    syncWave: -2
+  kyverno-config:
+    path: kyverno-config
+    namespace: kyverno
+    valuesFile: values.yaml
+    syncWave: -1
+  # GPU apps
+  amd-gpu-operator:
+    path: amd-gpu-operator/v0.20.0
+    namespace: amd-gpu-operator
+    valuesObject:
+      crds:
+        defaultCR:
+          install: false
+    syncWave: -1
+  amd-gpu-operator-config:
+    path: amd-gpu-operator-config
+    namespace: amd-gpu-operator
+    syncWave: -1
+  # ML/AI/Data apps
+  kuberay-operator:
+    path: kuberay-operator/1.4.0
+    namespace: kuberay-system
+    valuesFile: values.yaml
+    syncWave: -1
+  keda:
+    path: keda/2.21.1
+    namespace: keda
+    valuesFile: values.yaml
+    syncWave: -1
+  kedify-otel:
+    path: kedify-otel/0.7.0
+    namespace: keda
+    valuesObject:
+      validatingAdmissionPolicy:
+        enabled: false
+    syncWave: -1
+  kserve-crds:
+    path: kserve-crds/v0.16.1
+    namespace: kserve
+    valuesFile: values.yaml
+    syncWave: -2
+  kserve:
+    path: kserve/v0.16.1
+    namespace: kserve
+    valuesObject:
+      kserve:
+        controller:
+          deploymentMode: "Standard"
+    syncWave: -1
+  rabbitmq:
+    path: rabbitmq/v2.15.0
+    namespace: rabbitmq-system
+    valuesFile: values.yaml
+    syncWave: -1
+  kueue:
+    path: kueue/0.13.0
+    namespace: kueue-system
+    valuesFile: values.yaml
+    syncWave: -1
+  kueue-config:
+    path: kueue-config
+    namespace: kueue-system
+    syncWave: -1
+  appwrapper:
+    path: appwrapper/v1.0.0
+    namespace: appwrapper-system
+    valuesFile: values.yaml
+    syncWave: -1
+  # Storage apps
+  minio-operator:
+    path: minio-operator/v6.0.7
+    namespace: minio-operator
+    valuesFile: values.yaml
+    syncWave: -2
+  minio-tenant:
+    path: minio-tenant/v6.0.7
+    namespace: tenant-default
+    valuesObject:
+      tenant:
+        name: default-minio-tenant
+        configSecret:
+          name: default-minio-tenant-env-configuration
+          existingSecret: true
+        pools:
+          - servers: 1
+            name: pool-0
+            volumesPerServer: 1
+            size: 500Gi
+            storageClassName: direct
+        buckets:
+          - name: default-bucket
+            objectLock: true
+          - name: models
+            objectLock: true
+        users:
+          - name: default-user
+        certificate:
+          requestAutoCert: false
+          externalCaCertSecret:
+          - name: cluster-tls
+            type: kubernetes.io/secret/v1
+        env:
+          - name: MINIO_PROMETHEUS_AUTH_TYPE
+            value: "public"
+    syncWave: -1
+  minio-tenant-config:
+    path: minio-tenant-config
+    namespace: tenant-default
+    syncWave: -1
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+  # Kaiwo stuff
+  aim-cluster-model-source:
+    path: aim-cluster-model-source
+    namespace: kaiwo-system
+    syncWave: -2
+  kaiwo-crds:
+    path: kaiwo-crds/v0.2.0-rc11
+    namespace: kaiwo-system
+    syncWave: -2
+  kaiwo:
+    path: kaiwo/v0.2.0-rc11
+    namespace: kaiwo-system
+    valuesFile: values.yaml
+    syncWave: -1
+  kaiwo-config:
+    path: kaiwo-config
+    namespace: kaiwo-system
+    syncWave: -1
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+  # Airm stuff
+  airm:
+    path: airm/0.3.1
+    namespace: airm
+    valuesFile: values.yaml
+    helmParameters:
+      - name: airm-api.airm.appDomain
+        value: "{{ .Values.global.domain }}"
+    syncWave: 0
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+      - group: kyverno.io
+        kind: ClusterPolicy
+        jqPathExpressions:
+          - ".spec.rules"

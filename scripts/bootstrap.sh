@@ -4,15 +4,62 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Initialize variables
 DOMAIN="${1:-}"
-VALUES_FILE="${2:-values_cf.yaml}"
+CLUSTER_SIZE=""
+VALUES_FILE="${2:-values_cf.yaml}"  # Maintain backwards compatibility
 KUBE_VERSION=1.33
+
+# Parse arguments - handle both old and new parameter styles
+if [[ $# -ge 2 ]] && [[ "$2" =~ ^--SIZE= ]]; then
+    # New style: bootstrap.sh domain --SIZE=medium
+    CLUSTER_SIZE=$(echo "$2" | cut -d= -f2 | tr '[:upper:]' '[:lower:]')
+    VALUES_FILE="values_cf.yaml"  # Use default when SIZE is specified
+elif [[ $# -ge 3 ]] && [[ "$3" =~ ^--SIZE= ]]; then
+    # Mixed style: bootstrap.sh domain values_file --SIZE=medium  
+    VALUES_FILE="$2"
+    CLUSTER_SIZE=$(echo "$3" | cut -d= -f2 | tr '[:upper:]' '[:lower:]')
+fi
 
 if [ -z "$DOMAIN" ]; then
     echo "ERROR: Domain argument is required"
-    echo "Usage: $0 <domain> [values_file]"
+    echo "Usage: $0 <domain> [values_file] [--SIZE=s|small|m|medium|l|large]"
+    echo "   or: $0 <domain> [--SIZE=s|small|m|medium|l|large]"
+    echo ""
+    echo "Examples:"
+    echo "  $0 example.com                    # Uses default size (medium)"
+    echo "  $0 example.com --SIZE=small       # Uses small size"
+    echo "  $0 example.com --SIZE=l           # Uses large size"
+    echo "  $0 example.com custom.yaml --SIZE=medium  # Custom values + medium size"
     exit 1
 fi
+
+# Normalize and validate cluster size
+if [ -n "$CLUSTER_SIZE" ]; then
+    case "$CLUSTER_SIZE" in
+        s|small)
+            CLUSTER_SIZE="small"
+            ;;
+        m|medium)
+            CLUSTER_SIZE="medium"
+            ;;
+        l|large)
+            CLUSTER_SIZE="large"
+            ;;
+        *)
+            echo "ERROR: Invalid cluster size '$CLUSTER_SIZE'. Valid options: s, small, m, medium, l, large"
+            exit 1
+            ;;
+    esac
+else
+    CLUSTER_SIZE="medium"  # Default to medium if not specified
+fi
+
+echo "🚀 Cluster-Forge Bootstrap Configuration:"
+echo "   Domain: $DOMAIN"
+echo "   Size: $CLUSTER_SIZE"
+echo "   Values: $VALUES_FILE"
+echo ""
 
 # Create namespaces
 kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
@@ -39,9 +86,23 @@ generate_password() {
     openssl rand -hex 16 | tr 'a-f' 'A-F' | head -c 32
 }
 
-# Create initial-cf-values configmap
-VALUES=$(cat ${SCRIPT_DIR}/../root/${VALUES_FILE} | yq ".global.domain = \"${DOMAIN}\"")
-kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$VALUES" --dry-run=client -o yaml | kubectl apply -n cf-gitea -f -
+# Create initial-cf-values configmap with size-aware values
+echo "📝 Creating cluster configuration with size: $CLUSTER_SIZE"
+
+# Determine values file arguments for size-specific deployment
+VALUES_ARGS="-f ${SCRIPT_DIR}/../root/${VALUES_FILE}"
+SIZE_VALUES_FILE="${SCRIPT_DIR}/../root/values_${CLUSTER_SIZE}.yaml"
+
+if [ -f "$SIZE_VALUES_FILE" ]; then
+    VALUES_ARGS="$VALUES_ARGS -f $SIZE_VALUES_FILE"
+    echo "   ✓ Using size-specific values: values_${CLUSTER_SIZE}.yaml"
+else
+    echo "   ⚠ Size-specific values not found: $SIZE_VALUES_FILE (using base values only)"
+fi
+
+# Generate merged configuration for gitea configmap
+eval "VALUES=\$(helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --show-only templates/cluster-forge.yaml | yq '.spec.sources[0].helm.valueFiles = [\"\$values/values.yaml\"] | .spec.sources[0].helm.parameters[0].value = \"'$DOMAIN'\"')"
+kubectl create configmap initial-cf-values --from-file=/dev/stdin --dry-run=client -o yaml <<< "$VALUES" | kubectl apply -n cf-gitea -f -
 
 kubectl create secret generic gitea-admin-credentials \
   --namespace=cf-gitea \
@@ -53,5 +114,33 @@ kubectl rollout status deploy/gitea -n cf-gitea
 helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
 
-# Create cluster-forge app-of-apps
-helm template ${SCRIPT_DIR}/../root -f ${SCRIPT_DIR}/../root/${VALUES_FILE} --set global.domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
+# Create cluster-forge app-of-apps with size-aware configuration
+echo "🎯 Deploying cluster-forge applications with $CLUSTER_SIZE configuration"
+eval "helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --set global.domain=\"${DOMAIN}\" --kube-version=${KUBE_VERSION} | kubectl apply -f -"
+
+echo ""
+echo "✅ Cluster-Forge bootstrap complete! This is the way!"
+echo ""
+echo "🌐 Access your services:"
+echo "   ArgoCD:  https://argocd.${DOMAIN}"
+echo "   Gitea:   https://gitea.${DOMAIN}"
+echo "   OpenBao: https://openbao.${DOMAIN}"
+echo ""
+echo "🔑 To access credentials, use these kubectl commands:"
+echo "   # ArgoCD admin password:"
+echo "   kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d"
+echo ""  
+echo "   # Gitea admin credentials:"
+echo "   kubectl -n cf-gitea get secret gitea-admin-credentials -o jsonpath='{.data.username}' | base64 -d"
+echo "   kubectl -n cf-gitea get secret gitea-admin-credentials -o jsonpath='{.data.password}' | base64 -d"
+echo ""
+echo "   # OpenBao root token:"
+echo "   kubectl -n cf-openbao get secret openbao-init-secret -o jsonpath='{.data.root_token}' | base64 -d"
+echo ""
+echo "📊 Cluster Configuration:"
+echo "   Size: ${CLUSTER_SIZE}"
+echo "   Domain: ${DOMAIN}"
+echo "   Values: ${VALUES_FILE}"
+if [ -f "$SIZE_VALUES_FILE" ]; then
+    echo "   Size Overrides: values_${CLUSTER_SIZE}.yaml"
+fi

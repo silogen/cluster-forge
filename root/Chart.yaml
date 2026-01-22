@@ -1,4 +1,7 @@
 apiVersion: v2
 name: root
-description: A Helm chart to rule them all
+description: Cluster-Forge ArgoCD App-of-Apps with size-based deployment configurations (small/medium/large)
 version: 0.1.0
+maintainers:
+  - name: Silogen Team
+    email: support@silogen.ai

@@ -1,0 +1,146 @@
+# SMALL CLUSTER CONFIGURATION
+# Target: Single Node / Development / Workstation (1-5 users)
+# Nodes: 1 node (combined CP + workers)
+# CPU: 8-32 vCPU total, Memory: 32-128 GB RAM total
+# GPU: 0-2 GPUs, shared resource allocation
+# Storage: 1-4 TB local NVMe, Local S3: 500GB-2TB via MinIO
+# Networking: 1 GbE acceptable
+
+# SMALL CLUSTER: Base configuration (minimal resource allocation)
+# The base values_cf.yaml already has appropriate defaults for small deployments
+# This file only adds specific small-cluster optimizations
+
+apps:
+  argocd:
+    valuesObject:
+      # Small tier: Single replica, minimal resources
+      applicationSet:
+        replicas: 1
+        # resources:  # TODO: May add later for fine-tuning
+        #   limits:
+        #     cpu: "500m"
+        #     memory: "512Mi"
+        #   requests:
+        #     cpu: "125m"
+        #     memory: "128Mi"
+      controller:
+        replicas: 1
+        # resources:  # TODO: May add later for fine-tuning
+        #   limits:
+        #     cpu: "1000m"
+        #     memory: "2Gi"
+        #   requests:
+        #     cpu: "250m"
+        #     memory: "512Mi"
+      redis:
+        enabled: true
+        # resources:  # TODO: May add later for fine-tuning
+        #   limits:
+        #     cpu: "500m"
+        #     memory: "512Mi"
+        #   requests:
+        #     cpu: "125m"
+        #     memory: "128Mi"
+      redis-ha:
+        enabled: false
+      repoServer:
+        replicas: 1
+        autoscaling:
+          enabled: false
+        # resources:  # TODO: May add later for fine-tuning
+        #   limits:
+        #     cpu: "500m"
+        #     memory: "1Gi"
+        #   requests:
+        #     cpu: "125m"
+        #     memory: "256Mi"
+      server:
+        replicas: 1
+        autoscaling:
+          enabled: false
+        # resources:  # TODO: May add later for fine-tuning
+        #   limits:
+        #     cpu: "250m"
+        #     memory: "512Mi"
+        #   requests:
+        #     cpu: "62m"
+        #     memory: "128Mi"
+
+  minio-tenant:
+    valuesObject:
+      tenant:
+        # Small tier: Basic buckets for individual use
+        buckets:
+          - name: default-bucket
+            objectLock: true
+          - name: models
+            objectLock: true
+        # Small tier: Single server with limited storage
+        pools:
+          - name: pool-0
+            servers: 1
+            size: 500Gi  # Small tier: 500GB total
+            storageClassName: direct  # rancher.io/local-provisioner for small/medium
+            volumesPerServer: 1
+        # Small tier: Minimal resources for single user
+        # resources:  # TODO: May add later for fine-tuning
+        #   limits:
+        #     cpu: "1000m"
+        #     memory: "2Gi"
+        #   requests:
+        #     cpu: "250m"
+        #     memory: "512Mi"
+
+  otel-lgtm-stack:
+    valuesObject:
+      # Small tier: Keep original monitoring configuration
+      # TODO: May add later for resource fine-tuning
+      # lgtm:
+      #   resources:
+      #     limits:
+      #       memory: 4Gi  # Reduced for small environments
+      #     requests:
+      #       cpu: "500m"
+      #       memory: 1Gi
+      #   storage:
+      #     extra: 10Gi
+      #     grafana: 5Gi
+      #     loki: 20Gi
+      #     mimir: 30Gi
+      #     tempo: 20Gi
+      # collectors:
+      #   resources:
+      #     logs:
+      #       limits:
+      #         cpu: "500m"
+      #         memory: 1Gi
+      #       requests:
+      #         cpu: "100m"
+      #         memory: "256Mi"
+      #     metrics:
+      #       limits:
+      #         cpu: "1000m"
+      #         memory: 2Gi
+      #       requests:
+      #         cpu: "200m"
+      #         memory: "512Mi"
+
+  keycloak:
+    valuesObject:
+      # Small tier: Single replica for simplicity
+      replicaCount: 1
+      # Keep original resources from component values_cf.yaml (no changes for small)
+
+  openbao:
+    valuesObject:
+      server:
+        ha:
+          enabled: false
+          replicas: 1
+        # resources:  # TODO: May add later for fine-tuning
+        #   limits:
+        #     cpu: "500m"
+        #     memory: "1Gi"
+        #   requests:
+        #     cpu: "125m"
+        #     memory: "256Mi"
