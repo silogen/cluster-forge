@@ -120,7 +120,7 @@ helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 --name
   --set configs.params.server.insecure=true \
   --set configs.cm.create=true \
   --set configs.rbac.create=true \
-  --set "configs.rbac.policy\.csv=g, argocd-users, role:admin" \
+  --set "configs.rbac.policy\.csv=g\, argocd-users\, role:admin" \
   --set controller.replicas=1 \
   --set applicationSet.replicas=1 \
   --set repoServer.replicas=1 \
