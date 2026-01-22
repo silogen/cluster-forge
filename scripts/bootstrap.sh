@@ -70,9 +70,15 @@ echo "   Values: $VALUES_FILE"
 echo ""
 
 # Create namespaces
-kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
-kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
-kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
+echo "DEBUG: Creating namespaces..."
+kubectl create ns argocd --dry-run=client -o yaml > /tmp/ns-argocd.yaml
+kubectl apply -f /tmp/ns-argocd.yaml
+kubectl create ns cf-gitea --dry-run=client -o yaml > /tmp/ns-gitea.yaml  
+kubectl apply -f /tmp/ns-gitea.yaml
+kubectl create ns cf-openbao --dry-run=client -o yaml > /tmp/ns-openbao.yaml
+kubectl apply -f /tmp/ns-openbao.yaml
+rm -f /tmp/ns-*.yaml
+echo "DEBUG: Namespaces created successfully"
 
 # Determine values file arguments for size-specific deployment
 VALUES_ARGS="-f ${SCRIPT_DIR}/../root/${VALUES_FILE}"
@@ -84,6 +90,9 @@ if [ -f "$SIZE_VALUES_FILE" ]; then
 else
     echo "   ⚠ Size-specific values not found: $SIZE_VALUES_FILE (using base values only)"
 fi
+
+echo "DEBUG: VALUES_ARGS = $VALUES_ARGS"
+echo "DEBUG: About to start ArgoCD bootstrap section..."
 
 # ArgoCD bootstrap
 # Create a temporary merged values file for extracting valuesObject
@@ -111,7 +120,8 @@ ARGOCD_VALUES_FILE="/tmp/argocd-final-values-$$.yaml"
 echo "DEBUG: Extracting ArgoCD valuesObject from merged values..."
 
 # Check if the path exists first
-if yq eval '.apps.argocd' "$TEMP_VALUES" | grep -q "null"; then
+ARGOCD_CHECK=$(yq eval '.apps.argocd' "$TEMP_VALUES")
+if echo "$ARGOCD_CHECK" | grep -q "null"; then
     echo "DEBUG: ERROR - .apps.argocd is null in merged values!"
     echo "DEBUG: Available apps:"
     yq eval '.apps | keys' "$TEMP_VALUES"
@@ -129,7 +139,11 @@ echo "DEBUG: End of ArgoCD valuesObject"
 
 # Check if the content is valid YAML
 echo "DEBUG: Checking if extracted content is valid YAML..."
-yq eval '.' "$ARGOCD_VALUES_FILE" >/dev/null 2>&1 && echo "DEBUG: Valid YAML" || echo "DEBUG: INVALID YAML!"
+if yq eval '.' "$ARGOCD_VALUES_FILE" >/dev/null 2>&1; then
+    echo "DEBUG: Valid YAML"
+else
+    echo "DEBUG: INVALID YAML!"
+fi
 
 echo "DEBUG: Running helm template for ArgoCD..."
 echo "DEBUG: Values file: $ARGOCD_VALUES_FILE"
