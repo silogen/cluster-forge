@@ -11,6 +11,7 @@ spec:
       containers:
         - name: openbao-init
           image: ghcr.io/silogen/cluster-tool:latest
+          imagePullPolicy: Always
           command:
             - /bin/bash
             - -c
