@@ -88,18 +88,56 @@ fi
 # ArgoCD bootstrap
 # Create a temporary merged values file for extracting valuesObject
 TEMP_VALUES="/tmp/merged-values-$$.yaml"
-yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' ${SCRIPT_DIR}/../root/values_cf.yaml ${SCRIPT_DIR}/../root/values_${CLUSTER_SIZE}.yaml > "$TEMP_VALUES" 2>/dev/null || \
+echo "DEBUG: Merging values files..."
+echo "  Base file: ${SCRIPT_DIR}/../root/values_cf.yaml"
+echo "  Size file: ${SCRIPT_DIR}/../root/values_${CLUSTER_SIZE}.yaml"
+
+if [ -f "${SCRIPT_DIR}/../root/values_${CLUSTER_SIZE}.yaml" ]; then
+    echo "DEBUG: Size-specific file exists, merging..."
+    yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' ${SCRIPT_DIR}/../root/values_cf.yaml ${SCRIPT_DIR}/../root/values_${CLUSTER_SIZE}.yaml > "$TEMP_VALUES" 2>/dev/null || \
+        cp ${SCRIPT_DIR}/../root/values_cf.yaml "$TEMP_VALUES"
+else
+    echo "DEBUG: Size-specific file not found, using base only..."
     cp ${SCRIPT_DIR}/../root/values_cf.yaml "$TEMP_VALUES"
+fi
+
+echo "DEBUG: Merged values file created. Size:"
+ls -la "$TEMP_VALUES"
+echo "DEBUG: First 20 lines of merged values:"
+head -20 "$TEMP_VALUES"
 
 # Extract valuesObject directly to a temporary file for helm
 ARGOCD_VALUES_FILE="/tmp/argocd-final-values-$$.yaml"
-yq eval '.apps.argocd.valuesObject' "$TEMP_VALUES" > "$ARGOCD_VALUES_FILE" 2>/dev/null || \
-    echo "{}" > "$ARGOCD_VALUES_FILE"
+echo "DEBUG: Extracting ArgoCD valuesObject from merged values..."
 
-# Debug: show what we extracted
+# Check if the path exists first
+if yq eval '.apps.argocd' "$TEMP_VALUES" | grep -q "null"; then
+    echo "DEBUG: ERROR - .apps.argocd is null in merged values!"
+    echo "DEBUG: Available apps:"
+    yq eval '.apps | keys' "$TEMP_VALUES"
+else
+    echo "DEBUG: .apps.argocd found, extracting valuesObject..."
+    yq eval '.apps.argocd.valuesObject' "$TEMP_VALUES" > "$ARGOCD_VALUES_FILE" 2>/dev/null || \
+        echo "{}" > "$ARGOCD_VALUES_FILE"
+fi
+
+echo "DEBUG: ArgoCD valuesObject file size:"
+ls -la "$ARGOCD_VALUES_FILE"
 echo "DEBUG: ArgoCD valuesObject content:"
 cat "$ARGOCD_VALUES_FILE"
 echo "DEBUG: End of ArgoCD valuesObject"
+
+# Check if the content is valid YAML
+echo "DEBUG: Checking if extracted content is valid YAML..."
+yq eval '.' "$ARGOCD_VALUES_FILE" >/dev/null 2>&1 && echo "DEBUG: Valid YAML" || echo "DEBUG: INVALID YAML!"
+
+echo "DEBUG: Running helm template for ArgoCD..."
+echo "DEBUG: Values file: $ARGOCD_VALUES_FILE"
+echo "DEBUG: Helm command will be:"
+echo "  helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 \\"
+echo "    --values \"$ARGOCD_VALUES_FILE\" \\"
+echo "    --namespace argocd \\"
+echo "    --set global.domain=\"https://argocd.${DOMAIN}\" --kube-version=${KUBE_VERSION}"
 
 ARGOCD_MANIFEST=$(helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 \
   --values "$ARGOCD_VALUES_FILE" \
