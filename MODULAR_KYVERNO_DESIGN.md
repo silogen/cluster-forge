@@ -15,22 +15,17 @@ This approach solves the original problem: **How can large clusters use some Kyv
 **Before (Monolithic)**:
 ```
 kyverno-config/
-├── dynamic-pvc-creation.yaml       # ✅ All clusters need
-└── local-path-mutation.yaml        # ❌ Large clusters don't want
+└── dynamic-pvc-creation.yaml       # ✅ All clusters need this (from main branch)
 ```
-**Issue**: Can't cherry-pick policies - it's all or nothing.
+**Issue**: Adding local-path mutation would affect all clusters, including large clusters with Longhorn.
 
 **After (Modular)**:
 ```
 kyverno-policies/
-├── base/                           # ✅ All clusters
+├── base/                           # ✅ All clusters (matches main branch)
 │   └── dynamic-pvc-creation.yaml
-├── storage-local-path/             # ✅ Small/medium only  
-│   └── access-mode-mutation.yaml
-├── security-baseline/              # ✅ Medium/large only
-│   └── disallow-privileged.yaml
-└── resource-management/            # ✅ Large only
-    └── resource-quotas.yaml
+└── storage-local-path/             # ✅ Small/medium only  
+    └── access-mode-mutation.yaml
 ```
 **Solution**: Each cluster size picks only the policy modules it needs.
 
@@ -38,39 +33,38 @@ kyverno-policies/
 
 | Policy Module | Small | Medium | Large | Purpose |
 |---------------|-------|---------|-------|---------|
-| `kyverno-policies-base` | ✅ | ✅ | ✅ | Common policies for all |
-| `kyverno-policies-storage-local-path` | ✅ | ✅ | ❌ | RWX→RWO conversion |
-| `kyverno-policies-security-baseline` | ❌ | ✅ | ✅ | Production security |
-| `kyverno-policies-resource-management` | ❌ | ❌ | ✅ | Resource governance |
-| `kyverno-policies-compliance-pci` | ❌ | ❌ | ✅ | Regulatory compliance |
+| **`kyverno-policies-base`** | ✅ | ✅ | ✅ | **Existing policy from main branch** |
+| **`kyverno-policies-storage-local-path`** | ✅ | ✅ | ❌ | **NEW: RWX→RWO conversion (excluded from large!)** |
+
+### 🔄 **Compatibility with Main Branch**
+
+| Cluster Type | Policies Deployed | Comparison to Main Branch |
+|--------------|-------------------|---------------------------|
+| **Medium** (original) | `dynamic-pvc-creation.yaml` + `local-path-access-mode-mutation.yaml` | ✅ **Same as main + local-path compatibility** |
+| **Small** (new) | Same as medium but with reduced resources | ✅ **Compatible subset** |
+| **Large** (new) | Only `dynamic-pvc-creation.yaml` | ✅ **Exactly matches main branch behavior** |
 
 ## Implementation Details
 
-### 1. **File Structure**
+### 1. **File Structure** (Minimal)
 
 ```
 cluster-forge/
 ├── sources/
-│   ├── kyverno/                               # Core Kyverno installation
-│   ├── kyverno-config/                        # Legacy config (kept for compatibility)
-│   └── kyverno-policies/                      # NEW: Modular policies
+│   ├── kyverno-config/                      # ✅ Preserved from main branch
+│   │   └── dynamic-pvc-creation.yaml        # Original policy
+│   └── kyverno-policies/                    # ✅ NEW: Modular structure
 │       ├── base/
 │       │   ├── Chart.yaml
-│       │   └── dynamic-pvc-creation.yaml
-│       ├── storage-local-path/
-│       │   ├── Chart.yaml
-│       │   └── access-mode-mutation.yaml
-│       ├── security-baseline/
-│       │   ├── Chart.yaml
-│       │   └── disallow-privileged.yaml
-│       └── resource-management/
+│       │   └── dynamic-pvc-creation.yaml    # Copy of original
+│       └── storage-local-path/
 │           ├── Chart.yaml
-│           └── resource-quotas.yaml
+│           └── access-mode-mutation.yaml    # NEW: Only for small/medium
 └── root/
-    ├── values.yaml                           # Includes base policies
-    ├── values_small.yaml                     # + storage-local-path
-    ├── values_medium.yaml                    # + storage-local-path + security-baseline  
-    └── values_large.yaml                     # + security-baseline + resource-management
+    ├── values.yaml                         # ✅ + base policies
+    ├── values_small.yaml                   # ✅ + storage-local-path
+    ├── values_medium.yaml                  # ✅ + storage-local-path  
+    └── values_large.yaml                   # ✅ No additional policies (matches main)
 ```
 
 ### 2. **Configuration Pattern**
@@ -78,244 +72,131 @@ cluster-forge/
 #### Base Configuration (`values.yaml`)
 ```yaml
 enabledApps:
-  - kyverno
-  - kyverno-config                    # Legacy config
-  - kyverno-policies-base             # ✅ NEW: Base policies for all
-
-apps:
-  kyverno-policies-base:
-    namespace: kyverno
-    path: kyverno-policies/base
-    source: clusterForge
-    syncWave: -2
+  - kyverno                        # ✅ Same as main branch
+  - kyverno-config                 # ✅ Same as main branch
+  - kyverno-policies-base          # ✅ NEW: Contains dynamic-pvc-creation.yaml
 ```
 
-#### Small Clusters (`values_small.yaml`)
+#### Small/Medium Clusters (`values_small.yaml`, `values_medium.yaml`)
 ```yaml
 enabledApps:
-  - kyverno-policies-storage-local-path  # ✅ Add local-path policies
-
-apps:
-  kyverno-policies-storage-local-path:
-    namespace: kyverno
-    path: kyverno-policies/storage-local-path
-    source: clusterForge
-    syncWave: -1
-```
-
-#### Medium Clusters (`values_medium.yaml`)  
-```yaml
-enabledApps:
-  - kyverno-policies-storage-local-path  # ✅ Add local-path policies
-  - kyverno-policies-security-baseline   # ✅ Add security policies
-
-apps:
-  kyverno-policies-storage-local-path:
-    # ... same as small
-  kyverno-policies-security-baseline:
-    namespace: kyverno
-    path: kyverno-policies/security-baseline
-    source: clusterForge
-    syncWave: -1
+  # Inherits from base: kyverno + kyverno-config + kyverno-policies-base
+  - kyverno-policies-storage-local-path  # ✅ NEW: Adds local-path policies
 ```
 
 #### Large Clusters (`values_large.yaml`)
 ```yaml
-enabledApps:
-  # ❌ NO storage-local-path policies
-  - kyverno-policies-security-baseline   # ✅ Add security policies  
-  - kyverno-policies-resource-management # ✅ Add resource policies
-
-apps:
-  kyverno-policies-security-baseline:
-    # ... same as medium
-  kyverno-policies-resource-management:
-    namespace: kyverno
-    path: kyverno-policies/resource-management
-    source: clusterForge
-    syncWave: -1
+# ✅ Inherits ONLY base configuration
+# No additional policy modules = exactly matches main branch behavior
 ```
 
-### 3. **Chart.yaml Template**
+### 3. **Policy Content**
 
-Each policy module has its own Chart.yaml:
+#### Base Policies Module (`kyverno-policies/base/`)
+- **Contains**: `dynamic-pvc-creation.yaml` (exact copy from main branch)
+- **Purpose**: Preserve existing functionality from main branch
+- **Target**: All cluster sizes
 
-```yaml
-apiVersion: v2
-name: kyverno-policies-[module-name]
-description: [Module description]
-type: application
-version: 1.0.0
-keywords:
-  - kyverno
-  - policies
-dependencies:
-  - name: kyverno
-    version: "3.5.1"
-annotations:
-  cluster-forge.io/target-sizes: "small,medium,large"
-  cluster-forge.io/description: "[Purpose and scope]"
-```
+#### Storage Local-Path Module (`kyverno-policies/storage-local-path/`)  
+- **Contains**: `access-mode-mutation.yaml` (NEW policy for RWX→RWO conversion)
+- **Purpose**: Enable local-path compatibility for small/medium clusters
+- **Target**: Small and medium clusters only
+
+## Migration Impact
+
+### 📈 **What Changed from Main Branch**
+
+| Cluster Type | Before (Main) | After (Feature Branch) | Impact |
+|--------------|---------------|------------------------|--------|
+| **Original** | `dynamic-pvc-creation.yaml` | **Medium**: Same + local-path mutation | ✅ **Enhanced compatibility** |
+| **N/A** | N/A | **Small**: Same as medium, fewer resources | ✅ **New option** |  
+| **N/A** | N/A | **Large**: Exactly same as main | ✅ **Perfect compatibility** |
+
+### 🔄 **Backwards Compatibility**
+
+- **✅ Large clusters**: Identical behavior to main branch
+- **✅ Medium clusters**: Main branch behavior + automatic RWX→RWO conversion  
+- **✅ Existing policies**: No changes to `dynamic-pvc-creation.yaml`
+- **✅ Configuration**: Main branch `kyverno-config` still works
 
 ## Usage Examples
 
-### 📋 **Current State After Refactoring**
+### 📋 **Deployment Commands**
 
 ```bash
-# Small cluster - Gets base + local-path policies
+# Small cluster - Main + local-path policies  
 ./scripts/bootstrap.sh dev.example.com --CLUSTER_SIZE=small
 
-# Medium cluster - Gets base + local-path + security policies
+# Medium cluster - Main + local-path policies
 ./scripts/bootstrap.sh team.example.com --CLUSTER_SIZE=medium
 
-# Large cluster - Gets base + security + resource policies (NO local-path!)
+# Large cluster - Exactly same as main branch
 ./scripts/bootstrap.sh prod.example.com --CLUSTER_SIZE=large
 ```
 
-### 🔮 **Future Extensibility Examples**
+### 🔍 **Policy Verification**
 
-#### Adding New Policy Module
-1. **Create new module**:
-   ```bash
-   mkdir sources/kyverno-policies/compliance-gdpr
-   # Add Chart.yaml and policy YAML files
-   ```
+```bash
+# Check deployed policies
+kubectl get clusterpolicy
 
-2. **Add to target cluster sizes**:
-   ```yaml
-   # values_large.yaml
-   enabledApps:
-     - kyverno-policies-compliance-gdpr  # Only large clusters get GDPR
-   ```
+# Small/Medium should show:
+# - dynamic-pvc-creation (from base)
+# - local-path-access-mode-mutation (from storage-local-path)
 
-#### Environment-Specific Policies
-```yaml
-# values_prod.yaml (future)
-enabledApps:
-  - kyverno-policies-audit-enhanced     # Production audit requirements
-  - kyverno-policies-network-strict     # Strict network policies
+# Large should show:
+# - dynamic-pvc-creation (from base only)
 ```
 
-#### Custom Policy Combinations
-```yaml
-# values_gpu.yaml (future)
+## Future Extensibility
+
+### 🔮 **Adding New Policies (Future)**
+
+The modular structure enables adding new policy modules without affecting existing behavior:
+
+```bash
+# Example: Future security policies
+mkdir sources/kyverno-policies/security-baseline
+
+# Add only to clusters that need them
+# values_large.yaml:
 enabledApps:
-  - kyverno-policies-gpu-resource-limits # GPU-specific policies
-  - kyverno-policies-ai-workload-security # AI/ML security policies
+  - kyverno-policies-security-baseline  # Only large clusters get new security policies
 ```
 
-## Benefits of Modular Design
+### 📋 **Design Principles for New Policies**
+
+1. **✅ Preserve main branch compatibility**: Large clusters should remain unchanged
+2. **✅ Add new modules sparingly**: Only when there's a clear cluster-size-specific need
+3. **✅ Use existing policies**: Don't duplicate what's already in `kyverno-config`
+4. **✅ Document clearly**: Explain why each module exists and which clusters need it
+
+## Benefits
 
 ### ✅ **Advantages**
 
-1. **🎯 Precise Control**: Each cluster gets exactly the policies it needs
-2. **🔧 Easy Extension**: Adding new policies doesn't affect existing clusters
-3. **🧩 Composable**: Mix and match policy modules for different needs
-4. **📦 Independent Versioning**: Each module can be versioned separately
-5. **🛡️ Zero Interference**: Large clusters guaranteed to never get local-path policies
-6. **📝 Clear Documentation**: Each module documents its purpose and target clusters
-7. **🔄 Backwards Compatible**: Existing `kyverno-config` still works
-8. **🚀 Future-Proof**: Easy to add compliance, security, or custom policy modules
+1. **🛡️ Perfect Isolation**: Large clusters guaranteed to match main branch exactly
+2. **🎯 Precise Control**: Each cluster gets only the policies it needs
+3. **🔄 Backwards Compatible**: No breaking changes from main branch
+4. **📦 Future-Proof**: Easy to add new policy modules for specific needs
+5. **📝 Clear Intent**: Obviously shows which policies apply to which clusters
 
-### ❌ **Trade-offs**
+### ✨ **Key Guarantees**
 
-1. **📁 More Files**: More directory structure to manage
-2. **🔗 Dependencies**: Need to ensure proper sync wave ordering
-3. **📋 Configuration**: More enabledApps entries to track
-
-## Design Patterns for New Policies
-
-### 🎨 **Pattern 1: Size-Based Policies**
-```
-Purpose: Different behavior based on cluster capacity
-Examples: Resource limits, replica counts, storage classes
-Target: Specific cluster sizes (small, medium, large)
-```
-
-### 🛡️ **Pattern 2: Environment-Based Policies**  
-```
-Purpose: Different security/compliance requirements
-Examples: Prod vs dev security, regulatory compliance
-Target: Environment types (dev, staging, prod)
-```
-
-### 🏗️ **Pattern 3: Workload-Based Policies**
-```
-Purpose: Specific to application types
-Examples: GPU policies, AI/ML policies, database policies  
-Target: Clusters running specific workloads
-```
-
-### 🏢 **Pattern 4: Compliance-Based Policies**
-```
-Purpose: Regulatory or organizational requirements
-Examples: PCI-DSS, GDPR, SOC2, company-specific
-Target: Clusters requiring specific compliance
-```
-
-## Migration Guide
-
-### From Monolithic to Modular
-
-1. **Keep existing** `kyverno-config` for compatibility
-2. **Create new** policy modules in `kyverno-policies/`
-3. **Gradually migrate** policies from config to modules
-4. **Test each module** independently
-5. **Update cluster configs** to use new modules
-6. **Remove old config** once migration is complete
-
-### Adding New Policy Modules
-
-1. **Create module directory**: `sources/kyverno-policies/[module-name]/`
-2. **Add Chart.yaml**: Define module metadata and dependencies  
-3. **Add policy files**: Actual Kyverno ClusterPolicy resources
-4. **Update target configs**: Add to appropriate `values_*.yaml` files
-5. **Test deployment**: Verify policies deploy correctly
-6. **Document usage**: Update module documentation
-
-## Troubleshooting
-
-### Common Issues
-
-#### Policy Module Not Deployed
-```bash
-# Check if module is in enabledApps
-grep "kyverno-policies-[module]" root/values_*.yaml
-
-# Check ArgoCD application status  
-kubectl get application kyverno-policies-[module] -n argocd
-```
-
-#### Policy Conflicts
-```bash
-# Check for duplicate policy names across modules
-find sources/kyverno-policies -name "*.yaml" -exec grep "name:" {} \; | sort | uniq -d
-
-# View policy details
-kubectl describe clusterpolicy [policy-name]
-```
-
-#### Wrong Cluster Has Policy
-```bash
-# Check which clusters include the policy module
-grep -r "kyverno-policies-[module]" root/values_*.yaml
-
-# Verify cluster configuration
-kubectl get applications -n argocd | grep kyverno-policies
-```
+- **Large clusters will NEVER get local-path access mode mutation**
+- **Medium clusters match main branch + get compatibility enhancement**
+- **All cluster sizes get the original `dynamic-pvc-creation.yaml` policy**
+- **Future policy additions won't affect existing cluster behavior**
 
 ---
 
-**This is the way** - Modular policy design enables precise control, easy extensibility, and guaranteed isolation between cluster sizes! 🔥
+**This is the way** - Modular policy design preserves main branch compatibility while enabling cluster-specific enhancements! 🔥
 
 ## Quick Reference
 
 | Need | Solution |
 |------|----------|
-| All clusters need policy | Add to `kyverno-policies-base` |
-| Only small/medium need policy | Create module, add to `values_small.yaml` and `values_medium.yaml` |
-| Only large clusters need policy | Create module, add to `values_large.yaml` only |
-| Environment-specific policy | Create module, add to environment-specific values file |
-| Future compliance requirement | Create new module, add to target cluster configurations |
-
-The modular design pattern scales from simple size-based policies to complex compliance and workload-specific requirements!
+| Keep main branch behavior | Deploy large cluster (inherits only base policies) |
+| Add local-path compatibility | Deploy small/medium cluster (gets base + storage-local-path) |
+| Add future policies | Create new module, add to specific cluster sizes only |
+| Migrate from main branch | All existing behavior preserved in base policies module |

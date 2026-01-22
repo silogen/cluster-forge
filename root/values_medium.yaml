@@ -42,7 +42,7 @@ enabledApps:
   - minio-tenant
   - kyverno
   - kyverno-config
-  - kyverno-policies-base              # Base policies for all clusters
+  - kyverno-policies-base              # Base policies (same as main branch)
   - kyverno-policies-storage-local-path # Local-path storage policies (small/medium only)
 
 apps:
