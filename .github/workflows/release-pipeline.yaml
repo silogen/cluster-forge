@@ -50,8 +50,7 @@ jobs:
           cmd: |
             yq -i '.clusterForge.targetRevision = env(GIT_TAG)' root/values.yaml
             yq -i '.clusterForge.targetRevision = env(GIT_TAG)' root/values_cf.yaml
-            yq -i '.clusterForge.targetRevision = env(GIT_TAG)' root/values_ha.yaml
-
+            
       - name: Commit and push changes
         uses: stefanzweifel/git-auto-commit-action@v4
         env:
