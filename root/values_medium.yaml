@@ -1,0 +1,95 @@
+# MEDIUM CLUSTER CONFIGURATION  
+# Target: Team Cluster (5-20 users)
+# Nodes: 1-3 nodes (Option A: 1×CP + 1-2 GPU workers, Option B: 3×CP + GPU workers)
+# CPU: 32-64 vCPU per GPU node, Memory: 128-256 GB RAM per GPU node  
+# GPU: Up to 8 GPUs total, partitioning optional
+# Storage: 4-16 TB total NVMe, Internal S3: 2-10 TB via MinIO
+# Networking: 10 GbE recommended
+
+# MEDIUM CLUSTER: All apps enabled (inherited from base values.yaml)
+# Only resource scaling overrides below - no need to redefine enabledApps
+
+apps:
+  argocd:
+    valuesObject:
+      # Medium tier: Enable HA with 2 replicas
+      applicationSet:
+        replicas: 2
+      controller:
+        replicas: 2
+        resources:
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+          requests:
+            cpu: "500m" 
+            memory: "1Gi"
+      redis-ha:
+        enabled: true
+        redis:
+          resources:
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+      repoServer:
+        replicas: 2
+        resources:
+          limits:
+            cpu: "1000m" 
+            memory: "2Gi"
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+      server:
+        replicas: 2
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+          requests:
+            cpu: "125m"
+            memory: "256Mi"
+  minio-tenant:
+    valuesObject:
+      tenant:
+        # Medium tier: Add datasets bucket for team collaboration
+        buckets:
+          - name: default-bucket
+            objectLock: true
+          - name: models
+            objectLock: true
+          - name: datasets
+            objectLock: false
+        # Medium tier: Scale up to 3 servers with multinode storage  
+        pools:
+          - name: pool-0
+            servers: 3
+            size: 2Ti  # Medium tier: 6TB total (3x2TB)
+            storageClassName: multinode
+            volumesPerServer: 2
+        # Medium tier: Enhanced resources for team workloads
+        resources:
+          limits:
+            cpu: "4000m"
+            memory: "8Gi"
+          requests:
+            cpu: "1000m"
+            memory: "2Gi"
+        # Medium tier: Data lifecycle management
+        lifecycle:
+          - id: team-data-transition
+            status: Enabled
+            transition:
+              days: 30
+              storageClass: IA
+  openbao:
+    valuesObject:
+      server:
+        ha:
+          enabled: true
+          replicas: 3
+          raft:
+            enabled: true
