@@ -1,4 +1,14 @@
 apiVersion: v2
 name: root
-description: A Helm chart to rule them all
+description: ClusterForge Application Root - Deploys and manages ArgoCD applications for cluster infrastructure with size-specific configurations
 version: 0.1.0
+keywords:
+  - argocd
+  - infrastructure
+  - cluster-forge
+  - app-of-apps
+maintainers:
+  - name: ClusterForge Team
+home: https://github.com/silogen/cluster-forge
+sources:
+  - https://github.com/silogen/cluster-forge
