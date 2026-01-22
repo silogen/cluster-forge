@@ -1,0 +1,172 @@
+# SMALL CLUSTER CONFIGURATION  
+# Target: Developer Cluster / Single-User Setup (1-5 users)
+# Nodes: 1 node (all-in-one) or 2 nodes (1×CP + 1×GPU worker)
+# CPU: 8-32 vCPU total, Memory: 32-128 GB RAM total  
+# GPU: 1-4 GPUs, no partitioning needed
+# Storage: 1-4 TB total NVMe, Internal S3: 0.5-2 TB via MinIO
+# Networking: 1 GbE acceptable
+# Use case: Development, testing, proof-of-concept
+
+# SMALL CLUSTER: All apps enabled (inherited from base values.yaml)
+# Only resource scaling overrides below - minimal resources for cost efficiency
+
+apps:
+  argocd:
+    valuesObject:
+      # Small tier: Single replica, minimal resources
+      applicationSet:
+        replicas: 1
+      controller:
+        replicas: 1
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
+          requests:
+            cpu: "250m" 
+            memory: "512Mi"
+      redis-ha:
+        enabled: false  # Use single Redis instance for small clusters
+      redis:
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+          requests:
+            cpu: "125m"
+            memory: "256Mi"
+      repoServer:
+        replicas: 1
+        resources:
+          limits:
+            cpu: "500m" 
+            memory: "1Gi"
+          requests:
+            cpu: "125m"
+            memory: "256Mi"
+      server:
+        replicas: 1
+        resources:
+          limits:
+            cpu: "250m"
+            memory: "512Mi"
+          requests:
+            cpu: "62m"
+            memory: "128Mi"
+
+  minio-tenant:
+    valuesObject:
+      tenant:
+        # Small tier: Basic buckets only
+        buckets:
+          - name: default-bucket
+            objectLock: false
+          - name: models
+            objectLock: false
+        # Small tier: Single server, minimal storage  
+        pools:
+          - name: pool-0
+            servers: 1
+            size: 500Gi  # Small tier: 500GB total
+            storageClassName: local-path  # Use local storage for simplicity
+            volumesPerServer: 1
+        # Small tier: Minimal resources for development
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+        # Small tier: No lifecycle management needed
+        lifecycle: []
+
+  openbao:
+    valuesObject:
+      server:
+        ha:
+          enabled: false  # Single instance for small clusters
+        dataStorage:
+          size: 1Gi  # Minimal storage
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+          requests:
+            cpu: "125m"
+            memory: "256Mi"
+
+  prometheus:
+    valuesObject:
+      prometheus:
+        prometheusSpec:
+          # Small tier: Minimal retention and resources
+          retention: 7d
+          retentionSize: 5GB
+          resources:
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+          storageSpec:
+            volumeClaimTemplate:
+              spec:
+                resources:
+                  requests:
+                    storage: 10Gi
+
+  grafana:
+    valuesObject:
+      # Small tier: Single replica, minimal resources
+      replicas: 1
+      resources:
+        limits:
+          cpu: "500m"
+          memory: "1Gi"
+        requests:
+          cpu: "125m"
+          memory: "256Mi"
+      persistence:
+        enabled: true
+        size: 1Gi
+
+  gitea:
+    valuesObject:
+      postgresql:
+        primary:
+          # Small tier: Minimal database resources
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+            requests:
+              cpu: "125m"
+              memory: "256Mi"
+          persistence:
+            size: 2Gi
+      redis:
+        master:
+          resources:
+            limits:
+              cpu: "250m"
+              memory: "512Mi"
+            requests:
+              cpu: "62m"
+              memory: "128Mi"
+      gitea:
+        admin:
+          username: admin
+        config:
+          database:
+            DB_TYPE: postgres
+          session:
+            PROVIDER: redis
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
