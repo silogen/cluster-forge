@@ -18,6 +18,25 @@ with all essential services pre-configured and integrated.
 
 ## Product Architecture
 
+### Dual Repository GitOps Pattern
+
+Cluster-Forge implements a sophisticated GitOps deployment pattern supporting both external GitHub deployment and local cluster-native deployment:
+
+- **External Mode** (`values.yaml`): Traditional GitOps with GitHub dependency
+- **Local Mode** (`values_cf.yaml`): Self-contained GitOps with local Gitea and separate configuration repository
+
+See [Values Inheritance Pattern](docs/values_inheritance_pattern.md) for detailed documentation.
+
+### Size-Aware Configuration
+
+Cluster-Forge provides three pre-configured cluster profiles with streamlined inheritance:
+
+- **Small Clusters** (1-5 users): Development/testing with minimal resources
+- **Medium Clusters** (5-20 users): Team production workloads  
+- **Large Clusters** (10s-100s users): Enterprise scale with full features
+
+Size-specific configurations follow DRY principles, inheriting from base configuration and only overriding differences. See [Cluster Size Configuration](docs/cluster_size_configuration.md) for details.
+
 ### Workflow
 
 Cluster-Forge deploys all necessary components within the cluster using GitOps-controller [ArgoCD](https://argo-cd.readthedocs.io/)
@@ -27,9 +46,10 @@ and [app-of-apps pattern](https://argo-cd.readthedocs.io/en/stable/operator-manu
 
 Cluster-Forge repository file structure has 3 main folders:
 
-- scripts - bash scripts to [bootstrap](./scripts/bootstrap.md) necessary prerequisite components for Cluster-Forge & install it
-- root - core component, root helm chart for app-of-apps that creates all other ArgoCD applications into k8s cluster
-- sources - folder that contains third-party, community and in-house helm charts & kubernetes manifests that represent cluster components
+- **scripts** - bash scripts to [bootstrap](docs/bootstrap_guide.md) necessary prerequisite components for Cluster-Forge & install it
+- **root** - core component, root helm chart for app-of-apps that creates all other ArgoCD applications into k8s cluster
+- **sources** - folder that contains third-party, community and in-house helm charts & kubernetes manifests that represent cluster components
+- **docs** - comprehensive documentation covering architecture, configuration, and operational guides
 
 So using the bootstrap script user deploys ArgoCD GitOps-controller and root application which then deploys other components into the cluster. 
 
@@ -46,32 +66,37 @@ Here are some key components that are being deployed:
 - **Cert-Manager** - Automated TLS certificate management
 - **MetalLB** - Load balancer for bare metal environments
 - **External Secrets Operator** - External secret integration
+- **Cilium** - Network security and observability
+- **Kyverno** - Policy engine with modular policy system (see [Kyverno Modular Design](docs/kyverno_modular_design.md))
 
 **Storage & Database:**
 - **CNPG Operator** - Cloud-native PostgreSQL management
 - **MinIO Operator + Tenant** - S3-compatible object storage
+- **Longhorn** - Distributed block storage
 
-#### Layer 3: AI/ML Compute Stack
+#### Layer 3: Observability & Monitoring
+- **Prometheus** - Metrics collection and alerting
+- **Grafana** - Visualization and dashboarding  
+- **Prometheus Operator CRDs** - Metrics collection infrastructure
+- **OpenTelemetry Operator** - Distributed tracing and telemetry
+- **OTEL-LGTM Stack** - Unified observability platform (Loki, Grafana, Tempo, Mimir)
+
+#### Layer 4: AI/ML Compute Stack
 **GPU & Compute:**
 - **AMD GPU Operator** - GPU device management and drivers
 - **KubeRay Operator** - Ray distributed computing framework
 - **KServe + CRDs** - Kubernetes-native model serving
 - **Kueue** - Advanced job queueing system
 - **AppWrapper** - Application scheduling and resource management
+- **KEDA** - Event-driven autoscaling
 
 **Workflow & Orchestration:**
 - **Kaiwo + CRDs** - Workflow management system
 - **RabbitMQ** - Message broker for async processing
 
-#### Layer 4: Observability & Monitoring
-- **Prometheus Operator CRDs** - Metrics collection infrastructure
-- **OpenTelemetry Operator** - Distributed tracing and telemetry
-- **OTEL-LGTM Stack** - Unified observability platform (Loki, Grafana, Tempo, Mimir)
-
 #### Layer 5: Identity & Access
 - **Keycloak** - Enterprise identity and access management
 - **Cluster-Auth** - Kubernetes RBAC integration
-- **Kyverno** - Policy engine for security governance
 
 #### Layer 6: AIRM App
 - **AIRM API** - The central API layer for AMD Resource Manager, handling authentication, access control, and cluster coordination.
@@ -106,10 +131,17 @@ Here are some key components that are being deployed:
 **FR2: GitOps Operations**
 - Bootstrap ArgoCD foundation with single script
 - Manage all components as ArgoCD Applications
-- Support external configuration via Git repository
+- Support both external GitHub and local Gitea repositories
 - Enable continuous deployment and sync capabilities
+- Provide developer access to cluster configuration via Git
 
-**FR3: Dependency Management**
+**FR3: Size-Aware Deployment**
+- Support small, medium, and large cluster configurations
+- Implement automatic resource scaling based on cluster size
+- Provide appropriate storage and access mode configurations per size
+- Enable cluster-specific policy enforcement (e.g., [Kyverno Access Mode Policy](docs/kyverno_access_mode_policy.md))
+
+**FR4: Dependency Management**
 - Deploy components in correct dependency order
 - Validate component health before proceeding
 - Handle complex inter-component dependencies automatically
@@ -120,3 +152,18 @@ Here are some key components that are being deployed:
 - Single-command bootstrap deployment
 - Complete platform deployment in under 30 minutes
 - Provide HA-configuration for all critical components
+- Support air-gapped deployment scenarios
+- Maintain configuration version control through Git
+- Enable seamless transition from external to local repository management
+
+## Documentation
+
+Comprehensive documentation is available in the `/docs` folder:
+
+- [Bootstrap Guide](docs/bootstrap_guide.md) - Step-by-step deployment instructions
+- [Cluster Size Configuration](docs/cluster_size_configuration.md) - Small/medium/large cluster setup
+- [Values Inheritance Pattern](docs/values_inheritance_pattern.md) - GitOps repository configuration
+- [Kyverno Modular Design](docs/kyverno_modular_design.md) - Policy system architecture
+- [Kyverno Access Mode Policy](docs/kyverno_access_mode_policy.md) - Storage compatibility policies
+- [Secrets Management Architecture](docs/secrets_management_architecture.md) - Security implementation
+- [Backup and Restore](docs/backup_and_restore.md) - Data protection procedures
