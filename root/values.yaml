@@ -35,6 +35,7 @@ enabledApps:
   - keycloak
   - kyverno
   - kyverno-config
+  - kyverno-policies-base              # Base policies for all clusters
   - amd-gpu-operator
   - amd-gpu-operator-config
   - kuberay-operator
@@ -222,6 +223,10 @@ apps:
     path: kyverno-config
     namespace: kyverno
     syncWave: -3
+  kyverno-policies-base:
+    path: kyverno-policies/base
+    namespace: kyverno
+    syncWave: -2
   # GPU
   amd-gpu-operator:
     path: amd-gpu-operator/v1.4.0

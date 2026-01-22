@@ -6,11 +6,72 @@
 # Storage: 1-4 TB total NVMe, Internal S3: 0.5-2 TB via MinIO
 # Networking: 1 GbE acceptable
 # Use case: Development, testing, proof-of-concept
+# Storage: Uses local-path provisioner (no Longhorn), RWX converted to RWO
 
 # SMALL CLUSTER: All apps enabled (inherited from base values.yaml)
 # Only resource scaling overrides below - minimal resources for cost efficiency
 
+# Add Kyverno policy for local-path access mode mutation
+enabledApps:
+  - aim-cluster-model-source
+  - argocd
+  - argocd-config
+  - cert-manager
+  - openbao
+  - openbao-config
+  - external-secrets
+  - external-secrets-config
+  - gitea
+  - gitea-config
+  - gateway-api
+  - metallb
+  - kgateway-crds
+  - kgateway
+  - kgateway-config
+  - prometheus-crds
+  - opentelemetry-operator
+  - otel-config
+  - prometheus
+  - prometheus-config
+  - grafana
+  - grafana-config
+  - cilium
+  - cilium-config
+  - longhorn
+  - longhorn-config
+  - minio-operator
+  - minio-tenant
+  - kyverno
+  - kyverno-config
+  - kyverno-policies-base              # Base policies for all clusters
+  - kyverno-policies-storage-local-path # Local-path storage policies (small/medium only)
+
 apps:
+  # Modular Kyverno policy applications
+  kyverno-policies-base:
+    namespace: kyverno
+    path: kyverno-policies/base
+    source: clusterForge
+    syncOptions:
+      - CreateNamespace=true
+    ignoreDifferences: []
+    wave: 25  # Deploy after Kyverno itself
+    syncWave:
+      - group: kyverno.io
+        kind: ClusterPolicy
+
+  kyverno-policies-storage-local-path:
+    namespace: kyverno  
+    path: kyverno-policies/storage-local-path
+    source: clusterForge
+    syncOptions:
+      - CreateNamespace=true
+    ignoreDifferences: []
+    wave: 26  # Deploy after base policies
+    syncWave:
+      - group: kyverno.io
+        kind: ClusterPolicy
+
   argocd:
     valuesObject:
       # Small tier: Single replica, minimal resources
@@ -68,7 +129,7 @@ apps:
           - name: pool-0
             servers: 1
             size: 500Gi  # Small tier: 500GB total
-            storageClassName: local-path  # Use local storage for simplicity
+            storageClassName: local-path  # Use local-path storage
             volumesPerServer: 1
         # Small tier: Minimal resources for development
         resources:
@@ -88,6 +149,7 @@ apps:
           enabled: false  # Single instance for small clusters
         dataStorage:
           size: 1Gi  # Minimal storage
+          storageClass: local-path  # Use local-path storage
         resources:
           limits:
             cpu: "500m"
@@ -113,6 +175,9 @@ apps:
           storageSpec:
             volumeClaimTemplate:
               spec:
+                accessModes:
+                  - ReadWriteOnce  # Explicitly use RWO for local-path
+                storageClassName: local-path
                 resources:
                   requests:
                     storage: 10Gi
@@ -131,6 +196,9 @@ apps:
       persistence:
         enabled: true
         size: 1Gi
+        storageClassName: local-path  # Use local-path storage
+        accessModes:
+          - ReadWriteOnce  # Explicitly use RWO for local-path
 
   gitea:
     valuesObject:
@@ -146,6 +214,9 @@ apps:
               memory: "256Mi"
           persistence:
             size: 2Gi
+            storageClass: local-path  # Use local-path storage
+            accessModes:
+              - ReadWriteOnce  # Explicitly use RWO for local-path
       redis:
         master:
           resources:
@@ -155,6 +226,11 @@ apps:
             requests:
               cpu: "62m"
               memory: "128Mi"
+          persistence:
+            size: 1Gi
+            storageClass: local-path  # Use local-path storage
+            accessModes:
+              - ReadWriteOnce  # Explicitly use RWO for local-path
       gitea:
         admin:
           username: admin
@@ -170,3 +246,14 @@ apps:
           requests:
             cpu: "250m"
             memory: "512Mi"
+        persistence:
+          size: 5Gi
+          storageClass: local-path  # Use local-path storage
+          accessModes:
+            - ReadWriteOnce  # Explicitly use RWO for local-path
+
+  # Disable Longhorn for small clusters (use local-path instead)
+  longhorn:
+    enabled: false
+  longhorn-config:
+    enabled: false

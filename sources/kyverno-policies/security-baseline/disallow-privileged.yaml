@@ -1,0 +1,33 @@
+---
+# Example security policy - disallow privileged containers
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-privileged-containers
+  annotations:
+    policies.kyverno.io/title: "Disallow Privileged Containers"
+    policies.kyverno.io/category: "Pod Security Standards (Baseline)"
+    policies.kyverno.io/severity: "medium"
+    policies.kyverno.io/subject: "Pod"
+    policies.kyverno.io/description: >-
+      Privileged containers share namespaces with the host system and do not offer any security isolation.
+      This policy ensures that privileged containers are not allowed.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-privileged
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "Privileged containers are not allowed"
+        pattern:
+          spec:
+            =(securityContext):
+              =(privileged): "false"
+            containers:
+              - name: "*"
+                =(securityContext):
+                  =(privileged): "false"
