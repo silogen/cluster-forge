@@ -4,6 +4,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Ensure yq is available 
+if ! command -v yq >/dev/null 2>&1; then
+    echo "ERROR: yq is required but not found. Please install yq:"
+    echo "  curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /usr/local/bin/yq"
+    echo "  chmod +x /usr/local/bin/yq"
+    exit 1
+fi
+
 # Initialize variables
 DOMAIN="${1:-}"
 CLUSTER_SIZE=""
@@ -66,6 +74,17 @@ kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
 kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
 kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
 
+# Determine values file arguments for size-specific deployment
+VALUES_ARGS="-f ${SCRIPT_DIR}/../root/${VALUES_FILE}"
+SIZE_VALUES_FILE="${SCRIPT_DIR}/../root/values_${CLUSTER_SIZE}.yaml"
+
+if [ -f "$SIZE_VALUES_FILE" ]; then
+    VALUES_ARGS="$VALUES_ARGS -f $SIZE_VALUES_FILE"
+    echo "   ✓ Using size-specific values: values_${CLUSTER_SIZE}.yaml"
+else
+    echo "   ⚠ Size-specific values not found: $SIZE_VALUES_FILE (using base values only)"
+fi
+
 # ArgoCD bootstrap
 # Create temporary merged values file for ArgoCD
 ARGOCD_MERGED_CONFIG="/tmp/bootstrap-argocd-$$.yaml"
@@ -75,15 +94,15 @@ echo "    valuesObject: {}" >> "$ARGOCD_MERGED_CONFIG"
 
 # Merge valuesObject from values files with size overrides
 eval "helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --show-only templates/cluster-apps.yaml" | \
-    ~/bin/yq '.spec.sources[0].helm.values | fromyaml | .apps.argocd.valuesObject' > /tmp/argocd-values-$$.yaml 2>/dev/null || \
+    yq '.spec.sources[0].helm.values | fromyaml | .apps.argocd.valuesObject' > /tmp/argocd-values-$$.yaml 2>/dev/null || \
     echo "{}" > /tmp/argocd-values-$$.yaml
 
-~/bin/yq eval '.apps.argocd.valuesObject = load("/tmp/argocd-values-'$$'.yaml")' "$ARGOCD_MERGED_CONFIG" > "${ARGOCD_MERGED_CONFIG}.tmp"
+yq eval '.apps.argocd.valuesObject = load("/tmp/argocd-values-'$$'.yaml")' "$ARGOCD_MERGED_CONFIG" > "${ARGOCD_MERGED_CONFIG}.tmp"
 mv "${ARGOCD_MERGED_CONFIG}.tmp" "$ARGOCD_MERGED_CONFIG"
 rm -f /tmp/argocd-values-$$.yaml
 
 ARGOCD_MANIFEST=$(helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 \
-  --values <(~/bin/yq '.apps.argocd.valuesObject' "$ARGOCD_MERGED_CONFIG") \
+  --values <(yq '.apps.argocd.valuesObject' "$ARGOCD_MERGED_CONFIG") \
   --namespace argocd \
   --set global.domain="https://argocd.${DOMAIN}" --kube-version=${KUBE_VERSION})
 
@@ -103,15 +122,15 @@ echo "    valuesObject: {}" >> "$OPENBAO_MERGED_CONFIG"
 
 # Merge valuesObject from values files with size overrides
 eval "helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --show-only templates/cluster-apps.yaml" | \
-    ~/bin/yq '.spec.sources[0].helm.values | fromyaml | .apps.openbao.valuesObject' > /tmp/openbao-values-$$.yaml 2>/dev/null || \
+    yq '.spec.sources[0].helm.values | fromyaml | .apps.openbao.valuesObject' > /tmp/openbao-values-$$.yaml 2>/dev/null || \
     echo "{}" > /tmp/openbao-values-$$.yaml
 
-~/bin/yq eval '.apps.openbao.valuesObject = load("/tmp/openbao-values-'$$'.yaml")' "$OPENBAO_MERGED_CONFIG" > "${OPENBAO_MERGED_CONFIG}.tmp"
+yq eval '.apps.openbao.valuesObject = load("/tmp/openbao-values-'$$'.yaml")' "$OPENBAO_MERGED_CONFIG" > "${OPENBAO_MERGED_CONFIG}.tmp"
 mv "${OPENBAO_MERGED_CONFIG}.tmp" "$OPENBAO_MERGED_CONFIG"
 rm -f /tmp/openbao-values-$$.yaml
 
 OPENBAO_MANIFEST=$(helm template --release-name openbao ${SCRIPT_DIR}/../sources/openbao/0.18.2 \
-  --values <(~/bin/yq '.apps.openbao.valuesObject' "$OPENBAO_MERGED_CONFIG") \
+  --values <(yq '.apps.openbao.valuesObject' "$OPENBAO_MERGED_CONFIG") \
   --namespace cf-openbao --kube-version=${KUBE_VERSION})
 
 kubectl apply -f - <<< "$OPENBAO_MANIFEST"
@@ -128,19 +147,8 @@ generate_password() {
 # Create initial-cf-values configmap with size-aware values
 echo "📝 Creating cluster configuration with size: $CLUSTER_SIZE"
 
-# Determine values file arguments for size-specific deployment
-VALUES_ARGS="-f ${SCRIPT_DIR}/../root/${VALUES_FILE}"
-SIZE_VALUES_FILE="${SCRIPT_DIR}/../root/values_${CLUSTER_SIZE}.yaml"
-
-if [ -f "$SIZE_VALUES_FILE" ]; then
-    VALUES_ARGS="$VALUES_ARGS -f $SIZE_VALUES_FILE"
-    echo "   ✓ Using size-specific values: values_${CLUSTER_SIZE}.yaml"
-else
-    echo "   ⚠ Size-specific values not found: $SIZE_VALUES_FILE (using base values only)"
-fi
-
 # Generate merged configuration for gitea configmap
-eval "VALUES=\$(helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --show-only templates/cluster-forge.yaml | ~/bin/yq '.spec.sources[0].helm.valueFiles = [\"\$values/values.yaml\"] | .spec.sources[0].helm.parameters[0].value = \"'$DOMAIN'\"')"
+eval "VALUES=\$(helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --show-only templates/cluster-forge.yaml | yq '.spec.sources[0].helm.valueFiles = [\"\$values/values.yaml\"] | .spec.sources[0].helm.parameters[0].value = \"'$DOMAIN'\"')"
 kubectl create configmap initial-cf-values --from-file=/dev/stdin --dry-run=client -o yaml <<< "$VALUES" | kubectl apply -n cf-gitea -f -
 
 kubectl create secret generic gitea-admin-credentials \
@@ -155,15 +163,15 @@ echo "    valuesObject: {}" >> "$GITEA_MERGED_CONFIG"
 
 # Merge valuesObject from values files with size overrides
 eval "helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --show-only templates/cluster-apps.yaml" | \
-    ~/bin/yq '.spec.sources[0].helm.values | fromyaml | .apps.gitea.valuesObject' > /tmp/gitea-values-$$.yaml 2>/dev/null || \
+    yq '.spec.sources[0].helm.values | fromyaml | .apps.gitea.valuesObject' > /tmp/gitea-values-$$.yaml 2>/dev/null || \
     echo "{}" > /tmp/gitea-values-$$.yaml
 
-~/bin/yq eval '.apps.gitea.valuesObject = load("/tmp/gitea-values-'$$'.yaml")' "$GITEA_MERGED_CONFIG" > "${GITEA_MERGED_CONFIG}.tmp"
+yq eval '.apps.gitea.valuesObject = load("/tmp/gitea-values-'$$'.yaml")' "$GITEA_MERGED_CONFIG" > "${GITEA_MERGED_CONFIG}.tmp"
 mv "${GITEA_MERGED_CONFIG}.tmp" "$GITEA_MERGED_CONFIG"
 rm -f /tmp/gitea-values-$$.yaml
 
 GITEA_MANIFEST=$(helm template --release-name gitea ${SCRIPT_DIR}/../sources/gitea/12.3.0 \
-  --values <(~/bin/yq '.apps.gitea.valuesObject' "$GITEA_MERGED_CONFIG") \
+  --values <(yq '.apps.gitea.valuesObject' "$GITEA_MERGED_CONFIG") \
   --namespace cf-gitea \
   --set clusterDomain="${DOMAIN}" --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}" --kube-version=${KUBE_VERSION})
 
