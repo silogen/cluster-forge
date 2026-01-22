@@ -104,13 +104,18 @@ yq eval '.apps.argocd.valuesObject = load("/tmp/argocd-values-'$$'.yaml")' "$ARG
 mv "${ARGOCD_MERGED_CONFIG}.tmp" "$ARGOCD_MERGED_CONFIG"
 rm -f /tmp/argocd-values-$$.yaml
 
+# Extract valuesObject to a temporary file for helm
+ARGOCD_VALUES_FILE="/tmp/argocd-final-values-$$.yaml"
+yq '.apps.argocd.valuesObject' "$ARGOCD_MERGED_CONFIG" > "$ARGOCD_VALUES_FILE"
+
 ARGOCD_MANIFEST=$(helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 \
-  --values <(yq '.apps.argocd.valuesObject' "$ARGOCD_MERGED_CONFIG") \
+  --values "$ARGOCD_VALUES_FILE" \
   --namespace argocd \
   --set global.domain="https://argocd.${DOMAIN}" --kube-version=${KUBE_VERSION})
 
 kubectl apply -f - <<< "$ARGOCD_MANIFEST"
 rm -f "$ARGOCD_MERGED_CONFIG"
+rm -f "$ARGOCD_VALUES_FILE"
 kubectl rollout status statefulset/argocd-application-controller -n argocd
 kubectl rollout status deploy/argocd-applicationset-controller -n argocd
 kubectl rollout status deploy/argocd-redis -n argocd
@@ -131,12 +136,17 @@ yq eval '.apps.openbao.valuesObject = load("/tmp/openbao-values-'$$'.yaml")' "$O
 mv "${OPENBAO_MERGED_CONFIG}.tmp" "$OPENBAO_MERGED_CONFIG"
 rm -f /tmp/openbao-values-$$.yaml
 
+# Extract valuesObject to a temporary file for helm
+OPENBAO_VALUES_FILE="/tmp/openbao-final-values-$$.yaml"
+yq '.apps.openbao.valuesObject' "$OPENBAO_MERGED_CONFIG" > "$OPENBAO_VALUES_FILE"
+
 OPENBAO_MANIFEST=$(helm template --release-name openbao ${SCRIPT_DIR}/../sources/openbao/0.18.2 \
-  --values <(yq '.apps.openbao.valuesObject' "$OPENBAO_MERGED_CONFIG") \
+  --values "$OPENBAO_VALUES_FILE" \
   --namespace cf-openbao --kube-version=${KUBE_VERSION})
 
 kubectl apply -f - <<< "$OPENBAO_MANIFEST"
 rm -f "$OPENBAO_MERGED_CONFIG"
+rm -f "$OPENBAO_VALUES_FILE"
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
 helm template --release-name openbao-init ${SCRIPT_DIR}/init-openbao-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
@@ -171,13 +181,18 @@ yq eval '.apps.gitea.valuesObject = load("/tmp/gitea-values-'$$'.yaml")' "$GITEA
 mv "${GITEA_MERGED_CONFIG}.tmp" "$GITEA_MERGED_CONFIG"
 rm -f /tmp/gitea-values-$$.yaml
 
+# Extract valuesObject to a temporary file for helm
+GITEA_VALUES_FILE="/tmp/gitea-final-values-$$.yaml"
+yq '.apps.gitea.valuesObject' "$GITEA_MERGED_CONFIG" > "$GITEA_VALUES_FILE"
+
 GITEA_MANIFEST=$(helm template --release-name gitea ${SCRIPT_DIR}/../sources/gitea/12.3.0 \
-  --values <(yq '.apps.gitea.valuesObject' "$GITEA_MERGED_CONFIG") \
+  --values "$GITEA_VALUES_FILE" \
   --namespace cf-gitea \
   --set clusterDomain="${DOMAIN}" --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}" --kube-version=${KUBE_VERSION})
 
 kubectl apply -f - <<< "$GITEA_MANIFEST"
 rm -f "$GITEA_MERGED_CONFIG"
+rm -f "$GITEA_VALUES_FILE"
 rm -f "$TEMP_VALUES"
 kubectl rollout status deploy/gitea -n cf-gitea
 helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
