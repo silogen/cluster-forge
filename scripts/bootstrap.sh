@@ -67,16 +67,55 @@ kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
 kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
 
 # ArgoCD bootstrap
-helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 -f ${SCRIPT_DIR}/../sources/argocd/${VALUES_FILE} --namespace argocd \
-  --set global.domain="https://argocd.${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
+# Create temporary merged values file for ArgoCD
+ARGOCD_MERGED_CONFIG="/tmp/bootstrap-argocd-$$.yaml"
+echo "apps:" > "$ARGOCD_MERGED_CONFIG"
+echo "  argocd:" >> "$ARGOCD_MERGED_CONFIG" 
+echo "    valuesObject: {}" >> "$ARGOCD_MERGED_CONFIG"
+
+# Merge valuesObject from values files with size overrides
+eval "helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --show-only templates/cluster-apps.yaml" | \
+    ~/bin/yq '.spec.sources[0].helm.values | fromyaml | .apps.argocd.valuesObject' > /tmp/argocd-values-$$.yaml 2>/dev/null || \
+    echo "{}" > /tmp/argocd-values-$$.yaml
+
+~/bin/yq eval '.apps.argocd.valuesObject = load("/tmp/argocd-values-'$$'.yaml")' "$ARGOCD_MERGED_CONFIG" > "${ARGOCD_MERGED_CONFIG}.tmp"
+mv "${ARGOCD_MERGED_CONFIG}.tmp" "$ARGOCD_MERGED_CONFIG"
+rm -f /tmp/argocd-values-$$.yaml
+
+ARGOCD_MANIFEST=$(helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 \
+  --values <(~/bin/yq '.apps.argocd.valuesObject' "$ARGOCD_MERGED_CONFIG") \
+  --namespace argocd \
+  --set global.domain="https://argocd.${DOMAIN}" --kube-version=${KUBE_VERSION})
+
+kubectl apply -f - <<< "$ARGOCD_MANIFEST"
+rm -f "$ARGOCD_MERGED_CONFIG"
 kubectl rollout status statefulset/argocd-application-controller -n argocd
 kubectl rollout status deploy/argocd-applicationset-controller -n argocd
 kubectl rollout status deploy/argocd-redis -n argocd
 kubectl rollout status deploy/argocd-repo-server -n argocd
 
 # OpenBao bootstrap
-helm template --release-name openbao ${SCRIPT_DIR}/../sources/openbao/0.18.2 -f ${SCRIPT_DIR}/../sources/openbao/values_cf.yaml \
-  --namespace cf-openbao --kube-version=${KUBE_VERSION} | kubectl apply -f -
+# Create temporary merged values file for OpenBao
+OPENBAO_MERGED_CONFIG="/tmp/bootstrap-openbao-$$.yaml"
+echo "apps:" > "$OPENBAO_MERGED_CONFIG"
+echo "  openbao:" >> "$OPENBAO_MERGED_CONFIG"
+echo "    valuesObject: {}" >> "$OPENBAO_MERGED_CONFIG"
+
+# Merge valuesObject from values files with size overrides
+eval "helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --show-only templates/cluster-apps.yaml" | \
+    ~/bin/yq '.spec.sources[0].helm.values | fromyaml | .apps.openbao.valuesObject' > /tmp/openbao-values-$$.yaml 2>/dev/null || \
+    echo "{}" > /tmp/openbao-values-$$.yaml
+
+~/bin/yq eval '.apps.openbao.valuesObject = load("/tmp/openbao-values-'$$'.yaml")' "$OPENBAO_MERGED_CONFIG" > "${OPENBAO_MERGED_CONFIG}.tmp"
+mv "${OPENBAO_MERGED_CONFIG}.tmp" "$OPENBAO_MERGED_CONFIG"
+rm -f /tmp/openbao-values-$$.yaml
+
+OPENBAO_MANIFEST=$(helm template --release-name openbao ${SCRIPT_DIR}/../sources/openbao/0.18.2 \
+  --values <(~/bin/yq '.apps.openbao.valuesObject' "$OPENBAO_MERGED_CONFIG") \
+  --namespace cf-openbao --kube-version=${KUBE_VERSION})
+
+kubectl apply -f - <<< "$OPENBAO_MANIFEST"
+rm -f "$OPENBAO_MERGED_CONFIG"
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
 helm template --release-name openbao-init ${SCRIPT_DIR}/init-openbao-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
@@ -101,15 +140,35 @@ else
 fi
 
 # Generate merged configuration for gitea configmap
-eval "VALUES=\$(helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --show-only templates/cluster-forge.yaml | yq '.spec.sources[0].helm.valueFiles = [\"\$values/values.yaml\"] | .spec.sources[0].helm.parameters[0].value = \"'$DOMAIN'\"')"
+eval "VALUES=\$(helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --show-only templates/cluster-forge.yaml | ~/bin/yq '.spec.sources[0].helm.valueFiles = [\"\$values/values.yaml\"] | .spec.sources[0].helm.parameters[0].value = \"'$DOMAIN'\"')"
 kubectl create configmap initial-cf-values --from-file=/dev/stdin --dry-run=client -o yaml <<< "$VALUES" | kubectl apply -n cf-gitea -f -
 
 kubectl create secret generic gitea-admin-credentials \
   --namespace=cf-gitea \
   --from-literal=username=silogen-admin \
   --from-literal=password=$(generate_password)
-helm template --release-name gitea ${SCRIPT_DIR}/../sources/gitea/12.3.0 -f ${SCRIPT_DIR}/../sources/gitea/values_cf.yaml --namespace cf-gitea \
-  --set clusterDomain="${DOMAIN}" --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
+# Create temporary merged values file for Gitea  
+GITEA_MERGED_CONFIG="/tmp/bootstrap-gitea-$$.yaml"
+echo "apps:" > "$GITEA_MERGED_CONFIG"
+echo "  gitea:" >> "$GITEA_MERGED_CONFIG"
+echo "    valuesObject: {}" >> "$GITEA_MERGED_CONFIG"
+
+# Merge valuesObject from values files with size overrides
+eval "helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --show-only templates/cluster-apps.yaml" | \
+    ~/bin/yq '.spec.sources[0].helm.values | fromyaml | .apps.gitea.valuesObject' > /tmp/gitea-values-$$.yaml 2>/dev/null || \
+    echo "{}" > /tmp/gitea-values-$$.yaml
+
+~/bin/yq eval '.apps.gitea.valuesObject = load("/tmp/gitea-values-'$$'.yaml")' "$GITEA_MERGED_CONFIG" > "${GITEA_MERGED_CONFIG}.tmp"
+mv "${GITEA_MERGED_CONFIG}.tmp" "$GITEA_MERGED_CONFIG"
+rm -f /tmp/gitea-values-$$.yaml
+
+GITEA_MANIFEST=$(helm template --release-name gitea ${SCRIPT_DIR}/../sources/gitea/12.3.0 \
+  --values <(~/bin/yq '.apps.gitea.valuesObject' "$GITEA_MERGED_CONFIG") \
+  --namespace cf-gitea \
+  --set clusterDomain="${DOMAIN}" --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}" --kube-version=${KUBE_VERSION})
+
+kubectl apply -f - <<< "$GITEA_MANIFEST"
+rm -f "$GITEA_MERGED_CONFIG"
 kubectl rollout status deploy/gitea -n cf-gitea
 helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
