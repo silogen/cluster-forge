@@ -28,10 +28,11 @@ helm template --release-name openbao ../sources/openbao/0.18.2 -f ../sources/ope
   --namespace cf-openbao --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s
 
-# Deploy OpenBao secret configurations
-echo "Deploying OpenBao secret management configurations..."
-helm template --release-name openbao-secrets ../sources/openbao-config \
-  --set domain="$DOMAIN" --kube-version=${KUBE_VERSION} | kubectl apply -f -
+# Deploy OpenBao secret configurations needed for init job
+echo "Deploying OpenBao secret configurations for init job..."
+cat ../sources/openbao-config/openbao-secret-definitions.yaml | \
+  sed "s|{{ .Values.domain }}|$DOMAIN|g" | kubectl apply -f -
+cat ../sources/openbao-config/openbao-secret-manager-cm.yaml | kubectl apply -f -
 
 # Deploy OpenBao initialization job
 helm template --release-name openbao-init ./init-openbao-job --set domain="$DOMAIN" --kube-version=${KUBE_VERSION} | kubectl apply -f -
