@@ -487,7 +487,7 @@ CLUSTER_AUTH_ADMIN_TOKEN=""
 POST_REGISTRATION_REDIRECT_URL="http://localhost:8010"
 EOF
 
-    # Create UI .env.local file
+    # Create UI .env.local file (old unsplit app)
     UI_ENV_FILE="${SILOGEN_CORE_PATH}/services/airm/ui/.env.local"
     mkdir -p "$(dirname "$UI_ENV_FILE")"
     cat > "$UI_ENV_FILE" <<EOF
@@ -507,9 +507,52 @@ AIRM_API_SERVICE_URL=http://localhost:8001
 NODE_OPTIONS="--dns-result-order=ipv4first"
 EOF
 
+    # Create .env.local for new split apps
+    # AI Workbench (aiwb) - port 8011
+    AIWB_ENV_FILE="${SILOGEN_CORE_PATH}/apps/ui/aiwb/.env.local"
+    mkdir -p "$(dirname "$AIWB_ENV_FILE")"
+    cat > "$AIWB_ENV_FILE" <<EOF
+# Next.js
+NEXTAUTH_URL=http://localhost:8011
+NEXTAUTH_SECRET="local-dev-secret-change-in-production"
+
+# Keycloak
+KEYCLOAK_ID="354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
+KEYCLOAK_SECRET="$KC_UI_SECRET"
+KEYCLOAK_ISSUER=http://localhost:8080/realms/airm
+
+# AIRM API
+AIRM_API_SERVICE_URL=http://localhost:8001
+
+# Force Node.js to prefer IPv4 to avoid IPv6 connection issues
+NODE_OPTIONS="--dns-result-order=ipv4first"
+EOF
+
+    # Resource Manager (airm) - port 8010
+    AIRM_ENV_FILE="${SILOGEN_CORE_PATH}/apps/ui/airm/.env.local"
+    mkdir -p "$(dirname "$AIRM_ENV_FILE")"
+    cat > "$AIRM_ENV_FILE" <<EOF
+# Next.js
+NEXTAUTH_URL=http://localhost:8010
+NEXTAUTH_SECRET="local-dev-secret-change-in-production"
+
+# Keycloak
+KEYCLOAK_ID="354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
+KEYCLOAK_SECRET="$KC_UI_SECRET"
+KEYCLOAK_ISSUER=http://localhost:8080/realms/airm
+
+# AIRM API
+AIRM_API_SERVICE_URL=http://localhost:8001
+
+# Force Node.js to prefer IPv4 to avoid IPv6 connection issues
+NODE_OPTIONS="--dns-result-order=ipv4first"
+EOF
+
     echo "✅ Generated .env files:"
     echo "   - $API_ENV_FILE"
-    echo "   - $UI_ENV_FILE"
+    echo "   - $UI_ENV_FILE (legacy)"
+    echo "   - $AIWB_ENV_FILE (AI Workbench)"
+    echo "   - $AIRM_ENV_FILE (Resource Manager)"
 fi
 
 # Start monitoring loop
