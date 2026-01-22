@@ -93,8 +93,11 @@ echo "  argocd:" >> "$ARGOCD_MERGED_CONFIG"
 echo "    valuesObject: {}" >> "$ARGOCD_MERGED_CONFIG"
 
 # Merge valuesObject from values files with size overrides
-eval "helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --set global.domain=\"placeholder.domain\" --show-only templates/cluster-apps.yaml" | \
-    yq '.spec.sources[0].helm.values | fromyaml | .apps.argocd.valuesObject' > /tmp/argocd-values-$$.yaml 2>/dev/null || \
+# Create a temporary merged values file for extracting valuesObject
+TEMP_VALUES="/tmp/merged-values-$$.yaml"
+yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' ${SCRIPT_DIR}/../root/values_cf.yaml ${SCRIPT_DIR}/../root/values_${CLUSTER_SIZE}.yaml > "$TEMP_VALUES" 2>/dev/null || \
+    cp ${SCRIPT_DIR}/../root/values_cf.yaml "$TEMP_VALUES"
+yq eval '.apps.argocd.valuesObject' "$TEMP_VALUES" > /tmp/argocd-values-$$.yaml 2>/dev/null || \
     echo "{}" > /tmp/argocd-values-$$.yaml
 
 yq eval '.apps.argocd.valuesObject = load("/tmp/argocd-values-'$$'.yaml")' "$ARGOCD_MERGED_CONFIG" > "${ARGOCD_MERGED_CONFIG}.tmp"
@@ -121,8 +124,7 @@ echo "  openbao:" >> "$OPENBAO_MERGED_CONFIG"
 echo "    valuesObject: {}" >> "$OPENBAO_MERGED_CONFIG"
 
 # Merge valuesObject from values files with size overrides
-eval "helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --set global.domain=\"placeholder.domain\" --show-only templates/cluster-apps.yaml" | \
-    yq '.spec.sources[0].helm.values | fromyaml | .apps.openbao.valuesObject' > /tmp/openbao-values-$$.yaml 2>/dev/null || \
+yq eval '.apps.openbao.valuesObject' "$TEMP_VALUES" > /tmp/openbao-values-$$.yaml 2>/dev/null || \
     echo "{}" > /tmp/openbao-values-$$.yaml
 
 yq eval '.apps.openbao.valuesObject = load("/tmp/openbao-values-'$$'.yaml")' "$OPENBAO_MERGED_CONFIG" > "${OPENBAO_MERGED_CONFIG}.tmp"
@@ -162,8 +164,7 @@ echo "  gitea:" >> "$GITEA_MERGED_CONFIG"
 echo "    valuesObject: {}" >> "$GITEA_MERGED_CONFIG"
 
 # Merge valuesObject from values files with size overrides
-eval "helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --set global.domain=\"placeholder.domain\" --show-only templates/cluster-apps.yaml" | \
-    yq '.spec.sources[0].helm.values | fromyaml | .apps.gitea.valuesObject' > /tmp/gitea-values-$$.yaml 2>/dev/null || \
+yq eval '.apps.gitea.valuesObject' "$TEMP_VALUES" > /tmp/gitea-values-$$.yaml 2>/dev/null || \
     echo "{}" > /tmp/gitea-values-$$.yaml
 
 yq eval '.apps.gitea.valuesObject = load("/tmp/gitea-values-'$$'.yaml")' "$GITEA_MERGED_CONFIG" > "${GITEA_MERGED_CONFIG}.tmp"
@@ -177,6 +178,7 @@ GITEA_MANIFEST=$(helm template --release-name gitea ${SCRIPT_DIR}/../sources/git
 
 kubectl apply -f - <<< "$GITEA_MANIFEST"
 rm -f "$GITEA_MERGED_CONFIG"
+rm -f "$TEMP_VALUES"
 kubectl rollout status deploy/gitea -n cf-gitea
 helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
