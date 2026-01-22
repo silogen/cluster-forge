@@ -5,11 +5,72 @@
 # GPU: Up to 8 GPUs total, partitioning optional
 # Storage: 4-16 TB total NVMe, Internal S3: 2-10 TB via MinIO
 # Networking: 10 GbE recommended
+# Storage: Uses local-path provisioner (no Longhorn), RWX converted to RWO
 
 # MEDIUM CLUSTER: All apps enabled (inherited from base values.yaml)
-# Only resource scaling overrides below - no need to redefine enabledApps
+# Add Kyverno policy for local-path access mode mutation
+
+# Override enabled apps to include the access mode mutation policy
+enabledApps:
+  - aim-cluster-model-source
+  - argocd
+  - argocd-config
+  - cert-manager
+  - openbao
+  - openbao-config
+  - external-secrets
+  - external-secrets-config
+  - gitea
+  - gitea-config
+  - gateway-api
+  - metallb
+  - kgateway-crds
+  - kgateway
+  - kgateway-config
+  - prometheus-crds
+  - opentelemetry-operator
+  - otel-config
+  - prometheus
+  - prometheus-config
+  - grafana
+  - grafana-config
+  - cilium
+  - cilium-config
+  - longhorn
+  - longhorn-config
+  - minio-operator
+  - minio-tenant
+  - kyverno
+  - kyverno-config
+  - kyverno-policies-base              # Base policies for all clusters
+  - kyverno-policies-storage-local-path # Local-path storage policies (small/medium only)
 
 apps:
+  # Modular Kyverno policy applications
+  kyverno-policies-base:
+    namespace: kyverno
+    path: kyverno-policies/base
+    source: clusterForge
+    syncOptions:
+      - CreateNamespace=true
+    ignoreDifferences: []
+    wave: 25  # Deploy after Kyverno itself
+    syncWave:
+      - group: kyverno.io
+        kind: ClusterPolicy
+
+  kyverno-policies-storage-local-path:
+    namespace: kyverno
+    path: kyverno-policies/storage-local-path
+    source: clusterForge
+    syncOptions:
+      - CreateNamespace=true
+    ignoreDifferences: []
+    wave: 26  # Deploy after base policies
+    syncWave:
+      - group: kyverno.io
+        kind: ClusterPolicy
+
   argocd:
     valuesObject:
       # Medium tier: Enable HA with 2 replicas
@@ -52,6 +113,7 @@ apps:
           requests:
             cpu: "125m"
             memory: "256Mi"
+
   minio-tenant:
     valuesObject:
       tenant:
@@ -63,12 +125,12 @@ apps:
             objectLock: true
           - name: datasets
             objectLock: false
-        # Medium tier: Scale up to 3 servers with multinode storage  
+        # Medium tier: Scale up to 3 servers with local-path storage  
         pools:
           - name: pool-0
             servers: 3
             size: 2Ti  # Medium tier: 6TB total (3x2TB)
-            storageClassName: multinode
+            storageClassName: local-path  # Use local-path storage
             volumesPerServer: 2
         # Medium tier: Enhanced resources for team workloads
         resources:
@@ -85,6 +147,7 @@ apps:
             transition:
               days: 30
               storageClass: IA
+
   openbao:
     valuesObject:
       server:
@@ -93,3 +156,61 @@ apps:
           replicas: 3
           raft:
             enabled: true
+        dataStorage:
+          size: 5Gi
+          storageClass: local-path  # Use local-path storage
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+
+  prometheus:
+    valuesObject:
+      prometheus:
+        prometheusSpec:
+          # Medium tier: Extended retention and resources
+          retention: 15d
+          retentionSize: 20GB
+          resources:
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+          storageSpec:
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce  # Use RWO for local-path
+                storageClassName: local-path
+                resources:
+                  requests:
+                    storage: 25Gi
+
+  grafana:
+    valuesObject:
+      # Medium tier: Enhanced resources
+      replicas: 2
+      resources:
+        limits:
+          cpu: "1000m"
+          memory: "2Gi"
+        requests:
+          cpu: "250m"
+          memory: "512Mi"
+      persistence:
+        enabled: true
+        size: 5Gi
+        storageClassName: local-path  # Use local-path storage
+        accessModes:
+          - ReadWriteOnce  # Use RWO for local-path
+
+  # Disable Longhorn for medium clusters (use local-path instead)
+  longhorn:
+    enabled: false
+  longhorn-config:
+    enabled: false

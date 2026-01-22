@@ -7,9 +7,11 @@
 # Storage: 10-100+ TB NVMe, External HA S3 object storage (recommended)
 # Networking: 25 GbE or more, optional separate storage network
 # RKE2: Dedicated, tainted CP nodes, etcd snapshots + full backup/restore plan
+# Storage: Uses Longhorn with full RWX/ROX support, no access mode mutation needed
 
 # LARGE CLUSTER: All apps enabled (inherited from base values.yaml)  
-# Only resource scaling overrides below - no need to redefine enabledApps
+# Uses Longhorn storage with native RWX support - no need for access mode mutation
+# The local-path-access-mode-policies app is NOT included in enabledApps
 
 apps:
   argocd:
