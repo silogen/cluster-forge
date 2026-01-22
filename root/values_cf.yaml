@@ -1,7 +1,7 @@
 clusterForge:
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
   #targetRevision: v1.7.0 # cluster-forge version git tag
-  targetRevision: EAI-936_t_shirts
+  targetRevision: marc_t_shirts
 # source helm values file from separate git repo
 externalValues:
   enabled: true
@@ -212,7 +212,6 @@ apps:
       - name: keycloak.realm
         value: "airm"
     syncWave: -2
-
   # Network apps
   gateway-api:
     path: gateway-api/v1.3.0
@@ -245,7 +244,6 @@ apps:
       - name: domain
         value: "{{ .Values.global.domain }}"
     syncWave: -2
-
   # Monitoring
   prometheus-crds:
     path: prometheus-operator-crds/23.0.0
@@ -337,14 +335,12 @@ apps:
       - name: cluster.name
         value: "{{ .Values.global.domain }}"
     syncWave: -2
-
   # Databases
   cnpg-operator:
     path: cnpg-operator/0.26.0
     namespace: cnpg-system
     valuesFile: values.yaml
     syncWave: -3
-
   # Access control
   cluster-auth:
     path: cluster-auth/0.5.0
@@ -374,17 +370,13 @@ apps:
         limits:
           memory: "768Mi"
           cpu: "1000m"
-
       podLabels:
         app: keycloak
-
       auth:
         adminUser: admin
         existingSecret: "keycloak-credentials"
         passwordSecretKey: "KEYCLOAK_INITIAL_ADMIN_PASSWORD"
-
       extraStartupArgs: "--cache=ispn --features=scripts,admin-fine-grained-authz,token-exchange --import-realm"
-
       initContainers:
         - command:
             - /bin/sh
@@ -442,7 +434,6 @@ apps:
               name: keycloak-k8s-realm-template-volume
             - mountPath: /opt/realms
               name: keycloak-realm-volume
-
       extraVolumes:
         - configMap:
             name: keycloak-scripts
@@ -462,13 +453,11 @@ apps:
         - configMap:
             name: keycloak-realm-templates-k8s
           name: keycloak-k8s-realm-template-volume
-
       extraVolumeMounts:
         - mountPath: /opt/keycloak/providers
           name: keycloak-package-volume
         - mountPath: /opt/keycloak/data/import
           name: keycloak-realm-volume
-
     helmParameters:
       - name: domain
         value: "{{ .Values.global.domain }}"
@@ -489,7 +478,6 @@ apps:
     path: kyverno-config
     namespace: kyverno
     syncWave: -2
-
   # GPU
   amd-gpu-operator:
     path: amd-gpu-operator/v1.4.0
@@ -508,7 +496,6 @@ apps:
     namespace: default
     valuesFile: values.yaml
     syncWave: -1
-
   # Autoscaling
   keda:
     path: keda/2.18.1
@@ -523,7 +510,6 @@ apps:
       validatingAdmissionPolicy:
         enabled: false
     syncWave: 0
-
   # ML/AI
   kserve-crds:
     path: kserve-crds/v0.16.0
@@ -538,7 +524,6 @@ apps:
         controller:
           deploymentMode: "Standard"
     syncWave: -1
-
   # Queues
   rabbitmq:
     path: rabbitmq/v2.15.0
@@ -606,7 +591,6 @@ apps:
     path: appwrapper/v1.1.2
     namespace: appwrapper-system
     syncWave: -1
-
   # Storage
   minio-operator:
     path: minio-operator/7.1.1
@@ -626,7 +610,7 @@ apps:
           - servers: 1
             name: pool-0
             volumesPerServer: 1
-            size: 250Gi  # Reduced from 500Gi for workstation
+            size: 250Gi # Reduced from 500Gi for workstation
             storageClassName: direct
         buckets:
           - name: default-bucket
@@ -659,7 +643,6 @@ apps:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
-
   # Kaiwo (Kubernetes AI Workload Orchestrator)
   aim-cluster-model-source:
     path: aim-cluster-model-source
@@ -685,7 +668,6 @@ apps:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
-
   # AMD Resource Manager (AIRM)
   airm:
     path: airm/0.3.1
