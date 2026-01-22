@@ -178,7 +178,8 @@ OPENBAO_MANIFEST=$(helm template --release-name openbao ${SCRIPT_DIR}/../sources
 kubectl apply -f - <<< "$OPENBAO_MANIFEST"
 rm -f "$OPENBAO_VALUES_FILE"
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
-helm template --release-name openbao-init ${SCRIPT_DIR}/init-openbao-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
+OPENBAO_INIT_MANIFEST=$(helm template --release-name openbao-init ${SCRIPT_DIR}/init-openbao-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION})
+kubectl apply -f - <<< "$OPENBAO_INIT_MANIFEST"
 kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
 
 # Gitea bootstrap
@@ -195,7 +196,7 @@ TEMP_CLUSTER_FORGE="/tmp/cluster-forge-$$.yaml"
 helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --set global.domain="placeholder.domain" --show-only templates/cluster-forge.yaml > "$TEMP_CLUSTER_FORGE"
 VALUES=$(yq '.spec.sources[0].helm.valueFiles = ["$values/values.yaml"] | .spec.sources[0].helm.parameters[0].value = "'$DOMAIN'"' "$TEMP_CLUSTER_FORGE")
 rm -f "$TEMP_CLUSTER_FORGE"
-kubectl create configmap initial-cf-values --from-file=/dev/stdin --dry-run=client -o yaml <<< "$VALUES" | kubectl apply -n cf-gitea -f -
+echo "$VALUES" | kubectl create configmap initial-cf-values --from-file=/dev/stdin --dry-run=client -o yaml | kubectl apply -n cf-gitea -f -
 
 kubectl create secret generic gitea-admin-credentials \
   --namespace=cf-gitea \
@@ -215,12 +216,14 @@ kubectl apply -f - <<< "$GITEA_MANIFEST"
 rm -f "$GITEA_VALUES_FILE"
 rm -f "$TEMP_VALUES"
 kubectl rollout status deploy/gitea -n cf-gitea
-helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
+GITEA_INIT_MANIFEST=$(helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION})
+kubectl apply -f - <<< "$GITEA_INIT_MANIFEST"
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
 
 # Create cluster-forge app-of-apps with size-aware configuration
 echo "🎯 Deploying cluster-forge applications with $CLUSTER_SIZE configuration"
-eval "helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --set global.domain=\"${DOMAIN}\" --kube-version=${KUBE_VERSION} | kubectl apply -f -"
+CF_MANIFEST=$(helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --set global.domain="${DOMAIN}" --kube-version=${KUBE_VERSION})
+kubectl apply -f - <<< "$CF_MANIFEST"
 
 echo ""
 echo "✅ Cluster-Forge bootstrap complete! This is the way!"
