@@ -166,6 +166,10 @@ kubectl rollout status deploy/argocd-redis -n argocd
 kubectl rollout status deploy/argocd-repo-server -n argocd
 
 # OpenBao bootstrap
+# Clean up any existing test pods that might cause conflicts
+echo "DEBUG: Cleaning up existing OpenBao test pods..."
+kubectl delete pod openbao-server-test -n cf-openbao --ignore-not-found=true
+
 # Extract valuesObject directly to a temporary file for helm
 OPENBAO_VALUES_FILE="/tmp/openbao-final-values-$$.yaml"
 yq eval '.apps.openbao.valuesObject' "$TEMP_VALUES" > "$OPENBAO_VALUES_FILE" 2>/dev/null || \
