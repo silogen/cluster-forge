@@ -176,7 +176,11 @@ generate_password() {
 echo "📝 Creating cluster configuration with size: $CLUSTER_SIZE"
 
 # Generate merged configuration for gitea configmap
-eval "VALUES=\$(helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --set global.domain=\"placeholder.domain\" --show-only templates/cluster-forge.yaml | yq '.spec.sources[0].helm.valueFiles = [\"\$values/values.yaml\"] | .spec.sources[0].helm.parameters[0].value = \"'$DOMAIN'\"')"
+# Generate merged configuration for gitea configmap  
+TEMP_CLUSTER_FORGE="/tmp/cluster-forge-$$.yaml"
+helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --set global.domain="placeholder.domain" --show-only templates/cluster-forge.yaml > "$TEMP_CLUSTER_FORGE"
+VALUES=$(yq '.spec.sources[0].helm.valueFiles = ["$values/values.yaml"] | .spec.sources[0].helm.parameters[0].value = "'$DOMAIN'"' "$TEMP_CLUSTER_FORGE")
+rm -f "$TEMP_CLUSTER_FORGE"
 kubectl create configmap initial-cf-values --from-file=/dev/stdin --dry-run=client -o yaml <<< "$VALUES" | kubectl apply -n cf-gitea -f -
 
 kubectl create secret generic gitea-admin-credentials \
