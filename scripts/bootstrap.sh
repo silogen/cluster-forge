@@ -93,7 +93,7 @@ echo "  argocd:" >> "$ARGOCD_MERGED_CONFIG"
 echo "    valuesObject: {}" >> "$ARGOCD_MERGED_CONFIG"
 
 # Merge valuesObject from values files with size overrides
-eval "helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --show-only templates/cluster-apps.yaml" | \
+eval "helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --set global.domain=\"placeholder.domain\" --show-only templates/cluster-apps.yaml" | \
     yq '.spec.sources[0].helm.values | fromyaml | .apps.argocd.valuesObject' > /tmp/argocd-values-$$.yaml 2>/dev/null || \
     echo "{}" > /tmp/argocd-values-$$.yaml
 
@@ -121,7 +121,7 @@ echo "  openbao:" >> "$OPENBAO_MERGED_CONFIG"
 echo "    valuesObject: {}" >> "$OPENBAO_MERGED_CONFIG"
 
 # Merge valuesObject from values files with size overrides
-eval "helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --show-only templates/cluster-apps.yaml" | \
+eval "helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --set global.domain=\"placeholder.domain\" --show-only templates/cluster-apps.yaml" | \
     yq '.spec.sources[0].helm.values | fromyaml | .apps.openbao.valuesObject' > /tmp/openbao-values-$$.yaml 2>/dev/null || \
     echo "{}" > /tmp/openbao-values-$$.yaml
 
@@ -148,7 +148,7 @@ generate_password() {
 echo "📝 Creating cluster configuration with size: $CLUSTER_SIZE"
 
 # Generate merged configuration for gitea configmap
-eval "VALUES=\$(helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --show-only templates/cluster-forge.yaml | yq '.spec.sources[0].helm.valueFiles = [\"\$values/values.yaml\"] | .spec.sources[0].helm.parameters[0].value = \"'$DOMAIN'\"')"
+eval "VALUES=\$(helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --set global.domain=\"placeholder.domain\" --show-only templates/cluster-forge.yaml | yq '.spec.sources[0].helm.valueFiles = [\"\$values/values.yaml\"] | .spec.sources[0].helm.parameters[0].value = \"'$DOMAIN'\"')"
 kubectl create configmap initial-cf-values --from-file=/dev/stdin --dry-run=client -o yaml <<< "$VALUES" | kubectl apply -n cf-gitea -f -
 
 kubectl create secret generic gitea-admin-credentials \
@@ -162,7 +162,7 @@ echo "  gitea:" >> "$GITEA_MERGED_CONFIG"
 echo "    valuesObject: {}" >> "$GITEA_MERGED_CONFIG"
 
 # Merge valuesObject from values files with size overrides
-eval "helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --show-only templates/cluster-apps.yaml" | \
+eval "helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --set global.domain=\"placeholder.domain\" --show-only templates/cluster-apps.yaml" | \
     yq '.spec.sources[0].helm.values | fromyaml | .apps.gitea.valuesObject' > /tmp/gitea-values-$$.yaml 2>/dev/null || \
     echo "{}" > /tmp/gitea-values-$$.yaml
 
