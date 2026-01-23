@@ -13,8 +13,10 @@ jobs:
           [
             ./root/values.yaml,
             ./root/values_cf.yaml,
-            ./root/values_ha.yaml,
-            ./root/values_dev.yaml
+            ./root/values_dev.yaml,
+            ./root/values_small.yaml,
+            ./root/values_medium.yaml,
+            ./root/values_large.yaml
           ]
     steps:
       - name: Checkout repository
