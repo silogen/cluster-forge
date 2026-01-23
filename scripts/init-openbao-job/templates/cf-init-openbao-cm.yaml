@@ -108,24 +108,3 @@ data:
     
     echo "OpenBao configuration completed successfully!"
 
-  generate-secrets.sh: |
-    #!/bin/bash
-    set -e
-
-    export BAO_TOKEN=$(kubectl get secret openbao-keys -n cf-openbao -o jsonpath='{.data.root_token}' | base64 -d)
-    if [ -z "$BAO_TOKEN" ]; then
-      echo "ERROR: Failed to retrieve BAO_TOKEN"
-      exit 1
-    fi
-    
-    export BAO_ADDR="http://openbao-internal:8200"
-    export DOMAIN="{{ .Values.domain }}"
-    
-    echo "Running unified secret management script..."
-    /tmp/secret-manager/manage-secrets.sh
-    
-    # Special case: cluster-auth-openbao-token uses actual BAO_TOKEN
-    echo "CREATE: secrets/cluster-auth-openbao-token (special)"
-    bao kv put secrets/cluster-auth-openbao-token value="${BAO_TOKEN}"
-
-    echo "Initial secret generation completed"
