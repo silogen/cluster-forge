@@ -1,6 +1,7 @@
 clusterForge:
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
-  targetRevision: v1.7.1 # cluster-forge version git tag
+  #targetRevision: v1.7.1 # cluster-forge version git tag
+  targetRevision: EAI-936_zen_shirts
   valuesFile: values_cf.yaml
 # source helm values file from separate git repo
 externalValues:
