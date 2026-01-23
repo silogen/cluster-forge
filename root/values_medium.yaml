@@ -1,16 +1,7 @@
-# MEDIUM CLUSTER CONFIGURATION  
-# Target: Team Cluster (5-20 users)
-# Nodes: 1-3 nodes (Option A: 1×CP + 1-2 GPU workers, Option B: 3×CP + GPU workers)
-# CPU: 32-64 vCPU per GPU node, Memory: 128-256 GB RAM per GPU node  
-# GPU: Up to 8 GPUs total, partitioning optional
-# Storage: 4-16 TB total NVMe, Internal S3: 2-10 TB via MinIO
-# Networking: 10 GbE recommended
-# Storage: Uses local-path provisioner (no Longhorn), RWX converted to RWO
-
 # MEDIUM CLUSTER: All apps enabled (inherited from base values.yaml)
 # Add Kyverno policy for local-path access mode mutation
 
-# Medium clusters add local-path storage policy for RWX→RWO conversion
+# Medium & Small clusters add local-path storage policy for RWX→RWO conversion
 enabledApps:
   - kyverno-policies-storage-local-path # Local-path storage policies (small/medium only)
   - aim-cluster-model-source
@@ -72,11 +63,10 @@ apps:
 
   argocd:
     valuesObject:
-      # Medium tier: Enable HA with 2 replicas
       applicationSet:
-        replicas: 2
+        replicas: 1
       controller:
-        replicas: 2
+        replicas: 1
         resources:
           limits:
             cpu: "2000m"
@@ -85,7 +75,7 @@ apps:
             cpu: "500m" 
             memory: "1Gi"
       redis-ha:
-        enabled: true
+        enabled: false
         redis:
           resources:
             limits:
@@ -95,7 +85,7 @@ apps:
               cpu: "250m"
               memory: "512Mi"
       repoServer:
-        replicas: 2
+        replicas: 1
         resources:
           limits:
             cpu: "1000m" 
@@ -104,7 +94,7 @@ apps:
             cpu: "250m"
             memory: "512Mi"
       server:
-        replicas: 2
+        replicas: 1
         resources:
           limits:
             cpu: "500m"
@@ -116,7 +106,6 @@ apps:
   minio-tenant:
     valuesObject:
       tenant:
-        # Medium tier: Add datasets bucket for team collaboration
         buckets:
           - name: default-bucket
             objectLock: true
@@ -124,14 +113,12 @@ apps:
             objectLock: true
           - name: datasets
             objectLock: false
-        # Medium tier: Scale up to 3 servers with local-path storage  
         pools:
           - name: pool-0
-            servers: 3
-            size: 2Ti  # Medium tier: 6TB total (3x2TB)
-            storageClassName: local-path  # Use local-path storage
+            servers: 1
+            size: 2Ti
+            storageClassName: local-path
             volumesPerServer: 2
-        # Medium tier: Enhanced resources for team workloads
         resources:
           limits:
             cpu: "4000m"
@@ -139,7 +126,6 @@ apps:
           requests:
             cpu: "1000m"
             memory: "2Gi"
-        # Medium tier: Data lifecycle management
         lifecycle:
           - id: team-data-transition
             status: Enabled
@@ -151,13 +137,13 @@ apps:
     valuesObject:
       server:
         ha:
-          enabled: true
-          replicas: 3
+          enabled: false
+          replicas: 1
           raft:
-            enabled: true
+            enabled: false
         dataStorage:
           size: 5Gi
-          storageClass: local-path  # Use local-path storage
+          storageClass: local-path
         resources:
           limits:
             cpu: "1000m"
@@ -170,7 +156,6 @@ apps:
     valuesObject:
       prometheus:
         prometheusSpec:
-          # Medium tier: Extended retention and resources
           retention: 15d
           retentionSize: 20GB
           resources:
@@ -184,7 +169,7 @@ apps:
             volumeClaimTemplate:
               spec:
                 accessModes:
-                  - ReadWriteOnce  # Use RWO for local-path
+                  - ReadWriteOnce
                 storageClassName: local-path
                 resources:
                   requests:
@@ -192,8 +177,7 @@ apps:
 
   grafana:
     valuesObject:
-      # Medium tier: Enhanced resources
-      replicas: 2
+      replicas: 1
       resources:
         limits:
           cpu: "1000m"
@@ -204,12 +188,6 @@ apps:
       persistence:
         enabled: true
         size: 5Gi
-        storageClassName: local-path  # Use local-path storage
+        storageClassName: local-path
         accessModes:
-          - ReadWriteOnce  # Use RWO for local-path
-
-  # Disable Longhorn for medium clusters (use local-path instead)
-  longhorn:
-    enabled: false
-  longhorn-config:
-    enabled: false
+          - ReadWriteOnce
