@@ -1,7 +1,6 @@
 clusterForge:
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
-  #targetRevision: v1.7.0 # cluster-forge version git tag
-  targetRevision: marc_t_shirts
+  targetRevision: main
 # source helm values file from separate git repo
 externalValues:
   enabled: true

@@ -1,6 +1,6 @@
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: marc_t_shirts # cluster-forge version git tag
+  targetRevision: main
   valuesFile: values.yaml
 # source helm values file from separate git repo
 externalValues:
@@ -47,7 +47,7 @@ enabledApps:
   - kueue-config
   - kyverno
   - kyverno-config
-  - kyverno-policies-base # Base policies for all clusters
+  - kyverno-policies-base
   - longhorn
   - longhorn-config
   - metallb
