@@ -1,24 +1,65 @@
-# SMALL CLUSTER CONFIGURATION  
-# Target: Developer Cluster / Single-User Setup (1-5 users)
-# Nodes: 1 node (all-in-one) or 2 nodes (1×CP + 1×GPU worker)
-# CPU: 8-32 vCPU total, Memory: 32-128 GB RAM total  
-# GPU: 1-4 GPUs, no partitioning needed
-# Storage: 1-4 TB total NVMe, Internal S3: 0.5-2 TB via MinIO
-# Networking: 1 GbE acceptable
-# Use case: Development, testing, proof-of-concept
+# MEDIUM CLUSTER CONFIGURATION  
+# Target: Team Cluster (5-20 users)
+# Nodes: 1-3 nodes (Option A: 1×CP + 1-2 GPU workers, Option B: 3×CP + GPU workers)
+# CPU: 32-64 vCPU per GPU node, Memory: 128-256 GB RAM per GPU node  
+# GPU: Up to 8 GPUs total, partitioning optional
+# Storage: 4-16 TB total NVMe, Internal S3: 2-10 TB via MinIO
+# Networking: 10 GbE recommended
 # Storage: Uses local-path provisioner (no Longhorn), RWX converted to RWO
 
-# SMALL CLUSTER: All apps enabled (inherited from base values.yaml)
-# Only resource scaling overrides below - minimal resources for cost efficiency
+# MEDIUM CLUSTER: All apps enabled (inherited from base values.yaml)
+# Add Kyverno policy for local-path access mode mutation
 
-# Small clusters add local-path storage policy for RWX→RWO conversion
+# Medium clusters add local-path storage policy for RWX→RWO conversion
 enabledApps:
   - kyverno-policies-storage-local-path # Local-path storage policies (small/medium only)
+  - aim-cluster-model-source
+  - argocd
+  - argocd-config
+  - cert-manager
+  - openbao
+  - openbao-config
+  - external-secrets
+  - external-secrets-config
+  - gitea
+  - gitea-config
+  - gateway-api
+  - metallb
+  - kgateway-crds
+  - kgateway
+  - kgateway-config
+  - prometheus-crds
+  - opentelemetry-operator
+  - otel-lgtm-stack
+  - cnpg-operator
+  - cluster-auth
+  - cluster-auth-config
+  - keycloak
+  - kyverno
+  - kyverno-config
+  - amd-gpu-operator
+  - amd-gpu-operator-config
+  - kuberay-operator
+  - keda
+  - kedify-otel
+  - kserve-crds
+  - kserve
+  - rabbitmq
+  - kueue
+  - kueue-config
+  - appwrapper
+  - minio-operator
+  - minio-tenant
+  - minio-tenant-config
+  - kaiwo-crds
+  - kaiwo
+  - kaiwo-config
+  - airm
 
 apps:
   # Modular Kyverno policy applications (only the storage-local-path addition)
   kyverno-policies-storage-local-path:
-    namespace: kyverno  
+    namespace: kyverno
     path: kyverno-policies/storage-local-path
     source: clusterForge
     syncOptions:
@@ -31,97 +72,21 @@ apps:
 
   argocd:
     valuesObject:
-      # Small tier: Single replica, minimal resources
+      # Medium tier: Enable HA with 2 replicas
       applicationSet:
-        replicas: 1
+        replicas: 2
       controller:
-        replicas: 1
+        replicas: 2
         resources:
           limits:
-            cpu: "1000m"
-            memory: "2Gi"
+            cpu: "2000m"
+            memory: "4Gi"
           requests:
-            cpu: "250m" 
-            memory: "512Mi"
-      redis-ha:
-        enabled: false  # Use single Redis instance for small clusters
-      redis:
-        resources:
-          limits:
-            cpu: "500m"
-            memory: "1Gi"
-          requests:
-            cpu: "125m"
-            memory: "256Mi"
-      repoServer:
-        replicas: 1
-        resources:
-          limits:
             cpu: "500m" 
             memory: "1Gi"
-          requests:
-            cpu: "125m"
-            memory: "256Mi"
-      server:
-        replicas: 1
-        resources:
-          limits:
-            cpu: "250m"
-            memory: "512Mi"
-          requests:
-            cpu: "62m"
-            memory: "128Mi"
-
-  minio-tenant:
-    valuesObject:
-      tenant:
-        # Small tier: Basic buckets only
-        buckets:
-          - name: default-bucket
-            objectLock: false
-          - name: models
-            objectLock: false
-        # Small tier: Single server, minimal storage  
-        pools:
-          - name: pool-0
-            servers: 1
-            size: 500Gi  # Small tier: 500GB total
-            storageClassName: local-path  # Use local-path storage
-            volumesPerServer: 1
-        # Small tier: Minimal resources for development
-        resources:
-          limits:
-            cpu: "1000m"
-            memory: "2Gi"
-          requests:
-            cpu: "250m"
-            memory: "512Mi"
-        # Small tier: No lifecycle management needed
-        lifecycle: []
-
-  openbao:
-    valuesObject:
-      server:
-        ha:
-          enabled: false  # Single instance for small clusters
-        dataStorage:
-          size: 1Gi  # Minimal storage
-          storageClass: local-path  # Use local-path storage
-        resources:
-          limits:
-            cpu: "500m"
-            memory: "1Gi"
-          requests:
-            cpu: "125m"
-            memory: "256Mi"
-
-  prometheus:
-    valuesObject:
-      prometheus:
-        prometheusSpec:
-          # Small tier: Minimal retention and resources
-          retention: 7d
-          retentionSize: 5GB
+      redis-ha:
+        enabled: true
+        redis:
           resources:
             limits:
               cpu: "1000m"
@@ -129,73 +94,70 @@ apps:
             requests:
               cpu: "250m"
               memory: "512Mi"
-          storageSpec:
-            volumeClaimTemplate:
-              spec:
-                accessModes:
-                  - ReadWriteOnce  # Explicitly use RWO for local-path
-                storageClassName: local-path
-                resources:
-                  requests:
-                    storage: 10Gi
+      repoServer:
+        replicas: 2
+        resources:
+          limits:
+            cpu: "1000m" 
+            memory: "2Gi"
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+      server:
+        replicas: 2
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+          requests:
+            cpu: "125m"
+            memory: "256Mi"
 
-  grafana:
+  minio-tenant:
     valuesObject:
-      # Small tier: Single replica, minimal resources
-      replicas: 1
-      resources:
-        limits:
-          cpu: "500m"
-          memory: "1Gi"
-        requests:
-          cpu: "125m"
-          memory: "256Mi"
-      persistence:
-        enabled: true
-        size: 1Gi
-        storageClassName: local-path  # Use local-path storage
-        accessModes:
-          - ReadWriteOnce  # Explicitly use RWO for local-path
+      tenant:
+        # Medium tier: Add datasets bucket for team collaboration
+        buckets:
+          - name: default-bucket
+            objectLock: true
+          - name: models
+            objectLock: true
+          - name: datasets
+            objectLock: false
+        # Medium tier: Scale up to 3 servers with local-path storage  
+        pools:
+          - name: pool-0
+            servers: 3
+            size: 2Ti  # Medium tier: 6TB total (3x2TB)
+            storageClassName: local-path  # Use local-path storage
+            volumesPerServer: 2
+        # Medium tier: Enhanced resources for team workloads
+        resources:
+          limits:
+            cpu: "4000m"
+            memory: "8Gi"
+          requests:
+            cpu: "1000m"
+            memory: "2Gi"
+        # Medium tier: Data lifecycle management
+        lifecycle:
+          - id: team-data-transition
+            status: Enabled
+            transition:
+              days: 30
+              storageClass: IA
 
-  gitea:
+  openbao:
     valuesObject:
-      postgresql:
-        primary:
-          # Small tier: Minimal database resources
-          resources:
-            limits:
-              cpu: "500m"
-              memory: "1Gi"
-            requests:
-              cpu: "125m"
-              memory: "256Mi"
-          persistence:
-            size: 2Gi
-            storageClass: local-path  # Use local-path storage
-            accessModes:
-              - ReadWriteOnce  # Explicitly use RWO for local-path
-      redis:
-        master:
-          resources:
-            limits:
-              cpu: "250m"
-              memory: "512Mi"
-            requests:
-              cpu: "62m"
-              memory: "128Mi"
-          persistence:
-            size: 1Gi
-            storageClass: local-path  # Use local-path storage
-            accessModes:
-              - ReadWriteOnce  # Explicitly use RWO for local-path
-      gitea:
-        admin:
-          username: admin
-        config:
-          database:
-            DB_TYPE: postgres
-          session:
-            PROVIDER: redis
+      server:
+        ha:
+          enabled: true
+          replicas: 3
+          raft:
+            enabled: true
+        dataStorage:
+          size: 5Gi
+          storageClass: local-path  # Use local-path storage
         resources:
           limits:
             cpu: "1000m"
@@ -203,13 +165,50 @@ apps:
           requests:
             cpu: "250m"
             memory: "512Mi"
-        persistence:
-          size: 5Gi
-          storageClass: local-path  # Use local-path storage
-          accessModes:
-            - ReadWriteOnce  # Explicitly use RWO for local-path
 
-  # Disable Longhorn for small clusters (use local-path instead)
+  prometheus:
+    valuesObject:
+      prometheus:
+        prometheusSpec:
+          # Medium tier: Extended retention and resources
+          retention: 15d
+          retentionSize: 20GB
+          resources:
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+          storageSpec:
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce  # Use RWO for local-path
+                storageClassName: local-path
+                resources:
+                  requests:
+                    storage: 25Gi
+
+  grafana:
+    valuesObject:
+      # Medium tier: Enhanced resources
+      replicas: 2
+      resources:
+        limits:
+          cpu: "1000m"
+          memory: "2Gi"
+        requests:
+          cpu: "250m"
+          memory: "512Mi"
+      persistence:
+        enabled: true
+        size: 5Gi
+        storageClassName: local-path  # Use local-path storage
+        accessModes:
+          - ReadWriteOnce  # Use RWO for local-path
+
+  # Disable Longhorn for medium clusters (use local-path instead)
   longhorn:
     enabled: false
   longhorn-config:
