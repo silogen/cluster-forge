@@ -99,6 +99,10 @@ apps:
   openbao-config:
     path: openbao-config
     namespace: cf-openbao
+    valuesFile: values.yaml
+    helmParameters:
+      - name: domain
+        value: "{{ .Values.global.domain }}"
     syncWave: -2
   external-secrets:
     path: external-secrets/0.15.1
