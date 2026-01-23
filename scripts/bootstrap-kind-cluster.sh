@@ -111,17 +111,33 @@ if [ -f "${SCRIPT_DIR}/fix_kind_certs.sh" ]; then
     bash "${SCRIPT_DIR}/fix_kind_certs.sh"
 fi
 
-# Fix DNS issues caused by corporate network search domains
-echo "🔧 Fixing DNS configuration in Kind cluster..."
+# Fix DNS configuration for both node (containerd) and pod (CoreDNS) resolution
+echo "🔧 Configuring DNS for reliable resolution..."
+
+# Fix node DNS so containerd can pull images
 for node in $(kind get nodes --name cluster-forge-local 2>/dev/null); do
     docker exec "$node" bash -c 'cat > /etc/resolv.conf << "EOF"
-nameserver 172.18.0.1
 nameserver 8.8.8.8
 nameserver 8.8.4.4
 options edns0 trust-ad ndots:0
 EOF'
     echo "   ✓ Updated DNS config on $node"
 done
+
+# Restart containerd to pick up new DNS
+for node in $(kind get nodes --name cluster-forge-local 2>/dev/null); do
+    docker exec "$node" systemctl restart containerd
+done
+echo "   ✓ Restarted containerd with new DNS config"
+
+# Fix CoreDNS to use reliable DNS servers directly (for pod DNS resolution)
+kubectl get configmap coredns -n kube-system -o yaml | \
+    sed 's|forward . /etc/resolv.conf {|forward . 8.8.8.8 8.8.4.4 {|' | \
+    kubectl apply -f - > /dev/null
+kubectl rollout restart deployment/coredns -n kube-system > /dev/null
+echo "   ✓ Waiting for CoreDNS to be ready..."
+kubectl rollout status deployment/coredns -n kube-system --timeout=120s > /dev/null
+echo "   ✓ DNS configured successfully"
 
 # Check prerequisites
 echo "🔍 Checking prerequisites..."
