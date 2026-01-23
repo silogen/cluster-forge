@@ -19,8 +19,7 @@ cluster-forge/
 │   ├── values_small.yaml        # Small cluster overrides  
 │   ├── values_medium.yaml       # Medium cluster overrides
 │   ├── values_large.yaml        # Large cluster overrides
-│   ├── values_dev.yaml          # Development environment overrides
-│   └── values_ha.yaml           # High availability overrides
+│   └── values_dev.yaml          # Development environment overrides
 └── scripts/
     └── bootstrap.sh             # Main bootstrap script with size support
 ```
@@ -117,7 +116,7 @@ The bootstrap script uses multiple methods to determine cluster size:
 The script combines configurations in this order:
 1. **Base**: `values.yaml` (all applications enabled)
 2. **Size-specific**: `values_[size].yaml` (resource overrides)
-3. **Environment-specific**: `values_dev.yaml` or `values_ha.yaml` (if specified)
+3. **Environment-specific**: `values_dev.yaml' (if specified)
 
 ## Application-Specific Configurations
 
