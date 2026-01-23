@@ -7,7 +7,7 @@ clusterForge:
 externalValues:
   enabled: true
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
-  targetRevision: main
+  targetRevision: EAI-936_zen_shirts
   path: values_cf.yaml
 global:
   domain: # to be filled by bootstrap script
