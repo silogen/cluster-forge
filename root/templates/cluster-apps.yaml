@@ -29,7 +29,8 @@ spec:
         - {{ .valuesFile }}
       {{- end }}
       {{- if .valuesObject }}
-      values: {{ .valuesObject | toYaml | nindent 8 }}
+      values: |
+{{ .valuesObject | toYaml | nindent 8 }}
       {{- end }}
       {{- if .helmParameters }}
       parameters:
