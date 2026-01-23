@@ -1,6 +1,6 @@
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: test-t-shirts-3
+  targetRevision: main
   valuesFile: values.yaml
 # source helm values file from separate git repo
 externalValues:
