@@ -1,6 +1,6 @@
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: Test-openbao-secret-update-3 # cluster-forge version git tag
+  targetRevision: wj-test-eai-1141 # cluster-forge version git tag
   valuesFile: values.yaml
 # source helm values file from separate git repo
 externalValues:
