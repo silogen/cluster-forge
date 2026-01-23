@@ -98,10 +98,8 @@ apps:
     valuesObject:
       server:
         ha:
-          enabled: true
+          enabled: false
           replicas: 1
-          raft:
-            enabled: true
         # resources:  # TODO: May add later for fine-tuning
         #   limits:
         #     cpu: "1000m"

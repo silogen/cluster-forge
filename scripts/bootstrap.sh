@@ -70,15 +70,9 @@ echo "   Values: $VALUES_FILE"
 echo ""
 
 # Create namespaces
-echo "DEBUG: Creating namespaces..."
-kubectl create ns argocd --dry-run=client -o yaml > /tmp/ns-argocd.yaml
-kubectl apply -f /tmp/ns-argocd.yaml
-kubectl create ns cf-gitea --dry-run=client -o yaml > /tmp/ns-gitea.yaml  
-kubectl apply -f /tmp/ns-gitea.yaml
-kubectl create ns cf-openbao --dry-run=client -o yaml > /tmp/ns-openbao.yaml
-kubectl apply -f /tmp/ns-openbao.yaml
-rm -f /tmp/ns-*.yaml
-echo "DEBUG: Namespaces created successfully"
+kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
+kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
+kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
 
 # Determine values file arguments for size-specific deployment
 VALUES_ARGS="-f ${SCRIPT_DIR}/../root/${VALUES_FILE}"
@@ -91,67 +85,22 @@ else
     echo "   ⚠ Size-specific values not found: $SIZE_VALUES_FILE (using base values only)"
 fi
 
-echo "DEBUG: VALUES_ARGS = $VALUES_ARGS"
-echo "DEBUG: About to start ArgoCD bootstrap section..."
-
 # ArgoCD bootstrap
+echo "🚀 Bootstrapping ArgoCD..."
+
 # Create a temporary merged values file for extracting valuesObject
 TEMP_VALUES="/tmp/merged-values-$$.yaml"
-echo "DEBUG: Merging values files..."
-echo "  Base file: ${SCRIPT_DIR}/../root/values_cf.yaml"
-echo "  Size file: ${SCRIPT_DIR}/../root/values_${CLUSTER_SIZE}.yaml"
-
 if [ -f "${SCRIPT_DIR}/../root/values_${CLUSTER_SIZE}.yaml" ]; then
-    echo "DEBUG: Size-specific file exists, merging..."
     yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' ${SCRIPT_DIR}/../root/values_cf.yaml ${SCRIPT_DIR}/../root/values_${CLUSTER_SIZE}.yaml > "$TEMP_VALUES" 2>/dev/null || \
         cp ${SCRIPT_DIR}/../root/values_cf.yaml "$TEMP_VALUES"
 else
-    echo "DEBUG: Size-specific file not found, using base only..."
     cp ${SCRIPT_DIR}/../root/values_cf.yaml "$TEMP_VALUES"
 fi
 
-echo "DEBUG: Merged values file created. Size:"
-ls -la "$TEMP_VALUES"
-echo "DEBUG: First 20 lines of merged values:"
-head -20 "$TEMP_VALUES"
-
 # Extract valuesObject directly to a temporary file for helm
 ARGOCD_VALUES_FILE="/tmp/argocd-final-values-$$.yaml"
-echo "DEBUG: Extracting ArgoCD valuesObject from merged values..."
-
-# Check if the path exists first
-ARGOCD_CHECK=$(yq eval '.apps.argocd' "$TEMP_VALUES")
-if echo "$ARGOCD_CHECK" | grep -q "null"; then
-    echo "DEBUG: ERROR - .apps.argocd is null in merged values!"
-    echo "DEBUG: Available apps:"
-    yq eval '.apps | keys' "$TEMP_VALUES"
-else
-    echo "DEBUG: .apps.argocd found, extracting valuesObject..."
-    yq eval '.apps.argocd.valuesObject' "$TEMP_VALUES" > "$ARGOCD_VALUES_FILE" 2>/dev/null || \
-        echo "{}" > "$ARGOCD_VALUES_FILE"
-fi
-
-echo "DEBUG: ArgoCD valuesObject file size:"
-ls -la "$ARGOCD_VALUES_FILE"
-echo "DEBUG: ArgoCD valuesObject content:"
-cat "$ARGOCD_VALUES_FILE"
-echo "DEBUG: End of ArgoCD valuesObject"
-
-# Check if the content is valid YAML
-echo "DEBUG: Checking if extracted content is valid YAML..."
-if yq eval '.' "$ARGOCD_VALUES_FILE" >/dev/null 2>&1; then
-    echo "DEBUG: Valid YAML"
-else
-    echo "DEBUG: INVALID YAML!"
-fi
-
-echo "DEBUG: Running helm template for ArgoCD..."
-echo "DEBUG: Values file: $ARGOCD_VALUES_FILE"
-echo "DEBUG: Helm command will be:"
-echo "  helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 \\"
-echo "    --values \"$ARGOCD_VALUES_FILE\" \\"
-echo "    --namespace argocd \\"
-echo "    --set global.domain=\"https://argocd.${DOMAIN}\" --kube-version=${KUBE_VERSION}"
+yq eval '.apps.argocd.valuesObject' "$TEMP_VALUES" > "$ARGOCD_VALUES_FILE" 2>/dev/null || \
+    echo "{}" > "$ARGOCD_VALUES_FILE"
 
 ARGOCD_MANIFEST=$(helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 \
   --values "$ARGOCD_VALUES_FILE" \
@@ -166,8 +115,7 @@ kubectl rollout status deploy/argocd-redis -n argocd
 kubectl rollout status deploy/argocd-repo-server -n argocd
 
 # OpenBao bootstrap
-# Clean up any existing test pods that might cause conflicts
-echo "DEBUG: Cleaning up existing OpenBao test pods..."
+echo "🔐 Bootstrapping OpenBao..."
 kubectl delete pod openbao-server-test -n cf-openbao --ignore-not-found=true
 
 # Extract valuesObject directly to a temporary file for helm
@@ -187,6 +135,8 @@ kubectl apply -f - <<< "$OPENBAO_INIT_MANIFEST"
 kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
 
 # Gitea bootstrap
+echo "📚 Bootstrapping Gitea..."
+
 generate_password() {
     openssl rand -hex 16 | tr 'a-f' 'A-F' | head -c 32
 }
@@ -224,8 +174,8 @@ GITEA_INIT_MANIFEST=$(helm template --release-name gitea-init ${SCRIPT_DIR}/init
 kubectl apply -f - <<< "$GITEA_INIT_MANIFEST"
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
 
-# Create cluster-forge app-of-apps with size-aware configuration
-echo "🎯 Deploying cluster-forge applications with $CLUSTER_SIZE configuration"
+# Create cluster-forge app-of-apps
+echo "🎯 Deploying Cluster-Forge applications..."
 CF_MANIFEST=$(helm template ${SCRIPT_DIR}/../root $VALUES_ARGS --set global.domain="${DOMAIN}" --kube-version=${KUBE_VERSION})
 kubectl apply -f - <<< "$CF_MANIFEST"
 

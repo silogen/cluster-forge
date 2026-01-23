@@ -119,10 +119,7 @@ apps:
                       app.kubernetes.io/instance: openbao
                       component: server
                   topologyKey: kubernetes.io/hostname
-        ha:
-          enabled: true
-          raft:
-            enabled: true
+
       ui:
         enabled: true
     syncWave: -3
@@ -514,12 +511,7 @@ apps:
         configSecret:
           name: default-minio-tenant-env-configuration
           existingSecret: true
-        pools:
-          - servers: 1
-            name: pool-0
-            volumesPerServer: 1
-            size: 500Gi
-            storageClassName: direct
+
         buckets:
           - name: default-bucket
             objectLock: true
