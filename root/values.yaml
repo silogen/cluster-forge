@@ -1,6 +1,6 @@
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: v1.7.1 # cluster-forge version git tag
+  targetRevision: main
   valuesFile: values.yaml
 # source helm values file from separate git repo
 externalValues:
@@ -12,63 +12,99 @@ global:
   domain: app.silogen.ai
 enabledApps:
   - aim-cluster-model-source
+  - airm
+  - amd-gpu-operator
+  - amd-gpu-operator-config
+  - appwrapper
   - argocd
   - argocd-config
   - cert-manager
-  - openbao
-  - openbao-config
-  - external-secrets
-  - external-secrets-config
-  - gitea
-  - gitea-config
-  - gateway-api
-  - metallb
-  - kgateway-crds
-  - kgateway
-  - kgateway-config
-  - prometheus-crds
-  - opentelemetry-operator
-  - otel-lgtm-stack
-  - cnpg-operator
+  - cilium
+  - cilium-config
   - cluster-auth
   - cluster-auth-config
-  - keycloak
-  - kyverno
-  - kyverno-config
-  - amd-gpu-operator
-  - amd-gpu-operator-config
-  - kuberay-operator
+  - cnpg-operator
+  - external-secrets
+  - external-secrets-config
+  - gateway-api
+  - gitea
+  - gitea-config
+  - grafana
+  - grafana-config
+  - kaiwo
+  - kaiwo-config
+  - kaiwo-crds
   - keda
   - kedify-otel
-  - kserve-crds
+  - keycloak
+  - kgateway
+  - kgateway-config
+  - kgateway-crds
   - kserve
-  - rabbitmq
+  - kserve-crds
+  - kuberay-operator
   - kueue
   - kueue-config
-  - appwrapper
+  - kyverno
+  - kyverno-config
+  - kyverno-policies-base
+  - longhorn
+  - longhorn-config
+  - metallb
   - minio-operator
   - minio-tenant
   - minio-tenant-config
-  - kaiwo-crds
-  - kaiwo
-  - kaiwo-config
-  - airm
+  - openbao
+  - openbao-config
+  - opentelemetry-operator
+  - otel-config
+  - otel-lgtm-stack
+  - prometheus
+  - prometheus-config
+  - prometheus-crds
+  - rabbitmq
 apps:
   # Core apps
   argocd:
     path: argocd/8.3.5
     namespace: argocd
-    valuesFile: ../values_cf.yaml
-    helmParameters:
-      - name: global.domain
-        value: "argocd.{{ .Values.global.domain }}"
-      - name: configs.cm.oidc\.config
-        value: |
-          name: Keycloak
-          issuer: https://kc.{{ .Values.global.domain }}/realms/airm
-          clientID: argocd
-          clientSecret: $$argocd-oidc-creds:client_secret
-          requestedScopes: ["openid", "profile", "email", "groups"]
+    valuesObject:
+      global:
+        domain: "argocd.{{ .Values.global.domain }}"
+      applicationSet:
+        replicas: 1
+      configs:
+        cm:
+          create: true
+          resource.customizations.health.opentelemetry.io_OpenTelemetryCollector: |
+            hs = {}
+            hs.status = "Healthy"
+            hs.message = "Always Healthy - See https://github.com/argoproj/argo-cd/pull/24284"
+            return hs
+          oidc.config: |
+            name: Keycloak
+            issuer: https://kc.{{ .Values.global.domain }}/realms/airm
+            clientID: argocd
+            clientSecret: $$argocd-oidc-creds:client_secret
+            requestedScopes: ["openid", "profile", "email", "groups"]
+        params:
+          server.insecure: true
+        rbac:
+          create: true
+          policy.csv: |
+            g, argocd-users, role:admin
+      controller:
+        replicas: 1
+      redis:
+        enabled: true
+      redis-ha:
+        enabled: false
+      repoServer:
+        replicas: 1
+        autoscaling:
+          enabled: false
+      server:
+        replicas: 1
     syncWave: -3
   argocd-config:
     path: argocd-config
@@ -84,12 +120,34 @@ apps:
   cert-manager:
     path: cert-manager/v1.18.2
     namespace: cert-manager
-    valuesFile: ../values_cf.yaml
+    valuesObject:
+      installCRDs: true
     syncWave: -3
   openbao:
     path: openbao/0.18.2
     namespace: cf-openbao
-    valuesFile: ../values_cf.yaml
+    valuesObject:
+      injector:
+        enabled: false
+      server:
+        affinity: |
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: openbao
+                      app.kubernetes.io/instance: openbao
+                      component: server
+                  topologyKey: kubernetes.io/hostname
+        ha:
+          enabled: false
+          raft:
+            enabled: false
+          replicas: 1
+      ui:
+        enabled: true
     syncWave: -3
     ignoreDifferences:
       - group: "apps"
@@ -112,12 +170,36 @@ apps:
   gitea:
     path: gitea/12.3.0
     namespace: cf-gitea
-    valuesFile: ../values_cf.yaml
-    helmParameters:
-      - name: clusterDomain
-        value: "{{ .Values.global.domain }}"
-      - name: gitea.config.server.ROOT_URL
-        value: "https://gitea.{{ .Values.global.domain }}"
+    valuesObject:
+      clusterDomain: "{{ .Values.global.domain }}"
+      strategy:
+        type: "Recreate"
+      gitea:
+        admin:
+          existingSecret: gitea-admin-credentials
+        config:
+          server:
+            ROOT_URL: "https://gitea.{{ .Values.global.domain }}"
+          database:
+            DB_TYPE: sqlite3
+          session:
+            PROVIDER: memory
+          cache:
+            ADAPTER: memory
+          queue:
+            TYPE: level
+      valkey-cluster:
+        enabled: false
+      valkey:
+        enabled: false
+      postgresql:
+        enabled: false
+      postgresql-ha:
+        enabled: false
+      persistence:
+        enabled: true
+      test:
+        enabled: false
     syncWave: -3
   gitea-config:
     path: gitea-config
@@ -222,6 +304,10 @@ apps:
     path: kyverno-config
     namespace: kyverno
     syncWave: -3
+  kyverno-policies-base:
+    path: kyverno-policies/base
+    namespace: kyverno
+    syncWave: -2
   # GPU
   amd-gpu-operator:
     path: amd-gpu-operator/v1.4.0
@@ -348,3 +434,45 @@ apps:
         kind: ClusterPolicy
         jqPathExpressions:
           - ".spec.rules"
+  # Monitoring stack
+  prometheus:
+    path: prometheus-operator/23.0.0
+    namespace: prometheus-system
+    valuesFile: values.yaml
+    syncWave: -2
+  prometheus-config:
+    path: prometheus-config
+    namespace: prometheus-system
+    syncWave: -1
+  grafana:
+    path: grafana/8.6.4
+    namespace: prometheus-system
+    valuesFile: values.yaml
+    syncWave: -1
+  grafana-config:
+    path: grafana-config
+    namespace: prometheus-system
+    syncWave: 0
+  otel-config:
+    path: otel-config
+    namespace: otel-lgtm-stack
+    syncWave: -1
+  # Network and storage
+  cilium:
+    path: cilium/1.16.7
+    namespace: kube-system
+    valuesFile: values.yaml
+    syncWave: -4
+  cilium-config:
+    path: cilium-config
+    namespace: kube-system
+    syncWave: -3
+  longhorn:
+    path: longhorn/1.8.1
+    namespace: longhorn-system
+    valuesFile: values.yaml
+    syncWave: -2
+  longhorn-config:
+    path: longhorn-config
+    namespace: longhorn-system
+    syncWave: -1

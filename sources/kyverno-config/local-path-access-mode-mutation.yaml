@@ -1,0 +1,96 @@
+---
+# Kyverno ClusterPolicy to mutate PVC access modes for local-path compatibility
+# This policy is ONLY deployed to small and medium clusters via enabledApps configuration
+# Large clusters use Longhorn and do NOT deploy this policy at all
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: local-path-access-mode-mutation
+  annotations:
+    policies.kyverno.io/title: "Local-Path Access Mode Mutation"
+    policies.kyverno.io/category: "Storage"
+    policies.kyverno.io/severity: "medium"
+    policies.kyverno.io/subject: "PersistentVolumeClaim"
+    policies.kyverno.io/minversion: "1.6.0"
+    policies.kyverno.io/description: >-
+      This policy automatically converts ReadWriteMany (RWX) and ReadOnlyMany (ROX) 
+      access modes to ReadWriteOnce (RWO) for clusters using local-path provisioner.
+      This prevents PVC creation failures since local-path only supports RWO and RWOP.
+      NOTE: This policy is only deployed to small/medium clusters, never to large clusters.
+spec:
+  admission: true
+  background: false
+  validationFailureAction: Enforce
+  rules:
+    - name: convert-rwx-rox-to-rwo
+      match:
+        resources:
+          kinds:
+            - PersistentVolumeClaim
+      preconditions:
+        any:
+          # Apply if PVC requests unsupported access modes
+          - key: "{{ request.object.spec.accessModes || [] }}"
+            operator: Contains
+            value: "ReadWriteMany"
+          - key: "{{ request.object.spec.accessModes || [] }}"
+            operator: Contains
+            value: "ReadOnlyMany"
+      mutate:
+        patchStrategicMerge:
+          spec:
+            # Replace access modes with RWO (only supported mode for local-path)
+            accessModes:
+              - ReadWriteOnce
+          metadata:
+            annotations:
+              +(kyverno.io/original-access-modes): "{{ request.object.spec.accessModes | join(',') }}"
+              +(kyverno.io/mutation-applied): "local-path-rwx-to-rwo"
+              +(kyverno.io/policy-reason): "local-path provisioner only supports ReadWriteOnce and ReadWriteOncePod"
+
+---
+# Validation policy to warn about access mode changes
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: local-path-access-mode-warning
+  annotations:
+    policies.kyverno.io/title: "Local-Path Access Mode Warning"
+    policies.kyverno.io/category: "Storage"
+    policies.kyverno.io/severity: "low"
+    policies.kyverno.io/subject: "PersistentVolumeClaim"
+    policies.kyverno.io/description: >-
+      This policy generates warnings when PVCs request RWX/ROX access modes
+      that will be converted to RWO due to local-path provisioner limitations.
+      NOTE: This policy is only deployed to small/medium clusters, never to large clusters.
+spec:
+  admission: true
+  background: false
+  validationFailureAction: Audit  # Warning only, don't block
+  rules:
+    - name: warn-access-mode-conversion
+      match:
+        resources:
+          kinds:
+            - PersistentVolumeClaim
+      preconditions:
+        any:
+          # Warn for unsupported access modes that will be converted
+          - key: "{{ request.object.spec.accessModes || [] }}"
+            operator: Contains
+            value: "ReadWriteMany"
+          - key: "{{ request.object.spec.accessModes || [] }}"
+            operator: Contains
+            value: "ReadOnlyMany"
+      validate:
+        message: >-
+          WARNING: The requested access mode(s) {{ request.object.spec.accessModes | join(',') }} 
+          are not supported by the local-path provisioner used in small/medium clusters. 
+          The access mode has been automatically converted to ReadWriteOnce (RWO). 
+          For ReadWriteMany support, consider using a large cluster with Longhorn storage.
+        deny:
+          conditions:
+            # This condition is always false, so it only generates a warning
+            - key: "false"
+              operator: Equals
+              value: "true"
