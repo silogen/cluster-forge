@@ -361,14 +361,6 @@ apps:
     path: keycloak-old
     namespace: keycloak
     valuesObject:
-      # Reduced resource configuration for small/workstation deployments
-      resources:
-        requests:
-          memory: "384Mi"
-          cpu: "250m"
-        limits:
-          memory: "768Mi"
-          cpu: "1000m"
       podLabels:
         app: keycloak
       auth:
