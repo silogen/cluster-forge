@@ -24,6 +24,8 @@ enabledApps:
   - kgateway-crds
   - kgateway
   - kgateway-config
+  # Storage policies for local-path (converts RWX to RWO automatically)
+  - kyverno-policies-storage-local-path
   # Monitoring (required by AIRM)
   - prometheus-crds
   - opentelemetry-operator
@@ -55,6 +57,26 @@ enabledApps:
   - kueue-config
 # Component-specific overrides for memory reduction  
 apps:
+  # OpenTelemetry operator (required by AIRM for metrics collection)
+  opentelemetry-operator:
+    path: opentelemetry-operator/0.93.1
+    namespace: opentelemetry-operator-system
+    valuesFile: null  # Don't use values_cf.yaml, use valuesObject instead
+    valuesObject:
+      manager:
+        collectorImage:
+          repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
+          tag: "0.140.0"
+    syncWave: -3
+  # Kyverno policy for local-path storage (converts RWX to RWO automatically)
+  kyverno-policies-storage-local-path:
+    namespace: kyverno
+    path: kyverno-policies/storage-local-path
+    source: clusterForge
+    syncOptions:
+      - CreateNamespace=true
+    ignoreDifferences: []
+    syncWave: 26 # Deploy after Kyverno base policies
   minio-tenant:
     path: minio-tenant/7.1.1
     namespace: minio-tenant-default

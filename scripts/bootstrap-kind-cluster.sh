@@ -136,7 +136,7 @@ kubectl get configmap coredns -n kube-system -o yaml | \
     kubectl apply -f - > /dev/null
 kubectl rollout restart deployment/coredns -n kube-system > /dev/null
 echo "   ✓ Waiting for CoreDNS to be ready..."
-kubectl rollout status deployment/coredns -n kube-system --timeout=120s > /dev/null
+kubectl wait --for=condition=available --timeout=120s deployment/coredns -n kube-system > /dev/null
 echo "   ✓ DNS configured successfully"
 
 # Check prerequisites
@@ -443,14 +443,14 @@ if [ "${BUILD_LOCAL_IMAGES}" = "1" ]; then
 fi
 
 # Bootstrap components in parallel
-echo "🚀 Deploying ArgoCD, OpenBao, and Gitea in parallel..."
+echo "🚀 Deploying ArgoCD, OpenBao, and Gitea..."
 
 # Deploy ArgoCD
 (
     helm template --release-name argocd sources/argocd/8.3.5 \
-      -f sources/argocd/values_cf.yaml \
       --namespace argocd \
       --set global.domain="https://argocd.${DOMAIN}" \
+      --set configs.params."server\.insecure"=true \
       --kube-version=1.33 | kubectl apply -f - 2>&1 | sed 's/^/[ArgoCD] /'
 ) &
 ARGOCD_PID=$!
@@ -458,8 +458,9 @@ ARGOCD_PID=$!
 # Deploy OpenBao
 (
     helm template --release-name openbao sources/openbao/0.18.2 \
-      -f sources/openbao/values_cf.yaml \
       --namespace cf-openbao \
+      --set injector.enabled=false \
+      --set server.ha.enabled=false \
       --kube-version=1.33 | kubectl apply -f - 2>&1 | sed 's/^/[OpenBao] /'
 ) &
 OPENBAO_PID=$!
@@ -475,16 +476,11 @@ kubectl create secret generic gitea-admin-credentials \
   --from-literal=password=$(generate_password) \
   --dry-run=client -o yaml | kubectl apply -f - > /dev/null 2>&1
 
-kubectl create configmap initial-cf-values \
-  --from-file=initial-cf-values=root/values_local_kind.yaml \
-  -n cf-gitea \
-  --dry-run=client -o yaml | kubectl apply -f - > /dev/null 2>&1
-
 # Deploy Gitea
 (
     helm template --release-name gitea sources/gitea/12.3.0 \
-      -f sources/gitea/values_cf.yaml \
       --namespace cf-gitea \
+      --values sources/gitea/values_cf.yaml \
       --set clusterDomain="${DOMAIN}" \
       --set gitea.config.server.ROOT_URL="http://gitea.${DOMAIN}" \
       --kube-version=1.33 | kubectl apply -f - 2>&1 | sed 's/^/[Gitea] /'
@@ -537,31 +533,31 @@ helm template --release-name openbao-init scripts/init-openbao-job \
   --set domain="${DOMAIN}" \
   --kube-version=1.33 | kubectl apply -f - > /dev/null
 
-kubectl wait --for=condition=complete --timeout=600s job/openbao-init-job -n cf-openbao > /dev/null 2>&1 &
-WAIT_OPENBAO_INIT=$!
+kubectl wait --for=condition=complete --timeout=600s job/openbao-init-job -n cf-openbao > /dev/null 2>&1
+echo "✅ OpenBao initialized"
 
 # Initialize Gitea
 echo "🔧 Initializing Gitea..."
+
+# Create initial-cf-values configmap for Gitea init job
+VALUES=$(cat "${ROOT_DIR}/root/values_local_kind.yaml" | yq ".global.domain = \"${DOMAIN}\"")
+kubectl create configmap initial-cf-values \
+  --from-literal=initial-cf-values="$VALUES" \
+  -n cf-gitea \
+  --dry-run=client -o yaml | kubectl apply -f - > /dev/null 2>&1 || true
+
 helm template --release-name gitea-init scripts/init-gitea-local-job \
   --set domain="${DOMAIN}" \
-  --kube-version=1.33 | kubectl apply -f - > /dev/null
+  --kube-version=1.33 | kubectl apply -f - > /dev/null 2>&1 || true
 
-kubectl wait --for=condition=complete --timeout=600s job/gitea-init-local-job -n cf-gitea > /dev/null 2>&1 &
-WAIT_GITEA_INIT=$!
-
-# Wait for both init jobs
-wait $WAIT_OPENBAO_INIT
-echo "✅ OpenBao initialized"
-
-wait $WAIT_GITEA_INIT
+kubectl wait --for=condition=complete --timeout=600s job/gitea-init-local-job -n cf-gitea > /dev/null 2>&1
 echo "✅ Gitea initialized"
 
-echo "📤 Pushing repositories to Gitea..."
-
-# Push cluster-forge repo
+# Push cluster-forge repo to Gitea (current branch)
+echo "📤 Pushing cluster-forge repository to Gitea..."
 "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${ROOT_DIR}" "cluster-org" "cluster-forge"
 
-# Push silogen-core repo if it exists
+# Push silogen-core repo to Gitea if it exists (needed for AIRM deployment)
 if [ -d "${SILOGEN_CORE_PATH}" ]; then
     # If building local images, create a temporary worktree with modified values
     if [ "${BUILD_LOCAL_IMAGES}" = "1" ]; then
@@ -576,20 +572,23 @@ if [ -d "${SILOGEN_CORE_PATH}" ]; then
         git commit -m "temp: use local image tags for kind development" --no-verify
         
         # Push from temporary worktree
+        echo "📤 Pushing silogen-core (with local tags) to Gitea..."
         "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${TEMP_WORKTREE}" "cluster-org" "core"
         
         # Clean up worktree
         cd "${SILOGEN_CORE_PATH}"
         git worktree remove "${TEMP_WORKTREE}" --force
+        echo "✅ Repositories pushed to Gitea"
     else
+        echo "📤 Pushing silogen-core repository to Gitea..."
         "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${SILOGEN_CORE_PATH}" "cluster-org" "core"
+        echo "✅ Repositories pushed to Gitea"
     fi
 else
     echo "⚠️  silogen-core not found at ${SILOGEN_CORE_PATH}"
     echo "   AIRM will use charts from cluster-forge/sources/airm/0.2.7"
+    echo "✅ cluster-forge pushed to Gitea"
 fi
-
-echo "✅ Repositories pushed to Gitea"
 
 # Deploy cluster-forge ArgoCD applications
 echo "🎯 Deploying cluster-forge ArgoCD applications..."
@@ -600,6 +599,26 @@ helm template root -f root/values_local_kind.yaml \
   --kube-version=1.33 | kubectl apply -f -
 
 echo ""
+echo "⏳ ArgoCD applications created - they will sync automatically"
+echo "   (Infrastructure and AIRM will deploy over the next few minutes)"
+
+echo ""
+echo "✅ Bootstrap complete!"
+echo ""
+echo "📊 Cluster Status:"
+kubectl get nodes
+echo ""
+echo "📦 ArgoCD Applications:"
+kubectl get applications -n argocd
+echo ""
+echo "🎯 AIRM will be deployed by ArgoCD and will be available shortly"
+echo "   Monitor progress with: kubectl get pods -n airm -w"
+echo ""
+echo "Access services:"
+echo "  ArgoCD UI: kubectl port-forward svc/argocd-server -n argocd 8080:443"
+echo "  Gitea: kubectl port-forward svc/gitea-http -n cf-gitea 3000:3000"
+echo ""
+
 echo "✅ Local Kind cluster-forge setup complete!"
 echo ""
 echo "📊 Checking deployment status..."
@@ -626,18 +645,31 @@ echo "   Open: https://localhost:8080 (accept self-signed cert)"
 echo "   Username: admin"
 echo "   Password: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath=\"{.data.password}\" | base64 -d"
 echo ""
-echo "2. Gitea UI:"
-echo "   kubectl port-forward svc/gitea-http -n cf-gitea 3000:3000"
-echo "   Open: http://localhost:3000"
-echo "   Username: kubectl -n cf-gitea get secret gitea-admin-credentials -o jsonpath=\"{.data.username}\" | base64 -d"
-echo "   Password: kubectl -n cf-gitea get secret gitea-admin-credentials -o jsonpath=\"{.data.password}\" | base64 -d"
-echo ""
-echo "3. OpenBao UI:"
+echo "2. OpenBao UI:"
 echo "   kubectl port-forward svc/openbao-active -n cf-openbao 8200:8200"
 echo "   Open: http://localhost:8200"
 echo "   Token: kubectl -n cf-openbao get secret openbao-keys -o jsonpath='{.data.root_token}' | base64 -d"
 echo ""
+if [ -d "${SILOGEN_CORE_PATH}/services/airm/helm/airm" ]; then
+    echo "3. AIRM UI (after deployment completes):"
+    echo "   kubectl port-forward -n airm svc/airm-ui 8000:80"
+    echo "   kubectl port-forward -n airm svc/airm-api 8001:80"
+    echo "   kubectl port-forward -n keycloak svc/keycloak-old-http 8080:80"
+    echo "   Open: http://localhost:8000"
+    echo ""
+fi
 echo "💡 Tips:"
+echo "   - Monitor ArgoCD apps: kubectl get applications -n argocd"
+echo "   - Monitor all pods: watch kubectl get pods -A"
+echo "   - View AIRM pods: kubectl get pods -n airm"
+echo "   - View logs: kubectl logs -n <namespace> <pod-name>"
+if [ -d "${SILOGEN_CORE_PATH}/services/airm/helm/airm" ]; then
+    echo ""
+    echo "🔄 To update AIRM after making changes:"
+    echo "   helm template airm ${SILOGEN_CORE_PATH}/services/airm/helm/airm \\"
+    echo "     --namespace airm --kube-version=1.33 | kubectl apply -f -"
+fi
+echo ""
 echo "   - Monitor ArgoCD apps: kubectl get applications -n argocd"
 echo "   - Check sync status: argocd app list"
 echo "   - View logs: kubectl logs -n <namespace> <pod-name>"
