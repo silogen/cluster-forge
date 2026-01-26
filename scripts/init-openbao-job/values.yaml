@@ -1,7 +1,19 @@
 domain: # to be filled by bootstrap script
 
-# OpenBao server configuration (inherited from openbao helm chart)
+# OpenBao server configuration from merged values
 server:
   ha:
-    enabled: false
-    replicas: 1
+    enabled: false # from merged config
+    replicas: 1    # from merged config
+    raft:
+      enabled: false # from merged config
+  dataStorage:
+    size: 5Gi           # from merged config
+    storageClass: ""    # from merged config
+  resources:            # from merged config
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "2Gi"
