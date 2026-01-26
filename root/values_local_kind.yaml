@@ -57,7 +57,7 @@ apps:
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
     namespace: opentelemetry-operator-system
-    valuesFile: null  # Don't use values_cf.yaml, use valuesObject instead
+    valuesFile: ../../values_cf.yaml  # sources/opentelemetry-operator/0.93.1 -> sources/values_cf.yaml
     valuesObject:
       manager:
         collectorImage:
