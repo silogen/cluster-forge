@@ -1,6 +1,6 @@
 clusterForge:
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
-  targetRevision: main
+  targetRevision: EAI-1196-bootstrap-sh-refactor
 # source helm values file from separate git repo
 externalValues:
   enabled: true
