@@ -108,6 +108,49 @@ if [ -n "$SIZE_VALUES_FILE" ]; then
 fi
 echo "============================"
 
+# Check for yq command availability
+if command -v yq >/dev/null 2>&1; then
+    YQ_CMD="yq"
+elif [ -f "$HOME/yq" ]; then
+    YQ_CMD="$HOME/yq"
+else
+    echo "ERROR: yq command not found. Please install yq or place it in $HOME/yq"
+    exit 1
+fi
+
+# Function to merge values files early for use throughout the script
+merge_values_files() {
+    echo "Merging values files..."
+    if [ -n "$SIZE_VALUES_FILE" ]; then
+        # Merge base values with size-specific overrides
+        VALUES=$($YQ_CMD eval-all '. as $item ireduce ({}; . * $item)' \
+            ${SCRIPT_DIR}/../root/${VALUES_FILE} \
+            ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE} | \
+            $YQ_CMD eval ".global.domain = \"${DOMAIN}\"")
+    else
+        # Use base values only
+        VALUES=$(cat ${SCRIPT_DIR}/../root/${VALUES_FILE} | $YQ_CMD ".global.domain = \"${DOMAIN}\"")
+    fi
+    
+    # Write merged values to temp file for use throughout script
+    echo "$VALUES" > /tmp/merged_values.yaml
+    echo "Merged values written to /tmp/merged_values.yaml"
+}
+
+# Helper functions to extract values from merged configuration
+get_argocd_value() {
+    local path="$1"
+    $YQ_CMD eval ".apps.argocd.valuesObject.${path}" /tmp/merged_values.yaml
+}
+
+get_openbao_value() {
+    local path="$1"  
+    $YQ_CMD eval ".apps.openbao.valuesObject.${path}" /tmp/merged_values.yaml
+}
+
+# Merge values files early so all subsequent operations can use the merged config
+merge_values_files
+
 # Create namespaces
 kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
 kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
@@ -115,18 +158,12 @@ kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
 
 # ArgoCD bootstrap
 echo "Bootstrapping ArgoCD..."
+# Extract ArgoCD values from merged config and write to temp values file
+$YQ_CMD eval '.apps.argocd.valuesObject' /tmp/merged_values.yaml > /tmp/argocd_values.yaml
+
 helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 --namespace argocd \
+  -f /tmp/argocd_values.yaml \
   --set global.domain="https://argocd.${DOMAIN}" \
-  --set configs.params.server.insecure=true \
-  --set configs.cm.create=true \
-  --set configs.rbac.create=true \
-  --set "configs.rbac.policy\.csv=g\, argocd-users\, role:admin" \
-  --set controller.replicas=1 \
-  --set applicationSet.replicas=1 \
-  --set repoServer.replicas=1 \
-  --set server.replicas=1 \
-  --set redis.enabled=true \
-  --set redis-ha.enabled=false \
   --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl rollout status statefulset/argocd-application-controller -n argocd
 kubectl rollout status deploy/argocd-applicationset-controller -n argocd
@@ -135,15 +172,20 @@ kubectl rollout status deploy/argocd-repo-server -n argocd
 
 # OpenBao bootstrap
 echo "Bootstrapping OpenBao..."
+# Extract OpenBao values from merged config
+$YQ_CMD eval '.apps.openbao.valuesObject' /tmp/merged_values.yaml > /tmp/openbao_values.yaml
+
 helm template --release-name openbao ${SCRIPT_DIR}/../sources/openbao/0.18.2 --namespace cf-openbao \
-  --set injector.enabled=false \
-  --set server.ha.enabled=false \
-  --set server.ha.raft.enabled=false \
-  --set server.ha.replicas=1 \
+  -f /tmp/openbao_values.yaml \
   --set ui.enabled=true \
   --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
-helm template --release-name openbao-init ${SCRIPT_DIR}/init-openbao-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
+
+# Pass OpenBao configuration to init script
+helm template --release-name openbao-init ${SCRIPT_DIR}/init-openbao-job \
+  -f /tmp/openbao_values.yaml \
+  --set domain="${DOMAIN}" \
+  --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
 
 # Gitea bootstrap
@@ -152,20 +194,9 @@ generate_password() {
     openssl rand -hex 16 | tr 'a-f' 'A-F' | head -c 32
 }
 
-# Create initial-cf-values configmap with size-aware values
-if [ -n "$SIZE_VALUES_FILE" ]; then
-    # Merge base values with size-specific overrides
-    echo "Merging base values with size-specific overrides..."
-    VALUES=$(yq eval-all '. as $item ireduce ({}; . * $item)' \
-        ${SCRIPT_DIR}/../root/${VALUES_FILE} \
-        ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE} | \
-        yq eval ".global.domain = \"${DOMAIN}\"")
-else
-    # Use base values only
-    VALUES=$(cat ${SCRIPT_DIR}/../root/${VALUES_FILE} | yq ".global.domain = \"${DOMAIN}\"")
-fi
-
-kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$VALUES" --dry-run=client -o yaml | kubectl apply -n cf-gitea -f -
+# Create initial-cf-values configmap with merged values
+echo "Creating initial-cf-values configmap from merged configuration..."
+kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$(cat /tmp/merged_values.yaml)" --dry-run=client -o yaml | kubectl apply -n cf-gitea -f -
 
 kubectl create secret generic gitea-admin-credentials \
   --namespace=cf-gitea \
@@ -193,22 +224,11 @@ kubectl rollout status deploy/gitea -n cf-gitea
 helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
 
-# Create cluster-forge app-of-apps with size-aware configuration
+# Create cluster-forge app-of-apps with merged configuration
 echo "Creating ClusterForge app-of-apps (size: $CLUSTER_SIZE)..."
-if [ -n "$SIZE_VALUES_FILE" ]; then
-    # Apply with both base and size-specific values
-    helm template ${SCRIPT_DIR}/../root \
-        -f ${SCRIPT_DIR}/../root/${VALUES_FILE} \
-        -f ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE} \
-        --set global.domain="${DOMAIN}" \
-        --kube-version=${KUBE_VERSION} | kubectl apply -f -
-else
-    # Apply with base values only
-    helm template ${SCRIPT_DIR}/../root \
-        -f ${SCRIPT_DIR}/../root/${VALUES_FILE} \
-        --set global.domain="${DOMAIN}" \
-        --kube-version=${KUBE_VERSION} | kubectl apply -f -
-fi
+helm template ${SCRIPT_DIR}/../root \
+    -f /tmp/merged_values.yaml \
+    --kube-version=${KUBE_VERSION} | kubectl apply -f -
 
 echo ""
 echo "=== ClusterForge Bootstrap Complete ==="
@@ -218,3 +238,7 @@ echo "Access ArgoCD at: https://argocd.${DOMAIN}"
 echo "Access Gitea at: https://gitea.${DOMAIN}"
 echo ""
 echo "This is the way!"
+
+# Cleanup temporary files
+echo "Cleaning up temporary files..."
+rm -f /tmp/merged_values.yaml /tmp/argocd_values.yaml /tmp/openbao_values.yaml
