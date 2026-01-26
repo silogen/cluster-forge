@@ -1,6 +1,6 @@
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: main
+  targetRevision: EAI-1196-bootstrap-sh-refactor
   valuesFile: values_cf.yaml
 # source helm values file from separate git repo
 externalValues:
