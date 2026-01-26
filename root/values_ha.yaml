@@ -1,6 +1,6 @@
 clusterForge:
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
-  targetRevision: wj-test-eau-1141-refac-1 # cluster-forge version git tag
+  targetRevision: wj-test-eau-1141-refac-0 # cluster-forge version git tag
 externalValues:
   enabled: true
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
