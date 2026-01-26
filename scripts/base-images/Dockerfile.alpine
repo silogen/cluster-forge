@@ -1,0 +1,3 @@
+FROM alpine:3.21
+COPY certs/*.crt /usr/local/share/ca-certificates/
+RUN cat /usr/local/share/ca-certificates/*.crt >> /etc/ssl/certs/ca-certificates.crt
