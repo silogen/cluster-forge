@@ -228,7 +228,6 @@ apps:
   kgateway:
     path: kgateway/v2.1.0-main
     namespace: kgateway-system
-    valuesFile: ../values_cf.yaml
     syncWave: -2
   kgateway-config:
     path: kgateway-config
@@ -247,12 +246,10 @@ apps:
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
     namespace: opentelemetry-operator-system
-    valuesFile: ../values_cf.yaml
     syncWave: -3
   otel-lgtm-stack:
     path: otel-lgtm-stack/v1.0.7
     namespace: otel-lgtm-stack
-    valuesFile: ../values_foo.yaml
     helmParameters:
       - name: cluster.name
         value: "{{ .Values.global.domain }}"
@@ -312,7 +309,6 @@ apps:
   amd-gpu-operator:
     path: amd-gpu-operator/v1.4.0
     namespace: kube-amd-gpu
-    valuesFile: ../values_cf.yaml
     syncWave: -1
   amd-gpu-operator-config:
     path: amd-gpu-operator-config
@@ -332,7 +328,6 @@ apps:
   kedify-otel:
     path: kedify-otel/v0.0.6
     namespace: keda
-    valuesFile: ../values_cf.yaml
     syncWave: -2
   # ML/AI
   kserve-crds:
@@ -343,7 +338,6 @@ apps:
   kserve:
     path: kserve/v0.16.0
     namespace: kserve-system
-    valuesFile: ../values_cf.yaml
     syncWave: -2
   # Queues
   rabbitmq:
@@ -372,7 +366,6 @@ apps:
   minio-tenant:
     path: minio-tenant/7.1.1
     namespace: minio-tenant-default
-    valuesFile: ../values_cf.yaml
     syncWave: -2
   minio-tenant-config:
     path: minio-tenant-config
