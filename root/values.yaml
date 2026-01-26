@@ -1,7 +1,7 @@
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
   targetRevision: main
-  valuesFile: values.yaml
+  valuesFile: values_cf.yaml
 # source helm values file from separate git repo
 externalValues:
   enabled: false
