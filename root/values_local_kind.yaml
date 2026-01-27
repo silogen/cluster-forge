@@ -81,7 +81,7 @@ apps:
   keycloak:
     path: keycloak/25.2.0
     namespace: keycloak
-    valuesFile: values_local_kind.yaml
+    valuesFile: ../values_local_kind.yaml
     syncWave: -1
   keycloak-config:
     path: keycloak-config
