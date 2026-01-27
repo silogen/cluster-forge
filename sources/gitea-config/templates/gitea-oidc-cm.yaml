@@ -6,67 +6,159 @@ metadata:
 data:
   configure-gitea.sh: |
     #!/bin/bash
+    set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
     KC_URL={{ .Values.keycloak.url }}
     KC_REALM={{ .Values.keycloak.realm }}
+    MAX_RETRIES=30
+    RETRY_DELAY=10
 
-    while ! kubectl get deployment keycloak -n keycloak >/dev/null 2>&1; do
-      echo "Waiting for keycloak to be ready..."
-      sleep 10
-    done
-    kubectl rollout status deploy/keycloak -n keycloak
+    # Colors for output
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    NC='\033[0m' # No Color
 
-    echo "Getting existing oauth settings if any..."
-    OAUTH_ID=$(kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
-      gitea admin auth list | grep Keycloak | awk '{print $1}')
+    log() {
+      echo -e "${GREEN}[$(date +'%Y-%m-%d %H:%M:%S')] $1${NC}"
+    }
 
-    if [ -n "$OAUTH_ID" ]; then
-      echo "Found existing Keycloak OAuth configuration with ID: $OAUTH_ID"
-      echo "Updating existing OAuth configuration..."
+    warn() {
+      echo -e "${YELLOW}[$(date +'%Y-%m-%d %H:%M:%S')] WARNING: $1${NC}"
+    }
 
-      kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
-        gitea admin auth update-oauth \
-        --id "$OAUTH_ID" \
-        --name "Keycloak" \
-        --provider openidConnect \
-        --key "gitea" \
-        --secret "${CLIENT_SECRET}" \
-        --group-claim-name "groups" \
-        --scopes "openid profile email groups" \
-        --group-team-map "{\"/gitea-users\":{\"cluster-org\":[\"Owners\"]}}" \
-        --auto-discover-url "${KC_URL}/realms/${KC_REALM}/.well-known/openid-configuration"
+    error() {
+      echo -e "${RED}[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: $1${NC}"
+    }
 
-        if [ $? -eq 0 ]; then
-          echo "✅ OAuth configuration updated successfully"
-        else
-          echo "❌ Failed to update OAuth configuration"
-          exit 1
+    # Function to wait for a condition with exponential backoff
+    wait_for_condition() {
+      local description="$1"
+      local command="$2"
+      local retry_count=0
+      local delay=$RETRY_DELAY
+
+      log "Waiting for: $description"
+
+      while [ $retry_count -lt $MAX_RETRIES ]; do
+        if eval "$command"; then
+          log "$description - ✅ Ready"
+          return 0
         fi
-    else
-      echo "No existing Keycloak OAuth configuration found"
-      echo "Creating new OAuth configuration..."
 
-      kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
-      gitea admin auth add-oauth \
-      --name "Keycloak" \
-      --provider openidConnect \
-      --key "gitea" \
-      --secret "${CLIENT_SECRET}" \
-      --group-claim-name "groups" \
-      --scopes "openid profile email groups" \
-      --group-team-map "{\"/gitea-users\":{\"cluster-org\":[\"Owners\"]}}" \
-      --auto-discover-url "${KC_URL}/realms/${KC_REALM}/.well-known/openid-configuration"
+        retry_count=$((retry_count + 1))
+        warn "Attempt $retry_count/$MAX_RETRIES failed. Retrying in ${delay}s..."
+        sleep $delay
 
-      if [ $? -eq 0 ]; then
-        echo "✅ OAuth configuration created successfully"
-      else
-        echo "❌ Failed to create OAuth configuration"
+        # Exponential backoff with jitter (max 60s)
+        delay=$(( delay < 60 ? delay * 2 : 60 ))
+        delay=$(( delay + (RANDOM % 10) ))
+      done
+
+      error "$description - ❌ Failed after $MAX_RETRIES attempts"
+      return 1
+    }
+
+    # Check required environment variables
+    if [[ -z "${CLIENT_SECRET:-}" ]]; then
+      error "CLIENT_SECRET environment variable is not set"
       exit 1
-      fi
     fi
-    
-    echo "Restarting gitea..."
-    kubectl rollout restart deploy/gitea -n cf-gitea
-    
-    echo "Waiting for gitea to be ready..."
-    kubectl rollout status deploy/gitea -n cf-gitea
+
+    # Wait for Keycloak deployment to exist
+    wait_for_condition "Keycloak deployment to exist" \
+      "kubectl get deployment keycloak -n keycloak >/dev/null 2>&1"
+
+    # Wait for Keycloak to be ready
+    wait_for_condition "Keycloak deployment to be ready" \
+      "kubectl rollout status deploy/keycloak -n keycloak --timeout=60s >/dev/null 2>&1"
+
+    # Wait for Gitea deployment to be ready
+    wait_for_condition "Gitea deployment to be ready" \
+      "kubectl rollout status deploy/gitea -n cf-gitea --timeout=60s >/dev/null 2>&1"
+
+    # Wait for Keycloak OIDC endpoint to be accessible
+    wait_for_condition "Keycloak OIDC discovery endpoint" \
+      "kubectl -n keycloak exec deploy/keycloak -- curl -s -f ${KC_URL}/realms/${KC_REALM}/.well-known/openid-configuration >/dev/null 2>&1"
+
+    log "All dependencies ready. Configuring OAuth..."
+
+    # Function to configure OAuth with retries
+    configure_oauth() {
+      local retry_count=0
+
+      while [ $retry_count -lt 5 ]; do
+        log "Getting existing OAuth settings... (attempt $((retry_count + 1))/5)"
+
+        # Get existing OAuth ID
+        OAUTH_ID=$(kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
+          gitea admin auth list 2>/dev/null | grep Keycloak | awk '{print $1}' || true)
+
+        if [ -n "$OAUTH_ID" ]; then
+          log "Found existing Keycloak OAuth configuration with ID: $OAUTH_ID"
+          log "Updating existing OAuth configuration..."
+
+          if kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
+            gitea admin auth update-oauth \
+            --id "$OAUTH_ID" \
+            --name "Keycloak" \
+            --provider openidConnect \
+            --key "gitea" \
+            --secret "${CLIENT_SECRET}" \
+            --group-claim-name "groups" \
+            --scopes "openid profile email groups" \
+            --group-team-map "{\"/gitea-users\":{\"cluster-org\":[\"Owners\"]}}" \
+            --auto-discover-url "${KC_URL}/realms/${KC_REALM}/.well-known/openid-configuration"; then
+            log "✅ OAuth configuration updated successfully"
+            return 0
+          else
+            warn "Failed to update OAuth configuration (attempt $((retry_count + 1))/5)"
+          fi
+        else
+          log "No existing Keycloak OAuth configuration found"
+          log "Creating new OAuth configuration..."
+
+          if kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
+            gitea admin auth add-oauth \
+            --name "Keycloak" \
+            --provider openidConnect \
+            --key "gitea" \
+            --secret "${CLIENT_SECRET}" \
+            --group-claim-name "groups" \
+            --scopes "openid profile email groups" \
+            --group-team-map "{\"/gitea-users\":{\"cluster-org\":[\"Owners\"]}}" \
+            --auto-discover-url "${KC_URL}/realms/${KC_REALM}/.well-known/openid-configuration"; then
+            log "✅ OAuth configuration created successfully"
+            return 0
+          else
+            warn "Failed to create OAuth configuration (attempt $((retry_count + 1))/5)"
+          fi
+        fi
+
+        retry_count=$((retry_count + 1))
+        if [ $retry_count -lt 5 ]; then
+          sleep $((retry_count * 5))  # Progressive delay
+        fi
+      done
+
+      error "❌ Failed to configure OAuth after 5 attempts"
+      return 1
+    }
+
+    # Configure OAuth with retries
+    if configure_oauth; then
+      log "OAuth configuration successful. Restarting Gitea..."
+      kubectl rollout restart deploy/gitea -n cf-gitea
+
+      log "Waiting for Gitea restart to complete..."
+      if wait_for_condition "Gitea restart to complete" \
+        "kubectl rollout status deploy/gitea -n cf-gitea --timeout=300s >/dev/null 2>&1"; then
+        log "🎉 Gitea OIDC configuration completed successfully!"
+      else
+        error "Gitea restart failed or timed out"
+        exit 1
+      fi
+    else
+      error "OAuth configuration failed"
+      exit 1
+    fi
