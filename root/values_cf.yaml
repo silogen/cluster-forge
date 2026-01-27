@@ -677,6 +677,10 @@ apps:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
+      - group: ""
+        kind: "PersistentVolumeClaim"
+        jsonPointers:
+          - /spec/accessModes
   # AMD Resource Manager (AIRM)
   airm:
     path: airm/0.3.1
