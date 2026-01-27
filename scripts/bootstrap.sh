@@ -143,6 +143,17 @@ helm template --release-name openbao ${SCRIPT_DIR}/../sources/openbao/0.18.2 --n
   --set ui.enabled=true \
   --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
+
+# Create static ConfigMaps needed for init job
+helm template --release-name openbao-config-static ${SCRIPT_DIR}/init-openbao-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} \
+  --show-only templates/openbao-secret-manager-cm.yaml | kubectl apply -f -
+
+# Create initial secrets config for init job (separate from ArgoCD-managed version)
+cat ${SCRIPT_DIR}/../sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml | \
+  sed "s|{{ .Values.domain }}|${DOMAIN}|g" | \
+  sed "s|name: openbao-secrets-config|name: openbao-secrets-init-config|g" | kubectl apply -f -
+
+# Deploy OpenBao initialization job
 helm template --release-name openbao-init ${SCRIPT_DIR}/init-openbao-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
 
