@@ -152,8 +152,11 @@ apps:
           - /spec/replicas
       - group: "apps"
         kind: "StatefulSet"
+        name: "openbao"
         jsonPointers:
           - /metadata/creationTimestamp
+          - /metadata/generation
+          - /metadata/resourceVersion
   openbao-config:
     path: openbao-config
     namespace: cf-openbao
