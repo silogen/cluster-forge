@@ -44,7 +44,6 @@ spec:
               - ReadWriteOnce
           metadata:
             annotations:
-              +(kyverno.io/original-access-modes): "{{ request.object.spec.accessModes | join(',') }}"
               +(kyverno.io/mutation-applied): "local-path-rwx-to-rwo"
               +(kyverno.io/policy-reason): "local-path provisioner only supports ReadWriteOnce and ReadWriteOncePod"
 
