@@ -22,7 +22,7 @@ The cluster-forge secret management system uses a **declarative, GitOps-based ap
 
 Navigate to and edit:
 ```
-sources/openbao-config/templates/openbao-secret-definitions.yaml
+sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml
 ```
 
 ### 2. Add Your Secret Definition
@@ -47,7 +47,7 @@ secrets/my-app-callback-url|static|https://my-app.{{ .Values.domain }}/callback|
 ### 3. Commit and Deploy
 
 ```bash
-git add sources/openbao-config/templates/openbao-secret-definitions.yaml
+git add sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml
 git commit -m "feat: add secrets for my-app"
 git push origin main
 ```

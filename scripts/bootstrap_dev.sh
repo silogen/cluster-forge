@@ -33,7 +33,7 @@ helm template --release-name openbao-config-static ./init-openbao-job --set doma
   --show-only templates/openbao-secret-manager-cm.yaml | kubectl apply -f -
 
 # Create initial secrets config for init job (separate from ArgoCD-managed version)
-cat ../sources/openbao-config/templates/openbao-secret-definitions.yaml | \
+cat ../sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml | \
   sed "s|{{ .Values.domain }}|$DOMAIN|g" | \
   sed "s|name: openbao-secrets-config|name: openbao-secrets-init-config|g" | kubectl apply -f -
 

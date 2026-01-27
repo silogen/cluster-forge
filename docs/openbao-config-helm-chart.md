@@ -8,7 +8,7 @@ This document provides technical documentation for the `openbao-config` Helm cha
 
 - **Chart Name**: `openbao-config`
 - **Chart Version**: `0.1.0`
-- **Location**: `sources/openbao-config/`
+- **Location**: `sources/openbao-config/0.1.0/`
 - **Deployment Method**: ArgoCD GitOps
 - **Target Namespace**: `cf-openbao`
 
@@ -24,16 +24,19 @@ The `openbao-config` Helm chart provides:
 
 ```
 sources/openbao-config/
-├── Chart.yaml                           # Chart metadata
-├── values.yaml                          # Default values
-└── templates/
-    ├── openbao-httproute.yaml           # HTTP routing configuration
-    ├── openbao-secret-definitions.yaml  # Secret definitions ConfigMap
-    ├── openbao-secret-manager-cronjob.yaml  # Automated management CronJob
-    ├── openbao-secret-manager-rbac.yaml     # RBAC for secret management
-    ├── openbao-unseal-cm.yaml           # Unseal script ConfigMap
-    ├── openbao-unseal-cronjob.yaml      # Unseal automation CronJob
-    └── openbao-unseal-rbac.yaml         # RBAC for unseal operations
+├── 0.1.0/                               # Chart version directory  
+│   ├── Chart.yaml                       # Chart metadata
+│   ├── values.yaml                      # Default values
+│   └── templates/
+│       ├── openbao-httproute.yaml           # HTTP routing configuration
+│       ├── openbao-secret-definitions.yaml  # Secret definitions ConfigMap
+│       ├── openbao-secret-manager-cronjob.yaml  # Automated management CronJob
+│       ├── openbao-secret-manager-rbac.yaml     # RBAC for secret management
+│       ├── openbao-unseal-cm.yaml           # Unseal script ConfigMap
+│       ├── openbao-unseal-cronjob.yaml      # Unseal automation CronJob
+│       └── openbao-unseal-rbac.yaml         # RBAC for unseal operations
+├── source.yaml                          # App source definition (future)
+└── values_cf.yaml                       # Common values file (future)
 ```
 
 ## Chart Configuration
@@ -64,7 +67,7 @@ domain: # to be filled by cluster-forge app
 
 ```yaml
 openbao-config:
-  path: openbao-config
+  path: openbao-config/0.1.0
   namespace: cf-openbao
   valuesFile: values.yaml
   helmParameters:
@@ -267,7 +270,7 @@ helm template --release-name openbao-config-static ${SCRIPT_DIR}/init-openbao-jo
 
 ```bash
 # Create initial secrets config for init job (separate from ArgoCD-managed version)
-cat ${SCRIPT_DIR}/../sources/openbao-config/templates/openbao-secret-definitions.yaml | \
+cat ${SCRIPT_DIR}/../sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml | \
   sed "s|{{ .Values.domain }}|${DOMAIN}|g" | \
   sed "s|name: openbao-secrets-config|name: openbao-secrets-init-config|g" | kubectl apply -f -
 ```

@@ -221,7 +221,7 @@ Replaces the old hardcoded `generate-secrets.sh` with a declarative, config-driv
 ### 4. Automated Secret Management System
 
 **Declarative Secret Definition System:**
-- **Location**: `sources/openbao-config/templates/openbao-secret-definitions.yaml`
+- **Location**: `sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml`
 - **Format**: Structured ConfigMap with pipe-delimited entries: `SECRET_PATH|TYPE|VALUE|BYTES`
 - **Configuration Management**: Deployed as Helm chart enabling GitOps-based secret management
 - **Domain Templating**: Static values support `{{ .Values.domain }}` templating for environment-specific configuration
@@ -240,7 +240,7 @@ Replaces the old hardcoded `generate-secrets.sh` with a declarative, config-driv
 - **Schedule**: Every 5 minutes (`*/5 * * * *`)
 - **Purpose**: Ensures all defined secrets exist in OpenBao without manual intervention
 - **Behavior**: Idempotent - only creates missing secrets, skips existing ones
-- **Template**: `sources/openbao-config/templates/openbao-secret-manager-cronjob.yaml`
+- **Template**: `sources/openbao-config/0.1.0/templates/openbao-secret-manager-cronjob.yaml`
 - **Service Account**: `openbao-secret-manager-sa` with minimal required permissions
 - **Timeout**: 5-minute active deadline with single retry on failure
 
@@ -251,7 +251,7 @@ Replaces the old hardcoded `generate-secrets.sh` with a declarative, config-driv
 - **Volume Mounts**: Scripts from `openbao-secret-manager-scripts`, config from `openbao-secrets-config`
 
 **Adding New Secrets Workflow:**
-1. Edit `sources/openbao-config/templates/openbao-secret-definitions.yaml`
+1. Edit `sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml`
 2. Add line following format: `secrets/my-app-password|random||32`
 3. Commit and push to main branch
 4. ArgoCD syncs the configuration within ~3 minutes
@@ -436,7 +436,7 @@ secrets/minio-api-access-key|static|api-default-user|0
 
 **Helm Chart Integration:**
 - OpenBao config deployed as proper Helm chart structure
-- Chart location: `sources/openbao-config/Chart.yaml`
+- Chart location: `sources/openbao-config/0.1.0/Chart.yaml`
 - Values templating through `values.yaml` with domain injection
 - ArgoCD manages configuration deployment via GitOps
 - Separation between bootstrap (init-mode) and ongoing management
