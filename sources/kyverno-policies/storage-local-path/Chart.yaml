@@ -1,0 +1,24 @@
+apiVersion: v2
+name: kyverno-policies-storage-local-path
+description: Kyverno policies for local-path storage compatibility (small/medium clusters only)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - kyverno
+  - policies
+  - storage
+  - local-path
+  - pvc
+maintainers:
+  - name: ClusterForge Team
+home: https://github.com/silogen/cluster-forge
+sources:
+  - https://github.com/silogen/cluster-forge
+dependencies:
+  - name: kyverno
+    version: "3.5.1"
+    condition: kyverno.enabled
+annotations:
+  cluster-forge.io/target-sizes: "small,medium"
+  cluster-forge.io/description: "Converts RWX/ROX access modes to RWO for local-path compatibility"

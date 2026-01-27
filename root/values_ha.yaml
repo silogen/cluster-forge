@@ -1,58 +1,478 @@
 clusterForge:
-  repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
-  targetRevision: v1.7.1 # cluster-forge version git tag
-externalValues:
-  enabled: true
-  repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
+  repoUrl: "https://github.com/silogen/cluster-forge.git"
   targetRevision: main
-  path: values_cf.yaml
+  valuesFile: values.yaml
+# source helm values file from separate git repo
+externalValues:
+  enabled: false
+  #  repoUrl: # define if enabled
+  targetRevision: main
+  path: values.yaml
 global:
-  domain: # to be filled by bootstrap script
+  domain: app.silogen.ai
 enabledApps:
   - aim-cluster-model-source
+  - airm
+  - amd-gpu-operator
+  - amd-gpu-operator-config
+  - appwrapper
   - argocd
   - argocd-config
   - cert-manager
-  - openbao
-  - openbao-config
-  - external-secrets
-  - external-secrets-config
-  - gitea
-  - gitea-config
-  - gateway-api
-  - metallb
-  - kgateway-crds
-  - kgateway
-  - kgateway-config
-  - prometheus-crds
-  - opentelemetry-operator
-  - otel-lgtm-stack
-  - cnpg-operator
+  - cilium
+  - cilium-config
   - cluster-auth
   - cluster-auth-config
-  - keycloak
-  - kyverno
-  - kyverno-config
-  - amd-gpu-operator
-  - amd-gpu-operator-config
-  - kuberay-operator
+  - cnpg-operator
+  - external-secrets
+  - external-secrets-config
+  - gateway-api
+  - gitea
+  - gitea-config
+  - grafana
+  - grafana-config
+  - kaiwo
+  - kaiwo-config
+  - kaiwo-crds
   - keda
   - kedify-otel
-  - kserve-crds
+  - keycloak
+  - kgateway
+  - kgateway-config
+  - kgateway-crds
   - kserve
-  - rabbitmq
+  - kserve-crds
+  - kuberay-operator
   - kueue
   - kueue-config
-  - appwrapper
+  - kyverno
+  - kyverno-config
+  - kyverno-policies-base
+  - longhorn
+  - longhorn-config
+  - metallb
   - minio-operator
   - minio-tenant
   - minio-tenant-config
-  - kaiwo-crds
-  - kaiwo
-  - kaiwo-config
-  - airm
+  - openbao
+  - openbao-config
+  - opentelemetry-operator
+  - otel-config
+  - otel-lgtm-stack
+  - prometheus
+  - prometheus-config
+  - prometheus-crds
+  - rabbitmq
 apps:
+  # Core apps
   argocd:
-    valuesFile: ../values_ha.yaml
+    path: argocd/8.3.5
+    namespace: argocd
+    valuesObject:
+      global:
+        domain: "argocd.{{ .Values.global.domain }}"
+      applicationSet:
+        replicas: 1
+      configs:
+        cm:
+          create: true
+          resource.customizations.health.opentelemetry.io_OpenTelemetryCollector: |
+            hs = {}
+            hs.status = "Healthy"
+            hs.message = "Always Healthy - See https://github.com/argoproj/argo-cd/pull/24284"
+            return hs
+          oidc.config: |
+            name: Keycloak
+            issuer: https://kc.{{ .Values.global.domain }}/realms/airm
+            clientID: argocd
+            clientSecret: $$argocd-oidc-creds:client_secret
+            requestedScopes: ["openid", "profile", "email", "groups"]
+        params:
+          server.insecure: true
+        rbac:
+          create: true
+          policy.csv: |
+            g, argocd-users, role:admin
+      controller:
+        replicas: 1
+      redis:
+        enabled: true
+      redis-ha:
+        enabled: false
+      repoServer:
+        replicas: 1
+        autoscaling:
+          enabled: false
+      server:
+        replicas: 1
+    syncWave: -3
+  argocd-config:
+    path: argocd-config
+    namespace: argocd
+    syncWave: -2
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+  cert-manager:
+    path: cert-manager/v1.18.2
+    namespace: cert-manager
+    valuesObject:
+      installCRDs: true
+    syncWave: -3
+  openbao:
+    path: openbao/0.18.2
+    namespace: cf-openbao
+    valuesObject:
+      injector:
+        enabled: false
+      server:
+        affinity: |
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: openbao
+                      app.kubernetes.io/instance: openbao
+                      component: server
+                  topologyKey: kubernetes.io/hostname
+        ha:
+          enabled: false
+          raft:
+            enabled: false
+          replicas: 1
+      ui:
+        enabled: true
+    syncWave: -3
+    ignoreDifferences:
+      - group: "apps"
+        kind: "Deployment"
+        jsonPointers:
+          - /spec/replicas
+  openbao-config:
+    path: openbao-config
+    namespace: cf-openbao
+    syncWave: -2
+  external-secrets:
+    path: external-secrets/0.15.1
+    namespace: external-secrets
+    valuesFile: values.yaml
+    syncWave: -3
+  external-secrets-config:
+    path: external-secrets-config
+    namespace: external-secrets
+    syncWave: -3
+  gitea:
+    path: gitea/12.3.0
+    namespace: cf-gitea
+    valuesObject:
+      clusterDomain: "{{ .Values.global.domain }}"
+      strategy:
+        type: "Recreate"
+      gitea:
+        admin:
+          existingSecret: gitea-admin-credentials
+        config:
+          server:
+            ROOT_URL: "https://gitea.{{ .Values.global.domain }}"
+          database:
+            DB_TYPE: sqlite3
+          session:
+            PROVIDER: memory
+          cache:
+            ADAPTER: memory
+          queue:
+            TYPE: level
+      valkey-cluster:
+        enabled: false
+      valkey:
+        enabled: false
+      postgresql:
+        enabled: false
+      postgresql-ha:
+        enabled: false
+      persistence:
+        enabled: true
+      test:
+        enabled: false
+    syncWave: -3
+  gitea-config:
+    path: gitea-config
+    namespace: cf-gitea
+    valuesFile: values.yaml
+    helmParameters:
+      - name: keycloak.url
+        value: "https://kc.{{ .Values.global.domain }}"
+      - name: keycloak.realm
+        value: "airm"
+    syncWave: -2
+  # Network apps
+  gateway-api:
+    path: gateway-api/v1.3.0
+    namespace: default
+    syncWave: -3
+  metallb:
+    path: metallb/v0.15.2
+    namespace: default
+    syncWave: -3
+  kgateway-crds:
+    path: kgateway-crds/v2.1.0-main
+    namespace: kgateway-system
+    valuesFile: values.yaml
+    syncWave: -3
+  kgateway:
+    path: kgateway/v2.1.0-main
+    namespace: kgateway-system
+    valuesFile: ../values_cf.yaml
+    syncWave: -2
+  kgateway-config:
+    path: kgateway-config
+    namespace: kgateway-system
+    valuesFile: values.yaml
+    helmParameters:
+      - name: domain
+        value: "{{ .Values.global.domain }}"
+    syncWave: -2
+  # Monitoring
+  prometheus-crds:
+    path: prometheus-operator-crds/23.0.0
+    namespace: prometheus-system
+    valuesFile: values.yaml
+    syncWave: -3
+  opentelemetry-operator:
+    path: opentelemetry-operator/0.93.1
+    namespace: opentelemetry-operator-system
+    valuesFile: ../values_cf.yaml
+    syncWave: -3
+  otel-lgtm-stack:
+    path: otel-lgtm-stack/v1.0.7
+    namespace: otel-lgtm-stack
+    valuesFile: ../values_cf.yaml
+    helmParameters:
+      - name: cluster.name
+        value: "{{ .Values.global.domain }}"
+    syncWave: -2
+  # Databases
+  cnpg-operator:
+    path: cnpg-operator/0.26.0
+    namespace: cnpg-system
+    valuesFile: values.yaml
+    syncWave: -3
+  # Access control
+  cluster-auth:
+    path: cluster-auth/0.5.0
+    namespace: cluster-auth
+    valuesFile: values.yaml
+    syncWave: -2
+  cluster-auth-config:
+    path: cluster-auth-config
+    namespace: cluster-auth
+    syncWave: -2
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+  keycloak:
+    path: keycloak-old
+    namespace: keycloak
+    valuesFile: values.yaml
+    helmParameters:
+      - name: domain
+        value: "{{ .Values.global.domain }}"
+    syncWave: -2
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+  kyverno:
+    path: kyverno/3.5.1
+    namespace: kyverno
+    valuesFile: values.yaml
+    syncWave: -3
+  kyverno-config:
+    path: kyverno-config
+    namespace: kyverno
+    syncWave: -3
+  kyverno-policies-base:
+    path: kyverno-policies/base
+    namespace: kyverno
+    syncWave: -2
+  # GPU
+  amd-gpu-operator:
+    path: amd-gpu-operator/v1.4.0
+    namespace: kube-amd-gpu
+    valuesFile: ../values_cf.yaml
+    syncWave: -1
+  amd-gpu-operator-config:
+    path: amd-gpu-operator-config
+    namespace: kube-amd-gpu
+    syncWave: -1
+  kuberay-operator:
+    path: kuberay-operator/1.4.2
+    namespace: default
+    valuesFile: values.yaml
+    syncWave: -1
+  # Autoscaling
+  keda:
+    path: keda/2.18.1
+    namespace: keda
+    valuesFile: values.yaml
+    syncWave: -2
+  kedify-otel:
+    path: kedify-otel/v0.0.6
+    namespace: keda
+    valuesFile: ../values_cf.yaml
+    syncWave: -2
+  # ML/AI
+  kserve-crds:
+    path: kserve-crds/v0.16.0
+    namespace: kserve-system
+    valuesFile: values.yaml
+    syncWave: -3
+  kserve:
+    path: kserve/v0.16.0
+    namespace: kserve-system
+    valuesFile: ../values_cf.yaml
+    syncWave: -2
+  # Queues
+  rabbitmq:
+    path: rabbitmq/v2.15.0
+    namespace: rabbitmq-system
+    syncWave: -1
+  kueue:
+    path: kueue/0.13.0
+    namespace: kueue-system
+    valuesFile: ../values_onenode.yaml
+    syncWave: -1
+  kueue-config:
+    path: kueue-config
+    namespace: kueue-system
+    syncWave: -1
+  appwrapper:
+    path: appwrapper/v1.1.2
+    namespace: appwrapper-system
+    syncWave: -1
+  # Storage
+  minio-operator:
+    path: minio-operator/7.1.1
+    namespace: minio-operator
+    valuesFile: values.yaml
+    syncWave: -3
   minio-tenant:
-    valuesFile: ../values_ha.yaml
+    path: minio-tenant/7.1.1
+    namespace: minio-tenant-default
+    valuesFile: ../values_cf.yaml
+    syncWave: -2
+  minio-tenant-config:
+    path: minio-tenant-config
+    namespace: minio-tenant-default
+    valuesFile: values.yaml
+    helmParameters:
+      - name: domain
+        value: "{{ .Values.global.domain }}"
+    syncWave: -1
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+  # Kaiwo stuff
+  aim-cluster-model-source:
+    path: aim-cluster-model-source
+    namespace: kaiwo-system
+    syncWave: -2
+  kaiwo-crds:
+    path: kaiwo-crds/v0.2.0-rc11
+    namespace: kaiwo-system
+    syncWave: -2
+  kaiwo:
+    path: kaiwo/v0.2.0-rc11
+    namespace: kaiwo-system
+    valuesFile: values.yaml
+    syncWave: -1
+  kaiwo-config:
+    path: kaiwo-config
+    namespace: kaiwo-system
+    syncWave: -1
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+  # Airm stuff
+  airm:
+    path: airm/0.3.1
+    namespace: airm
+    valuesFile: values.yaml
+    helmParameters:
+      - name: airm-api.airm.appDomain
+        value: "{{ .Values.global.domain }}"
+    syncWave: 0
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+      - group: kyverno.io
+        kind: ClusterPolicy
+        jqPathExpressions:
+          - ".spec.rules"
+  # Monitoring stack
+  prometheus:
+    path: prometheus-operator/23.0.0
+    namespace: prometheus-system
+    valuesFile: values.yaml
+    syncWave: -2
+  prometheus-config:
+    path: prometheus-config
+    namespace: prometheus-system
+    syncWave: -1
+  grafana:
+    path: grafana/8.6.4
+    namespace: prometheus-system
+    valuesFile: values.yaml
+    syncWave: -1
+  grafana-config:
+    path: grafana-config
+    namespace: prometheus-system
+    syncWave: 0
+  otel-config:
+    path: otel-config
+    namespace: otel-lgtm-stack
+    syncWave: -1
+  # Network and storage
+  cilium:
+    path: cilium/1.16.7
+    namespace: kube-system
+    valuesFile: values.yaml
+    syncWave: -4
+  cilium-config:
+    path: cilium-config
+    namespace: kube-system
+    syncWave: -3
+  longhorn:
+    path: longhorn/1.8.1
+    namespace: longhorn-system
+    valuesFile: values.yaml
+    syncWave: -2
+  longhorn-config:
+    path: longhorn-config
+    namespace: longhorn-system
+    syncWave: -1

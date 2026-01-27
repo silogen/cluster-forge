@@ -107,4 +107,3 @@ data:
       password=$READONLY_PASSWORD
     
     echo "OpenBao configuration completed successfully!"
-
