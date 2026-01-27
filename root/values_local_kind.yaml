@@ -61,7 +61,7 @@ apps:
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
     namespace: opentelemetry-operator-system
-    valuesFile: null  # Override base values.yaml which sets ../values_cf.yaml
+    valuesFile: null # Override base values.yaml which sets ../values_cf.yaml
     valuesObject:
       manager:
         collectorImage:
@@ -100,7 +100,7 @@ apps:
     syncWave: -2
   keycloak:
     path: keycloak-old
-    namespace: keycloak
+    namespace: cf-keycloak
     valuesFile: values.yaml
     helmParameters:
       - name: hostname
@@ -121,10 +121,23 @@ apps:
         value: "256Mi"
       - name: cnpg.cluster.instances.resources.limits.memory
         value: "512Mi"
-    syncWave: -2
+    syncWave: -1
+    ignoreDifferences:
+      - group: ""
+        kind: ConfigMap
+        name: keycloak-realm-templates
+      - group: ""
+        kind: ConfigMap
+        name: keycloak-scripts
+      - group: external-secrets.io
+        kind: ExternalSecret
+      - group: k8s.cnpg.io
+        kind: Cluster
+      - group: gateway.networking.k8s.io
+        kind: HTTPRoute
   keycloak-config:
     path: keycloak-config
-    namespace: keycloak-config
+    namespace: cf-keycloak
     valuesFile: values.yaml
     helmParameters:
       - name: domain
