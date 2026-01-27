@@ -100,7 +100,7 @@ apps:
     syncWave: -2
   keycloak:
     path: keycloak-old
-    namespace: cf-keycloak
+    namespace: keycloak
     valuesFile: values.yaml
     helmParameters:
       - name: hostname
@@ -137,7 +137,7 @@ apps:
         kind: HTTPRoute
   keycloak-config:
     path: keycloak-config
-    namespace: cf-keycloak
+    namespace: keycloak
     valuesFile: values.yaml
     helmParameters:
       - name: domain
