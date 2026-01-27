@@ -150,6 +150,10 @@ apps:
         kind: "Deployment"
         jsonPointers:
           - /spec/replicas
+      - group: "apps"
+        kind: "StatefulSet"
+        jsonPointers:
+          - /metadata/creationTimestamp
   openbao-config:
     path: openbao-config
     namespace: cf-openbao
@@ -470,6 +474,15 @@ apps:
     path: kyverno-config
     namespace: kyverno
     syncWave: -2
+    ignoreDifferences:
+      - group: "kyverno.io"
+        kind: "ClusterPolicy"
+        jsonPointers:
+          - /spec/skipBackgroundRequests
+      - group: "kyverno.io"
+        kind: "ClusterPolicy"
+        jsonPointers:
+          - /spec/rules/*/validate/allowExistingViolations
   kyverno-policies-base:
     namespace: kyverno
     path: kyverno-policies-base
