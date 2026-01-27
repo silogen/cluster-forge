@@ -99,42 +99,10 @@ apps:
         value: "500m"
     syncWave: -2
   keycloak:
-    path: keycloak-old
+    path: keycloak/25.2.0
     namespace: keycloak
-    valuesFile: values.yaml
-    helmParameters:
-      - name: hostname
-        value: "http://localhost:8080" # Override for local port-forwarding
-      - name: localDev
-        value: "true" # Enable HTTP and relaxed cookie settings
-      - name: domain
-        value: "localhost.local" # Domain for user emails
-      - name: enableNodePort
-        value: "true" # Enable NodePort service for local kind (maps to hostPort 8080)
-      # Reduce Keycloak resources
-      - name: resources.requests.memory
-        value: "256Mi"
-      - name: resources.limits.memory
-        value: "512Mi"
-      # Reduce PostgreSQL resources
-      - name: cnpg.cluster.instances.resources.requests.memory
-        value: "256Mi"
-      - name: cnpg.cluster.instances.resources.limits.memory
-        value: "512Mi"
+    valuesFile: values_local_kind.yaml
     syncWave: -1
-    ignoreDifferences:
-      - group: ""
-        kind: ConfigMap
-        name: keycloak-realm-templates
-      - group: ""
-        kind: ConfigMap
-        name: keycloak-scripts
-      - group: external-secrets.io
-        kind: ExternalSecret
-      - group: k8s.cnpg.io
-        kind: Cluster
-      - group: gateway.networking.k8s.io
-        kind: HTTPRoute
   keycloak-config:
     path: keycloak-config
     namespace: keycloak
