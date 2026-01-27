@@ -52,6 +52,7 @@ enabledApps:
   - kaiwo
   - kaiwo-config
   - airm
+  - kyverno-policies-base
 apps:
   # Core apps
   argocd:
@@ -468,6 +469,10 @@ apps:
   kyverno-config:
     path: kyverno-config
     namespace: kyverno
+    syncWave: -2
+  kyverno-policies-base:
+    namespace: kyverno
+    path: kyverno-policies-base
     syncWave: -2
   # GPU
   amd-gpu-operator:

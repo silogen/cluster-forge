@@ -54,14 +54,8 @@ apps:
   kyverno-policies-storage-local-path:
     namespace: kyverno
     path: kyverno-policies/storage-local-path
-    source: clusterForge
-    syncOptions:
-      - CreateNamespace=true
     ignoreDifferences: []
-    wave: 26  # Deploy after base policies
-    syncWave:
-      - group: kyverno.io
-        kind: ClusterPolicy
+    syncWave: -2
 
   argocd:
     valuesObject:
