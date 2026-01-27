@@ -305,6 +305,15 @@ apps:
     path: kyverno-config
     namespace: kyverno
     syncWave: -3
+    ignoreDifferences:
+      - group: "kyverno.io"
+        kind: "ClusterPolicy"
+        jsonPointers:
+          - /spec/skipBackgroundRequests
+      - group: "kyverno.io"
+        kind: "ClusterPolicy"
+        jsonPointers:
+          - /spec/rules/*/validate/allowExistingViolations
   kyverno-policies-base:
     path: kyverno-policies/base
     namespace: kyverno
