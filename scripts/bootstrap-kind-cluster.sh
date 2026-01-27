@@ -480,9 +480,20 @@ kubectl create secret generic gitea-admin-credentials \
 (
     helm template --release-name gitea sources/gitea/12.3.0 \
       --namespace cf-gitea \
-      --values sources/gitea/values_cf.yaml \
       --set clusterDomain="${DOMAIN}" \
       --set gitea.config.server.ROOT_URL="http://gitea.${DOMAIN}" \
+      --set gitea.admin.existingSecret=gitea-admin-credentials \
+      --set gitea.config.database.DB_TYPE=sqlite3 \
+      --set gitea.config.session.PROVIDER=memory \
+      --set gitea.config.cache.ADAPTER=memory \
+      --set gitea.config.queue.TYPE=level \
+      --set valkey-cluster.enabled=false \
+      --set valkey.enabled=false \
+      --set postgresql.enabled=false \
+      --set postgresql-ha.enabled=false \
+      --set persistence.enabled=true \
+      --set test.enabled=false \
+      --set strategy.type=Recreate \
       --kube-version=1.33 | kubectl apply -f - 2>&1 | sed 's/^/[Gitea] /'
 ) &
 GITEA_PID=$!
