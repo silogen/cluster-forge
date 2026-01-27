@@ -477,12 +477,14 @@ apps:
     ignoreDifferences:
       - group: "kyverno.io"
         kind: "ClusterPolicy"
+        name: "local-path-access-mode-mutation"
         jsonPointers:
-          - /spec/skipBackgroundRequests
           - /spec/rules/0/skipBackgroundRequests
       - group: "kyverno.io"
         kind: "ClusterPolicy"
+        name: "local-path-access-mode-warning" 
         jsonPointers:
+          - /spec/rules/0/skipBackgroundRequests
           - /spec/rules/0/validate/allowExistingViolations
   kyverno-policies-base:
     namespace: kyverno
