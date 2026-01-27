@@ -44,7 +44,7 @@ spec:
               - ReadWriteOnce
           metadata:
             annotations:
-              +(kyverno.io/original-access-modes): "{{ request.object.spec.accessModes | join(',') }}"
+              +(kyverno.io/original-access-modes): "{{ request.object.spec.accessModes && request.object.spec.accessModes | join(',') || 'undefined' }}"
               +(kyverno.io/mutation-applied): "local-path-rwx-to-rwo"
               +(kyverno.io/policy-reason): "local-path provisioner only supports ReadWriteOnce and ReadWriteOncePod"
 
@@ -84,7 +84,7 @@ spec:
             value: "{{ request.object.spec.accessModes || [] }}"
       validate:
         message: >-
-          WARNING: The requested access mode(s) {{ request.object.spec.accessModes | join(',') }} 
+          WARNING: The requested access mode(s) {{ request.object.spec.accessModes && request.object.spec.accessModes | join(',') || 'undefined' }} 
           are not supported by the local-path provisioner used in small/medium clusters. 
           The access mode has been automatically converted to ReadWriteOnce (RWO). 
           For ReadWriteMany support, consider using a large cluster with Longhorn storage.
