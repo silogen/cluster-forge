@@ -479,10 +479,11 @@ apps:
         kind: "ClusterPolicy"
         jsonPointers:
           - /spec/skipBackgroundRequests
+          - /spec/rules/0/skipBackgroundRequests
       - group: "kyverno.io"
         kind: "ClusterPolicy"
         jsonPointers:
-          - /spec/rules/*/validate/allowExistingViolations
+          - /spec/rules/0/validate/allowExistingViolations
   kyverno-policies-base:
     namespace: kyverno
     path: kyverno-policies-base
