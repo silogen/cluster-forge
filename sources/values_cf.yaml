@@ -1,3 +1,0 @@
-# Cluster-forge specific values
-# This file is referenced by Helm charts that use: valuesFile: ../values_cf.yaml
-# It provides common configuration across cluster-forge managed applications
