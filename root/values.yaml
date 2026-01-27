@@ -97,7 +97,7 @@ apps:
         jsonPointers:
           - /spec/replicas
   openbao-config:
-    path: openbao-config
+    path: openbao-config/0.1.0
     namespace: cf-openbao
     valuesFile: values.yaml
     helmParameters:
