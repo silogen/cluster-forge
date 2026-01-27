@@ -30,12 +30,12 @@ spec:
       preconditions:
         any:
           # Apply if PVC requests unsupported access modes
-          - key: "{{ request.object.spec.accessModes || [] }}"
-            operator: Contains
-            value: "ReadWriteMany"
-          - key: "{{ request.object.spec.accessModes || [] }}"
-            operator: Contains
-            value: "ReadOnlyMany"
+          - key: "ReadWriteMany"
+            operator: AnyIn
+            value: "{{ request.object.spec.accessModes || [] }}"
+          - key: "ReadOnlyMany"
+            operator: AnyIn
+            value: "{{ request.object.spec.accessModes || [] }}"
       mutate:
         patchStrategicMerge:
           spec:
@@ -76,12 +76,12 @@ spec:
       preconditions:
         any:
           # Warn for unsupported access modes that will be converted
-          - key: "{{ request.object.spec.accessModes || [] }}"
-            operator: Contains
-            value: "ReadWriteMany"
-          - key: "{{ request.object.spec.accessModes || [] }}"
-            operator: Contains
-            value: "ReadOnlyMany"
+          - key: "ReadWriteMany"
+            operator: AnyIn
+            value: "{{ request.object.spec.accessModes || [] }}"
+          - key: "ReadOnlyMany"
+            operator: AnyIn
+            value: "{{ request.object.spec.accessModes || [] }}"
       validate:
         message: >-
           WARNING: The requested access mode(s) {{ request.object.spec.accessModes | join(',') }} 
