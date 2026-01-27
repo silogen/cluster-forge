@@ -1,13 +1,13 @@
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: # feature-branch name to be provided by developer
+  targetRevision: test-openbao-structure-reorganization # feature-branch name to be provided by developer
   valuesFile: values_dev.yaml
 
 externalValues:
   enabled: false
 
 global:
-  domain: # to be provided by developer
+  domain: plat-dev-4.silogen.ai # to be provided by developer
 
 enabledApps:
   - argocd
