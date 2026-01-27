@@ -18,7 +18,7 @@ enabledApps:
   - external-secrets
   - external-secrets-config
   - gitea
-  - gitea-config
+  # - gitea-config  # Disabled: OIDC not needed for local Kind
   - gateway-api
   - metallb
   - kgateway-crds
@@ -57,7 +57,6 @@ apps:
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
     namespace: opentelemetry-operator-system
-    valuesFile: ../../values_cf.yaml  # sources/opentelemetry-operator/0.93.1 -> sources/values_cf.yaml
     valuesObject:
       manager:
         collectorImage:
