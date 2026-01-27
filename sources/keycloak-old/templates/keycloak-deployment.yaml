@@ -82,6 +82,29 @@ spec:
             - mountPath: /opt/keycloak/data/import
               name: keycloak-realm-volume
       initContainers:
+        - name: wait-for-database
+          image: postgres:17-alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for PostgreSQL database to be ready..."
+              until pg_isready -h keycloak-cnpg-rw.keycloak.svc.cluster.local -p 5432 -U keycloak; do
+                echo "PostgreSQL is not ready yet, waiting 5 seconds..."
+                sleep 5
+              done
+              echo "PostgreSQL is ready! Checking database connectivity..."
+              until PGPASSWORD="$DB_PASSWORD" psql -h keycloak-cnpg-rw.keycloak.svc.cluster.local -p 5432 -U keycloak -d keycloak -c "SELECT 1;" > /dev/null 2>&1; do
+                echo "Cannot connect to database yet, waiting 5 seconds..."
+                sleep 5
+              done
+              echo "Database is ready and accessible!"
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: keycloak-cnpg-user
         - command:
             - /bin/sh
             - -c
