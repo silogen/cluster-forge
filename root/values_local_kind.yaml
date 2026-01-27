@@ -57,7 +57,7 @@ apps:
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
     namespace: opentelemetry-operator-system
-    valuesFile: null  # Override base values.yaml which sets ../values_cf.yaml
+    valuesFile: null # Override base values.yaml which sets ../values_cf.yaml
     valuesObject:
       manager:
         collectorImage:
@@ -79,13 +79,45 @@ apps:
     valuesFile: ../values_local_kind.yaml  # Use local kind values
     syncWave: -2
   keycloak:
-    path: keycloak/25.2.0
-    namespace: keycloak
-    valuesFile: ../values_local_kind.yaml  # Enable realm import
-    syncWave: -2
+    path: keycloak-old
+    namespace: cf-keycloak
+    valuesFile: values.yaml
+    helmParameters:
+      - name: hostname
+        value: "http://localhost:8080" # Override for local port-forwarding
+      - name: localDev
+        value: "true" # Enable HTTP and relaxed cookie settings
+      - name: domain
+        value: "localhost.local" # Domain for user emails
+      - name: enableNodePort
+        value: "true" # Enable NodePort service for local kind (maps to hostPort 8080)
+      # Reduce Keycloak resources
+      - name: resources.requests.memory
+        value: "256Mi"
+      - name: resources.limits.memory
+        value: "512Mi"
+      # Reduce PostgreSQL resources
+      - name: cnpg.cluster.instances.resources.requests.memory
+        value: "256Mi"
+      - name: cnpg.cluster.instances.resources.limits.memory
+        value: "512Mi"
+    syncWave: -1
+    ignoreDifferences:
+      - group: ""
+        kind: ConfigMap
+        name: keycloak-realm-templates
+      - group: ""
+        kind: ConfigMap
+        name: keycloak-scripts
+      - group: external-secrets.io
+        kind: ExternalSecret
+      - group: k8s.cnpg.io
+        kind: Cluster
+      - group: gateway.networking.k8s.io
+        kind: HTTPRoute
   keycloak-config:
-    path: keycloak-config/1.0.0
-    namespace: keycloak-config
+    path: keycloak-config
+    namespace: cf-keycloak
     valuesFile: values.yaml
     helmParameters:
       - name: domain
