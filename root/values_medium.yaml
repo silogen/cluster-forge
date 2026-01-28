@@ -54,14 +54,8 @@ apps:
   kyverno-policies-storage-local-path:
     namespace: kyverno
     path: kyverno-policies/storage-local-path
-    source: clusterForge
-    syncOptions:
-      - CreateNamespace=true
     ignoreDifferences: []
-    wave: 26  # Deploy after base policies
-    syncWave:
-      - group: kyverno.io
-        kind: ClusterPolicy
+    syncWave: -2
 
   argocd:
     valuesObject:
@@ -119,7 +113,7 @@ apps:
           - name: pool-0
             servers: 1
             size: 2Ti
-            storageClassName: local-path
+            storageClassName: direct
             volumesPerServer: 2
         resources:
           limits:
@@ -128,12 +122,6 @@ apps:
           requests:
             cpu: "1000m"
             memory: "2Gi"
-        lifecycle:
-          - id: team-data-transition
-            status: Enabled
-            transition:
-              days: 30
-              storageClass: IA
 
   openbao:
     valuesObject:
@@ -145,7 +133,7 @@ apps:
             enabled: false
         dataStorage:
           size: 5Gi
-          storageClass: local-path
+          storageClass: direct
         resources:
           limits:
             cpu: "1000m"
@@ -172,7 +160,7 @@ apps:
               spec:
                 accessModes:
                   - ReadWriteOnce
-                storageClassName: local-path
+                storageClassName: direct
                 resources:
                   requests:
                     storage: 25Gi
@@ -190,6 +178,6 @@ apps:
       persistence:
         enabled: true
         size: 5Gi
-        storageClassName: local-path
+        storageClassName: direct
         accessModes:
           - ReadWriteOnce
