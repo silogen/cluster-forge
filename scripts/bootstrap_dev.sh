@@ -18,7 +18,6 @@ kubectl create ns cf-openbao
 
 # ArgoCD bootstrap
 helm template --release-name argocd ../sources/argocd/8.3.5 --namespace argocd \
-  --set global.domain="https://argocd.${DOMAIN}" \
   --set configs.params.server.insecure=true \
   --set configs.cm.create=true \
   --set configs.rbac.create=true \
