@@ -154,7 +154,7 @@ apps:
         kind: "StatefulSet"
         name: "openbao"
         jsonPointers:
-          - /metadata
+          - /spec/volumeClaimTemplates/metadata/creationTimestamp
   openbao-config:
     path: openbao-config
     namespace: cf-openbao
