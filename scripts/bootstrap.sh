@@ -206,21 +206,10 @@ kubectl create secret generic gitea-admin-credentials \
   --from-literal=password=$(generate_password) \
   --dry-run=client -o yaml | kubectl apply -f -
 
+$YQ_CMD eval '.apps.gitea.valuesObject' /tmp/merged_values.yaml > /tmp/gitea_values.yaml
 helm template --release-name gitea ${SCRIPT_DIR}/../sources/gitea/12.3.0 --namespace cf-gitea \
-  --set clusterDomain="${DOMAIN}" \
-  --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}" \
-  --set gitea.config.database.DB_TYPE="sqlite3" \
-  --set gitea.config.session.PROVIDER="memory" \
-  --set gitea.config.cache.ADAPTER="memory" \
-  --set gitea.config.queue.TYPE="level" \
-  --set gitea.admin.existingSecret="gitea-admin-credentials" \
-  --set strategy.type="Recreate" \
-  --set valkey-cluster.enabled=false \
-  --set valkey.enabled=false \
-  --set postgresql.enabled=false \
-  --set postgresql-ha.enabled=false \
-  --set persistence.enabled=true \
-  --set test.enabled=false \
+  -f /tmp/gitea_values.yaml \
+  --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}/" \
   --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl rollout status deploy/gitea -n cf-gitea
 helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
