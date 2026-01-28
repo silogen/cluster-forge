@@ -346,3 +346,19 @@ apps:
         kind: ClusterPolicy
         jqPathExpressions:
           - ".spec.rules"
+  # AIWB (AI Workbench)
+  aiwb:
+    path: aiwb/0.1.0
+    namespace: aiwb
+    valuesFile: values.yaml
+    helmParameters:
+      - name: appDomain
+        value: "{{ .Values.global.domain }}"
+    syncWave: 0
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"

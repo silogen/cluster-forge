@@ -1,0 +1,26 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+{{- if .Values.standAloneMode }}
+{{- $labelPrefix := .Values.labelPrefix }}
+{{- $nsName := .Values.defaultNamespace }}
+{{- $projectIdLabel := printf "%s/project-id" $labelPrefix }}
+{{- $existingNs := lookup "v1" "Namespace" "" $nsName }}
+{{- $projectId := "" }}
+{{- if $existingNs }}
+  {{- $projectId = index $existingNs.metadata.labels $projectIdLabel | default (uuidv4) }}
+{{- else }}
+  {{- $projectId = uuidv4 }}
+{{- end }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $nsName }}
+  labels:
+    {{ $projectIdLabel }}: {{ $projectId }}
+    {{ $labelPrefix }}/managed-by: "helm"
+    app.kubernetes.io/created-by: "aiwb"
+    app.kubernetes.io/part-of: "aiwb"
+{{- end }}

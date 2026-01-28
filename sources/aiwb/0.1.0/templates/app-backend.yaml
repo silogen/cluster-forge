@@ -41,8 +41,6 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "aiwb.serviceAccountName" . }}
-      securityContext:
-        {{- toYaml .Values.backend.podSecurityContext | nindent 8 }}
       initContainers:
         - name: wait-for-db
           image: postgres:17-alpine
@@ -63,14 +61,7 @@ spec:
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
           securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            runAsNonRoot: true
-            runAsUser: 1000
-            seccompProfile:
-              type: RuntimeDefault
+            {{- toYaml .Values.backend.securityContext | nindent 12 }}
           volumeMounts:
             - mountPath: /mnt/code/migrations
               name: aiwb-migration-volume
@@ -94,7 +85,7 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.database.secretName }}
                   key: password
-          image: liquibase/liquibase:4.31
+          image: docker.io/liquibase/liquibase:4.31
           imagePullPolicy: IfNotPresent
           volumeMounts:
             - mountPath: /liquibase/changelog
@@ -122,14 +113,7 @@ spec:
                   name: {{ .Values.database.secretName }}
                   key: password
           securityContext:
-            allowPrivilegeEscalation: false
-            runAsNonRoot: true
-            runAsUser: 1000
-            seccompProfile:
-              type: RuntimeDefault
-            capabilities:
-              drop:
-                - ALL
+            {{- toYaml .Values.backend.securityContext | nindent 12 }}
       containers:
       - name: aiwb
         securityContext:
@@ -161,7 +145,7 @@ spec:
 
         # Keycloak/OIDC configuration
         - name: KEYCLOAK_URL
-          value: {{ .Values.keycloak.url | quote }}
+          value: {{ include "aiwb.keycloakPublicUrl" . | quote }}
         - name: KEYCLOAK_REALM
           value: {{ .Values.keycloak.realm | quote }}
         - name: KEYCLOAK_CLIENT_ID
@@ -221,11 +205,11 @@ spec:
         - name: AIM_RUNTIME_CONFIG_NAME
           value: {{ .Values.aim.runtimeConfigName | quote }}
         - name: AIM_GATEWAY_NAMESPACE
-          value: {{ .Values.aim.gatewayNamespace | quote }}
+          value: {{ .Values.kgateway.namespace | quote }}
         - name: AIM_GATEWAY_NAME
-          value: {{ .Values.aim.gatewayName | quote }}
+          value: {{ .Values.kgateway.gatewayName | quote }}
         - name: CLUSTER_HOST
-          value: {{ .Values.aim.clusterHost | quote }}
+          value: {{ .Values.appDomain | quote }}
 
         livenessProbe:
           httpGet:

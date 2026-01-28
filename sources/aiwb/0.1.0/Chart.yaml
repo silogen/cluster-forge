@@ -5,16 +5,12 @@
 ---
 apiVersion: v2
 name: aiwb
-description: A Helm umbrella chart for AIWB (AI Workbench) - includes API and UI services
+description: AIWB (AI Workbench) - API and UI services for AI workload management
 
 type: application
 
-# This is the chart version
+# Chart version
 version: 0.1.0
 
-# This is the version number of the application being deployed
+# Workbench version
 appVersion: "0.4.0"
-
-dependencies:
-  - name: aiwb-api
-    version: 0.1.0

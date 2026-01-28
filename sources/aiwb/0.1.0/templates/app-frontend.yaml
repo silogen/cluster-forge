@@ -43,9 +43,9 @@ spec:
         - name: aiwb-ui
           env:
             - name: NEXTAUTH_URL
-              value: "https://{{ .Values.frontend.appDomain }}"
+              value: "https://{{ .Values.kgateway.ui.prefixValue }}.{{ .Values.appDomain }}"
             - name: KEYCLOAK_ISSUER
-              value: "{{ .Values.keycloak.url }}/realms/{{ .Values.keycloak.realm }}"
+              value: "{{ include "aiwb.keycloakPublicUrl" . }}/realms/{{ .Values.keycloak.realm }}"
             - name: KEYCLOAK_ID
               value: "{{ .Values.keycloak.clientId }}"
             - name: KEYCLOAK_ISSUER_INTERNAL_URL

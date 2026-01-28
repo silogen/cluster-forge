@@ -51,3 +51,15 @@ Create the name of the service account to use
 {{- define "aiwb.serviceAccountName" -}}
 {{- default (include "aiwb.fullname" .) .Values.rbac.serviceAccountName }}
 {{- end }}
+
+{{/*
+Construct the keycloak public URL.
+Use .Values.keycloak.publicUrl if specified, otherwise construct from appDomain.
+*/}}
+{{- define "aiwb.keycloakPublicUrl" -}}
+{{- if .Values.keycloak.publicUrl -}}
+{{ .Values.keycloak.publicUrl }}
+{{- else -}}
+https://{{ .Values.kgateway.keycloak.prefixValue }}.{{ .Values.appDomain }}
+{{- end -}}
+{{- end -}}

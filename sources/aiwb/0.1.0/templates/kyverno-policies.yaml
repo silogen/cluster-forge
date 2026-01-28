@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-{{- if .Values.global.aiwb.aiwbStandAloneMode }}
+{{- if .Values.standAloneMode }}
 {{- $labelPrefix := .Values.labelPrefix }}
 ---
 # Kyverno policy that auto-tags workloads with workload-id
