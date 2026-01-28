@@ -18,7 +18,6 @@ components:
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   amd-gpu-operator:
     path: amd-gpu-operator/v1.4.0
-    valuesFile: ../values_cf.yaml
     sourceUrl: https://rocm.github.io/gpu-operator
     projectUrl: https://github.com/ROCm/ROCm
     license: MIT License
@@ -110,7 +109,6 @@ components:
     licenseUrl: https://github.com/kedacore/keda/blob/main/LICENSE
   kedify-otel:
     path: kedify-otel/v0.0.6
-    valuesFile: ../values_cf.yaml
     sourceUrl: oci://ghcr.io/kedify/charts/otel-add-on
     projectUrl: https://github.com/kedify/otel-add-on
     license: Apache License 2.0
@@ -124,7 +122,6 @@ components:
     licenseUrl: https://github.com/keycloak/keycloak/blob/main/LICENSE.txt
   kgateway:
     path: kgateway/v2.1.0-main
-    valuesFile: ../values_cf.yaml
     sourceUrl: oci://cr.kgateway.dev/kgateway-dev/charts/kgateway
     projectUrl: https://github.com/kgateway-dev/kgateway
     license: Apache License 2.0
@@ -138,7 +135,6 @@ components:
     licenseUrl: https://github.com/kgateway-dev/kgateway/blob/main/LICENSE
   kserve:
     path: kserve/v0.16.0
-    valuesFile: ../values_cf.yaml
     sourceUrl: oci://ghcr.io/kserve/charts/kserve
     projectUrl: https://github.com/kserve/kserve
     license: Apache License 2.0
@@ -199,7 +195,6 @@ components:
     licenseUrl: https://github.com/minio/operator/blob/master/LICENSE
   minio-tenant:
     path: minio-tenant/7.1.1
-    valuesFile: ../values_cf.yaml
     sourceUrl: https://operator.min.io
     projectUrl: https://github.com/minio/operator
     license: GNU Affero General Public License v3.0
@@ -212,14 +207,12 @@ components:
     licenseUrl: https://github.com/openbao/openbao/blob/main/LICENSE
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
-    valuesFile: ../values_cf.yaml
     sourceUrl: https://open-telemetry.github.io/opentelemetry-helm-charts
     projectUrl: https://github.com/open-telemetry/opentelemetry-operator
     license: Apache License 2.0
     licenseUrl: https://github.com/open-telemetry/opentelemetry-operator/blob/main/LICENSE
   otel-lgtm-stack:
     path: otel-lgtm-stack/v1.0.7
-    valuesFile: ../values_cf.yaml
     sourceUrl: https://github.com/silogen/docker-otel-lgtm
     projectUrl: https://github.com/grafana/docker-otel-lgtm
     license: Apache License 2.0
