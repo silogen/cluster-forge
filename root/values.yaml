@@ -12,48 +12,48 @@ global:
   clusterSize: # to be filled by bootstrap script (small, medium, large)
 enabledApps:
   - aim-cluster-model-source
+  - airm
+  - amd-gpu-operator
+  - amd-gpu-operator-config
+  - appwrapper
   - argocd
   - argocd-config
   - cert-manager
-  - openbao
-  - openbao-config
-  - external-secrets
-  - external-secrets-config
-  - gitea
-  - gitea-config
-  - gateway-api
-  - metallb
-  - kgateway-crds
-  - kgateway
-  - kgateway-config
-  - prometheus-crds
-  - opentelemetry-operator
-  - otel-lgtm-stack
-  - cnpg-operator
   - cluster-auth
   - cluster-auth-config
-  - keycloak
-  - kyverno
-  - kyverno-config
-  - amd-gpu-operator
-  - amd-gpu-operator-config
-  - kuberay-operator
+  - cnpg-operator
+  - external-secrets
+  - external-secrets-config
+  - gateway-api
+  - gitea
+  - gitea-config
+  - kaiwo
+  - kaiwo-config
+  - kaiwo-crds
   - keda
   - kedify-otel
-  - kserve-crds
+  - keycloak
+  - kgateway
+  - kgateway-config
+  - kgateway-crds
   - kserve
-  - rabbitmq
+  - kserve-crds
   - kueue
   - kueue-config
-  - appwrapper
+  - kuberay-operator
+  - kyverno
+  - kyverno-config
+  - kyverno-policies-base
+  - metallb
   - minio-operator
   - minio-tenant
   - minio-tenant-config
-  - kaiwo-crds
-  - kaiwo
-  - kaiwo-config
-  - airm
-  - kyverno-policies-base
+  - openbao
+  - openbao-config
+  - opentelemetry-operator
+  - otel-lgtm-stack
+  - prometheus-crds
+  - rabbitmq
 apps:
   # Core apps
   argocd:
@@ -620,31 +620,31 @@ apps:
     namespace: minio-tenant-default
     valuesObject:
       tenant:
-        name: default-minio-tenant
-        configSecret:
-          name: default-minio-tenant-env-configuration
-          existingSecret: true
-        pools:
-          - servers: 1
-            name: pool-0
-            volumesPerServer: 1
-            size: 250Gi # Reduced from 500Gi for workstation
-            storageClassName: direct
         buckets:
           - name: default-bucket
             objectLock: true
           - name: models
             objectLock: true
-        users:
-          - name: default-user
         certificate:
           requestAutoCert: false
           externalCaCertSecret:
             - name: cluster-tls
               type: kubernetes.io/secret/v1
+        configSecret:
+          name: default-minio-tenant-env-configuration
+          existingSecret: true
         env:
           - name: MINIO_PROMETHEUS_AUTH_TYPE
             value: "public"
+        name: default-minio-tenant
+        pools:
+          - name: pool-0
+            servers: 1
+            size: 250Gi
+            storageClassName: direct
+            volumesPerServer: 1
+        users:
+          - name: default-user
     syncWave: 0
   minio-tenant-config:
     path: minio-tenant-config

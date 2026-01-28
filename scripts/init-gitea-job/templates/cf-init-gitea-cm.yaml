@@ -8,11 +8,32 @@ data:
     #!/bin/bash
 
     set -e
-    DOMAIN={{ .Values.domain }}
+
+    # Exit if expected values are null or empty
+    DOMAIN="{{ .Values.domain }}"
+    TARGET_REVISION="{{ .Values.targetRevision }}"
+    CLUSTER_SIZE="{{ .Values.clusterSize }}"
+
+    if [ -z "$CLUSTER_SIZE" ] || [ "$CLUSTER_SIZE" = "null" ]; then
+        echo "Error: clusterSize is null or not set in values.yaml"
+        exit 1
+    fi
+
+    if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "null" ]; then
+        echo "Error: domain is null or not set in values.yaml"
+        exit 1
+    fi
+
+    if [ -z "$TARGET_REVISION" ] || [ "$TARGET_REVISION" = "null" ]; then
+        echo "Error: targetRevision is null or not set in values.yaml"
+        exit 1
+    fi
+
+    echo "✓ All required values validated (domain: $DOMAIN, targetRevision: $TARGET_REVISION, clusterSize: $CLUSTER_SIZE)"
+
+    echo "Step 0: Create admin access token"
     GITEA_URL="${GITEA_URL:-http://gitea-http.cf-gitea.svc:3000}"
     GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-silogen-admin}"
-    
-    echo "Step 0: Create admin access token"
     GITEA_TOKEN=$(kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
       gitea admin user generate-access-token --raw --username "$GITEA_ADMIN_USER" --token-name "api-token-$(date +%s)" --scopes all
     )
@@ -122,7 +143,7 @@ data:
     clusterForge:
       repoURL: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git --- IGNORE ---
       path: root
-      targetRevision: main
+     targetRevision: {{ .Values.targetRevision }}
     
     # clusterSize is set by bootstrap script via --set clusterSize=values_<size>.yaml
     global:

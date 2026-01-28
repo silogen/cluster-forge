@@ -1,2 +1,4 @@
-domain: # to be filled by bootstrap script
-clusterSize: values_medium.yaml # to be filled by bootstrap script
+# null values to be filled by bootstrap script
+clusterSize: null
+domain: null
+targetRevision: null

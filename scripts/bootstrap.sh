@@ -9,6 +9,8 @@ DOMAIN=""
 VALUES_FILE="values.yaml"
 CLUSTER_SIZE="medium"  # Default to medium
 KUBE_VERSION=1.33
+DEV_MODE=false
+TARGET_REVISION="main" # default unless in --dev mode
 
 # Parse arguments 
 while [[ $# -gt 0 ]]; do
@@ -25,13 +27,18 @@ while [[ $# -gt 0 ]]; do
       CLUSTER_SIZE="${1#*=}"
       shift
       ;;
+    --dev)
+      DEV_MODE=true
+      shift
+      ;;
     --help|-h)
-      echo "Usage: $0 <domain> [values_file] [--CLUSTER_SIZE=small|medium|large]"
+      echo "Usage: $0 [domain] [values_file] [--CLUSTER_SIZE=small|medium|large] [--dev]"
       echo ""
       echo "Arguments:"
       echo "  domain                  Required. Cluster domain (e.g., example.com)"
       echo "  values_file            Optional. Values file to use (default: values.yaml)"
       echo "  --CLUSTER_SIZE         Optional. Cluster size (default: medium)"
+      echo "  --dev                  Optional. Development mode - skips Gitea, points to GitHub"
       echo ""
       echo "Cluster sizes:"
       echo "  small     - Developer/single-user setups (1-5 users)"
@@ -42,6 +49,8 @@ while [[ $# -gt 0 ]]; do
       echo "  $0 example.com"
       echo "  $0 example.com values.yaml --CLUSTER_SIZE=large"
       echo "  $0 dev.example.com --CLUSTER_SIZE=small"
+      echo "  $0 --dev                    # Uses domain from configmap"
+      echo "  $0 example.com --dev        # Dev mode with custom domain"
       exit 0
       ;;
     --*)
@@ -57,7 +66,7 @@ while [[ $# -gt 0 ]]; do
         VALUES_FILE="$1"
       else
         echo "ERROR: Too many arguments: $1"
-        echo "Usage: $0 <domain> [values_file] [--CLUSTER_SIZE=small|medium|large]"
+        echo "Usage: $0 [domain] [values_file] [--CLUSTER_SIZE=small|medium|large] [--dev]"
         exit 1
       fi
       shift
@@ -65,13 +74,68 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Validate required arguments
-if [ -z "$DOMAIN" ]; then
-    echo "ERROR: Domain argument is required"
-    echo "Usage: $0 <domain> [values_file] [--CLUSTER_SIZE=small|medium|large]"
-    echo "Use --help for more details"
-    exit 1
-fi
+# Function to get domain from configmap or validate provided domain
+get_domain() {
+    if [ -z "$DOMAIN" ]; then
+        echo "No domain provided, attempting to read from bloom-config configmap..."
+        if kubectl get configmap bloom-config -n default >/dev/null 2>&1; then
+            DOMAIN=$(kubectl get configmap bloom-config -n default -o jsonpath='{.data.domain}' 2>/dev/null)
+            if [ -n "$DOMAIN" ]; then
+                echo "Domain read from configmap: $DOMAIN"
+            else
+                echo "ERROR: Domain key not found in bloom-config configmap"
+                echo "Please provide domain as argument or ensure bloom-config configmap exists with 'domain' key"
+                exit 1
+            fi
+        else
+            echo "ERROR: bloom-config configmap not found in default namespace"
+            echo "Please provide domain as argument or create bloom-config configmap with 'domain' key"
+            exit 1
+        fi
+    fi
+}
+
+# Function to get git branch and prompt for target revision in dev mode
+get_target_revision() {
+    if [ "$DEV_MODE" = true ]; then
+        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+        echo ""
+        echo "Development mode enabled - ArgoCD will point to live GitHub repository"
+        echo "Current git branch: $CURRENT_BRANCH"
+        echo ""
+        read -p "Use current branch '$CURRENT_BRANCH' for targetRevision? [Y/n/custom_branch]: " choice
+        
+        case "$choice" in
+            n|N|no|No|NO)
+                echo "Exiting. Please checkout the branch you want to use and run again."
+                exit 0
+                ;;
+            [Cc]ustom*|custom*)
+                read -p "Enter custom branch name: " custom_branch
+                if [ -n "$custom_branch" ]; then
+                    TARGET_REVISION="$custom_branch"
+                else
+                    echo "ERROR: Custom branch name cannot be empty"
+                    exit 1
+                fi
+                ;;
+            y|Y|yes|Yes|YES|"")
+                TARGET_REVISION="$CURRENT_BRANCH"
+                ;;
+            *)
+                # Treat any other input as a custom branch name
+                TARGET_REVISION="$choice"
+                ;;
+        esac
+        echo "Using targetRevision: $TARGET_REVISION"
+    fi
+}
+
+# Validate domain
+get_domain
+
+# Handle dev mode branch selection
+get_target_revision
 
 # Validate cluster size
 case "$CLUSTER_SIZE" in
@@ -83,6 +147,13 @@ case "$CLUSTER_SIZE" in
     exit 1
     ;;
 esac
+
+# Handle dev mode values file creation
+if [ "$DEV_MODE" = true ]; then
+    echo "Development mode: copying values_cf.yaml to values_dev.yaml"
+    cp "${SCRIPT_DIR}/../root/values_cf.yaml" "${SCRIPT_DIR}/../root/values_dev.yaml"
+    VALUES_FILE="values_dev.yaml"
+fi
 
 # Validate values file exists
 if [ ! -f "${SCRIPT_DIR}/../root/${VALUES_FILE}" ]; then
@@ -122,16 +193,21 @@ $YQ_CMD -i ".global.clusterSize = \"values_${CLUSTER_SIZE}.yaml\"" "${SCRIPT_DIR
 
 # Function to merge values files early for use throughout the script
 merge_values_files() {
-    echo "Merging values files..."
-    if [ -n "$SIZE_VALUES_FILE" ]; then
-        # Merge base values with size-specific overrides
-        VALUES=$($YQ_CMD eval-all '. as $item ireduce ({}; . * $item)' \
-            ${SCRIPT_DIR}/../root/${VALUES_FILE} \
-            ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE} | \
-            $YQ_CMD eval ".global.domain = \"${DOMAIN}\"")
-    else
-        # Use base values only
-        VALUES=$(cat ${SCRIPT_DIR}/../root/${VALUES_FILE} | $YQ_CMD ".global.domain = \"${DOMAIN}\"")
+    echo "Merging values files..."  
+
+    # Merge base values with size-specific overrides
+    VALUES=$($YQ_CMD eval-all '. as $item ireduce ({}; . * $item)' \
+        ${SCRIPT_DIR}/../root/${VALUES_FILE} \
+        ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE} | \
+        $YQ_CMD eval ".global.domain = \"${DOMAIN}\"")
+    
+    # In dev mode, update repository settings to point to GitHub
+    if [ "$DEV_MODE" = true ]; then
+        VALUES=$(echo "$VALUES" | $YQ_CMD eval "
+            .spec.source.repoURL = \"https://github.com/your-org/your-repo\" |
+            .spec.source.targetRevision = \"${TARGET_REVISION}\"
+        ")
+        echo "Updated repository settings for dev mode"
     fi
     
     # Write merged values to temp file for use throughout script
@@ -155,7 +231,9 @@ merge_values_files
 
 # Create namespaces
 kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
-kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
+if [ "$DEV_MODE" = false ]; then
+    kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
+fi
 kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
 
 # ArgoCD bootstrap
@@ -218,21 +296,32 @@ echo "Creating initial-cf-values configmap from merged configuration..."
 kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$(cat /tmp/merged_values.yaml)" --dry-run=client -o yaml | kubectl apply -n cf-gitea -f -
 
 kubectl create secret generic gitea-admin-credentials \
-  --namespace=cf-gitea \
-  --from-literal=username=silogen-admin \
-  --from-literal=password=$(generate_password) \
-  --dry-run=client -o yaml | kubectl apply -f -
+    --namespace=cf-gitea \
+    --from-literal=username=silogen-admin \
+    --from-literal=password=$(generate_password) \
+    --dry-run=client -o yaml | kubectl apply -f -
 
 $YQ_CMD eval '.apps.gitea.valuesObject' ${SCRIPT_DIR}/../root/${VALUES_FILE} > /tmp/gitea_values.yaml
 $YQ_CMD eval '.apps.gitea.valuesObject' ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE} > /tmp/gitea_size_values.yaml
 
-helm template --release-name gitea ${SCRIPT_DIR}/../sources/gitea/12.3.0 --namespace cf-gitea \
-  -f /tmp/gitea_values.yaml \
-  -f /tmp/gitea_size_values.yaml \
-  --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}/" \
-  --kube-version=${KUBE_VERSION} | kubectl apply -f -
+helm template \
+    --release-name gitea ${SCRIPT_DIR}/../sources/gitea/12.3.0 \
+    --namespace cf-gitea \
+    --file /tmp/gitea_values.yaml \
+    --file /tmp/gitea_size_values.yaml \
+    --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}/" \
+    --kube-version=${KUBE_VERSION} \
+    | kubectl apply -f -
+
 kubectl rollout status deploy/gitea -n cf-gitea
-helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job --set domain="${DOMAIN}" --set clusterSize="values_${CLUSTER_SIZE}.yaml" --kube-version=${KUBE_VERSION} | kubectl apply -f -
+# Run Gitea init job
+helm template \
+    --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job \
+    --set domain="${DOMAIN}" \
+    --set clusterSize="values_${CLUSTER_SIZE}.yaml" \
+    --set targetRevision="${TARGET_REVISION}"
+    --kube-version=${KUBE_VERSION} \
+    | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
 
 # Create cluster-forge app-of-apps with merged configuration
@@ -245,8 +334,16 @@ echo ""
 echo "=== ClusterForge Bootstrap Complete ==="
 echo "Domain: $DOMAIN"
 echo "Cluster size: $CLUSTER_SIZE"
-echo "Access ArgoCD at: https://argocd.${DOMAIN}"
-echo "Access Gitea at: https://gitea.${DOMAIN}"
+if [ "$DEV_MODE" = true ]; then
+    echo "Mode: Development (GitHub integration)"
+    echo "Target revision: $TARGET_REVISION"
+    echo "Access ArgoCD at: https://argocd.${DOMAIN}"
+    echo "NOTE: Gitea was skipped in development mode"
+else
+    echo "Mode: Production (Gitea integration)"
+    echo "Access ArgoCD at: https://argocd.${DOMAIN}"
+    echo "Access Gitea at: https://gitea.${DOMAIN}"
+fi
 echo ""
 echo "This is the way!"
 
