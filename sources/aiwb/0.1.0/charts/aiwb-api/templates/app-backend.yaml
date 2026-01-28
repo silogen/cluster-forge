@@ -1,0 +1,262 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: "{{ .Release.Name }}-api"
+  name: "{{ .Release.Name }}-api"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: web
+      port: {{ .Values.backend.service.port }}
+      targetPort: {{ .Values.backend.service.targetPort }}
+  selector:
+    app: "{{ .Release.Name }}-api"
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-api"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aiwb.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      app: "{{ .Release.Name }}-api"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Release.Name }}-api"
+    spec:
+      {{- with .Values.backend.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "aiwb.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.backend.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: wait-for-db
+          image: postgres:17-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h "{{ .Values.database.host }}" -p {{ .Values.database.port }} -U postgres; do
+                echo "Waiting for database..."
+                sleep 2
+              done
+              echo "Database is ready!"
+        - name: init-migration-scripts
+          command:
+            - sh
+            - -c
+            - cp /code/migrations/* /mnt/code/migrations/
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - mountPath: /mnt/code/migrations
+              name: aiwb-migration-volume
+        - name: liquibase-migrate
+          command:
+            - liquibase
+            - --url=jdbc:postgresql://{{ .Values.database.host }}:{{ .Values.database.port }}/{{ .Values.database.name }}
+            - --username=$(DATABASE_USER)
+            - --password=$(DATABASE_PASSWORD)
+            - --logLevel=INFO
+            - --changeLogFile=changelog/changelog.xml
+            - update
+          env:
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.secretName }}
+                  key: username
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.secretName }}
+                  key: password
+          image: liquibase/liquibase:4.31
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - mountPath: /liquibase/changelog
+              name: aiwb-migration-volume
+              readOnly: true
+        - name: charts-registration
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          command: ["uv", "run", "register-charts"]
+          env:
+            - name: DATABASE_HOST
+              value: {{ .Values.database.host | quote }}
+            - name: DATABASE_PORT
+              value: {{ .Values.database.port | quote }}
+            - name: DATABASE_NAME
+              value: {{ .Values.database.name | quote }}
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.secretName }}
+                  key: username
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.secretName }}
+                  key: password
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop:
+                - ALL
+      containers:
+      - name: aiwb
+        securityContext:
+          {{- toYaml .Values.backend.securityContext | nindent 10 }}
+        image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.backend.service.targetPort }}
+          protocol: TCP
+        env:
+        # Database configuration
+        - name: DATABASE_HOST
+          value: {{ .Values.database.host | quote }}
+        - name: DATABASE_PORT
+          value: {{ .Values.database.port | quote }}
+        - name: DATABASE_NAME
+          value: {{ .Values.database.name | quote }}
+        - name: DATABASE_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.database.secretName }}
+              key: username
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.database.secretName }}
+              key: password
+
+        # Keycloak/OIDC configuration
+        - name: KEYCLOAK_URL
+          value: {{ .Values.keycloak.url | quote }}
+        - name: KEYCLOAK_REALM
+          value: {{ .Values.keycloak.realm | quote }}
+        - name: KEYCLOAK_CLIENT_ID
+          value: {{ .Values.keycloak.clientId | quote }}
+        - name: KEYCLOAK_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keycloak.secretName }}
+              key: value
+
+        # MinIO configuration
+        - name: MINIO_URL
+          value: {{ .Values.minio.url | quote }}
+        - name: MINIO_BUCKET
+          value: {{ .Values.minio.bucket | quote }}
+        - name: MINIO_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.minio.accessKeySecretName }}
+              key: value
+        - name: MINIO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.minio.secretKeySecretName }}
+              key: value
+        - name: MINIO_MAX_ATTEMPTS
+          value: "3"
+        - name: MINIO_MIN_WAIT
+          value: "4"
+        - name: MINIO_MAX_WAIT
+          value: "60"
+
+        # ClusterAuth configuration
+        - name: CLUSTER_AUTH_URL
+          value: {{ .Values.clusterAuth.url | quote }}
+        - name: CLUSTER_AUTH_ADMIN_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.clusterAuth.secretName }}
+              key: value
+
+        # Kubernetes configuration
+        - name: USE_LOCAL_KUBE_CONTEXT
+          value: "false"
+
+        # Syncer Configuration
+        - name: SYNCER_POLLING_INTERVAL_SECONDS
+          value: {{ .Values.backend.polling.syncerPollingIntervalSeconds | quote }}
+        - name: SYNCER_PENDING_TIMEOUT_SECONDS
+          value: {{ .Values.backend.polling.syncerPendingTimeoutSeconds | quote }}
+
+        # Dataset Configuration
+        - name: MAX_FILE_SIZE_MB
+          value: {{ .Values.backend.datasets.maxFileSizeMB | quote }}
+
+        # AIM Configuration
+        - name: AIM_RUNTIME_CONFIG_NAME
+          value: {{ .Values.aim.runtimeConfigName | quote }}
+        - name: AIM_GATEWAY_NAMESPACE
+          value: {{ .Values.aim.gatewayNamespace | quote }}
+        - name: AIM_GATEWAY_NAME
+          value: {{ .Values.aim.gatewayName | quote }}
+        - name: CLUSTER_HOST
+          value: {{ .Values.aim.clusterHost | quote }}
+
+        livenessProbe:
+          httpGet:
+            path: /v1/health
+            port: {{ .Values.backend.service.targetPort }}
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /v1/health
+            port: {{ .Values.backend.service.targetPort }}
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          {{- toYaml .Values.backend.resources | nindent 10 }}
+      volumes:
+        - name: aiwb-migration-volume
+          emptyDir: {}
+      {{- with .Values.backend.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

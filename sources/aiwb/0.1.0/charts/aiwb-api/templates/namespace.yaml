@@ -1,0 +1,17 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+{{- if .Values.global.aiwb.aiwbStandAloneMode }}
+{{- $labelPrefix := .Values.labelPrefix }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.global.aiwb.defaultNamespace }}
+  labels:
+    {{ $labelPrefix }}/project-id: {{ uuidv4 }}
+    {{ $labelPrefix }}/managed-by: "helm"
+    app.kubernetes.io/created-by: "aiwb"
+    app.kubernetes.io/part-of: "aiwb"
+{{- end }}

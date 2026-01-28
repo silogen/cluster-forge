@@ -1,0 +1,66 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+# Umbrella chart values for AIWB (AI Workbench)
+# This chart manages both API and UI subcharts along with shared resources
+
+# Global values accessible to all subcharts
+global:
+  aiwb:
+    # Standalone mode: true or false
+    # true: AIWB manages its own namespace, creates Kyverno policies, and secrets
+    # false: AIRM manages namespaces, policies, and secrets
+    aiwbStandAloneMode: true
+
+    # Name of the default namespace to create (only used when aiwbStandAloneMode: true)
+    defaultNamespace: "workbench"
+
+# Ingress configuration (optional - shared across services)
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: aiwb.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Subchart: AIWB API
+# Override subchart defaults here. Most values use subchart defaults from charts/aiwb-api/values.yaml
+# Only override what needs to be different for your deployment.
+aiwb-api:
+  # Liveness and readiness probes (not in subchart defaults)
+  livenessProbe:
+    httpGet:
+      path: /v1/health
+      port: 8002
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /v1/health
+      port: 8002
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  # Example: Override specific values for your environment
+  # image:
+  #   tag: "0.4.0"
+  # database:
+  #   host: "my-postgres.example.com"
+  # resources:
+  #   limits:
+  #     memory: 4Gi
+
+# Subchart: AIWB UI (placeholder for future)
+# aiwb-ui:
+#   enabled: false

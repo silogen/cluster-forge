@@ -1,0 +1,147 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+# NOTE: When running with AIRM (aiwbStandAloneMode: false), the OpenTelemetry
+# collector for vLLM metrics is managed by AIRM. This chart only creates it
+# when running in standalone mode.
+{{- if .Values.global.aiwb.aiwbStandAloneMode }}
+{{- $labelPrefix := .Values.labelPrefix }}
+{{- $labelPrefixUnderscore := replace "." "_" (replace "/" "_" $labelPrefix) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "aiwb.fullname" . }}-otel-collector-pod-reader
+  labels:
+    {{- include "aiwb.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - nodes
+      - services
+      - endpoints
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources:
+      - nodes/metrics
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "aiwb.fullname" . }}-otel-collector-pod-reader
+  labels:
+    {{- include "aiwb.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "aiwb.fullname" . }}-otel-collector-pod-reader
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "aiwb.fullname" . }}-otel-collector
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: {{ include "aiwb.fullname" . }}-vllm-otel
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aiwb.labels" . | nindent 4 }}
+spec:
+  mode: daemonset
+  image: {{ .Values.otelCollector.image }}
+  nodeSelector:
+    feature.node.kubernetes.io/amd-gpu: "true"
+  serviceAccount: {{ include "aiwb.fullname" . }}-otel-collector
+  config:
+    receivers:
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: "vllm"
+              metrics_path: /metrics
+              scrape_interval: {{ .Values.otelCollector.scrapeInterval | quote }}
+              kubernetes_sd_configs:
+                - role: pod
+              relabel_configs:
+                # Only scrape pods with the workload-id label
+                - source_labels:
+                    [__meta_kubernetes_pod_label_{{ $labelPrefixUnderscore }}_workload_id]
+                  action: keep
+                  regex: .+
+                # Only scrape pods with app label starting with isvc.
+                - source_labels: [__meta_kubernetes_pod_label_app]
+                  action: keep
+                  regex: isvc\..*
+                # Set the workload_id from the label
+                - source_labels:
+                    [__meta_kubernetes_pod_label_{{ $labelPrefixUnderscore }}_workload_id]
+                  target_label: workload_id
+                # Set the project_id from the label
+                - source_labels:
+                    [__meta_kubernetes_pod_label_{{ $labelPrefixUnderscore }}_project_id]
+                  target_label: project_id
+                # Set service name from app label
+                - source_labels: [__meta_kubernetes_pod_label_app]
+                  target_label: service
+                # Set service instance id from pod name
+                - source_labels: [__meta_kubernetes_pod_name]
+                  target_label: service_instance_id
+                # Set the scrape target to port 8000
+                - source_labels: [__meta_kubernetes_pod_ip]
+                  target_label: __address__
+                  replacement: $1:8000
+      otlp:
+        protocols:
+          grpc: {}
+          http: {}
+
+    processors:
+      resource:
+        attributes:
+          - key: {{ $labelPrefix }}/workload-id
+            from_attribute: workload_id
+            action: upsert
+          - key: {{ $labelPrefix }}/project-id
+            from_attribute: project_id
+            action: upsert
+          - key: service.instance.id
+            from_attribute: service_instance_id
+            action: upsert
+          - key: service.name
+            from_attribute: service
+            action: upsert
+
+      transform:
+        metric_statements:
+          - context: datapoint
+            statements:
+              - set(attributes["workload_id"], resource.attributes["{{ $labelPrefix }}/workload-id"]) where attributes["workload_id"] == nil
+              - set(attributes["project_id"], resource.attributes["{{ $labelPrefix }}/project-id"]) where attributes["project_id"] == nil
+              - set(attributes["service_instance_id"], resource.attributes["service.instance.id"]) where attributes["service_instance_id"] == nil
+              - set(attributes["service"], resource.attributes["service.name"]) where attributes["service"] == nil
+
+    exporters:
+      otlphttp:
+        endpoint: {{ .Values.otelCollector.endpoint | quote }}
+
+    service:
+      pipelines:
+        metrics:
+          receivers: [prometheus]
+          processors: [resource, transform]
+          exporters: [otlphttp]
+
+        traces:
+          receivers: [otlp]
+          processors: [resource]
+          exporters: [otlphttp]
+
+        logs:
+          receivers: [otlp]
+          processors: [resource]
+          exporters: [otlphttp]
+{{- end }}

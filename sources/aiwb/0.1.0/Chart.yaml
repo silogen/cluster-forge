@@ -1,0 +1,20 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: v2
+name: aiwb
+description: A Helm umbrella chart for AIWB (AI Workbench) - includes API and UI services
+
+type: application
+
+# This is the chart version
+version: 0.1.0
+
+# This is the version number of the application being deployed
+appVersion: "0.4.0"
+
+dependencies:
+  - name: aiwb-api
+    version: 0.1.0

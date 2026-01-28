@@ -1,0 +1,33 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+# NOTE: When running with AIRM (aiwbStandAloneMode: false), the cluster-scoped
+# AIMClusterRuntimeConfig is managed by AIRM. This chart only creates a
+# namespace-scoped AIMRuntimeConfig when running in standalone mode.
+{{- if .Values.global.aiwb.aiwbStandAloneMode }}
+{{- $labelPrefix := .Values.labelPrefix }}
+---
+apiVersion: aim.silogen.ai/v1alpha1
+kind: AIMRuntimeConfig
+metadata:
+  name: {{ .Values.aim.runtimeConfigName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aiwb.labels" . | nindent 4 }}
+spec:
+  pvcHeadroomPercent: {{ .Values.aim.pvcHeadroomPercent }}
+  labelPropagation:
+    enabled: true
+    match:
+      - "{{ $labelPrefix }}/*"
+  routing:
+    enabled: {{ .Values.aim.routing.enabled }}
+    gatewayRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.aim.gatewayName }}
+      namespace: {{ .Values.aim.gatewayNamespace }}
+    pathTemplate: "{.metadata.namespace}/{.metadata.labels['{{ $labelPrefix }}/workload-id']}"
+    requestTimeout: {{ .Values.aim.routing.requestTimeout }}
+{{- end }}
