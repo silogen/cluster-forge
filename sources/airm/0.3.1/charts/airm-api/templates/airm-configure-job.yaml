@@ -72,6 +72,18 @@ spec:
             - |
               echo "Checking dependencies..."
 
+              # Wait for Keycloak realm
+              echo "Checking Keycloak..."
+              while true; do
+                if curl -s --max-time 5 {{ .Values.airm.keycloak.internalUrl }}/realms/{{ .Values.airm.keycloak.realm }} > /dev/null 2>&1; then
+                  echo "Keycloak is ready!"
+                  break
+                else
+                  echo "Waiting for Keycloak..."
+                  sleep 10
+                fi
+              done
+
               # Wait for AIRM API
               echo "Checking airm-api..."
               while true; do

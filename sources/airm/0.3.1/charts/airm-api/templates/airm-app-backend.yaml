@@ -150,11 +150,23 @@ spec:
             - sh
             - -c
             - |
-              until pg_isready -h "{{ .Release.Name }}-cnpg-rw.{{ .Release.Namespace }}.svc.cluster.local" -p 5432 -U postgres; do
+              echo "Waiting for database to be ready..."
+              until pg_isready -h "{{ .Release.Name }}-cnpg-rw.{{ .Release.Namespace }}.svc.cluster.local" -p 5432 -U airm_user; do
                 echo "Waiting for database..."
                 sleep 2
               done
-              echo "Database is ready!"
+              echo "Database ready, verifying authentication..."
+              until PGPASSWORD="$DATABASE_PASSWORD" psql -h "{{ .Release.Name }}-cnpg-rw.{{ .Release.Namespace }}.svc.cluster.local" -p 5432 -U airm_user -d airm -c "SELECT 1;" > /dev/null 2>&1; do
+                echo "Cannot authenticate yet, waiting..."
+                sleep 2
+              done
+              echo "Database is ready and accessible!"
+          env:
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: "{{ .Release.Name }}-cnpg-user"
         - name: init-migration-scripts
           command:
             - sh
