@@ -52,6 +52,7 @@ enabledApps:
   - kaiwo
   - kaiwo-config
   - airm
+  - kyverno-policies-base
 apps:
   # Core apps
   argocd:
@@ -149,6 +150,11 @@ apps:
         kind: "Deployment"
         jsonPointers:
           - /spec/replicas
+      - group: "apps"
+        kind: "StatefulSet"
+        name: "openbao"
+        jsonPointers:
+          - /spec/volumeClaimTemplates
   openbao-config:
     path: openbao-config
     namespace: cf-openbao
@@ -361,14 +367,6 @@ apps:
     path: keycloak-old
     namespace: keycloak
     valuesObject:
-      # Reduced resource configuration for small/workstation deployments
-      resources:
-        requests:
-          memory: "384Mi"
-          cpu: "250m"
-        limits:
-          memory: "768Mi"
-          cpu: "1000m"
       podLabels:
         app: keycloak
       auth:
@@ -476,6 +474,22 @@ apps:
   kyverno-config:
     path: kyverno-config
     namespace: kyverno
+    syncWave: -2
+    ignoreDifferences:
+      - group: "kyverno.io"
+        kind: "ClusterPolicy"
+        name: "local-path-access-mode-mutation"
+        jsonPointers:
+          - /spec/rules/0/skipBackgroundRequests
+      - group: "kyverno.io"
+        kind: "ClusterPolicy"
+        name: "local-path-access-mode-warning" 
+        jsonPointers:
+          - /spec/rules/0/skipBackgroundRequests
+          - /spec/rules/0/validate/allowExistingViolations
+  kyverno-policies-base:
+    namespace: kyverno
+    path: kyverno-policies-base
     syncWave: -2
   # GPU
   amd-gpu-operator:
@@ -667,6 +681,10 @@ apps:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
+      - group: ""
+        kind: "PersistentVolumeClaim"
+        jsonPointers:
+          - /spec/accessModes
   # AMD Resource Manager (AIRM)
   airm:
     path: airm/0.3.1

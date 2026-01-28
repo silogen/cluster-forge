@@ -4,8 +4,17 @@ kind: Job
 metadata:
   name: gitea-oidc-job
   namespace: cf-gitea
+  annotations:
+    # Ensure this runs after main services are ready
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    # Allow this job to be recreated if it exists
+    argocd.argoproj.io/sync-wave: "10"
 spec:
-  backoffLimit: 3
+  # Increase retries for better resilience during bootstrap
+  backoffLimit: 10
+  # Set maximum job runtime to prevent infinite hanging
+  activeDeadlineSeconds: 1800  # 30 minutes
   template:
     spec:
       serviceAccountName: gitea-oidc-sa
@@ -24,6 +33,14 @@ spec:
             secretKeyRef:
               name: gitea-oidc-secret
               key: GITEA_CLIENT_SECRET
+        # Add resource limits to prevent resource exhaustion
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
         volumeMounts:
         - name: script-volume
           mountPath: /scripts

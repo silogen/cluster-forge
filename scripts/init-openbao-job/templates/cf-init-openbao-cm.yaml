@@ -31,17 +31,23 @@ data:
     kubectl exec openbao-0 -n cf-openbao -- bao operator unseal "$BAO_UNSEAL_KEY"
     kubectl wait --for=condition=ready pod/openbao-0 --timeout=300s -n cf-openbao
     
-    echo "Unsealing openbao-1 & joining to Raft cluster..."
-    kubectl exec openbao-1 -n cf-openbao -- bao operator raft join http://openbao-0.openbao-internal:8200
-    kubectl exec openbao-1 -n cf-openbao -- bao operator unseal "$BAO_UNSEAL_KEY"
-    kubectl wait --for=condition=ready pod/openbao-1 --timeout=300s -n cf-openbao
+    {{- if and .Values.server.ha.enabled .Values.server.ha.raft.enabled (gt (.Values.server.ha.replicas | int) 1) }}
+    echo "HA mode enabled with {{ .Values.server.ha.replicas }} replicas. Setting up Raft cluster..."
     
-    echo "Unsealing openbao-2 & joining to Raft cluster..."
-    kubectl exec openbao-2 -n cf-openbao -- bao operator raft join http://openbao-0.openbao-internal:8200
-    kubectl exec openbao-2 -n cf-openbao -- bao operator unseal "$BAO_UNSEAL_KEY"
-    kubectl wait --for=condition=ready pod/openbao-2 --timeout=300s -n cf-openbao
+    {{- $replicas := .Values.server.ha.replicas | int }}
+    {{- range $i := until $replicas }}
+    {{- if gt $i 0 }}
+    echo "Unsealing openbao-{{ $i }} & joining to Raft cluster..."
+    kubectl exec openbao-{{ $i }} -n cf-openbao -- bao operator raft join http://openbao-0.openbao-internal:8200
+    kubectl exec openbao-{{ $i }} -n cf-openbao -- bao operator unseal "$BAO_UNSEAL_KEY"
+    kubectl wait --for=condition=ready pod/openbao-{{ $i }} --timeout=300s -n cf-openbao
+    {{- end }}
+    {{- end }}
     
     echo "OpenBao Raft cluster initialization completed successfully!"
+    {{- else }}
+    echo "OpenBao single-node initialization completed successfully!"
+    {{- end }}
     
   setup-openbao.sh: |
     #!/bin/bash
@@ -141,6 +147,7 @@ data:
     bao kv put secrets/airm-keycloak-admin-client-secret value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
         
     bao kv put secrets/keycloak-initial-admin-password value=admin;
+    bao kv put secrets/keycloak-initial-devuser-password value="password";
     bao kv put secrets/keycloak-cnpg-user-username value=keycloak;
     bao kv put secrets/keycloak-cnpg-user-password value=keycloak;
     bao kv put secrets/keycloak-cnpg-superuser-username value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";

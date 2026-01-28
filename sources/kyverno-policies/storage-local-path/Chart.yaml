@@ -15,10 +15,6 @@ maintainers:
 home: https://github.com/silogen/cluster-forge
 sources:
   - https://github.com/silogen/cluster-forge
-dependencies:
-  - name: kyverno
-    version: "3.5.1"
-    condition: kyverno.enabled
 annotations:
   cluster-forge.io/target-sizes: "small,medium"
   cluster-forge.io/description: "Converts RWX/ROX access modes to RWO for local-path compatibility"

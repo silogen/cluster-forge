@@ -126,12 +126,6 @@ apps:
           requests:
             cpu: "1000m"
             memory: "2Gi"
-        lifecycle:
-          - id: team-data-transition
-            status: Enabled
-            transition:
-              days: 30
-              storageClass: IA
 
   openbao:
     valuesObject:
