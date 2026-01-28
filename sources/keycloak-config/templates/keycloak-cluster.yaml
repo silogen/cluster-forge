@@ -63,7 +63,7 @@ spec:
       secret:
         name: keycloak-cnpg-user
   imageName: ghcr.io/cloudnative-pg/postgresql:17
-  instances: 1
+  instances: {{ .Values.cnpg.instances | default 1 }}
   nodeMaintenanceWindow:
     inProgress: false
     reusePVC: true
@@ -78,11 +78,11 @@ spec:
   primaryUpdateStrategy: unsupervised
   resources:
     limits:
-      cpu: "2"
-      memory: 1Gi
+      cpu: {{ .Values.cnpg.resources.limits.cpu | default "2" | quote }}
+      memory: {{ .Values.cnpg.resources.limits.memory | default "1Gi" | quote }}
     requests:
-      cpu: "1"
-      memory: 512Mi
+      cpu: {{ .Values.cnpg.resources.requests.cpu | default "1" | quote }}
+      memory: {{ .Values.cnpg.resources.requests.memory | default "512Mi" | quote }}
   serviceAccountTemplate:
     metadata:
       annotations:
@@ -90,10 +90,10 @@ spec:
   startDelay: 300
   stopDelay: 300
   storage:
-    size: 50Gi
+    size: {{ .Values.cnpg.storage.size | default "50Gi" | quote }}
     storageClass: default
   superuserSecret:
     name: keycloak-cnpg-superuser
   walStorage:
-    size: 50Gi
+    size: {{ .Values.cnpg.walStorage.size | default "50Gi" | quote }}
     storageClass: default

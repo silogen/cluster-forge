@@ -1,1 +1,16 @@
 domain: # to be filled by cluster-forge app
+
+# CNPG PostgreSQL cluster configuration
+cnpg:
+  instances: 1
+  resources:
+    requests:
+      cpu: "1"
+      memory: "512Mi"
+    limits:
+      cpu: "2"
+      memory: "1Gi"
+  storage:
+    size: "50Gi"
+  walStorage:
+    size: "50Gi"

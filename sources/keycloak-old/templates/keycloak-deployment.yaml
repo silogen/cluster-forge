@@ -77,11 +77,11 @@ spec:
               port: 8080
           resources:
             limits:
-              cpu: 500m
-              memory: 2Gi
+              cpu: {{ .Values.resources.limits.cpu | default "500m" | quote }}
+              memory: {{ .Values.resources.limits.memory | default "2Gi" | quote }}
             requests:
-              cpu: 250m
-              memory: 512Mi
+              cpu: {{ .Values.resources.requests.cpu | default "250m" | quote }}
+              memory: {{ .Values.resources.requests.memory | default "512Mi" | quote }}
           volumeMounts:
             - mountPath: /opt/keycloak/providers
               name: keycloak-package-volume
