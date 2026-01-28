@@ -84,15 +84,6 @@ data:
             "attributes": {}
           },
           {
-            "id": "5642a7a3-f521-4b15-9e61-26289a1f1dbc",
-            "name": "Super Administrator",
-            "description": "Role which allows users to create new organizations",
-            "composite": false,
-            "clientRole": false,
-            "containerId": "ab3ca5f2-5d40-4b8d-b3fb-2aa54990c981",
-            "attributes": {}
-          },
-          {
             "id": "f527862a-af68-4191-986a-cbcb25f15c24",
             "name": "default-roles-airm",
             "description": "${role_default-roles}",
@@ -554,8 +545,7 @@ data:
           "requiredActions": [],
           "realmRoles": [
             "default-roles-airm",
-            "Platform Administrator",
-            "Super Administrator"
+            "Platform Administrator"
           ],
           "notBefore": 0,
           "groups": [
@@ -676,7 +666,6 @@ data:
           "optionalClientScopes": [
             "address",
             "phone",
-            "organization",
             "offline_access",
             "microprofile-jwt"
           ]
@@ -787,7 +776,6 @@ data:
           "optionalClientScopes": [
             "address",
             "phone",
-            "organization",
             "offline_access",
             "microprofile-jwt"
           ]
@@ -840,7 +828,6 @@ data:
             "web-origins",
             "acr",
             "roles",
-            "organization",
             "profile",
             "basic",
             "email",
@@ -895,7 +882,6 @@ data:
           "optionalClientScopes": [
             "address",
             "phone",
-            "organization",
             "offline_access",
             "microprofile-jwt"
           ]
@@ -953,7 +939,6 @@ data:
           "optionalClientScopes": [
             "address",
             "phone",
-            "organization",
             "offline_access",
             "microprofile-jwt"
           ]
@@ -997,7 +982,6 @@ data:
           "optionalClientScopes": [
             "address",
             "phone",
-            "organization",
             "offline_access",
             "microprofile-jwt"
           ]
@@ -1040,7 +1024,6 @@ data:
           "optionalClientScopes": [
             "address",
             "phone",
-            "organization",
             "offline_access",
             "microprofile-jwt"
           ]
@@ -1148,7 +1131,6 @@ data:
           "optionalClientScopes": [
             "address",
             "phone",
-            "organization",
             "offline_access",
             "microprofile-jwt"
           ]
@@ -1192,7 +1174,6 @@ data:
           "optionalClientScopes": [
             "address",
             "phone",
-            "organization",
             "offline_access",
             "microprofile-jwt"
           ],
@@ -1297,7 +1278,6 @@ data:
           "optionalClientScopes": [
             "address",
             "phone",
-            "organization",
             "offline_access",
             "microprofile-jwt"
           ]
@@ -1339,36 +1319,6 @@ data:
                 "access.token.claim": "true",
                 "claim.name": "auth_time",
                 "jsonType.label": "long"
-              }
-            }
-          ]
-        },
-        {
-          "id": "e471159a-ec37-45aa-a499-10c0f0cf7ce8",
-          "name": "organization",
-          "description": "Additional claims about the organization a subject belongs to",
-          "protocol": "openid-connect",
-          "attributes": {
-            "include.in.token.scope": "true",
-            "consent.screen.text": "${organizationScopeConsentText}",
-            "display.on.consent.screen": "true"
-          },
-          "protocolMappers": [
-            {
-              "id": "aeff3505-4990-4ac2-8a0d-8c407ba2d50e",
-              "name": "organization",
-              "protocol": "openid-connect",
-              "protocolMapper": "oidc-organization-membership-mapper",
-              "consentRequired": false,
-              "config": {
-                "introspection.token.claim": "true",
-                "multivalued": "true",
-                "userinfo.token.claim": "true",
-                "id.token.claim": "true",
-                "access.token.claim": "true",
-                "claim.name": "organization",
-                "jsonType.label": "JSON",
-                "addOrganizationId": "true"
               }
             }
           ]
@@ -2026,8 +1976,7 @@ data:
         "offline_access",
         "address",
         "phone",
-        "microprofile-jwt",
-        "organization"
+        "microprofile-jwt"
       ],
       "browserSecurityHeaders": {
         "contentSecurityPolicyReportOnly": "",
@@ -2229,32 +2178,6 @@ data:
           ]
         },
         {
-          "id": "008a99fa-caa4-420d-9f74-0b3818657d45",
-          "alias": "Browser - Conditional Organization",
-          "description": "Flow to determine if the organization identity-first login is to be used",
-          "providerId": "basic-flow",
-          "topLevel": false,
-          "builtIn": true,
-          "authenticationExecutions": [
-            {
-              "authenticator": "conditional-user-configured",
-              "authenticatorFlow": false,
-              "requirement": "REQUIRED",
-              "priority": 10,
-              "autheticatorFlow": false,
-              "userSetupAllowed": false
-            },
-            {
-              "authenticator": "organization",
-              "authenticatorFlow": false,
-              "requirement": "ALTERNATIVE",
-              "priority": 20,
-              "autheticatorFlow": false,
-              "userSetupAllowed": false
-            }
-          ]
-        },
-        {
           "id": "dba76db6-1cfa-4d63-9a7b-388172e1ef94",
           "alias": "Direct Grant - Conditional OTP",
           "description": "Flow to determine if the OTP is required for the authentication",
@@ -2272,32 +2195,6 @@ data:
             },
             {
               "authenticator": "direct-grant-validate-otp",
-              "authenticatorFlow": false,
-              "requirement": "REQUIRED",
-              "priority": 20,
-              "autheticatorFlow": false,
-              "userSetupAllowed": false
-            }
-          ]
-        },
-        {
-          "id": "ffe01939-5668-4bff-a6f0-7df57cc63f5b",
-          "alias": "First Broker Login - Conditional Organization",
-          "description": "Flow to determine if the authenticator that adds organization members is to be used",
-          "providerId": "basic-flow",
-          "topLevel": false,
-          "builtIn": true,
-          "authenticationExecutions": [
-            {
-              "authenticator": "conditional-user-configured",
-              "authenticatorFlow": false,
-              "requirement": "REQUIRED",
-              "priority": 10,
-              "autheticatorFlow": false,
-              "userSetupAllowed": false
-            },
-            {
-              "authenticator": "idp-add-organization-member",
               "authenticatorFlow": false,
               "requirement": "REQUIRED",
               "priority": 20,
@@ -2354,23 +2251,6 @@ data:
               "priority": 20,
               "autheticatorFlow": true,
               "flowAlias": "Account verification options",
-              "userSetupAllowed": false
-            }
-          ]
-        },
-        {
-          "id": "e0b310eb-1ee9-47f6-bb0c-73ab55b4d0c3",
-          "alias": "Organization",
-          "providerId": "basic-flow",
-          "topLevel": false,
-          "builtIn": true,
-          "authenticationExecutions": [
-            {
-              "authenticatorFlow": true,
-              "requirement": "CONDITIONAL",
-              "priority": 10,
-              "autheticatorFlow": true,
-              "flowAlias": "Browser - Conditional Organization",
               "userSetupAllowed": false
             }
           ]
@@ -2484,14 +2364,6 @@ data:
               "requirement": "ALTERNATIVE",
               "priority": 25,
               "autheticatorFlow": false,
-              "userSetupAllowed": false
-            },
-            {
-              "authenticatorFlow": true,
-              "requirement": "ALTERNATIVE",
-              "priority": 26,
-              "autheticatorFlow": true,
-              "flowAlias": "Organization",
               "userSetupAllowed": false
             },
             {
@@ -2621,14 +2493,6 @@ data:
               "priority": 20,
               "autheticatorFlow": true,
               "flowAlias": "User creation or linking",
-              "userSetupAllowed": false
-            },
-            {
-              "authenticatorFlow": true,
-              "requirement": "CONDITIONAL",
-              "priority": 50,
-              "autheticatorFlow": true,
-              "flowAlias": "First Broker Login - Conditional Organization",
               "userSetupAllowed": false
             }
           ]
@@ -2919,12 +2783,10 @@ data:
         "parRequestUriLifespan": "60",
         "clientSessionMaxLifespan": "0",
         "frontendUrl": "",
-        "organizationsEnabled": "true",
         "acr.loa.map": "{}"
       },
       "keycloakVersion": "26.0.0",
       "userManagedAccessAllowed": false,
-      "organizationsEnabled": true,
       "clientProfiles": {
         "profiles": []
       },
