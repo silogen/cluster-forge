@@ -161,10 +161,11 @@ echo "Bootstrapping ArgoCD..."
 # Extract ArgoCD values from merged config and write to temp values file
 $YQ_CMD eval '.apps.argocd.valuesObject' /tmp/merged_values.yaml > /tmp/argocd_values.yaml
 
+# Use server-side apply to match ArgoCD's self-management strategy
 helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 --namespace argocd \
   -f /tmp/argocd_values.yaml \
   --set global.domain="https://argocd.${DOMAIN}" \
-  --kube-version=${KUBE_VERSION} | kubectl apply -f -
+  --kube-version=${KUBE_VERSION} | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
 kubectl rollout status statefulset/argocd-application-controller -n argocd
 kubectl rollout status deploy/argocd-applicationset-controller -n argocd
 kubectl rollout status deploy/argocd-redis -n argocd
@@ -175,10 +176,11 @@ echo "Bootstrapping OpenBao..."
 # Extract OpenBao values from merged config
 $YQ_CMD eval '.apps.openbao.valuesObject' /tmp/merged_values.yaml > /tmp/openbao_values.yaml
 
+# Use server-side apply to match ArgoCD's field management strategy
 helm template --release-name openbao ${SCRIPT_DIR}/../sources/openbao/0.18.2 --namespace cf-openbao \
   -f /tmp/openbao_values.yaml \
   --set ui.enabled=true \
-  --kube-version=${KUBE_VERSION} | kubectl apply -f -
+  --kube-version=${KUBE_VERSION} | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
 
 # Pass OpenBao configuration to init script
