@@ -1,2 +1,13 @@
 domain: # to be filled by cluster-forge app
 enableNodePort: false # Enable NodePort service for local development
+localDev: false # Enable local development mode (HTTP, localhost frontend URL)
+hostname: # Override hostname (default: https://kc.{domain})
+
+# Keycloak pod resources
+resources:
+  requests:
+    cpu: "250m"
+    memory: "512Mi"
+  limits:
+    cpu: "500m"
+    memory: "2Gi"

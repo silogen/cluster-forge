@@ -105,6 +105,18 @@ apps:
     helmParameters:
       - name: enableNodePort
         value: "true"
+      - name: localDev
+        value: "true"
+      - name: hostname
+        value: "http://localhost:8080"
+      - name: resources.requests.cpu
+        value: "100m"
+      - name: resources.requests.memory
+        value: "256Mi"
+      - name: resources.limits.cpu
+        value: "250m"
+      - name: resources.limits.memory
+        value: "1Gi"
     syncWave: -1
   keycloak-config:
     path: keycloak-config
@@ -113,6 +125,20 @@ apps:
     helmParameters:
       - name: domain
         value: "localhost.local" # Use valid TLD for devuser email
+      - name: cnpg.instances
+        value: "1"
+      - name: cnpg.resources.requests.cpu
+        value: "100m"
+      - name: cnpg.resources.requests.memory
+        value: "256Mi"
+      - name: cnpg.resources.limits.cpu
+        value: "500m"
+      - name: cnpg.resources.limits.memory
+        value: "512Mi"
+      - name: cnpg.storage.size
+        value: "5Gi"
+      - name: cnpg.walStorage.size
+        value: "5Gi"
     syncWave: -1
   airm:
     repoURL: "http://gitea-http.cf-gitea.svc:3000/cluster-org/core.git"
