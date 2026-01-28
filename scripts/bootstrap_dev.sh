@@ -17,7 +17,19 @@ kubectl create ns argocd
 kubectl create ns cf-openbao
 
 # ArgoCD bootstrap
-helm template --release-name argocd ../sources/argocd/8.3.5 --namespace argocd --kube-version=${KUBE_VERSION} | kubectl apply -f -
+helm template --release-name argocd ../sources/argocd/8.3.5 --namespace argocd \
+  --set global.domain="https://argocd.${DOMAIN}" \
+  --set configs.params.server.insecure=true \
+  --set configs.cm.create=true \
+  --set configs.rbac.create=true \
+  --set "configs.rbac.policy\.csv=g\, argocd-users\, role:admin" \
+  --set controller.replicas=1 \
+  --set applicationSet.replicas=1 \
+  --set repoServer.replicas=1 \
+  --set server.replicas=1 \
+  --set redis.enabled=true \
+  --set redis-ha.enabled=false \
+  --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl rollout status statefulset/argocd-application-controller -n argocd
 kubectl rollout status deploy/argocd-applicationset-controller -n argocd
 kubectl rollout status deploy/argocd-redis -n argocd
