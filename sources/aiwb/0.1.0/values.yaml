@@ -1,3 +1,203 @@
 # Copyright © Advanced Micro Devices, Inc., or its affiliates.
 #
 # SPDX-License-Identifier: MIT
+
+---
+# Default values for AIWB (AI Workbench)
+
+# Standalone mode: true or false
+# true: AIWB manages its own namespace, creates Kyverno policies, and secrets
+# false: AIRM manages namespaces, policies, and secrets
+standAloneMode: true
+
+# Name of the default namespace to create (only used when standAloneMode: true)
+defaultNamespace: "workbench"
+
+# Label prefix for workload identification
+# Used for workload-id, project-id labels on pods and in metrics
+# TODO: Will change to "apps.eai.amd.com" in the future
+labelPrefix: "airm.silogen.ai"
+
+# Application domain (base domain for all services)
+appDomain: "app-dev.silogen.ai"
+
+# kgateway configuration for HTTPRoute resources
+kgateway:
+  namespace: kgateway-system
+  gatewayName: https
+  api:
+    servicePort: 80
+    prefixValue: aiwbapi
+    timeouts:
+      stream:
+        backendRequest: 30m
+        request: 30m
+      nonStream:
+        backendRequest: 10m
+        request: 10m
+  ui:
+    servicePort: 80
+    prefixValue: aiwbui
+    timeouts:
+      backendRequest: 1m
+      request: 1m
+
+# Backend (API) configuration
+backend:
+  image:
+    repository: aiwb-api
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  # NOTE: AIWB currently only supports 1 replica due to the poller/syncer setup.
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  imagePullSecrets: []
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    runAsNonRoot: true
+    runAsUser: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+  # Polling Intervals (seconds)
+  polling:
+    syncerPollingIntervalSeconds: 5
+    syncerPendingTimeoutSeconds: 60
+  # Dataset Configuration
+  datasets:
+    maxFileSizeMB: 100
+  # Liveness and readiness probes
+  livenessProbe:
+    httpGet:
+      path: /v1/health
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /v1/health
+      port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# Frontend (UI) configuration
+frontend:
+  image:
+    repository: aiwb-ui
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  replicaCount: 1
+  service:
+    port: 8000
+    targetPort: 8000
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  imagePullSecrets: []
+  nextAuthSecretName: "aiwb-nextauth-secret"
+
+# Database configuration (PostgreSQL)
+database:
+  host: "aiwb-cnpg-rw.aiwb.svc.cluster.local"
+  port: 5432
+  name: "aiwb"
+  secretName: "aiwb-cnpg-user"
+
+# Keycloak/OIDC configuration
+keycloak:
+  url: "http://keycloak.keycloak.svc.cluster.local:8080"
+  internalUrl: "http://keycloak.keycloak.svc.cluster.local:8080"
+  realm: "airm"
+  clientId: "354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
+  secretName: "aiwb-ui-keycloak-secret"
+
+# MinIO configuration
+minio:
+  url: "http://minio.minio.svc.cluster.local:9000"
+  bucket: "aiwb-bucket"
+  accessKeySecretName: "aiwb-minio-access-key"
+  secretKeySecretName: "aiwb-minio-secret-key"
+
+# ClusterAuth configuration (for API key management)
+clusterAuth:
+  url: "http://cluster-auth.cluster-auth.svc.cluster.local:48012"
+  secretName: "aiwb-cluster-auth-secret"
+
+# AIM Configuration
+# NOTE: In standalone mode, a namespace-scoped AIMRuntimeConfig is created.
+# When running with AIRM, it provides the cluster-scoped AIMClusterRuntimeConfig.
+aim:
+  runtimeConfigName: "aiwb-runtime-config"
+  pvcHeadroomPercent: 100
+  routing:
+    enabled: true
+    requestTimeout: "30m"
+
+# PostgreSQL CNPG Configuration
+postgresql:
+  image: "ghcr.io/cloudnative-pg/postgresql:17.2"
+  instances: 3
+  # NOTE: This username must match the value in the aiwb-cnpg-user-username OpenBao secret
+  username: "feb1a665d32e405a8cc891215cd8fcb8"
+  userSecretName: "aiwb-cnpg-user"
+  superuserSecretName: "aiwb-cnpg-superuser"
+  sharedBuffers: "256MB"
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  storage:
+    size: "10Gi"
+    storageClass: "default"
+  walStorage:
+    size: "2Gi"
+    storageClass: "default"
+
+# OpenTelemetry Collector Configuration (for vLLM metrics)
+# NOTE: Only deployed in standalone mode. When running with AIRM, it manages the collector.
+otelCollector:
+  image: "otel/opentelemetry-collector-contrib:0.114.0"
+  scrapeInterval: "30s"
+  endpoint: "http://prometheus-remote-write.monitoring.svc.cluster.local:9090/api/v1/write"
+
+# Ingress configuration (optional)
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: aiwb.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# RBAC configuration
+rbac:
+  serviceAccountName: "aiwb"

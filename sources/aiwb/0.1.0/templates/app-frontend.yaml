@@ -1,0 +1,85 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: "{{ .Release.Name }}-ui"
+  name: "{{ .Release.Name }}-ui"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: web
+      port: {{ .Values.frontend.service.port }}
+      targetPort: {{ .Values.frontend.service.targetPort }}
+  selector:
+    app: "{{ .Release.Name }}-ui"
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-ui"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: {{ .Values.frontend.replicaCount }}
+  selector:
+    matchLabels:
+      app: "{{ .Release.Name }}-ui"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Release.Name }}-ui"
+    spec:
+      {{- with .Values.frontend.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: aiwb-ui
+          env:
+            - name: NEXTAUTH_URL
+              value: "https://{{ .Values.kgateway.ui.prefixValue }}.{{ .Values.appDomain }}"
+            - name: KEYCLOAK_ISSUER
+              value: "{{ .Values.keycloak.url }}/realms/{{ .Values.keycloak.realm }}"
+            - name: KEYCLOAK_ID
+              value: "{{ .Values.keycloak.clientId }}"
+            - name: KEYCLOAK_ISSUER_INTERNAL_URL
+              value: "{{ .Values.keycloak.internalUrl }}/realms/{{ .Values.keycloak.realm }}/"
+            - name: AIRM_API_SERVICE_URL
+              value: "http://{{ .Release.Name }}-api.{{ .Release.Namespace }}"
+            - name: NEXTAUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.frontend.nextAuthSecretName }}"
+                  key: NEXTAUTH_SECRET
+            - name: KEYCLOAK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keycloak.secretName }}
+                  key: value
+          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+          imagePullPolicy: "{{ .Values.frontend.image.pullPolicy }}"
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/health
+              port: {{ .Values.frontend.service.targetPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 2
+          ports:
+            - containerPort: {{ .Values.frontend.service.targetPort }}
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: {{ .Values.frontend.service.targetPort }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      restartPolicy: Always

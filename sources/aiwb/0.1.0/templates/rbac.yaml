@@ -2,12 +2,12 @@
 #
 # SPDX-License-Identifier: MIT
 
-{{- if .Values.rbac.create -}}
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: {{ include "aiwb.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "aiwb.labels" . | nindent 4 }}
 
@@ -20,8 +20,8 @@ metadata:
     {{- include "aiwb.labels" . | nindent 4 }}
 rules:
 # AIM CRD access
-- apiGroups: ["aim.amd.com"]
-  resources: ["aimservices", "aimclustermodels", "aimclusterservicetemplates"]
+- apiGroups: ["aim.silogen.ai"]
+  resources: ["aimservices", "aimclustermodels", "aimclusterservicetemplates", "aimruntimeconfigs", "aimclusterruntimeconfigs"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 
 # Kaiwo CRD access
@@ -59,6 +59,11 @@ rules:
   resources: ["services"]
   verbs: ["get", "list", "watch"]
 
+# Events access (for resource status monitoring)
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["get", "list", "watch"]
+
 # Job access (for batch workloads)
 - apiGroups: ["batch"]
   resources: ["jobs"]
@@ -84,4 +89,3 @@ subjects:
 - kind: ServiceAccount
   name: {{ include "aiwb.serviceAccountName" . }}
   namespace: {{ .Release.Namespace }}
-{{- end }}

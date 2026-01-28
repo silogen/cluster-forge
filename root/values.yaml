@@ -440,6 +440,37 @@ apps:
         kind: ClusterPolicy
         jqPathExpressions:
           - ".spec.rules"
+  # AIWB (AI Workbench)
+  aiwb:
+    path: aiwb/0.1.0
+    namespace: aiwb
+    syncWave: 0
+    helmParameters:
+      - name: appDomain
+        value: "{{ .Values.global.domain }}"
+      - name: keycloak.url
+        value: "https://kc.{{ .Values.global.domain }}"
+      - name: keycloak.internalUrl
+        value: "http://keycloak.keycloak.svc.cluster.local:8080"
+      - name: backend.image.repository
+        value: ghcr.io/silogen/core/aiwb-api
+      - name: backend.image.tag
+        value: SDA-3066-helm-charts-bis
+      - name: frontend.image.repository
+        value: ghcr.io/silogen/core/aiwb-ui
+      - name: frontend.image.tag
+        value: build-ui
+      - name: backend.imagePullSecrets[0].name
+        value: regcred
+      - name: frontend.imagePullSecrets[0].name
+        value: regcred
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
   # Monitoring stack
   prometheus:
     path: prometheus-operator/23.0.0
