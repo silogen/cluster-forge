@@ -1,0 +1,143 @@
+# Default values for aim-engine
+# This is a YAML-formatted file.
+# Structure matches kubebuilder helm/v2-alpha plugin expectations
+
+# Controller manager configuration
+manager:
+  replicas: 1
+
+  # Image configuration
+  image:
+    repository: ghcr.io/silogen/aim-engine
+    tag: publish-main-6aeabb2
+    pullPolicy: IfNotPresent
+
+  # Secrets for pulling the operator image from private registries
+  # imagePullSecrets:
+  #   - name: ghcr-pull-secret
+  imagePullSecrets: []
+
+  # Controller arguments
+  args:
+    - --leader-elect
+
+  # Environment variables
+  env: []
+
+  # Pod-level security settings
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+
+  # Container-level security settings
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+
+  # Resource limits and requests
+  resources:
+    limits:
+      cpu: 500m
+      memory: 4Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+# Helper RBAC roles for managing custom resources (admin/editor/viewer for each CRD)
+rbacHelpers:
+  enable: true
+
+# Custom Resource Definitions
+crd:
+  enable: true
+  keep: true  # Keep CRDs when uninstalling
+
+# Controller metrics endpoint
+metrics:
+  enable: true
+  port: 8443
+
+# Cert-manager integration for TLS certificates
+certManager:
+  enable: false
+
+# Prometheus ServiceMonitor for metrics scraping
+prometheus:
+  enable: false
+
+# Cluster-wide runtime configuration for AIM resources
+# Creates an AIMClusterRuntimeConfig CR when enabled
+clusterRuntimeConfig:
+  enable: false
+  name: default
+
+  # Spec fields for the AIMClusterRuntimeConfig
+  # spec:
+    # Storage configuration defaults
+    # storage:
+      # defaultStorageClassName: "standard"
+      # pvcHeadroomPercent: 10
+
+    # HTTP routing configuration for inference services
+    # routing:
+    #   enabled: true
+    #   gatewayRef:
+    #     group: gateway.networking.k8s.io
+    #     kind: Gateway
+    #     name: aim-gateway
+    #     namespace: kgateway-system
+    #   pathTemplate: "/{.metadata.namespace}/{.metadata.name}"
+      # annotations: {}
+
+    # Model discovery configuration
+    # model:
+    #   autoDiscovery: true
+
+    # Environment variables (for runtime config, not propagated to child resources)
+    # env: []
+
+    # Label propagation to child resources
+    # labelPropagation:
+    #   enabled: true
+    #   match:
+    #     - "aim.eai.amd.com/*"
+
+# Cluster-wide model source for automatic model discovery from container registries
+# Creates an AIMClusterModelSource CR when enabled, installing latest AIM Container Images
+clusterModelSource:
+  enable: false
+  name: amd-aim-model-source
+
+  # Spec fields for the AIMClusterModelSource
+  spec:
+    # Container registry to sync from (e.g., docker.io, ghcr.io, gcr.io)
+    registry: ghcr.io
+
+    # Secrets for authenticating to private registries (must exist in operator namespace)
+    # imagePullSecrets:
+    #   - name: ghcr-pull-secret
+
+    # Filters define which images to discover and sync
+    # Each filter specifies an image pattern with optional version constraints
+    filters:
+      - image: "amd-enterprise-ai/aim-*"
+        # exclude:
+        #   - "amd-enterprise-ai/aim-base"
+        #   - "amd-enterprise-ai/aim-experimental"
+        versions:
+          - ">=0.10.0"
+
+    # How often to sync with the registry (minimum recommended: 15m)
+    syncInterval: 1h
+
+    # Global semantic version constraints applied to all filters
+    # versions:
+    #   - ">=1.0.0"
+    #   - "<2.0.0"
+
+    # Maximum number of AIMClusterModel resources to create (prevents runaway creation)
+    maxModels: 100

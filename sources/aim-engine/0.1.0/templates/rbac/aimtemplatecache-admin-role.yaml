@@ -1,0 +1,22 @@
+{{- if .Values.rbacHelpers.enable }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+    labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/name: aim-engine
+    name: aim-engine-aimtemplatecache-admin-role
+rules:
+    - apiGroups:
+        - aim.eai.amd.com
+      resources:
+        - aimtemplatecaches
+      verbs:
+        - '*'
+    - apiGroups:
+        - aim.eai.amd.com
+      resources:
+        - aimtemplatecaches/status
+      verbs:
+        - get
+{{- end }}

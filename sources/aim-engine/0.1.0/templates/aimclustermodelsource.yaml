@@ -1,0 +1,11 @@
+{{- if .Values.clusterModelSource.enable }}
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterModelSource
+metadata:
+  name: {{ .Values.clusterModelSource.name }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+spec:
+  {{- toYaml .Values.clusterModelSource.spec | nindent 2 }}
+{{- end }}
+

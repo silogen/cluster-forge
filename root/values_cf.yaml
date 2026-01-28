@@ -9,6 +9,8 @@ externalValues:
 global:
   domain: # to be filled by bootstrap script
 enabledApps:
+  - aim-engine
+  - aim-engine-crds
   - aim-cluster-model-source
   - argocd
   - argocd-config
