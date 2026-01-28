@@ -24,8 +24,13 @@ kubectl rollout status deploy/argocd-redis -n argocd
 kubectl rollout status deploy/argocd-repo-server -n argocd
 
 # OpenBao bootstrap
-helm template --release-name openbao ../sources/openbao/0.18.2 -f ../sources/openbao/values_cf.yaml \
-  --namespace cf-openbao --kube-version=${KUBE_VERSION} | kubectl apply -f -
+helm template --release-name openbao ../sources/openbao/0.18.2 --namespace cf-openbao \
+  --set injector.enabled=false \
+  --set server.ha.enabled=false \
+  --set server.ha.raft.enabled=false \
+  --set server.ha.replicas=1 \
+  --set ui.enabled=true \
+  --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s
 
 # Create static ConfigMaps needed for init job
