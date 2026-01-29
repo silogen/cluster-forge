@@ -18,7 +18,7 @@ spec:
       valueFiles:
         - {{ .Values.externalValues.path }}
         - {{ .Values.global.clusterSize }}
-        $values/values.yaml
+        - $values/values.yaml
   - repoURL: {{ .Values.externalValues.repoUrl }}
     targetRevision: {{ .Values.externalValues.targetRevision }}
     ref: values
