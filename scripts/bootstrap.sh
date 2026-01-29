@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Initialize variables
 DOMAIN=""
-VALUES_FILE="values_cf.yaml"
+VALUES_FILE="values.yaml"
 CLUSTER_SIZE="medium"  # Default to medium
 KUBE_VERSION=1.33
 
@@ -30,7 +30,7 @@ while [[ $# -gt 0 ]]; do
       echo ""
       echo "Arguments:"
       echo "  domain                  Required. Cluster domain (e.g., example.com)"
-      echo "  values_file            Optional. Values file to use (default: values_cf.yaml)"
+      echo "  values_file            Optional. Values file to use (default: values.yaml)"
       echo "  --CLUSTER_SIZE         Optional. Cluster size (default: medium)"
       echo ""
       echo "Cluster sizes:"
@@ -40,8 +40,7 @@ while [[ $# -gt 0 ]]; do
       echo ""
       echo "Examples:"
       echo "  $0 example.com"
-      echo "  $0 example.com values_prod.yaml"
-      echo "  $0 example.com values_cf.yaml --CLUSTER_SIZE=large"
+      echo "  $0 example.com values.yaml --CLUSTER_SIZE=large"
       echo "  $0 dev.example.com --CLUSTER_SIZE=small"
       exit 0
       ;;
@@ -54,7 +53,7 @@ while [[ $# -gt 0 ]]; do
       # Positional arguments
       if [ -z "$DOMAIN" ]; then
         DOMAIN="$1"
-      elif [ "$VALUES_FILE" = "values_cf.yaml" ]; then
+      elif [ "$VALUES_FILE" = "values.yaml" ]; then
         VALUES_FILE="$1"
       else
         echo "ERROR: Too many arguments: $1"
@@ -159,11 +158,12 @@ kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
 # ArgoCD bootstrap
 echo "Bootstrapping ArgoCD..."
 # Extract ArgoCD values from merged config and write to temp values file
-$YQ_CMD eval '.apps.argocd.valuesObject' /tmp/merged_values.yaml > /tmp/argocd_values.yaml
-
+$YQ_CMD eval '.apps.argocd.valuesObject' ${SCRIPT_DIR}/../root/${VALUES_FILE} > /tmp/argocd_values.yaml
+$YQ_CMD eval '.apps.argocd.valuesObject' ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE} > /tmp/argocd_size_values.yaml
 # Use server-side apply to match ArgoCD's self-management strategy
 helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 --namespace argocd \
   -f /tmp/argocd_values.yaml \
+  -f /tmp/argocd_size_values.yaml \
   --set global.domain="https://argocd.${DOMAIN}" \
   --kube-version=${KUBE_VERSION} | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
 kubectl rollout status statefulset/argocd-application-controller -n argocd
@@ -174,11 +174,12 @@ kubectl rollout status deploy/argocd-repo-server -n argocd
 # OpenBao bootstrap
 echo "Bootstrapping OpenBao..."
 # Extract OpenBao values from merged config
-$YQ_CMD eval '.apps.openbao.valuesObject' /tmp/merged_values.yaml > /tmp/openbao_values.yaml
-
+$YQ_CMD eval '.apps.openbao.valuesObject' ${SCRIPT_DIR}/../root/${VALUES_FILE} > /tmp/openbao_values.yaml
+$YQ_CMD eval '.apps.openbao.valuesObject' ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE}  > /tmp/openbao_size_values.yaml
 # Use server-side apply to match ArgoCD's field management strategy
 helm template --release-name openbao ${SCRIPT_DIR}/../sources/openbao/0.18.2 --namespace cf-openbao \
   -f /tmp/openbao_values.yaml \
+  -f /tmp/openbao_size_values.yaml \
   --set ui.enabled=true \
   --kube-version=${KUBE_VERSION} | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
@@ -206,9 +207,12 @@ kubectl create secret generic gitea-admin-credentials \
   --from-literal=password=$(generate_password) \
   --dry-run=client -o yaml | kubectl apply -f -
 
-$YQ_CMD eval '.apps.gitea.valuesObject' /tmp/merged_values.yaml > /tmp/gitea_values.yaml
+$YQ_CMD eval '.apps.gitea.valuesObject' ${SCRIPT_DIR}/../root/${VALUES_FILE} > /tmp/gitea_values.yaml
+$YQ_CMD eval '.apps.gitea.valuesObject' ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE} > /tmp/gitea_size_values.yaml
+
 helm template --release-name gitea ${SCRIPT_DIR}/../sources/gitea/12.3.0 --namespace cf-gitea \
   -f /tmp/gitea_values.yaml \
+  -f /tmp/gitea_size_values.yaml \
   --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}/" \
   --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl rollout status deploy/gitea -n cf-gitea
