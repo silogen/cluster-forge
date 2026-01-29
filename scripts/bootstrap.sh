@@ -117,8 +117,8 @@ else
     exit 1
 fi
 
-# Update the global.clusterSize in the base values file
-$YQ_CMD -i ".global.clusterSize = \"${CLUSTER_SIZE}\"" "${SCRIPT_DIR}/../root/${VALUES_FILE}"
+# Update the global.clusterSize in the base values file with full filename
+$YQ_CMD -i ".global.clusterSize = \"values_${CLUSTER_SIZE}.yaml\"" "${SCRIPT_DIR}/../root/${VALUES_FILE}"
 
 # Function to merge values files early for use throughout the script
 merge_values_files() {
