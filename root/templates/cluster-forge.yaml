@@ -14,10 +14,10 @@ spec:
     path: root
     helm:
       # here we want the base values.yaml and the custom values file from external repo
-
+      # the path to the custom values file is relative to the root of the external values repo
       valueFiles:
-        - $values/{{ .Values.externalValues.path }}
-        - $values/{{ .Values.global.clusterSize }}
+        - {{ .Values.externalValues.path }}
+        - {{ .Values.global.clusterSize }}
   - repoURL: {{ .Values.externalValues.repoUrl }}
     targetRevision: {{ .Values.externalValues.targetRevision }}
     ref: values
