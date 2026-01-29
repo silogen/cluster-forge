@@ -115,14 +115,37 @@ data:
       -H "Authorization: token ${GITEA_TOKEN}" \
       -H "Content-Type: application/json" || echo "Failed to add user to organization"
     
-    echo "Step 7: Creating values_cf.yaml file from initial-cf-values configmap into cluster-values repo..."
-    curl -X POST "${GITEA_URL}/api/v1/repos/cluster-org/cluster-values/contents/values_cf.yaml" \
+    echo "Step 7: Creating values.yaml file with cluster-forge reference in cluster-values repo..."
+    cat > /tmp/values.yaml << EOF
+# Cluster-specific configuration
+domain: ${DOMAIN}
+
+# Reference to cluster-forge repository
+clusterForge:
+  repoURL: ${GITEA_URL}/cluster-org/cluster-forge.git
+  path: root
+  targetRevision: main
+
+# Cluster size configuration (uncomment one)
+# clusterSize: small
+# clusterSize: medium
+# clusterSize: large
+
+# Custom overrides for values.yaml and values_<size>.yaml
+# Add any cluster-specific overrides below
+# Example:
+# gitea:
+#   enabled: true
+#   customConfig: value
+EOF
+    
+    curl -X POST "${GITEA_URL}/api/v1/repos/cluster-org/cluster-values/contents/values.yaml" \
       -H "Authorization: token ${GITEA_TOKEN}" \
       -H "Content-Type: application/json" \
       -d '{
-        "message": "Add values_cf.yaml file",
-        "content": "'$(base64 -w 0 < /tmp/values/initial-cf-values)'",
+        "message": "Initialize cluster values configuration",
+        "content": "'$(base64 -w 0 < /tmp/values.yaml)'",
         "branch": "main"
-      }' || echo "Failed to create values_cf.yaml file"
+      }' || echo "Failed to create values.yaml file"
     
     echo "Setup completed successfully!"
