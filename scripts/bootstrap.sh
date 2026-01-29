@@ -30,7 +30,7 @@ while [[ $# -gt 0 ]]; do
       echo ""
       echo "Arguments:"
       echo "  domain                  Required. Cluster domain (e.g., example.com)"
-      echo "  values_file            Optional. Values file to use (default: values_cf.yaml)"
+      echo "  values_file            Optional. Values file to use (default: values.yaml)"
       echo "  --CLUSTER_SIZE         Optional. Cluster size (default: medium)"
       echo ""
       echo "Cluster sizes:"
