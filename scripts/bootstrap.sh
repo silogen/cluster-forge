@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Initialize variables
 DOMAIN=""
-VALUES_FILE="values_cf.yaml"
+VALUES_FILE="values.yaml"
 CLUSTER_SIZE="medium"  # Default to medium
 KUBE_VERSION=1.33
 
@@ -30,7 +30,7 @@ while [[ $# -gt 0 ]]; do
       echo ""
       echo "Arguments:"
       echo "  domain                  Required. Cluster domain (e.g., example.com)"
-      echo "  values_file            Optional. Values file to use (default: values_cf.yaml)"
+      echo "  values_file            Optional. Values file to use (default: values.yaml)"
       echo "  --CLUSTER_SIZE         Optional. Cluster size (default: medium)"
       echo ""
       echo "Cluster sizes:"
@@ -40,8 +40,7 @@ while [[ $# -gt 0 ]]; do
       echo ""
       echo "Examples:"
       echo "  $0 example.com"
-      echo "  $0 example.com values_prod.yaml"
-      echo "  $0 example.com values_cf.yaml --CLUSTER_SIZE=large"
+      echo "  $0 example.com values.yaml --CLUSTER_SIZE=large"
       echo "  $0 dev.example.com --CLUSTER_SIZE=small"
       exit 0
       ;;
@@ -54,7 +53,7 @@ while [[ $# -gt 0 ]]; do
       # Positional arguments
       if [ -z "$DOMAIN" ]; then
         DOMAIN="$1"
-      elif [ "$VALUES_FILE" = "values_cf.yaml" ]; then
+      elif [ "$VALUES_FILE" = "values.yaml" ]; then
         VALUES_FILE="$1"
       else
         echo "ERROR: Too many arguments: $1"
