@@ -13,8 +13,11 @@ spec:
     targetRevision: {{ .Values.clusterForge.targetRevision }}
     path: root
     helm:
+      # here we want the base values.yaml and the custom values file from external repo
+
       valueFiles:
         - $values/{{ .Values.externalValues.path }}
+        - $values/{{ .Values.global.clusterSize }}
   - repoURL: {{ .Values.externalValues.repoUrl }}
     targetRevision: {{ .Values.externalValues.targetRevision }}
     ref: values
