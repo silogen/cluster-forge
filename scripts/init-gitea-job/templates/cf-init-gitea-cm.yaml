@@ -116,28 +116,30 @@ data:
       -H "Content-Type: application/json" || echo "Failed to add user to organization"
     
     echo "Step 7: Creating values.yaml file with cluster-forge reference in cluster-values repo..."
-    cat > /tmp/values.yaml << EOF
-# Cluster-specific configuration
-domain: ${DOMAIN}
-
-# Reference to cluster-forge repository
-clusterForge:
-  repoURL: ${GITEA_URL}/cluster-org/cluster-forge.git
-  path: root
-  targetRevision: main
-
-# Cluster size configuration (uncomment one)
-# clusterSize: small
-# clusterSize: medium
-# clusterSize: large
-
-# Custom overrides for values.yaml and values_<size>.yaml
-# Add any cluster-specific overrides below
-# Example:
-# gitea:
-#   enabled: true
-#   customConfig: value
-EOF
+    cat > /tmp/values.yaml << 'EOF'
+    # Cluster-specific configuration
+    domain: DOMAIN_PLACEHOLDER
+    
+    # Reference to cluster-forge repository
+    clusterForge:
+      repoURL: https://gitea.DOMAIN_PLACEHOLDER/cluster-org/cluster-forge.git
+      path: root
+      targetRevision: main
+    
+    # Cluster size configuration (uncomment one)
+    # clusterSize: small
+    # clusterSize: medium
+    # clusterSize: large
+    
+    # Custom overrides for values.yaml and values_<size>.yaml
+    # Add any cluster-specific overrides below
+    # Example:
+    # gitea:
+    #   enabled: true
+    #   customConfig: value
+    EOF
+    
+    sed -i "s/DOMAIN_PLACEHOLDER/${DOMAIN}/g" /tmp/values.yaml
     
     curl -X POST "${GITEA_URL}/api/v1/repos/cluster-org/cluster-values/contents/values.yaml" \
       -H "Authorization: token ${GITEA_TOKEN}" \
