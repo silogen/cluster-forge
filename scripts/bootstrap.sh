@@ -167,7 +167,7 @@ $YQ_CMD eval '.apps.argocd.valuesObject' ${SCRIPT_DIR}/../root/${SIZE_VALUES_FIL
 helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 --namespace argocd \
   -f /tmp/argocd_values.yaml \
   -f /tmp/argocd_size_values.yaml \
-  --set global.domain="https://argocd.${DOMAIN}" \
+  --set global.domain="argocd.${DOMAIN}" \
   --kube-version=${KUBE_VERSION} | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
 kubectl rollout status statefulset/argocd-application-controller -n argocd
 kubectl rollout status deploy/argocd-applicationset-controller -n argocd

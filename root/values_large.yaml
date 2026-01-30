@@ -68,9 +68,6 @@ apps:
           requests:
             cpu: "750m"
             memory: "1.5Gi"
-        env:
-          - name: ARGOCD_REPO_SERVER_PARALLELISM_LIMIT
-            value: "10"
       server:
         pdb:
           minAvailable: 2
