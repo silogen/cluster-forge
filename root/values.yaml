@@ -59,12 +59,12 @@ enabledApps:
 apps:
   aim-engine:
     path: aim-engine/0.1.0
-    namespace: aim-engine
+    namespace: aim-system
     valuesFile: values.yaml
     syncWave: 0
   aim-engine-crds:
     path: aim-engine-crds/0.1.0
-    namespace: aim-engine
+    namespace: aim-system
     syncWave: 0
   # Core apps
   argocd:
