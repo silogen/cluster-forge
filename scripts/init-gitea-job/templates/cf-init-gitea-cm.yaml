@@ -131,12 +131,16 @@ data:
     # clusterSize: medium
     # clusterSize: large
     
+    global:
+      clusterSize: values_medium.yaml  
+    
     # Custom overrides for values.yaml and values_<size>.yaml
     # Add any cluster-specific overrides below
     # Example:
     # gitea:
     #   enabled: true
     #   customConfig: value
+
     EOF
     
     sed -i "s/DOMAIN_PLACEHOLDER/${DOMAIN}/g" /tmp/values.yaml
