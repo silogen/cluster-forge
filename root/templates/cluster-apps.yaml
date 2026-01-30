@@ -22,22 +22,16 @@ spec:
     {{- else }}
     path: sources/{{ .path }}
     {{- end }}
-    {{- if or .valuesFile .valuesObject .helmParameters }}
+    {{- if .valuesFile }}
     helm:
-      {{- if .valuesFile }}
       valueFiles:
         - {{ .valuesFile }}
-      {{- end }}
-      {{- if .valuesObject }}
-      values: |
-{{ .valuesObject | toYaml | nindent 8 }}
-      {{- end }}
+    {{- end }}
       {{- if .helmParameters }}
       parameters:
       {{- range $parameter := .helmParameters }}
         - name: {{ include "common.tplvalues.render" ( dict "value" $parameter.name "context" $) | quote }}
           value: {{ include "common.tplvalues.render" ( dict "value" $parameter.value "context" $) | quote }}
-      {{- end }}
       {{- end }}
     {{- end }}
     {{- with .directory }}
