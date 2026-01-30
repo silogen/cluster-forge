@@ -202,7 +202,7 @@ data:
         
     bao kv put secrets/keycloak-initial-admin-password value=admin;
     bao kv put secrets/keycloak-initial-devuser-password value="password";
-    scripts/init-openbao-job/templates/cf-init-openbao-cm.yaml
+    
     bao kv put secrets/keycloak-cnpg-user-username value=keycloak;
     bao kv put secrets/keycloak-cnpg-user-password value=keycloak;
     bao kv put secrets/keycloak-cnpg-superuser-username value="$(bao write -field=random_bytes sys/tools/random bytes=16 format=hex)";
