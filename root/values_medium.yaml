@@ -36,6 +36,7 @@ enabledApps:
   - kuberay-operator
   - kyverno
   - kyverno-config
+  - kyverno-policies-base
   - kyverno-policies-storage-local-path
   - metallb
   - minio-operator
