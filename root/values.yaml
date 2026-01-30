@@ -11,6 +11,8 @@ externalValues:
 global:
   domain: app.silogen.ai
 enabledApps:
+  - aim-engine
+  - aim-engine-crds
   - aim-cluster-model-source
   - argocd
   - argocd-config
@@ -53,7 +55,18 @@ enabledApps:
   - kaiwo
   - kaiwo-config
   - airm
+  - aiwb
 apps:
+  aim-engine:
+    path: aim-engine/0.1.0
+    namespace: aim-engine
+    valuesFile: values.yaml
+    syncWave: 0
+  aim-engine-crds:
+    path: aim-engine-crds/0.1.0
+    namespace: aim-engine
+    valuesFile: values.yaml
+    syncWave: 0
   # Core apps
   argocd:
     path: argocd/8.3.5
