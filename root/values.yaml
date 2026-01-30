@@ -157,7 +157,7 @@ apps:
         jsonPointers:
           - /spec/volumeClaimTemplates
   openbao-config:
-    path: openbao-config
+    path: openbao-config/0.1.0
     namespace: cf-openbao
     valuesFile: values.yaml
     helmParameters:
