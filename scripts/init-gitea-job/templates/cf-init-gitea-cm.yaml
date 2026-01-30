@@ -117,19 +117,16 @@ data:
     
     echo "Step 7: Creating values.yaml file with cluster-forge reference in cluster-values repo..."
     cat > /tmp/values.yaml << 'EOF'
-    # Cluster-specific configuration
     domain: DOMAIN_PLACEHOLDER
     
-    # Reference to cluster-forge repository
     clusterForge:
-      repoURL: https://gitea.DOMAIN_PLACEHOLDER/cluster-org/cluster-forge.git
+      repoURL: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git --- IGNORE ---
       path: root
       targetRevision: main
     
-    # Cluster size configuration (uncomment one)
-    # clusterSize: small
-    # clusterSize: medium
-    # clusterSize: large
+    # clusterSize is set by bootstrap script via --set clusterSize=values_<size>.yaml
+    global:
+      clusterSize: {{ .Values.clusterSize }}
     
     global:
       clusterSize: values_medium.yaml  
