@@ -159,7 +159,11 @@ apps:
   openbao-config:
     path: openbao-config
     namespace: cf-openbao
-    syncWave: -1
+    valuesFile: values.yaml
+    helmParameters:
+      - name: domain
+        value: "{{ .Values.global.domain }}"
+    syncWave: -2
   external-secrets:
     path: external-secrets/0.15.1
     namespace: external-secrets
