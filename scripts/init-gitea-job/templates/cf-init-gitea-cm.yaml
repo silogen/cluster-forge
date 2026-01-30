@@ -124,9 +124,9 @@ data:
       path: root
       targetRevision: main
     
-    #clusterSize: values_medium.yaml
+    # clusterSize is set by bootstrap script via --set clusterSize=values_<size>.yaml
     global:
-      clusterSize: values_medium.yaml
+      clusterSize: {{ .Values.clusterSize }}
     
     # Custom overrides for values.yaml and values_<size>.yaml
     # Add any cluster-specific overrides below
