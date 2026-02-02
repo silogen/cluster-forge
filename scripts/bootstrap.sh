@@ -236,8 +236,8 @@ $YQ_CMD eval '.apps.argocd.valuesObject' ${SCRIPT_DIR}/../root/${VALUES_FILE} > 
 $YQ_CMD eval '.apps.argocd.valuesObject' ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE} > /tmp/argocd_size_values.yaml
 # Use server-side apply to match ArgoCD's self-management strategy
 helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 --namespace argocd \
-  -f /tmp/argocd_values.yaml \
-  -f /tmp/argocd_size_values.yaml \
+  --values /tmp/argocd_values.yaml \
+  --values /tmp/argocd_size_values.yaml \
   --set global.domain="argocd.${DOMAIN}" \
   --kube-version=${KUBE_VERSION} | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
 kubectl rollout status statefulset/argocd-application-controller -n argocd
@@ -252,8 +252,8 @@ $YQ_CMD eval '.apps.openbao.valuesObject' ${SCRIPT_DIR}/../root/${VALUES_FILE} >
 $YQ_CMD eval '.apps.openbao.valuesObject' ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE}  > /tmp/openbao_size_values.yaml
 # Use server-side apply to match ArgoCD's field management strategy
 helm template --release-name openbao ${SCRIPT_DIR}/../sources/openbao/0.18.2 --namespace cf-openbao \
-  -f /tmp/openbao_values.yaml \
-  -f /tmp/openbao_size_values.yaml \
+  --values /tmp/openbao_values.yaml \
+  --values /tmp/openbao_size_values.yaml \
   --set ui.enabled=true \
   --kube-version=${KUBE_VERSION} | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
@@ -296,12 +296,11 @@ kubectl create secret generic gitea-admin-credentials \
 
 $YQ_CMD eval '.apps.gitea.valuesObject' ${SCRIPT_DIR}/../root/${VALUES_FILE} > /tmp/gitea_values.yaml
 $YQ_CMD eval '.apps.gitea.valuesObject' ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE} > /tmp/gitea_size_values.yaml
-
 helm template \
     --release-name gitea ${SCRIPT_DIR}/../sources/gitea/12.3.0 \
     --namespace cf-gitea \
-    --file /tmp/gitea_values.yaml \
-    --file /tmp/gitea_size_values.yaml \
+    --values /tmp/gitea_values.yaml \
+    --values /tmp/gitea_size_values.yaml \
     --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}/" \
     --kube-version=${KUBE_VERSION} \
     | kubectl apply -f -
