@@ -264,9 +264,7 @@ merge_values_files
 
 # Create namespaces
 kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
-if [ "$DEV_MODE" = false ]; then
-    kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
-fi
+kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
 kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
 
 # ArgoCD bootstrap
