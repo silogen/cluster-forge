@@ -1,3 +1,17 @@
 kserve:
   controller:
     deploymentMode: "Standard"
+    gateway:
+      ingressGateway:
+        enableGatewayApi: false
+  localmodel:
+    enabled: false
+  # Remove default resource limits/requests for inference services
+  inferenceservice:
+    resources:
+      limits:
+        cpu: ""
+        memory: ""
+      requests:
+        cpu: ""
+        memory: ""
