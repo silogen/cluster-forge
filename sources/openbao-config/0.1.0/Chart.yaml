@@ -1,0 +1,4 @@
+apiVersion: v2
+name: openbao-config
+description: A Helm chart with config for OpenBao
+version: 0.1.0

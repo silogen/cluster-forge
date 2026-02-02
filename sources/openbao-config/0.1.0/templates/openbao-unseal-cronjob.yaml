@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: openbao-unseal-job
+  namespace: cf-openbao
+spec:
+  schedule: "*/5 * * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      template:
+        metadata:
+          name: openbao-unseal
+        spec:
+          restartPolicy: Never
+          serviceAccountName: openbao-unseal-job-sa
+          containers:
+            - name: openbao-init
+              image: ghcr.io/silogen/cluster-tool:latest
+              command: ["/bin/bash"]
+              args: ["/tmp/scripts/unseal-openbao.sh"]
+              env:
+                - name: UNSEAL_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: openbao-keys
+                      key: unseal_key
+              volumeMounts:
+                - name: scripts
+                  mountPath: /tmp/scripts
+          volumes:
+            - name: scripts
+              configMap:
+                name: openbao-unseal-scripts
+                defaultMode: 0755
