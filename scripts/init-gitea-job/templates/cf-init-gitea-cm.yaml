@@ -120,15 +120,17 @@ data:
     domain: DOMAIN_PLACEHOLDER
     
     clusterForge:
-      repoURL: https://gitea.DOMAIN_PLACEHOLDER/cluster-org/cluster-forge.git
+      repoURL: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git --- IGNORE ---
       path: root
-      targetRevision: EAI_1141_reimplementation_openbao_init
+      targetRevision: main
     
-    # Cluster size configuration (uncomment one)
-    # clusterSize: small
-    # clusterSize: medium
-    # clusterSize: large    
-
+    # clusterSize is set by bootstrap script via --set clusterSize=values_<size>.yaml
+    global:
+      clusterSize: {{ .Values.clusterSize }}
+    
+    global:
+      clusterSize: values_medium.yaml  
+    
     # Custom overrides for values.yaml and values_<size>.yaml
     # Add any cluster-specific overrides below
     # Example:
