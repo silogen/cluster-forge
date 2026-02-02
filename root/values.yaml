@@ -1,13 +1,11 @@
 clusterForge:
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
-  #targetRevision: main
-  targetRevision: EAI_1141_reimplementation_openbao_init
+  targetRevision: main
 # source helm values file from separate git repo
 externalValues:
   enabled: true
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
-  #targetRevision: main
-  targetRevision: EAI_1141_reimplementation_openbao_init
+  targetRevision: main
   path: values.yaml
 global:
   domain: # to be filled by bootstrap script
