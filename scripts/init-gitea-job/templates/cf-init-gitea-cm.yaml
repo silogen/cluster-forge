@@ -120,7 +120,7 @@ data:
     domain: DOMAIN_PLACEHOLDER
     
     clusterForge:
-      repoURL: https://gitea.DOMAIN_PLACEHOLDER/cluster-org/cluster-forge.git --- IGNORE ---
+      repoURL: https://gitea.DOMAIN_PLACEHOLDER/cluster-org/cluster-forge.git
       path: root
       targetRevision: EAI_1141_reimplementation_openbao_init
     
