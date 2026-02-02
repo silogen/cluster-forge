@@ -133,22 +133,36 @@ get_target_revision() {
 
 # Pre-cleanup function to remove resources from previous runs
 pre_cleanup() {
-    echo "=== Pre-cleanup: Removing resources from previous runs ==="
+    echo "=== Pre-cleanup: Checking for previous runs ==="
 
-    # Delete jobs
+    # Check if gitea-init-job exists and completed successfully
+    if kubectl get job gitea-init-job -n cf-gitea >/dev/null 2>&1; then
+        if kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null | grep -q "True"; then
+            echo "Found completed gitea-init-job - removing Gitea to start fresh"
+
+            # Delete all Gitea resources
+            kubectl delete job gitea-init-job -n cf-gitea --ignore-not-found=true
+            kubectl delete deployment gitea -n cf-gitea --ignore-not-found=true
+            kubectl delete statefulset gitea -n cf-gitea --ignore-not-found=true
+            kubectl delete service gitea -n cf-gitea --ignore-not-found=true
+            kubectl delete service gitea-http -n cf-gitea --ignore-not-found=true
+            kubectl delete service gitea-ssh -n cf-gitea --ignore-not-found=true
+            kubectl delete pvc -n cf-gitea -l app.kubernetes.io/name=gitea --ignore-not-found=true
+            kubectl delete configmap initial-cf-values -n cf-gitea --ignore-not-found=true
+            kubectl delete secret gitea-admin-credentials -n cf-gitea --ignore-not-found=true
+            kubectl delete ingress -n cf-gitea -l app.kubernetes.io/name=gitea --ignore-not-found=true
+
+            echo "Gitea resources deleted"
+        fi
+    fi
+
+    # Always delete openbao-init-job to allow re-initialization
     kubectl delete job openbao-init-job -n cf-openbao --ignore-not-found=true
-    kubectl delete job gitea-init-job -n cf-gitea --ignore-not-found=true
-
-    # Delete configmaps
-    kubectl delete configmap initial-cf-values -n cf-gitea --ignore-not-found=true
-
-    # Delete secrets
-    kubectl delete secret gitea-admin-credentials -n cf-gitea --ignore-not-found=true
 
     # Delete temporary files
     rm -f /tmp/merged_values.yaml /tmp/argocd_values.yaml /tmp/argocd_size_values.yaml \
-          /tmp/openbao_values.yaml /tmp/openbao_size_values.yaml \
-          /tmp/gitea_values.yaml /tmp/gitea_size_values.yaml
+      /tmp/openbao_values.yaml /tmp/openbao_size_values.yaml \
+      /tmp/gitea_values.yaml /tmp/gitea_size_values.yaml
 
     echo "Pre-cleanup complete"
     echo ""
