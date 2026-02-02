@@ -157,9 +157,13 @@ apps:
         jsonPointers:
           - /spec/volumeClaimTemplates
   openbao-config:
-    path: openbao-config
+    path: openbao-config/0.1.0
     namespace: cf-openbao
-    syncWave: -1
+    valuesFile: values.yaml
+    helmParameters:
+      - name: domain
+        value: "{{ .Values.global.domain }}"
+    syncWave: -2
   external-secrets:
     path: external-secrets/0.15.1
     namespace: external-secrets
