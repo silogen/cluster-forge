@@ -101,6 +101,14 @@ data:
             exit 1
         fi
     fi
+
+    # set mirror default branch (--dev mode)
+    if [ "$TARGET_REVISION" != "main" ]
+      curl -X PATCH "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" \
+      -H "Authorization: token ${GITEA_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{"default_branch": "$TARGET_REVISION"}'
+    fi
     
     echo "Step 3: Creating repository 'cluster-values'..."
     curl -X POST "${GITEA_URL}/api/v1/orgs/cluster-org/repos" \
