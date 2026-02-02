@@ -124,7 +124,7 @@ data:
     clusterForge:
       repoURL: https://gitea.DOMAIN_PLACEHOLDER/cluster-org/cluster-forge.git
       path: root
-      targetRevision: main
+      targetRevision: EAI_1141_reimplementation_on_main
     
     # Cluster size configuration (uncomment one)
     # clusterSize: small
