@@ -234,15 +234,6 @@ merge_values_files() {
         ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE} | \
         $YQ_CMD eval ".global.domain = \"${DOMAIN}\"")
     
-    # In dev mode, update repository settings to point to GitHub
-    if [ "$DEV_MODE" = true ]; then
-        VALUES=$(echo "$VALUES" | $YQ_CMD eval "
-            .spec.source.repoURL = \"https://github.com/your-org/your-repo\" |
-            .spec.source.targetRevision = \"${TARGET_REVISION}\"
-        ")
-        echo "Updated repository settings for dev mode"
-    fi
-    
     # Write merged values to temp file for use throughout script
     echo "$VALUES" > /tmp/merged_values.yaml
     echo "Merged values written to /tmp/merged_values.yaml"
@@ -368,7 +359,7 @@ if [ "$DEV_MODE" = true ]; then
     echo "Mode: Development (GitHub integration)"
     echo "Target revision: $TARGET_REVISION"
     echo "Access ArgoCD at: https://argocd.${DOMAIN}"
-    echo "NOTE: Gitea was skipped in development mode"
+    echo "NOTE: Gitea default branch for cluster-forge repo set to above target revision"
 else
     echo "Mode: Production (Gitea integration)"
     echo "Access ArgoCD at: https://argocd.${DOMAIN}"
