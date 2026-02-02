@@ -103,7 +103,7 @@ data:
     fi
 
     # set mirror default branch (--dev mode)
-    if [ "$TARGET_REVISION" != "main" ]
+    if [ "$TARGET_REVISION" != "main" ]; then
       curl -X PATCH "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" \
       -H "Authorization: token ${GITEA_TOKEN}" \
       -H "Content-Type: application/json" \
@@ -151,7 +151,7 @@ data:
     clusterForge:
       repoURL: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git --- IGNORE ---
       path: root
-     targetRevision: {{ .Values.targetRevision }}
+      targetRevision: {{ .Values.targetRevision }}
     
     # clusterSize is set by bootstrap script via --set clusterSize=values_<size>.yaml
     global:
