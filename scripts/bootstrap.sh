@@ -148,13 +148,6 @@ case "$CLUSTER_SIZE" in
     ;;
 esac
 
-# Handle dev mode values file creation
-if [ "$DEV_MODE" = true ]; then
-    echo "Development mode: copying values_cf.yaml to values_dev.yaml"
-    cp "${SCRIPT_DIR}/../root/values_cf.yaml" "${SCRIPT_DIR}/../root/values_dev.yaml"
-    VALUES_FILE="values_dev.yaml"
-fi
-
 # Validate values file exists
 if [ ! -f "${SCRIPT_DIR}/../root/${VALUES_FILE}" ]; then
     echo "ERROR: Values file not found: ${SCRIPT_DIR}/../root/${VALUES_FILE}"
