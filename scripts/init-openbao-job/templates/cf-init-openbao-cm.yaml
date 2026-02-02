@@ -10,44 +10,98 @@ data:
     set -e
     
     echo "Checking OpenBao status on openbao-0..."
-    if kubectl exec openbao-0 -n cf-openbao -- bao status 2>&1 | grep -q "Initialized.*true"; then
-      echo "OpenBao is already initialized. Skipping initialization."
+    OPENBAO_0_STATUS=$(kubectl exec openbao-0 -n cf-openbao -- bao status 2>&1 || true)
+    OPENBAO_0_INITIALIZED=$(echo "$OPENBAO_0_STATUS" | grep -q "Initialized.*true" && echo "true" || echo "false")
+    OPENBAO_0_SEALED=$(echo "$OPENBAO_0_STATUS" | grep -q "Sealed.*true" && echo "true" || echo "false")
+    
+    if [ "$OPENBAO_0_INITIALIZED" = "true" ] && [ "$OPENBAO_0_SEALED" = "false" ]; then
+      echo "OpenBao openbao-0 is already initialized and unsealed."
+      
+      # Dynamically detect HA replicas by checking for openbao-1, openbao-2, etc.
+      echo "Checking for HA replica pods..."
+      if kubectl get secret openbao-keys -n cf-openbao &>/dev/null; then
+        BAO_UNSEAL_KEY=$(kubectl get secret openbao-keys -n cf-openbao -o jsonpath='{.data.unseal_key}' | base64 -d)
+        
+        # Check for replica pods (openbao-1, openbao-2, etc.)
+        REPLICA_PODS=$(kubectl get pods -n cf-openbao -l app.kubernetes.io/name=openbao -o name | grep -v "openbao-0" | sed 's/pod\///' || true)
+        
+        if [ -n "$REPLICA_PODS" ]; then
+          echo "Found HA replicas: $REPLICA_PODS"
+          
+          for replica in $REPLICA_PODS; do
+            echo "Checking $replica status..."
+            REPLICA_STATUS=$(kubectl exec $replica -n cf-openbao -- bao status 2>&1 || true)
+            REPLICA_SEALED=$(echo "$REPLICA_STATUS" | grep -q "Sealed.*true" && echo "true" || echo "false")
+            REPLICA_INITIALIZED=$(echo "$REPLICA_STATUS" | grep -q "Initialized.*true" && echo "true" || echo "false")
+            
+            if [ "$REPLICA_SEALED" = "true" ] || [ "$REPLICA_INITIALIZED" = "false" ]; then
+              echo "Setting up $replica..."
+              if [ "$REPLICA_INITIALIZED" = "false" ]; then
+                echo "Joining $replica to Raft cluster..."
+                kubectl exec $replica -n cf-openbao -- bao operator raft join http://openbao-0.openbao-internal:8200 || echo "Already joined or join failed"
+              fi
+              if [ "$REPLICA_SEALED" = "true" ]; then
+                echo "Unsealing $replica..."
+                kubectl exec $replica -n cf-openbao -- sh -c "bao operator unseal \"$BAO_UNSEAL_KEY\""
+              fi
+              kubectl wait --for=condition=ready pod/$replica --timeout=300s -n cf-openbao || echo "Warning: $replica not ready"
+            else
+              echo "$replica is already unsealed and ready."
+            fi
+          done
+          
+          echo "HA cluster setup verified/completed!"
+        else
+          echo "No HA replicas found (single-node deployment)."
+        fi
+      else
+        echo "ERROR: openbao-keys secret not found. Cannot unseal replicas."
+        exit 1
+      fi
+      
+      echo "OpenBao is fully operational. Skipping initialization."
       exit 0
     fi
     
-    echo "Initializing OpenBao on openbao-0..."
-    INIT_OUTPUT=$(kubectl exec openbao-0 -- bao operator init -format=json -key-shares=1 -key-threshold=1)
-    echo $INIT_OUTPUT > /tmp/bao-keys.json;
+    if [ "$OPENBAO_0_INITIALIZED" = "false" ]; then
+      echo "Initializing OpenBao on openbao-0..."
+      INIT_OUTPUT=$(kubectl exec openbao-0 -- bao operator init -format=json -key-shares=1 -key-threshold=1)
+      echo $INIT_OUTPUT > /tmp/bao-keys.json;
 
-    echo "Saving unseal keys and root token to openbao-keys k8s secret..."        
-    BAO_ROOT_TOKEN=$(jq -r '.root_token' /tmp/bao-keys.json);
-    BAO_UNSEAL_KEY=$(jq -r '.unseal_keys_b64[0]' /tmp/bao-keys.json);    
-    kubectl create secret generic openbao-keys -n cf-openbao \
-      --from-literal=root_token="$BAO_ROOT_TOKEN" \
-      --from-literal=unseal_key="$BAO_UNSEAL_KEY" \
-      --dry-run=client -o yaml | kubectl apply -f -
+      echo "Saving unseal keys and root token to openbao-keys k8s secret..."        
+      BAO_ROOT_TOKEN=$(jq -r '.root_token' /tmp/bao-keys.json);
+      BAO_UNSEAL_KEY=$(jq -r '.unseal_keys_b64[0]' /tmp/bao-keys.json);    
+      kubectl create secret generic openbao-keys -n cf-openbao \
+        --from-literal=root_token="$BAO_ROOT_TOKEN" \
+        --from-literal=unseal_key="$BAO_UNSEAL_KEY" \
+        --dry-run=client -o yaml | kubectl apply -f -
+    else
+      echo "OpenBao openbao-0 is initialized but sealed. Getting unseal key..."
+      BAO_UNSEAL_KEY=$(kubectl get secret openbao-keys -n cf-openbao -o jsonpath='{.data.unseal_key}' | base64 -d)
+    fi
     
     echo "Unsealing openbao-0..."
-    kubectl exec openbao-0 -n cf-openbao -- bao operator unseal "$BAO_UNSEAL_KEY"
+    kubectl exec openbao-0 -n cf-openbao -- sh -c "bao operator unseal \"$BAO_UNSEAL_KEY\""
     kubectl wait --for=condition=ready pod/openbao-0 --timeout=300s -n cf-openbao
     
-    {{- if and .Values.server.ha.enabled .Values.server.ha.raft.enabled (gt (.Values.server.ha.replicas | int) 1) }}
-    echo "HA mode enabled with {{ .Values.server.ha.replicas }} replicas. Setting up Raft cluster..."
+    # Dynamically detect and setup HA replicas
+    REPLICA_PODS=$(kubectl get pods -n cf-openbao -l app.kubernetes.io/name=openbao -o name | grep -v "openbao-0" | sed 's/pod\///' || true)
     
-    {{- $replicas := .Values.server.ha.replicas | int }}
-    {{- range $i := until $replicas }}
-    {{- if gt $i 0 }}
-    echo "Unsealing openbao-{{ $i }} & joining to Raft cluster..."
-    kubectl exec openbao-{{ $i }} -n cf-openbao -- bao operator raft join http://openbao-0.openbao-internal:8200
-    kubectl exec openbao-{{ $i }} -n cf-openbao -- bao operator unseal "$BAO_UNSEAL_KEY"
-    kubectl wait --for=condition=ready pod/openbao-{{ $i }} --timeout=300s -n cf-openbao
-    {{- end }}
-    {{- end }}
-    
-    echo "OpenBao Raft cluster initialization completed successfully!"
-    {{- else }}
-    echo "OpenBao single-node initialization completed successfully!"
-    {{- end }}
+    if [ -n "$REPLICA_PODS" ]; then
+      echo "HA mode detected. Setting up Raft cluster with replicas: $REPLICA_PODS"
+      
+      for replica in $REPLICA_PODS; do
+        echo "Setting up $replica..."
+        kubectl exec $replica -n cf-openbao -- bao operator raft join http://openbao-0.openbao-internal:8200
+        kubectl exec $replica -n cf-openbao -- sh -c "bao operator unseal \"$BAO_UNSEAL_KEY\""
+        kubectl wait --for=condition=ready pod/$replica --timeout=300s -n cf-openbao
+      done
+      
+      echo "OpenBao Raft cluster initialization completed successfully!"
+    else
+      echo "OpenBao single-node initialization completed successfully!"
+    fi
+
     
   setup-openbao.sh: |
     #!/bin/bash
@@ -154,6 +208,7 @@ data:
         
     bao kv put secrets/keycloak-initial-admin-password value="$(generate_random)";
     bao kv put secrets/keycloak-initial-devuser-password value="password";
+    
     bao kv put secrets/keycloak-cnpg-user-username value=keycloak;
     bao kv put secrets/keycloak-cnpg-user-password value=keycloak;
     bao kv put secrets/keycloak-cnpg-superuser-username value="$(generate_random)";

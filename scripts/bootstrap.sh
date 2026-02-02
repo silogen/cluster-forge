@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Initialize variables
 DOMAIN=""
-VALUES_FILE="values_cf.yaml"
+VALUES_FILE="values.yaml"
 CLUSTER_SIZE="medium"  # Default to medium
 KUBE_VERSION=1.33
 
@@ -30,7 +30,7 @@ while [[ $# -gt 0 ]]; do
       echo ""
       echo "Arguments:"
       echo "  domain                  Required. Cluster domain (e.g., example.com)"
-      echo "  values_file            Optional. Values file to use (default: values_cf.yaml)"
+      echo "  values_file            Optional. Values file to use (default: values.yaml)"
       echo "  --CLUSTER_SIZE         Optional. Cluster size (default: medium)"
       echo ""
       echo "Cluster sizes:"
@@ -40,8 +40,7 @@ while [[ $# -gt 0 ]]; do
       echo ""
       echo "Examples:"
       echo "  $0 example.com"
-      echo "  $0 example.com values_prod.yaml"
-      echo "  $0 example.com values_cf.yaml --CLUSTER_SIZE=large"
+      echo "  $0 example.com values.yaml --CLUSTER_SIZE=large"
       echo "  $0 dev.example.com --CLUSTER_SIZE=small"
       exit 0
       ;;
@@ -54,7 +53,7 @@ while [[ $# -gt 0 ]]; do
       # Positional arguments
       if [ -z "$DOMAIN" ]; then
         DOMAIN="$1"
-      elif [ "$VALUES_FILE" = "values_cf.yaml" ]; then
+      elif [ "$VALUES_FILE" = "values.yaml" ]; then
         VALUES_FILE="$1"
       else
         echo "ERROR: Too many arguments: $1"
@@ -118,6 +117,9 @@ else
     exit 1
 fi
 
+# Update the global.clusterSize in the base values file with full filename
+$YQ_CMD -i ".global.clusterSize = \"values_${CLUSTER_SIZE}.yaml\"" "${SCRIPT_DIR}/../root/${VALUES_FILE}"
+
 # Function to merge values files early for use throughout the script
 merge_values_files() {
     echo "Merging values files..."
@@ -159,12 +161,13 @@ kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
 # ArgoCD bootstrap
 echo "Bootstrapping ArgoCD..."
 # Extract ArgoCD values from merged config and write to temp values file
-$YQ_CMD eval '.apps.argocd.valuesObject' /tmp/merged_values.yaml > /tmp/argocd_values.yaml
-
+$YQ_CMD eval '.apps.argocd.valuesObject' ${SCRIPT_DIR}/../root/${VALUES_FILE} > /tmp/argocd_values.yaml
+$YQ_CMD eval '.apps.argocd.valuesObject' ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE} > /tmp/argocd_size_values.yaml
 # Use server-side apply to match ArgoCD's self-management strategy
 helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 --namespace argocd \
   -f /tmp/argocd_values.yaml \
-  --set global.domain="https://argocd.${DOMAIN}" \
+  -f /tmp/argocd_size_values.yaml \
+  --set global.domain="argocd.${DOMAIN}" \
   --kube-version=${KUBE_VERSION} | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
 kubectl rollout status statefulset/argocd-application-controller -n argocd
 kubectl rollout status deploy/argocd-applicationset-controller -n argocd
@@ -174,11 +177,12 @@ kubectl rollout status deploy/argocd-repo-server -n argocd
 # OpenBao bootstrap
 echo "Bootstrapping OpenBao..."
 # Extract OpenBao values from merged config
-$YQ_CMD eval '.apps.openbao.valuesObject' /tmp/merged_values.yaml > /tmp/openbao_values.yaml
-
+$YQ_CMD eval '.apps.openbao.valuesObject' ${SCRIPT_DIR}/../root/${VALUES_FILE} > /tmp/openbao_values.yaml
+$YQ_CMD eval '.apps.openbao.valuesObject' ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE}  > /tmp/openbao_size_values.yaml
 # Use server-side apply to match ArgoCD's field management strategy
 helm template --release-name openbao ${SCRIPT_DIR}/../sources/openbao/0.18.2 --namespace cf-openbao \
   -f /tmp/openbao_values.yaml \
+  -f /tmp/openbao_size_values.yaml \
   --set ui.enabled=true \
   --kube-version=${KUBE_VERSION} | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
@@ -206,24 +210,16 @@ kubectl create secret generic gitea-admin-credentials \
   --from-literal=password=$(generate_password) \
   --dry-run=client -o yaml | kubectl apply -f -
 
+$YQ_CMD eval '.apps.gitea.valuesObject' ${SCRIPT_DIR}/../root/${VALUES_FILE} > /tmp/gitea_values.yaml
+$YQ_CMD eval '.apps.gitea.valuesObject' ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE} > /tmp/gitea_size_values.yaml
+
 helm template --release-name gitea ${SCRIPT_DIR}/../sources/gitea/12.3.0 --namespace cf-gitea \
-  --set clusterDomain="${DOMAIN}" \
-  --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}" \
-  --set gitea.config.database.DB_TYPE="sqlite3" \
-  --set gitea.config.session.PROVIDER="memory" \
-  --set gitea.config.cache.ADAPTER="memory" \
-  --set gitea.config.queue.TYPE="level" \
-  --set gitea.admin.existingSecret="gitea-admin-credentials" \
-  --set strategy.type="Recreate" \
-  --set valkey-cluster.enabled=false \
-  --set valkey.enabled=false \
-  --set postgresql.enabled=false \
-  --set postgresql-ha.enabled=false \
-  --set persistence.enabled=true \
-  --set test.enabled=false \
+  -f /tmp/gitea_values.yaml \
+  -f /tmp/gitea_size_values.yaml \
+  --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}/" \
   --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl rollout status deploy/gitea -n cf-gitea
-helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job --set domain="${DOMAIN}" --kube-version=${KUBE_VERSION} | kubectl apply -f -
+helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job --set domain="${DOMAIN}" --set clusterSize="values_${CLUSTER_SIZE}.yaml" --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
 
 # Create cluster-forge app-of-apps with merged configuration
