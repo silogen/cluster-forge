@@ -131,11 +131,37 @@ get_target_revision() {
     fi
 }
 
+# Pre-cleanup function to remove resources from previous runs
+pre_cleanup() {
+    echo "=== Pre-cleanup: Removing resources from previous runs ==="
+
+    # Delete jobs
+    kubectl delete job openbao-init-job -n cf-openbao --ignore-not-found=true
+    kubectl delete job gitea-init-job -n cf-gitea --ignore-not-found=true
+
+    # Delete configmaps
+    kubectl delete configmap initial-cf-values -n cf-gitea --ignore-not-found=true
+
+    # Delete secrets
+    kubectl delete secret gitea-admin-credentials -n cf-gitea --ignore-not-found=true
+
+    # Delete temporary files
+    rm -f /tmp/merged_values.yaml /tmp/argocd_values.yaml /tmp/argocd_size_values.yaml \
+          /tmp/openbao_values.yaml /tmp/openbao_size_values.yaml \
+          /tmp/gitea_values.yaml /tmp/gitea_size_values.yaml
+
+    echo "Pre-cleanup complete"
+    echo ""
+}
+
 # Validate domain
 get_domain
 
 # Handle dev mode branch selection
 get_target_revision
+
+# Run pre-cleanup
+pre_cleanup
 
 # Validate cluster size
 case "$CLUSTER_SIZE" in
