@@ -120,23 +120,13 @@ data:
     domain: DOMAIN_PLACEHOLDER
     
     clusterForge:
-      repoURL: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git --- IGNORE ---
+      repoURL: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git
       path: root
       targetRevision: main
     
     # clusterSize is set by bootstrap script via --set clusterSize=values_<size>.yaml
     global:
       clusterSize: {{ .Values.clusterSize }}
-    
-    global:
-      clusterSize: values_medium.yaml  
-    
-    # Custom overrides for values.yaml and values_<size>.yaml
-    # Add any cluster-specific overrides below
-    # Example:
-    # gitea:
-    #   enabled: true
-    #   customConfig: value
 
     EOF
     
