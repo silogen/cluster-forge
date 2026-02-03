@@ -1,60 +1,10 @@
 # LARGE CLUSTER CONFIGURATION (Production: app-dev.silogen.ai)
-# Actual Hardware: 4 nodes (1 GPU: 224 CPU/2TB RAM/8 GPUs, 3 CP: 16 CPU/96GB RAM each)
-# Total Resources: 272 CPU cores, 2.2TB RAM, 8 AMD GPUs
-# Storage: Longhorn (driver.longhorn.io) with multiple storage classes
-# Classification: MEDIUM-LARGE hybrid (MEDIUM compute, LARGE storage capabilities)
+# Actual Hardware: 4 nodes (HA control plane and at least one worker node)
 #
-# This configuration reflects the ACTUAL production deployment,
-# which uses single replicas for most services (appropriate for 4-node cluster)
-# and Longhorn storage with native RWX support.
+# This configuration reflects a production deployment
 #
 # LARGE CLUSTER: All apps enabled (inherited from base values.yaml)  
 # Uses Longhorn storage with native RWX support - no access mode mutation needed
-# The kyverno-policies-storage-local-path app is NOT included in enabledApps
-enabledApps:
-  - aim-cluster-model-source
-  - airm
-  - amd-gpu-operator
-  - amd-gpu-operator-config
-  - appwrapper
-  - argocd
-  - argocd-config
-  - cert-manager
-  - cluster-auth
-  - cluster-auth-config
-  - cnpg-operator
-  - external-secrets
-  - external-secrets-config
-  - gateway-api
-  - gitea
-  - gitea-config
-  - kaiwo
-  - kaiwo-config
-  - kaiwo-crds
-  - keda
-  - kedify-otel
-  - keycloak
-  - kgateway
-  - kgateway-config
-  - kgateway-crds
-  - kserve
-  - kserve-crds
-  - kueue
-  - kueue-config
-  - kuberay-operator
-  - kyverno
-  - kyverno-config
-  - kyverno-policies-base
-  - metallb
-  - minio-operator
-  - minio-tenant
-  - minio-tenant-config
-  - openbao
-  - openbao-config
-  - opentelemetry-operator
-  - otel-lgtm-stack
-  - prometheus-crds
-  - rabbitmq
 
 apps:
   # Core apps - ArgoCD (Production: single replicas, appropriate for 4-node cluster)
@@ -82,26 +32,12 @@ apps:
   minio-tenant:
     valuesObject:
       tenant:
-        # Production: 2 buckets (default-bucket, models)
-        buckets:
-          - name: default-bucket
-            objectLock: true
-          - name: models
-            objectLock: true
-        # Production: Prometheus integration
-        env:
-          - name: MINIO_PROMETHEUS_AUTH_TYPE
-            value: "public"
-        # Production: Single pool, single server, 500Gi on direct storage
         pools:
           - name: pool-0
             servers: 1
             size: 500Gi
             storageClassName: direct
             volumesPerServer: 1
-        # Production: Single default user
-        users:
-          - name: default-user
 
   # Secrets - OpenBao (Production: 3 replicas, 10Gi storage)
   openbao:
