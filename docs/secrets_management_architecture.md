@@ -191,14 +191,18 @@ Secret Engines:
 4. Creates `readonly-user` with read-only permissions
 5. Stores readonly credentials in K8s secret `openbao-user`
 
-**generate-secrets.sh:**
-Generates all application secrets using OpenBao's random generator:
-- Database credentials (Keycloak, AIRM, Catalog)
-- RabbitMQ user credentials
-- MinIO access keys and secrets
-- OAuth client secrets (Gitea, ArgoCD, K8s realm)
-- Keycloak admin passwords
-- Cluster authentication tokens
+**manage-secrets.sh (NEW - Unified Secret Management):**
+Replaces the old hardcoded `generate-secrets.sh` with a declarative, config-driven approach:
+1. Reads secret definitions from `openbao-secret-definitions.yaml` ConfigMap
+2. Supports two secret types:
+   - `static`: Fixed values with domain templating support (e.g., `{{ .Values.domain }}`)
+   - `random`: Generated using OpenBao's random tool with specified byte length
+3. Uses format: `SECRET_PATH|TYPE|VALUE|BYTES` (e.g., `secrets/my-app-password|random||32`)
+4. Idempotent operation - skips existing secrets, only creates missing ones
+5. Handles domain templating with `envsubst` for static values
+6. Special handling for `cluster-auth-openbao-token` in init mode
+7. Used by both bootstrap process and ongoing CronJob management
+8. Comprehensive error handling and progress reporting instead of generate-secrets.sh.
 
 ### 3. Automated Unseal Mechanism
 
@@ -214,7 +218,61 @@ Generates all application secrets using OpenBao's random generator:
 3. Executes `bao operator unseal` on each sealed pod
 4. Handles pod restarts and cluster member changes
 
-### 4. External Secrets Operator
+### 4. Automated Secret Management System
+
+**Declarative Secret Definition System:**
+- **Location**: `sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml`
+- **Format**: Structured ConfigMap with pipe-delimited entries: `SECRET_PATH|TYPE|VALUE|BYTES`
+- **Configuration Management**: Deployed as Helm chart enabling GitOps-based secret management
+- **Domain Templating**: Static values support `{{ .Values.domain }}` templating for environment-specific configuration
+
+**Secret Types Supported:**
+1. **Static Secrets**: 
+   - Format: `secrets/cluster-domain|static|{{ .Values.domain }}|0`
+   - Use case: Fixed values, URLs, domain references
+   - Supports Helm templating for dynamic values
+2. **Random Secrets**:
+   - Format: `secrets/my-app-password|random||32`
+   - Use case: Generated passwords, tokens, API keys
+   - Byte length specified in fourth field
+
+**CronJob-Based Management:**
+- **Schedule**: Every 5 minutes (`*/5 * * * *`)
+- **Purpose**: Ensures all defined secrets exist in OpenBao without manual intervention
+- **Behavior**: Idempotent - only creates missing secrets, skips existing ones
+- **Template**: `sources/openbao-config/0.1.0/templates/openbao-secret-manager-cronjob.yaml`
+- **Service Account**: `openbao-secret-manager-sa` with minimal required permissions
+- **Timeout**: 5-minute active deadline with single retry on failure
+
+**Configuration Management Features:**
+- **Checksum Annotations**: Forces pod recreation when ConfigMap changes
+- **Resource Limits**: Memory: 256Mi, CPU: 500m for controlled resource usage
+- **Environment Variables**: Domain templating via Helm values injection
+- **Volume Mounts**: Scripts from `openbao-secret-manager-scripts`, config from `openbao-secrets-config`
+
+**Adding New Secrets Workflow:**
+1. Edit `sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml`
+2. Add line following format: `secrets/my-app-password|random||32`
+3. Commit and push to main branch
+4. ArgoCD syncs the configuration within ~3 minutes
+5. CronJob automatically creates the secret within ~5 minutes
+6. Total time from commit to secret availability: ~8 minutes
+
+**For detailed user guide:** See [secret management user guide](secret-management-user-guide.md) for step-by-step instructions and examples
+
+**Examples from Current Configuration:**
+```
+# Database credentials
+secrets/airm-cnpg-user-password|random||16
+
+# Static domain-based URLs
+secrets/minio-openid-url|static|https://kc.{{ .Values.domain }}/realms/airm/.well-known/openid-configuration|0
+
+# Fixed API keys
+secrets/minio-api-access-key|static|api-default-user|0
+```
+
+### 5. External Secrets Operator
 
 **Components:**
 - **Controller**: Watches ExternalSecret resources and syncs from backends
@@ -243,45 +301,43 @@ Generates all application secrets using OpenBao's random generator:
    - Provider: Fake (hardcoded values)
    - Used for: Testing and default values
 
-### 5. Secret Flow Architecture
+### 6. Secret Flow Architecture
 
-```
-┌─────────────────┐
-│ Bootstrap Script│
-└────────┬────────┘
-         │ 1. Initialize
-         ▼
-┌─────────────────┐
-│  OpenBao Vault  │◄─── Unseals every 5min
-│   (3 replicas)  │
-└────────┬────────┘
-         │ 2. Store secrets
-         ▼
-┌─────────────────┐
-│ KV v2 Engine    │
-│  secrets/*      │
-└────────┬────────┘
-         │ 3. External Secrets reads
-         ▼
-┌──────────────────────┐
-│ ClusterSecretStore   │
-│ (openbao-secret-store)│
-└────────┬─────────────┘
-         │ 4. Sync to K8s
-         ▼
-┌─────────────────┐
-│ ExternalSecret  │
-│   Resources     │
-└────────┬────────┘
-         │ 5. Creates K8s Secret
-         ▼
-┌─────────────────┐
-│ Application Pod │
-│ (mounts secret) │
-└─────────────────┘
+```mermaid
+flowchart TD
+    %% Styling
+    classDef bootstrap fill:#FFE066,stroke:#FFB800,stroke-width:3px,color:#000
+    classDef vault fill:#4B8BBE,stroke:#306998,stroke-width:3px,color:#fff
+    classDef config fill:#9B59B6,stroke:#8E44AD,stroke-width:2px,color:#fff
+    classDef k8s fill:#326CE5,stroke:#00308F,stroke-width:2px,color:#fff
+    classDef app fill:#00D084,stroke:#00A86B,stroke-width:2px,color:#fff
+    classDef external fill:#FF6B6B,stroke:#C92A2A,stroke-width:2px,color:#fff
+
+    %% Main flow
+    A[Bootstrap Script<br/>1. Deploy openbao-config<br/>2. Initialize OpenBao]:::bootstrap
+    B[OpenBao Vault Cluster<br/>3 replicas<br/>Unseals every 5min]:::vault
+    C[Automated Management<br/>CronJob every 5min<br/>- Reads config<br/>- Creates missing<br/>- Skips existing]:::config
+    D["Secret Definition<br/>ConfigMap Helm<br/>- Format: PATH|TYPE|...<br/>- Domain templating<br/>- GitOps managed"]:::config
+    E[KV v2 Engine<br/>secrets/* in OpenBao]:::vault
+    F[ClusterSecretStore<br/>openbao-secret-store]:::external
+    G[ExternalSecret<br/>Resources]:::k8s
+    H[Application Pod<br/>mounts secret]:::app
+
+    %% Flow connections with labels
+    A -->|1. Deploys| B
+    A -->|1. Creates| D
+    D -->|3. Monitors definitions| C
+    C -->|2. Config-driven secret creation| B
+    B -->|4. Secrets stored| E
+    E -->|5. External Secrets reads| F
+    F -->|6. Sync to K8s| G
+    G -->|7. Creates K8s Secret| H
+
+    %% Feedback loop
+    C -.->|Monitors ConfigMap| D
 ```
 
-### 6. Secret Categories
+### 7. Secret Categories
 
 **Identity & Authentication:**
 - Keycloak admin password
@@ -303,7 +359,7 @@ Generates all application secrets using OpenBao's random generator:
 - OpenBao root token (stored in K8s)
 - Domain configuration
 
-### 7. Security Model
+### 8. Security Model
 
 **Encryption at Rest:**
 - OpenBao data encrypted in Raft storage
@@ -324,7 +380,7 @@ Generates all application secrets using OpenBao's random generator:
 - Applications can reference specific versions
 - Old versions retained for rollback
 
-### 8. Disaster Recovery
+### 9. Disaster Recovery
 
 **Backup Strategy:**
 - OpenBao unseal key stored in `openbao-keys` K8s secret
@@ -342,7 +398,7 @@ Generates all application secrets using OpenBao's random generator:
 - For production, use Shamir's Secret Sharing (key-shares=5, threshold=3)
 - Consider auto-unseal with cloud KMS for production
 
-### 9. Integration Points
+### 10. Integration Points
 
 **Gitea Configuration:**
 - Admin credentials generated during bootstrap
