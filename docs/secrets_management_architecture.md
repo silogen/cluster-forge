@@ -317,7 +317,7 @@ flowchart TD
     A[Bootstrap Script<br/>1. Deploy openbao-config<br/>2. Initialize OpenBao]:::bootstrap
     B[OpenBao Vault Cluster<br/>3 replicas<br/>Unseals every 5min]:::vault
     C[Automated Management<br/>CronJob every 5min<br/>- Reads config<br/>- Creates missing<br/>- Skips existing]:::config
-    D[Secret Definition<br/>ConfigMap Helm<br/>- Format: PATH|TYPE|...<br/>- Domain templating<br/>- GitOps managed]:::config
+    D["Secret Definition<br/>ConfigMap Helm<br/>- Format: PATH|TYPE|...<br/>- Domain templating<br/>- GitOps managed"]:::config
     E[KV v2 Engine<br/>secrets/* in OpenBao]:::vault
     F[ClusterSecretStore<br/>openbao-secret-store]:::external
     G[ExternalSecret<br/>Resources]:::k8s
