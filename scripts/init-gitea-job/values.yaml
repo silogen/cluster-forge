@@ -1,2 +1,3 @@
 domain: # to be filled by bootstrap script
 clusterSize: values_medium.yaml # to be filled by bootstrap script
+targetRevision: main
