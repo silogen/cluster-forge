@@ -177,51 +177,28 @@ spec:
 
 ## Current Secret Inventory
 
-**Cluster-Wide:**
-- `secrets/cluster-domain` - Domain for ingress and routing
+For a complete and up-to-date list of all secrets in the system, refer to the **source of truth**:
 
-**AIRM Application:**
-- `secrets/airm-cnpg-user-username` - Database username (static: airm_user)
-- `secrets/airm-cnpg-user-password` - Database user password (random 16 bytes)
-- `secrets/airm-cnpg-superuser-username` - Database superuser username (random 16 bytes)
-- `secrets/airm-cnpg-superuser-password` - Database superuser password (random 16 bytes)
-- `secrets/airm-rabbitmq-user-username` - RabbitMQ username (random 16 bytes)
-- `secrets/airm-rabbitmq-user-password` - RabbitMQ password (random 16 bytes)
-- `secrets/airm-ui-keycloak-secret` - Keycloak client secret (random 16 bytes)
-- `secrets/airm-ui-auth-nextauth-secret` - NextAuth secret (random 16 bytes)
-- `secrets/airm-ci-client-secret` - CI client secret (random 16 bytes)
-- `secrets/airm-keycloak-admin-client-id` - Keycloak admin client ID (static)
-- `secrets/airm-keycloak-admin-client-secret` - Admin client secret (random 16 bytes)
+```
+sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml
+```
 
-**Keycloak:**
-- `secrets/keycloak-initial-admin-password` - Initial admin password (random 16 bytes)
-- `secrets/keycloak-initial-devuser-password` - Dev user password (random 16 bytes)
-- `secrets/keycloak-cnpg-user-username` - Database username (static: keycloak)
-- `secrets/keycloak-cnpg-user-password` - Database password (static: keycloak)
-- `secrets/keycloak-cnpg-superuser-username` - Database superuser (random 16 bytes)
-- `secrets/keycloak-cnpg-superuser-password` - Database superuser password (random 16 bytes)
+This file contains all currently defined secrets organized by category:
+- **Cluster-Wide**: Domain configuration
+- **AIRM Application**: Database, RabbitMQ, and UI authentication secrets  
+- **Keycloak**: Admin passwords and database credentials
+- **MinIO**: Storage access keys and console credentials
+- **Infrastructure**: Client secrets for Kubernetes, Gitea, and ArgoCD
+- **AIWB Application**: Database and authentication secrets
 
-**MinIO:**
-- `secrets/minio-api-access-key` - API access key (static: api-default-user)
-- `secrets/minio-api-secret-key` - API secret key (random 16 bytes)
-- `secrets/minio-console-access-key` - Console access key (static: default-user)
-- `secrets/minio-console-secret-key` - Console secret key (random 16 bytes)
-- `secrets/minio-root-password` - Root password (random 16 bytes)
-- `secrets/minio-client-secret` - Client secret (random 16 bytes)
-- `secrets/minio-openid-url` - OpenID Connect URL (static, templated)
+**To view current secrets:**
+```bash
+# View the complete secret definitions file
+cat sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml
 
-**Infrastructure:**
-- `secrets/k8s-client-secret` - Kubernetes client secret (random 16 bytes)
-- `secrets/gitea-client-secret` - Gitea client secret (random 16 bytes)
-- `secrets/argocd-client-secret` - ArgoCD client secret (random 16 bytes)
-- `secrets/cluster-auth-admin-token` - Cluster auth token (random 16 bytes)
-
-**AIWB Application:**
-- `secrets/aiwb-cnpg-user-username` - Database username (random 16 bytes)
-- `secrets/aiwb-cnpg-user-password` - Database password (random 16 bytes)
-- `secrets/aiwb-cnpg-superuser-username` - Database superuser (random 16 bytes)
-- `secrets/aiwb-cnpg-superuser-password` - Database superuser password (random 16 bytes)
-- `secrets/aiwb-ui-auth-nextauth-secret` - NextAuth secret (random 16 bytes)
+# Or check specific secrets in OpenBao
+kubectl exec -n cf-openbao openbao-0 -- bao kv list secrets/
+```
 
 ## Troubleshooting
 
@@ -293,3 +270,5 @@ kubectl exec -n cf-openbao openbao-0 -- bao kv get secrets/my-app-password
 ## Getting Help
 
 **For issues:** Check troubleshooting section, ArgoCD/CronJob logs, or see [secrets management architecture documentation](secrets_management_architecture.md)
+
+**For architectural details:** See [secrets management architecture documentation](secrets_management_architecture.md) for comprehensive system overview

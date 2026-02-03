@@ -258,6 +258,8 @@ Replaces the old hardcoded `generate-secrets.sh` with a declarative, config-driv
 5. CronJob automatically creates the secret within ~5 minutes
 6. Total time from commit to secret availability: ~8 minutes
 
+**For detailed user guide:** See [secret management user guide](secret-management-user-guide.md) for step-by-step instructions and examples
+
 **Examples from Current Configuration:**
 ```
 # Database credentials
@@ -301,54 +303,38 @@ secrets/minio-api-access-key|static|api-default-user|0
 
 ### 6. Secret Flow Architecture
 
-```
-┌─────────────────────────┐
-│ Bootstrap Script        │
-│ 1. Deploy openbao-config│
-│ 2. Initialize OpenBao   │
-└────────┬────────────────┘
-         │ 
-         ▼
-┌─────────────────────────┐    ┌─────────────────────────┐
-│  OpenBao Vault Cluster  │    │ Automated Management    │
-│   (3 replicas)          │◄───┤ CronJob (every 5min)    │
-│ ◄─── Unseals every 5min │    │ - Reads config          │
-└────────┬────────────────┘    │ - Creates missing       │
-         │                     │ - Skips existing        │
-         │ 2. Config-driven    └─────────────────────────┘
-         │    secret creation           ▲
-         ▼                              │
-┌─────────────────────────┐             │
-│ Secret Definition       │─────────────┘
-│ ConfigMap (Helm)        │ 3. Monitors definitions
-│ - Format: PATH|TYPE|... │
-│ - Domain templating     │
-│ - GitOps managed        │
-└────────┬────────────────┘
-         │ 4. Secrets stored
-         ▼
-┌─────────────────────────┐
-│ KV v2 Engine            │
-│  secrets/* (in OpenBao) │
-└────────┬────────────────┘
-         │ 5. External Secrets reads
-         ▼
-┌──────────────────────────┐
-│ ClusterSecretStore       │
-│ (openbao-secret-store)   │
-└────────┬─────────────────┘
-         │ 6. Sync to K8s
-         ▼
-┌─────────────────────────┐
-│ ExternalSecret          │
-│   Resources             │
-└────────┬────────────────┘
-         │ 7. Creates K8s Secret
-         ▼
-┌─────────────────────────┐
-│ Application Pod         │
-│ (mounts secret)         │
-└─────────────────────────┘ 
+```mermaid
+flowchart TD
+    %% Styling
+    classDef bootstrap fill:#FFE066,stroke:#FFB800,stroke-width:3px,color:#000
+    classDef vault fill:#4B8BBE,stroke:#306998,stroke-width:3px,color:#fff
+    classDef config fill:#9B59B6,stroke:#8E44AD,stroke-width:2px,color:#fff
+    classDef k8s fill:#326CE5,stroke:#00308F,stroke-width:2px,color:#fff
+    classDef app fill:#00D084,stroke:#00A86B,stroke-width:2px,color:#fff
+    classDef external fill:#FF6B6B,stroke:#C92A2A,stroke-width:2px,color:#fff
+
+    %% Main flow
+    A[Bootstrap Script<br/>1. Deploy openbao-config<br/>2. Initialize OpenBao]:::bootstrap
+    B[OpenBao Vault Cluster<br/>3 replicas<br/>Unseals every 5min]:::vault
+    C[Automated Management<br/>CronJob every 5min<br/>- Reads config<br/>- Creates missing<br/>- Skips existing]:::config
+    D[Secret Definition<br/>ConfigMap Helm<br/>- Format: PATH|TYPE|...<br/>- Domain templating<br/>- GitOps managed]:::config
+    E[KV v2 Engine<br/>secrets/* in OpenBao]:::vault
+    F[ClusterSecretStore<br/>openbao-secret-store]:::external
+    G[ExternalSecret<br/>Resources]:::k8s
+    H[Application Pod<br/>mounts secret]:::app
+
+    %% Flow connections with labels
+    A -->|1. Deploys| B
+    A -->|1. Creates| D
+    D -->|3. Monitors definitions| C
+    C -->|2. Config-driven secret creation| B
+    B -->|4. Secrets stored| E
+    E -->|5. External Secrets reads| F
+    F -->|6. Sync to K8s| G
+    G -->|7. Creates K8s Secret| H
+
+    %% Feedback loop
+    C -.->|Monitors ConfigMap| D
 ```
 
 ### 7. Secret Categories
