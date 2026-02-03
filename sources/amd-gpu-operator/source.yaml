@@ -1,4 +1,4 @@
 sourceUrl: https://rocm.github.io/gpu-operator
 sourceRepoName: amd-gpu-operator
 sourceChartName: gpu-operator-charts
-sourceVersion: v1.4.0
+sourceVersion: v1.4.1
