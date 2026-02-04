@@ -494,7 +494,7 @@ apps:
           - /spec/rules/0/validate/allowExistingViolations
   kyverno-policies-base:
     namespace: kyverno
-    path: kyverno-policies-base
+    path: kyverno-policies/base
     syncWave: -2
   # GPU
   amd-gpu-operator:
