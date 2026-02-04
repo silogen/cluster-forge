@@ -403,6 +403,12 @@ apps:
                   sed -i -e "s/__AIRM_ADMIN_CLIENT_ID__/$AIRM_ADMIN_CLIENT_ID/g" /opt/realms/airm-realm.json
                   sed -i -e "s/__AIRM_ADMIN_CLIENT_SECRET__/$AIRM_ADMIN_CLIENT_SECRET/g" /opt/realms/airm-realm.json
                   sed -i -e "s/__AIRM_CI_CLIENT_SECRET__/$AIRM_CI_CLIENT_SECRET/g" /opt/realms/airm-realm.json
+
+                  sed -i -e "s/__K8S_CLIENT_SECRET__/$K8S_CLIENT_SECRET/g" /opt/realms/airm-realm.json
+                  sed -i -e "s/__MINIO_CLIENT_SECRET__/$MINIO_CLIENT_SECRET/g" /opt/realms/airm-realm.json
+                  sed -i -e "s/__GITEA_CLIENT_SECRET__/$GITEA_CLIENT_SECRET/g" /opt/realms/airm-realm.json
+                  sed -i -e "s/__ARGOCD_CLIENT_SECRET__/$ARGOCD_CLIENT_SECRET/g" /opt/realms/airm-realm.json
+                  sed -i -e "s/__DEVUSER_INITIAL_PASSWORD__/$DEVUSER_INITIAL_PASSWORD/g" /opt/realms/airm-realm.json
               else
                   echo "Warning: /opt/realm_templates/airm/airm-realm.json not found, skipping airm realm setup"
               fi
@@ -426,6 +432,31 @@ apps:
               valueFrom:
                 secretKeyRef:
                   key: CI_CLIENT_SECRET
+                  name: airm-realm-credentials
+            - name: K8S_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: K8S_CLIENT_SECRET
+                  name: airm-realm-credentials
+            - name: MINIO_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: MINIO_CLIENT_SECRET
+                  name: airm-realm-credentials
+            - name: GITEA_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: GITEA_CLIENT_SECRET
+                  name: airm-realm-credentials
+            - name: ARGOCD_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: ARGOCD_CLIENT_SECRET
+                  name: airm-realm-credentials
+            - name: DEVUSER_INITIAL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: KEYCLOAK_INITIAL_DEVUSER_PASSWORD
                   name: airm-realm-credentials
           image: ghcr.io/silogen/keycloak-init:0.1
           name: init-realm-scripts
