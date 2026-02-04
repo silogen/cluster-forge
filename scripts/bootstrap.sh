@@ -39,9 +39,9 @@ while [[ $# -gt 0 ]]; do
       echo "  domain                  Required. Cluster domain (e.g., example.com)"
       echo "  values_file            Optional. Values file to use (default: values.yaml)"
       echo ""
-      echo "Options:
+      echo "Options:"
       echo "  --CLUSTER_SIZE         Optional. Cluster size [small|medium|large] (default: medium)"
-      echo "  --dev                  Enable developer mode (sets Gitea repos to feature branch or custom value)
+      echo "  --dev                  Enable developer mode (sets Gitea repos to feature branch or custom value)"
       echo ""
       echo ""
       echo "Examples:"
