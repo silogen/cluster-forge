@@ -55,10 +55,9 @@ check_env_variable "KEYCLOAK_ADMIN_CLIENT_ID"
 check_env_variable "KEYCLOAK_ADMIN_CLIENT_SECRET"
 
 function refresh_token() {
-    # triage test - REMOVE FOR SECURITY IMPLICATIONS AFTER RESOLVED
+    echo "running from 0.3.1"
     echo "KEYCLOAK_CLIENT_ID $KEYCLOAK_CLIENT_ID"
     echo "USER_EMAIL: $USER_EMAIL"
-    echo "KEYCLOAK_CLIENT_SECRET (0.3.0): $KEYCLOAK_CLIENT_SECRET"
     echo "KEYCLOAK_URL: $KEYCLOAK_URL"
     echo "KEYCLOAK_REALM: $KEYCLOAK_REALM"
     jq --version
