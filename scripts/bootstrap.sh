@@ -10,6 +10,9 @@ VALUES_FILE="values.yaml"
 CLUSTER_SIZE="medium"  # Default to medium
 KUBE_VERSION=1.33
 
+DEV_MODE=false
+TARGET_REVISION="main" 
+
 # Parse arguments 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -25,23 +28,26 @@ while [[ $# -gt 0 ]]; do
       CLUSTER_SIZE="${1#*=}"
       shift
       ;;
+    --dev)
+      DEV_MODE=true
+      shift
+      ;;
     --help|-h)
-      echo "Usage: $0 <domain> [values_file] [--CLUSTER_SIZE=small|medium|large]"
+      echo "Usage: $0 [options] <domain> [values_file]"
       echo ""
       echo "Arguments:"
       echo "  domain                  Required. Cluster domain (e.g., example.com)"
       echo "  values_file            Optional. Values file to use (default: values.yaml)"
-      echo "  --CLUSTER_SIZE         Optional. Cluster size (default: medium)"
       echo ""
-      echo "Cluster sizes:"
-      echo "  small     - Developer/single-user setups (1-5 users)"
-      echo "  medium    - Team clusters (5-20 users) [DEFAULT]"
-      echo "  large     - Production/enterprise scale (10s-100s users)"
+      echo "Options:
+      echo "  --CLUSTER_SIZE         Optional. Cluster size [small|medium|large] (default: medium)"
+      echo "  --dev                  Enable developer mode (sets Gitea repos to feature branch or custom value)
+      echo ""
       echo ""
       echo "Examples:"
-      echo "  $0 example.com"
-      echo "  $0 example.com values.yaml --CLUSTER_SIZE=large"
-      echo "  $0 dev.example.com --CLUSTER_SIZE=small"
+      echo "  $0 myIP.nip.io"
+      echo "  $0 example.com values_custom.yaml --CLUSTER_SIZE=large"
+      echo "  $0 --dev dev.example.com --CLUSTER_SIZE=small"
       exit 0
       ;;
     --*)
@@ -57,7 +63,7 @@ while [[ $# -gt 0 ]]; do
         VALUES_FILE="$1"
       else
         echo "ERROR: Too many arguments: $1"
-        echo "Usage: $0 <domain> [values_file] [--CLUSTER_SIZE=small|medium|large]"
+        echo "Usage: $0 [--CLUSTER_SIZE=small|medium|large] [--dev] <domain> [values_file]"
         exit 1
       fi
       shift
@@ -97,6 +103,83 @@ if [ ! -f "${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE}" ]; then
     echo "Proceeding with base values file only: ${VALUES_FILE}"
     SIZE_VALUES_FILE=""
 fi
+
+get_target_revision() {
+    if [ "$DEV_MODE" = true ]; then
+        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+        echo ""
+        echo "Development mode enabled - ArgoCD will point to live GitHub repository"
+        echo "Current git branch: $CURRENT_BRANCH"
+        echo ""
+        read -p "Use current branch '$CURRENT_BRANCH' for targetRevision? [Y/n/custom_branch]: " choice
+        
+        case "$choice" in
+            n|N|no|No|NO)
+                echo "Exiting. Please checkout the branch you want to use and run again."
+                exit 0
+                ;;
+            [Cc]ustom*|custom*)
+                read -p "Enter custom branch name: " custom_branch
+                if [ -n "$custom_branch" ]; then
+                    TARGET_REVISION="$custom_branch"
+                else
+                    echo "ERROR: Custom branch name cannot be empty"
+                    exit 1
+                fi
+                ;;
+            y|Y|yes|Yes|YES|"")
+                TARGET_REVISION="$CURRENT_BRANCH"
+                ;;
+            *)
+                # Treat any other input as a custom branch name
+                TARGET_REVISION="$choice"
+                ;;
+        esac
+        echo "Using targetRevision: $TARGET_REVISION"
+    fi
+}
+
+pre_cleanup() {
+    echo "=== Pre-cleanup: Checking for previous runs ==="
+
+    # Check if gitea-init-job exists and completed successfully
+    if kubectl get job gitea-init-job -n cf-gitea >/dev/null 2>&1; then
+        if kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null | grep -q "True"; then
+            echo "Found completed gitea-init-job - removing Gitea to start fresh"
+
+            # Delete all Gitea resources
+            kubectl delete job gitea-init-job -n cf-gitea --ignore-not-found=true
+            kubectl delete deployment gitea -n cf-gitea --ignore-not-found=true
+            kubectl delete statefulset gitea -n cf-gitea --ignore-not-found=true
+            kubectl delete service gitea -n cf-gitea --ignore-not-found=true
+            kubectl delete service gitea-http -n cf-gitea --ignore-not-found=true
+            kubectl delete service gitea-ssh -n cf-gitea --ignore-not-found=true
+            kubectl delete pvc -n cf-gitea -l app.kubernetes.io/name=gitea --ignore-not-found=true
+            kubectl delete configmap initial-cf-values -n cf-gitea --ignore-not-found=true
+            kubectl delete secret gitea-admin-credentials -n cf-gitea --ignore-not-found=true
+            kubectl delete ingress -n cf-gitea -l app.kubernetes.io/name=gitea --ignore-not-found=true
+
+            echo "Gitea resources deleted"
+        fi
+    fi
+
+    # Always delete openbao-init-job to allow re-initialization
+    kubectl delete job openbao-init-job -n cf-openbao --ignore-not-found=true
+
+    # Delete temporary files
+    rm -f /tmp/merged_values.yaml /tmp/argocd_values.yaml /tmp/argocd_size_values.yaml \
+      /tmp/openbao_values.yaml /tmp/openbao_size_values.yaml \
+      /tmp/gitea_values.yaml /tmp/gitea_size_values.yaml
+
+    echo "Pre-cleanup complete"
+    echo ""
+}
+
+# Handle dev mode branch selection
+get_target_revision
+
+# Run pre-cleanup
+pre_cleanup
 
 echo "=== ClusterForge Bootstrap ==="
 echo "Domain: $DOMAIN"
@@ -226,13 +309,22 @@ kubectl create secret generic gitea-admin-credentials \
 $YQ_CMD eval '.apps.gitea.valuesObject' ${SCRIPT_DIR}/../root/${VALUES_FILE} > /tmp/gitea_values.yaml
 $YQ_CMD eval '.apps.gitea.valuesObject' ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE} > /tmp/gitea_size_values.yaml
 
+# Bootstrap Gitea
 helm template --release-name gitea ${SCRIPT_DIR}/../sources/gitea/12.3.0 --namespace cf-gitea \
   -f /tmp/gitea_values.yaml \
   -f /tmp/gitea_size_values.yaml \
   --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}/" \
   --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl rollout status deploy/gitea -n cf-gitea
-helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job --set domain="${DOMAIN}" --set clusterSize="values_${CLUSTER_SIZE}.yaml" --kube-version=${KUBE_VERSION} | kubectl apply -f -
+
+# Gitea Init Job
+helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job \
+  --set domain="${DOMAIN}" \
+  --set clusterSize="values_${CLUSTER_SIZE}.yaml" \
+  --set targetRevision="${TARGET_REVISION}" \
+  --kube-version=${KUBE_VERSION} \
+  | kubectl apply -f -
+
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
 
 # Create cluster-forge app-of-apps with merged configuration
@@ -245,6 +337,13 @@ echo ""
 echo "=== ClusterForge Bootstrap Complete ==="
 echo "Domain: $DOMAIN"
 echo "Cluster size: $CLUSTER_SIZE"
+echo "Access ArgoCD at: https://argocd.${DOMAIN}"
+echo "Access Gitea at: https://gitea.${DOMAIN}"
+echo ""
+if [ "$DEV_MODE" = true ]; then
+    echo "Mode: Development using non-main targetRevision"
+fi
+echo "Target revision: $TARGET_REVISION"
 echo "Access ArgoCD at: https://argocd.${DOMAIN}"
 echo "Access Gitea at: https://gitea.${DOMAIN}"
 echo ""

@@ -80,6 +80,14 @@ data:
             exit 1
         fi
     fi
+
+    # set mirror default branch (--dev mode)
+    if [ "{{ .Values.targetRevision }}" != "main" ]; then
+      curl -X PATCH "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" \
+      -H "Authorization: token ${GITEA_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{"default_branch": "{{ .Values.targetRevision }}"}'
+    fi
     
     echo "Step 3: Creating repository 'cluster-values'..."
     curl -X POST "${GITEA_URL}/api/v1/orgs/cluster-org/repos" \
@@ -120,7 +128,7 @@ data:
     clusterForge:
       repoURL: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git
       path: root
-      targetRevision: main
+      targetRevision:  {{ .Values.targetRevision }}
     
     # clusterSize is set by bootstrap script via --CLUSTER_SIZE=values_<size>.yaml (defaults to medium)
     global:
