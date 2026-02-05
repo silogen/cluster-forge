@@ -14,7 +14,3 @@ maintainers:
 home: https://github.com/silogen/cluster-forge
 sources:
   - https://github.com/silogen/cluster-forge
-dependencies:
-  - name: kyverno
-    version: "3.5.1"
-    condition: kyverno.enabled
