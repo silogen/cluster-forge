@@ -58,15 +58,18 @@ function refresh_token() {
     echo "running from 0.3.1"
     echo "KEYCLOAK_CLIENT_ID $KEYCLOAK_CLIENT_ID"
     echo "USER_EMAIL: $USER_EMAIL"
+    echo "KEYCLOAK_CLIENT_SECRET: $KEYCLOAK_CLIENT_SECRET"
     echo "KEYCLOAK_URL: $KEYCLOAK_URL"
     echo "KEYCLOAK_REALM: $KEYCLOAK_REALM"
     jq --version
 
+    set -x
     TOKEN=$(curl -s -d "client_id=${KEYCLOAK_CLIENT_ID}" -d "username=${USER_EMAIL}" -d 'password=password' -d 'grant_type=password' -d "client_secret=${KEYCLOAK_CLIENT_SECRET}" "${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token" | jq -r '.access_token')
     if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
         echo "ERROR: Failed to obtain access token from Keycloak."
         exit 1
     fi
+    set +x
 }
 
 function create_org() {
