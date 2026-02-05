@@ -111,9 +111,11 @@ data:
         ],
         "ExtraPodLabels" : {
           "WORKLOAD_ID"   : "airm.silogen.ai/workload-id",
+          "USERGROUP_ID"  : "airm.silogen.ai/usergroup-id",
           "PROJECT_ID"  : "airm.silogen.ai/project-id"
         },
         "CustomLabels" : {
+          "ORG_NAME"    : "demo",
           "KUBE_CLUSTER_NAME" : "demo-cluster"
         }
       }
