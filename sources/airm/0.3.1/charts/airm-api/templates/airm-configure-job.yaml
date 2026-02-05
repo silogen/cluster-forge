@@ -120,7 +120,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: KEYCLOAK_SECRET
-                  name: "airm-keycloak-ui-creds"
+                  name: "{{ .Release.Name }}-keycloak-ui-creds"
             - name: USER_EMAIL
               value: "devuser@{{ .Values.airm.appDomain }}"
             - name: KEYCLOAK_URL
