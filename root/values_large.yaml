@@ -7,6 +7,11 @@
 # Uses Longhorn storage with native RWX support - no access mode mutation needed
 
 apps:
+  # Git - Gitea (Production: single replica, sqlite3)
+  gitea:
+    valuesObject:
+      postgresql-ha:
+        enabled: false
   # Core apps - ArgoCD (Production: single replicas, appropriate for 4-node cluster)
   argocd:
     valuesObject:
