@@ -2,17 +2,13 @@
 #
 # SPDX-License-Identifier: MIT
 
-# NOTE: When running with AIRM (standAloneMode: false), the cluster-scoped
-# AIMClusterRuntimeConfig is managed by AIRM. This chart only creates a
-# namespace-scoped AIMRuntimeConfig when running in standalone mode.
-{{- if .Values.standAloneMode }}
-{{- $labelPrefix := .Values.labelPrefix }}
+# Cluster-scoped AIMClusterRuntimeConfig - always created by this chart.
+# This config is referenced by AIMService resources created by AIWB.
 ---
-apiVersion: aim.silogen.ai/v1alpha1
-kind: AIMRuntimeConfig
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterRuntimeConfig
 metadata:
-  name: {{ .Values.aim.runtimeConfigName }}
-  namespace: {{ .Release.Namespace }}
+  name: {{ .Values.aim.clusterRuntimeConfigName }}
   labels:
     {{- include "aiwb.labels" . | nindent 4 }}
 spec:
@@ -20,7 +16,7 @@ spec:
   labelPropagation:
     enabled: true
     match:
-      - "{{ $labelPrefix }}/*"
+      - "{{ .Values.metadataPrefix.eaiApps }}/*"
   routing:
     enabled: {{ .Values.aim.routing.enabled }}
     gatewayRef:
@@ -28,6 +24,5 @@ spec:
       kind: Gateway
       name: {{ .Values.kgateway.gatewayName }}
       namespace: {{ .Values.kgateway.namespace }}
-    pathTemplate: "{.metadata.namespace}/{.metadata.labels['{{ $labelPrefix }}/workload-id']}"
+    pathTemplate: "{.metadata.namespace}/{.metadata.labels['{{ .Values.metadataPrefix.eaiApps }}/workload-id']}"
     requestTimeout: {{ .Values.aim.routing.requestTimeout }}
-{{- end }}

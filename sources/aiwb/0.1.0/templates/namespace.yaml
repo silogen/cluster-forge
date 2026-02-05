@@ -3,9 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 {{- if .Values.standAloneMode }}
-{{- $labelPrefix := .Values.labelPrefix }}
 {{- $nsName := .Values.defaultNamespace }}
-{{- $projectIdLabel := printf "%s/project-id" $labelPrefix }}
+{{- $projectIdLabel := printf "%s/project-id" .Values.metadataPrefix.eaiApps }}
 {{- $existingNs := lookup "v1" "Namespace" "" $nsName }}
 {{- $projectId := "" }}
 {{- if $existingNs }}
@@ -20,7 +19,7 @@ metadata:
   name: {{ $nsName }}
   labels:
     {{ $projectIdLabel }}: {{ $projectId }}
-    {{ $labelPrefix }}/managed-by: "helm"
+    {{ .Values.metadataPrefix.eaiApps }}/managed-by: "helm"
     app.kubernetes.io/created-by: "aiwb"
     app.kubernetes.io/part-of: "aiwb"
 {{- end }}

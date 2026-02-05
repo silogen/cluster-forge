@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 
 {{- if .Values.standAloneMode }}
-{{- $labelPrefix := .Values.labelPrefix }}
 ---
 # Kyverno policy that auto-tags workloads with workload-id
 # This allows kubectl-submitted workloads to be tracked by AIWB
@@ -21,7 +20,9 @@ metadata:
       kubectl-submitted workloads and show metrics for them. Preserves existing workload-id
       if already present.
 spec:
+  admission: true
   background: true
+  emitWarning: false
   rules:
     - name: add-workload-id-label
       match:
@@ -33,11 +34,11 @@ spec:
                 - KaiwoService
               namespaceSelector:
                 matchExpressions:
-                  - key: {{ $labelPrefix }}/project-id
+                  - key: {{ .Values.metadataPrefix.eaiApps }}/project-id
                     operator: Exists
       mutate:
         patchStrategicMerge:
           metadata:
             labels:
-              {{ $labelPrefix }}/workload-id: '{{`{{request.object.metadata.labels."`}}{{ $labelPrefix }}/workload-id{{`" || request.oldObject.metadata.labels."`}}{{ $labelPrefix }}/workload-id{{`" || request.uid}}`}}'
+              {{ .Values.metadataPrefix.eaiApps }}/workload-id: '{{`{{request.object.metadata.labels."`}}{{ .Values.metadataPrefix.eaiApps }}/workload-id{{`" || request.oldObject.metadata.labels."`}}{{ .Values.metadataPrefix.eaiApps }}/workload-id{{`" || request.uid}}`}}'
 {{- end }}

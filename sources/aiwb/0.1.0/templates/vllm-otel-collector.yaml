@@ -6,8 +6,7 @@
 # collector for vLLM metrics is managed by AIRM. This chart only creates it
 # when running in standalone mode.
 {{- if .Values.standAloneMode }}
-{{- $labelPrefix := .Values.labelPrefix }}
-{{- $labelPrefixUnderscore := replace "." "_" (replace "/" "_" $labelPrefix) }}
+{{- $labelPrefixUnderscore := replace "." "_" (replace "/" "_" .Values.metadataPrefix.eaiApps) }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -102,10 +101,10 @@ spec:
     processors:
       resource:
         attributes:
-          - key: {{ $labelPrefix }}/workload-id
+          - key: {{ .Values.metadataPrefix.eaiApps }}/workload-id
             from_attribute: workload_id
             action: upsert
-          - key: {{ $labelPrefix }}/project-id
+          - key: {{ .Values.metadataPrefix.eaiApps }}/project-id
             from_attribute: project_id
             action: upsert
           - key: service.instance.id
@@ -119,8 +118,8 @@ spec:
         metric_statements:
           - context: datapoint
             statements:
-              - set(attributes["workload_id"], resource.attributes["{{ $labelPrefix }}/workload-id"]) where attributes["workload_id"] == nil
-              - set(attributes["project_id"], resource.attributes["{{ $labelPrefix }}/project-id"]) where attributes["project_id"] == nil
+              - set(attributes["workload_id"], resource.attributes["{{ .Values.metadataPrefix.eaiApps }}/workload-id"]) where attributes["workload_id"] == nil
+              - set(attributes["project_id"], resource.attributes["{{ .Values.metadataPrefix.eaiApps }}/project-id"]) where attributes["project_id"] == nil
               - set(attributes["service_instance_id"], resource.attributes["service.instance.id"]) where attributes["service_instance_id"] == nil
               - set(attributes["service"], resource.attributes["service.name"]) where attributes["service"] == nil
 

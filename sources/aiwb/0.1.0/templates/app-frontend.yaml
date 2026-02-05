@@ -51,7 +51,7 @@ spec:
             - name: KEYCLOAK_ISSUER_INTERNAL_URL
               value: "{{ .Values.keycloak.internalUrl }}/realms/{{ .Values.keycloak.realm }}/"
             - name: AIRM_API_SERVICE_URL
-              value: "http://{{ .Release.Name }}-api.{{ .Release.Namespace }}"
+              value: "http://{{ .Release.Name }}-api.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.backend.service.port }}"
             - name: NEXTAUTH_SECRET
               valueFrom:
                 secretKeyRef:

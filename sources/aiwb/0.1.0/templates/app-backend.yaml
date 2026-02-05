@@ -144,8 +144,12 @@ spec:
               key: password
 
         # Keycloak/OIDC configuration
-        - name: KEYCLOAK_URL
+        - name: OPENID_CLIENT_ID
+          value: {{ .Values.keycloak.clientId | quote }}
+        - name: KEYCLOAK_PUBLIC_URL
           value: {{ include "aiwb.keycloakPublicUrl" . | quote }}
+        - name: KEYCLOAK_INTERNAL_URL
+          value: {{ .Values.keycloak.internalUrl | quote }}
         - name: KEYCLOAK_REALM
           value: {{ .Values.keycloak.realm | quote }}
         - name: KEYCLOAK_CLIENT_ID
@@ -164,13 +168,13 @@ spec:
         - name: MINIO_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.minio.accessKeySecretName }}
-              key: value
+              name: {{ .Values.minio.credentialsSecretName }}
+              key: {{ .Values.minio.accessKeyKey }}
         - name: MINIO_SECRET_KEY
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.minio.secretKeySecretName }}
-              key: value
+              name: {{ .Values.minio.credentialsSecretName }}
+              key: {{ .Values.minio.secretKeyKey }}
         - name: MINIO_MAX_ATTEMPTS
           value: "3"
         - name: MINIO_MIN_WAIT
@@ -187,9 +191,17 @@ spec:
               name: {{ .Values.clusterAuth.secretName }}
               key: value
 
+        # Prometheus configuration
+        - name: PROMETHEUS_URL
+          value: {{ .Values.prometheus.url | quote }}
+
         # Kubernetes configuration
         - name: USE_LOCAL_KUBE_CONTEXT
           value: "false"
+        - name: STANDALONE_MODE
+          value: {{ .Values.standAloneMode | quote }}
+        - name: DEFAULT_NAMESPACE
+          value: {{ .Values.defaultNamespace | quote }}
 
         # Syncer Configuration
         - name: SYNCER_POLLING_INTERVAL_SECONDS
@@ -202,14 +214,20 @@ spec:
           value: {{ .Values.backend.datasets.maxFileSizeMB | quote }}
 
         # AIM Configuration
-        - name: AIM_RUNTIME_CONFIG_NAME
-          value: {{ .Values.aim.runtimeConfigName | quote }}
+        - name: AIM_CLUSTER_RUNTIME_CONFIG_NAME
+          value: {{ .Values.aim.clusterRuntimeConfigName | quote }}
         - name: AIM_GATEWAY_NAMESPACE
           value: {{ .Values.kgateway.namespace | quote }}
         - name: AIM_GATEWAY_NAME
           value: {{ .Values.kgateway.gatewayName | quote }}
         - name: CLUSTER_HOST
-          value: {{ .Values.appDomain | quote }}
+          value: {{ .Values.backend.clusterHost | default (printf "https://workloads.%s" .Values.appDomain) | quote }}
+
+        # Metadata prefixes for labels and annotations
+        - name: EAI_APPS_METADATA_PREFIX
+          value: {{ .Values.metadataPrefix.eaiApps | quote }}
+        - name: AIWB_METADATA_PREFIX
+          value: {{ .Values.metadataPrefix.aiwb | quote }}
 
         livenessProbe:
           httpGet:

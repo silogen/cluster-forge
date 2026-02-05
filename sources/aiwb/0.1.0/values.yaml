@@ -8,15 +8,18 @@
 # Standalone mode: true or false
 # true: AIWB manages its own namespace, creates Kyverno policies, and secrets
 # false: AIRM manages namespaces, policies, and secrets
-standAloneMode: true
+standAloneMode: false
 
 # Name of the default namespace to create (only used when standAloneMode: true)
 defaultNamespace: "workbench"
 
-# Label prefix for workload identification
-# Used for workload-id, project-id labels on pods and in metrics
-# TODO: Will change to "apps.eai.amd.com" in the future
-labelPrefix: "airm.silogen.ai"
+# Metadata prefixes for labels and annotations on Kubernetes resources
+metadataPrefix:
+  # EAI Apps prefix for workload identification (workload-id, project-id labels)
+  # TODO: Will change to "apps.eai.amd.com" in the future
+  eaiApps: "airm.silogen.ai"
+  # AIWB prefix for AIWB-specific labels and annotations (e.g., creator)
+  aiwb: "aiwb.apps.eai.amd.com"
 
 # Application domain (base domain for all services)
 appDomain: "app-dev.silogen.ai"
@@ -46,6 +49,9 @@ kgateway:
 
 # Backend (API) configuration
 backend:
+  # Cluster host for external URLs (e.g., https://workloads.app-dev.silogen.ai)
+  # If not set, defaults to https://workloads.{appDomain}
+  clusterHost: ""
   image:
     repository: aiwb-api
     pullPolicy: IfNotPresent
@@ -138,21 +144,26 @@ keycloak:
 
 # MinIO configuration
 minio:
-  url: "http://minio.minio.svc.cluster.local:9000"
-  bucket: "aiwb-bucket"
-  accessKeySecretName: "aiwb-minio-access-key"
-  secretKeySecretName: "aiwb-minio-secret-key"
+  url: "http://minio.minio-tenant-default.svc.cluster.local:80"
+  bucket: "default-bucket"
+  credentialsSecretName: "aiwb-minio-credentials"
+  accessKeyKey: "minio-access-key"
+  secretKeyKey: "minio-secret-key"
 
 # ClusterAuth configuration (for API key management)
 clusterAuth:
-  url: "http://cluster-auth.cluster-auth.svc.cluster.local:48012"
+  url: "http://cluster-auth.cluster-auth.svc.cluster.local:8081"
   secretName: "aiwb-cluster-auth-secret"
 
+# Prometheus configuration (for metrics queries)
+prometheus:
+  url: "http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:9090"
+
 # AIM Configuration
-# NOTE: In standalone mode, a namespace-scoped AIMRuntimeConfig is created.
-# When running with AIRM, it provides the cluster-scoped AIMClusterRuntimeConfig.
+# A cluster-scoped AIMClusterRuntimeConfig is always created by this chart.
+# AIMService resources created by AIWB reference this config.
 aim:
-  runtimeConfigName: "aiwb-runtime-config"
+  clusterRuntimeConfigName: "aiwb-runtime-config"
   pvcHeadroomPercent: 100
   routing:
     enabled: true
@@ -173,7 +184,7 @@ postgresql:
       cpu: "500m"
     limits:
       memory: "1Gi"
-      cpu: "1000m"
+      cpu: "1"
   storage:
     size: "10Gi"
     storageClass: "default"
