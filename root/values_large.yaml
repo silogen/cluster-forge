@@ -12,6 +12,8 @@ apps:
     valuesObject:
       postgresql-ha:
         enabled: false
+      valkey-cluster:
+        enabled: false
   # Core apps - ArgoCD (Production: single replicas, appropriate for 4-node cluster)
   argocd:
     valuesObject:
