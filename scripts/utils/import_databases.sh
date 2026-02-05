@@ -297,6 +297,8 @@ check_workloads_table() {
         kubectl delete cluster keycloak-cnpg -n keycloak --ignore-not-found=true
         echo "Waiting for Keycloak CNPG cluster to be recreated..."
         kubectl wait --for=condition=Ready pod -l cnpg.io/cluster=keycloak-cnpg -n keycloak --timeout=300s
+    if
+}
 
 restore_airm_database() {
     if [ "$AIRM_DB_FILE" = "skip" ]; then
