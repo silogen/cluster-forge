@@ -494,7 +494,7 @@ apps:
     helmParameters:
       - name: domain
         value: "{{ .Values.global.domain }}"
-    syncWave: -2
+    syncWave: -1
     ignoreDifferences:
       - group: external-secrets.io
         kind: ExternalSecret
