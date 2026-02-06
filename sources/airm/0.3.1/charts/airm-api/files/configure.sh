@@ -57,34 +57,43 @@ function refresh_token() {
     FULL_URL="${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token"
     echo "Target URL: $FULL_URL"
     
-    # Test basic connectivity first
+    # Test basic connectivity with retries
     echo "Testing connectivity to Keycloak server..."
-    if ! curl -s --connect-timeout 10 --max-time 30 -f "$KEYCLOAK_URL" > /dev/null 2>&1; then
-        echo "WARNING: Basic connectivity test to $KEYCLOAK_URL failed"
-    else
-        echo "Basic connectivity to Keycloak server: OK"
+    CONNECTIVITY_OK=false
+    for i in {1..5}; do
+        if curl -s --connect-timeout 5 --max-time 10 -f "$KEYCLOAK_URL" > /dev/null 2>&1; then
+            echo "Basic connectivity to Keycloak server: OK (attempt $i)"
+            CONNECTIVITY_OK=true
+            break
+        else
+            echo "Connectivity test attempt $i failed, retrying in 5 seconds..."
+            sleep 5
+        fi
+    done
+    
+    if [ "$CONNECTIVITY_OK" = false ]; then
+        echo "WARNING: Basic connectivity test to $KEYCLOAK_URL failed after 5 attempts"
     fi
     
-    # Create a temporary file to capture curl errors
-    CURL_ERROR_FILE=$(mktemp)
+    # Create a temporary file to capture response
+    CURL_RESPONSE_FILE=$(mktemp)
     
-    # Execute the token request with verbose error reporting
-    RESPONSE=$(curl -s --connect-timeout 10 --max-time 30 \
-        -w "HTTP_CODE:%{http_code}\nCURL_EXIT_CODE:%{exitcode}\n" \
+    # Execute the token request - get response body and HTTP code separately
+    HTTP_CODE=$(curl -s --connect-timeout 10 --max-time 30 \
+        -w "%{http_code}" \
         -d "client_id=${KEYCLOAK_CLIENT_ID}" \
         -d "username=${USER_EMAIL}" \
         -d "password=${USER_PASSWORD}" \
         -d 'grant_type=password' \
         -d "client_secret=${KEYCLOAK_CLIENT_SECRET}" \
-        "$FULL_URL" 2>"$CURL_ERROR_FILE")
+        -o "$CURL_RESPONSE_FILE" \
+        "$FULL_URL")
     
     CURL_EXIT_CODE=$?
     
     if [ $CURL_EXIT_CODE -ne 0 ]; then
         echo "ERROR: curl command failed when connecting to Keycloak"
         echo "Curl exit code: $CURL_EXIT_CODE"
-        echo "Curl error output:"
-        cat "$CURL_ERROR_FILE"
         echo ""
         echo "Debugging information:"
         echo "- Full URL: $FULL_URL"
@@ -96,18 +105,17 @@ function refresh_token() {
         HOSTNAME=$(echo "$KEYCLOAK_URL" | sed 's|https\?://||' | cut -d'/' -f1 | cut -d':' -f1)
         nslookup "$HOSTNAME" || echo "DNS lookup failed for $HOSTNAME"
         
-        rm -f "$CURL_ERROR_FILE"
+        rm -f "$CURL_RESPONSE_FILE"
         exit 1
     fi
     
-    # Clean up temp file
-    rm -f "$CURL_ERROR_FILE"
-    
-    # Extract HTTP status code and response body
-    HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
-    RESPONSE_BODY=$(echo "$RESPONSE" | grep -v "HTTP_CODE:" | grep -v "CURL_EXIT_CODE:")
-    
     echo "HTTP Status Code: $HTTP_CODE"
+    
+    # Read the response body from the temporary file
+    RESPONSE_BODY=$(cat "$CURL_RESPONSE_FILE")
+    
+    # Clean up temp file
+    rm -f "$CURL_RESPONSE_FILE"
     
     if [ "$HTTP_CODE" != "200" ]; then
         echo "ERROR: HTTP request failed with status code $HTTP_CODE"
@@ -115,7 +123,17 @@ function refresh_token() {
         exit 1
     fi
     
-    TOKEN=$(echo "$RESPONSE_BODY" | jq -r '.access_token')
+    # Check if response looks like a JWT (starts with eyJ)
+    if [[ "$RESPONSE_BODY" =~ ^\{.*access_token.*\} ]]; then
+        # This is a proper JSON response
+        TOKEN=$(echo "$RESPONSE_BODY" | jq -r '.access_token')
+    elif [[ "$RESPONSE_BODY" =~ ^eyJ ]]; then
+        # This is just a raw JWT token
+        TOKEN="$RESPONSE_BODY"
+    else
+        # Try to parse as JSON first
+        TOKEN=$(echo "$RESPONSE_BODY" | jq -r '.access_token' 2>/dev/null)
+    fi
     
     if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
         echo "ERROR: Failed to obtain access token from Keycloak."
