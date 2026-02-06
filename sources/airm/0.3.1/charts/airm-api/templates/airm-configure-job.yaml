@@ -52,7 +52,7 @@ roleRef:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: "{{ .Release.Name }}-configure"
+  name: "{{ .Release.Name }}-configure-{{ now | unixEpoch }}"
   namespace: "{{ .Release.Namespace }}"
 spec:
   backoffLimit: 3
