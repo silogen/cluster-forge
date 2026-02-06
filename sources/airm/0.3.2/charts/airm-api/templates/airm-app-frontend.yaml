@@ -1,0 +1,81 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: "{{ .Release.Name }}-ui"
+  name: "{{ .Release.Name }}-ui"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: web
+      port: {{ .Values.airm.frontend.servicePort }}
+      targetPort: 8000
+  selector:
+    app: "{{ .Release.Name }}-ui"
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-ui"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: "{{ .Release.Name }}-ui"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Release.Name }}-ui"
+    spec:
+      containers:
+        - name: airm-ui
+          env:
+            - name: NEXTAUTH_URL
+              value: "https://{{ .Values.kgateway.airmui.prefixValue }}.{{ .Values.airm.appDomain }}"
+            - name: KEYCLOAK_ISSUER
+              value: {{ template "airm-api.keycloakPublicUrl" . }}/realms/{{ .Values.airm.keycloak.realm }}
+            - name: KEYCLOAK_ID
+              value: "{{ .Values.airm.keycloak.clientId }}"
+            - name: KEYCLOAK_ISSUER_INTERNAL_URL
+              value: "{{ .Values.airm.keycloak.internalUrl }}/realms/{{ .Values.airm.keycloak.realm }}/"
+            - name: AIRM_API_SERVICE_URL
+              value: "http://{{ .Release.Name }}-api.{{ .Release.Namespace }}"
+            - name: NEXTAUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-secrets-airm"
+                  key: NEXTAUTH_SECRET
+            - name: KEYCLOAK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-keycloak-ui-creds"
+                  key: KEYCLOAK_SECRET
+          image: "{{ .Values.airm.frontend.image.repository }}:{{ .Values.airm.frontend.image.tag }}"
+          imagePullPolicy: "{{ .Values.airm.frontend.image.pullPolicy }}"
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 2
+          ports:
+            - containerPort: 8000
+          resources:
+            {{- toYaml .Values.airm.frontend.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      restartPolicy: Always

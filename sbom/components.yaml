@@ -10,7 +10,7 @@ components:
     license: MIT License
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
   airm:
-    path: airm/0.3.1
+    path: airm/0.3.2
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm
