@@ -59,7 +59,7 @@ metadata:
   name: "{{ .Release.Name }}-keycloak-admin-client"
   namespace: "{{ .Release.Namespace }}"
   annotations:
-    helm.sh/hook: pre-install
+    argocd.argoproj.io/sync-wave: "-5"
 spec:
   data:
     - remoteRef:
