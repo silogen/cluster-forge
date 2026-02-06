@@ -11,7 +11,8 @@ CLUSTER_SIZE="medium"  # Default to medium
 KUBE_VERSION=1.33
 
 DEV_MODE=false
-TARGET_REVISION="main" 
+TARGET_REVISION="main"
+AUTO_SYNC_ENABLED="true" # --dev mode sets to true
 
 # Parse arguments 
 while [[ $# -gt 0 ]]; do
@@ -367,10 +368,45 @@ helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job \
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
 
 # Create cluster-forge app-of-apps with merged configuration
+if [ "$DEV_MODE" = true ]; then
+  AUTO_SYNC_ENABLED="false"
+fi
+
 echo "Creating ClusterForge app-of-apps (size: $CLUSTER_SIZE)..."
 helm template ${SCRIPT_DIR}/../root \
     -f /tmp/merged_values.yaml \
+    --set autoSyncEnabled=$AUTO_SYNC_ENABLED \
     --kube-version=${KUBE_VERSION} | kubectl apply -f -
+
+# Re-enable auto-sync after apps are created (presently only in --dev mode)
+if [ "$AUTO_SYNC_ENABLED" = true ]; then
+    echo ""
+    echo "=== Re-enabling Auto-Sync ==="
+    echo "Waiting 10s for Application resources to be created..."
+    sleep 10
+
+    # Re-render with auto-sync enabled
+    echo "Updating cluster-forge app to enable auto-sync..."
+    helm template ${SCRIPT_DIR}/../root \
+        -f /tmp/merged_values.yaml \
+        --set autoSyncEnabled=true \
+        --kube-version=${KUBE_VERSION} | kubectl apply -f -
+
+    echo "✓ Auto-sync re-enabled for all applications"
+    echo ""
+    echo "Triggering initial sync of cluster-forge..."
+
+    # Get ArgoCD admin password
+    ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+
+    # Login to ArgoCD
+    argocd login argocd-server.argocd.svc.cluster.local --username admin --password ${ARGOCD_PASSWORD} --insecure
+
+    # Sync cluster-forge app
+    argocd app sync cluster-forge --insecure
+
+    echo "✓ Initial sync triggered"
+fi
 
 echo ""
 echo "=== ClusterForge Bootstrap Complete ==="

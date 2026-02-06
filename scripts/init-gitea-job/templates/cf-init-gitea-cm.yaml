@@ -12,13 +12,13 @@ data:
     GITEA_URL="${GITEA_URL:-http://gitea-http.cf-gitea.svc:3000}"
     GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-silogen-admin}"
     
-    echo "Step 0: Create admin access token"
+    echo ">>>>> Create admin access token"
     GITEA_TOKEN=$(kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
       gitea admin user generate-access-token --raw --username "$GITEA_ADMIN_USER" --token-name "api-token-$(date +%s)" --scopes all
     )
     kubectl create secret generic gitea-admin-token --from-literal=token="${GITEA_TOKEN}" --namespace=cf-gitea --dry-run=client -o yaml | kubectl apply -f -
     
-    echo "Step 1: Creating organization 'cluster-org'..."
+    echo ">>>>> Creating organization 'cluster-org'..."
     curl -X POST "${GITEA_URL}/api/v1/orgs" \
       -H "Authorization: token ${GITEA_TOKEN}" \
       -H "Content-Type: application/json" \
@@ -29,7 +29,7 @@ data:
         "visibility": "public"
       }' || echo "Failed to create organization, might already exist"
     
-    echo "Step 2: Creating repository 'cluster-forge' as mirror..."
+    echo ">>>>> Creating repository 'cluster-forge' as mirror..."
     if curl -s -f -H "Authorization: token ${GITEA_TOKEN}" "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" >/dev/null 2>&1; then
       echo "Repository 'cluster-forge' already exists"
     else
@@ -81,6 +81,54 @@ data:
         fi
     fi
 
+    echo ">>>>> Waiting for initial mirror sync to complete..."
+    MAX_WAIT=120  # 2 minutes max wait
+    WAIT_COUNT=0
+    MIRROR_SYNCED=false
+
+    while [ $WAIT_COUNT -lt $MAX_WAIT ] && [ "$MIRROR_SYNCED" = false ]; do
+        # Check if target branch exists in the mirror
+        BRANCH_EXISTS=$(curl -s -H "Authorization: token ${GITEA_TOKEN}" \
+          "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge/branches/${TARGET_REVISION}" \
+          -o /dev/null -w "%{http_code}")
+
+        if [ "$BRANCH_EXISTS" = "200" ]; then
+            echo "Target branch '${TARGET_REVISION}' found in mirror"
+            MIRROR_SYNCED=true
+        else
+            echo "Waiting for branch '${TARGET_REVISION}' to sync... (${WAIT_COUNT}s)"
+            sleep 5
+            WAIT_COUNT=$((WAIT_COUNT + 5))
+        fi
+    done
+
+    if [ "$MIRROR_SYNCED" = false ]; then
+        echo "WARNING: Target branch '${TARGET_REVISION}' not found after ${MAX_WAIT}s"
+        echo "Available branches:"
+        curl -s -H "Authorization: token ${GITEA_TOKEN}" \
+          "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge/branches" | jq -r '.[].name'
+        exit 1
+    fi
+
+    # --dev mode - Set mirror default branch
+    if [ "${TARGET_REVISION}" != "main" ]; then
+      echo ">>>>> Setting default branch to '${TARGET_REVISION}'..."
+      
+      # Verify branch exists before setting as default
+      PATCH_RESPONSE=$(curl -s -w "\n%{http_code}" -X PATCH "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" \
+        -H "Authorization: token ${GITEA_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "{\"default_branch\": \"${TARGET_REVISION}\"}")
+      
+      HTTP_CODE=$(echo "$PATCH_RESPONSE" | tail -n1)
+      
+      if [ "$HTTP_CODE" = "200" ]; then
+        echo "Default branch successfully set to '${TARGET_REVISION}'"
+        
+        # Verify the change took effect
+        sleep 2
+        CURRENT_
+
     # set mirror default branch (--dev mode)
     if [ "{{ .Values.targetRevision }}" != "main" ]; then
       curl -X PATCH "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" \
@@ -89,7 +137,7 @@ data:
       -d '{"default_branch": "{{ .Values.targetRevision }}"}'
     fi
     
-    echo "Step 3: Creating repository 'cluster-values'..."
+    echo ">>>>> Creating repository 'cluster-values'..."
     curl -X POST "${GITEA_URL}/api/v1/orgs/cluster-org/repos" \
       -H "Authorization: token ${GITEA_TOKEN}" \
       -H "Content-Type: application/json" \
@@ -100,7 +148,7 @@ data:
         "auto_init": true
       }' || echo "Repository might already exist"
     
-    echo "Step 4: Creating user 'devuser'..."
+    echo ">>>>> Creating user 'devuser'..."
     curl -X POST "${GITEA_URL}/api/v1/admin/users" \
       -H "Authorization: token ${GITEA_TOKEN}" \
       -H "Content-Type: application/json" \
@@ -113,17 +161,17 @@ data:
         "send_notify": false
       }' || echo "User creation failed, might already exist or insufficient permissions"
     
-    echo "Step 5: Getting organization 'cluster-org' owners team id..."
+    echo ">>>>> Getting organization 'cluster-org' owners team id..."
     OWNERS_TEAM_ID=$(curl -s -H "Authorization: token ${GITEA_TOKEN}" -H "Content-Type: application/json" \
       "${GITEA_URL}/api/v1/orgs/cluster-org/teams" | \
       jq -r '.[] | select(.name == "Owners") | .id')
     
-    echo "Step 6: Adding user 'devuser' to organization 'cluster-org' owners..."
+    echo ">>>>> Adding user 'devuser' to organization 'cluster-org' owners..."
     curl -X PUT "${GITEA_URL}/api/v1/teams/${OWNERS_TEAM_ID}/members/devuser" \
       -H "Authorization: token ${GITEA_TOKEN}" \
       -H "Content-Type: application/json" || echo "Failed to add user to organization"
     
-    echo "Step 7: Creating values.yaml file with cluster-forge reference in cluster-values repo..."
+    echo ">>>>> Creating values.yaml file with cluster-forge reference in cluster-values repo..."
     cat > /tmp/values.yaml << 'EOF'
     clusterForge:
       repoURL: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git
