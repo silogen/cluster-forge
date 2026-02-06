@@ -7,12 +7,16 @@
 # Uses Longhorn storage with native RWX support - no access mode mutation needed
 
 apps:
-  # Git - Gitea (Production: single replica, sqlite3)
+  # Git - Gitea (Production: single replica, sqlite3, no external databases)
   gitea:
     valuesObject:
-      postgresql-ha:
-        enabled: false
       valkey-cluster:
+        enabled: false
+      valkey:
+        enabled: false
+      postgresql:
+        enabled: false
+      postgresql-ha:
         enabled: false
   # Core apps - ArgoCD (Production: single replicas, appropriate for 4-node cluster)
   argocd:
@@ -46,7 +50,7 @@ apps:
             storageClassName: direct
             volumesPerServer: 1
 
-  # Secrets - OpenBao (Production: 3 replicas, 10Gi storage)
+  # Secrets - OpenBao (Production: 3 replicas, 10Gi storage on default storage class)
   openbao:
     valuesObject:
       server:
@@ -55,6 +59,9 @@ apps:
           replicas: 3
           raft:
             enabled: true
+        dataStorage:
+          size: 10Gi
+          storageClass: default
 
   # Workload scheduling - Kueue (Production: single replica)
   kueue:
@@ -86,6 +93,7 @@ apps:
           loki: 50Gi
           mimir: 50Gi
           tempo: 50Gi
+          storageClass: default
       collectors:
         resources:
           logs:
