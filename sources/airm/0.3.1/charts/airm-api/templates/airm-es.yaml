@@ -9,7 +9,7 @@ metadata:
   name: "{{ .Release.Name }}-cnpg-superuser"
   namespace: "{{ .Release.Namespace }}"
   annotations:
-    helm.sh/hook: pre-install
+    argocd.argoproj.io/sync-wave: "-5"
 spec:
   data:
     - remoteRef:
@@ -34,7 +34,7 @@ metadata:
   name: "{{ .Release.Name }}-cnpg-user"
   namespace: "{{ .Release.Namespace }}"
   annotations:
-    helm.sh/hook: pre-install
+    argocd.argoproj.io/sync-wave: "-5"
 spec:
   data:
     - remoteRef:

@@ -8,6 +8,8 @@ kind: Cluster
 metadata:
   name: "{{ .Release.Name }}-cnpg"
   namespace: "{{ .Release.Namespace }}"
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
 spec:
   affinity:
     enablePodAntiAffinity: true
