@@ -84,7 +84,7 @@ metadata:
   name: "{{ .Release.Name }}-rabbitmq-admin"
   namespace: "{{ .Release.Namespace }}"
   annotations:
-    helm.sh/hook: pre-install
+    argocd.argoproj.io/sync-wave: "-5"
 spec:
   data:
     - remoteRef:
