@@ -5,20 +5,52 @@
 #
 # LARGE CLUSTER: All apps enabled (inherited from base values.yaml)  
 # Uses Longhorn storage with native RWX support - no access mode mutation needed
+enabledApps:
+  - aim-cluster-model-source
+  - airm
+  - amd-gpu-operator
+  - amd-gpu-operator-config
+  - appwrapper
+  - argocd
+  - argocd-config
+  - cert-manager
+  - cluster-auth
+  - cluster-auth-config
+  - cnpg-operator
+  - external-secrets
+  - external-secrets-config
+  - gateway-api
+  - gitea
+  - gitea-config
+  - kaiwo
+  - kaiwo-config
+  - kaiwo-crds
+  - keda
+  - kedify-otel
+  - keycloak
+  - kgateway
+  - kgateway-config
+  - kgateway-crds
+  - kserve
+  - kserve-crds
+  - kueue
+  - kueue-config
+  - kuberay-operator
+  - kyverno
+  - kyverno-config
+  - metallb
+  - minio-operator
+  - minio-tenant
+  - minio-tenant-config
+  - openbao
+  - openbao-config
+  - opentelemetry-operator
+  - otel-lgtm-stack
+  - prometheus-crds
+  - rabbitmq
+
 
 apps:
-  # Git - Gitea (Production: single replica, sqlite3, no external databases)
-  gitea:
-    valuesObject:
-      valkey-cluster:
-        enabled: false
-      valkey:
-        enabled: false
-      postgresql:
-        enabled: false
-      postgresql-ha:
-        enabled: false
-  # Core apps - ArgoCD (Production: single replicas, appropriate for 4-node cluster)
   argocd:
     valuesObject:
       # Production config: Single replicas (no HA for 4-node cluster)
