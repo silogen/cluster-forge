@@ -157,46 +157,97 @@ function refresh_token() {
 }
 
 function create_project() {
-    PROJECT_ID=$(curl -s -X GET "${AIRM_API_URL}/v1/projects" -H 'accept: application/json' -H "Authorization: Bearer ${TOKEN}" | jq -r '.data[] | select(.name=="'$PROJECT_NAME'") | .id')
-
-    for (( i=0; i<=TIMEOUT; i+=SLEEP_INTERVAL )); do
-        CLUSTER_STATUS=$(curl -s -X GET "${AIRM_API_URL}/v1/clusters/$CLUSTER_ID" \
+    # Validate CLUSTER_ID exists before proceeding
+    if [ -z "$CLUSTER_ID" ] || [ "$CLUSTER_ID" == "null" ]; then
+        echo "ERROR: CLUSTER_ID is not set. Cannot proceed with project creation."
+        exit 1
+    fi
+    
+    echo "Checking for existing project '$PROJECT_NAME'..."
+    
+    # Get list of projects with proper error handling
+    PROJECTS_RESPONSE=$(mktemp)
+    HTTP_CODE=$(curl -s -L -w "%{http_code}" -X GET "${AIRM_API_URL}/v1/projects" \
+        -H 'accept: application/json' \
         -H "Authorization: Bearer ${TOKEN}" \
-        -H 'Content-Type: application/json' | jq -r '.status')
-
-        if [ "$CLUSTER_STATUS" == "healthy" ]; then
-        echo "Cluster is healthy!"
-        break # Exit the loop if the cluster is healthy
+        -o "$PROJECTS_RESPONSE")
+    
+    if [ "$HTTP_CODE" != "200" ]; then
+        echo "ERROR: Failed to get projects list. HTTP Status: $HTTP_CODE"
+        echo "Response:"
+        cat "$PROJECTS_RESPONSE"
+        rm -f "$PROJECTS_RESPONSE"
+        exit 1
+    fi
+    
+    PROJECT_ID=$(cat "$PROJECTS_RESPONSE" | jq -r '.data[]? | select(.name=="'$PROJECT_NAME'") | .id' 2>/dev/null)
+    rm -f "$PROJECTS_RESPONSE"
+    
+    echo "Waiting for cluster '$CLUSTER_ID' to become healthy..."
+    for (( i=0; i<=TIMEOUT; i+=SLEEP_INTERVAL )); do
+        CLUSTER_RESPONSE=$(mktemp)
+        HTTP_CODE=$(curl -s -L -w "%{http_code}" -X GET "${AIRM_API_URL}/v1/clusters/$CLUSTER_ID" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -o "$CLUSTER_RESPONSE")
+        
+        if [ "$HTTP_CODE" != "200" ]; then
+            echo "WARNING: Failed to get cluster status. HTTP Status: $HTTP_CODE (attempt $((i/SLEEP_INTERVAL + 1)))"
+            rm -f "$CLUSTER_RESPONSE"
+        else
+            CLUSTER_STATUS=$(cat "$CLUSTER_RESPONSE" | jq -r '.status' 2>/dev/null)
+            rm -f "$CLUSTER_RESPONSE"
+            
+            if [ "$CLUSTER_STATUS" == "healthy" ]; then
+                echo "Cluster is healthy!"
+                break
+            fi
         fi
-        echo "Cluster status: $CLUSTER_STATUS.  Waiting $SLEEP_INTERVAL seconds... ($i/$TIMEOUT seconds elapsed)"
+        
+        echo "Cluster status: $CLUSTER_STATUS. Waiting $SLEEP_INTERVAL seconds... ($i/$TIMEOUT seconds elapsed)"
         sleep $SLEEP_INTERVAL
     done
 
     if [ "$CLUSTER_STATUS" != "healthy" ]; then
-        echo "ERROR: Cluster did not become healthy within $TIMEOUT seconds."
+        echo "ERROR: Cluster did not become healthy within $TIMEOUT seconds. Last status: $CLUSTER_STATUS"
         exit 1
     fi
 
     if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" == "null" ]; then
-        echo "Projects '$PROJECT_NAME' not found. Creating..."
-        PROJECT_ID=$(curl -X 'POST' \
-        "${AIRM_API_URL}/v1/projects" \
-        -H 'accept: application/json' \
-        -H "Authorization: Bearer ${TOKEN}" \
-        -H 'Content-Type: application/json' \
-        -d '{
-            "name": "'"$PROJECT_NAME"'",
-            "description": "'"$PROJECT_DESCRIPTION"'",
-            "cluster_id": "'"$CLUSTER_ID"'",
-            "quota": {
-            "cpu_milli_cores": 0,
-            "memory_bytes": 0,
-            "ephemeral_storage_bytes": 0,
-            "gpu_count": 0
-            }
-        }' | jq -r '.id')
-        echo "$PROJECT_ID"
-        check_success "$([[ "$PROJECT_ID" != "null" ]] && echo 0 || echo 1)" "Failed to create project"
+        echo "Project '$PROJECT_NAME' not found. Creating..."
+        
+        PROJECT_RESPONSE=$(mktemp)
+        HTTP_CODE=$(curl -L -w "%{http_code}" -X 'POST' \
+            "${AIRM_API_URL}/v1/projects" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d '{
+                "name": "'"$PROJECT_NAME"'",
+                "description": "'"$PROJECT_DESCRIPTION"'",
+                "cluster_id": "'"$CLUSTER_ID"'",
+                "quota": {
+                "cpu_milli_cores": 0,
+                "memory_bytes": 0,
+                "ephemeral_storage_bytes": 0,
+                "gpu_count": 0
+                }
+            }' \
+            -o "$PROJECT_RESPONSE")
+        
+        if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+            PROJECT_ID=$(cat "$PROJECT_RESPONSE" | jq -r '.id' 2>/dev/null)
+            echo "Project created successfully with ID: $PROJECT_ID"
+        else
+            echo "ERROR: Failed to create project. HTTP Status: $HTTP_CODE"
+            echo "Response:"
+            cat "$PROJECT_RESPONSE"
+            rm -f "$PROJECT_RESPONSE"
+            exit 1
+        fi
+        
+        rm -f "$PROJECT_RESPONSE"
+        check_success "$([[ "$PROJECT_ID" != "null" && -n "$PROJECT_ID" ]] && echo 0 || echo 1)" "Failed to get valid project ID"
     else
         echo "Project '$PROJECT_NAME' already exists with ID: $PROJECT_ID"
     fi
@@ -204,7 +255,7 @@ function create_project() {
 
 function add_minio_secret_and_storage_to_project() {
     for (( i=0; i<=TIMEOUT; i+=SLEEP_INTERVAL )); do
-        PROJECT_STATUS=$(curl -s -X GET "${AIRM_API_URL}/v1/projects/$PROJECT_ID" \
+        PROJECT_STATUS=$(curl -s -L -X GET "${AIRM_API_URL}/v1/projects/$PROJECT_ID" \
         -H "Authorization: Bearer ${TOKEN}" \
         -H 'Content-Type: application/json' | jq -r '.status')
 
@@ -219,7 +270,7 @@ function add_minio_secret_and_storage_to_project() {
     SECRET_NAME="minio-credentials-fetcher"
     STORAGE_NAME="minio-storage"
 
-    SECRET_IN_PROJECT=$(curl -X 'GET' \
+    SECRET_IN_PROJECT=$(curl -L -X 'GET' \
     "${AIRM_API_URL}/v1/projects/${PROJECT_ID}/secrets" \
     -H 'accept: application/json' \
     -H "Authorization: Bearer ${TOKEN}" | jq -r '.data[] | select(.secret.name=="'"$SECRET_NAME"'") | .id')
@@ -256,7 +307,7 @@ EOF
 )
     if [ -z "$SECRET_IN_PROJECT" ] || [ "$SECRET_IN_PROJECT" == "null" ]; then
         echo "Adding secret to project '$PROJECT_ID'..."
-        ADD_SECRET_RESP=$(curl -w "%{http_code}" -o /dev/null -X 'POST' \
+        ADD_SECRET_RESP=$(curl -L -w "%{http_code}" -o /dev/null -X 'POST' \
         "${AIRM_API_URL}/v1/secrets" \
         -H "Authorization: Bearer ${TOKEN}" \
         -H 'Content-Type: application/json' \
@@ -276,7 +327,7 @@ EOF
 
     # Check if secret exist and synced
     for (( i=0; i<=TIMEOUT; i+=SLEEP_INTERVAL )); do
-        SECRET_RESP=$(curl -s -X GET "${AIRM_API_URL}/v1/secrets" \
+        SECRET_RESP=$(curl -s -L -X GET "${AIRM_API_URL}/v1/secrets" \
         -H "Authorization: Bearer ${TOKEN}" \
         -H 'Content-Type: application/json')
 
@@ -291,14 +342,14 @@ EOF
         sleep $SLEEP_INTERVAL
     done
 
-    STORAGE_IN_PROJECT=$(curl -X 'GET' \
+    STORAGE_IN_PROJECT=$(curl -L -X 'GET' \
     "${AIRM_API_URL}/v1/projects/${PROJECT_ID}/storages" \
     -H 'accept: application/json' \
     -H "Authorization: Bearer ${TOKEN}" | jq -r '.data[] | select(.storage.name=="'"$STORAGE_NAME"'") | .id')
 
     if [ -z "$STORAGE_IN_PROJECT" ] || [ "$STORAGE_IN_PROJECT" == "null" ]; then
         echo "Adding storage configuration to project '$PROJECT_ID'..."
-        ADD_STORAGE_RESP=$(curl -w "%{http_code}" -o /dev/null -X 'POST' \
+        ADD_STORAGE_RESP=$(curl -L -w "%{http_code}" -o /dev/null -X 'POST' \
         "${AIRM_API_URL}/v1/storages" \
         -H "Authorization: Bearer ${TOKEN}" \
         -H 'Content-Type: application/json' \
@@ -323,12 +374,12 @@ EOF
 
 function add_user_to_project() {
     # Get project id
-    USER_IN_PROJECT=$(curl -X 'GET' \
+    USER_IN_PROJECT=$(curl -L -X 'GET' \
     "${AIRM_API_URL}/v1/users" \
     -H 'accept: application/json' \
     -H "Authorization: Bearer ${TOKEN}" | jq -r  '.data[] | select(.projects.id=="'"$PROJECT_ID"'" and .email=="'"$USER_EMAIL"'") | .id ')
 
-    USER_ID=$(curl -X 'GET' \
+    USER_ID=$(curl -L -X 'GET' \
     "${AIRM_API_URL}/v1/users" \
     -H 'accept: application/json' \
     -H "Authorization: Bearer ${TOKEN}" | jq -r  '.data[] | select(.email=="'"$USER_EMAIL"'") | .id ')
@@ -336,7 +387,7 @@ function add_user_to_project() {
     # Add user to project if they are not already in it
     if [ -z "$USER_IN_PROJECT" ] || [ "$USER_IN_PROJECT" == "null" ]; then
         echo "Adding user '$USER_ID' to project '$PROJECT_ID'..."
-        ADD_PROJECT_RESP=$(curl -w "%{http_code}" -o /dev/null -X 'POST' \
+        ADD_PROJECT_RESP=$(curl -L -w "%{http_code}" -o /dev/null -X 'POST' \
         "${AIRM_API_URL}/v1/projects/${PROJECT_ID}/users" \
         -H "Authorization: Bearer ${TOKEN}" \
         -H 'Content-Type: application/json' \
@@ -349,28 +400,72 @@ function add_user_to_project() {
 }
 
 function create_cluster() {
-    # Check if cluster exists
-    CLUSTER_EXISTS=$(curl -s -X GET "${AIRM_API_URL}/v1/clusters" \
+    # Test AIRM API connectivity first
+    echo "Testing connectivity to AIRM API: ${AIRM_API_URL}"
+    AIRM_HOST=$(echo "${AIRM_API_URL}" | sed 's|http[s]*://||' | cut -d'/' -f1)
+    echo "Resolving hostname: $AIRM_HOST"
+    nslookup "$AIRM_HOST" || echo "DNS lookup failed for $AIRM_HOST"
+    
+    echo "Checking for existing cluster '$CLUSTER_NAME'..."
+    
+    # Check if cluster exists with proper error handling
+    CLUSTERS_RESPONSE=$(mktemp)
+    HTTP_CODE=$(curl -s -L -w "%{http_code}" -X GET "${AIRM_API_URL}/v1/clusters" \
         -H "Authorization: Bearer ${TOKEN}" \
-        -H 'Content-Type: application/json' | jq -r '.data[] | select(.name=="'$CLUSTER_NAME'") | .id')
+        -H 'Content-Type: application/json' \
+        -o "$CLUSTERS_RESPONSE")
+    
+    if [ "$HTTP_CODE" != "200" ]; then
+        echo "ERROR: Failed to get clusters list. HTTP Status: $HTTP_CODE"
+        echo "Response:"
+        cat "$CLUSTERS_RESPONSE"
+        rm -f "$CLUSTERS_RESPONSE"
+        exit 1
+    fi
+    
+    # Safely parse response - check if data array exists
+    CLUSTERS_DATA=$(cat "$CLUSTERS_RESPONSE" | jq -r '.data' 2>/dev/null)
+    if [ "$CLUSTERS_DATA" == "null" ] || [ -z "$CLUSTERS_DATA" ]; then
+        echo "No clusters found in response (data field is null or missing)"
+        CLUSTER_EXISTS=""
+    else
+        CLUSTER_EXISTS=$(cat "$CLUSTERS_RESPONSE" | jq -r '.data[]? | select(.name=="'$CLUSTER_NAME'") | .id' 2>/dev/null)
+    fi
+    rm -f "$CLUSTERS_RESPONSE"
 
     if [ -z "$CLUSTER_EXISTS" ] || [ "$CLUSTER_EXISTS" == "null" ]; then
-        # Create cluster
-        echo "Creating cluster..."
-        CLUSTER=$(curl -X 'POST' \
-        "${AIRM_API_URL}/v1/clusters" \
-        -H 'accept: application/json' -H "Authorization: Bearer ${TOKEN}" \
-        -H 'Content-Type: application/json' \
-        -d '{
-          "workloads_base_url": "'"$CLUSTER_WORKLOADS_BASE_URL"'",
-          "kube_api_url": "'"$CLUSTER_KUBE_API_URL"'"
-        }')
-        CLUSTER_ID=$(echo "$CLUSTER" | jq -r '.id')
-        check_success "$([[ "$CLUSTER_ID" != "null" ]] && echo 0 || echo 1)" "Failed to create cluster"
-        CLUSTER_SECRET=$(echo "$CLUSTER" | jq -r '.user_secret')
+        echo "Cluster '$CLUSTER_NAME' not found. Creating new cluster..."
+        
+        CLUSTER_RESPONSE=$(mktemp)
+        HTTP_CODE=$(curl -L -w "%{http_code}" -X 'POST' \
+            "${AIRM_API_URL}/v1/clusters" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "workloads_base_url": "'"$CLUSTER_WORKLOADS_BASE_URL"'",
+              "kube_api_url": "'"$CLUSTER_KUBE_API_URL"'"
+            }' \
+            -o "$CLUSTER_RESPONSE")
+        
+        if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+            CLUSTER_ID=$(cat "$CLUSTER_RESPONSE" | jq -r '.id' 2>/dev/null)
+            CLUSTER_SECRET=$(cat "$CLUSTER_RESPONSE" | jq -r '.user_secret' 2>/dev/null)
+            echo "Cluster created successfully with ID: $CLUSTER_ID"
+        else
+            echo "ERROR: Failed to create cluster. HTTP Status: $HTTP_CODE"
+            echo "Response:"
+            cat "$CLUSTER_RESPONSE"
+            rm -f "$CLUSTER_RESPONSE"
+            exit 1
+        fi
+        
+        rm -f "$CLUSTER_RESPONSE"
+        check_success "$([[ "$CLUSTER_ID" != "null" && -n "$CLUSTER_ID" ]] && echo 0 || echo 1)" "Failed to get valid cluster ID"
     else
-        echo "Cluster already exists with ID: $CLUSTER_EXISTS"
+        echo "Cluster '$CLUSTER_NAME' already exists with ID: $CLUSTER_EXISTS"
         CLUSTER_ID=$CLUSTER_EXISTS
+        CLUSTER_SECRET=""  # Existing clusters don't return user_secret
     fi
 }
 
