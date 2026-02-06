@@ -53,21 +53,75 @@ check_env_variable "USER_PASSWORD"
 function refresh_token() {
     echo "Attempting to obtain access token from Keycloak..."
     
-    RESPONSE=$(curl -s -d "client_id=${KEYCLOAK_CLIENT_ID}" -d "username=${USER_EMAIL}" -d "password=${USER_PASSWORD}" -d 'grant_type=password' -d "client_secret=${KEYCLOAK_CLIENT_SECRET}" "${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token")
+    # Build the full URL for debugging
+    FULL_URL="${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token"
+    echo "Target URL: $FULL_URL"
     
-    if [ $? -ne 0 ]; then
+    # Test basic connectivity first
+    echo "Testing connectivity to Keycloak server..."
+    if ! curl -s --connect-timeout 10 --max-time 30 -f "$KEYCLOAK_URL" > /dev/null 2>&1; then
+        echo "WARNING: Basic connectivity test to $KEYCLOAK_URL failed"
+    else
+        echo "Basic connectivity to Keycloak server: OK"
+    fi
+    
+    # Create a temporary file to capture curl errors
+    CURL_ERROR_FILE=$(mktemp)
+    
+    # Execute the token request with verbose error reporting
+    RESPONSE=$(curl -s --connect-timeout 10 --max-time 30 \
+        -w "HTTP_CODE:%{http_code}\nCURL_EXIT_CODE:%{exitcode}\n" \
+        -d "client_id=${KEYCLOAK_CLIENT_ID}" \
+        -d "username=${USER_EMAIL}" \
+        -d "password=${USER_PASSWORD}" \
+        -d 'grant_type=password' \
+        -d "client_secret=${KEYCLOAK_CLIENT_SECRET}" \
+        "$FULL_URL" 2>"$CURL_ERROR_FILE")
+    
+    CURL_EXIT_CODE=$?
+    
+    if [ $CURL_EXIT_CODE -ne 0 ]; then
         echo "ERROR: curl command failed when connecting to Keycloak"
+        echo "Curl exit code: $CURL_EXIT_CODE"
+        echo "Curl error output:"
+        cat "$CURL_ERROR_FILE"
+        echo ""
+        echo "Debugging information:"
+        echo "- Full URL: $FULL_URL"
+        echo "- KEYCLOAK_URL: ${KEYCLOAK_URL}"
+        echo "- KEYCLOAK_REALM: ${KEYCLOAK_REALM}"
+        echo "- KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}"
+        echo "- USER_EMAIL: ${USER_EMAIL}"
+        echo "- DNS resolution test:"
+        nslookup "$(echo "$KEYCLOAK_URL" | sed 's|https\?://||' | cut -d'/' -f1)" || echo "DNS lookup failed"
+        
+        rm -f "$CURL_ERROR_FILE"
         exit 1
     fi
     
-    TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
+    # Clean up temp file
+    rm -f "$CURL_ERROR_FILE"
+    
+    # Extract HTTP status code and response body
+    HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
+    RESPONSE_BODY=$(echo "$RESPONSE" | grep -v "HTTP_CODE:" | grep -v "CURL_EXIT_CODE:")
+    
+    echo "HTTP Status Code: $HTTP_CODE"
+    
+    if [ "$HTTP_CODE" != "200" ]; then
+        echo "ERROR: HTTP request failed with status code $HTTP_CODE"
+        echo "Response body: $RESPONSE_BODY"
+        exit 1
+    fi
+    
+    TOKEN=$(echo "$RESPONSE_BODY" | jq -r '.access_token')
     
     if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
         echo "ERROR: Failed to obtain access token from Keycloak."
         echo "Full response from Keycloak:"
-        echo "$RESPONSE" | jq '.'
+        echo "$RESPONSE_BODY" | jq '.' 2>/dev/null || echo "$RESPONSE_BODY"
         
-        ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error_description // .error // "No error details available"')
+        ERROR_MSG=$(echo "$RESPONSE_BODY" | jq -r '.error_description // .error // "No error details available"' 2>/dev/null)
         echo "Error details: $ERROR_MSG"
         
         echo "Request parameters:"
