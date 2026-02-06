@@ -143,29 +143,43 @@ get_target_revision() {
 pre_cleanup() {
     echo "=== Pre-cleanup: Checking for previous runs ==="
 
-    # Check if gitea-init-job exists and completed successfully
-    if kubectl get job gitea-init-job -n cf-gitea >/dev/null 2>&1; then
-        if kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null | grep -q "True"; then
-            echo "Found completed gitea-init-job - removing Gitea to start fresh"
-
-            # Delete all Gitea resources
-            kubectl delete job gitea-init-job -n cf-gitea --ignore-not-found=true
-            kubectl delete deployment gitea -n cf-gitea --ignore-not-found=true
-            kubectl delete statefulset gitea -n cf-gitea --ignore-not-found=true
-            kubectl delete service gitea -n cf-gitea --ignore-not-found=true
-            kubectl delete service gitea-http -n cf-gitea --ignore-not-found=true
-            kubectl delete service gitea-ssh -n cf-gitea --ignore-not-found=true
-            kubectl delete pvc -n cf-gitea -l app.kubernetes.io/name=gitea --ignore-not-found=true
-            kubectl delete configmap initial-cf-values -n cf-gitea --ignore-not-found=true
-            kubectl delete secret gitea-admin-credentials -n cf-gitea --ignore-not-found=true
-            kubectl delete ingress -n cf-gitea -l app.kubernetes.io/name=gitea --ignore-not-found=true
-
-            echo "Gitea resources deleted"
+    # Check if any of the target namespaces exist
+    NAMESPACES_TO_DELETE=()
+    
+    for ns in argocd cf-gitea cf-openbao; do
+        if kubectl get namespace "$ns" >/dev/null 2>&1; then
+            NAMESPACES_TO_DELETE+=("$ns")
+        fi
+    done
+    
+    if [ ${#NAMESPACES_TO_DELETE[@]} -eq 0 ]; then
+        echo "No previous installations found"
+    else
+        echo "Found existing namespaces: ${NAMESPACES_TO_DELETE[*]}"
+        
+        if ask_continue "Delete these namespaces and start fresh?"; then
+            for ns in "${NAMESPACES_TO_DELETE[@]}"; do
+                echo "Deleting namespace: $ns"
+                kubectl delete namespace "$ns" --timeout=60s || {
+                    echo "WARNING: Namespace $ns deletion timed out, forcing..."
+                    kubectl delete namespace "$ns" --grace-period=0 --force 2>/dev/null || true
+                }
+            done
+            
+            # Wait for namespaces to be fully deleted
+            echo "Waiting for namespaces to be fully removed..."
+            for ns in "${NAMESPACES_TO_DELETE[@]}"; do
+                while kubectl get namespace "$ns" >/dev/null 2>&1; do
+                    echo "  Waiting for $ns to be deleted..."
+                    sleep 2
+                done
+                echo "  ✓ $ns deleted"
+            done
+        else
+            echo "Cleanup cancelled. Exiting."
+            exit 0
         fi
     fi
-
-    # Always delete openbao-init-job to allow re-initialization
-    kubectl delete job openbao-init-job -n cf-openbao --ignore-not-found=true
 
     # Delete temporary files
     rm -f /tmp/merged_values.yaml /tmp/argocd_values.yaml /tmp/argocd_size_values.yaml \
@@ -175,6 +189,7 @@ pre_cleanup() {
     echo "Pre-cleanup complete"
     echo ""
 }
+
 
 # Function to prompt for yes/no with a default of 'yes'
 ask_continue() {
