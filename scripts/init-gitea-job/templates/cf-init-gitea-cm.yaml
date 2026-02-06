@@ -110,7 +110,7 @@ data:
         exit 1
     fi
 
-    # --dev mode - Set mirror default branch
+    # Set mirror default branch (--dev mode)
     if [ "${TARGET_REVISION}" != "main" ]; then
       echo ">>>>> Setting default branch to '${TARGET_REVISION}'..."
       
@@ -127,14 +127,21 @@ data:
         
         # Verify the change took effect
         sleep 2
-        CURRENT_
-
-    # set mirror default branch (--dev mode)
-    if [ "{{ .Values.targetRevision }}" != "main" ]; then
-      curl -X PATCH "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" \
-      -H "Authorization: token ${GITEA_TOKEN}" \
-      -H "Content-Type: application/json" \
-      -d '{"default_branch": "{{ .Values.targetRevision }}"}'
+        CURRENT_DEFAULT=$(curl -s -H "Authorization: token ${GITEA_TOKEN}" \
+          "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" | \
+          grep -o '"default_branch":"[^"]*"' | cut -d'"' -f4)
+        
+        if [ "$CURRENT_DEFAULT" = "$TARGET_REVISION" ]; then
+          echo "✓ Verified: Default branch is now '${CURRENT_DEFAULT}'"
+        else
+          echo "✗ WARNING: Default branch is '${CURRENT_DEFAULT}', expected '${TARGET_REVISION}'"
+          exit 1
+        fi
+      else
+        echo "ERROR: Failed to set default branch (HTTP ${HTTP_CODE})"
+        echo "Response: $(echo "$PATCH_RESPONSE" | head -n-1)"
+        exit 1
+      fi
     fi
     
     echo ">>>>> Creating repository 'cluster-values'..."
