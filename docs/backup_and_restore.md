@@ -2,7 +2,7 @@
 
 ⚠️ Important Notes & Disclaimers
   - The AMD Resouce Manager is internally referenced as `airm`, hence the namespace and resource prefixes (understand that they are the same). 
-  - This is only an example script only, adjust paths and commands as needed for your system.
+  - This is an example script only, adjust paths and commands as needed for your system.
   - This is for illustration purposes only and **not officially supported.**
   - Always test backup and restore procedures in a safe environment before relying on them in production.
   - The backup and restore process is **not guaranteed to be backwards compatible between two arbitrary versions.**
