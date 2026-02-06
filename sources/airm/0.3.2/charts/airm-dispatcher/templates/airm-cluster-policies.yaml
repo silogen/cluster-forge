@@ -1,0 +1,352 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: airm-project-namespace-rolebinding
+spec:
+  background: false
+  rules:
+    - name: generate-project-namespace-rolebinding
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              operations:
+                - CREATE
+      preconditions:
+        any:
+          - key: '{{`{{request.object.metadata.labels."airm.silogen.ai/project-id" || '''' }}`}}'
+            operator: NotEquals
+            value: ""
+      skipBackgroundRequests: true
+      generate:
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: RoleBinding
+        name: "project-member-role-binding"
+        namespace: "{{`{{request.object.metadata.name}}`}}"
+        synchronize: true
+        data:
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: airm-project-member
+          subjects:
+            - kind: Group
+              # Add this in for backwards compatibility
+              name: "oidc{{`{{request.object.metadata.name}}`}}"
+              apiGroup: rbac.authorization.k8s.io
+            - kind: Group
+              # The kubernetes cluster apply an OIDC prefix of 'oidc:', so we adjust the groups to expect that
+              name: "oidc:{{`{{request.object.metadata.name}}`}}"
+              apiGroup: rbac.authorization.k8s.io
+---
+# Kyverno policy that enforces that workloads submitted to a namespace managed by AIRMan have the
+# correct kueue lables and field set, so that they are bound by the quota of the namespace
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: airm-quota-enforcement-for-workloads
+spec:
+  background: false
+  rules:
+    - name: set-queue-name-from-namespace-default
+      match:
+        resources:
+          kinds:
+            - Deployment
+            - StatefulSet
+            - Pod
+          namespaceSelector:
+            matchExpressions:
+              - key: airm.silogen.ai/project-id
+                operator: Exists
+      preconditions:
+        all:
+          - key: '{{`{{request.object.metadata.labels."kueue.x-k8s.io/queue-name" || '''' }}`}}'
+            operator: NotEquals
+            value: "{{`{{request.namespace }}`}}"
+      skipBackgroundRequests: true
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              kueue.x-k8s.io/queue-name: "{{`{{request.namespace }}`}}"
+
+    - name: set-queue-name-from-namespace-jobs
+      match:
+        resources:
+          kinds:
+            - Job # https://kueue.sigs.k8s.io/docs/tasks/run/jobs/
+          namespaceSelector:
+            matchExpressions:
+              - key: airm.silogen.ai/project-id
+                operator: Exists
+      preconditions:
+        all:
+          - key: '{{`{{request.object.metadata.labels."kueue.x-k8s.io/queue-name" || '''' }}`}}'
+            operator: NotEquals
+            value: "{{`{{request.namespace }}`}}"
+      skipBackgroundRequests: true
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              kueue.x-k8s.io/queue-name: "{{`{{request.namespace }}`}}"
+          spec:
+            suspend: true
+
+    - name: set-queue-name-from-namespace-cronjobs
+      match:
+        resources:
+          kinds:
+            - CronJob # https://kueue.sigs.k8s.io/docs/tasks/run/run_cronjobs/
+          namespaceSelector:
+            matchExpressions:
+              - key: airm.silogen.ai/project-id
+                operator: Exists
+      preconditions:
+        all:
+          - key: '{{`{{request.object.spec.jobTemplate.metadata.labels."kueue.x-k8s.io/queue-name" || '''' }}`}}'
+            operator: NotEquals
+            value: "{{`{{request.namespace }}`}}"
+      skipBackgroundRequests: true
+      mutate:
+        patchStrategicMerge:
+          spec:
+            jobTemplate:
+              metadata:
+                labels:
+                  kueue.x-k8s.io/queue-name: "{{`{{request.namespace }}`}}"
+              spec:
+                suspend: true
+
+    - name: set-queue-name-from-namespace-kaiwo
+      match:
+        resources:
+          kinds:
+            - KaiwoJob
+            - KaiwoService
+            - AIMService
+          namespaceSelector:
+            matchExpressions:
+              - key: airm.silogen.ai/project-id
+                operator: Exists
+      preconditions:
+        all:
+          - key: "{{`{{request.object.spec.clusterQueue || '' }}`}}"
+            operator: NotEquals
+            value: "{{`{{request.namespace }}`}}"
+      skipBackgroundRequests: true
+      mutate:
+        patchStrategicMerge:
+          spec:
+            clusterQueue: "{{`{{request.namespace }}`}}"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: airm-workload-tracking-policy
+spec:
+  background: false
+  rules:
+    # For all supported types, if airm.silogen.ai/workload-id and airm.silogen.ai/component-id are not set, we assume
+    # it has been submitted from outside of AIRMan. In that case, we set airm.silogen.ai/auto-discovered: true, so it can
+    # be tracked upstream. We also set airm.silogen.ai/discovered-component-type so that we can identify the type of component
+    # that was originally tracked, and ignore children created by it. See remove-auto-discovered-annotations-inherited-from-parent
+    # We also try to capture the user who submitted the workload, and consume it in the application
+
+    # Please note that ReplicaSet is not supported because by default it is filtered away by Kyverno by default: https://github.com/kyverno/kyverno/blob/main/charts/kyverno/values.yaml#L270
+    - name: add-discovery-annotations-for-supported-types
+      match:
+        resources:
+          kinds:
+            - Job
+            - Deployment
+            - StatefulSet
+            - DaemonSet
+            - CronJob
+            - KaiwoJob
+            - KaiwoService
+            - AIMService
+            - Pod
+          namespaceSelector:
+            matchExpressions:
+              - key: airm.silogen.ai/project-id
+                operator: Exists
+      preconditions:
+        all:
+          - key: '{{`{{request.object.metadata.labels."airm.silogen.ai/workload-id" || '''' }}`}}'
+            operator: Equals
+            value: ""
+          - key: '{{`{{request.object.metadata.labels."airm.silogen.ai/component-id" || '''' }}`}}'
+            operator: Equals
+            value: ""
+          - key: '{{`{{request.object.metadata.annotations."airm.silogen.ai/auto-discovered" || '''' }}`}}'
+            operator: Equals
+            value: ""
+      skipBackgroundRequests: true
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              airm.silogen.ai/submitter: "{{`{{request.userInfo.username }}`}}"
+              airm.silogen.ai/auto-discovered: "true"
+              airm.silogen.ai/discovered-component-type: "{{`{{request.object.kind }}`}}"
+    # For all supported types, if airm.silogen.ai/auto-discovered is set and the airm.silogen.ai/discovered-component-type
+    # doesnt match the kind of the current component, we assume this type has been created by a parent which is also
+    # supported by AIRMan and we dont need to track this type upstream, so we unset the airm.silogen.ai/auto-discovered annotation.
+    # This is mostly to account for KaiwoJob, KaiwoService, AIMService which propagate annotations to pods.
+    - name: remove-auto-discovered-annotations-inherited-from-parent
+      match:
+        resources:
+          kinds:
+            - Job
+            - Deployment
+            - StatefulSet
+            - DaemonSet
+            - CronJob
+            - KaiwoJob
+            - KaiwoService
+            - AIMService
+            - Pod
+          namespaceSelector:
+            matchExpressions:
+              - key: airm.silogen.ai/project-id
+                operator: Exists
+      preconditions:
+        all:
+          - key: '{{`{{request.object.metadata.annotations."airm.silogen.ai/auto-discovered" || '''' }}`}}'
+            operator: Equals
+            value: "true"
+          - key: '{{`{{request.object.metadata.annotations."airm.silogen.ai/discovered-component-type" || '''' }}`}}'
+            operator: NotEquals
+            value: "{{`{{request.object.kind }}`}}"
+      skipBackgroundRequests: true
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              airm.silogen.ai/auto-discovered: "false"
+    # For all supported types, if airm.silogen.ai/project-id does not match that of the namespace label, overwrite it
+    # with the expected value, to avoid metrics getting mixed up between projects.
+    - name: set-project-id-from-namespace-label
+      match:
+        resources:
+          kinds:
+            - Job
+            - Deployment
+            - StatefulSet
+            - DaemonSet
+            - CronJob
+            - KaiwoJob
+            - KaiwoService
+            - AIMService
+            - Pod
+          namespaceSelector:
+            matchExpressions:
+              - key: airm.silogen.ai/project-id
+                operator: Exists
+      context:
+        - name: ns_labels
+          apiCall:
+            urlPath: "/api/v1/namespaces/{{`{{request.namespace }}`}}"
+            method: GET
+            jmesPath: "metadata.labels"
+      preconditions:
+        all:
+          - key: '{{`{{request.object.metadata.labels."airm.silogen.ai/project-id" || '''' }}`}}'
+            operator: NotEquals
+            value: '{{`{{ns_labels."airm.silogen.ai/project-id" }}`}}'
+      skipBackgroundRequests: true
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              airm.silogen.ai/project-id: '{{`{{ns_labels."airm.silogen.ai/project-id" }}`}}'
+    # Add the airm.silogen.ai/workload-id and airm.silogen.ai/component-id labels to types that expect them at
+    # metadata.labels. The expectation is that these are propagated to the subsequent pods that are created.
+
+    # If the resource is spawned off by a CRD, it will not know about the labels on the previous version of the object,
+    # so we also check request.oldObject for the labels to try and preserve them if they were already set.
+    - name: add-workload-and-component-id-default
+      match:
+        resources:
+          kinds:
+            - Pod
+            - KaiwoJob
+            - KaiwoService
+            - AIMService
+          namespaceSelector:
+            matchExpressions:
+              - key: airm.silogen.ai/project-id
+                operator: Exists
+      skipBackgroundRequests: true
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              airm.silogen.ai/workload-id: '{{`{{request.object.metadata.labels."airm.silogen.ai/workload-id" || request.oldObject.metadata.labels."airm.silogen.ai/workload-id" || request.uid }}`}}'
+              airm.silogen.ai/component-id: '{{`{{request.object.metadata.labels."airm.silogen.ai/component-id" || request.oldObject.metadata.labels."airm.silogen.ai/component-id" || request.uid }}`}}'
+    # Add the airm.silogen.ai/workload-id and airm.silogen.ai/component-id labels to objects with templates and
+    # also add it to spec.template.metadata.labels to ensure that the pods created by them contain the labels as well
+    - name: add-workload-and-component-id-to-objects-with-template
+      match:
+        resources:
+          kinds:
+            - Job
+            - Deployment
+            - StatefulSet
+            - DaemonSet
+          namespaceSelector:
+            matchExpressions:
+              - key: airm.silogen.ai/project-id
+                operator: Exists
+      skipBackgroundRequests: true
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              airm.silogen.ai/workload-id: '{{`{{request.object.metadata.labels."airm.silogen.ai/workload-id" || request.oldObject.metadata.labels."airm.silogen.ai/workload-id" || request.uid }}`}}'
+              airm.silogen.ai/component-id: '{{`{{request.object.metadata.labels."airm.silogen.ai/component-id" || request.oldObject.metadata.labels."airm.silogen.ai/component-id" || request.uid }}`}}'
+          spec:
+            template:
+              metadata:
+                labels:
+                  airm.silogen.ai/workload-id: '{{`{{request.object.metadata.labels."airm.silogen.ai/workload-id" || request.oldObject.metadata.labels."airm.silogen.ai/workload-id" || request.uid }}`}}'
+                  airm.silogen.ai/component-id: '{{`{{request.object.metadata.labels."airm.silogen.ai/component-id" || request.oldObject.metadata.labels."airm.silogen.ai/component-id" || request.uid }}`}}'
+
+    # Add the airm.silogen.ai/workload-id and airm.silogen.ai/component-id labels to cronjob and
+    # also add it to spec.jobTemplate.metadata.labels to ensure that the pods created by the cronjob
+    # contain it as well
+    - name: add-workload-and-component-id-cronjobs
+      match:
+        resources:
+          kinds:
+            - CronJob
+          namespaceSelector:
+            matchExpressions:
+              - key: airm.silogen.ai/project-id
+                operator: Exists
+      skipBackgroundRequests: true
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              airm.silogen.ai/workload-id: '{{`{{request.object.metadata.labels."airm.silogen.ai/workload-id" || request.oldObject.metadata.labels."airm.silogen.ai/workload-id" || request.uid }}`}}'
+              airm.silogen.ai/component-id: '{{`{{request.object.metadata.labels."airm.silogen.ai/component-id" || request.oldObject.metadata.labels."airm.silogen.ai/component-id" || request.uid }}`}}'
+          spec:
+            jobTemplate:
+              metadata:
+                labels:
+                  airm.silogen.ai/workload-id: '{{`{{request.object.metadata.labels."airm.silogen.ai/workload-id" || request.oldObject.metadata.labels."airm.silogen.ai/workload-id" || request.uid }}`}}'
+                  airm.silogen.ai/component-id: '{{`{{request.object.metadata.labels."airm.silogen.ai/component-id" || request.oldObject.metadata.labels."airm.silogen.ai/component-id" || request.uid }}`}}'
+              spec:
+                template:
+                  metadata:
+                    labels:
+                      airm.silogen.ai/workload-id: '{{`{{request.object.metadata.labels."airm.silogen.ai/workload-id" || request.oldObject.metadata.labels."airm.silogen.ai/workload-id" || request.uid }}`}}'
+                      airm.silogen.ai/component-id: '{{`{{request.object.metadata.labels."airm.silogen.ai/component-id" || request.oldObject.metadata.labels."airm.silogen.ai/component-id" || request.uid }}`}}'
