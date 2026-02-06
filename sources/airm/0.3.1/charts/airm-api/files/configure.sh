@@ -93,7 +93,8 @@ function refresh_token() {
         echo "- KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}"
         echo "- USER_EMAIL: ${USER_EMAIL}"
         echo "- DNS resolution test:"
-        nslookup "$(echo "$KEYCLOAK_URL" | sed 's|https\?://||' | cut -d'/' -f1)" || echo "DNS lookup failed"
+        HOSTNAME=$(echo "$KEYCLOAK_URL" | sed 's|https\?://||' | cut -d'/' -f1 | cut -d':' -f1)
+        nslookup "$HOSTNAME" || echo "DNS lookup failed for $HOSTNAME"
         
         rm -f "$CURL_ERROR_FILE"
         exit 1
