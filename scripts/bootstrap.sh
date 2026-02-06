@@ -175,6 +175,63 @@ pre_cleanup() {
     echo ""
 }
 
+# Function to prompt for yes/no with a default of 'yes'
+ask_continue() {
+    MSG=${1:-"Do you want to continue?"} # Use argument as message, or default
+    while true; do
+        read -p "$MSG [Y/n]: " REPLY
+        # Convert REPLY to lowercase for easier comparison
+        REPLY=${REPLY:-y} # Default to 'y' if REPLY is empty
+
+        case "$REPLY" in
+            [Yy]* ) return 0;; # Yes, return 0 (success)
+            [Nn]* ) return 1;; # No, return 1 (failure)
+            * ) echo "Invalid input, please enter yes or no.";;
+        esac
+    done
+}
+
+check_dependencies() {
+  # Check for yq command availability
+  if command -v yq >/dev/null 2>&1; then
+      YQ_CMD="yq"
+  elif [ -f "$HOME/yq" ]; then
+      YQ_CMD="$HOME/yq"
+  else
+      echo "ERROR: yq command not found. Please install yq or place it in $HOME/yq"
+      exit 1
+  fi
+
+  # Install Argo CD cli if not present when in --dev mode
+  if [ "$DEV_MODE" = true ]; then
+    if ! command -v argocd >/dev/null 2>&1; then
+      if ask_continue "Need to install argocd cli tool, proceed [Y/n]?"; then
+        echo "Installing argocd..."
+        # Fetch the latest version number
+        VERSION=$(curl --silent "https://api.github.com/repos/argoproj/argo-cd/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+
+        # Download the binary for your architecture (example for linux-amd64)
+        curl -sSL -o argocd-linux-amd64 https://github.com
+
+        if [ "$EUID" -ne 0 ]; then
+          echo "Installing to /usr/local/bin requires sudo privileges..."
+          sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+        else
+          install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+        fi
+        rm argocd-linux-amd64
+
+        argocd --version
+      else
+        echo "argocd installation cancelled by user."
+        exit 1
+      fi
+    fi
+  fi
+}
+
+check_dependencies
+exit 0
 # Handle dev mode branch selection
 get_target_revision
 
@@ -190,15 +247,6 @@ if [ -n "$SIZE_VALUES_FILE" ]; then
 fi
 echo "============================"
 
-# Check for yq command availability
-if command -v yq >/dev/null 2>&1; then
-    YQ_CMD="yq"
-elif [ -f "$HOME/yq" ]; then
-    YQ_CMD="$HOME/yq"
-else
-    echo "ERROR: yq command not found. Please install yq or place it in $HOME/yq"
-    exit 1
-fi
 
 # Update the global.clusterSize in the base values file with full filename
 $YQ_CMD -i ".global.clusterSize = \"values_${CLUSTER_SIZE}.yaml\"" "${SCRIPT_DIR}/../root/${VALUES_FILE}"
