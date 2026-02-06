@@ -1,5 +1,6 @@
 {{- $clusterForgeRepoUrl := .Values.clusterForge.repoUrl }}
 {{- $clusterForgeTargetRevision := .Values.clusterForge.targetRevision }}
+{{- $autoSyncEnabled := .Values.global.autoSyncEnabled | default false }}
 {{- range .Values.enabledApps }}
 {{- $name := . }}
 {{- $scope := (index $.Values.apps .) | required (printf "Values for app %s are missing!" $name) }}
