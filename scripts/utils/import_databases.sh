@@ -248,14 +248,12 @@ check_workloads_table() {
             echo "Warning: Could not validate port-forward for workloads check"
             return 0
         fi
-        # Query via port-forward
         export PGPASSWORD=$AIRM_DB_PASSWORD
         WORKLOAD_COUNT=$(psql -h 127.0.0.1 -p $LOCAL_PORT -U $AIRM_DB_USERNAME -d airm -t -c "SELECT COUNT(*) FROM workloads;" 2>/dev/null | xargs)
         unset PGPASSWORD
         disable_port_forward
     else
-        # Query directly in container
-        WORKLOAD_COUNT=$(kubectl exec -n airm $PRIMARY_POD --container=postgres -- bash -c "PGPASSWORD=$AIRM_DB_PASSWORD psql -h localhost -U $AIRM_DB_USERNAME -d airm -t -c 'SELECT COUNT(*) FROM workloads;' 2>/dev/null | xargs")
+        WORKLOAD_COUNT=$(kubectl exec -n airm $PRIMARY_POD --container=postgres -- bash -c "export PGPASSWORD='$AIRM_DB_PASSWORD'; psql -h localhost -U $AIRM_DB_USERNAME -d airm -t -c 'SELECT COUNT(*) FROM workloads;' 2>/dev/null | xargs")
     fi
     
     if [ -z "$WORKLOAD_COUNT" ]; then
@@ -264,7 +262,6 @@ check_workloads_table() {
     else
         echo "Found $WORKLOAD_COUNT entries in workloads table."
     fi
-    
     
     if [ "$WORKLOAD_COUNT" -gt 0 ]; then
         echo ""
