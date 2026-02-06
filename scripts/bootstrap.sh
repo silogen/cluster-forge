@@ -205,21 +205,12 @@ check_dependencies() {
   # Install Argo CD cli if not present when in --dev mode
   if [ "$DEV_MODE" = true ]; then
     if ! command -v argocd >/dev/null 2>&1; then
-      if ask_continue "Need to install argocd cli tool, proceed [Y/n]?"; then
+      if ask_continue "Need to install argocd cli tool, proceed"; then
         echo "Installing argocd..."
-        # Fetch the latest version number
-        VERSION=$(curl --silent "https://api.github.com/repos/argoproj/argo-cd/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
 
-        # Download the binary for your architecture (example for linux-amd64)
-        curl -sSL -o argocd-linux-amd64 https://github.com
-
-        if [ "$EUID" -ne 0 ]; then
-          echo "Installing to /usr/local/bin requires sudo privileges..."
-          sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
-        else
-          install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
-        fi
-        rm argocd-linux-amd64
+      curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+      sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+      rm argocd-linux-amd64
 
         argocd --version
       else
@@ -231,7 +222,7 @@ check_dependencies() {
 }
 
 check_dependencies
-exit 0
+
 # Handle dev mode branch selection
 get_target_revision
 
