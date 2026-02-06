@@ -394,7 +394,7 @@ helm template ${SCRIPT_DIR}/../root \
     --kube-version=${KUBE_VERSION} | kubectl apply -f -
 
 # Re-enable auto-sync after apps are created (presently only in --dev mode)
-if [ "$AUTO_SYNC_ENABLED" = true ]; then
+if [ "$AUTO_SYNC_ENABLED" = false ]; then
     echo ""
     echo "=== Re-enabling Auto-Sync ==="
     echo "Waiting 10s for Application resources to be created..."
