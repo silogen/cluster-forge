@@ -51,11 +51,36 @@ check_env_variable "KEYCLOAK_ADMIN_CLIENT_SECRET"
 check_env_variable "USER_PASSWORD"
 
 function refresh_token() {
-    TOKEN=$(curl -s -d "client_id=${KEYCLOAK_CLIENT_ID}" -d "username=${USER_EMAIL}" -d "password=${USER_PASSWORD}" -d 'grant_type=password' -d "client_secret=${KEYCLOAK_CLIENT_SECRET}" "${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token" | jq -r '.access_token')
-    if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
-        echo "ERROR: Failed to obtain access token from Keycloak."
+    echo "Attempting to obtain access token from Keycloak..."
+    
+    RESPONSE=$(curl -s -d "client_id=${KEYCLOAK_CLIENT_ID}" -d "username=${USER_EMAIL}" -d "password=${USER_PASSWORD}" -d 'grant_type=password' -d "client_secret=${KEYCLOAK_CLIENT_SECRET}" "${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token")
+    
+    if [ $? -ne 0 ]; then
+        echo "ERROR: curl command failed when connecting to Keycloak"
         exit 1
     fi
+    
+    TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
+    
+    if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
+        echo "ERROR: Failed to obtain access token from Keycloak."
+        echo "Full response from Keycloak:"
+        echo "$RESPONSE" | jq '.'
+        
+        ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error_description // .error // "No error details available"')
+        echo "Error details: $ERROR_MSG"
+        
+        echo "Request parameters:"
+        echo "- KEYCLOAK_URL: ${KEYCLOAK_URL}"
+        echo "- KEYCLOAK_REALM: ${KEYCLOAK_REALM}"
+        echo "- KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}"
+        echo "- USER_EMAIL: ${USER_EMAIL}"
+        echo "- CLIENT_SECRET: [HIDDEN]"
+        
+        exit 1
+    fi
+    
+    echo "Successfully obtained access token"
 }
 
 function create_project() {
