@@ -900,7 +900,7 @@ server:
     # The OpenBao cluster will coordinate leader elections and failovers internally.
     raft:
       # Enables Raft integrated storage
-      enabled: false
+      enabled: true
       # Set the Node Raft ID to the name of the pod
       setNodeId: false
 
