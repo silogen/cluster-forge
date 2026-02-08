@@ -881,7 +881,7 @@ server:
   # Helm project by default.  It is possible to manually configure OpenBao to use a
   # different HA backend.
   ha:
-    enabled: false
+    enabled: true
     replicas: 3
 
     # Set the api_addr configuration for OpenBao HA
