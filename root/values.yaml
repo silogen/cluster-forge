@@ -142,7 +142,7 @@ apps:
           enabled: false
           raft:
             enabled: false
-          replicas: 1
+          replicas: 3
       ui:
         enabled: true
     syncWave: -4
