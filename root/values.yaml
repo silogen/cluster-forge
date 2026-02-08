@@ -139,9 +139,9 @@ apps:
                       component: server
                   topologyKey: kubernetes.io/hostname
         ha:
-          enabled: false
+          enabled: true
           raft:
-            enabled: false
+            enabled: true
           replicas: 3
       ui:
         enabled: true
