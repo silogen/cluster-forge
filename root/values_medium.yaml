@@ -129,7 +129,7 @@ apps:
       server:
         ha:
           enabled: false
-          replicas: 1
+          replicas: 3
           raft:
             enabled: false
         dataStorage:
