@@ -270,12 +270,10 @@ helm template --release-name openbao ${SCRIPT_DIR}/../sources/openbao/0.18.2 --n
   --kube-version=${KUBE_VERSION} | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
 
-# Create static ConfigMaps needed for init job
-echo "Creating OpenBao config static resources..."
-helm template --release-name openbao-config-static ${SCRIPT_DIR}/init-openbao-job \
-  --set domain="${DOMAIN}" \
-  --kube-version=${KUBE_VERSION} \
-  --show-only templates/openbao-secret-manager-cm.yaml | kubectl apply -f -
+# Create initial secrets config for init job (separate from ArgoCD-managed version)
+echo "Creating initial OpenBao secrets configuration..."
+cat ${SCRIPT_DIR}/../sources/openbao-config/0.1.0/templates/openbao-secret-manager-cm.yaml | \
+  sed "s|name: openbao-secret-manager-scripts|name: openbao-secret-manager-scripts-init|g" | kubectl apply -f -
 
 # Create initial secrets config for init job (separate from ArgoCD-managed version)
 echo "Creating initial OpenBao secrets configuration..."
