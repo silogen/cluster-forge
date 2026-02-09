@@ -18,10 +18,10 @@ spec:
       valueFiles:
         - {{ .Values.externalValues.path }}
         - {{ .Values.global.clusterSize }}
-        - $values/values.yaml
+        - $cluster-values/values.yaml
   - repoURL: {{ .Values.externalValues.repoUrl }}
     targetRevision: {{ .Values.externalValues.targetRevision }}
-    ref: values
+    ref: cluster-values
   {{ else }}
   # helm-chart & values file within the same git repo
   source:
