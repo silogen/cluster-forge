@@ -139,10 +139,10 @@ apps:
                       component: server
                   topologyKey: kubernetes.io/hostname
         ha:
-          enabled: true
+          enabled: false
           raft:
-            enabled: true
-          replicas: 3
+            enabled: false
+          replicas: 1
       ui:
         enabled: true
     syncWave: -4

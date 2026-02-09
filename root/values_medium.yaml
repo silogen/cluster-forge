@@ -128,10 +128,10 @@ apps:
     valuesObject:
       server:
         ha:
-          enabled: true
-          replicas: 3
+          enabled: false
+          replicas: 1
           raft:
-            enabled: true
+            enabled: false
         dataStorage:
           size: 5Gi
           storageClass: direct
