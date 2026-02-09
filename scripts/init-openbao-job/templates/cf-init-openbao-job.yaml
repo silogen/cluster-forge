@@ -55,5 +55,5 @@ spec:
             name: openbao-secrets-init-config
         - name: secret-manager
           configMap:
-            name: openbao-secret-manager-scripts
+            name: openbao-secret-manager-scripts-init
             defaultMode: 0755
