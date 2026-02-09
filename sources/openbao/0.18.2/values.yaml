@@ -881,7 +881,7 @@ server:
   # Helm project by default.  It is possible to manually configure OpenBao to use a
   # different HA backend.
   ha:
-    enabled: true
+    enabled: false
     replicas: 3
 
     # Set the api_addr configuration for OpenBao HA
@@ -900,7 +900,7 @@ server:
     # The OpenBao cluster will coordinate leader elections and failovers internally.
     raft:
       # Enables Raft integrated storage
-      enabled: true
+      enabled: false
       # Set the Node Raft ID to the name of the pod
       setNodeId: false
 
