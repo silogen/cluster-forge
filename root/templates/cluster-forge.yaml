@@ -17,7 +17,9 @@ spec:
       # the path to the custom values file is relative to the root of the external values repo
       valueFiles:
         - {{ .Values.externalValues.path }}
+        {{- if .Values.global.clusterSize }}
         - {{ .Values.global.clusterSize }}
+        {{- end }}
         - $values/values.yaml
   - repoURL: {{ .Values.externalValues.repoUrl }}
     targetRevision: {{ .Values.externalValues.targetRevision }}
@@ -29,8 +31,10 @@ spec:
     targetRevision: {{ .Values.clusterForge.targetRevision }}
     path: root
     helm:
+      {{- if .Values.clusterForge.valuesFile }}
       valueFiles:
         - {{ .Values.clusterForge.valuesFile }}
+      {{- end }}
   {{- end }}
   destination:
     server: https://kubernetes.default.svc

@@ -24,7 +24,7 @@ spec:
     {{- end }}
     {{- if or .valuesFile .valuesObject .helmParameters }}
     helm:
-      {{- if .valuesFile }}
+      {{- if and .valuesFile (ne .valuesFile "null") (ne .valuesFile nil) }}
       valueFiles:
         - {{ .valuesFile }}
       {{- end }}
