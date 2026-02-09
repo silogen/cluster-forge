@@ -17,12 +17,14 @@ spec:
     blacklist: false
         
     # Specify the out-of-tree driver version
-    version: "6.3.2"
+    # NOTE: Starting from ROCm 7.1 the amdgpu version is using new versioning schema
+    # please refer to https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/user-kernel-space-compat-matrix.html
+    version: "7.0"
 
     # Specify driver image here
     # DO NOT include the image tag as AMD GPU Operator will automatically manage the image tag for you
     # e.g. docker.io/username/amdgpu-driver
-    image: docker.io/username/repo
+    image: imageregistry.io/username/repo
 
     # Specify the credential for your private registry if it requires credential to get pull/push access
     # you can create the docker-registry type secret by running command like:
@@ -35,6 +37,21 @@ spec:
     #imageRegistryTLS:
     #  insecure: true
     #  insecureSkipTLSVerify: true
+
+    ## (Optional) configure the driver image build within the cluster
+    #imageBuild:
+    #  # configure the registry to search for base image for building driver
+    #  # e.g. if you are using worker node with ubuntu 22.04 and baseImageRegistry is docker.io
+    #  # image builder will use docker.io/ubuntu:22.04 as base image
+    #  baseImageRegistry: docker.io
+    #  # sourceImageRepo: specify the amdgpu source code image repo for building driver
+    #  # the Operator will decide the image tag based on user provided driver version and system OS version
+    #  # e.g. if you input docker.io/rocm/amdgpu-driver the image tag will be coreos-<rhel version>-<driver version>
+    #  # NOTE: currently only work for OpenShift cluster
+    #  sourceImageRepo: docker.io/rocm/amdgpu-driver
+    #  baseImageRegistryTLS:
+    #    insecure: False # If True, check for the container image using plain HTTP
+    #    insecureSkipTLSVerify: False # If True, skip any TLS server certificate validation (useful for self-signed certificates)
 
     # Specify the image signing config for building + signing image within cluster
     #imageSign:
@@ -57,6 +74,10 @@ spec:
     # please set to true if you want to blacklist the inbox driver and use our-of-tree driver
     enableNodeLabeller: true
         
+    # Specify Node Labeller image pull policy
+    # default value is IfNotPresent for valid tags, Always for no tag or "latest" tag
+    nodeLabellerImagePullPolicy: "Always"
+
   # Specify the metrics exporter config
   metricsExporter:
     # To enable/disable the metrics exporter, disabled by default
@@ -66,6 +87,11 @@ spec:
     # if not specified metrics exporter will use the node selector from spec.selector by default
     #selector:
     #  feature.node.kubernetes.io/amd-gpu: "true"
+
+    # podAnnotations for metrics exporter
+    podAnnotations: {}
+    # serviceAnnotations for metrics exporter
+    serviceAnnotations: {}
 
     # kubernetes service type for metrics exporter, clusterIP(default) or NodePort
     serviceType: "NodePort"
@@ -77,32 +103,60 @@ spec:
     nodePort: 32500
 
     # exporter image
-    image: "docker.io/rocm/device-metrics-exporter:v1.3.0.1"
-    imagePullPolicy: IfNotPresent
-
-    # image pull secrets for fetching metrics exporter image
-    #imageRegistrySecret:
-    #  name: exporterimagesecret
-
-    # metrics export config in configmap
-    #config:
-    #  # example configmap is in example/metricsExporter/configmap.yaml
-    #  name: gpu-config
+    image: docker.io/rocm/device-metrics-exporter:v1.4.1
+    # image pull policy for metrics exporter
+    # default value is IfNotPresent for valid tags, Always for no tag or "latest" tag
+    imagePullPolicy: "IfNotPresent"
+    # metrics config in configmap
     config:
       name: "gpu-config"
-    
-    ## Specify the kube-rbac-proxy config
-    #rbacConfig:
-    #  # To enable/disable kube-rbac-proxy, disabled by default
-    #  enable: True
-    #  
-    #  # kube rbac proxy image, default is quay.io/brancz/kube-rbac-proxy:v0.18.1
-    #  image: "quay.io/brancz/kube-rbac-proxy:v0.18.1"
-    #
-    #  # To disable https (not recommended), enabled by default
-    #  disableHttps: True
-      
 
-  # Specifythe node to be managed by this DeviceConfig Custom Resource
+    # Specify the testrunner config
+  testRunner:
+    # To enable/disable the testrunner, disabled by default
+    enable: false
+
+    # testrunner image
+    image: docker.io/rocm/test-runner:v1.4.1
+    # image pull policy for the testrunner
+    # default value is IfNotPresent for valid tags, Always for no tag or "latest" tag
+    imagePullPolicy: "IfNotPresent"
+
+    # specify the mount for test logs
+    logsLocation:
+      # mount path inside test runner container
+      mountPath: "/var/log/amd-test-runner"
+
+      # host path to be mounted into test runner container
+      hostPath: "/var/log/amd-test-runner"
+
+      # list of secrets that contain connectivity info to cloud providers
+      #logsExportSecrets:
+      #- name: azure-secret
+      #- name: aws-secret
+
+  configManager:
+    # To enable/disable the config manager, enable to partition
+    enable: false
+    # image for the device-config-manager container
+    image: rocm/device-config-manager:v1.4.1
+    # image pull policy for config manager set to always to pull image of latest version
+    imagePullPolicy: IfNotPresent
+    # specify configmap name which stores profile config info
+    #config: 
+    #  name: "config-manager-config"
+    # DCM pod deployed either as a standalone pod or through the GPU operator will have 
+    # a toleration attached to it. User can specify additional tolerations if required
+    # key: amd-dcm , value: up , Operator: Equal, effect: NoExecute 
+    # OPTIONAL
+    # toleration field for dcm pod to bypass nodes with specific taints
+    #configManagerTolerations:
+    #  - key: "key1"
+    #    operator: "Equal" 
+    #    value: "value1"
+    #    effect: "NoExecute"
+
+    # Specifythe node to be managed by this DeviceConfig Custom Resource
+
   selector:
     feature.node.kubernetes.io/amd-gpu: "true"
