@@ -159,7 +159,10 @@ echo "📦 Creating namespaces..."
 kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
 kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
 kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
-kubectl create ns airm --dry-run=client -o yaml | kubectl apply -f -
+# Create airm namespace only if AIRM is enabled in values
+if grep -q "^  - airm" "${ROOT_DIR}/root/values_local_kind.yaml" 2>/dev/null; then
+    kubectl create ns airm --dry-run=client -o yaml | kubectl apply -f -
+fi
 
 # Create default storage class for compatibility
 echo "💾 Creating default StorageClass..."
@@ -584,36 +587,40 @@ echo "✅ Gitea initialized"
 echo "📤 Pushing cluster-forge repository to Gitea..."
 "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${ROOT_DIR}" "cluster-org" "cluster-forge"
 
-# Push silogen-core repo to Gitea if it exists (needed for AIRM deployment)
-if [ -d "${SILOGEN_CORE_PATH}" ]; then
-    # If building local images, create a temporary worktree with modified values
-    if [ "${BUILD_LOCAL_IMAGES}" = "1" ]; then
-        echo "   Creating temporary worktree with local image tags"
-        TEMP_WORKTREE="/tmp/silogen-core-local-tags-$$"
-        cd "${SILOGEN_CORE_PATH}"
-        git worktree add --detach "${TEMP_WORKTREE}" HEAD
-        cd "${TEMP_WORKTREE}"
-        yq eval '.airm-api.airm.backend.image.tag = "local" | .airm-dispatcher.airm.dispatcher.image.tag = "local"' \
-            -i services/airm/helm/airm/values.yaml
-        git add services/airm/helm/airm/values.yaml
-        git commit -m "temp: use local image tags for kind development" --no-verify
-        
-        # Push from temporary worktree
-        echo "📤 Pushing silogen-core (with local tags) to Gitea..."
-        "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${TEMP_WORKTREE}" "cluster-org" "core"
-        
-        # Clean up worktree
-        cd "${SILOGEN_CORE_PATH}"
-        git worktree remove "${TEMP_WORKTREE}" --force
-        echo "✅ Repositories pushed to Gitea"
+# Push silogen-core repo to Gitea if AIRM is enabled (needed for AIRM deployment)
+if grep -q "^  - airm" "${ROOT_DIR}/root/values_local_kind.yaml" 2>/dev/null; then
+    if [ -d "${SILOGEN_CORE_PATH}" ]; then
+        # If building local images, create a temporary worktree with modified values
+        if [ "${BUILD_LOCAL_IMAGES}" = "1" ]; then
+            echo "   Creating temporary worktree with local image tags"
+            TEMP_WORKTREE="/tmp/silogen-core-local-tags-$$"
+            cd "${SILOGEN_CORE_PATH}"
+            git worktree add --detach "${TEMP_WORKTREE}" HEAD
+            cd "${TEMP_WORKTREE}"
+            yq eval '.airm-api.airm.backend.image.tag = "local" | .airm-dispatcher.airm.dispatcher.image.tag = "local"' \
+                -i services/airm/helm/airm/values.yaml
+            git add services/airm/helm/airm/values.yaml
+            git commit -m "temp: use local image tags for kind development" --no-verify
+            
+            # Push from temporary worktree
+            echo "📤 Pushing silogen-core (with local tags) to Gitea..."
+            "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${TEMP_WORKTREE}" "cluster-org" "core"
+            
+            # Clean up worktree
+            cd "${SILOGEN_CORE_PATH}"
+            git worktree remove "${TEMP_WORKTREE}" --force
+            echo "✅ silogen-core pushed to Gitea"
+        else
+            echo "📤 Pushing silogen-core repository to Gitea..."
+            "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${SILOGEN_CORE_PATH}" "cluster-org" "core"
+            echo "✅ silogen-core pushed to Gitea"
+        fi
     else
-        echo "📤 Pushing silogen-core repository to Gitea..."
-        "${ROOT_DIR}/scripts/push-repo-to-gitea.sh" "${SILOGEN_CORE_PATH}" "cluster-org" "core"
-        echo "✅ Repositories pushed to Gitea"
+        echo "⚠️  AIRM enabled but silogen-core not found at ${SILOGEN_CORE_PATH}"
+        echo "   AIRM will use charts from cluster-forge/sources/airm/"
     fi
 else
-    echo "⚠️  silogen-core not found at ${SILOGEN_CORE_PATH}"
-    echo "   AIRM will use charts from cluster-forge/sources/airm/0.2.7"
+    echo "ℹ️  AIRM not enabled - skipping silogen-core push"
     echo "✅ cluster-forge pushed to Gitea"
 fi
 
@@ -638,8 +645,8 @@ echo ""
 echo "📦 ArgoCD Applications:"
 kubectl get applications -n argocd
 echo ""
-echo "🎯 AIRM will be deployed by ArgoCD and will be available shortly"
-echo "   Monitor progress with: kubectl get pods -n airm -w"
+echo "🎯 Applications will be deployed by ArgoCD and will be available shortly"
+echo "   Monitor progress with: kubectl get pods -A -w"
 echo ""
 echo "Access services:"
 echo "  ArgoCD UI: kubectl port-forward svc/argocd-server -n argocd 8080:443"
@@ -655,12 +662,17 @@ echo ""
 echo "⏳ Key applications status (may take a few minutes to sync):"
 echo "   MinIO: $(kubectl get application minio-tenant -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo 'Not yet synced')"
 echo "   Keycloak: $(kubectl get application keycloak -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo 'Not yet synced')"
-echo "   AIRM: $(kubectl get application airm -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo 'Not yet synced')"
+if kubectl get application airm -n argocd &>/dev/null; then
+    echo "   AIRM: $(kubectl get application airm -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo 'Not yet synced')"
+fi
+if kubectl get application aiwb -n argocd &>/dev/null; then
+    echo "   AIWB: $(kubectl get application aiwb -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo 'Not yet synced')"
+fi
 echo ""
 echo "⚠️  Resource Warning:"
-echo "   AIRM and all dependencies require significant resources."
+echo "   All applications and dependencies require significant resources."
 echo "   If pods are pending due to insufficient CPU/memory, consider:"
-echo "   - Commenting out some apps in root/values_local_kind.yaml"
+echo "   - Disabling optional apps in root/values_local_kind.yaml"
 echo "   - Using a multi-node Kind cluster"
 echo "   - Increasing Docker Desktop resource limits"
 echo ""
@@ -688,7 +700,7 @@ fi
 echo "💡 Tips:"
 echo "   - Monitor ArgoCD apps: kubectl get applications -n argocd"
 echo "   - Monitor all pods: watch kubectl get pods -A"
-echo "   - View AIRM pods: kubectl get pods -n airm"
+echo "   - View application pods: kubectl get pods -n <namespace>"
 echo "   - View logs: kubectl logs -n <namespace> <pod-name>"
 if [ -d "${SILOGEN_CORE_PATH}/services/airm/helm/airm" ]; then
     echo ""
