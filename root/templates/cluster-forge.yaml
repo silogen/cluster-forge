@@ -16,12 +16,12 @@ spec:
       # here we want the base values.yaml and the custom values file from external repo
       # the path to the custom values file is relative to the root of the external values repo
       valueFiles:
-        - {{ .Values.externalValues.path }}
-        - {{ .Values.global.clusterSize }}
-        - $values/values.yaml
+        - values.yaml 
+        - values_large.yaml
+        - $cluster-values/values.yaml
   - repoURL: {{ .Values.externalValues.repoUrl }}
     targetRevision: {{ .Values.externalValues.targetRevision }}
-    ref: values
+    ref: cluster-values
   {{ else }}
   # helm-chart & values file within the same git repo
   source:
