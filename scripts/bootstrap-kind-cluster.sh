@@ -540,6 +540,22 @@ echo "✅ Gitea is ready"
 
 # Initialize OpenBao
 echo "🔧 Initializing OpenBao..."
+
+# Create static ConfigMaps needed for init job
+echo "  Creating OpenBao secret manager scripts..."
+helm template --release-name openbao-config-static scripts/init-openbao-job \
+  --set domain="${DOMAIN}" \
+  --kube-version=1.33 \
+  --show-only templates/openbao-secret-manager-cm.yaml | kubectl apply -f - > /dev/null
+
+# Create initial secrets config for init job (separate from ArgoCD-managed version)
+echo "  Creating initial OpenBao secrets configuration..."
+cat sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml | \
+  sed "s|{{ .Values.domain }}|${DOMAIN}|g" | \
+  sed "s|name: openbao-secrets-config|name: openbao-secrets-init-config|g" | kubectl apply -f - > /dev/null
+
+# Deploy init job
+echo "  Deploying OpenBao init job..."
 helm template --release-name openbao-init scripts/init-openbao-job \
   --set domain="${DOMAIN}" \
   --kube-version=1.33 | kubectl apply -f - > /dev/null
