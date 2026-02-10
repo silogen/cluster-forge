@@ -1,6 +1,6 @@
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: v1.5.3 # cluster-forge version git tag
+  targetRevision: fix_1_5_3_KC_OOM # from values.yaml
   valuesFile: values.yaml
 # source helm values file from separate git repo
 externalValues:
