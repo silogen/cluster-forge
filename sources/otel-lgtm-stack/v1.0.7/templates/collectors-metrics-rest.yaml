@@ -61,21 +61,24 @@ spec:
               scrape_timeout: 10s
             - job_name: gpu-operator-metrics-exporter
               kubernetes_sd_configs:
-                - role: node
+              - role: pod
+                namespaces:
+                  names:
+                  - kube-amd-gpu
               metrics_path: /metrics
               relabel_configs:
-                - action: keep
-                  regex: true
-                  source_labels:
-                    - __meta_kubernetes_node_label_feature_node_kubernetes_io_amd_gpu
-                - regex: (.+)
-                  replacement: $1:32500
-                  source_labels:
-                    - __meta_kubernetes_node_address_InternalIP
-                  target_label: __address__
-                - source_labels:
-                    - __meta_kubernetes_node_name
-                  target_label: hostname
+              - action: keep
+                regex: gpu-operator-metrics-exporter.*
+                source_labels:
+                - __meta_kubernetes_pod_name
+              - source_labels:
+                - __meta_kubernetes_pod_ip
+                regex: (.+)
+                replacement: $1:5000
+                target_label: __address__
+              - source_labels:
+                - __meta_kubernetes_pod_node_name
+                target_label: hostname
             - job_name: minio-cluster-metrics
               metrics_path: /minio/v2/metrics/cluster
               scheme: http
