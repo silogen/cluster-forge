@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: keycloak-coredns-config-{{ .Release.Revision }}
-  namespace: kube-system
+  namespace: keycloak
   annotations:
     argocd.argoproj.io/hook: Sync
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
@@ -69,9 +69,9 @@ spec:
             sed -i "s/DOMAIN_PLACEHOLDER/$DOMAIN/g" /tmp/corefile
             
             # Patch the ConfigMap
-            kubectl create configmap coredns \
+            kubectl create configmap rke2-coredns-rke2-coredns \
               --from-file=Corefile=/tmp/corefile \
               --dry-run=client -o yaml | \
               kubectl apply -f - -n kube-system
             
-            echo "CoreDNS ConfigMap updated successfully"
+            echo "RKE2 CoreDNS ConfigMap updated successfully"
