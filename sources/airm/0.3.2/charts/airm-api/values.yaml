@@ -104,7 +104,7 @@ airm:
   frontend:
     image:
       repository: amdenterpriseai/airm-ui
-      tag: 0.3.0
+      tag: 0.3.2
       pullPolicy: IfNotPresent
     servicePort: 80
     resources:
@@ -117,7 +117,7 @@ airm:
   backend:
     image:
       repository: amdenterpriseai/airm-api
-      tag: 0.3.0
+      tag: 0.3.2
       pullPolicy: IfNotPresent
 
     servicePort: 80

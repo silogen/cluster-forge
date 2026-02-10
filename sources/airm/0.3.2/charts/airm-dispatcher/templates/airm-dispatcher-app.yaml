@@ -176,6 +176,10 @@ spec:
         app: "{{ .Release.Name }}-dispatcher"
     spec:
       serviceAccountName: "{{ .Release.Name }}-dispatcher-sa"
+      {{- with .Values.airm.dispatcher.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       initContainers:
         - name: check-rabbitmq-is-ready
           command:

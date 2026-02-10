@@ -6,7 +6,7 @@ airm:
   dispatcher:
     image:
       repository: amdenterpriseai/airm-dispatcher
-      tag: 0.3.0
+      tag: 0.3.2
       pullPolicy: IfNotPresent
     servicePort: 80
     env:

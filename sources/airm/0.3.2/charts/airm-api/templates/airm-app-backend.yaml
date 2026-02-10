@@ -37,6 +37,10 @@ spec:
       labels:
         app: "{{ .Release.Name }}-api"
     spec:
+      {{- with .Values.airm.backend.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - env:
             - name: OPENID_CLIENT_ID
