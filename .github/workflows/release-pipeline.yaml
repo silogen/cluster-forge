@@ -49,6 +49,7 @@ jobs:
         with:
           cmd: |
             yq -i '.clusterForge.targetRevision = env(GIT_TAG)' root/values.yaml
+            yq -i '.targetRevision = env(GIT_TAG)' scripts/init-gitea-job/values.yaml
             
       - name: Commit and push changes
         uses: stefanzweifel/git-auto-commit-action@v4
