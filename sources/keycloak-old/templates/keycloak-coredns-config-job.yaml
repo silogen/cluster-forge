@@ -35,9 +35,6 @@ spec:
             echo "Found kgateway service IP: $SERVICE_IP"
             echo "Found cluster domain: $DOMAIN"
             
-            # Get current CoreDNS ConfigMap
-            kubectl get configmap coredns -n kube-system -o yaml > /tmp/coredns.yaml
-            
             # Create the new Corefile with the service IP
             cat > /tmp/corefile << 'EOF'
             .:53 {
