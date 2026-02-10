@@ -35,6 +35,10 @@ spec:
       labels:
         app: "{{ .Release.Name }}-ui"
     spec:
+      {{- with .Values.airm.frontend.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: airm-ui
           env:
