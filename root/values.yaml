@@ -529,7 +529,7 @@ apps:
     syncWave: -2
   # GPU
   amd-gpu-operator:
-    path: amd-gpu-operator/v1.4.0
+    path: amd-gpu-operator/v1.4.1
     namespace: kube-amd-gpu
     valuesObject:
       crds:

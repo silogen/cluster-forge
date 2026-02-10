@@ -17,7 +17,7 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   amd-gpu-operator:
-    path: amd-gpu-operator/v1.4.0
+    path: amd-gpu-operator/v1.4.1
     sourceUrl: https://rocm.github.io/gpu-operator
     projectUrl: https://github.com/ROCm/ROCm
     license: MIT License
