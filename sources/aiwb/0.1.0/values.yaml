@@ -127,20 +127,13 @@ frontend:
   imagePullSecrets: []
   nextAuthSecretName: "aiwb-nextauth-secret"
 
-# Database configuration (PostgreSQL)
-database:
-  host: "aiwb-cnpg-rw.aiwb.svc.cluster.local"
-  port: 5432
-  name: "aiwb"
-  secretName: "aiwb-cnpg-user"
-
 # Keycloak/OIDC configuration
 keycloak:
   url: "http://keycloak.keycloak.svc.cluster.local:8080"
   internalUrl: "http://keycloak.keycloak.svc.cluster.local:8080"
   realm: "airm"
   clientId: "354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
-  secretName: "aiwb-ui-keycloak-secret"
+  secretName: "airm-ui-keycloak-secret"
 
 # MinIO configuration
 minio:
@@ -153,7 +146,7 @@ minio:
 # ClusterAuth configuration (for API key management)
 clusterAuth:
   url: "http://cluster-auth.cluster-auth.svc.cluster.local:8081"
-  secretName: "aiwb-cluster-auth-secret"
+  secretName: "cluster-auth-admin-token"
 
 # Prometheus configuration (for metrics queries)
 prometheus:
@@ -171,10 +164,12 @@ aim:
 
 # PostgreSQL CNPG Configuration
 postgresql:
+  host: "aiwb-cnpg-rw.aiwb.svc.cluster.local"
+  port: 5432
+  database: "aiwb"
+  username: "aiwb_user"
   image: "ghcr.io/cloudnative-pg/postgresql:17.2"
   instances: 3
-  # NOTE: This username must match the value in the aiwb-cnpg-user-username OpenBao secret
-  username: "feb1a665d32e405a8cc891215cd8fcb8"
   userSecretName: "aiwb-cnpg-user"
   superuserSecretName: "aiwb-cnpg-superuser"
   sharedBuffers: "256MB"

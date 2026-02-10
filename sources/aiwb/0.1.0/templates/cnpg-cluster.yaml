@@ -16,10 +16,10 @@ spec:
     topologyKey: topology.kubernetes.io/zone
   bootstrap:
     initdb:
-      database: {{ .Values.database.name }}
-      owner: {{ .Values.postgresql.username }}
+      database: {{ .Values.postgresql.database }}
+      owner: {{ .Values.postgresql.username | quote }}
       postInitSQL:
-        - GRANT CREATE ON SCHEMA public TO {{ .Values.postgresql.username }}
+        - GRANT CREATE ON SCHEMA public TO "{{ .Values.postgresql.username }}"
       secret:
         name: {{ .Values.postgresql.userSecretName }}
   imageName: {{ .Values.postgresql.image }}

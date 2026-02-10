@@ -48,7 +48,7 @@ spec:
             - sh
             - -c
             - |
-              until pg_isready -h "{{ .Values.database.host }}" -p {{ .Values.database.port }} -U postgres; do
+              until pg_isready -h "{{ .Values.postgresql.host }}" -p {{ .Values.postgresql.port }} -U postgres; do
                 echo "Waiting for database..."
                 sleep 2
               done
@@ -68,7 +68,7 @@ spec:
         - name: liquibase-migrate
           command:
             - liquibase
-            - --url=jdbc:postgresql://{{ .Values.database.host }}:{{ .Values.database.port }}/{{ .Values.database.name }}
+            - --url=jdbc:postgresql://{{ .Values.postgresql.host }}:{{ .Values.postgresql.port }}/{{ .Values.postgresql.database }}
             - --username=$(DATABASE_USER)
             - --password=$(DATABASE_PASSWORD)
             - --logLevel=INFO
@@ -76,14 +76,11 @@ spec:
             - update
           env:
             - name: DATABASE_USER
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.database.secretName }}
-                  key: username
+              value: {{ .Values.postgresql.username | quote }}
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.database.secretName }}
+                  name: {{ .Values.postgresql.userSecretName }}
                   key: password
           image: docker.io/liquibase/liquibase:4.31
           imagePullPolicy: IfNotPresent
@@ -97,20 +94,17 @@ spec:
           command: ["uv", "run", "register-charts"]
           env:
             - name: DATABASE_HOST
-              value: {{ .Values.database.host | quote }}
+              value: {{ .Values.postgresql.host | quote }}
             - name: DATABASE_PORT
-              value: {{ .Values.database.port | quote }}
+              value: {{ .Values.postgresql.port | quote }}
             - name: DATABASE_NAME
-              value: {{ .Values.database.name | quote }}
+              value: {{ .Values.postgresql.database | quote }}
             - name: DATABASE_USER
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.database.secretName }}
-                  key: username
+              value: {{ .Values.postgresql.username | quote }}
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.database.secretName }}
+                  name: {{ .Values.postgresql.userSecretName }}
                   key: password
           securityContext:
             {{- toYaml .Values.backend.securityContext | nindent 12 }}
@@ -127,20 +121,17 @@ spec:
         env:
         # Database configuration
         - name: DATABASE_HOST
-          value: {{ .Values.database.host | quote }}
+          value: {{ .Values.postgresql.host | quote }}
         - name: DATABASE_PORT
-          value: {{ .Values.database.port | quote }}
+          value: {{ .Values.postgresql.port | quote }}
         - name: DATABASE_NAME
-          value: {{ .Values.database.name | quote }}
+          value: {{ .Values.postgresql.database | quote }}
         - name: DATABASE_USER
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.database.secretName }}
-              key: username
+          value: {{ .Values.postgresql.username | quote }}
         - name: DATABASE_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.database.secretName }}
+              name: {{ .Values.postgresql.userSecretName }}
               key: password
 
         # Keycloak/OIDC configuration
