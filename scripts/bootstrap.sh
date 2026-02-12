@@ -319,7 +319,6 @@ kubectl rollout status deploy/gitea -n cf-gitea
 helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job \
   --set domain="${DOMAIN}" \
   --set clusterSize="values_${CLUSTER_SIZE}.yaml" \
-  --set targetRevision="${TARGET_REVISION}" \
   --kube-version=${KUBE_VERSION} \
   | kubectl apply -f -
 
