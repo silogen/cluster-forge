@@ -5,15 +5,11 @@
 enabledApps:
   - kyverno-policies-storage-local-path # Local-path storage policies (small/medium only)
   - aim-cluster-model-source
-  - argocd
-  - argocd-config
   - cert-manager
   - openbao
   - openbao-config
   - external-secrets
   - external-secrets-config
-  - gitea
-  - gitea-config
   - gateway-api
   - metallb
   - kgateway-crds
@@ -60,48 +56,6 @@ apps:
     syncWave:
       - group: kyverno.io
         kind: ClusterPolicy
-
-  argocd:
-    valuesObject:
-      applicationSet:
-        replicas: 1
-      controller:
-        replicas: 1
-        resources:
-          limits:
-            cpu: "2000m"
-            memory: "4Gi"
-          requests:
-            cpu: "500m" 
-            memory: "1Gi"
-      redis-ha:
-        enabled: false
-        redis:
-          resources:
-            limits:
-              cpu: "1000m"
-              memory: "2Gi"
-            requests:
-              cpu: "250m"
-              memory: "512Mi"
-      repoServer:
-        replicas: 1
-        resources:
-          limits:
-            cpu: "1000m" 
-            memory: "2Gi"
-          requests:
-            cpu: "250m"
-            memory: "512Mi"
-      server:
-        replicas: 1
-        resources:
-          limits:
-            cpu: "500m"
-            memory: "1Gi"
-          requests:
-            cpu: "125m"
-            memory: "256Mi"
 
   minio-tenant:
     valuesObject:
