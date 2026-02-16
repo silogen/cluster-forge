@@ -1,0 +1,77 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-coredns-config-{{ .Release.Revision }}
+  namespace: keycloak
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      name: keycloak-coredns-config
+    spec:
+      serviceAccountName: coredns-config-job
+      restartPolicy: Never
+      containers:
+      - name: update-coredns
+        image: bitnami/kubectl:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -e
+            
+            # Get the kgateway service IP
+            SERVICE_IP=$(kubectl get service https -n kgateway-system -o jsonpath='{.spec.clusterIP}' 2>/dev/null || echo "")
+            DOMAIN=$(kubectl get cm -n default cluster-domain -o jsonpath='{.data.DOMAIN}' 2>/dev/null || echo "")
+
+            if [ -z "$SERVICE_IP" ] || [ -z "$DOMAIN" ]; then
+              echo "Warning: Service 'https' not found in kgateway-system namespace or DOMAIN not found in cluster-domain ConfigMap"
+              exit 0
+            fi
+            
+            echo "Found kgateway service IP: $SERVICE_IP"
+            echo "Found cluster domain: $DOMAIN"
+            
+            # Create the new Corefile with the service IP
+            cat > /tmp/corefile << 'EOF'
+            .:53 {
+                errors
+                log
+                health {
+                    lameduck 10s
+                }
+                ready
+
+                hosts {
+                  SERVICE_IP_PLACEHOLDER kc.DOMAIN_PLACEHOLDER
+                  fallthrough
+                }
+
+                kubernetes  cluster.local  cluster.local in-addr.arpa ip6.arpa {
+                    pods insecure
+                    fallthrough in-addr.arpa ip6.arpa
+                    ttl 30
+                }
+                prometheus  0.0.0.0:9153
+                forward  . /etc/resolv.conf
+                cache  30
+                loop
+                reload
+                loadbalance
+            }
+            EOF
+            
+            # Replace placeholders with actual values
+            sed -i "s/SERVICE_IP_PLACEHOLDER/$SERVICE_IP/g" /tmp/corefile
+            sed -i "s/DOMAIN_PLACEHOLDER/$DOMAIN/g" /tmp/corefile
+            
+            # Patch the ConfigMap
+            kubectl create configmap rke2-coredns-rke2-coredns \
+              --from-file=Corefile=/tmp/corefile \
+              --dry-run=client -o yaml | \
+              kubectl apply -f - -n kube-system
+            
+            echo "RKE2 CoreDNS ConfigMap updated successfully"
