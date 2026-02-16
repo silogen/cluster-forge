@@ -364,38 +364,56 @@ build_local_images() {
     echo "📂 Source: ${SILOGEN_CORE_PATH}"
     echo ""
     
-    # Build images
-    # Note: UI build is skipped as it takes a very long time (Next.js build with all dependencies)
-    # Use the published image for UI, or build manually if needed:
-    #   cd ${SILOGEN_CORE_PATH}/services/airm/ui && docker build -f ../docker/ui.Dockerfile -t amdenterpriseai/airm-ui:local .
-    local IMAGES=(
-        "api:amdenterpriseai/airm-api:local"
-        "dispatcher:amdenterpriseai/airm-dispatcher:local"
-        # "ui:amdenterpriseai/airm-ui:local"  # Skipped - very slow build
-    )
+    # Determine which images to build based on enabled apps
+    local IMAGES=()
+    
+    # Check if AIRM is enabled
+    if grep -q "^  - airm" "${ROOT_DIR}/root/values_local_kind.yaml" 2>/dev/null; then
+        echo "🔨 Building AIRM images..."
+        # Build AIRM images
+        # Note: UI build is skipped as it takes a very long time (Next.js build with all dependencies)
+        # Use the published image for UI, or build manually if needed:
+        #   cd ${SILOGEN_CORE_PATH}/services/airm/ui && docker build -f ../docker/ui.Dockerfile -t amdenterpriseai/airm-ui:local .
+        local DOCKER_DIR="${SILOGEN_CORE_PATH}/services/airm/docker"
+        if [ ! -d "${DOCKER_DIR}" ]; then
+            echo "❌ Error: AIRM Docker directory not found at: ${DOCKER_DIR}"
+            exit 1
+        fi
+        IMAGES+=(
+            "airm-api|amdenterpriseai/airm-api:local|${DOCKER_DIR}/api.Dockerfile|${SILOGEN_CORE_PATH}"
+            "airm-dispatcher|amdenterpriseai/airm-dispatcher:local|${DOCKER_DIR}/dispatcher.Dockerfile|${SILOGEN_CORE_PATH}"
+        )
+    fi
+    
+    # Check if AIWB is enabled
+    if grep -q "^  - aiwb" "${ROOT_DIR}/root/values_local_kind.yaml" 2>/dev/null; then
+        echo "🔨 Building AIWB images..."
+        IMAGES+=(
+            "aiwb-api|aiwb-api:latest|${SILOGEN_CORE_PATH}/apps/api/aiwb/Dockerfile|${SILOGEN_CORE_PATH}"
+            "aiwb-ui|aiwb-ui:latest|${SILOGEN_CORE_PATH}/apps/ui/aiwb/Dockerfile|${SILOGEN_CORE_PATH}/apps/ui"
+        )
+    fi
+    
+    if [ ${#IMAGES[@]} -eq 0 ]; then
+        echo "ℹ️  No images to build (neither AIRM nor AIWB enabled)"
+        return 0
+    fi
     
     local BUILT=0
     local FAILED=0
     
     for IMAGE_SPEC in "${IMAGES[@]}"; do
-        local SERVICE="${IMAGE_SPEC%%:*}"
-        local IMAGE_TAG="${IMAGE_SPEC#*:}"
-        local DOCKERFILE="${DOCKER_DIR}/${SERVICE}.Dockerfile"
+        # Parse: SERVICE|IMAGE_TAG|DOCKERFILE|BUILD_CONTEXT
+        IFS='|' read -r SERVICE IMAGE_TAG DOCKERFILE BUILD_CONTEXT <<< "${IMAGE_SPEC}"
         
         echo "🏗️  Building ${SERVICE}..."
         echo "   Image: ${IMAGE_TAG}"
         echo "   Dockerfile: ${DOCKERFILE}"
         
         if [ ! -f "${DOCKERFILE}" ]; then
-            echo "   ❌ Dockerfile not found!"
+            echo "   ❌ Dockerfile not found: ${DOCKERFILE}"
             FAILED=$((FAILED + 1))
             continue
-        fi
-        
-        # UI uses its own directory as build context, others use repo root
-        local BUILD_CONTEXT="${SILOGEN_CORE_PATH}"
-        if [ "${SERVICE}" = "ui" ]; then
-            BUILD_CONTEXT="${SILOGEN_CORE_PATH}/services/airm/ui"
         fi
         
         echo "   Building..."
