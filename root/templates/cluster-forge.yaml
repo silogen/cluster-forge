@@ -6,24 +6,28 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  {{- if .Values.externalValues.enabled }}
+{{- if .Values.externalValues.enabled }}
   # helm-chart & values file from 2 different git repos
+  # Uses the SAME targetRevision for both chart templates AND values
+  # This ensures version consistency - v1.7.0 uses v1.7.0 templates (no clusterSize)
+  # and v1.8.0+ uses v1.8.0+ templates (with clusterSize support)
   sources:
   - repoURL: {{ .Values.clusterForge.repoUrl }}
     targetRevision: {{ .Values.clusterForge.targetRevision }}
     path: root
     helm:
-      # here we want the base values.yaml and the custom values file from external repo
-      # the path to the custom values file is relative to the root of the external values repo
       valueFiles:
         - {{ .Values.externalValues.path }}
+        {{- if .Values.global.clusterSize }}
         - {{ .Values.global.clusterSize }}
+        {{- end }}
         - $cluster-values/values.yaml
   - repoURL: {{ .Values.externalValues.repoUrl }}
     targetRevision: {{ .Values.externalValues.targetRevision }}
     ref: cluster-values
-  {{ else }}
+{{- else }}
   # helm-chart & values file within the same git repo
+  # Uses targetRevision for both chart templates AND values
   source:
     repoURL: {{ .Values.clusterForge.repoUrl }}
     targetRevision: {{ .Values.clusterForge.targetRevision }}
@@ -31,7 +35,10 @@ spec:
     helm:
       valueFiles:
         - {{ .Values.clusterForge.valuesFile }}
-  {{- end }}
+        {{- if .Values.global.clusterSize }}
+        - {{ .Values.global.clusterSize }}
+        {{- end }}
+{{- end }}
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd

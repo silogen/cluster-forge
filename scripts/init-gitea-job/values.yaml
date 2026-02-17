@@ -1,3 +1,9 @@
-domain: # to be filled by bootstrap script
-clusterSize: values_medium.yaml # to be filled by bootstrap script
-targetRevision: v1.8.0-rc2
+# small|medium|large (injected by bootstrap script)
+clusterSize: null
+
+# Domain for the cluster (injected by bootstrap script)
+# Example: "compute.amd.com"
+domain: null
+
+# Git revision to deploy (injected by bootstrap script)
+targetRevision: null
