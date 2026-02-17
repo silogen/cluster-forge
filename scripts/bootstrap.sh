@@ -5,13 +5,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Initialize variables
-DOMAIN=""
-VALUES_FILE="values.yaml"
-CLUSTER_SIZE="medium"  # Default to medium
-KUBE_VERSION=1.33
+TARGET_REVISION="v1.8.0"
 
-DEV_MODE=false
-TARGET_REVISION="main" 
+CLUSTER_SIZE="medium"  # Default to medium
+DOMAIN=""
+KUBE_VERSION=1.33
+VALUES_FILE="values.yaml"
 
 # Parse arguments 
 while [[ $# -gt 0 ]]; do
@@ -28,26 +27,25 @@ while [[ $# -gt 0 ]]; do
       CLUSTER_SIZE="${1#*=}"
       shift
       ;;
-    --dev)
-      DEV_MODE=true
-      shift
-      ;;
     --help|-h)
-      echo "Usage: $0 [options] <domain> [values_file]"
-      echo ""
-      echo "Arguments:"
-      echo "  domain                  Required. Cluster domain (e.g., example.com)"
-      echo "  values_file            Optional. Values file to use (default: values.yaml)"
-      echo ""
-      echo "Options:"
-      echo "  --CLUSTER_SIZE         Optional. Cluster size [small|medium|large] (default: medium)"
-      echo "  --dev                  Enable developer mode (sets Gitea repos to feature branch or custom value)"
-      echo ""
-      echo ""
-      echo "Examples:"
-      echo "  $0 myIP.nip.io"
-      echo "  $0 example.com values_custom.yaml --CLUSTER_SIZE=large"
-      echo "  $0 --dev dev.example.com --CLUSTER_SIZE=small"
+      cat <<HELP_OUTPUT
+      Usage: $0 [options] <domain> [values_file]
+
+      Arguments:
+        domain                      Required. Cluster domain (e.g., example.com)
+        values_file                 Optional. Values .yaml file to use, default: root/values.yaml
+      
+      Options:
+        -r, --target-revision       cluster-forge git revision to seed into cluster-values/values.yaml file 
+                                    options: [tag|commit_hash|branch_name], default: main
+        -s, --cluster-size          options: [small|medium|large], default: medium
+
+      Examples:
+        $0 $(my.ip.fi).nip.io
+        $0 example.com values_custom.yaml --cluster-size=large
+        $0 dev.example.com --cluster-size=small --target-revision=v1.8.0
+        $0 dev.example.com -s=small -r=v1.8.0
+HELP_OUTPUT
       exit 0
       ;;
     --*)
@@ -105,38 +103,38 @@ if [ ! -f "${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE}" ]; then
 fi
 
 get_target_revision() {
-    if [ "$DEV_MODE" = true ]; then
-        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
-        echo ""
-        echo "Development mode enabled - ArgoCD will point to live GitHub repository"
-        echo "Current git branch: $CURRENT_BRANCH"
-        echo ""
-        read -p "Use current branch '$CURRENT_BRANCH' for targetRevision? [Y/n/custom_branch]: " choice
-        
-        case "$choice" in
-            n|N|no|No|NO)
-                echo "Exiting. Please checkout the branch you want to use and run again."
-                exit 0
-                ;;
-            [Cc]ustom*|custom*)
-                read -p "Enter custom branch name: " custom_branch
-                if [ -n "$custom_branch" ]; then
-                    TARGET_REVISION="$custom_branch"
-                else
-                    echo "ERROR: Custom branch name cannot be empty"
-                    exit 1
-                fi
-                ;;
-            y|Y|yes|Yes|YES|"")
-                TARGET_REVISION="$CURRENT_BRANCH"
-                ;;
-            *)
-                # Treat any other input as a custom branch name
-                TARGET_REVISION="$choice"
-                ;;
-        esac
-        echo "Using targetRevision: $TARGET_REVISION"
-    fi
+  if [ "$TARGET_REVISION" == ""]; then return 0; fi
+
+  CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+  echo ""
+  echo "Development mode enabled - ArgoCD will point to live GitHub repository"
+  echo "Current git branch: $CURRENT_BRANCH"
+  echo ""
+  read -p "Use current branch '$CURRENT_BRANCH' for targetRevision? [Y/n/custom_branch]: " choice
+  
+  case "$choice" in
+      n|N|no|No|NO)
+          echo "Exiting. Please checkout the branch you want to use and run again."
+          exit 0
+          ;;
+      [Cc]ustom*|custom*)
+          read -p "Enter custom branch name: " custom_branch
+          if [ -n "$custom_branch" ]; then
+              TARGET_REVISION="$custom_branch"
+          else
+              echo "ERROR: Custom branch name cannot be empty"
+              exit 1
+          fi
+          ;;
+      y|Y|yes|Yes|YES|"")
+          TARGET_REVISION="$CURRENT_BRANCH"
+          ;;
+      *)
+          # Treat any other input as a custom branch name
+          TARGET_REVISION="$choice"
+          ;;
+  esac
+  echo "Using targetRevision: $TARGET_REVISION"
 }
 
 pre_cleanup() {
@@ -175,7 +173,6 @@ pre_cleanup() {
     echo ""
 }
 
-# Handle dev mode branch selection
 get_target_revision
 
 # Run pre-cleanup
@@ -317,8 +314,9 @@ kubectl rollout status deploy/gitea -n cf-gitea
 
 # Gitea Init Job
 helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job \
-  --set domain="${DOMAIN}" \
   --set clusterSize="values_${CLUSTER_SIZE}.yaml" \
+  --set domain="${DOMAIN}" \
+  --set targetRevision="${TARGET_REVISION}" \
   --kube-version=${KUBE_VERSION} \
   | kubectl apply -f -
 
@@ -330,21 +328,19 @@ helm template ${SCRIPT_DIR}/../root \
     -f /tmp/merged_values.yaml \
     --kube-version=${KUBE_VERSION} | kubectl apply -f -
 
-echo ""
-echo "=== ClusterForge Bootstrap Complete ==="
-echo "Domain: $DOMAIN"
-echo "Cluster size: $CLUSTER_SIZE"
-echo "Access ArgoCD at: https://argocd.${DOMAIN}"
-echo "Access Gitea at: https://gitea.${DOMAIN}"
-echo ""
-if [ "$DEV_MODE" = true ]; then
-    echo "Mode: Development using non-main targetRevision"
-fi
-echo "Target revision: $TARGET_REVISION"
-echo "Access ArgoCD at: https://argocd.${DOMAIN}"
-echo "Access Gitea at: https://gitea.${DOMAIN}"
-echo ""
-echo "This is the way!"
+echo <<__SUMMARY__
+
+  === ClusterForge Bootstrap Complete ==="
+  
+  Domain: $DOMAIN
+  Cluster size: $CLUSTER_SIZE
+  Target revision: $TARGET_REVISION
+  
+  Access ArgoCD at: https://argocd.${DOMAIN}
+  Access Gitea at: https://gitea.${DOMAIN}
+
+  This is the way!
+__SUMMARY__
 
 # Cleanup temporary files
 echo "Cleaning up temporary files..."
