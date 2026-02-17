@@ -5,7 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Initialize variables
-TARGET_REVISION="v1.8.0"
+LATEST_RELEASE="v1.8.0"
+TARGET_REVISION="$LATEST_RELEASE"
 
 CLUSTER_SIZE="medium"  # Default to medium
 DOMAIN=""
@@ -103,7 +104,7 @@ if [ ! -f "${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE}" ]; then
 fi
 
 get_target_revision() {
-  if [ "$TARGET_REVISION" == ""]; then return 0; fi
+  if [ "$TARGET_REVISION" == "$LATEST_RELEASE" ]; then return 0; fi
 
   CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
   echo ""
