@@ -264,13 +264,13 @@ VALUES=$(yq eval-all '. as $item ireduce ({}; . * $item)' \
 
 **Size-Specific Behaviors:**
 
-Small/Medium add storage policies:
+Small/Medium are single-node and have storage class mutation policies:
 ```yaml
 enabledApps:
   - kyverno-policies-storage-local-path  # RWX→RWO mutation for local-path
 ```
 
-Large enables HA components:
+Large enables Multi-Node and HA components:
 ```yaml
 apps:
   openbao:
@@ -441,7 +441,7 @@ Kueue manages scheduling for:
 ### Resource Requirements
 
 **Small Cluster:**
-- 3-5 worker nodes
+- single-node
 - 8 CPU, 16Gi RAM minimum per node
 - 250Gi+ total storage
 - Local-path or hostPath storage class
