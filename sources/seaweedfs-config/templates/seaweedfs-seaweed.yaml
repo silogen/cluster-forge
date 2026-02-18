@@ -1,0 +1,38 @@
+apiVersion: seaweed.seaweedfs.com/v1
+kind: Seaweed
+metadata:
+  name: seaweed
+  namespace: seaweed-instance
+spec:
+  image: chrislusf/seaweedfs:latest
+  volumeServerDiskCount: 1
+  hostSuffix: plat-dev-1.silogen.ai
+  master:
+    replicas: 1
+    volumeSizeLimitMB: 1024
+  volume:
+    replicas: 1
+    storageClassName: mlstorage
+    requests:
+      storage: 2Gi
+    # Topology configuration for rack/datacenter-aware placement
+    rack: "rack1"
+    dataCenter: "dc1"
+  filer:
+    replicas: 1
+    volumes:
+      - name: s3-metadata
+        persistentVolumeClaim:
+          claimName: pvc-seaweed-s3-metadata
+    volumeMounts:
+      - mountPath: /data/
+        name: s3-metadata
+    s3:
+      enabled: true
+      configSecret:
+        name: test-secret
+        key: seaweedfs_s3_config.json
+    config: |
+      [leveldb2]
+      enabled = true
+      dir = "/data/filerldb2"
