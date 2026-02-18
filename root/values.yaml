@@ -10,6 +10,7 @@ externalValues:
 global:
   domain: # to be filled by bootstrap script
   clusterSize: # to be filled by bootstrap script (small, medium, large)
+  dummy: testValue
 enabledApps:
   - aim-cluster-model-source
   - airm
