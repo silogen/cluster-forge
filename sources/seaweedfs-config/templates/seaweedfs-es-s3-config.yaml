@@ -1,0 +1,50 @@
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: seaweedfs-es-s3-config
+  namespace: seaweed-instance
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao-secret-store
+  refreshInterval: 5m
+  target:
+    name: seaweedfs-s3-config
+    template:
+      data:
+        s3.json: |
+          {
+            "identities": [
+              {
+                "name": "user1",
+                "actions": [
+                  "Admin"
+                ],
+                "credentials": [
+                  {
+                    "accessKey": "testkey",
+                    "secretKey": "testpass"
+                  },
+                  {
+                    "accessKey": "testkey2",
+                    "secretKey": "testpass2"
+                  }
+                ]
+              },
+              {
+                "name": "user2",
+                "actions": [
+                  "Read",
+                  "List",
+                  "Write"
+                ],
+                "credentials": [
+                  {
+                    "accessKey": "testkey3",
+                    "secretKey": "testpass3"
+                  }
+                ]
+              }
