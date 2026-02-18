@@ -258,6 +258,17 @@ echo "Cluster size: $CLUSTER_SIZE"
 if [ -n "$SIZE_VALUES_FILE" ]; then
     echo "Size overlay: $SIZE_VALUES_FILE"
 fi
+echo "Target revision: $TARGET_REVISION"
+echo ""
+echo "⚠️  This will bootstrap ClusterForge on your cluster with the above configuration."
+echo "   Existing ArgoCD, OpenBao, and Gitea resources may be modified or replaced."
+echo ""
+read -p "Continue with bootstrap? [Y/n]: " -r
+echo ""
+if [[ $REPLY =~ ^[Nn]$ ]]; then
+    echo "Bootstrap cancelled by user."
+    exit 0
+fi
 echo "=== Starting Bootstrap Process ==="
 
 # Check for yq command availability
@@ -277,6 +288,10 @@ else
     $YQ_CMD -i ".global.clusterSize = \"values_${CLUSTER_SIZE}.yaml\"" "${SOURCE_ROOT}/root/${VALUES_FILE}"
 fi
 
+# Note: clusterForge.targetRevision will be set by the gitea-init-job
+# in the cluster-values repository (which overwrites the base values as the final values file)
+echo "Target revision $TARGET_REVISION will be set in cluster-values repo by gitea-init-job"
+
 # Function to merge values files early for use throughout the script
 merge_values_files() {
     echo "Merging values files..."
@@ -290,6 +305,10 @@ merge_values_files() {
         # Use base values only
         VALUES=$(cat ${SOURCE_ROOT}/root/${VALUES_FILE} | $YQ_CMD ".global.domain = \"${DOMAIN}\"")
     fi
+    
+    # Apply the target revision override (matching what cluster-values repo will contain)
+    echo "Applying targetRevision override: $TARGET_REVISION"
+    VALUES=$(echo "$VALUES" | $YQ_CMD eval ".clusterForge.targetRevision = \"${TARGET_REVISION}\"")
     
     # Write merged values to temp file for use throughout script
     echo "$VALUES" > /tmp/merged_values.yaml
