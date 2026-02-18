@@ -101,6 +101,7 @@ apps:
           issuer: https://kc.{{ .Values.global.domain }}/realms/airm
           clientID: argocd
           clientSecret: $$argocd-oidc-creds:client_secret
+          rootCA: $cluster-tls:cert
           requestedScopes: ["openid", "profile", "email", "groups"]
     syncWave: -3
   argocd-config:
