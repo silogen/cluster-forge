@@ -42,7 +42,6 @@ externalValues:
 **Network**: Requires external internet access  
 **Features**:
 - Direct GitHub access for application deployment
-- Use `--dev` flag for feature branch development
 - Supports custom branch selection for testing
 
 ## Size-Specific Inheritance
@@ -163,23 +162,6 @@ git commit -m "Update cluster configuration"
 git push
 
 # ArgoCD automatically detects and syncs the changes
-```
-
-### Feature Branch Testing (External Mode with --dev)
-
-```bash
-# Create feature branch in cluster-forge repository
-git checkout -b feature/new-capability
-# Make changes to applications or configurations
-git commit -am "Add new capability"
-git push origin feature/new-capability
-
-# Bootstrap with development mode
-./scripts/bootstrap.sh dev.example.com --CLUSTER_SIZE=small --dev
-# Script prompts for branch selection
-# ArgoCD points directly to GitHub feature branch
-
-# Iterate: push changes to feature branch, ArgoCD syncs automatically
 ```
 
 ### Configuration Version Control

@@ -10,12 +10,11 @@ This guide explains how to bootstrap a complete GitOps environment using Cluster
   - `helm` (3.0+)
   - `openssl` (for password generation)
   - `yq` (v4+)
-  - `git` (for --dev mode)
 
 ## Usage
 
 ```bash
-./scripts/bootstrap.sh <domain> [--CLUSTER_SIZE=small|medium|large] [--dev]
+./scripts/bootstrap.sh <domain> [--CLUSTER_SIZE=small|medium|large]
 ```
 
 ### Arguments
@@ -25,7 +24,6 @@ This guide explains how to bootstrap a complete GitOps environment using Cluster
 ### Options
 
 - **--CLUSTER_SIZE** `[small|medium|large]`: Cluster size configuration (default: `medium`)
-- **--dev**: Enable development mode for feature branch testing
 - **--help**, **-h**: Show usage information
 
 ### Examples
@@ -36,9 +34,6 @@ This guide explains how to bootstrap a complete GitOps environment using Cluster
 
 # Large cluster
 ./scripts/bootstrap.sh example.com --CLUSTER_SIZE=large
-
-# Development mode for feature branch testing
-./scripts/bootstrap.sh dev.example.com --CLUSTER_SIZE=small --dev
 ```
 
 ## How It Works
@@ -58,7 +53,6 @@ The bootstrap script uses a three-phase deployment model:
 - Validates cluster size (small, medium, or large)
 - Merges base `values.yaml` with size-specific overrides `values_<size>.yaml`
 - Sets `global.domain` and `global.clusterSize` in merged configuration
-- In dev mode: prompts for git branch selection and configures targetRevision
 
 **2. Namespace Creation**
 Creates three namespaces for core components:
@@ -99,7 +93,6 @@ Creates three namespaces for core components:
   - Creates `cluster-org` organization
   - Clones and pushes cluster-forge repository from initial-cf-values ConfigMap
   - Creates cluster-values repository with configuration
-  - In dev mode: sets targetRevision to selected branch
 
 ### Phase 3: App-of-Apps Deployment (ArgoCD-Managed)
 
@@ -152,7 +145,7 @@ ClusterForge uses a layered configuration approach with YAML merge semantics:
      clusterForge:
        repoURL: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git
        path: root
-       targetRevision: main  # or feature branch in dev mode
+       targetRevision: main
      
      global:
        clusterSize: medium  # Set by --CLUSTER_SIZE flag
@@ -260,112 +253,9 @@ apps:
    kubectl -n keycloak get secret airm-devuser-credentials -o jsonpath="{.data.KEYCLOAK_INITIAL_DEVUSER_PASSWORD}" | base64 -d
    ```
 
-## Development Mode
-
-Development mode is designed for testing ClusterForge changes from a feature branch in a lightweight environment. Unlike production mode, dev mode uses a minimal configuration without local Gitea mirrors or full secret management infrastructure.
-
-### Key Differences from Production
-
-| Feature | Production Mode | Development Mode |
-|---------|----------------|------------------|
-| **Cluster Size** | Medium/Large recommended | **Small required** |
-| **Repository Source** | Local Gitea mirrors | Direct GitHub access |
-| **Gitea Deployment** | ✓ Deployed | ✗ **Not deployed** |
-| **OpenBao Deployment** | ✓ Full deployment | ✗ **Minimal/not deployed** |
-| **External Values** | ✓ Enabled (cluster-values repo) | ✗ Disabled (inline values) |
-| **Resource Requirements** | Higher | **Minimal** |
-| **Use Case** | Production clusters | Feature testing, development |
-
-### Prerequisites for Dev Mode
-
-1. **Small cluster configuration required** - Dev mode is optimized for resource-constrained environments
-2. **GitHub access** - Direct connection to GitHub repository (no local Gitea mirror)
-3. **Minimal infrastructure** - Skips Gitea and heavy secret management components
-
-### Enabling Development Mode
-
-**Note:** Dev mode must use small cluster size to work properly:
-
-```bash
-./bootstrap.sh --dev dev.example.com --CLUSTER_SIZE=small
-```
-
-The script will:
-1. Detect your current git branch
-2. Prompt you to confirm using it or specify a custom branch:
-   ```
-   Development mode enabled - ArgoCD will point to live GitHub repository
-   Current git branch: feature-xyz
-   
-   Use current branch 'feature-xyz' for targetRevision? [Y/n/custom_branch]:
-   ```
-3. Configure ClusterForge to point directly to GitHub (bypassing Gitea)
-4. Set `externalValues.enabled: false` to use inline configuration
-5. Deploy only ArgoCD and essential components
-
-### Development Workflow
-
-1. **Create feature branch:**
-   ```bash
-   git checkout -b feature-xyz
-   ```
-
-2. **Make your changes** to apps, values, or configurations
-
-3. **Commit and push to GitHub:**
-   ```bash
-   git add .
-   git commit -m "Add new feature"
-   git push origin feature-xyz
-   ```
-
-4. **Bootstrap cluster in dev mode (small cluster only):**
-   ```bash
-   ./bootstrap.sh --dev dev.example.com --CLUSTER_SIZE=small
-   # Confirm using 'feature-xyz' branch when prompted
-   ```
-
-5. **Iterate:** Any subsequent changes pushed to `feature-xyz` will automatically sync to the cluster directly from GitHub via ArgoCD
-
-### Configuration for Dev Mode
-
-In dev mode, the cluster-forge Application uses a single-source configuration:
-
-```yaml
-externalValues:
-  enabled: false  # No separate cluster-values repo
-
-clusterForge:
-  repoUrl: "https://github.com/silogen/cluster-forge.git"  # Direct GitHub access
-  targetRevision: feature-xyz  # Your feature branch
-```
-
-This bypasses the need for:
-- Local Gitea deployment and mirrors
-- Separate cluster-values repository
-- Full OpenBao secret management infrastructure
-
-### When to Use Dev Mode
-
-**Use dev mode when:**
-- Testing new features or configurations
-- Developing on resource-constrained clusters
-- Rapid iteration without infrastructure overhead
-- Working with feature branches before merging
-
-**Use production mode when:**
-- Deploying to production environments
-- Requiring full secret management (OpenBao)
-- Needing local Git mirrors for air-gapped scenarios
-- Medium/Large cluster configurations
-
 ## Troubleshooting
 
-**Note:** Some troubleshooting steps below only apply to production mode deployments that include Gitea and OpenBao.
-
 ### Bootstrap Fails at Gitea Init
-
-*Production mode only*
 
 If the Gitea initialization job fails during repository migration:
 
@@ -448,22 +338,6 @@ enabledApps:
 global:
   myCustomValue: "something"
 ```
-
-### Development Mode (without Gitea)
-
-In development mode, there is no local Gitea repository. Customization is done by:
-
-1. **Editing values files** in your local cluster-forge repository
-2. **Committing changes** to your feature branch
-3. **Pushing to GitHub:**
-   ```bash
-   git add root/values.yaml  # or values_small.yaml
-   git commit -m "Update configuration"
-   git push origin feature-xyz
-   ```
-4. **ArgoCD syncs automatically** from GitHub
-
-Since `externalValues.enabled: false` in dev mode, all configuration is in the main values files (`values.yaml`, `values_small.yaml`).
 
 ## File Cleanup
 

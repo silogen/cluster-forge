@@ -19,7 +19,7 @@ Using a bootstrap-first deployment model, Cluster-Forge establishes GitOps infra
 
 ### Single-Command Deployment
 ```bash
-./scripts/bootstrap.sh <domain> [--CLUSTER_SIZE=small|medium|large] [--dev]
+./scripts/bootstrap.sh <domain> [--CLUSTER_SIZE=small|medium|large]
 ```
 
 ### Size-Aware Deployment Examples
@@ -32,9 +32,6 @@ Using a bootstrap-first deployment model, Cluster-Forge establishes GitOps infra
 
 # Large cluster (10s-100s users, enterprise scale)
 ./scripts/bootstrap.sh prod.example.com --CLUSTER_SIZE=large
-
-# Development mode (feature branch testing)
-./scripts/bootstrap.sh dev.example.com --CLUSTER_SIZE=small --dev
 ```
 
 For detailed deployment instructions, see the [Bootstrap Guide](docs/bootstrap_guide.md).
@@ -68,7 +65,6 @@ Cluster-Forge uses a three-phase bootstrap process:
 
 **External Mode** - Traditional GitHub-based GitOps:
 - Points to external GitHub repository
-- Use `--dev` flag for feature branch development
 - Supports custom branch selection for testing
 
 See [Values Inheritance Pattern](docs/values_inheritance_pattern.md) for detailed architecture.

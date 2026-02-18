@@ -48,7 +48,6 @@ Cluster-Forge supports flexible GitOps repository configurations:
 
 **External Mode** - Traditional GitHub-based GitOps:
 - Set `clusterForge.repoUrl` to external GitHub repository
-- Use `--dev` flag with bootstrap.sh to configure targetRevision for feature branch development
 - Supports custom branch selection for testing and development
 
 ### Size-Aware Configuration
@@ -203,7 +202,7 @@ cluster-forge/
 The bootstrap.sh script orchestrates complete cluster setup:
 
 ```bash
-./scripts/bootstrap.sh <domain> [--CLUSTER_SIZE=small|medium|large] [--dev]
+./scripts/bootstrap.sh <domain> [--CLUSTER_SIZE=small|medium|large]
 ```
 
 **Bootstrap Process:**
@@ -218,11 +217,6 @@ The bootstrap.sh script orchestrates complete cluster setup:
 9. **Gitea Init Job** - Creates cluster-org, clones/pushes cluster-forge and cluster-values repos
 10. **ClusterForge App** - Creates root Application with merged values
 11. **Cleanup** - Removes temporary values files
-
-**Development Mode** (--dev flag):
-- Prompts for git branch selection (current, custom, or abort)
-- Sets targetRevision for ArgoCD applications
-- Enables feature branch testing without committing to main
 
 ### Self-Contained GitOps
 
@@ -436,27 +430,23 @@ Kueue manages scheduling for:
 - helm 3.0+
 - kubectl
 - openssl (for password generation)
-- git (for --dev mode)
 
 ### Resource Requirements
 
 **Small Cluster:**
-- single-node
-- 8 CPU, 16Gi RAM minimum per node
+- single node
 - 250Gi+ total storage
 - Local-path or hostPath storage class
 
 **Medium Cluster:**
-- 5-10 worker nodes
-- 16 CPU, 32Gi RAM minimum per node
+- single node
 - 500Gi+ total storage
 - Local-path or distributed storage
 
 **Large Cluster:**
-- 10+ worker nodes
-- 32 CPU, 64Gi RAM minimum per node
+- multinode, HA / 3 node control plane 
 - 1Ti+ total storage
-- Distributed storage required (Longhorn, Ceph, etc.)
+- Distributed storage required (Storage appliances / cloud / Longhorn, Ceph, etc.)
 
 ### Functional Requirements
 
@@ -472,7 +462,6 @@ Kueue manages scheduling for:
 - Manage 40+ components as ArgoCD Applications
 - Support multi-source Applications for values separation
 - Enable local Gitea 12.3.0 for cluster-native GitOps
-- Provide developer mode for branch-based testing
 
 **FR3: Size-Aware Deployment** 
 - Support small/medium/large configurations via --CLUSTER_SIZE flag
@@ -532,7 +521,6 @@ apps:
       # component values
 ```
 3. Add to enabledApps list
-4. Test with --dev mode
 
 ### Custom Cluster Values
 
