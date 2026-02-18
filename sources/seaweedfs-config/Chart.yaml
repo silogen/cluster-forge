@@ -1,0 +1,4 @@
+apiVersion: v2
+name: seaweedfs-config
+description: A Helm chart with config for the seaweedfs-operator
+version: 0.1.0

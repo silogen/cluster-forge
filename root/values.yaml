@@ -641,6 +641,21 @@ apps:
     namespace: appwrapper-system
     syncWave: -1
   # Storage
+  seaweedfs-crds:
+    path: seaweedfs-crds/0.1.13
+    namespace: seaweedfs-operator
+    syncWave: -1
+  seaweedfs-operator:
+    path: seaweedfs-operator/0.1.13
+    namespace: seaweedfs-operator
+    valuesFile: values.yaml
+    syncWave: 0
+  seaweedfs-config:
+  seaweedfs-operator:
+    path: seaweedfs-config
+    namespace: seaweedfs-instance
+    valuesFile: values.yaml
+    syncWave: 0  
   minio-operator:
     path: minio-operator/7.1.1
     namespace: minio-operator
