@@ -1,9 +1,7 @@
 # small|medium|large (injected by bootstrap script)
 clusterSize: null
-
 # Domain for the cluster (injected by bootstrap script)
 # Example: "compute.amd.com"
 domain: null
-
 # Git revision to deploy (injected by bootstrap script)
-targetRevision: null
+targetRevision: v1.8.0-rc3
