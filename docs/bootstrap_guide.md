@@ -41,6 +41,7 @@ This guide explains how to bootstrap a complete GitOps environment using Cluster
 The bootstrap script uses a three-phase deployment model:
 
 ### Phase 1: Pre-Cleanup
+- The pre_cleanup function performs selective cleanup, only affects cf-gitea and cf-openbao namespaces
 - Detects previous installations by checking for completed gitea-init-job
 - Removes Gitea resources to enable fresh deployment
 - Deletes OpenBao initialization jobs and temporary files
