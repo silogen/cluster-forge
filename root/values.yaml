@@ -654,7 +654,6 @@ apps:
     valuesFile: values.yaml
     syncWave: 0
   seaweedfs-config:
-  seaweedfs-operator:
     path: seaweedfs-config
     namespace: seaweedfs-instance
     valuesFile: values.yaml
