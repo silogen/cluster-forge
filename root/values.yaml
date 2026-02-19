@@ -724,7 +724,7 @@ apps:
           - /spec/accessModes
   # AMD Resource Manager (AIRM)
   airm:
-    path: airm/0.3.3
+    path: airm/0.3.4
     namespace: airm
     valuesFile: values.yaml
     helmParameters:
