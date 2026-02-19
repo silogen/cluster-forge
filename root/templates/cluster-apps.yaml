@@ -46,7 +46,7 @@ spec:
   syncPolicy:
     automated:
       prune: true
-      selfHeal: {{ .selfHeal | default true }}
+      selfHeal: {{ hasKey $scope "selfHeal" | ternary $scope.selfHeal true }}
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true

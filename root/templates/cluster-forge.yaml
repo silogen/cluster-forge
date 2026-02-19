@@ -34,4 +34,4 @@ spec:
   syncPolicy:
     automated:
       prune: true
-      selfHeal: {{ .Values.clusterForge.selfHeal | default true }}
+      selfHeal: {{ hasKey .Values.clusterForge "selfHeal" | ternary .Values.clusterForge.selfHeal true }}
