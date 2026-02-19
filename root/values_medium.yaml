@@ -66,8 +66,8 @@ apps:
         replicas: 1
         resources:
           limits:
-            cpu: "2000m"
-            memory: "4Gi"
+            cpu: "1000m"
+            memory: "2Gi"
           requests:
             cpu: "500m" 
             memory: "1Gi"
@@ -76,8 +76,8 @@ apps:
         redis:
           resources:
             limits:
-              cpu: "1000m"
-              memory: "2Gi"
+              cpu: "500m"
+              memory: "1Gi"
             requests:
               cpu: "250m"
               memory: "512Mi"
@@ -85,8 +85,8 @@ apps:
         replicas: 1
         resources:
           limits:
-            cpu: "1000m" 
-            memory: "2Gi"
+            cpu: "500m" 
+            memory: "1Gi"
           requests:
             cpu: "250m"
             memory: "512Mi"
@@ -182,3 +182,20 @@ apps:
         storageClassName: direct
         accessModes:
           - ReadWriteOnce
+
+  otel-lgtm-stack:
+    valuesObject:
+      collectors:
+        resources:
+          metrics:
+            limits:
+              memory: 4Gi
+              cpu: '1'
+
+  opentelemetry-operator:
+    valuesObject:
+      manager:
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
