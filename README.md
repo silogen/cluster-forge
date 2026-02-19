@@ -1,26 +1,28 @@
 # Cluster-Forge
 
-**A helper tool that deploys [AMD Enterprise AI Suite](https://enterprise-ai.docs.amd.com/en/latest/) into Kubernetes cluster.**
+**A Kubernetes platform automation tool that deploys [AMD Enterprise AI Suite](https://enterprise-ai.docs.amd.com/en/latest/) with complete GitOps infrastructure.**
 
 ## Overview
 
-**Cluster-Forge** is a tool designed to bundle various third-party, community, and in-house components into a single, streamlined stack that can be deployed in Kubernetes clusters. By automating the deployment process, Cluster-Forge simplifies the creation of consistent, ready-to-use clusters.
+**Cluster-Forge** bundles third-party, community, and in-house components into a single, GitOps-managed stack deployable in Kubernetes clusters. It automates the deployment of a complete AI/ML compute platform with all essential services pre-configured and integrated.
 
-This tool is ideal for scenarios such as:
+Using a bootstrap-first deployment model, Cluster-Forge establishes GitOps infrastructure (ArgoCD, Gitea, OpenBao) before deploying the complete application stack via ArgoCD's app-of-apps pattern.
 
-- **Ephemeral test clusters** - Create temporary environments quickly
-- **CI/CD pipeline clusters** - Ensure consistent testing environments
-- **Multiple production clusters** - Manage a fleet of clusters efficiently
-- **Reproducible environments** - Ensure consistency across deployments
+**Ideal for:**
+
+- **AI/ML Engineers** - Unified platform for model training, serving, and orchestration
+- **Platform Engineers** - Infrastructure automation with GitOps patterns
+- **DevOps Teams** - Consistent deployment across development, staging, and production
+- **Research Teams** - Ephemeral test clusters for experimentation
 
 ## 🚀 Quick Start
 
-### Basic Deployment
+### Single-Command Deployment
 ```bash
-./scripts/bootstrap.sh <domain>
+./scripts/bootstrap.sh <domain> [--CLUSTER_SIZE=small|medium|large]
 ```
 
-### Size-Aware Deployment
+### Size-Aware Deployment Examples
 ```bash
 # Small cluster (1-5 users, development/testing)
 ./scripts/bootstrap.sh dev.example.com --CLUSTER_SIZE=small
@@ -34,97 +36,127 @@ This tool is ideal for scenarios such as:
 
 For detailed deployment instructions, see the [Bootstrap Guide](docs/bootstrap_guide.md).
 
-## 📋 Workflow
+## 📋 Architecture
 
-Cluster-Forge deploys all necessary components within the cluster using GitOps-controller [ArgoCD](https://argo-cd.readthedocs.io/)
-and [app-of-apps pattern](https://argo-cd.readthedocs.io/en/stable/operator-manual/cluster-bootstrapping/#app-of-apps-pattern) where Cluster-Forge acts as an app of apps.
+### Bootstrap-First Deployment
 
-### GitOps Architecture
+Cluster-Forge uses a three-phase bootstrap process:
 
-Cluster-Forge supports two deployment modes:
-- **External Mode**: Traditional GitOps with GitHub dependency
-- **Local Mode**: Self-contained GitOps with local Gitea
+**Phase 1: Pre-Cleanup**
+- Detects and removes previous installations when applicable
+- Ensures clean state for fresh deployments
 
-See [Values Inheritance Pattern](docs/values_inheritance_pattern.md) for detailed architecture documentation.
+**Phase 2: GitOps Foundation Bootstrap** (Manual Helm Templates)
+1. **ArgoCD** (v8.3.5) - GitOps controller deployed via helm template
+2. **OpenBao** (v0.18.2) - Secrets management with initialization job
+3. **Gitea** (v12.3.0) - Git server with initialization job
+
+**Phase 3: App-of-Apps Deployment** (ArgoCD-Managed)
+- Creates cluster-forge Application pointing to root/ helm chart
+- ArgoCD syncs all remaining applications from enabledApps list
+- Applications deployed in wave order (-5 to 0) based on dependencies
+
+### Dual Repository GitOps Pattern
+
+**Local Mode (Default)** - Self-contained cluster-native GitOps:
+- Uses local Gitea for both cluster-forge and cluster-values repositories
+- Zero external dependencies once bootstrapped
+- Initialization handled by gitea-init-job
+
+**External Mode** - Traditional GitHub-based GitOps:
+- Points to external GitHub repository
+- Supports custom branch selection for testing
+
+See [Values Inheritance Pattern](docs/values_inheritance_pattern.md) for detailed architecture.
 
 ## 🛠️ Components
 
 ### Layer 1: GitOps Foundation
-- **ArgoCD** - GitOps controller for continuous deployment
-- **Gitea** - Git repository server for source management  
-- **OpenBao** - Vault-compatible secret management system
+- **ArgoCD 8.3.5** - GitOps continuous deployment controller
+- **Gitea 12.3.0** - Self-hosted Git server with SQLite backend
+- **OpenBao 0.18.2** - Vault-compatible secrets management
+- **External Secrets 0.15.1** - Secrets synchronization operator
 
 ### Layer 2: Core Infrastructure
+
 **Networking & Security:**
-- **Gateway API + KGateway** - Modern ingress and traffic management
-- **Cert-Manager** - Automated TLS certificate management
-- **MetalLB** - Load balancer for bare metal environments
-- **External Secrets Operator** - External secret integration
-- **Cilium** - Network security and observability
-- **Kyverno** - Policy engine with modular policy system
+- **Gateway API v1.3.0** - Kubernetes standard ingress API
+- **KGateway v2.1.0-main** - Gateway API implementation with WebSocket support
+- **MetalLB v0.15.2** - Bare metal load balancer
+- **Cert-Manager v1.18.2** - Automated TLS certificate management
+- **Kyverno 3.5.1** - Policy engine with modular policy system
 
 **Storage & Database:**
-- **Longhorn** - Distributed block storage  
-- **CNPG Operator** - Cloud-native PostgreSQL management
-- **MinIO Operator + Tenant** - S3-compatible object storage
+- **CNPG Operator 0.26.0** - CloudNativePG PostgreSQL operator
+- **MinIO Operator 7.1.1** - S3-compatible object storage operator
+- **MinIO Tenant 7.1.1** - Tenant deployment with default-bucket and models buckets
 
-### Layer 3: Observability & Monitoring
-- **Prometheus** - Metrics collection and alerting
-- **Grafana** - Visualization and dashboarding
-- **OpenTelemetry Operator** - Distributed tracing and telemetry
-- **OTEL-LGTM Stack** - Unified observability platform (Loki, Grafana, Tempo, Mimir)
+### Layer 3: Observability
+- **Prometheus Operator CRDs 23.0.0** - Metrics infrastructure
+- **OpenTelemetry Operator 0.93.1** - Telemetry collection
+- **OTEL-LGTM Stack v1.0.7** - Integrated observability (Loki, Grafana, Tempo, Mimir)
 
-### Layer 4: AI/ML Compute Stack
-**GPU & Compute:**
-- **AMD GPU Operator** - GPU device management and drivers
-- **KubeRay Operator** - Ray distributed computing framework
-- **KServe** - Kubernetes-native model serving
-- **Kueue** - Advanced job queueing system
-- **AppWrapper** - Application scheduling and resource management
-- **KEDA** - Event-driven autoscaling
+### Layer 4: Identity & Access
+- **Keycloak** (keycloak-old chart) - Enterprise IAM with AIRM realm
+- **Cluster-Auth 0.5.0** - Kubernetes RBAC integration
 
-**Workflow & Orchestration:**
-- **Kaiwo** - Workflow management system
-- **RabbitMQ** - Message broker for async processing
+### Layer 5: AI/ML Compute Stack
 
-### Layer 5: Identity & Access
-- **Keycloak** - Enterprise identity and access management
-- **Cluster-Auth** - Kubernetes RBAC integration
+**GPU & Scheduling:**
+- **AMD GPU Operator v1.4.1** - GPU device plugin and drivers
+- **KubeRay Operator 1.4.2** - Ray distributed computing framework
+- **Kueue 0.13.0** - Job queueing with multi-framework support
+- **AppWrapper v1.1.2** - Application-level resource scheduling
+- **KEDA 2.18.1** - Event-driven autoscaling
 
-### Layer 6: AIRM App
-- **AIRM API** - Central API layer for AMD Resource Manager
-- **AIRM UI** - Frontend interface for resource management
-- **AIRM Dispatcher** - Compute workload dispatching agent
+**ML Serving & Inference:**
+- **KServe v0.16.0** - Model serving platform (Standard deployment mode)
 
-## 💾 Storage Classes
+**Workflow & Messaging:**
+- **Kaiwo v0.2.0-rc11** - AI workload orchestration
+- **RabbitMQ v2.15.0** - Message broker for async processing
 
-Storage classes are provided by default with Longhorn. These can be customized as needed.
+### Layer 6: AIRM Application
+- **AIRM 0.3.2** - AMD Resource Manager application suite
+- **AIM Cluster Model Source** - Cluster resource models for AIRM
 
-| Purpose | StorageClass | Access Mode | Locality |
-|---------|--------------|-------------|----------|
-| GPU Job | mlstorage | RWO | LOCAL/remote |
-| GPU Job | default | RWO | LOCAL/remote |
-| Advanced usage | direct | RWO | LOCAL |
-| Multi-container | multinode | RWX | ANYWHERE |
-
-## 📄 Configuration
+## � Configuration
 
 ### Cluster Sizing
 
-Cluster-Forge provides three pre-configured cluster profiles:
+Three cluster profiles with inheritance-based resource optimization:
 
-- **Small**: Minimal resources, local-path storage, RWX→RWO access mode conversion
-- **Medium**: Balanced resources, local-path storage, RWX→RWO access mode conversion  
-- **Large**: Full enterprise features, Longhorn storage, native RWX support
+**Small Clusters** (1-5 users, dev/test):
+- Single replica deployments
+- Reduced resource limits (ArgoCD controller: 2 CPU, 4Gi RAM)
+- Adds kyverno-policies-storage-local-path for RWX→RWO PVC mutation
+- MinIO tenant: 250Gi storage
+- Suitable for: Local workstations, development environments
+
+**Medium Clusters** (5-20 users, team production):
+- Single replica with moderate resource allocation
+- Same storage policies as small (local-path support)
+- ArgoCD controller: 2 CPU, 4Gi RAM
+- Default configuration for balanced performance
+- Suitable for: Small teams, staging environments
+
+**Large Clusters** (10s-100s users, enterprise scale):
+- OpenBao HA: 3 replicas with Raft consensus
+- No local-path policies (assumes distributed storage)
+- MinIO tenant: 500Gi storage
+- Production-grade resource allocation
+- Suitable for: Production deployments, multi-tenant environments
 
 See [Cluster Size Configuration](docs/cluster_size_configuration.md) for detailed specifications.
 
 ### Values Files
 
 Configuration follows a streamlined inheritance pattern:
-- **Base**: 52 common applications with alpha-sorted enabledApps
+- **Base**: Common applications with alpha-sorted enabledApps
 - **Size-specific**: Only override differences from base (DRY principle)
-- **Runtime**: Domain and cluster-specific parameters
+- **Runtime**: Domain and cluster-specific parameters injected during bootstrap
+
+The bootstrap script uses YAML merge semantics where size-specific values override base values.yaml settings.
 
 ## 📚 Documentation
 
@@ -135,10 +167,12 @@ Comprehensive documentation is available in the `/docs` folder:
 | **Getting Started** | [Bootstrap Guide](docs/bootstrap_guide.md) |
 | **Configuration** | [Cluster Size Configuration](docs/cluster_size_configuration.md) |
 | **Architecture** | [Values Inheritance Pattern](docs/values_inheritance_pattern.md) |
-| **Security** | [Kyverno Modular Design](docs/kyverno_modular_design.md) |
-| **Policies** | [Kyverno Access Mode Policy](docs/kyverno_access_mode_policy.md) |
-| **Secrets** | [Secrets Management Architecture](docs/secrets_management_architecture.md) |
+| **Policy System** | [Kyverno Modular Design](docs/kyverno_modular_design.md) |
+| **Storage Policies** | [Kyverno Access Mode Policy](docs/kyverno_access_mode_policy.md) |
 | **Operations** | [Backup and Restore](docs/backup_and_restore.md) |
+
+Additional documentation:
+- **SBOM**: See `/sbom` folder for software bill of materials generation and validation
 
 ## 📝 License
 
