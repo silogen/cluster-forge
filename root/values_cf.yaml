@@ -1,6 +1,7 @@
 clusterForge:
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
   targetRevision: v1.7.0 # cluster-forge version git tag
+  selfHeal: true  # Default: enable. Can be overridden in external values_cf.yaml
 externalValues:
   enabled: true
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
