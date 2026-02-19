@@ -48,6 +48,9 @@ enabledApps:
   - minio-operator
   - minio-tenant
   - minio-tenant-config
+  - seaweedfs-crds
+  - seaweedfs-operator
+  - seaweedfs-config
   - openbao
   - openbao-config
   - opentelemetry-operator
