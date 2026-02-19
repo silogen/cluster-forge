@@ -46,7 +46,7 @@ spec:
   syncPolicy:
     automated:
       prune: true
-      selfHeal: true
+      selfHeal: {{ .selfHeal | default true }}
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
