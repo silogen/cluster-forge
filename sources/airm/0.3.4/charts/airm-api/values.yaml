@@ -1,0 +1,166 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+secretgenerator:
+  image:
+    repository: amdenterpriseai/cluster-tool
+    tag: latest
+    pullPolicy: IfNotPresent
+
+kgateway:
+  namespace: kgateway-system
+  gatewayName: https
+  airmapi:
+    servicePort: 80
+    prefixValue: airmapi
+    timeouts:
+      stream:
+        backendRequest: 30m
+        request: 30m
+      nonStream:
+        backendRequest: 10m
+        request: 10m
+  airmui:
+    servicePort: 80
+    prefixValue: airmui
+    timeouts:
+      backendRequest: 1m
+      request: 1m
+  keycloak:
+    prefixValue: kc
+
+aims:
+  otelCollector:
+    image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
+    receivers:
+      prometheus:
+        config:
+          scrape_configs:
+            scrape_interval: 20s
+    exporters:
+      otlphttp:
+        endpoint: "http://lgtm-stack.otel-lgtm-stack.svc:4318"
+    name: "vllm-collector"
+
+airm:
+  appDomain: PUBLIC-IP
+  includeDemoSetup: true
+
+  externalSecretStore:
+    airm:
+      name: openbao-secret-store
+    minio:
+      name: openbao-secret-store
+    keycloak:
+      name: openbao-secret-store
+
+  postgresql:
+    enabled: true
+    cnpg:
+      image: ghcr.io/cloudnative-pg/postgresql:17
+      instance: 1
+      resources:
+        limits:
+          cpu: "2"
+          memory: 1Gi
+        requests:
+          cpu: "1"
+          memory: 512Mi
+      storage:
+        size: 50Gi
+        storageClass: default
+      walStorage:
+        size: 50Gi
+        storageClass: default
+
+  rabbitmq:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: '1'
+        memory: 1Gi
+    persistence:
+      storage: 20Gi
+      storageClassName: default
+    backup:
+      enabled: false
+      image: amdenterpriseai/rabbitmq-backup:0.1
+      resources:
+        limits:
+          memory: 512Mi
+        requests:
+          cpu: 250m
+          memory: 256Mi
+
+  keycloak:
+    internalUrl: http://keycloak.keycloak.svc.cluster.local:8080
+    clientId: "354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
+    realm: airm
+
+  frontend:
+    image:
+      repository: amdenterpriseai/airm-ui
+      tag: 0.3.4
+      pullPolicy: IfNotPresent
+    servicePort: 80
+    resources:
+      limits:
+        memory: 4Gi
+      requests:
+        cpu: 500m
+        memory: 4Gi
+
+  backend:
+    image:
+      repository: amdenterpriseai/airm-api
+      tag: 0.3.4
+      pullPolicy: IfNotPresent
+
+    servicePort: 80
+    servicePortMetrics: 9009
+    env:
+      dbPort: 5432
+      rabbitmqPort: 5672
+      minioUrl: http://minio.minio-tenant-default.svc.cluster.local:80
+      minioBucket: default-bucket
+      prometheusUrl: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:9090
+      clusterAuthUrl: http://cluster-auth.cluster-auth.svc.cluster.local:8081
+
+    resources:
+      limits:
+        memory: 1Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      runAsUser: 1000
+      seccompProfile:
+        type: RuntimeDefault
+
+  utilities:
+    netcat:
+      image:
+        repository: busybox
+        tag: 1.37.0
+        pullPolicy: IfNotPresent
+    curl:
+      image:
+        repository: curlimages/curl
+        tag: 8.16.0
+        pullPolicy: IfNotPresent
+    liquibase:
+      image:
+        repository: docker.io/liquibase/liquibase
+        tag: 4.31
+        pullPolicy: IfNotPresent
+    clusterTool:
+      image:
+        repository: amdenterpriseai/cluster-tool
+        tag: latest
+        pullPolicy: IfNotPresent
