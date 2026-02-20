@@ -100,56 +100,6 @@ HELP_OUTPUT
   esac
 done
 
-validate_target_revision() {
-    # Always allow main and the latest release
-    if [ "$TARGET_REVISION" = "main" ] || [ "$TARGET_REVISION" = "$LATEST_RELEASE" ]; then
-        return 0
-    fi
-    
-    # Check if it's a valid v1.8.0+ semantic version pattern
-    if [[ "$TARGET_REVISION" =~ ^v1\.8\. ]] || [[ "$TARGET_REVISION" =~ ^v1\.([9-9]|[1-9][0-9]+)\. ]] || [[ "$TARGET_REVISION" =~ ^v[2-9]\. ]]; then
-        return 0
-    fi
-    
-    # For branches/commits, check git ancestry to see if v1.8.0-rc1 or later is in the history
-    echo "Checking git ancestry for target revision: $TARGET_REVISION"
-    
-    # Check if the target revision exists in git (try local first, then remote)
-    RESOLVED_REVISION=""
-    if git rev-parse --verify "$TARGET_REVISION" >/dev/null 2>&1; then
-        RESOLVED_REVISION="$TARGET_REVISION"
-    elif git rev-parse --verify "origin/$TARGET_REVISION" >/dev/null 2>&1; then
-        RESOLVED_REVISION="origin/$TARGET_REVISION"
-        echo "Found target revision as remote branch: origin/$TARGET_REVISION"
-    else
-        echo "ERROR: Target revision '$TARGET_REVISION' does not exist in git"
-        echo "Available branches: $(git branch -a | grep -v HEAD | sed 's/^[ *]*//' | tr '\n' ' ')"
-        exit 1
-    fi
-    
-    # Check if v1.8.0-rc1 or any later version is an ancestor of the target revision
-    # We'll check for v1.8.0-rc1 as the minimum supported version
-    MIN_SUPPORTED_TAG="v1.8.0-rc1"
-    
-    # Check if the minimum supported tag exists
-    if git rev-parse --verify "$MIN_SUPPORTED_TAG" >/dev/null 2>&1; then
-        # Check if MIN_SUPPORTED_TAG is an ancestor of RESOLVED_REVISION
-        if git merge-base --is-ancestor "$MIN_SUPPORTED_TAG" "$RESOLVED_REVISION" 2>/dev/null; then
-            echo "Target revision '$TARGET_REVISION' is based on or after $MIN_SUPPORTED_TAG - supported"
-            return 0
-        else
-            echo "ERROR: Target revision '$TARGET_REVISION' is not based on $MIN_SUPPORTED_TAG or later"
-            echo "The --target-revision flag only supports revisions based on $MIN_SUPPORTED_TAG and later versions"
-            echo "Supported: v1.8.0+, main, branches forked from v1.8.0-rc1+, or $LATEST_RELEASE"
-            exit 1
-        fi
-    else
-        echo "WARNING: Minimum supported tag '$MIN_SUPPORTED_TAG' not found in git"
-        echo "Proceeding with target revision '$TARGET_REVISION' (ancestry check skipped)"
-        return 0
-    fi
-}
-
 # Validate required arguments
 if [ -z "$DOMAIN" ]; then
     echo "ERROR: Domain argument is required"
@@ -242,9 +192,6 @@ pre_cleanup() {
 }
 
 display_target_revision
-
-# Validate target revision and setup sources
-validate_target_revision
 setup_sources
 setup_values_files
 
@@ -260,15 +207,6 @@ if [ -n "$SIZE_VALUES_FILE" ]; then
 fi
 echo "Target revision: $TARGET_REVISION"
 echo ""
-echo "⚠️  This will bootstrap ClusterForge on your cluster with the above configuration."
-echo "   Existing ArgoCD, OpenBao, and Gitea resources may be modified or replaced."
-echo ""
-read -p "Continue with bootstrap? [Y/n]: " -r
-echo ""
-if [[ $REPLY =~ ^[Nn]$ ]]; then
-    echo "Bootstrap cancelled by user."
-    exit 0
-fi
 echo "=== Starting Bootstrap Process ==="
 
 # Check for yq command availability
