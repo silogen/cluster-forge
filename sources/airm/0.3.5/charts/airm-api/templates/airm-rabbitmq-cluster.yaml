@@ -1,0 +1,69 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: '{{ .Release.Name }}-rabbitmq'
+  namespace: '{{ .Release.Namespace }}'
+spec:
+  persistence:
+    {{- toYaml .Values.airm.rabbitmq.persistence | nindent 4 }}
+  replicas: {{ .Values.airm.rabbitmq.replicas }}
+  resources:
+    {{- toYaml .Values.airm.rabbitmq.resources | nindent 4 }}
+  secretBackend:
+    externalSecret:
+      name: '{{ .Release.Name }}-rabbitmq-admin'
+  tls:
+    secretName: '{{ .Release.Name }}-tls-secret'
+---
+{{- if .Values.airm.rabbitmq.backup.enabled -}}
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: '{{ .Release.Name }}-rabbitmq-backup-cron'
+  namespace: '{{ .Release.Namespace }}'
+spec:
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - env:
+                - name: RABBITMQ_URL
+                  value: 'http://{{ .Release.Name }}-rabbitmq.{{ .Release.Namespace }}.svc.cluster.local:15672'
+                - name: RABBITMQ_USER
+                  valueFrom:
+                    secretKeyRef:
+                      key: username
+                      name: '{{ .Release.Name }}-rabbitmq-admin'
+                - name: RABBITMQ_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      key: password
+                      name: '{{ .Release.Name }}-rabbitmq-admin'
+                - name: S3_HOST
+                  value: "{{ .Values.airm.backend.env.minioUrl }}"
+                - name: S3_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      key: minio-access-key
+                      name: '{{ .Release.Name }}-api-minio-credentials'
+                - name: S3_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      key: minio-secret-key
+                      name: '{{ .Release.Name }}-api-minio-credentials'
+              image: '{{ .Values.airm.rabbitmq.backup.image }}'
+              name: rabbitmq-backup-cron
+              resources:
+                {{- toYaml .Values.airm.rabbitmq.backup.resources | nindent 16 }}
+          restartPolicy: OnFailure
+  schedule: 0 * * * *
+
+{{- end }}
