@@ -1,6 +1,6 @@
 clusterForge:
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
-  targetRevision: v1.8.0-rc4
+  targetRevision: main
 # source helm values file from separate git repo
 externalValues:
   enabled: true
@@ -724,7 +724,7 @@ apps:
           - /spec/accessModes
   # AMD Resource Manager (AIRM)
   airm:
-    path: airm/0.3.4
+    path: airm/0.3.5
     namespace: airm
     valuesFile: values.yaml
     helmParameters:
