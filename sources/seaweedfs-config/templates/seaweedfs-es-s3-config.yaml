@@ -19,19 +19,15 @@ spec:
           {
             "identities": [
               {
-                "name": "user1",
+                "name": "Console",
                 "actions": [
                   "Admin"
                 ],
                 "credentials": [
                   {
-                    "accessKey": "testkey",
-                    "secretKey": "testpass"
+                    "accessKey": "{{ "{{" }}.CONSOLE_ACCESS_KEY{{ "}}"}}",
+                    "secretKey": "{{ "{{" }}.CONSOLE_SECRET_KEY{{ "}}"}}"
                   },
-                  {
-                    "accessKey": "testkey2",
-                    "secretKey": "testpass2"
-                  }
                 ]
               },
               {
@@ -56,4 +52,12 @@ spec:
     - secretKey: API_SECRET_KEY
       remoteRef:
         key: secrets/data/minio-api-secret-key
+        property: value
+    - secretKey: CONSOLE_ACCESS_KEY
+      remoteRef:
+        key: secrets/data/minio-console-access-key
+        property: value
+    - secretKey: CONSOLE_SECRET_KEY
+      remoteRef:
+        key: secrets/data/minio-console-secret-key
         property: value
