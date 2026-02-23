@@ -44,6 +44,7 @@ spec:
                   }
                 ]
               }
+            ] 
   data:
     - secretKey: API_ACCESS_KEY
       remoteRef:
