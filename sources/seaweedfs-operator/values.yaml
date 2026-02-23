@@ -1,1 +1,3 @@
 domain: # to be filled by cluster-forge app
+webhook:
+  enabled: false
