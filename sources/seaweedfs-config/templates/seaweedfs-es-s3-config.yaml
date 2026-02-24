@@ -27,7 +27,7 @@ spec:
                   {
                     "accessKey": "{{ "{{" }}.CONSOLE_ACCESS_KEY{{ "}}"}}",
                     "secretKey": "{{ "{{" }}.CONSOLE_SECRET_KEY{{ "}}"}}"
-                  },
+                  }
                 ]
               },
               {
