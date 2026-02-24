@@ -371,4 +371,4 @@ spec:
         - name: check-scripts
           configMap:
             name: lgtm-check-scripts
-            defaultMode: 0755
+            defaultMode: 493
