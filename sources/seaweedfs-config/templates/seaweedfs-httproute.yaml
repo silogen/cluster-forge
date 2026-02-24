@@ -9,8 +9,8 @@ spec:
       namespace: kgateway-system
   rules:
     - backendRefs:
-        - name: seaweed-filer
-          port: 8333
+        - name: filer-s3
+          port: 80
       matches:
         - headers:
           - type: RegularExpression
