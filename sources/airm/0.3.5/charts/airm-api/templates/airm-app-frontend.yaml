@@ -62,7 +62,7 @@ spec:
                 secretKeyRef:
                   name: "{{ .Release.Name }}-keycloak-ui-creds"
                   key: KEYCLOAK_SECRET
-          image: "{{ .Values.airm.frontend.image.repository }}:{{ .Values.airm.frontend.image.tag }}"
+          image: "{{ if .Values.global.containerRegistry }}{{ .Values.global.containerRegistry }}/airm-ui{{ else }}{{ .Values.airm.frontend.image.repository }}{{ end }}:{{ .Values.airm.frontend.image.tag }}"
           imagePullPolicy: "{{ .Values.airm.frontend.image.pullPolicy }}"
           livenessProbe:
             failureThreshold: 3

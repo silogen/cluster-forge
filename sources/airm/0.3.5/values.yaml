@@ -1,3 +1,8 @@
 # Copyright © Advanced Micro Devices, Inc., or its affiliates.
 #
 # SPDX-License-Identifier: MIT
+
+# Global container registry override - if set, will replace the default registry prefix
+# for airm-ui, airm-api, and airm-dispatcher images  
+global:
+  containerRegistry: ""

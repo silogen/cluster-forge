@@ -119,7 +119,7 @@ spec:
                   name: "{{ .Release.Name }}-cluster-auth-admin"
                   key: admin-token
                   optional: true
-          image: "{{ .Values.airm.backend.image.repository }}:{{ .Values.airm.backend.image.tag }}"
+          image: "{{ if .Values.global.containerRegistry }}{{ .Values.global.containerRegistry }}/airm-api{{ else }}{{ .Values.airm.backend.image.repository }}{{ end }}:{{ .Values.airm.backend.image.tag }}"
           imagePullPolicy: {{ .Values.airm.backend.image.pullPolicy }}
           livenessProbe:
             failureThreshold: 3
@@ -164,7 +164,7 @@ spec:
             - sh
             - -c
             - cp /code/migrations/* /mnt/code/migrations/
-          image: "{{ .Values.airm.backend.image.repository }}:{{ .Values.airm.backend.image.tag }}"
+          image: "{{ if .Values.global.containerRegistry }}{{ .Values.global.containerRegistry }}/airm-api{{ else }}{{ .Values.airm.backend.image.repository }}{{ end }}:{{ .Values.airm.backend.image.tag }}"
           imagePullPolicy: {{ .Values.airm.backend.image.pullPolicy }}
           securityContext:
             allowPrivilegeEscalation: false
@@ -205,7 +205,7 @@ spec:
               name: airm-migration-volume
               readOnly: true
         - name: charts-registration
-          image: "{{ .Values.airm.backend.image.repository }}:{{ .Values.airm.backend.image.tag }}"
+          image: "{{ if .Values.global.containerRegistry }}{{ .Values.global.containerRegistry }}/airm-api{{ else }}{{ .Values.airm.backend.image.repository }}{{ end }}:{{ .Values.airm.backend.image.tag }}"
           imagePullPolicy: {{ .Values.airm.backend.image.pullPolicy }}
           command: ["uv", "run", "-m", "app.charts.registration"]
           env:
