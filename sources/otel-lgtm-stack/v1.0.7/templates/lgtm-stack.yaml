@@ -86,13 +86,13 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data:
   check-ps.sh: |
-    #!/bin/bash
+    #!/bin/sh
     # Get processes using /proc filesystem (runs inside container)
     PROCESS_LIST=""
     for pid in /proc/[0-9]*; do
-        cmdline=$(cat "$$pid/cmdline" 2>/dev/null | tr "\0" " ")
-        if [ -n "$$cmdline" ]; then
-            PROCESS_LIST="$${PROCESS_LIST}$${cmdline}"$$'\n'
+        cmdline=$(cat "$pid/cmdline" 2>/dev/null | tr "\0" " ")
+        if [ -n "$cmdline" ]; then
+            PROCESS_LIST="${PROCESS_LIST}${cmdline}"$'\n'
         fi
     done
 
@@ -101,8 +101,8 @@ data:
     YELLOW='\033[1;33m'
     NC='\033[0m'
 
-    if [[ -z "$$PROCESS_LIST" ]]; then
-        echo -e "$${RED}[FAILED] Could not retrieve process list from container$${NC}"
+    if [[ -z "$PROCESS_LIST" ]]; then
+        echo -e "${RED}[FAILED] Could not retrieve process list from container${NC}"
         exit 1
     fi
 
@@ -123,36 +123,37 @@ data:
 
     # Check each process and build list of missing ones
     MISSING_COUNT=0
-    echo "Expected processes ($${#REQUIRED_PROCESSES[@]} total):"
+    echo "Expected processes (${#REQUIRED_PROCESSES[@]} total):"
     echo "---"
 
-    for REQUIRED in "$${REQUIRED_PROCESSES[@]}"; do
-        if echo "$$PROCESS_LIST" | grep -qF "$$REQUIRED"; then
-            echo -e "$${GREEN}  [RUNNING] $$REQUIRED$${NC}"
+    for REQUIRED in "${REQUIRED_PROCESSES[@]}"; do
+        if echo "$PROCESS_LIST" | grep -qF "$REQUIRED"; then
+            echo -e "${GREEN}  [RUNNING] $REQUIRED${NC}"
         else
-            echo -e "$${RED}  [MISSING] $$REQUIRED$${NC}"
-            MISSING_COUNT=$$((MISSING_COUNT + 1))
+            echo -e "${RED}  [MISSING] $REQUIRED${NC}"
+            MISSING_COUNT=$((MISSING_COUNT + 1))
         fi
     done
 
     echo ""
 
-    if [[ $$MISSING_COUNT -eq 0 ]]; then
-        echo -e "$${GREEN}  [OK] All required processes are running$${NC}"
+    if [[ $MISSING_COUNT -eq 0 ]]; then
+        echo -e "${GREEN}  [OK] All required processes are running${NC}"
     else
-        echo -e "$${RED}  [WARNING] $$MISSING_COUNT of $${#REQUIRED_PROCESSES[@]} processes are missing$${NC}"
+        echo -e "${RED}  [WARNING] $MISSING_COUNT of ${#REQUIRED_PROCESSES[@]} processes are missing${NC}"
         echo ""
-        echo -e "$${YELLOW}  This may indicate the LGTM stack is not fully operational.$${NC}"
-        echo -e "$${YELLOW}  Consider restarting the pod.$${NC}"
+        echo -e "${YELLOW}  This may indicate the LGTM stack is not fully operational.${NC}"
+        echo -e "${YELLOW}  Consider restarting the pod.${NC}"
     fi
 
     echo ""
 
-    if [[ $$MISSING_COUNT -gt 0 ]]; then
-        echo -e "$${RED}[FAILED] Some required processes are not running$${NC}"
+    if [[ $MISSING_COUNT -gt 0 ]]; then
+        echo -e "${RED}[FAILED] Some required processes are not running${NC}"
         exit 1
     fi
     exit 0
+
 ---
 # Source: grafana/templates/configmap-dashboard-provider.yaml ######
 apiVersion: v1
