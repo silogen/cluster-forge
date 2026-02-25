@@ -45,7 +45,7 @@ enabledApps:
   - kaiwo-crds
   - kaiwo
   - kaiwo-config
-  - airm
+#  - airm
 
 apps:
   # Modular Kyverno policy applications (only the storage-local-path addition)
