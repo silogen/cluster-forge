@@ -5,7 +5,7 @@
 # Medium & Small clusters add local-path storage policy for RWX→RWO conversion
 enabledApps:
   - aim-cluster-model-source
-  - airm
+#  - airm
   - amd-gpu-operator
   - amd-gpu-operator-config
   - appwrapper
