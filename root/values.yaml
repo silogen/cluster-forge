@@ -560,6 +560,17 @@ apps:
       validatingAdmissionPolicy:
         enabled: false
     syncWave: -5
+    ignoreDifferences:
+      - group: ""
+        kind: "Service"
+        name: "keda-otel-scaler"
+        jqPathExpressions:
+          - ".status"
+      - group: "apps"
+        kind: "Deployment"
+        jqPathExpressions:
+          - ".status.readyReplicas"
+          - ".status.availableReplicas"
   # ML/AI
   kserve-crds:
     path: kserve-crds/v0.16.0
