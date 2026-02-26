@@ -10,50 +10,9 @@ externalValues:
 global:
   domain: # to be filled by bootstrap script
   clusterSize: # to be filled by bootstrap script (small, medium, large)
-enabledApps:
-  - aim-cluster-model-source
-  - airm
-  - amd-gpu-operator
-  - amd-gpu-operator-config
-  - appwrapper
-  - argocd
-  - argocd-config
-  - cert-manager
-  - cluster-auth
-  - cluster-auth-config
-  - cnpg-operator
-  - external-secrets
-  - external-secrets-config
-  - gateway-api
-  - gitea
-  - gitea-config
-  - kaiwo
-  - kaiwo-config
-  - kaiwo-crds
-  - keda
-  - kedify-otel
-  - keycloak
-  - kgateway
-  - kgateway-config
-  - kgateway-crds
-  - kserve
-  - kserve-crds
-  - kueue
-  - kueue-config
-  - kuberay-operator
-  - kyverno
-  - kyverno-config
-  - kyverno-policies-base
-  - metallb
-  - minio-operator
-  - minio-tenant
-  - minio-tenant-config
-  - openbao
-  - openbao-config
-  - opentelemetry-operator
-  - otel-lgtm-stack
-  - prometheus-crds
-  - rabbitmq
+
+# enabledApps: defined within cluster_[small|medium|large].yaml
+
 apps:
   # Core apps
   argocd:
