@@ -1,0 +1,31 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: modelcache-download-resource-limits
+spec:
+  rules:
+  - name: add-resource-constraints-to-download-jobs
+    match:
+      any:
+      - resources:
+          kinds:
+          - Job
+          selector:
+            matchLabels:
+              app.kubernetes.io/managed-by: modelcache-controller
+    mutate:
+      patchStrategicMerge:
+        spec:
+          template:
+            spec:
+              containers:
+              - (name): "*"
+                resources:
+                  limits:
+                    memory: "32Gi"
+                  requests:
+                    memory: "4Gi"
+                    cpu: "2"
+                env:
+                - name: HF_XET_HIGH_PERFORMANCE
+                  value: "0"
