@@ -53,6 +53,17 @@ enabledApps:
   - rabbitmq
 
 apps:
+  kyverno-policies-modelcache-resource-constraints:
+    namespace: kyverno
+    path: kyverno-policies/modelcache-resource-constraints
+    ignoreDifferences: []
+    syncWave: -20
+    ignoreDifferences:
+      - group: kyverno.io
+        kind: ClusterPolicy
+        jsonPointers:
+          - /spec/rules/0/skipBackgroundRequests
+          - /spec/rules/0/validate/allowExistingViolations
   # Git - Gitea (Production: single replica, sqlite3)
   gitea:
     valuesObject:
