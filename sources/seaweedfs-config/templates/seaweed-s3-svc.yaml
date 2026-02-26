@@ -10,4 +10,7 @@ spec:
       targetPort: 8333
       protocol: TCP
   selector:
-    app: seaweed-filer
+    app.kubernetes.io/component: filer
+    app.kubernetes.io/instance: seaweed
+    app.kubernetes.io/managed-by: seaweedfs-operator
+    app.kubernetes.io/name: seaweedfs
