@@ -56,7 +56,7 @@ apps:
     namespace: kyverno
     path: kyverno-policies/storage-local-path
     ignoreDifferences: []
-    syncWave: -2
+    syncWave: -20
 
   argocd:
     valuesObject:
