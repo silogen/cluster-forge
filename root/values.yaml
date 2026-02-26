@@ -70,6 +70,30 @@ apps:
             hs.status = "Healthy"
             hs.message = "Always Healthy - See https://github.com/argoproj/argo-cd/pull/24284"
             return hs
+          resource.customizations.health.keda.sh_ScaledObject: |
+            hs = {}
+            if obj.status ~= nil then
+              if obj.status.conditions ~= nil then
+                for _, condition in ipairs(obj.status.conditions) do
+                  if condition.type == "Ready" then
+                    if condition.status == "True" then
+                      hs.status = "Healthy"
+                      hs.message = "ScaledObject is ready"
+                    else
+                      hs.status = "Degraded"
+                      hs.message = condition.reason or "ScaledObject not ready"
+                    end
+                    return hs
+                  end
+                end
+              end
+              hs.status = "Progressing"
+              hs.message = "ScaledObject status unknown"
+            else
+              hs.status = "Progressing"
+              hs.message = "ScaledObject status unknown"
+            end
+            return hs
         params:
           server.insecure: true
         rbac:
@@ -103,11 +127,11 @@ apps:
           clientSecret: $$argocd-oidc-creds:client_secret
           rootCA: $cluster-tls:cert
           requestedScopes: ["openid", "profile", "email", "groups"]
-    syncWave: -3
+    syncWave: -30
   argocd-config:
     path: argocd-config
     namespace: argocd
-    syncWave: -2
+    syncWave: -20
     ignoreDifferences:
       - group: external-secrets.io
         kind: ExternalSecret
@@ -118,7 +142,7 @@ apps:
   cert-manager:
     namespace: cert-manager
     path: cert-manager/v1.18.2
-    syncWave: -4
+    syncWave: -40
     valuesObject:
       installCRDs: true
   openbao:
@@ -146,7 +170,7 @@ apps:
           replicas: 1
       ui:
         enabled: true
-    syncWave: -4
+    syncWave: -40
     ignoreDifferences:
       - group: "apps"
         kind: "Deployment"
@@ -164,16 +188,16 @@ apps:
     helmParameters:
       - name: domain
         value: "{{ .Values.global.domain }}"
-    syncWave: -2
+    syncWave: -20
   external-secrets:
     path: external-secrets/0.15.1
     namespace: external-secrets
     valuesFile: values.yaml
-    syncWave: -4
+    syncWave: -40
   external-secrets-config:
     path: external-secrets-config
     namespace: external-secrets
-    syncWave: -2
+    syncWave: -20
   gitea:
     path: gitea/12.3.0
     namespace: cf-gitea
@@ -212,7 +236,7 @@ apps:
         value: "{{ .Values.global.domain }}"
       - name: gitea.config.server.ROOT_URL
         value: "https://gitea.{{ .Values.global.domain }}"
-    syncWave: -3
+    syncWave: -30
   gitea-config:
     path: gitea-config
     namespace: cf-gitea
@@ -222,21 +246,21 @@ apps:
         value: "https://kc.{{ .Values.global.domain }}"
       - name: keycloak.realm
         value: "airm"
-    syncWave: -2
+    syncWave: -20
   # Network apps
   gateway-api:
     path: gateway-api/v1.3.0
     namespace: default
-    syncWave: -5
+    syncWave: -50
   metallb:
     path: metallb/v0.15.2
     namespace: default
-    syncWave: -4
+    syncWave: -40
   kgateway-crds:
     path: kgateway-crds/v2.1.0-main
     namespace: kgateway-system
     valuesFile: values.yaml
-    syncWave: -3
+    syncWave: -30
   kgateway:
     path: kgateway/v2.1.0-main
     namespace: kgateway-system
@@ -246,7 +270,7 @@ apps:
           registry: "ghcr.io"
           repository: silogen/kgateway-v2.1.0-main-websocket
           tag: "0.0.1"
-    syncWave: -2
+    syncWave: -20
   kgateway-config:
     path: kgateway-config
     namespace: kgateway-system
@@ -254,13 +278,13 @@ apps:
     helmParameters:
       - name: domain
         value: "{{ .Values.global.domain }}"
-    syncWave: -2
+    syncWave: -20
   # Monitoring
   prometheus-crds:
     path: prometheus-operator-crds/23.0.0
     namespace: prometheus-system
     valuesFile: values.yaml
-    syncWave: -5
+    syncWave: -50
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
     namespace: opentelemetry-operator-system
@@ -271,7 +295,7 @@ apps:
         collectorImage:
           repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
           tag: "0.140.0"
-    syncWave: -3
+    syncWave: -30
   otel-lgtm-stack:
     path: otel-lgtm-stack/v1.0.7
     namespace: otel-lgtm-stack
@@ -345,23 +369,23 @@ apps:
     helmParameters:
       - name: cluster.name
         value: "{{ .Values.global.domain }}"
-    syncWave: -2
+    syncWave: -20
   # Databases
   cnpg-operator:
     path: cnpg-operator/0.26.0
     namespace: cnpg-system
     valuesFile: values.yaml
-    syncWave: -3
+    syncWave: -30
   # Access control
   cluster-auth:
     path: cluster-auth/0.5.0
     namespace: cluster-auth
     valuesFile: values.yaml
-    syncWave: -2
+    syncWave: -20
   cluster-auth-config:
     path: cluster-auth-config
     namespace: cluster-auth
-    syncWave: -2
+    syncWave: -20
     ignoreDifferences:
       - group: external-secrets.io
         kind: ExternalSecret
@@ -495,7 +519,7 @@ apps:
     helmParameters:
       - name: domain
         value: "{{ .Values.global.domain }}"
-    syncWave: -1
+    syncWave: -10
     ignoreDifferences:
       - group: external-secrets.io
         kind: ExternalSecret
@@ -507,15 +531,27 @@ apps:
     path: kyverno/3.5.1
     namespace: kyverno
     valuesFile: values.yaml
-    syncWave: -3
+    syncWave: -30
   kyverno-config:
     path: kyverno-config
     namespace: kyverno
-    syncWave: -2
+    syncWave: -20
+    ignoreDifferences:
+      - group: "kyverno.io"
+        kind: "ClusterPolicy"
+        name: "local-path-access-mode-mutation"
+        jsonPointers:
+          - /spec/rules/0/skipBackgroundRequests
+      - group: "kyverno.io"
+        kind: "ClusterPolicy"
+        name: "local-path-access-mode-warning"
+        jsonPointers:
+          - /spec/rules/0/skipBackgroundRequests
+          - /spec/rules/0/validate/allowExistingViolations
   kyverno-policies-base:
     namespace: kyverno
     path: kyverno-policies/base
-    syncWave: -2
+    syncWave: -20
   # GPU
   amd-gpu-operator:
     path: amd-gpu-operator/v1.4.1
@@ -524,7 +560,7 @@ apps:
       crds:
         defaultCR:
           install: false
-    syncWave: -1
+    syncWave: -10
   amd-gpu-operator-config:
     path: amd-gpu-operator-config
     namespace: kube-amd-gpu
@@ -533,13 +569,13 @@ apps:
     path: kuberay-operator/1.4.2
     namespace: default
     valuesFile: values.yaml
-    syncWave: -1
+    syncWave: -10
   # Autoscaling
   keda:
     path: keda/2.18.1
     namespace: keda
     valuesFile: values.yaml
-    syncWave: -1
+    syncWave: -10
   kedify-otel:
     path: kedify-otel/v0.0.6
     namespace: keda
@@ -547,13 +583,24 @@ apps:
       # Cluster-forge specific values for kedify-otel
       validatingAdmissionPolicy:
         enabled: false
-    syncWave: 0
+    syncWave: -5
+    ignoreDifferences:
+      - group: ""
+        kind: "Service"
+        name: "keda-otel-scaler"
+        jqPathExpressions:
+          - ".status"
+      - group: "apps"
+        kind: "Deployment"
+        jqPathExpressions:
+          - ".status.readyReplicas"
+          - ".status.availableReplicas"
   # ML/AI
   kserve-crds:
     path: kserve-crds/v0.16.0
     namespace: kserve-system
     valuesFile: values.yaml
-    syncWave: -3
+    syncWave: -30
   kserve:
     path: kserve/v0.16.0
     namespace: kserve-system
@@ -561,12 +608,12 @@ apps:
       kserve:
         controller:
           deploymentMode: "Standard"
-    syncWave: -1
+    syncWave: 0
   # Queues
   rabbitmq:
     path: rabbitmq/v2.15.0
     namespace: rabbitmq-system
-    syncWave: -1
+    syncWave: -10
   kueue:
     path: kueue/0.13.0
     namespace: kueue-system
@@ -620,21 +667,21 @@ apps:
             - "pod"
             - "deployment"
             - "statefulset"
-    syncWave: -1
+    syncWave: -10
   kueue-config:
     path: kueue-config
     namespace: kueue-system
-    syncWave: -1
+    syncWave: -10
   appwrapper:
     path: appwrapper/v1.1.2
     namespace: appwrapper-system
-    syncWave: -1
+    syncWave: -10
   # Storage
   minio-operator:
     path: minio-operator/7.1.1
     namespace: minio-operator
     valuesFile: values.yaml
-    syncWave: -1
+    syncWave: -10
   minio-tenant:
     path: minio-tenant/7.1.1
     namespace: minio-tenant-default
@@ -685,16 +732,16 @@ apps:
   aim-cluster-model-source:
     path: aim-cluster-model-source
     namespace: kaiwo-system
-    syncWave: -2
+    syncWave: -20
   kaiwo-crds:
     path: kaiwo-crds/v0.2.0-rc11
     namespace: kaiwo-system
-    syncWave: -2
+    syncWave: -20
   kaiwo:
     path: kaiwo/v0.2.0-rc11
     namespace: kaiwo-system
     valuesFile: values.yaml
-    syncWave: -1
+    syncWave: -10
   kaiwo-config:
     path: kaiwo-config
     namespace: kaiwo-system

@@ -55,14 +55,14 @@ apps:
   kyverno-policies-storage-local-path:
     namespace: kyverno
     path: kyverno-policies/storage-local-path
+    ignoreDifferences: []
+    syncWave: -20
     ignoreDifferences:
       - group: kyverno.io
         kind: ClusterPolicy
         jsonPointers:
           - /spec/rules/0/skipBackgroundRequests
           - /spec/rules/0/validate/allowExistingViolations
-    syncWave: -2
-
   argocd:
     valuesObject:
       applicationSet:
