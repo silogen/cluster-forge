@@ -5,49 +5,78 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Initialize variables
-DOMAIN=""
-VALUES_FILE="values.yaml"
-CLUSTER_SIZE="medium"  # Default to medium
-KUBE_VERSION=1.33
+LATEST_RELEASE="v1.8.0"
+TARGET_REVISION="$LATEST_RELEASE"
 
-DEV_MODE=false
-TARGET_REVISION="main" 
+CLUSTER_SIZE="medium"  # Default to medium
+DOMAIN=""
+KUBE_VERSION=1.33
+VALUES_FILE="values.yaml"
 
 # Parse arguments 
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --CLUSTER_SIZE)
-      if [ -z "$2" ]; then
-        echo "ERROR: --CLUSTER_SIZE requires an argument"
-        exit 1
-      fi
-      CLUSTER_SIZE="$2"
-      shift 2
-      ;;
-    --CLUSTER_SIZE=*)
-      CLUSTER_SIZE="${1#*=}"
-      shift
-      ;;
-    --dev)
-      DEV_MODE=true
-      shift
-      ;;
+    --CLUSTER-SIZE|--cluster-size|-s)
+        if [ -z "$2" ]; then
+          echo "ERROR: --cluster-size requires an argument"
+          exit 1
+        fi
+        CLUSTER_SIZE="$2"
+        shift 2
+        ;;
+      --CLUSTER-SIZE=*)
+        CLUSTER_SIZE="${1#*=}"
+        shift
+        ;;
+      --cluster-size=*)
+        CLUSTER_SIZE="${1#*=}"
+        shift
+        ;;
+      -s=*)
+        CLUSTER_SIZE="${1#*=}"
+        shift
+        ;;
+      --TARGET-REVISION|--target-revision|-r)
+        if [ -z "$2" ]; then
+          echo "WARNING: defaulting to --target-revision=$LATEST_RELEASE (no value specified)"
+          TARGET_REVISION="$LATEST_RELEASE"
+          shift
+        else
+          TARGET_REVISION="$2"
+          shift 2
+        fi
+        ;;
+      --TARGET-REVISION=*)
+        TARGET_REVISION="${1#*=}"
+        shift
+        ;;
+      --target-revision=*)
+        TARGET_REVISION="${1#*=}"
+        shift
+        ;;
+      -r=*)
+        TARGET_REVISION="${1#*=}"
+        shift
+        ;;
     --help|-h)
-      echo "Usage: $0 [options] <domain> [values_file]"
-      echo ""
-      echo "Arguments:"
-      echo "  domain                  Required. Cluster domain (e.g., example.com)"
-      echo "  values_file            Optional. Values file to use (default: values.yaml)"
-      echo ""
-      echo "Options:"
-      echo "  --CLUSTER_SIZE         Optional. Cluster size [small|medium|large] (default: medium)"
-      echo "  --dev                  Enable developer mode (sets Gitea repos to feature branch or custom value)"
-      echo ""
-      echo ""
-      echo "Examples:"
-      echo "  $0 myIP.nip.io"
-      echo "  $0 example.com values_custom.yaml --CLUSTER_SIZE=large"
-      echo "  $0 --dev dev.example.com --CLUSTER_SIZE=small"
+      cat <<HELP_OUTPUT
+      Usage: $0 [options] <domain> [values_file]
+
+      Arguments:
+        domain                      Required. Cluster domain (e.g., example.com)
+        values_file                 Optional. Values .yaml file to use, default: root/values.yaml
+      
+      Options:
+        -r, --target-revision       cluster-forge git revision to seed into cluster-values/values.yaml file 
+                                    options: [tag|commit_hash|branch_name], default: $LATEST_RELEASE
+        -s, --cluster-size          options: [small|medium|large], default: medium
+
+      Examples:
+        $0 compute.amd.com values_custom.yaml --cluster-size=large
+        $0 112.100.97.17.nip.io
+        $0 dev.example.com --cluster-size=small --target-revision=$LATEST_RELEASE
+        $0 dev.example.com -s=small -r=$LATEST_RELEASE
+HELP_OUTPUT
       exit 0
       ;;
     --*)
@@ -96,50 +125,37 @@ if [ ! -f "${SCRIPT_DIR}/../root/${VALUES_FILE}" ]; then
     exit 1
 fi
 
-# Check if size-specific values file exists (optional overlay)
-SIZE_VALUES_FILE="values_${CLUSTER_SIZE}.yaml"
-if [ ! -f "${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE}" ]; then
-    echo "WARNING: Size-specific values file not found: ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE}"
-    echo "Proceeding with base values file only: ${VALUES_FILE}"
-    SIZE_VALUES_FILE=""
-fi
-
-get_target_revision() {
-    if [ "$DEV_MODE" = true ]; then
-        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
-        echo ""
-        echo "Development mode enabled - ArgoCD will point to live GitHub repository"
-        echo "Current git branch: $CURRENT_BRANCH"
-        echo ""
-        read -p "Use current branch '$CURRENT_BRANCH' for targetRevision? [Y/n/custom_branch]: " choice
-        
-        case "$choice" in
-            n|N|no|No|NO)
-                echo "Exiting. Please checkout the branch you want to use and run again."
-                exit 0
-                ;;
-            [Cc]ustom*|custom*)
-                read -p "Enter custom branch name: " custom_branch
-                if [ -n "$custom_branch" ]; then
-                    TARGET_REVISION="$custom_branch"
-                else
-                    echo "ERROR: Custom branch name cannot be empty"
-                    exit 1
-                fi
-                ;;
-            y|Y|yes|Yes|YES|"")
-                TARGET_REVISION="$CURRENT_BRANCH"
-                ;;
-            *)
-                # Treat any other input as a custom branch name
-                TARGET_REVISION="$choice"
-                ;;
-        esac
-        echo "Using targetRevision: $TARGET_REVISION"
+# Check if size-specific values file exists
+setup_values_files() {
+    SIZE_VALUES_FILE="values_${CLUSTER_SIZE}.yaml"
+    
+    if [ ! -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+        echo "WARNING: Size-specific values file not found: ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}"
+        echo "Proceeding with base values file only: ${VALUES_FILE}"
+        SIZE_VALUES_FILE=""
+    else
+        echo "Using size-specific values file: ${SIZE_VALUES_FILE}"
     fi
 }
 
+display_target_revision() {
+  # Check if TARGET_REVISION was explicitly set via command line flag
+  # by comparing against the default value
+  if [ "$TARGET_REVISION" != "$LATEST_RELEASE" ]; then 
+    echo "Using specified targetRevision: $TARGET_REVISION"
+  else
+    echo "Using default targetRevision: $TARGET_REVISION"
+  fi
+}
+
+# Since we only support v1.8.0+, always use local sources
+setup_sources() {
+    SOURCE_ROOT="${SCRIPT_DIR}/.."
+    echo "Using local sources for target revision: $TARGET_REVISION"
+}
+
 pre_cleanup() {
+    echo ""
     echo "=== Pre-cleanup: Checking for previous runs ==="
 
     # Check if gitea-init-job exists and completed successfully
@@ -171,12 +187,13 @@ pre_cleanup() {
       /tmp/openbao_values.yaml /tmp/openbao_size_values.yaml \
       /tmp/gitea_values.yaml /tmp/gitea_size_values.yaml
 
-    echo "Pre-cleanup complete"
+    echo "=== Pre-cleanup complete ==="
     echo ""
 }
 
-# Handle dev mode branch selection
-get_target_revision
+display_target_revision
+setup_sources
+setup_values_files
 
 # Run pre-cleanup
 pre_cleanup
@@ -188,7 +205,9 @@ echo "Cluster size: $CLUSTER_SIZE"
 if [ -n "$SIZE_VALUES_FILE" ]; then
     echo "Size overlay: $SIZE_VALUES_FILE"
 fi
-echo "============================"
+echo "Target revision: $TARGET_REVISION"
+echo ""
+echo "=== Starting Bootstrap Process ==="
 
 # Check for yq command availability
 if command -v yq >/dev/null 2>&1; then
@@ -200,8 +219,16 @@ else
     exit 1
 fi
 
-# Update the global.clusterSize in the base values file with full filename
-$YQ_CMD -i ".global.clusterSize = \"values_${CLUSTER_SIZE}.yaml\"" "${SCRIPT_DIR}/../root/${VALUES_FILE}"
+# Update the global.clusterSize in the base values file with mapped filename
+if [ -n "$SIZE_VALUES_FILE" ]; then
+    $YQ_CMD -i ".global.clusterSize = \"${SIZE_VALUES_FILE}\"" "${SOURCE_ROOT}/root/${VALUES_FILE}"
+else
+    $YQ_CMD -i ".global.clusterSize = \"values_${CLUSTER_SIZE}.yaml\"" "${SOURCE_ROOT}/root/${VALUES_FILE}"
+fi
+
+# Note: clusterForge.targetRevision will be set by the gitea-init-job
+# in the cluster-values repository (which overwrites the base values as the final values file)
+echo "Target revision $TARGET_REVISION will be set in cluster-values repo by gitea-init-job"
 
 # Function to merge values files early for use throughout the script
 merge_values_files() {
@@ -209,13 +236,17 @@ merge_values_files() {
     if [ -n "$SIZE_VALUES_FILE" ]; then
         # Merge base values with size-specific overrides
         VALUES=$($YQ_CMD eval-all '. as $item ireduce ({}; . * $item)' \
-            ${SCRIPT_DIR}/../root/${VALUES_FILE} \
-            ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE} | \
+            ${SOURCE_ROOT}/root/${VALUES_FILE} \
+            ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE} | \
             $YQ_CMD eval ".global.domain = \"${DOMAIN}\"")
     else
         # Use base values only
-        VALUES=$(cat ${SCRIPT_DIR}/../root/${VALUES_FILE} | $YQ_CMD ".global.domain = \"${DOMAIN}\"")
+        VALUES=$(cat ${SOURCE_ROOT}/root/${VALUES_FILE} | $YQ_CMD ".global.domain = \"${DOMAIN}\"")
     fi
+    
+    # Apply the target revision override (matching what cluster-values repo will contain)
+    echo "Applying targetRevision override: $TARGET_REVISION"
+    VALUES=$(echo "$VALUES" | $YQ_CMD eval ".clusterForge.targetRevision = \"${TARGET_REVISION}\"")
     
     # Write merged values to temp file for use throughout script
     echo "$VALUES" > /tmp/merged_values.yaml
@@ -233,21 +264,33 @@ get_openbao_value() {
     $YQ_CMD eval ".apps.openbao.valuesObject.${path}" /tmp/merged_values.yaml
 }
 
+# Extract version information from app paths
+extract_app_versions() {
+    ARGOCD_VERSION=$($YQ_CMD eval '.apps.argocd.path' /tmp/merged_values.yaml | cut -d'/' -f2)
+    OPENBAO_VERSION=$($YQ_CMD eval '.apps.openbao.path' /tmp/merged_values.yaml | cut -d'/' -f2) 
+    GITEA_VERSION=$($YQ_CMD eval '.apps.gitea.path' /tmp/merged_values.yaml | cut -d'/' -f2)
+    
+    echo "Extracted versions - ArgoCD: $ARGOCD_VERSION, OpenBao: $OPENBAO_VERSION, Gitea: $GITEA_VERSION"
+}
+
 # Merge values files early so all subsequent operations can use the merged config
 merge_values_files
+
+# Extract version information from merged values
+extract_app_versions
 
 # Create namespaces
 kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
 kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
 kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
 
-# ArgoCD bootstrap
-echo "Bootstrapping ArgoCD..."
+echo ""
+echo "=== ArgoCD Bootstrap ==="
 # Extract ArgoCD values from merged config and write to temp values file
-$YQ_CMD eval '.apps.argocd.valuesObject' ${SCRIPT_DIR}/../root/${VALUES_FILE} > /tmp/argocd_values.yaml
-$YQ_CMD eval '.apps.argocd.valuesObject' ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE} > /tmp/argocd_size_values.yaml
+$YQ_CMD eval '.apps.argocd.valuesObject' ${SOURCE_ROOT}/root/${VALUES_FILE} > /tmp/argocd_values.yaml
+$YQ_CMD eval '.apps.argocd.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE} > /tmp/argocd_size_values.yaml
 # Use server-side apply to match ArgoCD's self-management strategy
-helm template --release-name argocd ${SCRIPT_DIR}/../sources/argocd/8.3.5 --namespace argocd \
+helm template --release-name argocd ${SOURCE_ROOT}/sources/argocd/${ARGOCD_VERSION} --namespace argocd \
   -f /tmp/argocd_values.yaml \
   -f /tmp/argocd_size_values.yaml \
   --set global.domain="argocd.${DOMAIN}" \
@@ -257,13 +300,13 @@ kubectl rollout status deploy/argocd-applicationset-controller -n argocd
 kubectl rollout status deploy/argocd-redis -n argocd
 kubectl rollout status deploy/argocd-repo-server -n argocd
 
-# OpenBao bootstrap
-echo "Bootstrapping OpenBao..."
+echo ""
+echo "=== OpenBao Bootstrap ==="
 # Extract OpenBao values from merged config
-$YQ_CMD eval '.apps.openbao.valuesObject' ${SCRIPT_DIR}/../root/${VALUES_FILE} > /tmp/openbao_values.yaml
-$YQ_CMD eval '.apps.openbao.valuesObject' ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE}  > /tmp/openbao_size_values.yaml
+$YQ_CMD eval '.apps.openbao.valuesObject' ${SOURCE_ROOT}/root/${VALUES_FILE} > /tmp/openbao_values.yaml
+$YQ_CMD eval '.apps.openbao.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}  > /tmp/openbao_size_values.yaml
 # Use server-side apply to match ArgoCD's field management strategy
-helm template --release-name openbao ${SCRIPT_DIR}/../sources/openbao/0.18.2 --namespace cf-openbao \
+helm template --release-name openbao ${SOURCE_ROOT}/sources/openbao/${OPENBAO_VERSION} --namespace cf-openbao \
   -f /tmp/openbao_values.yaml \
   -f /tmp/openbao_size_values.yaml \
   --set ui.enabled=true \
@@ -272,24 +315,24 @@ kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openba
 
 # Create initial secrets config for init job (separate from ArgoCD-managed version)
 echo "Creating initial OpenBao secrets configuration..."
-cat ${SCRIPT_DIR}/../sources/openbao-config/0.1.0/templates/openbao-secret-manager-cm.yaml | \
+cat ${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-manager-cm.yaml | \
   sed "s|name: openbao-secret-manager-scripts|name: openbao-secret-manager-scripts-init|g" | kubectl apply -f -
 
 # Create initial secrets config for init job (separate from ArgoCD-managed version)
 echo "Creating initial OpenBao secrets configuration..."
-cat ${SCRIPT_DIR}/../sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml | \
+cat ${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml | \
   sed "s|{{ .Values.domain }}|${DOMAIN}|g" | \
   sed "s|name: openbao-secrets-config|name: openbao-secrets-init-config|g" | kubectl apply -f -
 
 # Pass OpenBao configuration to init script
-helm template --release-name openbao-init ${SCRIPT_DIR}/init-openbao-job \
+helm template --release-name openbao-init ${SOURCE_ROOT}/scripts/init-openbao-job \
   -f /tmp/openbao_values.yaml \
   --set domain="${DOMAIN}" \
   --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
 
-# Gitea bootstrap
-echo "Bootstrapping Gitea..."
+echo ""
+echo "=== Gitea Bootstrap ==="
 generate_password() {
     openssl rand -hex 16 | tr 'a-f' 'A-F' | head -c 32
 }
@@ -304,11 +347,11 @@ kubectl create secret generic gitea-admin-credentials \
   --from-literal=password=$(generate_password) \
   --dry-run=client -o yaml | kubectl apply -f -
 
-$YQ_CMD eval '.apps.gitea.valuesObject' ${SCRIPT_DIR}/../root/${VALUES_FILE} > /tmp/gitea_values.yaml
-$YQ_CMD eval '.apps.gitea.valuesObject' ${SCRIPT_DIR}/../root/${SIZE_VALUES_FILE} > /tmp/gitea_size_values.yaml
+$YQ_CMD eval '.apps.gitea.valuesObject' ${SOURCE_ROOT}/root/${VALUES_FILE} > /tmp/gitea_values.yaml
+$YQ_CMD eval '.apps.gitea.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE} > /tmp/gitea_size_values.yaml
 
 # Bootstrap Gitea
-helm template --release-name gitea ${SCRIPT_DIR}/../sources/gitea/12.3.0 --namespace cf-gitea \
+helm template --release-name gitea ${SOURCE_ROOT}/sources/gitea/${GITEA_VERSION} --namespace cf-gitea \
   -f /tmp/gitea_values.yaml \
   -f /tmp/gitea_size_values.yaml \
   --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}/" \
@@ -316,35 +359,35 @@ helm template --release-name gitea ${SCRIPT_DIR}/../sources/gitea/12.3.0 --names
 kubectl rollout status deploy/gitea -n cf-gitea
 
 # Gitea Init Job
-helm template --release-name gitea-init ${SCRIPT_DIR}/init-gitea-job \
+helm template --release-name gitea-init ${SOURCE_ROOT}/scripts/init-gitea-job \
+  --set clusterSize="${SIZE_VALUES_FILE:-values_${CLUSTER_SIZE}.yaml}" \
   --set domain="${DOMAIN}" \
-  --set clusterSize="values_${CLUSTER_SIZE}.yaml" \
+  --set targetRevision="${TARGET_REVISION}" \
   --kube-version=${KUBE_VERSION} \
   | kubectl apply -f -
 
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
 
-# Create cluster-forge app-of-apps with merged configuration
-echo "Creating ClusterForge app-of-apps (size: $CLUSTER_SIZE)..."
-helm template ${SCRIPT_DIR}/../root \
+echo ""
+echo "=== Creating ClusterForge App-of-Apps ==="
+echo "Cluster size: $CLUSTER_SIZE"
+helm template ${SOURCE_ROOT}/root \
     -f /tmp/merged_values.yaml \
     --kube-version=${KUBE_VERSION} | kubectl apply -f -
 
-echo ""
-echo "=== ClusterForge Bootstrap Complete ==="
-echo "Domain: $DOMAIN"
-echo "Cluster size: $CLUSTER_SIZE"
-echo "Access ArgoCD at: https://argocd.${DOMAIN}"
-echo "Access Gitea at: https://gitea.${DOMAIN}"
-echo ""
-if [ "$DEV_MODE" = true ]; then
-    echo "Mode: Development using non-main targetRevision"
-fi
-echo "Target revision: $TARGET_REVISION"
-echo "Access ArgoCD at: https://argocd.${DOMAIN}"
-echo "Access Gitea at: https://gitea.${DOMAIN}"
-echo ""
-echo "This is the way!"
+echo <<__SUMMARY__
+
+  === ClusterForge Bootstrap Complete ==="
+  
+  Domain: $DOMAIN
+  Cluster size: $CLUSTER_SIZE
+  Target revision: $TARGET_REVISION
+  
+  Access ArgoCD at: https://argocd.${DOMAIN}
+  Access Gitea at: https://gitea.${DOMAIN}
+
+  This is the way!
+__SUMMARY__
 
 # Cleanup temporary files
 echo "Cleaning up temporary files..."
