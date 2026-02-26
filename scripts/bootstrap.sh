@@ -12,6 +12,7 @@ CLUSTER_SIZE="medium"  # Default to medium
 DOMAIN=""
 KUBE_VERSION=1.33
 VALUES_FILE="values.yaml"
+AIRM_CONTAINER_REGISTRY=""  # Default to empty, will be read from bloom configmap if not specified
 
 # Parse arguments 
 while [[ $# -gt 0 ]]; do
@@ -58,6 +59,18 @@ while [[ $# -gt 0 ]]; do
         TARGET_REVISION="${1#*=}"
         shift
         ;;
+      --airm-container-registry)
+        if [ -z "$2" ]; then
+          echo "ERROR: --airm-container-registry requires an argument"
+          exit 1
+        fi
+        AIRM_CONTAINER_REGISTRY="$2"
+        shift 2
+        ;;
+      --airm-container-registry=*)
+        AIRM_CONTAINER_REGISTRY="${1#*=}"
+        shift
+        ;;
     --help|-h)
       cat <<HELP_OUTPUT
       Usage: $0 [options] <domain> [values_file]
@@ -70,6 +83,7 @@ while [[ $# -gt 0 ]]; do
         -r, --target-revision       cluster-forge git revision to seed into cluster-values/values.yaml file 
                                     options: [tag|commit_hash|branch_name], default: $LATEST_RELEASE
         -s, --cluster-size          options: [small|medium|large], default: medium
+        --airm-container-registry   container registry for AIRM images, overrides bloom configmap value
 
       Examples:
         $0 compute.amd.com values_custom.yaml --cluster-size=large
@@ -264,6 +278,7 @@ get_openbao_value() {
     $YQ_CMD eval ".apps.openbao.valuesObject.${path}" /tmp/merged_values.yaml
 }
 
+
 # Extract version information from app paths
 extract_app_versions() {
     ARGOCD_VERSION=$($YQ_CMD eval '.apps.argocd.path' /tmp/merged_values.yaml | cut -d'/' -f2)
@@ -271,6 +286,48 @@ extract_app_versions() {
     GITEA_VERSION=$($YQ_CMD eval '.apps.gitea.path' /tmp/merged_values.yaml | cut -d'/' -f2)
     
     echo "Extracted versions - ArgoCD: $ARGOCD_VERSION, OpenBao: $OPENBAO_VERSION, Gitea: $GITEA_VERSION"
+}
+
+# Configure AIRM container registry parameter
+configure_airm_container_registry() {
+    echo "Configuring AIRM container registry..."
+    
+    # Use CLI parameter if provided, otherwise try to read from bloom configmap
+    if [ -n "$AIRM_CONTAINER_REGISTRY" ]; then
+        echo "Using AIRM container registry from CLI parameter: $AIRM_CONTAINER_REGISTRY"
+    else
+        # Try to read from bloom configmap if it exists
+        if kubectl get configmap bloom -n default >/dev/null 2>&1; then
+            AIRM_CONTAINER_REGISTRY=$(kubectl get configmap bloom -n default -o jsonpath='{.data.airm_container_registry}' 2>/dev/null || echo "")
+            if [ -n "$AIRM_CONTAINER_REGISTRY" ]; then
+                echo "Using AIRM container registry from bloom configmap: $AIRM_CONTAINER_REGISTRY"
+            else
+                echo "No AIRM container registry configured in bloom configmap"
+            fi
+        else
+            echo "Bloom configmap not found, using default AIRM container registries"
+        fi
+    fi
+    
+    # Add the helm parameter to AIRM app configuration if registry is specified
+    if [ -n "$AIRM_CONTAINER_REGISTRY" ]; then
+        echo "Adding global.containerRegistry helm parameter to AIRM configuration..."
+        
+        # Check if AIRM app has helmParameters section
+        HAS_HELM_PARAMS=$($YQ_CMD eval '.apps.airm.helmParameters' /tmp/merged_values.yaml 2>/dev/null || echo "null")
+        
+        if [ "$HAS_HELM_PARAMS" = "null" ]; then
+            # Create helmParameters section
+            $YQ_CMD eval -i '.apps.airm.helmParameters = []' /tmp/merged_values.yaml
+        fi
+        
+        # Add the containerRegistry parameter
+        $YQ_CMD eval -i '.apps.airm.helmParameters += [{"name": "global.containerRegistry", "value": "'"$AIRM_CONTAINER_REGISTRY"'"}]' /tmp/merged_values.yaml
+        
+        echo "AIRM container registry parameter configured successfully"
+    else
+        echo "No AIRM container registry specified, using default image repositories"
+    fi
 }
 
 # Merge values files early so all subsequent operations can use the merged config
@@ -367,6 +424,10 @@ helm template --release-name gitea-init ${SOURCE_ROOT}/scripts/init-gitea-job \
   | kubectl apply -f -
 
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
+
+echo ""
+echo "=== Configuring AIRM Container Registry ==="
+configure_airm_container_registry
 
 echo ""
 echo "=== Creating ClusterForge App-of-Apps ==="

@@ -213,7 +213,7 @@ spec:
               type: RuntimeDefault
       containers:
         - name: airm-dispatcher
-          image: "{{ .Values.airm.dispatcher.image.repository }}:{{ .Values.airm.dispatcher.image.tag }}"
+          image: "{{ if .Values.global.containerRegistry }}{{ .Values.global.containerRegistry }}/airm-dispatcher{{ else }}{{ .Values.airm.dispatcher.image.repository }}{{ end }}:{{ .Values.airm.dispatcher.image.tag }}"
           imagePullPolicy: "{{ .Values.airm.dispatcher.image.pullPolicy }}"
           ports:
             - containerPort: 8080
