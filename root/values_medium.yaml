@@ -57,7 +57,12 @@ apps:
     path: kyverno-policies/storage-local-path
     ignoreDifferences: []
     syncWave: -20
-
+    ignoreDifferences:
+      - group: kyverno.io
+        kind: ClusterPolicy
+        jsonPointers:
+          - /spec/rules/0/skipBackgroundRequests
+          - /spec/rules/0/validate/allowExistingViolations
   argocd:
     valuesObject:
       applicationSet:
