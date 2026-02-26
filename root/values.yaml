@@ -12,7 +12,7 @@ global:
   clusterSize: # to be filled by bootstrap script (small, medium, large)
 enabledApps:
   - aim-cluster-model-source
-  - airm
+#  - airm
   - amd-gpu-operator
   - amd-gpu-operator-config
   - appwrapper
