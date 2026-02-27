@@ -140,16 +140,6 @@ echo "Base values: $VALUES_FILE"
 echo "Cluster size: $CLUSTER_SIZE"
 echo "Target revision: $TARGET_REVISION"
 
-helm template cluster-forge "${SOURCE_ROOT}/root" \
-    --show-only templates/cluster-forge.yaml \
-    -f "${SOURCE_ROOT}/root/${VALUES_FILE}" \
-    -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" \
-    --set global.domain="${DOMAIN}" \
-    --set clusterForge.targetRevision="${TARGET_REVISION}" \
-    --set externalValues.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git" \
-    --set clusterForge.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git" \
-    --namespace argocd \
-    --kube-version "${KUBE_VERSION}" | kubectl apply -f -
 echo ""
 
 # Create namespaces
@@ -219,6 +209,8 @@ helm template --release-name gitea-init ${SOURCE_ROOT}/scripts/init-gitea-job \
   --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
 
+
+
 # Create cluster-forge parent app only (not all apps)
 echo "=== Creating ClusterForge Parent App ==="
 echo "Target revision: $TARGET_REVISION"
@@ -233,42 +225,3 @@ helm template cluster-forge "${SOURCE_ROOT}/root" \
     --set clusterForge.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git" \
     --namespace argocd \
     --kube-version "${KUBE_VERSION}" | kubectl apply -f -
-
-cat <<__SUMMARY__
-
-=== ClusterForge Bootstrap Complete ===
-
-Domain: $DOMAIN
-Cluster size: $CLUSTER_SIZE
-Target revision: $TARGET_REVISION
-
-🌐 Access URLs:
-  ArgoCD:  https://argocd.${DOMAIN}
-  OpenBao: https://openbao.${DOMAIN}
-  Gitea:   https://gitea.${DOMAIN}
-
-  Credentials:
-    ArgoCD admin username: admin
-    ArgoCD admin password: (check argocd-initial-admin-secret in argocd namespace)
-    OpenBao token: (check openbao-initial-admin-secret in cf-openbao namespace
-    Gitea admin username: silogen-admin
-    Gitea admin password: (check gitea-admin-credentials secret in cf-gitea namespace)
-
-📋 What happens now:
-  1. ✅ ArgoCD is running and managing the cluster
-  2. ✅ OpenBao provides secrets management and is fully initialized
-  3. ✅ Gitea provides git source of truth ArgoCD (unless cluster size is small)
-  4. 🎯 cluster-forge app will sync from: $TARGET_REVISION
-  5. 📦 ArgoCD will deploy remaining enabled apps from target revision
-  6. ⚡ Sync waves ensure proper deployment order for remaining apps
-
-📋 Next steps:
-  1. Monitor ArgoCD applications: kubectl get apps -n argocd
-  2. Check sync status: kubectl get apps -n argocd -o wide
-  3. View ArgoCD UI for detailed deployment progress
-
-This is the way! 🚀
-__SUMMARY__
-
-# Cleanup temporary files
-rm -f /tmp/simple_values.yaml
