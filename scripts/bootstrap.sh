@@ -273,6 +273,20 @@ helm template --release-name openbao ${SOURCE_ROOT}/sources/openbao/${OPENBAO_VE
 echo "⏳ Waiting for OpenBao pod to be ready..."
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s
 
+# Create the special init ConfigMaps that the init job expects
+echo "🔧 Creating init-specific ConfigMaps for OpenBao initialization..."
+
+# Create the init version of secret manager scripts
+cat "${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-manager-cm.yaml" | \
+    sed "s|name: openbao-secret-manager-scripts|name: openbao-secret-manager-scripts-init|g" | \
+    kubectl apply -f -
+
+# Create the init version of secret definitions
+cat "${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml" | \
+    sed "s|{{ .Values.domain }}|${DOMAIN}|g" | \
+    sed "s|name: openbao-secrets-config|name: openbao-secrets-init-config|g" | \
+    kubectl apply -f -
+
 # Deploy OpenBao initialization job directly (critical for bootstrap)
 echo "🔐 Deploying OpenBao initialization job..."
 helm template --release-name openbao-init ${SOURCE_ROOT}/scripts/init-openbao-job \
