@@ -67,15 +67,22 @@ while [[ $# -gt 0 ]]; do
         values_file                 Optional. Values .yaml file to use, default: root/values.yaml
       
       Options:
-        -r, --target-revision       cluster-forge git revision to seed into cluster-values/values.yaml file 
+        -r, --target-revision       cluster-forge git revision for ArgoCD to sync from 
                                     options: [tag|commit_hash|branch_name], default: $LATEST_RELEASE
+                                    IMPORTANT: Only apps enabled in target revision will be deployed
         -s, --cluster-size          options: [small|medium|large], default: medium
 
       Examples:
         $0 compute.amd.com values_custom.yaml --cluster-size=large
         $0 112.100.97.17.nip.io
-        $0 dev.example.com --cluster-size=small --target-revision=$LATEST_RELEASE
-        $0 dev.example.com -s=small -r=$LATEST_RELEASE
+        $0 dev.example.com --cluster-size=small --target-revision=v1.8.0
+        $0 dev.example.com -s=small -r=feature-branch
+        
+      Target Revision Behavior:
+        • Bootstrap will deploy ArgoCD + cluster-forge parent app
+        • ArgoCD will sync ALL apps from the specified target revision
+        • Only apps enabled in target revision will be deployed
+        • Apps disabled in target revision will be pruned if they exist
 HELP_OUTPUT
       exit 0
       ;;
@@ -183,7 +190,7 @@ pre_cleanup() {
     kubectl delete job openbao-init-job -n cf-openbao --ignore-not-found=true
 
     # Clean up any bootstrap manifest files from previous runs
-    rm -f /tmp/cluster-forge-bootstrap.yaml
+    rm -f /tmp/cluster-forge-bootstrap.yaml /tmp/cluster-forge-parent-app.yaml
 
     echo "=== Pre-cleanup complete ==="
     echo ""
@@ -234,49 +241,98 @@ render_cluster_forge_manifests() {
     echo ""
 }
 
-# NEW: Smart Application of Sync Waves
-apply_manifests_by_sync_wave() {
-    echo "=== Applying Manifests by Sync Wave ==="
-
-    # Create required namespaces first
-    echo "Creating namespaces..."
-    kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
-    kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
-    kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
-
-    # Apply manifests - ArgoCD will handle sync waves naturally
-    echo "🎯 Applying all ClusterForge manifests..."
-    kubectl apply -f /tmp/cluster-forge-bootstrap.yaml
-
+# NEW: Render and Apply Only Essential Components for ArgoCD Takeover  
+render_cluster_forge_parent_app() {
     echo ""
-    echo "🎉 Bootstrap manifests applied!"
-    echo "ArgoCD will now orchestrate the deployment using sync waves."
-    echo ""
-    echo "=== Monitoring Key Components ==="
+    echo "=== Rendering cluster-forge Parent App ==="
+    echo "Using existing template: root/templates/cluster-forge.yaml"
+    echo "Target revision: $TARGET_REVISION"
+    echo "Cluster size: $CLUSTER_SIZE"
+
+    # Create minimal values for just rendering the cluster-forge parent app
+    local temp_values=$(mktemp)
+    cat > "$temp_values" <<EOF
+# Minimal values for cluster-forge parent app rendering
+externalValues:
+  enabled: true
+  path: ${VALUES_FILE}
+  repoUrl: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git
+  targetRevision: main
+
+clusterForge:
+  repoUrl: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git
+  targetRevision: ${TARGET_REVISION}
+  valuesFile: ${VALUES_FILE}
+
+global:
+  domain: ${DOMAIN}
+  clusterSize: values_${CLUSTER_SIZE}.yaml
+EOF
+
+    echo "🎯 Rendering cluster-forge parent app using template..."
     
-    # Wait for ArgoCD to be ready (it should be in the bootstrap manifests)
-    if kubectl get statefulset argocd-application-controller -n argocd >/dev/null 2>&1; then
-        echo "⏳ Waiting for ArgoCD Application Controller..."
-        kubectl rollout status statefulset/argocd-application-controller -n argocd --timeout=300s
-        echo "✅ ArgoCD Application Controller ready"
-    fi
+    # Render only the cluster-forge template
+    helm template cluster-forge "${SOURCE_ROOT}/root" \
+        --show-only templates/cluster-forge.yaml \
+        --values "$temp_values" \
+        --namespace argocd \
+        --kube-version "$KUBE_VERSION" > /tmp/cluster-forge-parent-app.yaml
 
-    if kubectl get deployment argocd-repo-server -n argocd >/dev/null 2>&1; then
-        echo "⏳ Waiting for ArgoCD Repo Server..."
-        kubectl rollout status deploy/argocd-repo-server -n argocd --timeout=300s
-        echo "✅ ArgoCD Repo Server ready"
-    fi
+    # Cleanup temp file
+    rm -f "$temp_values"
+    
+    echo "✅ cluster-forge parent app rendered to /tmp/cluster-forge-parent-app.yaml"
+}
 
-    # Monitor progress of core applications
+bootstrap_argocd_managed_approach() {
+    echo "=== ArgoCD-Managed Bootstrap ==="
     echo ""
-    echo "📊 Core applications will be deployed by ArgoCD in sync wave order:"
-    echo "   Wave -5: CRDs and operators"
-    echo "   Wave -4: Core infrastructure (ArgoCD, OpenBao, External Secrets)"
-    echo "   Wave -3: Network and storage"
-    echo "   Wave -2: Configuration and secrets management"
-    echo "   Wave -1: Application dependencies" 
-    echo "   Wave  0: Applications"
+    echo "🎯 Strategy: Let ArgoCD manage everything from target revision: $TARGET_REVISION"
+    echo "   This ensures only apps enabled in target revision are deployed"
     echo ""
+
+    # Create argocd namespace first
+    echo "Creating ArgoCD namespace..."
+    kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
+
+    # Step 1: Deploy ArgoCD itself from local render (needed to bootstrap)
+    echo ""
+    echo "📦 Step 1: Deploying ArgoCD..."
+    awk '/name: argocd$/,/^---$/{if(/^---$/ && NR>1) exit; print}' /tmp/cluster-forge-bootstrap.yaml | \
+        kubectl apply -f -
+
+    # Wait for ArgoCD to be ready
+    echo "⏳ Waiting for ArgoCD to become ready..."
+    kubectl rollout status statefulset/argocd-application-controller -n argocd --timeout=300s
+    kubectl rollout status deploy/argocd-repo-server -n argocd --timeout=300s
+    kubectl rollout status deploy/argocd-redis -n argocd --timeout=300s
+    echo "✅ ArgoCD ready!"
+
+    # Step 2: Render and apply the cluster-forge parent app using the template
+    echo ""
+    echo "📦 Step 2: Rendering and applying cluster-forge parent application..."
+    echo "   Using template: root/templates/cluster-forge.yaml"
+    echo "   This will sync from target revision and manage all child apps"
+
+    # Render the cluster-forge parent app using the existing template
+    render_cluster_forge_parent_app
+
+    # Apply the rendered cluster-forge parent app
+    kubectl apply -f /tmp/cluster-forge-parent-app.yaml
+
+    echo "✅ cluster-forge parent application applied!"
+
+    echo ""
+    echo "🎉 ArgoCD-Managed Bootstrap Complete!"
+    echo ""
+    echo "📋 What happens now:"
+    echo "   1. ✅ ArgoCD is running and managing the cluster"
+    echo "   2. 🎯 cluster-forge app will sync from: $TARGET_REVISION"
+    echo "   3. 📦 ONLY apps enabled in $TARGET_REVISION will be deployed"
+    echo "   4. ⚡ Sync waves will ensure proper deployment order"
+    echo "   5. 🔄 ArgoCD will automatically prune apps disabled in target revision"
+    echo ""
+    echo "🚀 The cluster will now converge to the exact state defined in target revision!"
 }
 
 # NEW: Post-Bootstrap Status Check
@@ -295,8 +351,12 @@ show_bootstrap_summary() {
     echo "  1. Monitor ArgoCD applications: kubectl get apps -n argocd"
     echo "  2. Check sync status: kubectl get apps -n argocd -o wide"
     echo "  3. View ArgoCD UI for detailed deployment progress"
+    echo "  4. ArgoCD will sync apps from target revision: $TARGET_REVISION"
+    echo "     (Only apps enabled in that revision will be deployed)"
     echo ""
-    echo "🧹 Cleanup: Bootstrap manifest saved at /tmp/cluster-forge-bootstrap.yaml"
+    echo "🧹 Cleanup: Bootstrap manifests saved at:"
+    echo "   - /tmp/cluster-forge-bootstrap.yaml (all apps rendered)"
+    echo "   - /tmp/cluster-forge-parent-app.yaml (parent app only)"
     echo ""
     echo "This is the way! 🚀"
 }
@@ -310,9 +370,9 @@ main() {
     # Run pre-cleanup (removing till refined)
     # pre_cleanup
     
-    # NEW APPROACH: Single ArgoCD-native rendering and application
+    # NEW APPROACH: Render locally, but only bootstrap ArgoCD + parent app
     render_cluster_forge_manifests
-    apply_manifests_by_sync_wave
+    bootstrap_argocd_managed_approach
     
     # Show final status
     show_bootstrap_summary
