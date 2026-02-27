@@ -1,41 +1,4 @@
-# LARGE CLUSTER CONFIGURATION (Production: app-dev.silogen.ai)
-# Actual Hardware: 4 nodes (HA control plane and at least one worker node)
-#
-# This configuration reflects a production deployment
-#
-# LARGE CLUSTER: All apps enabled (inherited from base values.yaml)  
-# Uses Longhorn storage with native RWX support - no access mode mutation needed
-
 apps:
-  # Git - Gitea (Production: single replica, sqlite3)
-  gitea:
-    valuesObject:
-      postgresql-ha:
-        enabled: false
-      valkey-cluster:
-        enabled: false
-  # Core apps - ArgoCD (Production: single replicas, appropriate for 4-node cluster)
-  argocd:
-    valuesObject:
-      # Production config: Single replicas (no HA for 4-node cluster)
-      applicationSet:
-        replicas: 1
-      controller:
-        replicas: 1
-      redis:
-        enabled: true
-      redis-ha:
-        enabled: false
-      repoServer:
-        replicas: 1
-        autoscaling:
-          enabled: false
-      server:
-        replicas: 1
-        autoscaling:
-          enabled: false
-
-  # Storage - MinIO Tenant (Production: single server configuration)
   minio-tenant:
     valuesObject:
       tenant:
@@ -45,8 +8,6 @@ apps:
             size: 500Gi
             storageClassName: direct
             volumesPerServer: 1
-
-  # Secrets - OpenBao (Production: 3 replicas, 10Gi storage)
   openbao:
     valuesObject:
       server:
@@ -55,50 +16,3 @@ apps:
           replicas: 3
           raft:
             enabled: true
-
-  # Workload scheduling - Kueue (Production: single replica)
-  kueue:
-    valuesObject:
-      controllerManager:
-        replicas: 1
-
-  # Authentication - Keycloak (Production: single replica)
-  keycloak:
-    valuesObject:
-      replicaCount: 1
-      resources:
-        limits:
-          cpu: "500m"
-          memory: "2Gi"
-        requests:
-          cpu: "250m"
-          memory: "512Mi"
-
-  # Monitoring - OTEL LGTM Stack (Production configuration)
-  otel-lgtm-stack:
-    valuesObject:
-      # Production: Standard monitoring resources
-      lgtm:
-        storage:
-          # Production storage sizes (default storage class)
-          extra: 50Gi
-          grafana: 10Gi
-          loki: 50Gi
-          mimir: 50Gi
-          tempo: 50Gi
-      collectors:
-        resources:
-          logs:
-            limits:
-              cpu: '1'
-              memory: 2Gi
-            requests:
-              cpu: 200m
-              memory: 400Mi
-          metrics:
-            limits:
-              cpu: '2'
-              memory: 8Gi
-            requests:
-              cpu: 500m
-              memory: 1Gi

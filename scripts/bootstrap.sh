@@ -215,63 +215,24 @@ echo "Target revision: $TARGET_REVISION"
 echo ""
 echo "=== Starting Bootstrap Process ==="
 
-# Update the global.clusterSize in the base values file with mapped filename
-if [ -n "$SIZE_VALUES_FILE" ]; then
-    $YQ_CMD -i ".global.clusterSize = \"${SIZE_VALUES_FILE}\"" "${SOURCE_ROOT}/root/${VALUES_FILE}"
-else
-    $YQ_CMD -i ".global.clusterSize = \"values_${CLUSTER_SIZE}.yaml\"" "${SOURCE_ROOT}/root/${VALUES_FILE}"
-fi
+# Extract version information from app paths using sed/awk (no yq needed)
+extract_app_versions() {
+    # Extract ArgoCD version from path like "sources/argocd/8.3.5"
+    ARGOCD_VERSION=$(grep -A 5 "^  argocd:" "${SOURCE_ROOT}/root/${VALUES_FILE}" | \
+        grep "path:" | sed 's/.*argocd\///' | sed 's/ *$//')
+    
+    # Extract Gitea version from path like "sources/gitea/12.3.0"  
+    GITEA_VERSION=$(grep -A 5 "^  gitea:" "${SOURCE_ROOT}/root/${VALUES_FILE}" | \
+        grep "path:" | sed 's/.*gitea\///' | sed 's/ *$//')
+    
+    echo "Extracted versions - ArgoCD: $ARGOCD_VERSION, Gitea: $GITEA_VERSION"
+}
 
 # Note: clusterForge.targetRevision will be set by the gitea-init-job
 # in the cluster-values repository (which overwrites the base values as the final values file)
 echo "Target revision $TARGET_REVISION will be set in cluster-values repo by gitea-init-job"
 
-# Function to merge values files early for use throughout the script
-merge_values_files() {
-    echo "Merging values files..."
-    if [ -n "$SIZE_VALUES_FILE" ]; then
-        # Merge base values with size-specific overrides
-        VALUES=$($YQ_CMD eval-all '. as $item ireduce ({}; . * $item)' \
-            ${SOURCE_ROOT}/root/${VALUES_FILE} \
-            ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE} | \
-            $YQ_CMD eval ".global.domain = \"${DOMAIN}\"")
-    else
-        # Use base values only
-        VALUES=$(cat ${SOURCE_ROOT}/root/${VALUES_FILE} | $YQ_CMD ".global.domain = \"${DOMAIN}\"")
-    fi
-    
-    # Apply the target revision override (matching what cluster-values repo will contain)
-    echo "Applying targetRevision override: $TARGET_REVISION"
-    VALUES=$(echo "$VALUES" | $YQ_CMD eval ".clusterForge.targetRevision = \"${TARGET_REVISION}\"")
-    
-    # Write merged values to temp file for use throughout script
-    echo "$VALUES" > /tmp/merged_values.yaml
-    echo "Merged values written to /tmp/merged_values.yaml"
-}
-
-# Helper functions to extract values from merged configuration
-get_argocd_value() {
-    local path="$1"
-    $YQ_CMD eval ".apps.argocd.valuesObject.${path}" /tmp/merged_values.yaml
-}
-
-get_openbao_value() {
-    local path="$1"  
-    $YQ_CMD eval ".apps.openbao.valuesObject.${path}" /tmp/merged_values.yaml
-}
-
-# Extract version information from app paths
-extract_app_versions() {
-    ARGOCD_VERSION=$($YQ_CMD eval '.apps.argocd.path' /tmp/merged_values.yaml | cut -d'/' -f2)
-    GITEA_VERSION=$($YQ_CMD eval '.apps.gitea.path' /tmp/merged_values.yaml | cut -d'/' -f2)
-    
-    echo "Extracted versions - ArgoCD: $ARGOCD_VERSION, Gitea: $GITEA_VERSION"
-}
-
-# Merge values files early so all subsequent operations can use the merged config
-merge_values_files
-
-# Extract version information from merged values
+# Extract version information from values
 extract_app_versions
 
 # Create namespaces for direct deployments only
@@ -281,13 +242,9 @@ kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
 
 echo ""
 echo "=== ArgoCD Bootstrap ==="
-# Extract ArgoCD values from merged config and write to temp values file
-$YQ_CMD eval '.apps.argocd.valuesObject' ${SOURCE_ROOT}/root/${VALUES_FILE} > /tmp/argocd_values.yaml
-$YQ_CMD eval '.apps.argocd.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE} > /tmp/argocd_size_values.yaml
-# Use server-side apply to match ArgoCD's self-management strategy
+# Deploy ArgoCD using dedicated values file (no yq extraction needed)
 helm template --release-name argocd ${SOURCE_ROOT}/sources/argocd/${ARGOCD_VERSION} --namespace argocd \
-  -f /tmp/argocd_values.yaml \
-  -f /tmp/argocd_size_values.yaml \
+  -f ${SOURCE_ROOT}/root/values_argocd.yaml \
   --set global.domain="argocd.${DOMAIN}" \
   --kube-version=${KUBE_VERSION} | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
 kubectl rollout status statefulset/argocd-application-controller -n argocd
@@ -304,23 +261,29 @@ generate_password() {
     openssl rand -hex 16 | tr 'a-f' 'A-F' | head -c 32
 }
 
-# Create initial-cf-values configmap with merged values
-echo "Creating initial-cf-values configmap from merged configuration..."
-kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$(cat /tmp/merged_values.yaml)" --dry-run=client -o yaml | kubectl apply -n cf-gitea -f -
-
+# Create gitea admin credentials secret
 kubectl create secret generic gitea-admin-credentials \
   --namespace=cf-gitea \
   --from-literal=username=silogen-admin \
   --from-literal=password=$(generate_password) \
   --dry-run=client -o yaml | kubectl apply -f -
 
-$YQ_CMD eval '.apps.gitea.valuesObject' ${SOURCE_ROOT}/root/${VALUES_FILE} > /tmp/gitea_values.yaml
-$YQ_CMD eval '.apps.gitea.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE} > /tmp/gitea_size_values.yaml
+# Create initial-cf-values configmap with basic values for gitea-init-job
+# Use simple shell variables instead of merged YAML
+cat > /tmp/simple_values.yaml << EOF
+global:
+  domain: ${DOMAIN}
+  clusterSize: values_${CLUSTER_SIZE}.yaml
+clusterForge:
+  targetRevision: ${TARGET_REVISION}
+EOF
 
-# Bootstrap Gitea
+kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$(cat /tmp/simple_values.yaml)" --dry-run=client -o yaml | kubectl apply -n cf-gitea -f -
+
+# Bootstrap Gitea using dedicated values file (no yq extraction needed)
 helm template --release-name gitea ${SOURCE_ROOT}/sources/gitea/${GITEA_VERSION} --namespace cf-gitea \
-  -f /tmp/gitea_values.yaml \
-  -f /tmp/gitea_size_values.yaml \
+  -f ${SOURCE_ROOT}/root/values_gitea.yaml \
+  --set clusterDomain="${DOMAIN}" \
   --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}/" \
   --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl rollout status deploy/gitea -n cf-gitea
@@ -404,4 +367,4 @@ __SUMMARY__
 
 # Cleanup temporary files
 echo "Cleaning up temporary files..."
-rm -f /tmp/merged_values.yaml /tmp/argocd_values.yaml
+rm -f /tmp/simple_values.yaml /tmp/cluster_forge_values.yaml

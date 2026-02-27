@@ -397,6 +397,14 @@ apps:
     path: keycloak-old
     namespace: keycloak
     valuesObject:
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: "500m"
+          memory: "2Gi"
+        requests:
+          cpu: "250m"
+          memory: "512Mi"
       podLabels:
         app: keycloak
       auth:
