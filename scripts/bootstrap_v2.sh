@@ -288,26 +288,13 @@ EOF
     echo "✅ cluster-forge parent app rendered to /tmp/cluster-forge-parent-app.yaml"
 }
 
-bootstrap_argocd_managed_approach() {
-    echo "=== ArgoCD-Managed Bootstrap ==="
+# Deploy ArgoCD directly using helm (following original bootstrap.sh pattern)
+deploy_argocd_directly() {
     echo ""
-    echo "🎯 Strategy: Let ArgoCD manage everything from target revision: $TARGET_REVISION"
-    echo "   This ensures only apps enabled in target revision are deployed"
-    echo "   Note: Using yq for reliable ArgoCD application extraction only"
-    echo ""
-
-    # Create argocd namespace first
-    echo "Creating ArgoCD namespace..."
-    kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
-
-    # Step 1: Deploy ArgoCD itself from local render (needed to bootstrap)
-    echo ""
-    echo "📦 Step 1: Deploying ArgoCD..."
+    echo "=== Direct ArgoCD Deployment ==="
+    echo "ArgoCD must be deployed directly before it can manage other applications"
     
-    # Use yq to reliably extract the ArgoCD application (acceptable for ArgoCD setup)
-    echo "Extracting ArgoCD application using yq (for bootstrap reliability only)..."
-    
-    # Check if yq command is available
+    # Check if yq is available for value extraction
     if command -v yq >/dev/null 2>&1; then
         YQ_CMD="yq"
     elif [ -f "$HOME/yq" ]; then
@@ -317,28 +304,79 @@ bootstrap_argocd_managed_approach() {
         exit 1
     fi
     
-    # Extract ArgoCD application using yq
-    $YQ_CMD eval 'select(.kind == "Application" and .metadata.name == "argocd")' /tmp/cluster-forge-bootstrap.yaml > /tmp/argocd-app.yaml
-    
-    # Verify we got a valid ArgoCD application
-    if [ -s /tmp/argocd-app.yaml ] && grep -q "kind: Application" /tmp/argocd-app.yaml; then
-        echo "✅ Extracted ArgoCD application using yq"
-        kubectl apply -f /tmp/argocd-app.yaml
+    # Create merged values for version extraction (similar to original bootstrap.sh)
+    local SIZE_VALUES_FILE="values_${CLUSTER_SIZE}.yaml"
+    if [ -n "$SIZE_VALUES_FILE" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+        # Merge base values with size-specific overrides  
+        $YQ_CMD eval-all '. as $item ireduce ({}; . * $item)' \
+            "${SOURCE_ROOT}/root/${VALUES_FILE}" \
+            "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | \
+            $YQ_CMD eval ".global.domain = \"${DOMAIN}\"" > /tmp/merged_values.yaml
     else
-        echo "ERROR: Could not extract ArgoCD application from rendered manifests"
-        echo "Available applications:"
-        $YQ_CMD eval '.metadata.name' /tmp/cluster-forge-bootstrap.yaml | grep -v "null" | head -10
+        # Use base values only
+        cat "${SOURCE_ROOT}/root/${VALUES_FILE}" | $YQ_CMD ".global.domain = \"${DOMAIN}\"" > /tmp/merged_values.yaml
+    fi
+    
+    # Extract ArgoCD version from merged values
+    ARGOCD_VERSION=$($YQ_CMD eval '.apps.argocd.path' /tmp/merged_values.yaml | cut -d'/' -f2)
+    
+    if [ -z "$ARGOCD_VERSION" ]; then
+        echo "ERROR: Could not extract ArgoCD version from values"
         exit 1
     fi
     
-    rm -f /tmp/argocd-app.yaml
-
-    # Wait for ArgoCD to be ready
+    echo "Using ArgoCD version: $ARGOCD_VERSION"
+    
+    # Extract ArgoCD-specific values for helm template
+    $YQ_CMD eval '.apps.argocd.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > /tmp/argocd_values.yaml
+    
+    if [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+        $YQ_CMD eval '.apps.argocd.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > /tmp/argocd_size_values.yaml
+    else
+        # Create empty file if size-specific values don't exist
+        echo "{}" > /tmp/argocd_size_values.yaml
+    fi
+    
+    # Deploy ArgoCD directly using helm template (following original bootstrap.sh pattern)
+    echo "🚀 Deploying ArgoCD using helm template..."
+    helm template --release-name argocd "${SOURCE_ROOT}/sources/argocd/${ARGOCD_VERSION}" --namespace argocd \
+        -f /tmp/argocd_values.yaml \
+        -f /tmp/argocd_size_values.yaml \
+        --set global.domain="argocd.${DOMAIN}" \
+        --kube-version="${KUBE_VERSION}" | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
+    
+    # Wait for ArgoCD components to be ready
     echo "⏳ Waiting for ArgoCD to become ready..."
     kubectl rollout status statefulset/argocd-application-controller -n argocd --timeout=300s
-    kubectl rollout status deploy/argocd-repo-server -n argocd --timeout=300s
+    kubectl rollout status deploy/argocd-applicationset-controller -n argocd --timeout=300s
     kubectl rollout status deploy/argocd-redis -n argocd --timeout=300s
-    echo "✅ ArgoCD ready!"
+    kubectl rollout status deploy/argocd-repo-server -n argocd --timeout=300s
+    
+    # Cleanup temporary files
+    rm -f /tmp/argocd_values.yaml /tmp/argocd_size_values.yaml /tmp/merged_values.yaml
+    
+    echo "✅ ArgoCD deployed directly and ready to manage applications"
+}
+
+bootstrap_argocd_managed_approach() {
+    echo "=== Direct Infrastructure + ArgoCD-Managed Apps ==="
+    echo ""
+    echo "🎯 Strategy: Deploy fundamental infrastructure directly, then let ArgoCD manage apps"
+    echo "   1. Deploy ArgoCD, OpenBao, Gitea directly (fundamental dependencies)"
+    echo "   2. ArgoCD then manages remaining apps from target revision: $TARGET_REVISION"
+    echo "   3. This ensures only apps enabled in target revision are deployed"
+    echo ""
+
+    # Create argocd namespace first
+    echo "Creating ArgoCD namespace..."
+    kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
+
+    # Step 1: Deploy ArgoCD directly (cannot use ArgoCD Application before ArgoCD exists)
+    echo ""
+    echo "📦 Step 1: Deploying ArgoCD directly..."
+    echo "   Note: ArgoCD must be deployed directly before it can manage applications"
+    
+    deploy_argocd_directly
 
     # Step 2: Deploy OpenBao directly (must be initialized before Gitea for secrets)
     echo ""
