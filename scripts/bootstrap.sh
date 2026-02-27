@@ -202,7 +202,7 @@ setup_sources
 setup_values_files
 
 # Run pre-cleanup
-pre_cleanup
+# pre_cleanup
 
 echo "=== ClusterForge Bootstrap ==="
 echo "Domain: $DOMAIN"
@@ -214,16 +214,6 @@ fi
 echo "Target revision: $TARGET_REVISION"
 echo ""
 echo "=== Starting Bootstrap Process ==="
-
-# Check for yq command availability
-if command -v yq >/dev/null 2>&1; then
-    YQ_CMD="yq"
-elif [ -f "$HOME/yq" ]; then
-    YQ_CMD="$HOME/yq"
-else
-    echo "ERROR: yq command not found. Please install yq or place it in $HOME/yq"
-    exit 1
-fi
 
 # Update the global.clusterSize in the base values file with mapped filename
 if [ -n "$SIZE_VALUES_FILE" ]; then
