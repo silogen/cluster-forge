@@ -74,12 +74,11 @@ while [[ $# -gt 0 ]]; do
       Examples:
         $0 compute.amd.com values_custom.yaml --cluster-size=large
         $0 112.100.97.17.nip.io
-        $0 dev.example.com --cluster-size=small --target-revision=$LATEST_RELEASE
-        $0 dev.example.com -s=small -r=$LATEST_RELEASE
+        $0 dev.example.com --cluster-size=small --target-revision=v1.8.0
+        $0 dev.example.com -s=small -r=feature-branch
         
       Bootstrap Behavior:
-        • Bootstrap deploys essential infrastructure directly:
-          ArgoCD + Gateway API CRDs + OpenBao + Gitea
+        • Bootstrap deploys ArgoCD + OpenBao + Gitea directly (essential infrastructure)
         • cluster-forge parent app then deployed to manage remaining apps  
         • ArgoCD syncs remaining apps from specified target revision
         • Direct deployment ensures proper initialization order and timing
@@ -132,234 +131,108 @@ if [ ! -f "${SCRIPT_DIR}/../root/${VALUES_FILE}" ]; then
     exit 1
 fi
 
-# Check if size-specific values file exists
-setup_values_files() {
-    SIZE_VALUES_FILE="values_${CLUSTER_SIZE}.yaml"
-    
-    if [ ! -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
-        echo "WARNING: Size-specific values file not found: ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}"
-        echo "Proceeding with base values file only: ${VALUES_FILE}"
-        SIZE_VALUES_FILE=""
-    else
-        echo "Using size-specific values file: ${SIZE_VALUES_FILE}"
-    fi
-}
-
-display_target_revision() {
-  # Check if TARGET_REVISION was explicitly set via command line flag
-  # by comparing against the default value
-  if [ "$TARGET_REVISION" != "$LATEST_RELEASE" ]; then 
-    echo "Using specified targetRevision: $TARGET_REVISION"
-  else
-    echo "Using default targetRevision: $TARGET_REVISION"
-  fi
-}
-
-# Since we only support v1.8.0+, always use local sources
-setup_sources() {
-    SOURCE_ROOT="${SCRIPT_DIR}/.."
-    echo "Using local sources for target revision: $TARGET_REVISION"
-}
-
-display_target_revision
-setup_sources
-setup_values_files
+SOURCE_ROOT="${SCRIPT_DIR}/.."
+SIZE_VALUES_FILE="values_${CLUSTER_SIZE}.yaml"
 
 echo "=== ClusterForge Bootstrap ==="
 echo "Domain: $DOMAIN"
 echo "Base values: $VALUES_FILE"
 echo "Cluster size: $CLUSTER_SIZE"
-if [ -n "$SIZE_VALUES_FILE" ]; then
-    echo "Size overlay: $SIZE_VALUES_FILE"
-fi
 echo "Target revision: $TARGET_REVISION"
+
+helm template cluster-forge "${SOURCE_ROOT}/root" \
+    --show-only templates/cluster-forge.yaml \
+    -f "${SOURCE_ROOT}/root/${VALUES_FILE}" \
+    -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" \
+    --set global.domain="${DOMAIN}" \
+    --set clusterForge.targetRevision="${TARGET_REVISION}" \
+    --set externalValues.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git" \
+    --set clusterForge.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git" \
+    --namespace argocd \
+    --kube-version "${KUBE_VERSION}" | kubectl apply -f -
 echo ""
-echo "=== Starting Bootstrap Process ==="
 
-# Extract version information from app paths using sed/awk (no yq needed)
-extract_app_versions() {
-    # Extract ArgoCD version from path like "sources/argocd/8.3.5"
-    ARGOCD_VERSION=$(grep -A 5 "^  argocd:" "${SOURCE_ROOT}/root/${VALUES_FILE}" | \
-        grep "path:" | sed 's/.*argocd\///' | sed 's/ *$//')
-    
-    # Extract OpenBao version from path like "sources/openbao/0.18.2"
-    OPENBAO_VERSION=$(grep -A 5 "^  openbao:" "${SOURCE_ROOT}/root/${VALUES_FILE}" | \
-        grep "path:" | sed 's/.*openbao\///' | sed 's/ *$//')
-    
-    # Extract Gitea version from path like "sources/gitea/12.3.0"  
-    GITEA_VERSION=$(grep -A 5 "^  gitea:" "${SOURCE_ROOT}/root/${VALUES_FILE}" | \
-        grep "path:" | sed 's/.*gitea\///' | sed 's/ *$//')
-    
-    # Extract Gateway API version from path like "sources/gateway-api/v1.3.0"
-    GATEWAY_API_VERSION=$(grep -A 5 "^  gateway-api:" "${SOURCE_ROOT}/root/${VALUES_FILE}" | \
-        grep "path:" | head -1 | sed 's/.*gateway-api\///' | sed 's/ *$//')
-    
-    echo "Extracted versions - ArgoCD: $ARGOCD_VERSION, OpenBao: $OPENBAO_VERSION, Gitea: $GITEA_VERSION, Gateway-API: $GATEWAY_API_VERSION"
-}
-
-# Note: clusterForge.targetRevision will be set by the gitea-init-job
-# in the cluster-values repository (which overwrites the base values as the final values file)
-echo "Target revision $TARGET_REVISION will be set in cluster-values repo by gitea-init-job"
-
-# Extract version information from values
-extract_app_versions
-
-# Create namespaces for direct deployments only
+# Create namespaces
 kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
 kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
-# Note: cf-openbao namespace will be created by ArgoCD when it deploys OpenBao
+kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
 
-echo ""
+# ArgoCD bootstrap
 echo "=== ArgoCD Bootstrap ==="
-# Deploy ArgoCD using dedicated values file (no yq extraction needed)
-helm template --release-name argocd ${SOURCE_ROOT}/sources/argocd/${ARGOCD_VERSION} --namespace argocd \
+helm template --release-name argocd ${SOURCE_ROOT}/sources/argocd/8.3.5 --namespace argocd \
   -f ${SOURCE_ROOT}/root/values_argocd.yaml \
   --set global.domain="argocd.${DOMAIN}" \
   --kube-version=${KUBE_VERSION} | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
-kubectl rollout status statefulset/argocd-application-controller -n argocd
-kubectl rollout status deploy/argocd-applicationset-controller -n argocd
-kubectl rollout status deploy/argocd-redis -n argocd
-kubectl rollout status deploy/argocd-repo-server -n argocd
+kubectl rollout status statefulset/argocd-application-controller -n argocd --timeout=300s
+kubectl rollout status deploy/argocd-applicationset-controller -n argocd --timeout=300s
+kubectl rollout status deploy/argocd-redis -n argocd --timeout=300s
+kubectl rollout status deploy/argocd-repo-server -n argocd --timeout=300s
 
-echo ""
+# OpenBao bootstrap
 echo "=== OpenBao Bootstrap ==="
-echo "Deploying OpenBao directly to ensure initialization before dependent apps"
-
-# Create cf-openbao namespace
-kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
-
-# Deploy Gateway API CRDs (required for OpenBao HTTPRoute)
-echo "🌐 Deploying Gateway API CRDs (required for routing)..."
-echo "   Note: ArgoCD will later adopt these CRDs into management"
-helm template --release-name gateway-api "${SOURCE_ROOT}/sources/gateway-api/${GATEWAY_API_VERSION}" \
-    --kube-version="${KUBE_VERSION}" | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
-
-# Deploy OpenBao using dedicated values file (no yq extraction needed)
-helm template --release-name openbao ${SOURCE_ROOT}/sources/openbao/${OPENBAO_VERSION} --namespace cf-openbao \
+helm template --release-name openbao ${SOURCE_ROOT}/sources/openbao/0.18.2 --namespace cf-openbao \
   -f ${SOURCE_ROOT}/root/values_openbao.yaml \
   --set ui.enabled=true \
   --kube-version=${KUBE_VERSION} | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
-
-# Wait for OpenBao pod to be running
-echo "⏳ Waiting for OpenBao pod to be ready..."
 kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s
 
-# Create the special init ConfigMaps that the init job expects
-echo "🔧 Creating init-specific ConfigMaps for OpenBao initialization..."
-
-# Create the init version of secret manager scripts
-cat "${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-manager-cm.yaml" | \
-    sed "s|name: openbao-secret-manager-scripts|name: openbao-secret-manager-scripts-init|g" | \
-    kubectl apply -f -
-
-# Create the init version of secret definitions
-cat "${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml" | \
-    sed "s|{{ .Values.domain }}|${DOMAIN}|g" | \
-    sed "s|name: openbao-secrets-config|name: openbao-secrets-init-config|g" | \
-    kubectl apply -f -
-
-# Deploy OpenBao initialization job directly (critical for bootstrap)
-echo "🔐 Deploying OpenBao initialization job..."
 helm template --release-name openbao-init ${SOURCE_ROOT}/scripts/init-openbao-job \
   -f ${SOURCE_ROOT}/root/values_openbao.yaml \
   --set domain="${DOMAIN}" \
   --kube-version=${KUBE_VERSION} | kubectl apply -f -
-
-# Wait for initialization to complete
-echo "⏳ Waiting for OpenBao initialization to complete..."
 kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
 
-# Deploy OpenBao configuration (CronJobs) directly after initialization
-echo "🔧 Deploying OpenBao configuration (CronJobs for ongoing management)..."
-
-# Deploy the entire openbao-config chart efficiently
-helm template --release-name openbao-config "${SOURCE_ROOT}/sources/openbao-config/0.1.0" \
-    --namespace cf-openbao \
-    --set domain="${DOMAIN}" \
-    --kube-version="${KUBE_VERSION}" | kubectl apply -f -
-
-echo "✅ OpenBao deployed, initialized, and configured directly"
-echo ""
+# Gitea bootstrap
 echo "=== Gitea Bootstrap ==="
 generate_password() {
     openssl rand -hex 16 | tr 'a-f' 'A-F' | head -c 32
 }
 
-# Create gitea admin credentials secret
-kubectl create secret generic gitea-admin-credentials \
-  --namespace=cf-gitea \
-  --from-literal=username=silogen-admin \
-  --from-literal=password=$(generate_password) \
-  --dry-run=client -o yaml | kubectl apply -f -
-
-# Create initial-cf-values configmap with basic values for gitea-init-job
-# Use simple shell variables instead of merged YAML
+# Create initial-cf-values configmap (simple values for gitea-init-job)
 cat > /tmp/simple_values.yaml << EOF
 global:
   domain: ${DOMAIN}
-  clusterSize: values_${CLUSTER_SIZE}.yaml
+  clusterSize: ${SIZE_VALUES_FILE}
 clusterForge:
   targetRevision: ${TARGET_REVISION}
 EOF
 
 kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$(cat /tmp/simple_values.yaml)" --dry-run=client -o yaml | kubectl apply -n cf-gitea -f -
 
-# Bootstrap Gitea using dedicated values file (no yq extraction needed)
-helm template --release-name gitea ${SOURCE_ROOT}/sources/gitea/${GITEA_VERSION} --namespace cf-gitea \
+kubectl create secret generic gitea-admin-credentials \
+  --namespace=cf-gitea \
+  --from-literal=username=silogen-admin \
+  --from-literal=password=$(generate_password) \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+helm template --release-name gitea ${SOURCE_ROOT}/sources/gitea/12.3.0 --namespace cf-gitea \
   -f ${SOURCE_ROOT}/root/values_gitea.yaml \
   --set clusterDomain="${DOMAIN}" \
   --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}/" \
   --kube-version=${KUBE_VERSION} | kubectl apply -f -
-kubectl rollout status deploy/gitea -n cf-gitea
+kubectl rollout status deploy/gitea -n cf-gitea --timeout=300s
 
-# Gitea Init Job
 helm template --release-name gitea-init ${SOURCE_ROOT}/scripts/init-gitea-job \
-  --set clusterSize="${SIZE_VALUES_FILE:-values_${CLUSTER_SIZE}.yaml}" \
+  --set clusterSize="${SIZE_VALUES_FILE}" \
   --set domain="${DOMAIN}" \
   --set targetRevision="${TARGET_REVISION}" \
-  --kube-version=${KUBE_VERSION} \
-  | kubectl apply -f -
-
+  --kube-version=${KUBE_VERSION} | kubectl apply -f -
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
 
-echo ""
-echo "=== Creating ClusterForge Parent App-of-Apps ==="
-echo "Cluster size: $CLUSTER_SIZE"
+# Create cluster-forge parent app only (not all apps)
+echo "=== Creating ClusterForge Parent App ==="
 echo "Target revision: $TARGET_REVISION"
 
-# Create minimal values for rendering only the cluster-forge parent app
-cat > /tmp/cluster_forge_values.yaml <<EOF
-# Minimal values for cluster-forge parent app rendering
-externalValues:
-  enabled: true
-  path: ${VALUES_FILE}
-  repoUrl: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git
-  targetRevision: main
-
-clusterForge:
-  repoUrl: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git
-  targetRevision: ${TARGET_REVISION}
-  valuesFile: ${VALUES_FILE}
-
-global:
-  domain: ${DOMAIN}
-  clusterSize: values_${CLUSTER_SIZE}.yaml
-EOF
-
-echo "🎯 Rendering cluster-forge parent app using template..."
-
-# Render only the cluster-forge template (parent app-of-apps)
 helm template cluster-forge "${SOURCE_ROOT}/root" \
     --show-only templates/cluster-forge.yaml \
-    --values /tmp/cluster_forge_values.yaml \
+    -f "${SOURCE_ROOT}/root/${VALUES_FILE}" \
+    -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" \
+    --set global.domain="${DOMAIN}" \
+    --set clusterForge.targetRevision="${TARGET_REVISION}" \
+    --set externalValues.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git" \
+    --set clusterForge.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git" \
     --namespace argocd \
-    --kube-version "$KUBE_VERSION" | kubectl apply -f -
-
-echo "✅ cluster-forge parent app applied!"
-echo "🚀 ArgoCD will now manage all applications from target revision: $TARGET_REVISION"
-
-# Cleanup temp file
-rm -f /tmp/cluster_forge_values.yaml
+    --kube-version "${KUBE_VERSION}" | kubectl apply -f -
 
 cat <<__SUMMARY__
 
@@ -374,14 +247,20 @@ Target revision: $TARGET_REVISION
   OpenBao: https://openbao.${DOMAIN}
   Gitea:   https://gitea.${DOMAIN}
 
+  Credentials:
+    ArgoCD admin username: admin
+    ArgoCD admin password: (check argocd-initial-admin-secret in argocd namespace)
+    OpenBao token: (check openbao-initial-admin-secret in cf-openbao namespace
+    Gitea admin username: silogen-admin
+    Gitea admin password: (check gitea-admin-credentials secret in cf-gitea namespace)
+
 📋 What happens now:
   1. ✅ ArgoCD is running and managing the cluster
-  2. ✅ Gateway API CRDs are installed for routing  
-  3. ✅ OpenBao provides secrets management and is fully initialized
-  4. ✅ Gitea provides git repositories for ArgoCD
-  5. 🎯 cluster-forge app will sync from: $TARGET_REVISION
-  6. 📦 ArgoCD will deploy remaining enabled apps from target revision
-  7. ⚡ Sync waves ensure proper deployment order for remaining apps
+  2. ✅ OpenBao provides secrets management and is fully initialized
+  3. ✅ Gitea provides git source of truth ArgoCD (unless cluster size is small)
+  4. 🎯 cluster-forge app will sync from: $TARGET_REVISION
+  5. 📦 ArgoCD will deploy remaining enabled apps from target revision
+  6. ⚡ Sync waves ensure proper deployment order for remaining apps
 
 📋 Next steps:
   1. Monitor ArgoCD applications: kubectl get apps -n argocd
@@ -392,5 +271,4 @@ This is the way! 🚀
 __SUMMARY__
 
 # Cleanup temporary files
-echo "Cleaning up temporary files..."
-rm -f /tmp/simple_values.yaml /tmp/cluster_forge_values.yaml
+rm -f /tmp/simple_values.yaml
