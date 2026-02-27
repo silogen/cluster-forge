@@ -1,0 +1,31 @@
+# Dedicated Gitea values for bootstrap
+# Extracted from the gitea.valuesObject section of values.yaml
+clusterDomain: # to be set by bootstrap script
+strategy:
+  type: "Recreate"
+gitea:
+  admin:
+    existingSecret: gitea-admin-credentials
+  config:
+    server:
+      ROOT_URL: # to be set by bootstrap script
+    database:
+      DB_TYPE: sqlite3
+    session:
+      PROVIDER: memory
+    cache:
+      ADAPTER: memory
+    queue:
+      TYPE: level
+valkey-cluster:
+  enabled: false
+valkey:
+  enabled: false
+postgresql:
+  enabled: false
+postgresql-ha:
+  enabled: false
+persistence:
+  enabled: true
+test:
+  enabled: false
