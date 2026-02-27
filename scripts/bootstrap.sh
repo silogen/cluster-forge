@@ -78,7 +78,8 @@ while [[ $# -gt 0 ]]; do
         $0 dev.example.com -s=small -r=$LATEST_RELEASE
         
       Bootstrap Behavior:
-        • Bootstrap deploys ArgoCD + OpenBao + Gitea directly (essential infrastructure)
+        • Bootstrap deploys essential infrastructure directly:
+          ArgoCD + Gateway API CRDs + OpenBao + Gitea
         • cluster-forge parent app then deployed to manage remaining apps  
         • ArgoCD syncs remaining apps from specified target revision
         • Direct deployment ensures proper initialization order and timing
@@ -160,49 +161,9 @@ setup_sources() {
     echo "Using local sources for target revision: $TARGET_REVISION"
 }
 
-pre_cleanup() {
-    echo ""
-    echo "=== Pre-cleanup: Checking for previous runs ==="
-
-    # Check if gitea-init-job exists and completed successfully
-    if kubectl get job gitea-init-job -n cf-gitea >/dev/null 2>&1; then
-        if kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null | grep -q "True"; then
-            echo "Found completed gitea-init-job - removing Gitea to start fresh"
-
-            # Delete all Gitea resources
-            kubectl delete job gitea-init-job -n cf-gitea --ignore-not-found=true
-            kubectl delete deployment gitea -n cf-gitea --ignore-not-found=true
-            kubectl delete statefulset gitea -n cf-gitea --ignore-not-found=true
-            kubectl delete service gitea -n cf-gitea --ignore-not-found=true
-            kubectl delete service gitea-http -n cf-gitea --ignore-not-found=true
-            kubectl delete service gitea-ssh -n cf-gitea --ignore-not-found=true
-            kubectl delete pvc -n cf-gitea -l app.kubernetes.io/name=gitea --ignore-not-found=true
-            kubectl delete configmap initial-cf-values -n cf-gitea --ignore-not-found=true
-            kubectl delete secret gitea-admin-credentials -n cf-gitea --ignore-not-found=true
-            kubectl delete ingress -n cf-gitea -l app.kubernetes.io/name=gitea --ignore-not-found=true
-
-            echo "Gitea resources deleted"
-        fi
-    fi
-
-    # Always delete openbao-init-job to allow re-initialization
-    kubectl delete job openbao-init-job -n cf-openbao --ignore-not-found=true
-
-    # Delete temporary files
-    rm -f /tmp/merged_values.yaml /tmp/argocd_values.yaml /tmp/argocd_size_values.yaml \
-      /tmp/openbao_values.yaml /tmp/openbao_size_values.yaml \
-      /tmp/gitea_values.yaml /tmp/gitea_size_values.yaml
-
-    echo "=== Pre-cleanup complete ==="
-    echo ""
-}
-
 display_target_revision
 setup_sources
 setup_values_files
-
-# Run pre-cleanup
-# pre_cleanup
 
 echo "=== ClusterForge Bootstrap ==="
 echo "Domain: $DOMAIN"
@@ -229,7 +190,11 @@ extract_app_versions() {
     GITEA_VERSION=$(grep -A 5 "^  gitea:" "${SOURCE_ROOT}/root/${VALUES_FILE}" | \
         grep "path:" | sed 's/.*gitea\///' | sed 's/ *$//')
     
-    echo "Extracted versions - ArgoCD: $ARGOCD_VERSION, OpenBao: $OPENBAO_VERSION, Gitea: $GITEA_VERSION"
+    # Extract Gateway API version from path like "sources/gateway-api/v1.3.0"
+    GATEWAY_API_VERSION=$(grep -A 5 "^  gateway-api:" "${SOURCE_ROOT}/root/${VALUES_FILE}" | \
+        grep "path:" | head -1 | sed 's/.*gateway-api\///' | sed 's/ *$//')
+    
+    echo "Extracted versions - ArgoCD: $ARGOCD_VERSION, OpenBao: $OPENBAO_VERSION, Gitea: $GITEA_VERSION, Gateway-API: $GATEWAY_API_VERSION"
 }
 
 # Note: clusterForge.targetRevision will be set by the gitea-init-job
@@ -262,6 +227,12 @@ echo "Deploying OpenBao directly to ensure initialization before dependent apps"
 
 # Create cf-openbao namespace
 kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
+
+# Deploy Gateway API CRDs (required for OpenBao HTTPRoute)
+echo "🌐 Deploying Gateway API CRDs (required for routing)..."
+echo "   Note: ArgoCD will later adopt these CRDs into management"
+helm template --release-name gateway-api "${SOURCE_ROOT}/sources/gateway-api/${GATEWAY_API_VERSION}" \
+    --kube-version="${KUBE_VERSION}" | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
 
 # Deploy OpenBao using dedicated values file (no yq extraction needed)
 helm template --release-name openbao ${SOURCE_ROOT}/sources/openbao/${OPENBAO_VERSION} --namespace cf-openbao \
@@ -404,12 +375,13 @@ Target revision: $TARGET_REVISION
   Gitea:   https://gitea.${DOMAIN}
 
 📋 What happens now:
-  1. ✅ ArgoCD is running and managing the cluster  
-  2. ✅ OpenBao provides secrets management and is fully initialized
-  3. ✅ Gitea provides git repositories for ArgoCD
-  4. 🎯 cluster-forge app will sync from: $TARGET_REVISION
-  5. 📦 ArgoCD will deploy remaining enabled apps from target revision
-  6. ⚡ Sync waves ensure proper deployment order for remaining apps
+  1. ✅ ArgoCD is running and managing the cluster
+  2. ✅ Gateway API CRDs are installed for routing  
+  3. ✅ OpenBao provides secrets management and is fully initialized
+  4. ✅ Gitea provides git repositories for ArgoCD
+  5. 🎯 cluster-forge app will sync from: $TARGET_REVISION
+  6. 📦 ArgoCD will deploy remaining enabled apps from target revision
+  7. ⚡ Sync waves ensure proper deployment order for remaining apps
 
 📋 Next steps:
   1. Monitor ArgoCD applications: kubectl get apps -n argocd
