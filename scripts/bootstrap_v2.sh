@@ -340,24 +340,33 @@ bootstrap_argocd_managed_approach() {
     kubectl rollout status deploy/argocd-redis -n argocd --timeout=300s
     echo "✅ ArgoCD ready!"
 
-    # Step 2: Deploy Gitea directly (cannot be deployed by ArgoCD initially)
+    # Step 2: Deploy OpenBao via ArgoCD (must be initialized before Gitea for secrets)
     echo ""
-    echo "📦 Step 2: Deploying Gitea directly..."
-    echo "   Note: Gitea must be deployed directly to provide git repositories for ArgoCD"
-    
-    deploy_gitea_directly
-    
-    # Step 3: Deploy OpenBao via ArgoCD (it can be managed by ArgoCD)
-    echo ""
-    echo "📦 Step 3: Deploying OpenBao via ArgoCD..."
+    echo "📦 Step 2: Deploying OpenBao via ArgoCD..."
+    echo "   Note: OpenBao must be initialized first to provide secrets for ExternalSecrets"
     echo "   Extracting and deploying OpenBao..."
     $YQ_CMD eval 'select(.kind == "Application" and .metadata.name == "openbao")' /tmp/cluster-forge-bootstrap.yaml > /tmp/openbao-app.yaml
     kubectl apply -f /tmp/openbao-app.yaml
     echo "✅ OpenBao application deployed"
 
-    # Step 4: Initialize infrastructure
+    # Wait for OpenBao to be deployed and initialize (critical for secrets before Gitea)
+    wait_for_openbao_and_initialize
+    
+    # Additional wait for ExternalSecrets to be ready after OpenBao initialization
+    echo "⏳ Allowing time for ExternalSecrets controller to sync with initialized OpenBao..."
+    sleep 15
+    echo "✅ OpenBao initialization and ExternalSecrets sync complete"
+    
+    # Step 3: Deploy Gitea directly (now that OpenBao secrets are available)
     echo ""
-    echo "📦 Step 4: Initializing essential infrastructure..."
+    echo "📦 Step 3: Deploying Gitea directly..."
+    echo "   Note: Gitea must be deployed directly to provide git repositories for ArgoCD"
+    echo "   OpenBao is now initialized, so ExternalSecrets can pull credentials"
+    
+    deploy_gitea_directly
+    
+    # Wait for Gitea to be deployed and initialize (critical for git repositories)
+    wait_for_gitea_and_initialize
 
     echo ""
     echo "🎉 ArgoCD-Managed Bootstrap Complete!"
@@ -368,11 +377,6 @@ bootstrap_argocd_managed_approach() {
     echo "   3. 📦 ONLY apps enabled in $TARGET_REVISION will be deployed"
     echo "   4. ⚡ Sync waves will ensure proper deployment order"
     echo "   5. 🔄 ArgoCD will automatically prune apps disabled in target revision"
-    # Wait for Gitea to be deployed and initialize (critical for git repositories)
-    wait_for_gitea_and_initialize
-    
-    # Wait for OpenBao to be deployed and initialize (critical for secrets) 
-    wait_for_openbao_and_initialize
 
     # Step 4: Now apply the cluster-forge parent app (after git repositories exist)
     echo ""
@@ -398,6 +402,24 @@ deploy_gitea_directly() {
     # Create cf-gitea namespace first
     echo "Creating cf-gitea namespace..."
     kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
+    
+    # Wait briefly for any ExternalSecrets to be processed now that OpenBao is initialized
+    echo "⏳ Waiting for ExternalSecrets to sync from OpenBao (if any)..."
+    sleep 10
+    
+    # Generate password function (needed for manual secret creation)
+    generate_password() {
+        openssl rand -hex 16 | tr 'a-f' 'A-F' | head -c 32
+    }
+    
+    # Create gitea-admin-credentials secret manually (ensures it exists regardless of ExternalSecret status)
+    echo "🔐 Creating gitea-admin-credentials secret..."
+    kubectl create secret generic gitea-admin-credentials \
+        --namespace=cf-gitea \
+        --from-literal=username=silogen-admin \
+        --from-literal=password=$(generate_password) \
+        --dry-run=client -o yaml | kubectl apply -f -
+    echo "✅ gitea-admin-credentials secret created"
     
     # Check if yq is available for value extraction
     if command -v yq >/dev/null 2>&1; then
@@ -511,11 +533,6 @@ wait_for_gitea_and_initialize() {
         exit 1
     fi
     
-    # Generate admin password function (from original bootstrap.sh)
-    generate_password() {
-        openssl rand -hex 16 | tr 'a-f' 'A-F' | head -c 32
-    }
-    
     # Extract Gitea values for initialization
     echo "Extracting Gitea values for initialization..."
     $YQ_CMD eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > /tmp/gitea_values.yaml
@@ -542,13 +559,7 @@ wait_for_gitea_and_initialize() {
     
     kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$VALUES" --dry-run=client -o yaml | kubectl apply -n cf-gitea -f -
     
-    # Create Gitea admin credentials
-    echo "Creating Gitea admin credentials..."
-    kubectl create secret generic gitea-admin-credentials \
-      --namespace=cf-gitea \
-      --from-literal=username=silogen-admin \
-      --from-literal=password=$(generate_password) \
-      --dry-run=client -o yaml | kubectl apply -f -
+    # Note: gitea-admin-credentials secret already created in deploy_gitea_directly function
     
     # Run Gitea initialization job
     echo "Deploying Gitea initialization job..."
