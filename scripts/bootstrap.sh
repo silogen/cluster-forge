@@ -78,10 +78,10 @@ while [[ $# -gt 0 ]]; do
         $0 dev.example.com -s=small -r=$LATEST_RELEASE
         
       Bootstrap Behavior:
-        • Bootstrap deploys ArgoCD + Gitea directly (essential infrastructure)
+        • Bootstrap deploys ArgoCD + OpenBao + Gitea directly (essential infrastructure)
         • cluster-forge parent app then deployed to manage remaining apps  
-        • ArgoCD syncs ALL apps from specified target revision
-        • OpenBao and other apps deploy via ArgoCD (not directly)
+        • ArgoCD syncs remaining apps from specified target revision
+        • Direct deployment ensures proper initialization order and timing
 HELP_OUTPUT
       exit 0
       ;;
@@ -221,11 +221,15 @@ extract_app_versions() {
     ARGOCD_VERSION=$(grep -A 5 "^  argocd:" "${SOURCE_ROOT}/root/${VALUES_FILE}" | \
         grep "path:" | sed 's/.*argocd\///' | sed 's/ *$//')
     
+    # Extract OpenBao version from path like "sources/openbao/0.18.2"
+    OPENBAO_VERSION=$(grep -A 5 "^  openbao:" "${SOURCE_ROOT}/root/${VALUES_FILE}" | \
+        grep "path:" | sed 's/.*openbao\///' | sed 's/ *$//')
+    
     # Extract Gitea version from path like "sources/gitea/12.3.0"  
     GITEA_VERSION=$(grep -A 5 "^  gitea:" "${SOURCE_ROOT}/root/${VALUES_FILE}" | \
         grep "path:" | sed 's/.*gitea\///' | sed 's/ *$//')
     
-    echo "Extracted versions - ArgoCD: $ARGOCD_VERSION, Gitea: $GITEA_VERSION"
+    echo "Extracted versions - ArgoCD: $ARGOCD_VERSION, OpenBao: $OPENBAO_VERSION, Gitea: $GITEA_VERSION"
 }
 
 # Note: clusterForge.targetRevision will be set by the gitea-init-job
@@ -253,8 +257,43 @@ kubectl rollout status deploy/argocd-redis -n argocd
 kubectl rollout status deploy/argocd-repo-server -n argocd
 
 echo ""
-echo "=== Skipping OpenBao Direct Deployment ==="
-echo "OpenBao will be deployed via ArgoCD after cluster-forge parent app is applied"
+echo "=== OpenBao Bootstrap ==="
+echo "Deploying OpenBao directly to ensure initialization before dependent apps"
+
+# Create cf-openbao namespace
+kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
+
+# Deploy OpenBao using dedicated values file (no yq extraction needed)
+helm template --release-name openbao ${SOURCE_ROOT}/sources/openbao/${OPENBAO_VERSION} --namespace cf-openbao \
+  -f ${SOURCE_ROOT}/root/values_openbao.yaml \
+  --set ui.enabled=true \
+  --kube-version=${KUBE_VERSION} | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
+
+# Wait for OpenBao pod to be running
+echo "⏳ Waiting for OpenBao pod to be ready..."
+kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s
+
+# Deploy OpenBao initialization job directly (critical for bootstrap)
+echo "🔐 Deploying OpenBao initialization job..."
+helm template --release-name openbao-init ${SOURCE_ROOT}/scripts/init-openbao-job \
+  -f ${SOURCE_ROOT}/root/values_openbao.yaml \
+  --set domain="${DOMAIN}" \
+  --kube-version=${KUBE_VERSION} | kubectl apply -f -
+
+# Wait for initialization to complete
+echo "⏳ Waiting for OpenBao initialization to complete..."
+kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
+
+# Deploy OpenBao configuration (CronJobs) directly after initialization
+echo "🔧 Deploying OpenBao configuration (CronJobs for ongoing management)..."
+
+# Deploy the entire openbao-config chart efficiently
+helm template --release-name openbao-config "${SOURCE_ROOT}/sources/openbao-config/0.1.0" \
+    --namespace cf-openbao \
+    --set domain="${DOMAIN}" \
+    --kube-version="${KUBE_VERSION}" | kubectl apply -f -
+
+echo "✅ OpenBao deployed, initialized, and configured directly"
 echo ""
 echo "=== Gitea Bootstrap ==="
 generate_password() {
@@ -347,15 +386,16 @@ Target revision: $TARGET_REVISION
 
 🌐 Access URLs:
   ArgoCD:  https://argocd.${DOMAIN}
+  OpenBao: https://openbao.${DOMAIN}
   Gitea:   https://gitea.${DOMAIN}
 
 📋 What happens now:
-  1. ✅ ArgoCD is running and managing the cluster
-  2. ✅ Gitea provides git repositories for ArgoCD
-  3. 🎯 cluster-forge app will sync from: $TARGET_REVISION
-  4. 📦 ArgoCD will deploy ALL enabled apps from target revision
-  5. 🔄 OpenBao and other apps deploy via ArgoCD (not directly)
-  6. ⚡ Sync waves ensure proper deployment order
+  1. ✅ ArgoCD is running and managing the cluster  
+  2. ✅ OpenBao provides secrets management and is fully initialized
+  3. ✅ Gitea provides git repositories for ArgoCD
+  4. 🎯 cluster-forge app will sync from: $TARGET_REVISION
+  5. 📦 ArgoCD will deploy remaining enabled apps from target revision
+  6. ⚡ Sync waves ensure proper deployment order for remaining apps
 
 📋 Next steps:
   1. Monitor ArgoCD applications: kubectl get apps -n argocd
