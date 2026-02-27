@@ -340,22 +340,13 @@ bootstrap_argocd_managed_approach() {
     kubectl rollout status deploy/argocd-redis -n argocd --timeout=300s
     echo "✅ ArgoCD ready!"
 
-    # Step 2: Deploy OpenBao via ArgoCD (must be initialized before Gitea for secrets)
+    # Step 2: Deploy OpenBao directly (must be initialized before Gitea for secrets)
     echo ""
-    echo "📦 Step 2: Deploying OpenBao via ArgoCD..."
-    echo "   Note: OpenBao must be initialized first to provide secrets for ExternalSecrets"
-    echo "   Extracting and deploying OpenBao..."
-    $YQ_CMD eval 'select(.kind == "Application" and .metadata.name == "openbao")' /tmp/cluster-forge-bootstrap.yaml > /tmp/openbao-app.yaml
-    kubectl apply -f /tmp/openbao-app.yaml
-    echo "✅ OpenBao application deployed"
-
-    # Wait for OpenBao to be deployed and initialize (critical for secrets before Gitea)
-    wait_for_openbao_and_initialize
+    echo "📦 Step 2: Deploying OpenBao directly..."
+    echo "   Note: OpenBao must be deployed directly to provide secrets for ExternalSecrets"
+    echo "   OpenBao cannot be deployed via ArgoCD as it's a fundamental dependency"
     
-    # Additional wait for ExternalSecrets to be ready after OpenBao initialization
-    echo "⏳ Allowing time for ExternalSecrets controller to sync with initialized OpenBao..."
-    sleep 15
-    echo "✅ OpenBao initialization and ExternalSecrets sync complete"
+    deploy_openbao_directly
     
     # Step 3: Deploy Gitea directly (now that OpenBao secrets are available)
     echo ""
@@ -391,6 +382,116 @@ bootstrap_argocd_managed_approach() {
 
     echo "✅ cluster-forge parent application applied!"
     echo "🚀 ArgoCD will now manage all remaining applications from target revision: $TARGET_REVISION"
+}
+
+# Deploy OpenBao directly using helm (cannot rely on ArgoCD for fundamental dependencies)
+deploy_openbao_directly() {
+    echo ""
+    echo "=== Direct OpenBao Deployment ==="
+    echo "OpenBao must be deployed directly since it provides secrets for ExternalSecrets"
+    
+    # Create cf-openbao namespace first
+    echo "Creating cf-openbao namespace..."
+    kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
+    
+    # Check if yq is available for value extraction
+    if command -v yq >/dev/null 2>&1; then
+        YQ_CMD="yq"
+    elif [ -f "$HOME/yq" ]; then
+        YQ_CMD="$HOME/yq"
+    else
+        echo "ERROR: yq command not found. Please install yq or place it in $HOME/yq"
+        exit 1
+    fi
+    
+    # Create merged values for version extraction (similar to original bootstrap.sh)
+    local SIZE_VALUES_FILE="values_${CLUSTER_SIZE}.yaml"
+    if [ -n "$SIZE_VALUES_FILE" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+        # Merge base values with size-specific overrides  
+        $YQ_CMD eval-all '. as $item ireduce ({}; . * $item)' \
+            "${SOURCE_ROOT}/root/${VALUES_FILE}" \
+            "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | \
+            $YQ_CMD eval ".global.domain = \"${DOMAIN}\"" > /tmp/merged_values.yaml
+    else
+        # Use base values only
+        cat "${SOURCE_ROOT}/root/${VALUES_FILE}" | $YQ_CMD ".global.domain = \"${DOMAIN}\"" > /tmp/merged_values.yaml
+    fi
+    
+    # Extract OpenBao version from merged values
+    OPENBAO_VERSION=$($YQ_CMD eval '.apps.openbao.path' /tmp/merged_values.yaml | cut -d'/' -f2)
+    
+    if [ -z "$OPENBAO_VERSION" ]; then
+        echo "ERROR: Could not extract OpenBao version from values"
+        exit 1
+    fi
+    
+    echo "Using OpenBao version: $OPENBAO_VERSION"
+    
+    # Extract OpenBao-specific values for helm template
+    $YQ_CMD eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > /tmp/openbao_values.yaml
+    
+    if [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+        $YQ_CMD eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > /tmp/openbao_size_values.yaml
+    else
+        # Create empty file if size-specific values don't exist
+        echo "{}" > /tmp/openbao_size_values.yaml
+    fi
+    
+    # Deploy OpenBao directly using helm template (following original bootstrap.sh pattern)
+    echo "🚀 Deploying OpenBao using helm template..."
+    helm template --release-name openbao "${SOURCE_ROOT}/sources/openbao/${OPENBAO_VERSION}" --namespace cf-openbao \
+        -f /tmp/openbao_values.yaml \
+        -f /tmp/openbao_size_values.yaml \
+        --set ui.enabled=true \
+        --kube-version="${KUBE_VERSION}" | kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
+    
+    # Wait for OpenBao pod to be running
+    echo "⏳ Waiting for OpenBao pod to be ready..."
+    if kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s; then
+        echo "✅ OpenBao pod is running"
+    else
+        echo "❌ ERROR: OpenBao pod failed to start"
+        echo "Check pod status: kubectl get pod openbao-0 -n cf-openbao"
+        echo "Check logs: kubectl logs openbao-0 -n cf-openbao"
+        exit 1
+    fi
+    
+    # Create initial secrets config for init job (following original bootstrap.sh pattern)
+    echo "Creating initial OpenBao secrets configuration..."
+    cat "${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-manager-cm.yaml" | \
+        sed "s|name: openbao-secret-manager-scripts|name: openbao-secret-manager-scripts-init|g" | kubectl apply -f -
+
+    cat "${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml" | \
+        sed "s|{{ .Values.domain }}|${DOMAIN}|g" | \
+        sed "s|name: openbao-secrets-config|name: openbao-secrets-init-config|g" | kubectl apply -f -
+
+    # Run OpenBao initialization job
+    echo "Deploying OpenBao initialization job..."
+    helm template --release-name openbao-init "${SOURCE_ROOT}/scripts/init-openbao-job" \
+        -f /tmp/openbao_values.yaml \
+        --set domain="${DOMAIN}" \
+        --kube-version="${KUBE_VERSION}" | kubectl apply -f -
+        
+    # Wait for initialization to complete
+    echo "⏳ Waiting for OpenBao initialization to complete..."
+    if kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao; then
+        echo "✅ OpenBao initialization completed successfully"
+    else
+        echo "❌ ERROR: OpenBao initialization timed out or failed"
+        echo "Check job status: kubectl describe job openbao-init-job -n cf-openbao"
+        echo "Check logs: kubectl logs -l job-name=openbao-init-job -n cf-openbao"
+        exit 1
+    fi
+    
+    # Allow time for ExternalSecrets controller to sync with initialized OpenBao
+    echo "⏳ Allowing time for ExternalSecrets controller to sync with initialized OpenBao..."
+    sleep 15
+    echo "✅ OpenBao initialization and ExternalSecrets sync complete"
+    
+    # Cleanup temporary files
+    rm -f /tmp/openbao_values.yaml /tmp/openbao_size_values.yaml /tmp/merged_values.yaml
+    
+    echo "✅ OpenBao deployed directly and initialized successfully"
 }
 
 # Deploy Gitea directly using helm (cannot rely on ArgoCD initially)
@@ -588,95 +689,6 @@ wait_for_gitea_and_initialize() {
     echo "📦 Gitea initialization phase complete"
 }
 
-# Wait for OpenBao to be deployed by ArgoCD and run initialization
-wait_for_openbao_and_initialize() {
-    echo ""
-    echo "=== OpenBao Initialization ==="
-    echo "Waiting for ArgoCD to deploy OpenBao..."
-    
-    # Wait for OpenBao StatefulSet to exist (deployed by ArgoCD)
-    echo "⏳ Waiting for OpenBao StatefulSet to be created by ArgoCD..."
-    local timeout=300
-    local elapsed=0
-    while [ $elapsed -lt $timeout ]; do
-        if kubectl get statefulset openbao -n cf-openbao >/dev/null 2>&1; then
-            echo "✅ OpenBao StatefulSet found"
-            break
-        fi
-        sleep 5
-        elapsed=$((elapsed + 5))
-        echo "   Waiting for ArgoCD to create OpenBao StatefulSet... ($elapsed/$timeout seconds)"
-    done
-    
-    if [ $elapsed -ge $timeout ]; then
-        echo "⚠️  WARNING: OpenBao StatefulSet not found after $timeout seconds"
-        echo "   ArgoCD may still be syncing. OpenBao init will be skipped."
-        echo "   You may need to run OpenBao initialization manually later."
-        return
-    fi
-    
-    # Wait for OpenBao to be running
-    echo "⏳ Waiting for OpenBao pod to be ready..."
-    if kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=300s; then
-        echo "✅ OpenBao is running"
-    else
-        echo "⚠️  WARNING: OpenBao pod not ready within timeout"
-        echo "   OpenBao initialization will be skipped."
-        return
-    fi
-    
-    # Now run the OpenBao initialization (extracted from original bootstrap.sh)
-    echo ""
-    echo "🔐 Running OpenBao initialization..."
-    
-    # Check if yq is available for value extraction (needed for init)
-    if command -v yq >/dev/null 2>&1; then
-        YQ_CMD="yq"
-    elif [ -f "$HOME/yq" ]; then
-        YQ_CMD="$HOME/yq"
-    else
-        echo "WARNING: yq not found. Skipping OpenBao initialization."
-        echo "You may need to initialize OpenBao manually."
-        return
-    fi
-    
-    # Extract OpenBao values for initialization (reusing existing logic)
-    echo "Extracting OpenBao values for initialization..."
-    $YQ_CMD eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > /tmp/openbao_values.yaml
-    $YQ_CMD eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > /tmp/openbao_size_values.yaml
-    
-    # Create initial secrets config for init job (separate from ArgoCD-managed version)
-    echo "Creating initial OpenBao secrets configuration..."
-    cat "${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-manager-cm.yaml" | \
-      sed "s|name: openbao-secret-manager-scripts|name: openbao-secret-manager-scripts-init|g" | kubectl apply -f -
-
-    cat "${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml" | \
-      sed "s|{{ .Values.domain }}|${DOMAIN}|g" | \
-      sed "s|name: openbao-secrets-config|name: openbao-secrets-init-config|g" | kubectl apply -f -
-
-    # Run OpenBao initialization job
-    echo "Deploying OpenBao initialization job..."
-    helm template --release-name openbao-init "${SOURCE_ROOT}/scripts/init-openbao-job" \
-      -f /tmp/openbao_values.yaml \
-      --set domain="${DOMAIN}" \
-      --kube-version="${KUBE_VERSION}" | kubectl apply -f -
-      
-    # Wait for initialization to complete
-    echo "⏳ Waiting for OpenBao initialization to complete..."
-    if kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao; then
-        echo "✅ OpenBao initialization completed successfully"
-    else
-        echo "⚠️  WARNING: OpenBao initialization timed out or failed"
-        echo "   Check job status: kubectl describe job openbao-init-job -n cf-openbao"
-        echo "   Check logs: kubectl logs -l job-name=openbao-init-job -n cf-openbao"
-    fi
-    
-    # Cleanup temporary files
-    rm -f /tmp/openbao_values.yaml /tmp/openbao_size_values.yaml
-    
-    echo "🔐 OpenBao initialization phase complete"
-}
-
 # NEW: Post-Bootstrap Status Check
 show_bootstrap_summary() {
     echo "=== ClusterForge Bootstrap Complete ==="
@@ -688,6 +700,7 @@ show_bootstrap_summary() {
     echo "🌐 Access URLs:"
     echo "  ArgoCD:  https://argocd.${DOMAIN}"
     echo "  Gitea:   https://gitea.${DOMAIN}"
+    echo "  OpenBao: https://openbao.${DOMAIN}"
     echo ""
     echo "📋 Next steps:"
     echo "  1. Monitor ArgoCD applications: kubectl get apps -n argocd"
@@ -695,8 +708,9 @@ show_bootstrap_summary() {
     echo "  3. View ArgoCD UI for detailed deployment progress"
     echo "  4. ArgoCD is syncing apps from target revision: $TARGET_REVISION"
     echo "     (Only apps enabled in that revision will be deployed)"
-    echo "  5. Gitea provides git repositories: https://gitea.${DOMAIN}"
-    echo "  6. Essential infrastructure (Gitea, OpenBao) is initialized"
+     echo "  5. Gitea provides git repositories: https://gitea.${DOMAIN}"
+     echo "  6. OpenBao provides secrets management: https://openbao.${DOMAIN}"
+     echo "  7. Essential infrastructure (OpenBao, Gitea) is initialized"
     echo ""
     echo "🧹 Cleanup: Bootstrap manifests saved at:"
     echo "   - /tmp/cluster-forge-bootstrap.yaml (all apps rendered)"
