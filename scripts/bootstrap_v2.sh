@@ -340,26 +340,24 @@ bootstrap_argocd_managed_approach() {
     kubectl rollout status deploy/argocd-redis -n argocd --timeout=300s
     echo "✅ ArgoCD ready!"
 
-    # Step 2: Deploy essential infrastructure first (Gitea, then OpenBao)
+    # Step 2: Deploy Gitea directly (cannot be deployed by ArgoCD initially)
     echo ""
-    echo "📦 Step 2: Deploying essential infrastructure..."
-    echo "   Note: Gitea must be deployed first to provide git repositories for ArgoCD"
-
-    # Extract and deploy Gitea first (it's needed for git repositories)
-    echo "   Extracting and deploying Gitea..."
-    $YQ_CMD eval 'select(.kind == "Application" and .metadata.name == "gitea")' /tmp/cluster-forge-bootstrap.yaml > /tmp/gitea-app.yaml
-    kubectl apply -f /tmp/gitea-app.yaml
+    echo "📦 Step 2: Deploying Gitea directly..."
+    echo "   Note: Gitea must be deployed directly to provide git repositories for ArgoCD"
     
-    # Extract and deploy OpenBao (needed for secrets)
+    deploy_gitea_directly
+    
+    # Step 3: Deploy OpenBao via ArgoCD (it can be managed by ArgoCD)
+    echo ""
+    echo "📦 Step 3: Deploying OpenBao via ArgoCD..."
     echo "   Extracting and deploying OpenBao..."
     $YQ_CMD eval 'select(.kind == "Application" and .metadata.name == "openbao")' /tmp/cluster-forge-bootstrap.yaml > /tmp/openbao-app.yaml
     kubectl apply -f /tmp/openbao-app.yaml
-    
-    echo "✅ Essential infrastructure applications deployed"
+    echo "✅ OpenBao application deployed"
 
-    # Step 3: Wait for infrastructure and initialize
+    # Step 4: Initialize infrastructure
     echo ""
-    echo "📦 Step 3: Initializing essential infrastructure..."
+    echo "📦 Step 4: Initializing essential infrastructure..."
 
     echo ""
     echo "🎉 ArgoCD-Managed Bootstrap Complete!"
@@ -391,43 +389,112 @@ bootstrap_argocd_managed_approach() {
     echo "🚀 ArgoCD will now manage all remaining applications from target revision: $TARGET_REVISION"
 }
 
-# Wait for Gitea to be deployed by ArgoCD and run initialization  
+# Deploy Gitea directly using helm (cannot rely on ArgoCD initially)
+deploy_gitea_directly() {
+    echo ""
+    echo "=== Direct Gitea Deployment ==="
+    echo "Gitea must be deployed directly since ArgoCD needs git repositories to function"
+    
+    # Create cf-gitea namespace first
+    echo "Creating cf-gitea namespace..."
+    kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
+    
+    # Check if yq is available for value extraction
+    if command -v yq >/dev/null 2>&1; then
+        YQ_CMD="yq"
+    elif [ -f "$HOME/yq" ]; then
+        YQ_CMD="$HOME/yq"
+    else
+        echo "ERROR: yq command not found. Please install yq or place it in $HOME/yq"
+        exit 1
+    fi
+    
+    # Extract Gitea version from values
+    echo "Extracting Gitea configuration..."
+    
+    # Create merged values for version extraction (similar to original bootstrap.sh)
+    local SIZE_VALUES_FILE="values_${CLUSTER_SIZE}.yaml"
+    if [ -n "$SIZE_VALUES_FILE" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+        # Merge base values with size-specific overrides  
+        $YQ_CMD eval-all '. as $item ireduce ({}; . * $item)' \
+            "${SOURCE_ROOT}/root/${VALUES_FILE}" \
+            "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | \
+            $YQ_CMD eval ".global.domain = \"${DOMAIN}\"" > /tmp/merged_values.yaml
+    else
+        # Use base values only
+        cat "${SOURCE_ROOT}/root/${VALUES_FILE}" | $YQ_CMD ".global.domain = \"${DOMAIN}\"" > /tmp/merged_values.yaml
+    fi
+    
+    # Extract Gitea version from merged values
+    GITEA_VERSION=$($YQ_CMD eval '.apps.gitea.path' /tmp/merged_values.yaml | cut -d'/' -f2)
+    
+    if [ -z "$GITEA_VERSION" ]; then
+        echo "ERROR: Could not extract Gitea version from values"
+        exit 1
+    fi
+    
+    echo "Using Gitea version: $GITEA_VERSION"
+    
+    # Extract Gitea-specific values for helm template
+    $YQ_CMD eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > /tmp/gitea_values.yaml
+    
+    if [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+        $YQ_CMD eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > /tmp/gitea_size_values.yaml
+    else
+        # Create empty file if size-specific values don't exist
+        echo "{}" > /tmp/gitea_size_values.yaml
+    fi
+    
+    # Deploy Gitea directly using helm template
+    echo "🚀 Deploying Gitea using helm template..."
+    helm template --release-name gitea "${SOURCE_ROOT}/sources/gitea/${GITEA_VERSION}" --namespace cf-gitea \
+        -f /tmp/gitea_values.yaml \
+        -f /tmp/gitea_size_values.yaml \
+        --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}/" \
+        --kube-version="${KUBE_VERSION}" | kubectl apply -f -
+    
+    # Wait for Gitea deployment to be ready
+    echo "⏳ Waiting for Gitea deployment to be ready..."
+    if kubectl rollout status deploy/gitea -n cf-gitea --timeout=300s; then
+        echo "✅ Gitea deployment is ready"
+    else
+        echo "❌ ERROR: Gitea deployment failed to become ready"
+        echo "Check deployment status: kubectl get deployment gitea -n cf-gitea"
+        echo "Check logs: kubectl logs -l app=gitea -n cf-gitea"
+        exit 1
+    fi
+    
+    # Cleanup temporary files
+    rm -f /tmp/gitea_values.yaml /tmp/gitea_size_values.yaml /tmp/merged_values.yaml
+    
+    echo "✅ Gitea deployed directly and ready for initialization"
+}
+
+# Initialize Gitea after direct deployment
 wait_for_gitea_and_initialize() {
     echo ""
     echo "=== Gitea Initialization ==="
-    echo "Waiting for ArgoCD to deploy Gitea..."
+    echo "Gitea has been deployed directly - proceeding with initialization..."
     
-    # Wait for Gitea Deployment to exist (deployed by ArgoCD)
-    echo "⏳ Waiting for Gitea Deployment to be created by ArgoCD..."
-    local timeout=300
-    local elapsed=0
-    while [ $elapsed -lt $timeout ]; do
-        if kubectl get deployment gitea -n cf-gitea >/dev/null 2>&1; then
-            echo "✅ Gitea Deployment found"
-            break
-        fi
-        sleep 5
-        elapsed=$((elapsed + 5))
-        echo "   Waiting for ArgoCD to create Gitea Deployment... ($elapsed/$timeout seconds)"
-    done
-    
-    if [ $elapsed -ge $timeout ]; then
-        echo "⚠️  WARNING: Gitea Deployment not found after $timeout seconds"
-        echo "   ArgoCD may still be syncing. Gitea init will be skipped."
-        echo "   WARNING: Without Gitea initialization, ArgoCD may not have git repositories!"
-        return
+    # Verify Gitea deployment exists (should already be deployed directly)
+    if ! kubectl get deployment gitea -n cf-gitea >/dev/null 2>&1; then
+        echo "❌ ERROR: Gitea deployment not found"
+        echo "   This should not happen - deploy_gitea_directly should have created it"
+        exit 1
     fi
     
-    # Wait for Gitea to be running
-    echo "⏳ Waiting for Gitea deployment to be ready..."
-    if kubectl rollout status deploy/gitea -n cf-gitea --timeout=300s; then
-        echo "✅ Gitea is running"
-    else
-        echo "⚠️  WARNING: Gitea deployment not ready within timeout"
-        echo "   Gitea initialization will be skipped."
-        echo "   WARNING: ArgoCD may not have access to git repositories!"
-        return
+    echo "✅ Gitea Deployment confirmed"
+    
+    # Gitea should already be ready from direct deployment, but double-check
+    echo "⏳ Verifying Gitea is ready..."
+    if ! kubectl rollout status deploy/gitea -n cf-gitea --timeout=60s; then
+        echo "❌ ERROR: Gitea deployment not ready"
+        echo "   Check deployment status: kubectl get deployment gitea -n cf-gitea"
+        echo "   Check logs: kubectl logs -l app=gitea -n cf-gitea"
+        exit 1
     fi
+    
+    echo "✅ Gitea is ready for initialization"
     
     # Now run the Gitea initialization (extracted from original bootstrap.sh)
     echo ""
