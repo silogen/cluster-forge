@@ -4,7 +4,7 @@ metadata:
   name: gitea-init-scripts
   namespace: cf-gitea
 data:
-  init-gitea.sh: |
+  init-gitea.sh: |+
     #!/bin/bash
 
     set -e
@@ -12,73 +12,181 @@ data:
     GITEA_URL="${GITEA_URL:-http://gitea-http.cf-gitea.svc:3000}"
     GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-silogen-admin}"
     
+    # Retry function with exponential backoff
+    retry_with_backoff() {
+      local max_attempts=$1
+      local delay=$2
+      local operation_name=$3
+      shift 3
+      local attempt=1
+      
+      while [ $attempt -le $max_attempts ]; do
+        echo "[$operation_name] Attempt $attempt/$max_attempts..."
+        
+        if "$@"; then
+          echo "[$operation_name] Success on attempt $attempt"
+          return 0
+        else
+          if [ $attempt -eq $max_attempts ]; then
+            echo "[$operation_name] Failed after $max_attempts attempts"
+            return 1
+          fi
+          
+          echo "[$operation_name] Failed, waiting ${delay}s before retry..."
+          sleep $delay
+          delay=$((delay * 2))  # Exponential backoff
+          attempt=$((attempt + 1))
+        fi
+      done
+    }
+    
+    # Wait for Gitea deployment to be ready
+    wait_for_gitea_ready() {
+      echo "Waiting for Gitea deployment to be ready..."
+      
+      # Wait for deployment rollout to complete
+      if ! kubectl rollout status deploy/gitea -n cf-gitea --timeout=300s; then
+        echo "ERROR: Gitea deployment failed to become ready"
+        return 1
+      fi
+      
+      # Wait for Gitea service to be responsive
+      local gitea_ready=false
+      local attempts=0
+      local max_attempts=30
+      
+      while [ $attempts -lt $max_attempts ] && [ "$gitea_ready" = false ]; do
+        echo "Checking if Gitea API is responsive (attempt $((attempts + 1))/$max_attempts)..."
+        
+        if curl -s --connect-timeout 5 --max-time 10 "$GITEA_URL/api/v1/version" >/dev/null 2>&1; then
+          gitea_ready=true
+          echo "Gitea API is ready!"
+        else
+          echo "Gitea API not ready yet, waiting 10s..."
+          sleep 10
+          attempts=$((attempts + 1))
+        fi
+      done
+      
+      if [ "$gitea_ready" = false ]; then
+        echo "ERROR: Gitea API did not become ready after $((max_attempts * 10)) seconds"
+        return 1
+      fi
+      
+      return 0
+    }
+    
+    # Function to create admin access token with retry
+    create_admin_token() {
+      kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
+        gitea admin user generate-access-token --raw --username "$GITEA_ADMIN_USER" --token-name "api-token-$(date +%s)" --scopes all
+    }
+    
+    echo "=== Gitea Initialization Started ==="
+    echo "Domain: $DOMAIN"
+    echo "Gitea URL: $GITEA_URL"
+    echo "Admin User: $GITEA_ADMIN_USER"
+    echo ""
+    
+    # Step -1: Wait for Gitea to be ready
+    if ! wait_for_gitea_ready; then
+      echo "FATAL: Gitea is not ready, aborting initialization"
+      exit 1
+    fi
+    
     echo "Step 0: Create admin access token"
-    GITEA_TOKEN=$(kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
-      gitea admin user generate-access-token --raw --username "$GITEA_ADMIN_USER" --token-name "api-token-$(date +%s)" --scopes all
-    )
-    kubectl create secret generic gitea-admin-token --from-literal=token="${GITEA_TOKEN}" --namespace=cf-gitea --dry-run=client -o yaml | kubectl apply -f -
+    if retry_with_backoff 5 3 "Create admin token" create_admin_token; then
+      GITEA_TOKEN=$(kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
+        gitea admin user generate-access-token --raw --username "$GITEA_ADMIN_USER" --token-name "api-token-$(date +%s)" --scopes all
+      )
+      kubectl create secret generic gitea-admin-token --from-literal=token="${GITEA_TOKEN}" --namespace=cf-gitea --dry-run=client -o yaml | kubectl apply -f -
+      echo "Admin token created successfully"
+    else
+      echo "FATAL: Failed to create admin token"
+      exit 1
+    fi
+    
+    # Function to create organization
+    create_organization() {
+      local response=$(curl -s -w "%{http_code}" -o /tmp/org_response.json -X POST "${GITEA_URL}/api/v1/orgs" \
+        -H "Authorization: token ${GITEA_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "username": "cluster-org",
+          "full_name": "Cluster Organization", 
+          "description": "Organization for cluster management repositories",
+          "visibility": "public"
+        }')
+      
+      case $response in
+        201|409) # 201=created, 409=already exists
+          echo "Organization 'cluster-org' ready"
+          return 0
+          ;;
+        *)
+          echo "Failed to create organization (HTTP $response)"
+          cat /tmp/org_response.json 2>/dev/null || true
+          return 1
+          ;;
+      esac
+    }
     
     echo "Step 1: Creating organization 'cluster-org'..."
-    curl -X POST "${GITEA_URL}/api/v1/orgs" \
-      -H "Authorization: token ${GITEA_TOKEN}" \
-      -H "Content-Type: application/json" \
-      -d '{
-        "username": "cluster-org",
-        "full_name": "Cluster Organization",
-        "description": "Organization for cluster management repositories",
-        "visibility": "public"
-      }' || echo "Failed to create organization, might already exist"
+    if ! retry_with_backoff 3 5 "Create organization" create_organization; then
+      echo "FATAL: Failed to create organization after retries"
+      exit 1
+    fi
+    
+    # Function to check if repository exists
+    check_repo_exists() {
+      curl -s -f -H "Authorization: token ${GITEA_TOKEN}" "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" >/dev/null 2>&1
+    }
+    
+    # Function to migrate repository
+    migrate_repository() {
+      local HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/migration_response.json -X POST "${GITEA_URL}/api/v1/repos/migrate" \
+        -H "Authorization: token ${GITEA_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "clone_addr": "https://github.com/silogen/cluster-forge.git",
+          "repo_name": "cluster-forge",
+          "repo_owner": "cluster-org", 
+          "service": "git",
+          "mirror": true,
+          "mirror_interval": "15m",
+          "private": false
+        }')
+      
+      case $HTTP_CODE in
+        201)
+          echo "Repository migration completed successfully"
+          return 0
+          ;;
+        409)
+          echo "Repository already exists"
+          return 0
+          ;;
+        *)
+          echo "Migration failed with HTTP $HTTP_CODE"
+          cat /tmp/migration_response.json 2>/dev/null || true
+          
+          # Clean up failed repository
+          echo "Cleaning up failed repository..."
+          curl -s -X DELETE "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" \
+            -H "Authorization: token ${GITEA_TOKEN}" >/dev/null 2>&1
+          return 1
+          ;;
+      esac
+    }
     
     echo "Step 2: Creating repository 'cluster-forge' as mirror..."
-    if curl -s -f -H "Authorization: token ${GITEA_TOKEN}" "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" >/dev/null 2>&1; then
+    if check_repo_exists; then
       echo "Repository 'cluster-forge' already exists"
     else
-        MAX_ATTEMPTS=5
-        ATTEMPT=1
-        SUCCESS=false
-        
-        while [ $ATTEMPT -le $MAX_ATTEMPTS ] && [ "$SUCCESS" = false ]; do
-            echo "Migration attempt $ATTEMPT/$MAX_ATTEMPTS..."
-            
-            HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/migration_response.json -X POST "${GITEA_URL}/api/v1/repos/migrate" \
-              -H "Authorization: token ${GITEA_TOKEN}" \
-              -H "Content-Type: application/json" \
-              -d '{
-                "clone_addr": "https://github.com/silogen/cluster-forge.git",
-                "repo_name": "cluster-forge",
-                "repo_owner": "cluster-org",
-                "service": "git",
-                "mirror": true,
-                "mirror_interval": "15m",
-                "private": false
-              }')
-            
-            case $HTTP_CODE in
-                201)
-                    echo "Repository migration completed successfully"
-                    SUCCESS=true
-                    ;;
-                *)
-                    echo "Attempt $ATTEMPT failed with HTTP $HTTP_CODE, retrying..."
-                    echo "Cleaning up failed repository..."
-                    sleep 1
-                    curl -s -X DELETE "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" \
-                      -H "Authorization: token ${GITEA_TOKEN}" >/dev/null 2>&1
-                    echo "Failed repository deleted..."
-                    ;;
-            esac
-            
-            if [ "$SUCCESS" = false ] && [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
-                sleep 5
-            fi
-            
-            ATTEMPT=$((ATTEMPT + 1))
-        done
-        
-        if [ "$SUCCESS" = false ]; then
-            echo "ERROR: Failed to create mirror repository after $MAX_ATTEMPTS attempts"
-            exit 1
-        fi
+      if ! retry_with_backoff 5 5 "Migrate repository" migrate_repository; then
+        echo "FATAL: Failed to create mirror repository after retries"
+        exit 1
+      fi
     fi
 
     # set mirror default branch (--dev mode)
@@ -89,19 +197,39 @@ data:
       -d '{"default_branch": "{{ .Values.targetRevision }}"}'
     fi
     
-    echo "Step 3: Creating repository 'cluster-values'..."
-    curl -X POST "${GITEA_URL}/api/v1/orgs/cluster-org/repos" \
-      -H "Authorization: token ${GITEA_TOKEN}" \
-      -H "Content-Type: application/json" \
-      -d '{
-        "name": "cluster-values",
-        "description": "Cluster configuration values repository",
-        "private": false,
-        "auto_init": true
-      }' || echo "Repository might already exist"
+    # Function to create cluster-values repository
+    create_cluster_values_repo() {
+      local response=$(curl -s -w "%{http_code}" -o /tmp/repo_response.json -X POST "${GITEA_URL}/api/v1/orgs/cluster-org/repos" \
+        -H "Authorization: token ${GITEA_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "name": "cluster-values",
+          "description": "Cluster configuration values repository",
+          "private": false,
+          "auto_init": true
+        }')
+      
+      case $response in
+        201|409) # 201=created, 409=already exists
+          echo "Repository 'cluster-values' ready"
+          return 0
+          ;;
+        *)
+          echo "Failed to create cluster-values repository (HTTP $response)"
+          cat /tmp/repo_response.json 2>/dev/null || true
+          return 1
+          ;;
+      esac
+    }
     
-    echo "Step 4: Creating user 'devuser'..."
-    curl -X POST "${GITEA_URL}/api/v1/admin/users" \
+    echo "Step 3: Creating repository 'cluster-values'..."
+    if ! retry_with_backoff 3 5 "Create cluster-values repo" create_cluster_values_repo; then
+      echo "FATAL: Failed to create cluster-values repository after retries"
+      exit 1
+    fi
+    
+    echo "Step 4: Creating user 'devuser' (optional)..."
+    response=$(curl -s -w "%{http_code}" -o /tmp/user_response.json -X POST "${GITEA_URL}/api/v1/admin/users" \
       -H "Authorization: token ${GITEA_TOKEN}" \
       -H "Content-Type: application/json" \
       -d '{
@@ -111,20 +239,36 @@ data:
         "full_name": "Dev User",
         "must_change_password": false,
         "send_notify": false
-      }' || echo "User creation failed, might already exist or insufficient permissions"
+      }')
+    
+    case $response in
+      201) echo "User 'devuser' created successfully" ;;
+      422) echo "User 'devuser' already exists" ;;
+      *) echo "User creation failed (HTTP $response) - continuing anyway" ;;
+    esac
     
     echo "Step 5: Getting organization 'cluster-org' owners team id..."
     OWNERS_TEAM_ID=$(curl -s -H "Authorization: token ${GITEA_TOKEN}" -H "Content-Type: application/json" \
       "${GITEA_URL}/api/v1/orgs/cluster-org/teams" | \
-      jq -r '.[] | select(.name == "Owners") | .id')
+      jq -r '.[] | select(.name == "Owners") | .id' 2>/dev/null)
     
-    echo "Step 6: Adding user 'devuser' to organization 'cluster-org' owners..."
-    curl -X PUT "${GITEA_URL}/api/v1/teams/${OWNERS_TEAM_ID}/members/devuser" \
-      -H "Authorization: token ${GITEA_TOKEN}" \
-      -H "Content-Type: application/json" || echo "Failed to add user to organization"
+    if [ -n "$OWNERS_TEAM_ID" ] && [ "$OWNERS_TEAM_ID" != "null" ]; then
+      echo "Step 6: Adding user 'devuser' to organization 'cluster-org' owners..."
+      response=$(curl -s -w "%{http_code}" -o /dev/null -X PUT "${GITEA_URL}/api/v1/teams/${OWNERS_TEAM_ID}/members/devuser" \
+        -H "Authorization: token ${GITEA_TOKEN}" \
+        -H "Content-Type: application/json")
+      
+      case $response in
+        200|204) echo "User 'devuser' added to organization successfully" ;;
+        *) echo "Failed to add user to organization (HTTP $response) - continuing anyway" ;;
+      esac
+    else
+      echo "Could not find owners team ID - skipping user organization assignment"
+    fi
     
-    echo "Step 7: Creating values.yaml file with cluster-forge reference in cluster-values repo..."
-    cat > /tmp/values.yaml << 'EOF'
+    # Function to create values.yaml file  
+    create_values_file() {
+      cat > /tmp/values.yaml << 'VALUESEOF'
     clusterForge:
       repoURL: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git
       path: root
@@ -134,18 +278,41 @@ data:
     global:
       clusterSize: {{ .Values.clusterSize }}
       domain: DOMAIN_PLACEHOLDER
-
-    EOF
+    VALUESEOF
+      
+      sed -i "s/DOMAIN_PLACEHOLDER/${DOMAIN}/g" /tmp/values.yaml
+      
+      local encoded_content=$(base64 -w 0 < /tmp/values.yaml)
+      local response=$(curl -s -w "%{http_code}" -o /tmp/values_response.json -X POST "${GITEA_URL}/api/v1/repos/cluster-org/cluster-values/contents/values.yaml" \
+        -H "Authorization: token ${GITEA_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "{
+          \"message\": \"Initialize cluster values configuration\",
+          \"content\": \"$encoded_content\",
+          \"branch\": \"main\"
+        }")
+      
+      case $response in
+        201) 
+          echo "Values.yaml file created successfully"
+          return 0
+          ;;
+        422)
+          echo "Values.yaml file already exists"
+          return 0
+          ;;
+        *)
+          echo "Failed to create values.yaml file (HTTP $response)"
+          cat /tmp/values_response.json 2>/dev/null || true
+          return 1
+          ;;
+      esac
+    }
     
-    sed -i "s/DOMAIN_PLACEHOLDER/${DOMAIN}/g" /tmp/values.yaml
-    
-    curl -X POST "${GITEA_URL}/api/v1/repos/cluster-org/cluster-values/contents/values.yaml" \
-      -H "Authorization: token ${GITEA_TOKEN}" \
-      -H "Content-Type: application/json" \
-      -d '{
-        "message": "Initialize cluster values configuration",
-        "content": "'$(base64 -w 0 < /tmp/values.yaml)'",
-        "branch": "main"
-      }' || echo "Failed to create values.yaml file"
-    
-    echo "Setup completed successfully!"
+    echo "Step 7: Creating values.yaml file with cluster-forge reference in cluster-values repo..."
+    if retry_with_backoff 3 5 "Create values.yaml file" create_values_file; then
+      echo "=== Gitea Setup Completed Successfully! ==="
+    else
+      echo "WARNING: Failed to create values.yaml file, but core setup is complete"
+      echo "=== Gitea Setup Completed with Warnings ==="
+    fi
