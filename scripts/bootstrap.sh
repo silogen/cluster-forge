@@ -413,6 +413,52 @@ EOF
   fi
 }
 
+# Render specific cluster-forge child apps (for --apps filtering)
+render_cluster_forge_child_apps() {
+  echo "=== Rendering ClusterForge Child Apps: ${APPS} ==="
+  
+  # Create a temporary values file with only the requested apps enabled
+  local temp_values="/tmp/filtered_values.yaml"
+  cat > "$temp_values" << EOF
+global:
+  domain: ${DOMAIN}
+enabledApps: []
+apps: {}
+EOF
+  
+  # Copy specific app configurations from the main values
+  local IFS=','
+  for app in $APPS; do
+    # Add to enabledApps list
+    yq eval ".enabledApps += [\"$app\"]" -i "$temp_values"
+    
+    # Copy app configuration if it exists in values.yaml
+    if yq eval ".apps | has(\"$app\")" "${SOURCE_ROOT}/root/${VALUES_FILE}" 2>/dev/null | grep -q "true"; then
+      yq eval ".apps[\"$app\"] = load(\"${SOURCE_ROOT}/root/${VALUES_FILE}\").apps[\"$app\"]" -i "$temp_values"
+    fi
+    
+    # Merge size-specific configuration if it exists
+    if [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+      if yq eval ".apps | has(\"$app\")" "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" 2>/dev/null | grep -q "true"; then
+        yq eval ".apps[\"$app\"] = (.apps[\"$app\"] // {}) * load(\"${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}\").apps[\"$app\"]" -i "$temp_values"
+      fi
+    fi
+  done
+  
+  # Render only the cluster-apps template with filtered values
+  helm template cluster-forge "${SOURCE_ROOT}/root" \
+      --show-only templates/cluster-apps.yaml \
+      --values "$temp_values" \
+      --set clusterForge.targetRevision="${TARGET_REVISION}" \
+      --set externalValues.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git" \
+      --set clusterForge.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git" \
+      --namespace argocd \
+      --kube-version "${KUBE_VERSION}" | apply_or_template -f -
+  
+  # Clean up
+  rm -f "$temp_values"
+}
+
 apply_cluster_forge_parent_app() {
   # Create cluster-forge parent app only (not all apps)
   echo "=== Creating ClusterForge Parent App ==="
@@ -430,6 +476,15 @@ apply_cluster_forge_parent_app() {
       --kube-version "${KUBE_VERSION}" | apply_or_template -f -
 }
 
+# Check if requested apps are cluster-forge child apps
+is_cluster_forge_child_app() {
+  local app="$1"
+  # Check if the app is defined in the values.yaml apps section
+  local app_config=$(yq eval ".apps[\"$app\"]" "${SOURCE_ROOT}/root/${VALUES_FILE}" 2>/dev/null)
+  [ "$app_config" != "null" ] && return 0
+  return 1
+}
+
 main() {
   parse_args "$@"
   if [ "$SKIP_DEPENDENCY_CHECK" = false ]; then
@@ -437,10 +492,58 @@ main() {
   fi
   validate_args
   print_summary
-  should_run namespaces      && create_namespaces
-  should_run argocd          && bootstrap_argocd
-  should_run gitea           && bootstrap_gitea
-  should_run cluster-forge   && apply_cluster_forge_parent_app
+  
+  # If specific apps are requested, check if they're cluster-forge child apps
+  if [ -n "$APPS" ]; then
+    local has_bootstrap_apps=false
+    local has_child_apps=false
+    local child_apps=""
+    
+    IFS=',' read -ra APP_ARRAY <<< "$APPS"
+    for app in "${APP_ARRAY[@]}"; do
+      case "$app" in
+        namespaces|argocd|gitea|cluster-forge)
+          has_bootstrap_apps=true
+          ;;
+        *)
+          if is_cluster_forge_child_app "$app"; then
+            has_child_apps=true
+            if [ -z "$child_apps" ]; then
+              child_apps="$app"
+            else
+              child_apps="$child_apps,$app"
+            fi
+          else
+            echo "WARNING: Unknown app '$app'. Available bootstrap apps: namespaces, argocd, gitea, cluster-forge"
+            echo "Or specify any cluster-forge child app from values.yaml"
+          fi
+          ;;
+      esac
+    done
+    
+    # Handle bootstrap apps
+    if [ "$has_bootstrap_apps" = true ]; then
+      should_run namespaces      && create_namespaces
+      should_run argocd          && bootstrap_argocd
+      should_run gitea           && bootstrap_gitea
+      should_run cluster-forge   && apply_cluster_forge_parent_app
+    fi
+    
+    # Handle cluster-forge child apps
+    if [ "$has_child_apps" = true ]; then
+      # Temporarily set APPS to only child apps for the render function
+      local original_apps="$APPS"
+      APPS="$child_apps"
+      render_cluster_forge_child_apps
+      APPS="$original_apps"
+    fi
+  else
+    # Default behavior - run all bootstrap components
+    should_run namespaces      && create_namespaces
+    should_run argocd          && bootstrap_argocd
+    should_run gitea           && bootstrap_gitea
+    should_run cluster-forge   && apply_cluster_forge_parent_app
+  fi
 }
 
 main "$@"
