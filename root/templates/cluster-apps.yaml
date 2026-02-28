@@ -30,7 +30,7 @@ spec:
       {{- end }}
       {{- if .valuesObject }}
       values: |
-{{ .valuesObject | toYaml | nindent 8 }}
+      {{ .valuesObject | toYaml | nindent 8 }}
       {{- end }}
       {{- if .helmParameters }}
       parameters:
