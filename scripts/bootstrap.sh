@@ -14,6 +14,125 @@ TARGET_REVISION="$LATEST_RELEASE"
 TEMPLATE_ONLY=false
 VALUES_FILE="values.yaml"
 APPS=""
+SKIP_DEPENDENCY_CHECK=false
+
+# Check for required dependencies
+check_dependencies() {
+  local missing_deps=()
+  local all_good=true
+  
+  echo "=== Checking Dependencies ==="
+  
+  # Define required programs with installation instructions
+  declare -A REQUIRED_PROGRAMS=(
+    ["kubectl"]="Kubernetes CLI - https://kubernetes.io/docs/tasks/tools/install-kubectl/"
+    ["helm"]="Helm package manager - https://helm.sh/docs/intro/install/"
+    ["yq"]="YAML/JSON processor - https://github.com/mikefarah/yq#install"
+    ["openssl"]="OpenSSL for password generation - Usually pre-installed or via package manager"
+  )
+  
+  # Define optional programs (used by shell builtins but good to check)
+  declare -A OPTIONAL_PROGRAMS=(
+    ["cat"]="cat command - Usually pre-installed"
+    ["grep"]="grep command - Usually pre-installed" 
+    ["tr"]="tr command - Usually pre-installed"
+    ["head"]="head command - Usually pre-installed"
+  )
+  
+  # Check required programs with version info
+  for program in "${!REQUIRED_PROGRAMS[@]}"; do
+    if command -v "$program" >/dev/null 2>&1; then
+      case "$program" in
+        "kubectl")
+          version=$(kubectl version --client 2>/dev/null | head -n1 | cut -d' ' -f3 2>/dev/null || echo "unknown")
+          printf "  ✓ %-12s %s (%s)\n" "$program" "$(command -v "$program")" "$version"
+          ;;
+        "helm")
+          version=$(helm version --short --client 2>/dev/null | cut -d'+' -f1 2>/dev/null || echo "unknown")
+          printf "  ✓ %-12s %s (%s)\n" "$program" "$(command -v "$program")" "$version"
+          ;;
+        "yq")
+          version=$(yq --version 2>/dev/null | head -n1 | cut -d' ' -f4 2>/dev/null || echo "unknown")
+          printf "  ✓ %-12s %s (%s)\n" "$program" "$(command -v "$program")" "$version"
+          ;;
+        *)
+          printf "  ✓ %-12s %s\n" "$program" "$(command -v "$program")"
+          ;;
+      esac
+    else
+      printf "  ✗ %-12s MISSING\n" "$program"
+      missing_deps+=("$program")
+      all_good=false
+    fi
+  done
+  
+  # Check optional programs (warn but don't fail)
+  for program in "${!OPTIONAL_PROGRAMS[@]}"; do
+    if command -v "$program" >/dev/null 2>&1; then
+      printf "  ✓ %-12s %s\n" "$program" "$(command -v "$program")"
+    else
+      printf "  ! %-12s MISSING (usually pre-installed)\n" "$program"
+    fi
+  done
+  
+  # If any required dependencies are missing, show installation instructions
+  if [ "$all_good" = false ]; then
+    echo ""
+    echo "ERROR: Missing required dependencies!"
+    echo ""
+    echo "Please install the following programs:"
+    echo ""
+    
+    for dep in "${missing_deps[@]}"; do
+      echo "  $dep: ${REQUIRED_PROGRAMS[$dep]}"
+      echo ""
+      
+      # Provide platform-specific installation hints
+      case "$dep" in
+        "kubectl")
+          echo "    # Linux:"
+          echo "    curl -LO \"https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl\""
+          echo "    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl"
+          echo ""
+          echo "    # macOS:"
+          echo "    brew install kubectl"
+          echo ""
+          echo "    # Or download from: https://kubernetes.io/docs/tasks/tools/install-kubectl/"
+          ;;
+        "helm")
+          echo "    # Linux/macOS:"
+          echo "    curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash"
+          echo ""
+          echo "    # Or via package manager:"
+          echo "    # Linux: snap install helm --classic"
+          echo "    # macOS: brew install helm"
+          ;;
+        "yq")
+          echo "    # Linux:"
+          echo "    sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64"
+          echo "    sudo chmod +x /usr/local/bin/yq"
+          echo ""
+          echo "    # macOS:"
+          echo "    brew install yq"
+          ;;
+        "openssl")
+          echo "    # Linux:"
+          echo "    # Ubuntu/Debian: sudo apt-get install openssl"
+          echo "    # RHEL/CentOS: sudo yum install openssl"
+          echo ""
+          echo "    # macOS: Usually pre-installed, or: brew install openssl"
+          ;;
+      esac
+      echo ""
+    done
+    
+    echo "After installing the missing dependencies, please run this script again."
+    exit 1
+  fi
+  
+  echo "  ✓ All required dependencies are available!"
+  echo ""
+}
 
 parse_args() {
   # Parse arguments 
@@ -65,6 +184,10 @@ parse_args() {
           TEMPLATE_ONLY=true
           shift
           ;;
+        --skip-deps)
+          SKIP_DEPENDENCY_CHECK=true
+          shift
+          ;;
         --apps=*)
           APPS="${1#*=}"
           TEMPLATE_ONLY=true
@@ -85,6 +208,7 @@ parse_args() {
           --target-revision,   -r     cluster-forge git revision for ArgoCD to sync from 
                                       options: [tag|commit_hash|branch_name], default: $LATEST_RELEASE
           --template-only,     -t     Output YAML manifests to stdout instead of applying to cluster
+          --skip-deps                 Skip dependency checking (for advanced users)
         
         
         Examples:
@@ -308,6 +432,9 @@ apply_cluster_forge_parent_app() {
 
 main() {
   parse_args "$@"
+  if [ "$SKIP_DEPENDENCY_CHECK" = false ]; then
+    check_dependencies
+  fi
   validate_args
   print_summary
   should_run namespaces      && create_namespaces
