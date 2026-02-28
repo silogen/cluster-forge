@@ -4,6 +4,8 @@ metadata:
   name: gitea-init-job
   namespace: cf-gitea
 spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 1200  # 20 minutes total timeout
   template:
     spec:
       restartPolicy: Never
