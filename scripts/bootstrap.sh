@@ -469,6 +469,7 @@ apply_cluster_forge_parent_app() {
       --values "${SOURCE_ROOT}/root/${VALUES_FILE}" \
       --values "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" \
       --set global.domain="${DOMAIN}" \
+      --set global.clusterSize="${SIZE_VALUES_FILE}" \
       --set clusterForge.targetRevision="${TARGET_REVISION}" \
       --set externalValues.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git" \
       --set clusterForge.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git" \
