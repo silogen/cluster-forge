@@ -1,5 +1,6 @@
 # Generated components metadata for SBOM creation
-# This file contains simplified component information for apps in enabledApps
+# This file contains simplified component information for apps across all cluster sizes
+# Collected from: values.yaml, values_small.yaml, values_medium.yaml, values_large.yaml
 # Apps with "config" suffix are excluded from this SBOM
 
 components:
@@ -131,12 +132,6 @@ components:
     projectUrl: https://github.com/kserve/kserve
     license: Apache License 2.0
     licenseUrl: https://github.com/kserve/kserve/blob/master/LICENSE
-  kueue:
-    path: kueue/0.13.0
-    sourceUrl: oci://registry.k8s.io/kueue/charts/kueue
-    projectUrl: https://github.com/kubernetes-sigs/kueue
-    license: Apache License 2.0
-    licenseUrl: https://github.com/kubernetes-sigs/kueue/blob/main/LICENSE
   kuberay-operator:
     path: kuberay-operator/1.4.2
     valuesFile: values.yaml
@@ -144,6 +139,12 @@ components:
     projectUrl: https://github.com/ray-project/kuberay
     license: Apache License 2.0
     licenseUrl: https://github.com/ray-project/kuberay/blob/master/LICENSE
+  kueue:
+    path: kueue/0.13.0
+    sourceUrl: oci://registry.k8s.io/kueue/charts/kueue
+    projectUrl: https://github.com/kubernetes-sigs/kueue
+    license: Apache License 2.0
+    licenseUrl: https://github.com/kubernetes-sigs/kueue/blob/main/LICENSE
   kyverno:
     path: kyverno/3.5.1
     valuesFile: values.yaml
@@ -157,6 +158,12 @@ components:
     projectUrl: https://github.com/kyverno/kyverno
     license: Apache License 2.0
     licenseUrl: https://github.com/kyverno/kyverno/blob/main/LICENSE
+  kyverno-policies-storage-local-path:
+    path: kyverno-policies/storage-local-path
+    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/kyverno-policies/storage-local-path
+    projectUrl: https://github.com/silogen/cluster-forge/
+    license: Apache License 2.0
+    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   metallb:
     path: metallb/v0.15.2
     sourceUrl: https://raw.githubusercontent.com/metallb/metallb/v0.15.2/config/manifests/metallb-native.yaml
@@ -182,6 +189,12 @@ components:
     projectUrl: https://github.com/openbao/openbao
     license: Mozilla Public License 2.0
     licenseUrl: https://github.com/openbao/openbao/blob/main/LICENSE
+  openbao-init:
+    path: ../scripts/init-openbao-job
+    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/scripts/init-openbao-job
+    projectUrl: https://github.com/silogen/cluster-forge/
+    license: Apache License 2.0
+    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
     sourceUrl: https://open-telemetry.github.io/opentelemetry-helm-charts
