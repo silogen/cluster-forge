@@ -181,7 +181,7 @@ apps:
   argocd-config:
     path: argocd-config
     namespace: argocd
-    syncWave: -20
+    syncWave: 5
     ignoreDifferences:
       - group: external-secrets.io
         kind: ExternalSecret
@@ -247,7 +247,7 @@ apps:
     helmParameters:
       - name: domain
         value: "{{ .Values.global.domain }}"
-    syncWave: -15
+    syncWave: -25
   external-secrets:
     path: external-secrets/0.15.1
     namespace: external-secrets
@@ -444,7 +444,7 @@ apps:
   cluster-auth-config:
     path: cluster-auth-config
     namespace: cluster-auth
-    syncWave: -20
+    syncWave: 5
     ignoreDifferences:
       - group: external-secrets.io
         kind: ExternalSecret

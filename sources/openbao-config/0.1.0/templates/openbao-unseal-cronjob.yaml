@@ -17,6 +17,19 @@ spec:
         spec:
           restartPolicy: Never
           serviceAccountName: openbao-unseal-job-sa
+          initContainers:
+            - name: wait-for-keys
+              image: ghcr.io/silogen/cluster-tool:latest
+              command: ["/bin/bash"]
+              args:
+                - -c
+                - |
+                  echo "Waiting for openbao-keys secret to exist..."
+                  while ! kubectl get secret openbao-keys -n cf-openbao >/dev/null 2>&1; do
+                    echo "Secret openbao-keys not found, waiting 10 seconds..."
+                    sleep 10
+                  done
+                  echo "Secret openbao-keys found, proceeding with unseal job"
           containers:
             - name: openbao-init
               image: ghcr.io/silogen/cluster-tool:latest
