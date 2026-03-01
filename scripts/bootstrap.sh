@@ -1,20 +1,20 @@
-#!/bin/bash -x
+#!/bin/bash
 
 set -euo pipefail
 
 LATEST_RELEASE="v1.8.0"
 
 # Initialize variables
+APPS=""
 CLUSTER_SIZE="medium"  # Default to medium
 DEFAULT_TIMEOUT="5m"
 DOMAIN=""
 KUBE_VERSION=1.33
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SKIP_DEPENDENCY_CHECK=false
 TARGET_REVISION="$LATEST_RELEASE"
 TEMPLATE_ONLY=false
 VALUES_FILE="values.yaml"
-APPS=""
-SKIP_DEPENDENCY_CHECK=false
 
 # Check for required dependencies
 check_dependencies() {
@@ -464,6 +464,29 @@ apply_cluster_forge_parent_app() {
   echo "=== Creating ClusterForge Parent App ==="
   echo "Target revision: $TARGET_REVISION"
   
+  if [ "$TEMPLATE_ONLY" = false ]; then
+    # Check if ArgoCD Application CRDs are available before proceeding
+    echo "🔍 Checking ArgoCD Application CRDs availability..."
+    if ! kubectl get crd applications.argoproj.io >/dev/null 2>&1; then
+      echo "❌ Error: ArgoCD Application CRDs not found!"
+      echo "   ArgoCD must be deployed before creating Applications."
+      echo "   Please ensure ArgoCD bootstrap completed successfully."
+      echo ""
+      echo "💡 Suggestion: Re-run bootstrap without --apps filter to deploy ArgoCD first:"
+      echo "   $0 $DOMAIN --cluster-size=$CLUSTER_SIZE --target-revision=$TARGET_REVISION"
+      exit 1
+    fi
+    echo "✅ ArgoCD Application CRDs found"
+    
+    # Verify ArgoCD namespace exists
+    if ! kubectl get namespace argocd >/dev/null 2>&1; then
+      echo "❌ Error: ArgoCD namespace 'argocd' not found!"
+      echo "   Please ensure ArgoCD was deployed first."
+      exit 1
+    fi
+    echo "✅ ArgoCD namespace found"
+  fi
+  
   helm template cluster-forge "${SOURCE_ROOT}/root" \
       --show-only templates/cluster-forge.yaml \
       --values "${SOURCE_ROOT}/root/${VALUES_FILE}" \
@@ -540,10 +563,38 @@ main() {
     fi
   else
     # Default behavior - run all bootstrap components
-    should_run namespaces      && create_namespaces
-    should_run argocd          && bootstrap_argocd
-    should_run gitea           && bootstrap_gitea
-    should_run cluster-forge   && apply_cluster_forge_parent_app
+    echo "🚀 Running full bootstrap sequence..."
+    echo "📋 Bootstrap order: namespaces → argocd → gitea → cluster-forge"
+    
+    if should_run namespaces; then
+      echo "📦 Step 1/4: Creating namespaces"
+      create_namespaces
+    else
+      echo "⏭️  Step 1/4: Skipping namespaces"
+    fi
+    
+    if should_run argocd; then
+      echo "📦 Step 2/4: Bootstrapping ArgoCD"
+      bootstrap_argocd
+    else
+      echo "⏭️  Step 2/4: Skipping ArgoCD"
+    fi
+    
+    if should_run gitea; then
+      echo "📦 Step 3/4: Bootstrapping Gitea"
+      bootstrap_gitea
+    else
+      echo "⏭️  Step 3/4: Skipping Gitea"
+    fi
+    
+    if should_run cluster-forge; then
+      echo "📦 Step 4/4: Creating ClusterForge parent app"
+      apply_cluster_forge_parent_app
+    else
+      echo "⏭️  Step 4/4: Skipping ClusterForge"
+    fi
+    
+    echo "✅ Bootstrap sequence completed"
   fi
 }
 
