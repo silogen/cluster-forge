@@ -2,10 +2,13 @@
 
 set -euo pipefail
 
-# validate-components-sync.sh - Validate components.yaml sync with enabledApps
+# validate-components-sync.sh - Validate components.yaml sync with enabledApps across all cluster sizes
 # Checks that components.yaml reflects current enabledApps and path consistency
 
-VALUES_FILE="../root/values.yaml"
+BASE_VALUES_FILE="../root/values.yaml"
+SMALL_VALUES_FILE="../root/values_small.yaml"
+MEDIUM_VALUES_FILE="../root/values_medium.yaml"
+LARGE_VALUES_FILE="../root/values_large.yaml"
 COMPONENTS_FILE="./components.yaml"
 
 echo "🔄 Validating components.yaml reflects enabledApps..."
@@ -17,14 +20,37 @@ if [[ ! -f "$COMPONENTS_FILE" ]]; then
     exit 1
 fi
 
-# Check if values.yaml exists
-if [[ ! -f "$VALUES_FILE" ]]; then
-    echo "❌ Error: $VALUES_FILE not found"
-    exit 1
+# Function to collect enabled apps from a values file
+collect_enabled_apps() {
+    local values_file="$1"
+    if [[ -f "$values_file" ]]; then
+        yq eval '.enabledApps[]' "$values_file" 2>/dev/null || echo ""
+    else
+        echo ""
+    fi
+}
+
+# Collect enabled apps from all cluster size configurations
+all_enabled_apps=""
+
+# Collect from base values.yaml (if enabledApps exists)
+base_apps=$(collect_enabled_apps "$BASE_VALUES_FILE")
+if [[ -n "$base_apps" ]]; then
+    all_enabled_apps="$all_enabled_apps$base_apps"$'\n'
 fi
 
-# Get enabled apps (filtered, same as generation script)
-enabled_apps=$(yq eval '.enabledApps[]' "$VALUES_FILE" 2>/dev/null || echo "")
+# Collect from cluster size values
+for size_file in "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
+    if [[ -f "$size_file" ]]; then
+        size_apps=$(collect_enabled_apps "$size_file")
+        if [[ -n "$size_apps" ]]; then
+            all_enabled_apps="$all_enabled_apps$size_apps"$'\n'
+        fi
+    fi
+done
+
+# Get unique enabled apps (remove duplicates and empty lines)
+enabled_apps=$(echo "$all_enabled_apps" | sort -u | grep -v '^$' || echo "")
 enabled_apps_filtered=$(echo "$enabled_apps" | grep -v -- '-config$' || echo "")
 
 # Get components in components.yaml
@@ -66,29 +92,49 @@ if [ ${#missing_components[@]} -ne 0 ] || [ ${#extra_components[@]} -ne 0 ]; the
     exit 1
 fi
 
-# Check path consistency between values.yaml and components.yaml
+# Check path consistency between cluster configuration files and components.yaml
 echo "⚙️ Checking path/valuesFile consistency..."
 path_mismatches=()
 
 while IFS= read -r app; do
     [[ -z "$app" ]] && continue
     
-    # Get paths from both files
-    values_path=$(yq eval ".apps.\"$app\".path" "$VALUES_FILE" 2>/dev/null || echo "null")
+    # Find the app definition in any of the cluster configuration files
+    values_path=""
+    for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
+        if [[ -f "$config_file" ]]; then
+            app_path=$(yq eval ".apps.\"$app\".path // \"null\"" "$config_file" 2>/dev/null || echo "null")
+            if [[ "$app_path" != "null" ]]; then
+                values_path="$app_path"
+                break
+            fi
+        fi
+    done
+    
     component_path=$(yq eval ".components.\"$app\".path" "$COMPONENTS_FILE" 2>/dev/null || echo "null")
     
     if [[ "$values_path" != "$component_path" ]]; then
-        path_mismatches+=("$app: values.yaml='$values_path' vs components.yaml='$component_path'")
-        echo "❌ Path mismatch for '$app': values.yaml='$values_path' vs components.yaml='$component_path'"
+        path_mismatches+=("$app: cluster-configs='$values_path' vs components.yaml='$component_path'")
+        echo "❌ Path mismatch for '$app': cluster-configs='$values_path' vs components.yaml='$component_path'"
     fi
     
     # Check valuesFile consistency
-    values_file_values=$(yq eval ".apps.\"$app\".valuesFile // \"null\"" "$VALUES_FILE" 2>/dev/null || echo "null")
+    values_file_values="null"
+    for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
+        if [[ -f "$config_file" ]]; then
+            app_path_check=$(yq eval ".apps.\"$app\".path // \"null\"" "$config_file" 2>/dev/null || echo "null")
+            if [[ "$app_path_check" != "null" ]]; then
+                values_file_values=$(yq eval ".apps.\"$app\".valuesFile // \"null\"" "$config_file" 2>/dev/null || echo "null")
+                break
+            fi
+        fi
+    done
+    
     values_file_components=$(yq eval ".components.\"$app\".valuesFile // \"null\"" "$COMPONENTS_FILE" 2>/dev/null || echo "null")
     
     if [[ "$values_file_values" != "$values_file_components" ]]; then
-        path_mismatches+=("$app valuesFile: values.yaml='$values_file_values' vs components.yaml='$values_file_components'")
-        echo "❌ ValuesFile mismatch for '$app': values.yaml='$values_file_values' vs components.yaml='$values_file_components'"
+        path_mismatches+=("$app valuesFile: cluster-configs='$values_file_values' vs components.yaml='$values_file_components'")
+        echo "❌ ValuesFile mismatch for '$app': cluster-configs='$values_file_values' vs components.yaml='$values_file_components'"
     fi
 done <<< "$enabled_apps_filtered"
 
