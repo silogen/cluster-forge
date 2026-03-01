@@ -84,7 +84,34 @@ apps:
                       hs.status = "Degraded"
                       hs.message = condition.reason or "ScaledObject not ready"
                     end
+            return hs
+          resource.customizations.health.batch_Job: |
+            -- Custom health check for Jobs, especially openbao-init
+            hs = {}
+            if obj.status ~= nil then
+              if obj.status.conditions ~= nil then
+                for _, condition in ipairs(obj.status.conditions) do
+                  if condition.type == "Complete" and condition.status == "True" then
+                    hs.status = "Healthy"
+                    hs.message = "Job completed successfully"
                     return hs
+                  elseif condition.type == "Failed" and condition.status == "True" then
+                    hs.status = "Degraded"
+                    hs.message = "Job failed"
+                    return hs
+                  end
+                end
+              end
+              -- Check for active jobs
+              if obj.status.active and obj.status.active > 0 then
+                hs.status = "Progressing"
+                hs.message = "Job is running"
+                return hs
+              end
+            end
+            hs.status = "Progressing"
+            hs.message = "Job status unknown"
+            return hs
                   end
                 end
               end
@@ -97,39 +124,26 @@ apps:
             return hs
           resource.customizations.health.apps_StatefulSet: |
             -- Custom health check for OpenBao StatefulSet
-            -- Ensures both StatefulSet is ready AND initialization is complete
-            if obj.metadata.name == "openbao" and obj.metadata.namespace == "cf-openbao" then
-              -- Check StatefulSet readiness
-              if obj.status and obj.status.readyReplicas and obj.status.replicas then
+            -- Uses standard StatefulSet readiness for now - openbao-init job handles actual initialization
+            hs = {}
+            if obj.status ~= nil then
+              if obj.status.readyReplicas ~= nil and obj.status.replicas ~= nil then
                 if obj.status.readyReplicas == obj.status.replicas then
-                  -- StatefulSet is ready, now check if initialization completed
-                  local kubectl = io.popen("kubectl get secret openbao-user -n cf-openbao --ignore-not-found -o name 2>/dev/null")
-                  local secret_exists = kubectl:read("*line")
-                  kubectl:close()
-                  
-                  if secret_exists and secret_exists ~= "" then
-                    hs = {}
-                    hs.status = "Healthy"
-                    hs.message = "OpenBao StatefulSet ready and initialization complete"
-                    return hs
-                  else
-                    hs = {}
-                    hs.status = "Progressing" 
-                    hs.message = "OpenBao StatefulSet ready but initialization still in progress"
-                    return hs
-                  end
+                  hs.status = "Healthy"
+                  hs.message = "StatefulSet is ready"
+                else
+                  hs.status = "Progressing"
+                  hs.message = "Waiting for StatefulSet replicas to be ready"
                 end
+              else
+                hs.status = "Progressing"
+                hs.message = "Waiting for StatefulSet status"
               end
-              
-              -- Default StatefulSet health check
-              hs = {}
-              hs.status = "Progressing"
-              hs.message = "OpenBao StatefulSet not ready"
-              return hs
             else
-              -- Default StatefulSet health check for non-OpenBao StatefulSets
-              return nil
+              hs.status = "Progressing"
+              hs.message = "Waiting for StatefulSet status"
             end
+            return hs
         params:
           server.insecure: true
         rbac:
@@ -225,7 +239,7 @@ apps:
     helmParameters:
       - name: domain
         value: "{{ .Values.global.domain }}"
-    syncWave: -60
+    syncWave: -50
   openbao-config:
     path: openbao-config/0.1.0
     namespace: cf-openbao
@@ -233,7 +247,7 @@ apps:
     helmParameters:
       - name: domain
         value: "{{ .Values.global.domain }}"
-    syncWave: -20
+    syncWave: -15
   external-secrets:
     path: external-secrets/0.15.1
     namespace: external-secrets
@@ -242,7 +256,7 @@ apps:
   external-secrets-config:
     path: external-secrets-config
     namespace: external-secrets
-    syncWave: -20
+    syncWave: -10
   gitea:
     path: gitea/12.3.0
     namespace: cf-gitea
@@ -300,7 +314,7 @@ apps:
   metallb:
     path: metallb/v0.15.2
     namespace: default
-    syncWave: -40
+    syncWave: 10
   kgateway-crds:
     path: kgateway-crds/v2.1.0-main
     namespace: kgateway-system
