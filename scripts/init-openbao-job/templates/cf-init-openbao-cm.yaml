@@ -55,8 +55,9 @@ data:
           echo "No HA replicas found (single-node deployment)."
         fi
       else
-        echo "ERROR: openbao-keys secret not found. Cannot unseal replicas."
-        exit 1
+        echo "WARNING: openbao-keys secret not found, but OpenBao appears to be running."
+        echo "This might indicate the cluster was initialized externally or the secret was deleted."
+        echo "HA replica setup will be skipped."
       fi
       
       echo "OpenBao is fully operational. Skipping initialization."
@@ -65,19 +66,42 @@ data:
     
     if [ "$OPENBAO_0_INITIALIZED" = "false" ]; then
       echo "Initializing OpenBao on openbao-0..."
-      INIT_OUTPUT=$(kubectl exec openbao-0 -- bao operator init -format=json -key-shares=1 -key-threshold=1)
-      echo $INIT_OUTPUT > /tmp/bao-keys.json;
-
-      echo "Saving unseal keys and root token to openbao-keys k8s secret..."        
-      BAO_ROOT_TOKEN=$(jq -r '.root_token' /tmp/bao-keys.json);
-      BAO_UNSEAL_KEY=$(jq -r '.unseal_keys_b64[0]' /tmp/bao-keys.json);    
-      kubectl create secret generic openbao-keys -n cf-openbao \
-        --from-literal=root_token="$BAO_ROOT_TOKEN" \
-        --from-literal=unseal_key="$BAO_UNSEAL_KEY" \
-        --dry-run=client -o yaml | kubectl apply -f -
+      if INIT_OUTPUT=$(kubectl exec openbao-0 -- bao operator init -format=json -key-shares=1 -key-threshold=1); then
+        echo "OpenBao initialization successful"
+        echo $INIT_OUTPUT > /tmp/bao-keys.json
+        
+        echo "Saving unseal keys and root token to openbao-keys k8s secret..."        
+        BAO_ROOT_TOKEN=$(jq -r '.root_token' /tmp/bao-keys.json)
+        BAO_UNSEAL_KEY=$(jq -r '.unseal_keys_b64[0]' /tmp/bao-keys.json)
+        
+        if [ -z "$BAO_ROOT_TOKEN" ] || [ "$BAO_ROOT_TOKEN" = "null" ] || [ -z "$BAO_UNSEAL_KEY" ] || [ "$BAO_UNSEAL_KEY" = "null" ]; then
+          echo "ERROR: Failed to extract root token or unseal key from initialization output"
+          echo "Init output: $INIT_OUTPUT"
+          exit 1
+        fi
+        
+        kubectl create secret generic openbao-keys -n cf-openbao \
+          --from-literal=root_token="$BAO_ROOT_TOKEN" \
+          --from-literal=unseal_key="$BAO_UNSEAL_KEY" \
+          --dry-run=client -o yaml | kubectl apply -f -
+        echo "openbao-keys secret created successfully"
+      else
+        echo "ERROR: OpenBao initialization failed"
+        kubectl exec openbao-0 -- bao operator init -format=json -key-shares=1 -key-threshold=1 || true
+        exit 1
+      fi
     else
       echo "OpenBao openbao-0 is initialized but sealed. Getting unseal key..."
-      BAO_UNSEAL_KEY=$(kubectl get secret openbao-keys -n cf-openbao -o jsonpath='{.data.unseal_key}' | base64 -d)
+      if kubectl get secret openbao-keys -n cf-openbao &>/dev/null; then
+        BAO_UNSEAL_KEY=$(kubectl get secret openbao-keys -n cf-openbao -o jsonpath='{.data.unseal_key}' | base64 -d)
+      else
+        echo "ERROR: OpenBao is initialized but openbao-keys secret is missing."
+        echo "This indicates a previous initialization failure or the secret was deleted."
+        echo "Manual intervention required - either:"
+        echo "1. Delete the OpenBao StatefulSet to start fresh, or"
+        echo "2. Manually unseal OpenBao if you have the keys"
+        exit 1
+      fi
     fi
     
     echo "Unsealing openbao-0..."

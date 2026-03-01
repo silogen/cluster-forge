@@ -95,6 +95,41 @@ apps:
               hs.message = "ScaledObject status unknown"
             end
             return hs
+          resource.customizations.health.apps_StatefulSet: |
+            -- Custom health check for OpenBao StatefulSet
+            -- Ensures both StatefulSet is ready AND initialization is complete
+            if obj.metadata.name == "openbao" and obj.metadata.namespace == "cf-openbao" then
+              -- Check StatefulSet readiness
+              if obj.status and obj.status.readyReplicas and obj.status.replicas then
+                if obj.status.readyReplicas == obj.status.replicas then
+                  -- StatefulSet is ready, now check if initialization completed
+                  local kubectl = io.popen("kubectl get secret openbao-user -n cf-openbao --ignore-not-found -o name 2>/dev/null")
+                  local secret_exists = kubectl:read("*line")
+                  kubectl:close()
+                  
+                  if secret_exists and secret_exists ~= "" then
+                    hs = {}
+                    hs.status = "Healthy"
+                    hs.message = "OpenBao StatefulSet ready and initialization complete"
+                    return hs
+                  else
+                    hs = {}
+                    hs.status = "Progressing" 
+                    hs.message = "OpenBao StatefulSet ready but initialization still in progress"
+                    return hs
+                  end
+                end
+              end
+              
+              -- Default StatefulSet health check
+              hs = {}
+              hs.status = "Progressing"
+              hs.message = "OpenBao StatefulSet not ready"
+              return hs
+            else
+              -- Default StatefulSet health check for non-OpenBao StatefulSets
+              return nil
+            end
         params:
           server.insecure: true
         rbac:
