@@ -43,6 +43,7 @@ enabledApps:
   - minio-tenant-config
   - openbao
   - openbao-config
+  - openbao-init
   - opentelemetry-operator
   - otel-lgtm-stack
   - prometheus-crds
