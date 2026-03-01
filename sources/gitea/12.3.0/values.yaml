@@ -115,6 +115,7 @@ service:
     type: ClusterIP
     port: 3000
     clusterIP: None
+    sessionAffinity: "None"
     loadBalancerIP:
     nodePort:
     externalTrafficPolicy:
@@ -143,6 +144,7 @@ service:
     type: ClusterIP
     port: 22
     clusterIP: None
+    sessionAffinity: "None"
     loadBalancerIP:
     nodePort:
     externalTrafficPolicy:
