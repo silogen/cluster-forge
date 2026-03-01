@@ -43,6 +43,9 @@ spec:
   {{- if and .Values.service.http.clusterIP (eq .Values.service.http.type "ClusterIP") }}
   clusterIP: {{ .Values.service.http.clusterIP }}
   {{- end }}
+  {{- if and .Values.service.http.sessionAffinity (ne .Values.service.http.clusterIP "None") (ne .Values.service.http.sessionAffinity "None") }}
+  sessionAffinity: {{ .Values.service.http.sessionAffinity }}
+  {{- end }}
   ports:
   - name: http
     port: {{ .Values.service.http.port }}

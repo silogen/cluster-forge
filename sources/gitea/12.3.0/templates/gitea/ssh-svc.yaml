@@ -29,6 +29,9 @@ spec:
   {{- if and .Values.service.ssh.clusterIP (eq .Values.service.ssh.type "ClusterIP") }}
   clusterIP: {{ .Values.service.ssh.clusterIP }}
   {{- end }}
+  {{- if and .Values.service.ssh.sessionAffinity (ne .Values.service.ssh.clusterIP "None") (ne .Values.service.ssh.sessionAffinity "None") }}
+  sessionAffinity: {{ .Values.service.ssh.sessionAffinity }}
+  {{- end }}
   {{- if .Values.service.ssh.externalIPs }}
   externalIPs:
     {{- toYaml .Values.service.ssh.externalIPs | nindent 4 }}
