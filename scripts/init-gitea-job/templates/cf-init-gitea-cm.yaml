@@ -78,8 +78,31 @@ data:
     
     # Function to create admin access token with retry
     create_admin_token() {
-      kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
-        gitea admin user generate-access-token --raw --username "$GITEA_ADMIN_USER" --token-name "api-token-$(date +%s)" --scopes all
+      # Check if we already have a token secret
+      if kubectl get secret gitea-admin-token -n cf-gitea &>/dev/null; then
+        echo "Admin token secret already exists, using existing token"
+        return 0
+      fi
+      
+      # Generate a unique token name
+      local token_name="api-token-$(date +%s)-$$"
+      
+      # Create the token and capture the result
+      local token_output
+      if token_output=$(kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
+        gitea admin user generate-access-token --raw --username "$GITEA_ADMIN_USER" --token-name "$token_name" --scopes all 2>/dev/null); then
+        
+        # Store the token in a global variable for use after retry
+        GITEA_TOKEN="$token_output"
+        
+        # Create the secret immediately
+        kubectl create secret generic gitea-admin-token --from-literal=token="${GITEA_TOKEN}" --namespace=cf-gitea --dry-run=client -o yaml | kubectl apply -f -
+        echo "Admin token '$token_name' created and secret stored"
+        return 0
+      else
+        echo "Failed to create admin token '$token_name'"
+        return 1
+      fi
     }
     
     echo "=== Gitea Initialization Started ==="
@@ -96,11 +119,12 @@ data:
     
     echo "Step 0: Create admin access token"
     if retry_with_backoff 5 3 "Create admin token" create_admin_token; then
-      GITEA_TOKEN=$(kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
-        gitea admin user generate-access-token --raw --username "$GITEA_ADMIN_USER" --token-name "api-token-$(date +%s)" --scopes all
-      )
-      kubectl create secret generic gitea-admin-token --from-literal=token="${GITEA_TOKEN}" --namespace=cf-gitea --dry-run=client -o yaml | kubectl apply -f -
-      echo "Admin token created successfully"
+      # Token is already created and stored in GITEA_TOKEN by the create_admin_token function
+      if [ -z "$GITEA_TOKEN" ]; then
+        # If GITEA_TOKEN is empty, try to get it from the existing secret
+        GITEA_TOKEN=$(kubectl get secret gitea-admin-token -n cf-gitea -o jsonpath='{.data.token}' | base64 -d)
+      fi
+      echo "Admin token ready for use"
     else
       echo "FATAL: Failed to create admin token"
       exit 1
