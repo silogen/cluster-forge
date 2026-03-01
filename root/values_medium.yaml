@@ -56,7 +56,6 @@ apps:
   kyverno-policies-storage-local-path:
     namespace: kyverno
     path: kyverno-policies/storage-local-path
-    ignoreDifferences: []
     syncWave: -20
     ignoreDifferences:
       - group: kyverno.io
@@ -188,6 +187,12 @@ apps:
         storageClassName: direct
         accessModes:
           - ReadWriteOnce
+
+  keycloak:
+    valuesObject:
+      # Increase memory resources for Keycloak to prevent OOMKilled during initialization
+      # Medium preset provides 1536Mi memory limit vs small preset's 768Mi
+      resourcesPreset: "medium"
 
   otel-lgtm-stack:
     valuesObject:
