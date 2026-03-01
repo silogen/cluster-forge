@@ -204,7 +204,7 @@ apps:
     helmParameters:
       - name: domain
         value: "{{ .Values.global.domain }}"
-    syncWave: -25
+    syncWave: -60
   external-secrets:
     path: external-secrets/0.15.1
     namespace: external-secrets

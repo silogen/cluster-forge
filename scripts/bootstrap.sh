@@ -464,28 +464,7 @@ apply_cluster_forge_parent_app() {
   echo "=== Creating ClusterForge Parent App ==="
   echo "Target revision: $TARGET_REVISION"
   
-  if [ "$TEMPLATE_ONLY" = false ]; then
-    # Check if ArgoCD Application CRDs are available before proceeding
-    echo "🔍 Checking ArgoCD Application CRDs availability..."
-    if ! kubectl get crd applications.argoproj.io >/dev/null 2>&1; then
-      echo "❌ Error: ArgoCD Application CRDs not found!"
-      echo "   ArgoCD must be deployed before creating Applications."
-      echo "   Please ensure ArgoCD bootstrap completed successfully."
-      echo ""
-      echo "💡 Suggestion: Re-run bootstrap without --apps filter to deploy ArgoCD first:"
-      echo "   $0 $DOMAIN --cluster-size=$CLUSTER_SIZE --target-revision=$TARGET_REVISION"
-      exit 1
-    fi
-    echo "✅ ArgoCD Application CRDs found"
-    
-    # Verify ArgoCD namespace exists
-    if ! kubectl get namespace argocd >/dev/null 2>&1; then
-      echo "❌ Error: ArgoCD namespace 'argocd' not found!"
-      echo "   Please ensure ArgoCD was deployed first."
-      exit 1
-    fi
-    echo "✅ ArgoCD namespace found"
-  fi
+
   
   helm template cluster-forge "${SOURCE_ROOT}/root" \
       --show-only templates/cluster-forge.yaml \
