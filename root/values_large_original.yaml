@@ -1,21 +1,3 @@
-apps:
-  minio-tenant:
-    valuesObject:
-      tenant:
-        pools:
-          - name: pool-0
-            servers: 1
-            size: 500Gi
-            storageClassName: direct
-            volumesPerServer: 1
-  openbao:
-    valuesObject:
-      server:
-        ha:
-          enabled: true
-          raft:
-            enabled: true
-          replicas: 3
 enabledApps:
   - aim-cluster-model-source
   - airm
@@ -55,9 +37,28 @@ enabledApps:
   - minio-tenant
   - minio-tenant-config
   - openbao
-  - openbao-config
   - openbao-init
+  - openbao-config
   - opentelemetry-operator
   - otel-lgtm-stack
   - prometheus-crds
   - rabbitmq
+
+apps:
+  minio-tenant:
+    valuesObject:
+      tenant:
+        pools:
+          - name: pool-0
+            servers: 1
+            size: 500Gi
+            storageClassName: direct
+            volumesPerServer: 1
+  openbao:
+    valuesObject:
+      server:
+        ha:
+          enabled: true
+          replicas: 3
+          raft:
+            enabled: true

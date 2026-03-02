@@ -2,138 +2,6 @@
 # Add Kyverno policy for local-path access mode mutation
 
 # Medium & Small clusters add local-path storage policy for RWX→RWO conversion
-apps:
-  argocd:
-    valuesObject:
-      applicationSet:
-        replicas: 1
-      controller:
-        replicas: 1
-        resources:
-          limits:
-            cpu: "2000m"
-            memory: "4Gi"
-          requests:
-            cpu: "500m" 
-            memory: "1Gi"
-      redis-ha:
-        enabled: false
-        redis:
-          resources:
-            limits:
-              cpu: "1000m"
-              memory: "2Gi"
-            requests:
-              cpu: "250m"
-              memory: "512Mi"
-      repoServer:
-        replicas: 1
-        resources:
-          limits:
-            cpu: "1000m" 
-            memory: "2Gi"
-          requests:
-            cpu: "250m"
-            memory: "512Mi"
-      server:
-        replicas: 1
-        resources:
-          limits:
-            cpu: "500m"
-            memory: "1Gi"
-          requests:
-            cpu: "125m"
-            memory: "256Mi"
-  grafana:
-    valuesObject:
-      persistence:
-        accessModes:
-          - ReadWriteOnce
-        enabled: true
-        size: 5Gi
-        storageClassName: local-path
-      replicas: 1
-      resources:
-        limits:
-          cpu: "1000m"
-          memory: "2Gi"
-        requests:
-          cpu: "250m"
-          memory: "512Mi"
-  kyverno-policies-storage-local-path:
-    ignoreDifferences: []
-    namespace: kyverno
-    path: kyverno-policies/storage-local-path
-    source: clusterForge
-    syncOptions:
-      - CreateNamespace=true
-    syncWave:
-      - group: kyverno.io
-        kind: ClusterPolicy
-    wave: 26  # Deploy after base policies
-  minio-tenant:
-    valuesObject:
-      tenant:
-        buckets:
-          - name: default-bucket
-            objectLock: true
-          - name: models
-            objectLock: true
-          - name: datasets
-            objectLock: false
-        pools:
-          - name: pool-0
-            servers: 1
-            size: 2Ti
-            storageClassName: local-path
-            volumesPerServer: 2
-        resources:
-          limits:
-            cpu: "4000m"
-            memory: "8Gi"
-          requests:
-            cpu: "1000m"
-            memory: "2Gi"
-  openbao:
-    valuesObject:
-      server:
-        dataStorage:
-          size: 5Gi
-          storageClass: local-path
-        ha:
-          enabled: false
-          raft:
-            enabled: false
-          replicas: 1
-        resources:
-          limits:
-            cpu: "1000m"
-            memory: "2Gi"
-          requests:
-            cpu: "250m"
-            memory: "512Mi"
-  prometheus:
-    valuesObject:
-      prometheus:
-        prometheusSpec:
-          resources:
-            limits:
-              cpu: "2000m"
-              memory: "4Gi"
-            requests:
-              cpu: "500m"
-              memory: "1Gi"
-          retention: 15d
-          retentionSize: 20GB
-          storageSpec:
-            volumeClaimTemplate:
-              spec:
-                accessModes:
-                  - ReadWriteOnce
-                resources:
-                  requests:
-                    storage: 25Gi
-                storageClassName: local-path
 enabledApps:
   - aim-cluster-model-source
   - airm
@@ -180,3 +48,142 @@ enabledApps:
   - otel-lgtm-stack
   - prometheus-crds
   - rabbitmq
+
+apps:
+  # Modular Kyverno policy applications (only the storage-local-path addition)
+  kyverno-policies-storage-local-path:
+    namespace: kyverno
+    path: kyverno-policies/storage-local-path
+    source: clusterForge
+    syncOptions:
+      - CreateNamespace=true
+    ignoreDifferences: []
+    wave: 26  # Deploy after base policies
+    syncWave:
+      - group: kyverno.io
+        kind: ClusterPolicy
+
+  argocd:
+    valuesObject:
+      applicationSet:
+        replicas: 1
+      controller:
+        replicas: 1
+        resources:
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+          requests:
+            cpu: "500m" 
+            memory: "1Gi"
+      redis-ha:
+        enabled: false
+        redis:
+          resources:
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+      repoServer:
+        replicas: 1
+        resources:
+          limits:
+            cpu: "1000m" 
+            memory: "2Gi"
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+      server:
+        replicas: 1
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+          requests:
+            cpu: "125m"
+            memory: "256Mi"
+
+  minio-tenant:
+    valuesObject:
+      tenant:
+        buckets:
+          - name: default-bucket
+            objectLock: true
+          - name: models
+            objectLock: true
+          - name: datasets
+            objectLock: false
+        pools:
+          - name: pool-0
+            servers: 1
+            size: 2Ti
+            storageClassName: local-path
+            volumesPerServer: 2
+        resources:
+          limits:
+            cpu: "4000m"
+            memory: "8Gi"
+          requests:
+            cpu: "1000m"
+            memory: "2Gi"
+
+  openbao:
+    valuesObject:
+      server:
+        ha:
+          enabled: false
+          replicas: 1
+          raft:
+            enabled: false
+        dataStorage:
+          size: 5Gi
+          storageClass: local-path
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+
+  prometheus:
+    valuesObject:
+      prometheus:
+        prometheusSpec:
+          retention: 15d
+          retentionSize: 20GB
+          resources:
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+          storageSpec:
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                storageClassName: local-path
+                resources:
+                  requests:
+                    storage: 25Gi
+
+  grafana:
+    valuesObject:
+      replicas: 1
+      resources:
+        limits:
+          cpu: "1000m"
+          memory: "2Gi"
+        requests:
+          cpu: "250m"
+          memory: "512Mi"
+      persistence:
+        enabled: true
+        size: 5Gi
+        storageClassName: local-path
+        accessModes:
+          - ReadWriteOnce
