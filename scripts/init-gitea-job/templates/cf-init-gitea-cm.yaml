@@ -148,6 +148,24 @@ data:
     global:
       clusterSize: {{ .Values.clusterSize }}
       domain: DOMAIN_PLACEHOLDER
+    {{- if .Values.airmImageRepository }}
+
+    # AIRM Image Repository Configuration
+    airm-api:
+      airm:
+        backend:
+          image:
+            repository: {{ .Values.airmImageRepository }}/airm-api
+        frontend:
+          image:
+            repository: {{ .Values.airmImageRepository }}/airm-ui
+
+    airm-dispatcher:
+      airm:
+        dispatcher:
+          image:
+            repository: {{ .Values.airmImageRepository }}/airm-dispatcher
+    {{- end }}
 
     EOF
     
