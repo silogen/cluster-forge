@@ -1,8 +1,5 @@
-# MEDIUM CLUSTER: All apps enabled (inherited from base values.yaml)
-# Add Kyverno policy for local-path access mode mutation
+# Medium & Small clusters add local-path storage policy for RWX→RWO conversion
 
-# Medium & Small clusters add local-path storage policy for RWX→RWO conversion
-# Medium & Small clusters add local-path storage policy for RWX→RWO conversion
 enabledApps:
   - aim-cluster-model-source
   - airm
@@ -55,14 +52,13 @@ apps:
   kyverno-policies-storage-local-path:
     namespace: kyverno
     path: kyverno-policies/storage-local-path
-    ignoreDifferences: []
     syncWave: -20
     ignoreDifferences:
       - group: kyverno.io
         kind: ClusterPolicy
         jsonPointers:
-          - /spec/rules/0/skipBackgroundRequests
-          - /spec/rules/0/validate/allowExistingViolations
+          - /spec/rules/*/skipBackgroundRequests
+          - /spec/rules/*/validate/allowExistingViolations
   argocd:
     valuesObject:
       applicationSet:
