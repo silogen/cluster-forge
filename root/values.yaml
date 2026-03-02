@@ -342,6 +342,14 @@ apps:
         adminUser: admin
         existingSecret: "keycloak-credentials"
         passwordSecretKey: "KEYCLOAK_INITIAL_ADMIN_PASSWORD"
+      extraEnvVars:
+        - name: JAVA_OPTS_APPEND
+          value: >-
+            -XX:MaxRAMPercentage=65.0
+            -XX:InitialRAMPercentage=50.0
+            -XX:MaxMetaspaceSize=512m
+            -XX:+ExitOnOutOfMemoryError
+            -Djava.awt.headless=true
       extraStartupArgs: "--cache=ispn --features=scripts,admin-fine-grained-authz,token-exchange --import-realm"
       extraVolumeMounts:
         - mountPath: /opt/keycloak/providers
