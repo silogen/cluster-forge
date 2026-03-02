@@ -12,6 +12,20 @@ data:
     GITEA_URL="${GITEA_URL:-http://gitea-http.cf-gitea.svc:3000}"
     GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-silogen-admin}"
     
+    echo "Waiting for Gitea service to be ready..."
+    for i in {1..30}; do
+      if nslookup gitea-http.cf-gitea.svc >/dev/null 2>&1; then
+        echo "DNS resolution successful for gitea-http.cf-gitea.svc"
+        break
+      fi
+      if [ $i -eq 30 ]; then
+        echo "ERROR: DNS resolution failed after 30 attempts"
+        exit 1
+      fi
+      echo "Waiting for DNS resolution... attempt $i/30"
+      sleep 2
+    done
+    
     echo "Step 0: Create admin access token"
     GITEA_TOKEN=$(kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
       gitea admin user generate-access-token --raw --username "$GITEA_ADMIN_USER" --token-name "api-token-$(date +%s)" --scopes all
