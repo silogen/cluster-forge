@@ -14,15 +14,15 @@ data:
     
     echo "Waiting for Gitea service to be ready..."
     for i in {1..30}; do
-      if nslookup gitea-http.cf-gitea.svc >/dev/null 2>&1; then
-        echo "DNS resolution successful for gitea-http.cf-gitea.svc"
+      if curl -s --max-time 5 "${GITEA_URL}" >/dev/null 2>&1; then
+        echo "Gitea service is ready and responding"
         break
       fi
       if [ $i -eq 30 ]; then
-        echo "ERROR: DNS resolution failed after 30 attempts"
+        echo "ERROR: Gitea service not ready after 30 attempts"
         exit 1
       fi
-      echo "Waiting for DNS resolution... attempt $i/30"
+      echo "Waiting for Gitea to be ready... attempt $i/30"
       sleep 2
     done
     
