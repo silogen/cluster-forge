@@ -1,9 +1,64 @@
-# MEDIUM CLUSTER: All apps enabled (inherited from base values.yaml)
-# Add Kyverno policy for local-path access mode mutation
+# Medium & Small clusters add local-path storage policy for RWX→RWO conversion
 
-# Medium & Small clusters add local-path storage policy for RWX→RWO conversion
-# Medium & Small clusters add local-path storage policy for RWX→RWO conversion
+enabledApps:
+  - aim-cluster-model-source
+  - airm
+  - amd-gpu-operator
+  - amd-gpu-operator-config
+  - appwrapper
+  - argocd
+  - argocd-config
+  - cert-manager
+  - cluster-auth
+  - cluster-auth-config
+  - cnpg-operator
+  - external-secrets
+  - external-secrets-config
+  - gateway-api
+  - gitea
+  - gitea-config
+  - kaiwo
+  - kaiwo-config
+  - kaiwo-crds
+  - keda
+  - kedify-otel
+  - keycloak
+  - kgateway
+  - kgateway-config
+  - kgateway-crds
+  - kserve
+  - kserve-crds
+  - kueue
+  - kueue-config
+  - kuberay-operator
+  - kyverno
+  - kyverno-config
+  - kyverno-policies-base
+  - kyverno-policies-storage-local-path
+  - metallb
+  - minio-operator
+  - minio-tenant
+  - minio-tenant-config
+  - openbao
+  - openbao-config
+  - opentelemetry-operator
+  - otel-lgtm-stack
+  - prometheus-crds
+  - rabbitmq
+
+
 apps:
+  # Modular Kyverno policy applications (only the storage-local-path addition)
+  kyverno-policies-storage-local-path:
+    namespace: kyverno
+    path: kyverno-policies/storage-local-path
+    syncWave: -20
+    ignoreDifferences:
+      - group: kyverno.io
+        kind: ClusterPolicy
+        jsonPointers:
+          - /spec/rules/*/skipBackgroundRequests
+          - /spec/rules/*/validate/allowExistingViolations
   argocd:
     valuesObject:
       applicationSet:
@@ -66,16 +121,6 @@ apps:
       # Increase memory resources for Keycloak to prevent OOMKilled during initialization
       # Medium preset provides 1536Mi memory limit vs small preset's 768Mi
       resourcesPreset: "medium"
-  kyverno-policies-storage-local-path:
-    ignoreDifferences:
-      - group: kyverno.io
-        jsonPointers:
-          - /spec/rules/0/skipBackgroundRequests
-          - /spec/rules/0/validate/allowExistingViolations
-        kind: ClusterPolicy
-    namespace: kyverno
-    path: kyverno-policies/storage-local-path
-    syncWave: -20
   minio-tenant:
     valuesObject:
       tenant:
@@ -154,49 +199,3 @@ apps:
                   requests:
                     storage: 25Gi
                 storageClassName: direct
-enabledApps:
-  - aim-cluster-model-source
-  - airm
-  - amd-gpu-operator
-  - amd-gpu-operator-config
-  - appwrapper
-  - argocd
-  - argocd-config
-  - cert-manager
-  - cluster-auth
-  - cluster-auth-config
-  - cnpg-operator
-  - external-secrets
-  - external-secrets-config
-  - gateway-api
-  - gitea
-  - gitea-config
-  - kaiwo
-  - kaiwo-config
-  - kaiwo-crds
-  - keda
-  - kedify-otel
-  - keycloak
-  - kgateway
-  - kgateway-config
-  - kgateway-crds
-  - kserve
-  - kserve-crds
-  - kueue
-  - kueue-config
-  - kuberay-operator
-  - kyverno
-  - kyverno-config
-  - kyverno-policies-base
-  - kyverno-policies-storage-local-path
-  - metallb
-  - minio-operator
-  - minio-tenant
-  - minio-tenant-config
-  - openbao
-  - openbao-config
-  - openbao-init
-  - opentelemetry-operator
-  - otel-lgtm-stack
-  - prometheus-crds
-  - rabbitmq
