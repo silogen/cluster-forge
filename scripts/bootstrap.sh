@@ -18,10 +18,13 @@ VALUES_FILE="values.yaml"
 
 # Check for required dependencies
 check_dependencies() {
+  local silent="${1:-false}"
   local missing_deps=()
   local all_good=true
   
-  echo "=== Checking Dependencies ==="
+  if [ "$silent" != "true" ]; then
+    echo "=== Checking Dependencies ==="
+  fi
   
   # Define required programs with installation instructions
   declare -A REQUIRED_PROGRAMS=(
@@ -45,22 +48,22 @@ check_dependencies() {
       case "$program" in
         "kubectl")
           version=$(kubectl version --client 2>/dev/null | head -n1 | cut -d' ' -f3 2>/dev/null || echo "unknown")
-          printf "  ✓ %-12s %s (%s)\n" "$program" "$(command -v "$program")" "$version"
+          [ "$silent" != "true" ] && printf "  ✓ %-12s %s (%s)\n" "$program" "$(command -v "$program")" "$version"
           ;;
         "helm")
           version=$(helm version --short --client 2>/dev/null | cut -d'+' -f1 2>/dev/null || echo "unknown")
-          printf "  ✓ %-12s %s (%s)\n" "$program" "$(command -v "$program")" "$version"
+          [ "$silent" != "true" ] && printf "  ✓ %-12s %s (%s)\n" "$program" "$(command -v "$program")" "$version"
           ;;
         "yq")
           version=$(yq --version 2>/dev/null | head -n1 | cut -d' ' -f4 2>/dev/null || echo "unknown")
-          printf "  ✓ %-12s %s (%s)\n" "$program" "$(command -v "$program")" "$version"
+          [ "$silent" != "true" ] && printf "  ✓ %-12s %s (%s)\n" "$program" "$(command -v "$program")" "$version"
           ;;
         *)
-          printf "  ✓ %-12s %s\n" "$program" "$(command -v "$program")"
+          [ "$silent" != "true" ] && printf "  ✓ %-12s %s\n" "$program" "$(command -v "$program")"
           ;;
       esac
     else
-      printf "  ✗ %-12s MISSING\n" "$program"
+      [ "$silent" != "true" ] && printf "  ✗ %-12s MISSING\n" "$program"
       missing_deps+=("$program")
       all_good=false
     fi
@@ -69,9 +72,9 @@ check_dependencies() {
   # Check optional programs (warn but don't fail)
   for program in "${!OPTIONAL_PROGRAMS[@]}"; do
     if command -v "$program" >/dev/null 2>&1; then
-      printf "  ✓ %-12s %s\n" "$program" "$(command -v "$program")"
+      [ "$silent" != "true" ] && printf "  ✓ %-12s %s\n" "$program" "$(command -v "$program")"
     else
-      printf "  ! %-12s MISSING (usually pre-installed)\n" "$program"
+      [ "$silent" != "true" ] && printf "  ! %-12s MISSING (usually pre-installed)\n" "$program"
     fi
   done
   
@@ -130,8 +133,10 @@ check_dependencies() {
     exit 1
   fi
   
-  echo "  ✓ All required dependencies are available!"
-  echo ""
+  if [ "$silent" != "true" ]; then
+    echo "  ✓ All required dependencies are available!"
+    echo ""
+  fi
 }
 
 parse_args() {
@@ -190,7 +195,6 @@ parse_args() {
           ;;
         --apps=*)
           APPS="${1#*=}"
-          TEMPLATE_ONLY=true
           shift
           ;;
       --help|-h)
@@ -202,8 +206,9 @@ parse_args() {
           values_file                 Optional. Values .yaml file to use, default: root/values.yaml
         
         Options:
-          --apps=APP1,APP2            Render only specified components (implies --template-only)
+          --apps=APP1,APP2            Deploy only specified components
                                       options: namespaces, argocd, gitea, cluster-forge, or any cluster-forge child app (see values.yaml for app names)
+                                      Use with --template-only to render instead of applying
           --cluster-size,      -s     options: [small|medium|large], default: medium
           --target-revision,   -r     cluster-forge git revision for ArgoCD to sync from 
                                       options: [tag|commit_hash|branch_name], default: $LATEST_RELEASE
@@ -216,6 +221,8 @@ parse_args() {
           $0 112.100.97.17.nip.io
           $0 dev.example.com --cluster-size=small --target-revision=v1.8.0
           $0 dev.example.com -s=small -r=feature-branch
+          $0 example.com --apps=openbao,openbao-init
+          $0 example.com --apps=keycloak -t
           
         Bootstrap Behavior:
           • Bootstrap deploys ArgoCD + Gitea directly (essential infrastructure)
@@ -415,7 +422,6 @@ EOF
 
 # Render specific cluster-forge child apps (for --apps filtering)
 render_cluster_forge_child_apps() {
-  echo "=== Rendering ClusterForge Child Apps: ${APPS} ==="
   
   # Create a temporary values file with only the requested apps enabled
   local temp_values="/tmp/filtered_values.yaml"
@@ -490,11 +496,20 @@ is_cluster_forge_child_app() {
 
 main() {
   parse_args "$@"
-  if [ "$SKIP_DEPENDENCY_CHECK" = false ]; then
-    check_dependencies
+  # Use silent dependency check when using --apps for cleaner output
+  if [ -z "$APPS" ]; then
+    if [ "$SKIP_DEPENDENCY_CHECK" = false ]; then
+      check_dependencies
+    fi
+    validate_args
+    print_summary
+  else
+    # For --apps mode, check deps silently and skip verbose output
+    if [ "$SKIP_DEPENDENCY_CHECK" = false ]; then
+      check_dependencies true
+    fi
+    validate_args
   fi
-  validate_args
-  print_summary
   
   # If specific apps are requested, check if they're cluster-forge child apps
   if [ -n "$APPS" ]; then

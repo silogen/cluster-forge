@@ -23,7 +23,13 @@ This guide explains how to bootstrap a complete GitOps environment using Cluster
 
 ### Options
 
+- **--apps=APP1,APP2**: Deploy only specified components (default: applies to cluster)
+  - options: `namespaces`, `argocd`, `gitea`, `cluster-forge`, or any cluster-forge child app (see values.yaml for app names)  
+  - Use with `--template-only` to render instead of applying
 - **--CLUSTER_SIZE** `[small|medium|large]`: Cluster size configuration (default: `medium`)
+- **--template-only**, **-t**: Output YAML manifests to stdout instead of applying to cluster  
+- **--target-revision**, **-r**: cluster-forge git revision for ArgoCD to sync from
+- **--skip-deps**: Skip dependency checking (for advanced users)
 - **--help**, **-h**: Show usage information
 
 ### Examples
@@ -34,6 +40,15 @@ This guide explains how to bootstrap a complete GitOps environment using Cluster
 
 # Large cluster
 ./scripts/bootstrap.sh example.com --CLUSTER_SIZE=large
+
+# Deploy only specific components
+./scripts/bootstrap.sh example.com --apps=openbao,openbao-init
+
+# Render templates for debugging (doesn't apply)
+./scripts/bootstrap.sh example.com --apps=gitea --template-only
+
+# Deploy from specific git branch
+./scripts/bootstrap.sh example.com --target-revision=feature-branch
 ```
 
 ## How It Works
@@ -338,6 +353,51 @@ enabledApps:
 # Add custom global values
 global:
   myCustomValue: "something"
+```
+
+## Selective Component Deployment
+
+The `--apps` flag allows you to deploy only specific components instead of the full stack. This is useful for:
+
+- **Development workflows**: Deploy only the components you're working on
+- **Troubleshooting**: Deploy components individually to isolate issues  
+- **Testing**: Validate specific component configurations
+- **Incremental deployment**: Add components to an existing cluster
+
+### Bootstrap Components
+
+These are the core infrastructure components deployed manually via helm template:
+
+- `namespaces` - Creates required namespaces (argocd, cf-gitea, cf-openbao)
+- `argocd` - GitOps controller for managing all other components
+- `gitea` - Self-hosted Git server for cluster-forge and cluster-values repositories
+- `cluster-forge` - ArgoCD parent application that manages all child apps
+
+### Cluster-Forge Child Apps
+
+Any application listed in `enabledApps` from values.yaml can be deployed individually:
+
+```bash
+# Deploy only OpenBao components
+./scripts/bootstrap.sh example.com --apps=openbao,openbao-init,openbao-config
+
+# Deploy only monitoring stack
+./scripts/bootstrap.sh example.com --apps=prometheus-crds,otel-lgtm-stack,opentelemetry-operator
+
+# Deploy identity management
+./scripts/bootstrap.sh example.com --apps=keycloak,cluster-auth,cluster-auth-config
+```
+
+### Template-Only Mode
+
+Combine with `--template-only` to render manifests without applying:
+
+```bash
+# Generate YAML for debugging
+./scripts/bootstrap.sh example.com --apps=keycloak --template-only > keycloak-manifests.yaml
+
+# View what would be deployed
+./scripts/bootstrap.sh example.com --apps=openbao,openbao-init --template-only | kubectl diff -f -
 ```
 
 ## File Cleanup
