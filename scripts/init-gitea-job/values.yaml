@@ -5,3 +5,6 @@ clusterSize: null
 domain: null
 # Git revision to deploy (injected by bootstrap script)
 targetRevision: v1.8.0-rc4
+# Base image repository for AIRM components (injected by bootstrap script when specified)
+# Example: "ghcr.io/silogen"
+airmImageRepository: null

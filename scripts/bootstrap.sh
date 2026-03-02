@@ -359,12 +359,18 @@ helm template --release-name gitea ${SOURCE_ROOT}/sources/gitea/${GITEA_VERSION}
 kubectl rollout status deploy/gitea -n cf-gitea
 
 # Gitea Init Job
-helm template --release-name gitea-init ${SOURCE_ROOT}/scripts/init-gitea-job \
-  --set clusterSize="${SIZE_VALUES_FILE:-values_${CLUSTER_SIZE}.yaml}" \
-  --set domain="${DOMAIN}" \
-  --set targetRevision="${TARGET_REVISION}" \
-  --kube-version=${KUBE_VERSION} \
-  | kubectl apply -f -
+HELM_ARGS="--release-name gitea-init ${SOURCE_ROOT}/scripts/init-gitea-job \
+  --set clusterSize=${SIZE_VALUES_FILE:-values_${CLUSTER_SIZE}.yaml} \
+  --set domain=${DOMAIN} \
+  --set targetRevision=${TARGET_REVISION} \
+  --kube-version=${KUBE_VERSION}"
+
+# Only add airmImageRepository if AIRM_IMAGE_REPOSITORY is set and non-empty
+if [ -n "${AIRM_IMAGE_REPOSITORY:-}" ]; then
+  HELM_ARGS="${HELM_ARGS} --set airmImageRepository=${AIRM_IMAGE_REPOSITORY}"
+fi
+
+helm template ${HELM_ARGS} | kubectl apply -f -
 
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
 
