@@ -1,6 +1,6 @@
 # Bootstrap Guide
 
-This guide explains how to bootstrap a complete GitOps environment using Cluster-Forge's three-phase deployment model. The bootstrap process establishes ArgoCD, OpenBao (secret management), and Gitea (Git repository) before deploying the full application stack.
+This guide explains how to bootstrap a complete GitOps environment using Cluster-Forge's three-phase deployment model. The bootstrap process establishes ArgoCD and Gitea (Git repository) as foundation components, then creates the cluster-forge Application which manages all remaining components including OpenBao and the full application stack via ArgoCD.
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ This guide explains how to bootstrap a complete GitOps environment using Cluster
 ## Usage
 
 ```bash
-./scripts/bootstrap.sh <domain> [--CLUSTER_SIZE=small|medium|large]
+./scripts/bootstrap.sh <domain> [--cluster-size=small|medium|large]
 ```
 
 ### Arguments
@@ -26,7 +26,7 @@ This guide explains how to bootstrap a complete GitOps environment using Cluster
 - **--apps=APP1,APP2**: Deploy only specified components (default: applies to cluster)
   - options: `namespaces`, `argocd`, `gitea`, `cluster-forge`, or any cluster-forge child app (see values.yaml for app names)  
   - Use with `--template-only` to render instead of applying
-- **--CLUSTER_SIZE** `[small|medium|large]`: Cluster size configuration (default: `medium`)
+- **--cluster-size** `[small|medium|large]`: Cluster size configuration (default: `medium`)
 - **--template-only**, **-t**: Output YAML manifests to stdout instead of applying to cluster  
 - **--target-revision**, **-r**: cluster-forge git revision for ArgoCD to sync from
 - **--skip-deps**: Skip dependency checking (for advanced users)
@@ -39,7 +39,7 @@ This guide explains how to bootstrap a complete GitOps environment using Cluster
 ./scripts/bootstrap.sh 192.168.1.100.nip.io
 
 # Large cluster
-./scripts/bootstrap.sh example.com --CLUSTER_SIZE=large
+./scripts/bootstrap.sh example.com --cluster-size=large
 
 # Deploy only specific components
 ./scripts/bootstrap.sh example.com --apps=openbao,openbao-init
@@ -71,10 +71,9 @@ The bootstrap script uses a three-phase deployment model:
 - Sets `global.domain` and `global.clusterSize` in merged configuration
 
 **2. Namespace Creation**
-Creates three namespaces for core components:
+Creates two namespaces for bootstrap components:
 - `argocd` - GitOps controller
 - `cf-gitea` - Git repository server
-- `cf-openbao` - Secret management system
 
 **3. ArgoCD Bootstrap**
 - Extracts ArgoCD values from merged configuration
@@ -86,18 +85,7 @@ Creates three namespaces for core components:
   - redis Deployment
   - repo-server Deployment
 
-**4. OpenBao Bootstrap**
-- Extracts OpenBao values from merged configuration
-- Deploys OpenBao using `helm template` with server-side apply
-- Waits for `openbao-0` pod to be running
-- Runs initialization job (`openbao-init-job`) which:
-  - Initializes OpenBao Raft cluster
-  - Unseals all pods (3 for large clusters with HA)
-  - Configures Vault policies for each namespace
-  - Creates Kubernetes auth method
-  - Stores initialization keys and secrets
-
-**5. Gitea Bootstrap**
+**4. Gitea Bootstrap**
 - Generates random admin password using `openssl rand -hex 16`
 - Creates `initial-cf-values` ConfigMap with merged configuration
 - Creates `gitea-admin-credentials` secret
@@ -112,14 +100,23 @@ Creates three namespaces for core components:
 
 ### Phase 3: App-of-Apps Deployment (ArgoCD-Managed)
 
-**6. ClusterForge Application Deployment**
+**5. ClusterForge Application Deployment**
 - Renders root helm chart with merged configuration
 - Creates `cluster-forge` Application resource in ArgoCD
+- ArgoCD syncs all remaining components in wave order:
+  - Wave -70: OpenBao (secrets management)
+  - Wave -60: OpenBao configuration  
+  - Wave -50: OpenBao initialization job
+  - Wave -40: External Secrets, Cert-Manager
+  - Wave -30 to 0: All other applications
+
+**Key Improvement**: OpenBao is now managed by ArgoCD rather than bootstrapped separately, simplifying the bootstrap process while maintaining proper dependency ordering through sync waves.
+
 - When `externalValues.enabled: true`, uses multi-source feature:
   - Source 1: cluster-forge repo (root/ helm chart)
   - Source 2: cluster-values repo (custom values.yaml)
-- ArgoCD deploys all enabled applications based on configuration
-- Applications deployed in wave order (-5 to 0) based on dependencies
+- ArgoCD manages the complete application lifecycle
+- Proper dependency ordering ensures OpenBao is ready before applications that depend on secrets
 
 **7. Cleanup**
 - Removes temporary merged values files from /tmp/
@@ -164,7 +161,7 @@ ClusterForge uses a layered configuration approach with YAML merge semantics:
        targetRevision: main
      
      global:
-       clusterSize: medium  # Set by --CLUSTER_SIZE flag
+       clusterSize: medium  # Set by --cluster-size flag
        domain: example.com  # Set by domain argument
      ```
 

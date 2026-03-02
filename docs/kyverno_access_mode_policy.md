@@ -110,9 +110,9 @@ cluster-forge/
 # The policy is deployed or not based on values_*.yaml configuration
 # Large clusters simply don't include the policy in enabledApps
 
-./scripts/bootstrap.sh example.com --CLUSTER_SIZE=small   # Policy deployed
-./scripts/bootstrap.sh example.com --CLUSTER_SIZE=medium # Policy deployed  
-./scripts/bootstrap.sh example.com --CLUSTER_SIZE=large  # Policy NOT deployed
+./scripts/bootstrap.sh example.com --cluster-size=small   # Policy deployed
+./scripts/bootstrap.sh example.com --cluster-size=medium # Policy deployed  
+./scripts/bootstrap.sh example.com --cluster-size=large  # Policy NOT deployed
 ```
 
 ## Usage Examples
@@ -121,7 +121,7 @@ cluster-forge/
 
 #### Small/Medium Cluster
 ```bash
-./scripts/bootstrap.sh dev.example.com --CLUSTER_SIZE=small
+./scripts/bootstrap.sh dev.example.com --cluster-size=small
 ```
 **Result**:
 - Kyverno policy **deployed**
@@ -130,7 +130,7 @@ cluster-forge/
 
 #### Large Cluster  
 ```bash
-./scripts/bootstrap.sh prod.example.com --CLUSTER_SIZE=large
+./scripts/bootstrap.sh prod.example.com --cluster-size=large
 ```
 **Result**:
 - Kyverno policy **NOT deployed at all**
@@ -217,7 +217,7 @@ kubectl get applications -n argocd -o yaml | grep "local-path-access-mode-polici
 
 # If found, the wrong values_*.yaml was used
 # Redeploy with correct size:
-./scripts/bootstrap.sh <domain> --CLUSTER_SIZE=large
+   ./scripts/bootstrap.sh <domain> --cluster-size=large
 ```
 
 #### Policy NOT Working on Small/Medium Clusters
@@ -262,7 +262,7 @@ kubectl logs -n kyverno -l app.kubernetes.io/name=kyverno
 ### Upgrading from Small/Medium to Large
 1. **Deploy large cluster configuration**:
    ```bash
-   ./scripts/bootstrap.sh <domain> --CLUSTER_SIZE=large
+./scripts/bootstrap.sh <domain> --cluster-size=large
    ```
 2. **Policy automatically removed** (not in enabledApps)
 3. **Deploy Longhorn** for native RWX support
