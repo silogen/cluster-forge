@@ -247,6 +247,11 @@ apps:
         enabled: true
       test:
         enabled: false
+      service:
+        http:
+          sessionAffinity: "None"
+        ssh:
+          sessionAffinity: "None"
     helmParameters:
       - name: clusterDomain
         value: "{{ .Values.global.domain }}"
