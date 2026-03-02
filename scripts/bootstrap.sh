@@ -387,16 +387,22 @@ bootstrap_gitea() {
       openssl rand -hex 16 | tr 'a-f' 'A-F' | head -c 32
   }
   
-  # Create initial-cf-values configmap (simple values for gitea-init-job)
-  cat > /tmp/simple_values.yaml << EOF
-  global:
-    domain: ${DOMAIN}
-    clusterSize: ${SIZE_VALUES_FILE}
-  clusterForge:
-    targetRevision: ${TARGET_REVISION}
-EOF
+  # Create initial-cf-values configmap (complete values for gitea-init-job)
+  # Use the complete root values.yaml with filled placeholders instead of simplified version
+  cp "${SOURCE_ROOT}/root/${VALUES_FILE}" /tmp/complete_values.yaml
   
-  kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$(cat /tmp/simple_values.yaml)" --dry-run=client -o yaml | apply_or_template -n cf-gitea -f -
+  # Fill in placeholder values using yq (these are used by gitea-init job)
+  yq eval ".global.domain = \"${DOMAIN}\"" -i /tmp/complete_values.yaml
+  yq eval ".global.clusterSize = \"${SIZE_VALUES_FILE}\"" -i /tmp/complete_values.yaml
+  yq eval ".clusterForge.targetRevision = \"${TARGET_REVISION}\"" -i /tmp/complete_values.yaml
+  
+  # Merge with size-specific values if they exist
+  if [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+    yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' /tmp/complete_values.yaml "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > /tmp/complete_values_merged.yaml
+    mv /tmp/complete_values_merged.yaml /tmp/complete_values.yaml
+  fi
+  
+  kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$(cat /tmp/complete_values.yaml)" --dry-run=client -o yaml | apply_or_template -n cf-gitea -f -
   
   kubectl create secret generic gitea-admin-credentials \
     --namespace=cf-gitea \
@@ -479,8 +485,9 @@ apply_cluster_forge_parent_app() {
       --set global.domain="${DOMAIN}" \
       --set global.clusterSize="${SIZE_VALUES_FILE}" \
       --set clusterForge.targetRevision="${TARGET_REVISION}" \
+      --set externalValues.targetRevision="${TARGET_REVISION}" \
       --set externalValues.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git" \
-      --set clusterForge.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git" \
+      --set clusterForge.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-forge.git" \
       --namespace argocd \
       --kube-version "${KUBE_VERSION}" | apply_or_template -f -
 }

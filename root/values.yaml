@@ -1,14 +1,14 @@
 clusterForge:
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
-  targetRevision: main
+  targetRevision: # injected via scripts/bootstrap.sh; tag, branch, or commit
 externalValues:
   enabled: true
   path: values.yaml
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
   targetRevision: main
 global:
-  clusterSize: # to be filled by bootstrap script (small, medium, large)
-  domain: # to be filled by bootstrap script
+  clusterSize:    # injected via scripts/bootstrap.sh
+  domain:         # injected via scripts/bootstrap.sh
 
 apps:
   aim-cluster-model-source:
