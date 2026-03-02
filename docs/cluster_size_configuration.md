@@ -99,9 +99,9 @@ The bootstrap script automatically applies the appropriate size configuration:
 ./scripts/bootstrap.sh example.com
 
 # Explicitly specify cluster size
-./scripts/bootstrap.sh example.com --CLUSTER_SIZE=small
-./scripts/bootstrap.sh example.com --CLUSTER_SIZE=medium  
-./scripts/bootstrap.sh example.com --CLUSTER_SIZE=large
+./scripts/bootstrap.sh example.com --cluster-size=small
+./scripts/bootstrap.sh example.com --cluster-size=medium  
+./scripts/bootstrap.sh example.com --cluster-size=large
 ```
 
 ### Configuration Merge Logic

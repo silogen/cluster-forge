@@ -10,12 +10,12 @@ Cluster-Forge implements a sophisticated dual-repository GitOps deployment patte
 ```yaml
 clusterForge:
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
-  targetRevision: main
+  targetRevision: # filled by bootstrap script --target-revision
 
 externalValues:
   enabled: true  # Uses multi-source pattern
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
-  targetRevision: main
+  targetRevision: main  # always main for local cluster overrides
 ```
 
 **Purpose**: Self-contained cluster-native GitOps with local Gitea  
@@ -31,7 +31,7 @@ externalValues:
 ```yaml
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: v1.8.0-rc2
+  targetRevision: # filled by bootstrap script --target-revision (e.g., v1.8.0, feature-branch)
 
 externalValues:
   enabled: false  # Single source from GitHub
