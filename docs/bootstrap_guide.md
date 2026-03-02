@@ -26,6 +26,10 @@ This guide explains how to bootstrap a complete GitOps environment using Cluster
 - **--CLUSTER_SIZE** `[small|medium|large]`: Cluster size configuration (default: `medium`)
 - **--help**, **-h**: Show usage information
 
+### Environment Variables
+
+- **AIRM_IMAGE_REPOSITORY**: Optional base repository URL for AIRM container images. When set, overrides default AIRM image repositories in the cluster-values configuration. Example: `ghcr.io/mycompany`
+
 ### Examples
 
 ```bash
@@ -34,6 +38,12 @@ This guide explains how to bootstrap a complete GitOps environment using Cluster
 
 # Large cluster
 ./scripts/bootstrap.sh example.com --CLUSTER_SIZE=large
+
+# Custom AIRM image repository
+AIRM_IMAGE_REPOSITORY=ghcr.io/mycompany ./scripts/bootstrap.sh example.com
+
+# Air-gapped deployment with local registry
+AIRM_IMAGE_REPOSITORY=harbor.internal.com/airm ./scripts/bootstrap.sh 192.168.1.100.nip.io --CLUSTER_SIZE=small
 ```
 
 ## How It Works
@@ -151,6 +161,22 @@ ClusterForge uses a layered configuration approach with YAML merge semantics:
      global:
        clusterSize: medium  # Set by --CLUSTER_SIZE flag
        domain: example.com  # Set by domain argument
+
+     # AIRM Image Repository Configuration (optional, only when AIRM_IMAGE_REPOSITORY is set)
+     airm-api:
+       airm:
+         backend:
+           image:
+             repository: ghcr.io/mycompany/airm-api
+         frontend:
+           image:
+             repository: ghcr.io/mycompany/airm-ui
+
+     airm-dispatcher:
+       airm:
+         dispatcher:
+           image:
+             repository: ghcr.io/mycompany/airm-dispatcher
      ```
 
 ### Value Merging Order

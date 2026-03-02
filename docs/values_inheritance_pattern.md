@@ -164,6 +164,30 @@ git push
 # ArgoCD automatically detects and syncs the changes
 ```
 
+**Example: AIRM Image Repository Configuration**
+
+To configure custom AIRM image repositories post-bootstrap, modify `cluster-values/values.yaml`:
+
+```yaml
+# Custom AIRM image repositories for private registry
+airm-api:
+  airm:
+    backend:
+      image:
+        repository: harbor.mycompany.com/airm/airm-api
+    frontend:
+      image:
+        repository: harbor.mycompany.com/airm/airm-ui
+
+airm-dispatcher:
+  airm:
+    dispatcher:
+      image:
+        repository: harbor.mycompany.com/airm/airm-dispatcher
+```
+
+This allows deployment from private registries, air-gapped environments, or custom built images.
+
 ### Configuration Version Control
 
 Benefits of the dual-repository pattern:
