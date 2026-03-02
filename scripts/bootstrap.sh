@@ -482,12 +482,9 @@ apply_cluster_forge_parent_app() {
       --show-only templates/cluster-forge.yaml \
       --values "${SOURCE_ROOT}/root/${VALUES_FILE}" \
       --values "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" \
-      --set global.domain="${DOMAIN}" \
       --set global.clusterSize="${SIZE_VALUES_FILE}" \
+      --set global.domain="${DOMAIN}" \
       --set clusterForge.targetRevision="${TARGET_REVISION}" \
-      --set externalValues.targetRevision="${TARGET_REVISION}" \
-      --set externalValues.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git" \
-      --set clusterForge.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-forge.git" \
       --namespace argocd \
       --kube-version "${KUBE_VERSION}" | apply_or_template -f -
 }
