@@ -254,10 +254,8 @@ apps:
       postgresql-ha:
         enabled: false
       service:
-        http:
-          sessionAffinity: "None"
-        ssh:
-          sessionAffinity: "None"
+        http: {}
+        ssh: {}
       strategy:
         type: "Recreate"
       test:
