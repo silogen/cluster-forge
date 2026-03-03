@@ -159,19 +159,16 @@ data:
             value: {{ .Values.airmImageRepository }}/airm-api
           - name: airm-api.airm.backend.imagePullSecrets[0].name
             value: regcred
-          
           # FRONTEND (airm-ui)
           - name: airm-ui.airm.frontend.image.repository
             value: {{ .Values.airmImageRepository }}/airm-ui
-          - name: airm-api.airm.frontend.imagePullSecrets[0].name
+          - name: airm-ui.airm.frontend.imagePullSecrets[0].name
             value: regcred
-          
           # DISPATCHER (airm-dispatcher)
           - name: airm-dispatcher.airm.dispatcher.image.repository
             value: {{ .Values.airmImageRepository }}/airm-dispatcher
           - name: airm-dispatcher.airm.dispatcher.imagePullSecrets[0].name
             value: regcred
-
           # AGENT (airm-agent)
           - name: agent.airm.imagePullSecrets[0].name
             value: regcred
