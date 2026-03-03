@@ -369,38 +369,26 @@ bootstrap_argocd() {
   fi
 }
 
-# Extract OpenBao values using yq
-extract_openbao_values() {
-  # Create temporary values file for OpenBao bootstrap
-  cat > /tmp/openbao_bootstrap_values.yaml << EOF
-# OpenBao bootstrap values
-EOF
-  
-  # Extract and merge OpenBao values from the apps structure
-  yq eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" >> /tmp/openbao_bootstrap_values.yaml
-  if [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
-    if yq eval '.apps.openbao.valuesObject // ""' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | grep -q .; then
-      yq eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' /tmp/openbao_bootstrap_values.yaml - > /tmp/openbao_bootstrap_values_merged.yaml
-      mv /tmp/openbao_bootstrap_values_merged.yaml /tmp/openbao_bootstrap_values.yaml
-    fi
-  fi
-}
+
 
 bootstrap_openbao() {
   echo "=== OpenBao Bootstrap ==="
   
-  # Get OpenBao version from app path
+  # Get OpenBao version from app path - using same method as main
   OPENBAO_VERSION=$(yq eval '.apps.openbao.path' "${SOURCE_ROOT}/root/${VALUES_FILE}" | cut -d'/' -f2)
   echo "OpenBao version: $OPENBAO_VERSION"
   
-  extract_openbao_values
+  # Extract OpenBao values from merged config - matching main approach
+  yq eval '.apps.openbao.valuesObject' ${SOURCE_ROOT}/root/${VALUES_FILE} > /tmp/openbao_values.yaml
+  yq eval '.apps.openbao.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE} > /tmp/openbao_size_values.yaml
   
   # Use server-side apply to match ArgoCD's field management strategy
   helm template --release-name openbao ${SOURCE_ROOT}/sources/openbao/${OPENBAO_VERSION} --namespace cf-openbao \
-    --values /tmp/openbao_bootstrap_values.yaml \
+    -f /tmp/openbao_values.yaml \
+    -f /tmp/openbao_size_values.yaml \
     --set ui.enabled=true \
     --kube-version=${KUBE_VERSION} | apply_or_template --server-side --field-manager=argocd-controller --force-conflicts -f -
-  
+    
   if [ "$TEMPLATE_ONLY" = false ]; then
     kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
     
@@ -409,47 +397,31 @@ bootstrap_openbao() {
     cat ${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-manager-cm.yaml | \
       sed "s|name: openbao-secret-manager-scripts|name: openbao-secret-manager-scripts-init|g" | kubectl apply -f -
     
-    # Create initial secrets config for init job (separate from ArgoCD-managed version)
+    # Create initial secrets config for init job (separate from ArgoCD-managed version)  
     cat ${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml | \
       sed "s|{{ .Values.domain }}|${DOMAIN}|g" | \
       sed "s|name: openbao-secrets-config|name: openbao-secrets-init-config|g" | kubectl apply -f -
     
     # Pass OpenBao configuration to init script
     helm template --release-name openbao-init ${SOURCE_ROOT}/scripts/init-openbao-job \
-      --values /tmp/openbao_bootstrap_values.yaml \
+      -f /tmp/openbao_values.yaml \
       --set domain="${DOMAIN}" \
       --kube-version=${KUBE_VERSION} | kubectl apply -f -
     kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
   fi
 }
 
-# Extract Gitea values using yq
-extract_gitea_values() {
-  # Create temporary values file for Gitea bootstrap
-  cat > /tmp/gitea_bootstrap_values.yaml << EOF
-clusterDomain: ${DOMAIN}
-gitea:
-  config:
-    server:
-      ROOT_URL: https://gitea.${DOMAIN}/
-EOF
-  
-  # Extract and merge Gitea values from the apps structure
-  yq eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" >> /tmp/gitea_bootstrap_values.yaml
-  if [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
-    if yq eval '.apps.gitea.valuesObject // ""' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | grep -q .; then
-      yq eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' /tmp/gitea_bootstrap_values.yaml - > /tmp/gitea_bootstrap_values_merged.yaml
-      mv /tmp/gitea_bootstrap_values_merged.yaml /tmp/gitea_bootstrap_values.yaml
-    fi
-  fi
-}
+
 
 bootstrap_gitea() {
- # Gitea bootstrap
   echo "=== Gitea Bootstrap ==="
   generate_password() {
       openssl rand -hex 16 | tr 'a-f' 'A-F' | head -c 32
   }
+  
+  # Get Gitea version from app path - matching main approach
+  GITEA_VERSION=$(yq eval '.apps.gitea.path' "${SOURCE_ROOT}/root/${VALUES_FILE}" | cut -d'/' -f2)
+  echo "Gitea version: $GITEA_VERSION"
   
   # Create initial-cf-values configmap (complete values for gitea-init-job)
   # Use the complete root values.yaml with filled placeholders instead of simplified version
@@ -474,12 +446,22 @@ bootstrap_gitea() {
     --from-literal=password=$(generate_password) \
     --dry-run=client -o yaml | apply_or_template -f -
   
-  extract_gitea_values
-  helm template --release-name gitea ${SOURCE_ROOT}/sources/gitea/12.3.0 --namespace cf-gitea \
-    --values /tmp/gitea_bootstrap_values.yaml \
+  # Extract Gitea values like main does
+  yq eval '.apps.gitea.valuesObject' ${SOURCE_ROOT}/root/${VALUES_FILE} > /tmp/gitea_values.yaml
+  yq eval '.apps.gitea.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE} > /tmp/gitea_size_values.yaml
+  
+  # Bootstrap Gitea - matching main approach
+  helm template --release-name gitea ${SOURCE_ROOT}/sources/gitea/${GITEA_VERSION} --namespace cf-gitea \
+    -f /tmp/gitea_values.yaml \
+    -f /tmp/gitea_size_values.yaml \
+    --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}/" \
     --kube-version=${KUBE_VERSION} | apply_or_template -f -
   
-  # Gitea Init Job
+  if [ "$TEMPLATE_ONLY" = false ]; then
+    kubectl rollout status deploy/gitea -n cf-gitea --timeout="${DEFAULT_TIMEOUT}"
+  fi
+  
+  # Gitea Init Job - preserve AIRM repository functionality
   HELM_ARGS="--release-name gitea-init ${SOURCE_ROOT}/scripts/init-gitea-job \
   --set clusterSize=${SIZE_VALUES_FILE:-values_${CLUSTER_SIZE}.yaml} \
   --set domain=${DOMAIN} \
@@ -491,10 +473,9 @@ bootstrap_gitea() {
     HELM_ARGS="${HELM_ARGS} --set airmImageRepository=${AIRM_IMAGE_REPOSITORY}"
   fi
 
-  helm template ${HELM_ARGS} | kubectl apply -f -
+  helm template ${HELM_ARGS} | apply_or_template -f -
   
   if [ "$TEMPLATE_ONLY" = false ]; then
-    kubectl rollout status deploy/gitea -n cf-gitea --timeout="${DEFAULT_TIMEOUT}"
     kubectl wait --for=condition=complete --timeout="${DEFAULT_TIMEOUT}" job/gitea-init-job -n cf-gitea
   fi
 }
