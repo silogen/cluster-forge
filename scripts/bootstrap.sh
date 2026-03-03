@@ -387,16 +387,26 @@ bootstrap_argocd() {
 bootstrap_openbao() {
   echo "=== OpenBao Bootstrap ==="
   
+  # Debug output for troubleshooting
+  echo "Debug: SOURCE_ROOT='${SOURCE_ROOT}'"
+  echo "Debug: VALUES_FILE='${VALUES_FILE}'"
+  echo "Debug: SIZE_VALUES_FILE='${SIZE_VALUES_FILE}'"
+  echo "Debug: CLUSTER_SIZE='${CLUSTER_SIZE}'"
+  
   # Get OpenBao version from app path - using same method as main
   OPENBAO_VERSION=$(yq eval '.apps.openbao.path' "${SOURCE_ROOT}/root/${VALUES_FILE}" | cut -d'/' -f2)
   echo "OpenBao version: $OPENBAO_VERSION"
   
   # Extract OpenBao values from merged config - matching main approach
-  yq eval '.apps.openbao.valuesObject' ${SOURCE_ROOT}/root/${VALUES_FILE} > /tmp/openbao_values.yaml
+  echo "Extracting OpenBao values..."
+  yq eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > /tmp/openbao_values.yaml || { echo "ERROR: Failed to extract OpenBao values from ${VALUES_FILE}"; exit 1; }
+  
   if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
-    yq eval '.apps.openbao.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE} > /tmp/openbao_size_values.yaml
+    echo "Extracting OpenBao size-specific values from ${SIZE_VALUES_FILE}..."
+    yq eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > /tmp/openbao_size_values.yaml || { echo "ERROR: Failed to extract OpenBao size values from ${SIZE_VALUES_FILE}"; exit 1; }
   else
-    echo "# No size-specific values" > /tmp/openbao_size_values.yaml
+    echo "No size-specific values file, creating empty placeholder..."
+    printf "# No size-specific values\n" > /tmp/openbao_size_values.yaml
   fi
   
   # Use server-side apply to match ArgoCD's field management strategy
@@ -436,6 +446,12 @@ bootstrap_gitea() {
       openssl rand -hex 16 | tr 'a-f' 'A-F' | head -c 32
   }
   
+  # Debug output for troubleshooting
+  echo "Debug: SOURCE_ROOT='${SOURCE_ROOT}'"
+  echo "Debug: VALUES_FILE='${VALUES_FILE}'"
+  echo "Debug: SIZE_VALUES_FILE='${SIZE_VALUES_FILE}'"
+  echo "Debug: CLUSTER_SIZE='${CLUSTER_SIZE}'"
+  
   # Get Gitea version from app path - matching main approach
   GITEA_VERSION=$(yq eval '.apps.gitea.path' "${SOURCE_ROOT}/root/${VALUES_FILE}" | cut -d'/' -f2)
   echo "Gitea version: $GITEA_VERSION"
@@ -468,11 +484,15 @@ bootstrap_gitea() {
     --dry-run=client -o yaml | apply_or_template -f -
   
   # Extract Gitea values like main does
-  yq eval '.apps.gitea.valuesObject' ${SOURCE_ROOT}/root/${VALUES_FILE} > /tmp/gitea_values.yaml
+  echo "Extracting Gitea values..."
+  yq eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > /tmp/gitea_values.yaml || { echo "ERROR: Failed to extract Gitea values from ${VALUES_FILE}"; exit 1; }
+  
   if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
-    yq eval '.apps.gitea.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE} > /tmp/gitea_size_values.yaml
+    echo "Extracting Gitea size-specific values from ${SIZE_VALUES_FILE}..."
+    yq eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > /tmp/gitea_size_values.yaml || { echo "ERROR: Failed to extract Gitea size values from ${SIZE_VALUES_FILE}"; exit 1; }
   else
-    echo "# No size-specific values" > /tmp/gitea_size_values.yaml
+    echo "No size-specific values file, creating empty placeholder..."
+    printf "# No size-specific values\n" > /tmp/gitea_size_values.yaml
   fi
   
   # Bootstrap Gitea - matching main approach
