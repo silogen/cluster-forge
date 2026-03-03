@@ -220,7 +220,7 @@ parse_args() {
         Options:
           --airm-image-repository=url        Custom AIRM image repository for gitea-init job (e.g., ghcr.io/silogen, requires regcreds)
           --apps=app1[,app2,...]             Deploy (kubectl apply) specified components onlye
-                                             options: namespaces, argocd, gitea, cluster-forge, or any cluster-forge child app (see values.yaml for app names)
+                                             options: namespaces, argocd, openbao, gitea, cluster-forge, or any cluster-forge child app (see values.yaml for app names)
                                              
           --cluster-size=[size],      -s     [size] can be one of small|medium|large, default: medium
           --help,                     -h     Show this help message and exit
@@ -234,11 +234,11 @@ parse_args() {
           $0 112.100.97.17.nip.io
           $0 dev.example.com --cluster-size=small --target-revision=v1.8.0
           $0 dev.example.com -s=small -r=feature-branch
-          $0 example.com --apps=openbao,openbao-init
+          $0 example.com --apps=openbao
           $0 example.com --apps=keycloak -t
           
         Bootstrap Behavior:
-          • deploys ArgoCD + Gitea directly (essential infrastructure)
+          • deploys ArgoCD + OpenBao + Gitea directly (essential infrastructure)
           • apply the cluster-forge application manifest (parent app only)
           • ArgoCD syncs remaining apps from specified target revision, respecting syncWaves and dependencies
 HELP_OUTPUT
@@ -331,7 +331,7 @@ apply_or_template() {
 
 # Create namespaces
 create_namespaces() {
-  for ns in argocd cf-gitea; do
+  for ns in argocd cf-gitea cf-openbao; do
     kubectl create ns "$ns" --dry-run=client -o yaml | apply_or_template -f -
   done
 }
@@ -369,7 +369,59 @@ bootstrap_argocd() {
   fi
 }
 
-# OpenBao is now deployed by ArgoCD with syncWave -70/-60
+# Extract OpenBao values using yq
+extract_openbao_values() {
+  # Create temporary values file for OpenBao bootstrap
+  cat > /tmp/openbao_bootstrap_values.yaml << EOF
+# OpenBao bootstrap values
+EOF
+  
+  # Extract and merge OpenBao values from the apps structure
+  yq eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" >> /tmp/openbao_bootstrap_values.yaml
+  if [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+    if yq eval '.apps.openbao.valuesObject // ""' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | grep -q .; then
+      yq eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' /tmp/openbao_bootstrap_values.yaml - > /tmp/openbao_bootstrap_values_merged.yaml
+      mv /tmp/openbao_bootstrap_values_merged.yaml /tmp/openbao_bootstrap_values.yaml
+    fi
+  fi
+}
+
+bootstrap_openbao() {
+  echo "=== OpenBao Bootstrap ==="
+  
+  # Get OpenBao version from app path
+  OPENBAO_VERSION=$(yq eval '.apps.openbao.path' "${SOURCE_ROOT}/root/${VALUES_FILE}" | cut -d'/' -f2)
+  echo "OpenBao version: $OPENBAO_VERSION"
+  
+  extract_openbao_values
+  
+  # Use server-side apply to match ArgoCD's field management strategy
+  helm template --release-name openbao ${SOURCE_ROOT}/sources/openbao/${OPENBAO_VERSION} --namespace cf-openbao \
+    --values /tmp/openbao_bootstrap_values.yaml \
+    --set ui.enabled=true \
+    --kube-version=${KUBE_VERSION} | apply_or_template --server-side --field-manager=argocd-controller --force-conflicts -f -
+  
+  if [ "$TEMPLATE_ONLY" = false ]; then
+    kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
+    
+    # Create initial secrets config for init job (separate from ArgoCD-managed version)
+    echo "Creating initial OpenBao secrets configuration..."
+    cat ${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-manager-cm.yaml | \
+      sed "s|name: openbao-secret-manager-scripts|name: openbao-secret-manager-scripts-init|g" | kubectl apply -f -
+    
+    # Create initial secrets config for init job (separate from ArgoCD-managed version)
+    cat ${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml | \
+      sed "s|{{ .Values.domain }}|${DOMAIN}|g" | \
+      sed "s|name: openbao-secrets-config|name: openbao-secrets-init-config|g" | kubectl apply -f -
+    
+    # Pass OpenBao configuration to init script
+    helm template --release-name openbao-init ${SOURCE_ROOT}/scripts/init-openbao-job \
+      --values /tmp/openbao_bootstrap_values.yaml \
+      --set domain="${DOMAIN}" \
+      --kube-version=${KUBE_VERSION} | kubectl apply -f -
+    kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
+  fi
+}
 
 # Extract Gitea values using yq
 extract_gitea_values() {
@@ -545,7 +597,7 @@ main() {
     IFS=',' read -ra APP_ARRAY <<< "$APPS"
     for app in "${APP_ARRAY[@]}"; do
       case "$app" in
-        namespaces|argocd|gitea|cluster-forge)
+        namespaces|argocd|openbao|gitea|cluster-forge)
           has_bootstrap_apps=true
           ;;
         *)
@@ -557,7 +609,7 @@ main() {
               child_apps="$child_apps,$app"
             fi
           else
-            echo "WARNING: Unknown app '$app'. Available bootstrap apps: namespaces, argocd, gitea, cluster-forge"
+            echo "WARNING: Unknown app '$app'. Available bootstrap apps: namespaces, argocd, openbao, gitea, cluster-forge"
             echo "Or specify any cluster-forge child app from values.yaml"
           fi
           ;;
@@ -568,6 +620,7 @@ main() {
     if [ "$has_bootstrap_apps" = true ]; then
       should_run namespaces      && create_namespaces
       should_run argocd          && bootstrap_argocd
+      should_run openbao         && bootstrap_openbao
       should_run gitea           && bootstrap_gitea
       should_run cluster-forge   && apply_cluster_forge_parent_app
     fi
@@ -583,34 +636,41 @@ main() {
   else
     # Default behavior - run all bootstrap components
     echo "🚀 Running full bootstrap sequence..."
-    echo "📋 Bootstrap order: namespaces → argocd → gitea → cluster-forge"
+    echo "📋 Bootstrap order: namespaces → argocd → openbao → gitea → cluster-forge"
     
     if should_run namespaces; then
-      echo "📦 Step 1/4: Creating namespaces"
+      echo "📦 Step 1/5: Creating namespaces"
       create_namespaces
     else
-      echo "⏭️  Step 1/4: Skipping namespaces"
+      echo "⏭️  Step 1/5: Skipping namespaces"
     fi
     
     if should_run argocd; then
-      echo "📦 Step 2/4: Bootstrapping ArgoCD"
+      echo "📦 Step 2/5: Bootstrapping ArgoCD"
       bootstrap_argocd
     else
-      echo "⏭️  Step 2/4: Skipping ArgoCD"
+      echo "⏭️  Step 2/5: Skipping ArgoCD"
+    fi
+    
+    if should_run openbao; then
+      echo "📦 Step 3/5: Bootstrapping OpenBao"
+      bootstrap_openbao
+    else
+      echo "⏭️  Step 3/5: Skipping OpenBao"
     fi
     
     if should_run gitea; then
-      echo "📦 Step 3/4: Bootstrapping Gitea"
+      echo "📦 Step 4/5: Bootstrapping Gitea"
       bootstrap_gitea
     else
-      echo "⏭️  Step 3/4: Skipping Gitea"
+      echo "⏭️  Step 4/5: Skipping Gitea"
     fi
     
     if should_run cluster-forge; then
-      echo "📦 Step 4/4: Creating ClusterForge parent app"
+      echo "📦 Step 5/5: Creating ClusterForge parent app"
       apply_cluster_forge_parent_app
     else
-      echo "⏭️  Step 4/4: Skipping ClusterForge"
+      echo "⏭️  Step 5/5: Skipping ClusterForge"
     fi
     
     echo "✅ Bootstrap sequence completed"
