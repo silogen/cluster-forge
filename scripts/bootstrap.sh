@@ -397,32 +397,36 @@ bootstrap_openbao() {
   OPENBAO_VERSION=$(yq eval '.apps.openbao.path' "${SOURCE_ROOT}/root/${VALUES_FILE}" | cut -d'/' -f2)
   echo "OpenBao version: $OPENBAO_VERSION"
   
+  # Create a unique temp directory to avoid permission issues
+  TEMP_DIR=$(mktemp -d -t cf-bootstrap.XXXXXX) || { echo "ERROR: Cannot create temp directory"; exit 1; }
+  echo "Using temp directory: $TEMP_DIR"
+  
   # Extract OpenBao values from merged config - matching main approach
   echo "Extracting OpenBao values..."
-  yq eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > /tmp/openbao_values.yaml || { echo "ERROR: Failed to extract OpenBao values from ${VALUES_FILE}"; exit 1; }
+  yq eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > "${TEMP_DIR}/openbao_values.yaml" || { echo "ERROR: Failed to extract OpenBao values from ${VALUES_FILE}"; exit 1; }
   
   if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
     echo "Extracting OpenBao size-specific values from ${SIZE_VALUES_FILE}..."
     echo "Checking if openbao section exists in size values file..."
     if yq eval '.apps.openbao' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" >/dev/null 2>&1 && [ "$(yq eval '.apps.openbao' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}")" != "null" ]; then
       echo "OpenBao section found, extracting values..."
-      yq eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > /tmp/openbao_size_values.yaml || { 
+      yq eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${TEMP_DIR}/openbao_size_values.yaml" || { 
         echo "WARNING: Failed to extract OpenBao valuesObject from ${SIZE_VALUES_FILE}, using empty values"
-        printf "# OpenBao valuesObject not found in size file\n" > /tmp/openbao_size_values.yaml
+        printf "# OpenBao valuesObject not found in size file\n" > "${TEMP_DIR}/openbao_size_values.yaml"
       }
     else
       echo "No OpenBao section in size values file, creating empty placeholder..."
-      printf "# No OpenBao section in size-specific values\n" > /tmp/openbao_size_values.yaml
+      printf "# No OpenBao section in size-specific values\n" > "${TEMP_DIR}/openbao_size_values.yaml"
     fi
   else
     echo "No size-specific values file, creating empty placeholder..."
-    printf "# No size-specific values\n" > /tmp/openbao_size_values.yaml
+    printf "# No size-specific values\n" > "${TEMP_DIR}/openbao_size_values.yaml"
   fi
   
   # Use server-side apply to match ArgoCD's field management strategy
   helm template --release-name openbao ${SOURCE_ROOT}/sources/openbao/${OPENBAO_VERSION} --namespace cf-openbao \
-    -f /tmp/openbao_values.yaml \
-    -f /tmp/openbao_size_values.yaml \
+    -f "${TEMP_DIR}/openbao_values.yaml" \
+    -f "${TEMP_DIR}/openbao_size_values.yaml" \
     --set ui.enabled=true \
     --kube-version=${KUBE_VERSION} | apply_or_template --server-side --field-manager=argocd-controller --force-conflicts -f -
     
@@ -441,11 +445,14 @@ bootstrap_openbao() {
     
     # Pass OpenBao configuration to init script
     helm template --release-name openbao-init ${SOURCE_ROOT}/scripts/init-openbao-job \
-      -f /tmp/openbao_values.yaml \
+      -f "${TEMP_DIR}/openbao_values.yaml" \
       --set domain="${DOMAIN}" \
       --kube-version=${KUBE_VERSION} | kubectl apply -f -
     kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
   fi
+  
+  # Cleanup temp directory
+  rm -rf "${TEMP_DIR}"
 }
 
 
