@@ -473,26 +473,30 @@ bootstrap_gitea() {
   GITEA_VERSION=$(yq eval '.apps.gitea.path' "${SOURCE_ROOT}/root/${VALUES_FILE}" | cut -d'/' -f2)
   echo "Gitea version: $GITEA_VERSION"
   
+  # Create a unique temp directory to avoid permission issues
+  TEMP_DIR=$(mktemp -d -t cf-gitea-bootstrap.XXXXXX) || { echo "ERROR: Cannot create temp directory"; exit 1; }
+  echo "Using temp directory: $TEMP_DIR"
+  
   # Create initial-cf-values configmap (complete values for gitea-init-job)
   # Use the complete root values.yaml with filled placeholders instead of simplified version
-  cp "${SOURCE_ROOT}/root/${VALUES_FILE}" /tmp/complete_values.yaml
+  cp "${SOURCE_ROOT}/root/${VALUES_FILE}" "${TEMP_DIR}/complete_values.yaml"
   
   # Fill in placeholder values using yq (these are used by gitea-init job)
-  yq eval ".global.domain = \"${DOMAIN}\"" -i /tmp/complete_values.yaml
+  yq eval ".global.domain = \"${DOMAIN}\"" -i "${TEMP_DIR}/complete_values.yaml"
   if [ -n "${SIZE_VALUES_FILE}" ]; then
-    yq eval ".global.clusterSize = \"${SIZE_VALUES_FILE}\"" -i /tmp/complete_values.yaml
+    yq eval ".global.clusterSize = \"${SIZE_VALUES_FILE}\"" -i "${TEMP_DIR}/complete_values.yaml"
   else
-    yq eval ".global.clusterSize = \"values_${CLUSTER_SIZE}.yaml\"" -i /tmp/complete_values.yaml
+    yq eval ".global.clusterSize = \"values_${CLUSTER_SIZE}.yaml\"" -i "${TEMP_DIR}/complete_values.yaml"
   fi
-  yq eval ".clusterForge.targetRevision = \"${TARGET_REVISION}\"" -i /tmp/complete_values.yaml
+  yq eval ".clusterForge.targetRevision = \"${TARGET_REVISION}\"" -i "${TEMP_DIR}/complete_values.yaml"
   
   # Merge with size-specific values if they exist
   if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
-    yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' /tmp/complete_values.yaml "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > /tmp/complete_values_merged.yaml
-    mv /tmp/complete_values_merged.yaml /tmp/complete_values.yaml
+    yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' "${TEMP_DIR}/complete_values.yaml" "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${TEMP_DIR}/complete_values_merged.yaml"
+    mv "${TEMP_DIR}/complete_values_merged.yaml" "${TEMP_DIR}/complete_values.yaml"
   fi
   
-  kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$(cat /tmp/complete_values.yaml)" --dry-run=client -o yaml | apply_or_template -n cf-gitea -f -
+  kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$(cat "${TEMP_DIR}/complete_values.yaml")" --dry-run=client -o yaml | apply_or_template -n cf-gitea -f -
   
   kubectl create secret generic gitea-admin-credentials \
     --namespace=cf-gitea \
@@ -502,30 +506,30 @@ bootstrap_gitea() {
   
   # Extract Gitea values like main does
   echo "Extracting Gitea values..."
-  yq eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > /tmp/gitea_values.yaml || { echo "ERROR: Failed to extract Gitea values from ${VALUES_FILE}"; exit 1; }
+  yq eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > "${TEMP_DIR}/gitea_values.yaml" || { echo "ERROR: Failed to extract Gitea values from ${VALUES_FILE}"; exit 1; }
   
   if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
     echo "Extracting Gitea size-specific values from ${SIZE_VALUES_FILE}..."
     echo "Checking if gitea section exists in size values file..."
     if yq eval '.apps.gitea' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" >/dev/null 2>&1 && [ "$(yq eval '.apps.gitea' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}")" != "null" ]; then
       echo "Gitea section found, extracting values..."
-      yq eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > /tmp/gitea_size_values.yaml || { 
+      yq eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${TEMP_DIR}/gitea_size_values.yaml" || { 
         echo "WARNING: Failed to extract Gitea valuesObject from ${SIZE_VALUES_FILE}, using empty values"
-        printf "# Gitea valuesObject not found in size file\n" > /tmp/gitea_size_values.yaml
+        printf "# Gitea valuesObject not found in size file\n" > "${TEMP_DIR}/gitea_size_values.yaml"
       }
     else
       echo "No Gitea section in size values file, creating empty placeholder..."
-      printf "# No Gitea section in size-specific values\n" > /tmp/gitea_size_values.yaml
+      printf "# No Gitea section in size-specific values\n" > "${TEMP_DIR}/gitea_size_values.yaml"
     fi
   else
     echo "No size-specific values file, creating empty placeholder..."
-    printf "# No size-specific values\n" > /tmp/gitea_size_values.yaml
+    printf "# No size-specific values\n" > "${TEMP_DIR}/gitea_size_values.yaml"
   fi
   
   # Bootstrap Gitea - matching main approach
   helm template --release-name gitea ${SOURCE_ROOT}/sources/gitea/${GITEA_VERSION} --namespace cf-gitea \
-    -f /tmp/gitea_values.yaml \
-    -f /tmp/gitea_size_values.yaml \
+    -f "${TEMP_DIR}/gitea_values.yaml" \
+    -f "${TEMP_DIR}/gitea_size_values.yaml" \
     --set gitea.config.server.ROOT_URL="https://gitea.${DOMAIN}/" \
     --kube-version=${KUBE_VERSION} | apply_or_template -f -
   
@@ -550,6 +554,9 @@ bootstrap_gitea() {
   if [ "$TEMPLATE_ONLY" = false ]; then
     kubectl wait --for=condition=complete --timeout="${DEFAULT_TIMEOUT}" job/gitea-init-job -n cf-gitea
   fi
+  
+  # Cleanup temp directory
+  rm -rf "${TEMP_DIR}"
 }
 
 # Render specific cluster-forge child apps (for --apps filtering)
