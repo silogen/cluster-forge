@@ -1,0 +1,6 @@
+apiVersion: v2
+name: domain-updater-app
+description: ArgoCD Application for domain-updater
+version: 1.0.0
+appVersion: "1.0.0"
+type: application

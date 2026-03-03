@@ -12,6 +12,7 @@ CLUSTER_SIZE="medium"  # Default to medium
 DOMAIN=""
 KUBE_VERSION=1.33
 VALUES_FILE="values.yaml"
+ENABLE_DOMAIN_UPDATES="true"  # Default to enabled
 
 # Parse arguments 
 while [[ $# -gt 0 ]]; do
@@ -58,6 +59,14 @@ while [[ $# -gt 0 ]]; do
         TARGET_REVISION="${1#*=}"
         shift
         ;;
+      --enable-domain-updates)
+        ENABLE_DOMAIN_UPDATES="true"
+        shift
+        ;;
+      --disable-domain-updates)
+        ENABLE_DOMAIN_UPDATES="false"
+        shift
+        ;;
     --help|-h)
       cat <<HELP_OUTPUT
       Usage: $0 [options] <domain> [values_file]
@@ -70,6 +79,8 @@ while [[ $# -gt 0 ]]; do
         -r, --target-revision       cluster-forge git revision to seed into cluster-values/values.yaml file 
                                     options: [tag|commit_hash|branch_name], default: $LATEST_RELEASE
         -s, --cluster-size          options: [small|medium|large], default: medium
+        --enable-domain-updates     Enable automatic domain update system (default: enabled)
+        --disable-domain-updates    Disable automatic domain update system
 
       Examples:
         $0 compute.amd.com values_custom.yaml --cluster-size=large
@@ -248,6 +259,19 @@ merge_values_files() {
     echo "Applying targetRevision override: $TARGET_REVISION"
     VALUES=$(echo "$VALUES" | $YQ_CMD eval ".clusterForge.targetRevision = \"${TARGET_REVISION}\"")
     
+    # Configure domain update system
+    if [ "$ENABLE_DOMAIN_UPDATES" = "true" ]; then
+        echo "Configuring domain update system..."
+        VALUES=$(echo "$VALUES" | $YQ_CMD eval ".domainUpdater.enabled = true")
+        VALUES=$(echo "$VALUES" | $YQ_CMD eval ".domainUpdater.autoSync = true")
+        VALUES=$(echo "$VALUES" | $YQ_CMD eval ".domainUpdater.manualTrigger.enabled = true")
+        VALUES=$(echo "$VALUES" | $YQ_CMD eval ".domainUpdater.manualTrigger.webhook = true")
+        VALUES=$(echo "$VALUES" | $YQ_CMD eval ".domainUpdater.manualTrigger.cli = true")
+    else
+        echo "Disabling domain update system..."
+        VALUES=$(echo "$VALUES" | $YQ_CMD eval ".domainUpdater.enabled = false")
+    fi
+    
     # Write merged values to temp file for use throughout script
     echo "$VALUES" > /tmp/merged_values.yaml
     echo "Merged values written to /tmp/merged_values.yaml"
@@ -283,6 +307,12 @@ extract_app_versions
 kubectl create ns argocd --dry-run=client -o yaml | kubectl apply -f -
 kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
 kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
+
+# Create cf-system namespace for domain updater if enabled
+if [ "$ENABLE_DOMAIN_UPDATES" = "true" ]; then
+    kubectl create ns cf-system --dry-run=client -o yaml | kubectl apply -f -
+    echo "Created cf-system namespace for domain update system"
+fi
 
 echo ""
 echo "=== ArgoCD Bootstrap ==="
@@ -368,6 +398,32 @@ helm template --release-name gitea-init ${SOURCE_ROOT}/scripts/init-gitea-job \
 
 kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea
 
+# Install domain updater components if enabled
+if [ "$ENABLE_DOMAIN_UPDATES" = "true" ]; then
+    echo ""
+    echo "=== Setting up Domain Update System ==="
+    
+    # Create initial domain tracking ConfigMap
+    kubectl create configmap current-domain-config \
+        --from-literal=domain="${DOMAIN}" \
+        --namespace=cf-system \
+        --dry-run=client -o yaml | kubectl apply -f -
+    
+    # Generate webhook secret for authentication
+    if command -v openssl >/dev/null 2>&1; then
+        webhook_secret=$(openssl rand -hex 32)
+        kubectl create secret generic domain-webhook-secret \
+            --from-literal=secret="${webhook_secret}" \
+            --namespace=cf-system \
+            --dry-run=client -o yaml | kubectl apply -f -
+        echo "✓ Domain webhook secret created"
+    else
+        echo "⚠ OpenSSL not found, manual webhook secret creation required"
+    fi
+    
+    echo "✓ Domain update system configured"
+fi
+
 echo ""
 echo "=== Creating ClusterForge App-of-Apps ==="
 echo "Cluster size: $CLUSTER_SIZE"
@@ -375,19 +431,42 @@ helm template ${SOURCE_ROOT}/root \
     -f /tmp/merged_values.yaml \
     --kube-version=${KUBE_VERSION} | kubectl apply -f -
 
-echo <<__SUMMARY__
+cat <<__SUMMARY__
 
-  === ClusterForge Bootstrap Complete ==="
+  === ClusterForge Bootstrap Complete ===
   
   Domain: $DOMAIN
   Cluster size: $CLUSTER_SIZE
   Target revision: $TARGET_REVISION
+  Domain Updates: $ENABLE_DOMAIN_UPDATES
   
-  Access ArgoCD at: https://argocd.${DOMAIN}
-  Access Gitea at: https://gitea.${DOMAIN}
-
-  This is the way!
+  Access URLs (after DNS configuration):
+    ArgoCD:  https://argocd.${DOMAIN}
+    Gitea:   https://gitea.${DOMAIN}
+    OpenBao: https://openbao.${DOMAIN}
 __SUMMARY__
+
+if [ "$ENABLE_DOMAIN_UPDATES" = "true" ]; then
+    cat <<__DOMAIN_SUMMARY__
+  
+  Domain Update System:
+    ✓ Automatic updates enabled
+    ✓ Manual triggers available
+    ✓ Webhook endpoint configured
+    ✓ CLI scripts ready
+  
+  Manual trigger usage:
+    ${SOURCE_ROOT}/scripts/trigger-domain-update.sh new-domain.com
+    ${SOURCE_ROOT}/scripts/domain-webhook-trigger.sh setup-port-forward
+  
+  Monitor domain updates:
+    kubectl get configmap current-domain-config -n cf-system
+    kubectl get jobs -n cf-system -l app=domain-updater
+__DOMAIN_SUMMARY__
+fi
+
+echo ""
+echo "  This is the way!"
 
 # Cleanup temporary files
 echo "Cleaning up temporary files..."

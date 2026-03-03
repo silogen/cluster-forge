@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: domain-updater
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.clusterForge.repoUrl }}
+    targetRevision: {{ .Values.clusterForge.targetRevision }}
+    path: sources/domain-updater
+    helm:
+      valueFiles:
+        - ../../root/{{ .Values.externalValues.path }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cf-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,19 @@
+apiVersion: v2
+name: domain-updater
+description: Automatic domain update system for cluster-forge
+version: 1.0.0
+appVersion: "1.0.0"
+type: application
+
+keywords:
+  - domain
+  - cluster-forge
+  - automation
+  - argocd
+
+sources:
+  - https://github.com/silogen/cluster-forge
+
+maintainers:
+  - name: Silogen Team
+    email: support@silogen.com

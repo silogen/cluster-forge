@@ -1,0 +1,39 @@
+clusterForge:
+  repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
+  targetRevision: fix_1_5_3_KC_OOM # from values_test.yaml
+externalValues:
+  enabled: true
+  repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values-test.git"
+  targetRevision: main
+  path: values_test.yaml
+global:
+  domain: test-domain-1.com
+
+domainUpdater:
+  enabled: true
+  autoSync: true
+  testMode: true  # Enhanced logging and faster polling for testing
+  pollInterval: "30s"  # Faster polling for testing
+  manualTrigger:
+    enabled: true
+    webhook: true
+    cli: true
+    allowUnsafeDomains: true  # For testing with localhost, etc.
+
+enabledApps:
+  # Minimal app set for testing
+  - argocd
+  - argocd-config
+  - cert-manager
+  - openbao
+  - openbao-config
+  - external-secrets
+  - external-secrets-config
+  - gitea
+  - gitea-config
+  - gateway-api
+  - metallb
+  - kgateway-crds
+  - kgateway
+  - kgateway-config
+  - domain-updater
