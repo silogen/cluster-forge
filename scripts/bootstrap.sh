@@ -197,23 +197,36 @@ parse_args() {
           APPS="${1#*=}"
           shift
           ;;
+        --airm-image-repository)
+          if [ -z "$2" ]; then
+            echo "ERROR: --airm-image-repository requires an argument"
+            exit 1
+          fi
+          AIRM_IMAGE_REPOSITORY="$2"
+          shift 2
+          ;;
+        --airm-image-repository=*)
+          AIRM_IMAGE_REPOSITORY="${1#*=}"
+          shift
+          ;;
       --help|-h)
         cat <<HELP_OUTPUT
         Usage: $0 [options] <domain> [values_file]
   
         Arguments:
-          domain                      Required. Cluster domain (e.g., example.com)
-          values_file                 Optional. Values .yaml file to use, default: root/values.yaml
+          domain                             REQUIRED. Cluster domain (e.g., myIp.nip.io)
+          values_file                        Optional. Values .yaml file to use, default: root/values.yaml
         
         Options:
-          --apps=APP1,APP2            Deploy only specified components
-                                      options: namespaces, argocd, gitea, cluster-forge, or any cluster-forge child app (see values.yaml for app names)
-                                      Use with --template-only to render instead of applying
-          --cluster-size,      -s     options: [small|medium|large], default: medium
-          --target-revision,   -r     cluster-forge git revision for ArgoCD to sync from 
-                                      options: [tag|commit_hash|branch_name], default: $LATEST_RELEASE
-          --template-only,     -t     Output YAML manifests to stdout instead of applying to cluster
-          --skip-deps                 Skip dependency checking (for advanced users)
+          --airm-image-repository=url        Custom AIRM image repository for gitea-init job (e.g., ghcr.io/silogen, requires regcreds)
+          --apps=app1[,app2,...]             Deploy (kubectl apply) specified components onlye
+                                             options: namespaces, argocd, gitea, cluster-forge, or any cluster-forge child app (see values.yaml for app names)
+                                             
+          --cluster-size=[size],      -s     [size] can be one of small|medium|large, default: medium
+          --help,                     -h     Show this help message and exit
+          --skip-deps                        Skip dependency checking (not recommended)
+          --target-revision,          -r     Git revision for ArgoCD to sync from, [tag|commit_hash|branch_name], default: $LATEST_RELEASE
+          --template-only,            -t     Output YAML manifests to stdout instead of applying to cluster
         
         
         Examples:
@@ -225,10 +238,9 @@ parse_args() {
           $0 example.com --apps=keycloak -t
           
         Bootstrap Behavior:
-          • Bootstrap deploys ArgoCD + Gitea directly (essential infrastructure)
-          • cluster-forge parent app then deployed to manage remaining apps including OpenBao
-          • ArgoCD syncs remaining apps from specified target revision with proper syncWave ordering
-          • Direct deployment ensures proper initialization order and timing
+          • deploys ArgoCD + Gitea directly (essential infrastructure)
+          • apply the cluster-forge application manifest (parent app only)
+          • ArgoCD syncs remaining apps from specified target revision, respecting syncWaves and dependencies
 HELP_OUTPUT
         exit 0
         ;;
