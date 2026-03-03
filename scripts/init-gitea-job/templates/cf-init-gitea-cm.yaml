@@ -151,14 +151,15 @@ data:
     {{- if .Values.airmImageRepository }}
 
     # AIRM Image Repository Configuration
-    airm:
-      helmParameters:
-        - name: airm-api.airm.backend.image.repository
-          value: {{ .Values.airmImageRepository }}/airm-api
-        - name: airm-ui.airm.frontend.image.repository
-          value: {{ .Values.airmImageRepository }}/airm-ui
-        - name: airm-dispatcher.airm.dispatcher.image.repository
-          value: {{ .Values.airmImageRepository }}/airm-dispatcher
+    apps:
+      airm:
+        helmParameters:
+          - name: airm-api.airm.backend.image.repository
+            value: {{ .Values.airmImageRepository }}/airm-api
+          - name: airm-ui.airm.frontend.image.repository
+            value: {{ .Values.airmImageRepository }}/airm-ui
+          - name: airm-dispatcher.airm.dispatcher.image.repository
+            value: {{ .Values.airmImageRepository }}/airm-dispatcher
     {{- end }}
 
     EOF
