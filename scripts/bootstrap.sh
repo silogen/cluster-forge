@@ -403,7 +403,17 @@ bootstrap_openbao() {
   
   if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
     echo "Extracting OpenBao size-specific values from ${SIZE_VALUES_FILE}..."
-    yq eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > /tmp/openbao_size_values.yaml || { echo "ERROR: Failed to extract OpenBao size values from ${SIZE_VALUES_FILE}"; exit 1; }
+    echo "Checking if openbao section exists in size values file..."
+    if yq eval '.apps.openbao' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" >/dev/null 2>&1 && [ "$(yq eval '.apps.openbao' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}")" != "null" ]; then
+      echo "OpenBao section found, extracting values..."
+      yq eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > /tmp/openbao_size_values.yaml || { 
+        echo "WARNING: Failed to extract OpenBao valuesObject from ${SIZE_VALUES_FILE}, using empty values"
+        printf "# OpenBao valuesObject not found in size file\n" > /tmp/openbao_size_values.yaml
+      }
+    else
+      echo "No OpenBao section in size values file, creating empty placeholder..."
+      printf "# No OpenBao section in size-specific values\n" > /tmp/openbao_size_values.yaml
+    fi
   else
     echo "No size-specific values file, creating empty placeholder..."
     printf "# No size-specific values\n" > /tmp/openbao_size_values.yaml
@@ -489,7 +499,17 @@ bootstrap_gitea() {
   
   if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
     echo "Extracting Gitea size-specific values from ${SIZE_VALUES_FILE}..."
-    yq eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > /tmp/gitea_size_values.yaml || { echo "ERROR: Failed to extract Gitea size values from ${SIZE_VALUES_FILE}"; exit 1; }
+    echo "Checking if gitea section exists in size values file..."
+    if yq eval '.apps.gitea' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" >/dev/null 2>&1 && [ "$(yq eval '.apps.gitea' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}")" != "null" ]; then
+      echo "Gitea section found, extracting values..."
+      yq eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > /tmp/gitea_size_values.yaml || { 
+        echo "WARNING: Failed to extract Gitea valuesObject from ${SIZE_VALUES_FILE}, using empty values"
+        printf "# Gitea valuesObject not found in size file\n" > /tmp/gitea_size_values.yaml
+      }
+    else
+      echo "No Gitea section in size values file, creating empty placeholder..."
+      printf "# No Gitea section in size-specific values\n" > /tmp/gitea_size_values.yaml
+    fi
   else
     echo "No size-specific values file, creating empty placeholder..."
     printf "# No size-specific values\n" > /tmp/gitea_size_values.yaml
