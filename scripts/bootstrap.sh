@@ -293,7 +293,20 @@ validate_args() {
   fi
   
   SOURCE_ROOT="${SCRIPT_DIR}/.."
-  SIZE_VALUES_FILE="values_${CLUSTER_SIZE}.yaml"
+  setup_values_files
+}
+
+# Check if size-specific values file exists - matching main approach
+setup_values_files() {
+    SIZE_VALUES_FILE="values_${CLUSTER_SIZE}.yaml"
+    
+    if [ ! -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+        echo "WARNING: Size-specific values file not found: ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}"
+        echo "Proceeding with base values file only: ${VALUES_FILE}"
+        SIZE_VALUES_FILE=""
+    else
+        echo "Using size-specific values file: ${SIZE_VALUES_FILE}"
+    fi
 }
 
 print_summary() {
@@ -346,7 +359,7 @@ EOF
   
   # Extract and merge ArgoCD values from the apps structure
   yq eval '.apps.argocd.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" >> /tmp/argocd_bootstrap_values.yaml
-  if [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+  if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
     if yq eval '.apps.argocd.valuesObject // ""' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | grep -q .; then
       yq eval '.apps.argocd.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' /tmp/argocd_bootstrap_values.yaml - > /tmp/argocd_bootstrap_values_merged.yaml
       mv /tmp/argocd_bootstrap_values_merged.yaml /tmp/argocd_bootstrap_values.yaml
@@ -380,7 +393,11 @@ bootstrap_openbao() {
   
   # Extract OpenBao values from merged config - matching main approach
   yq eval '.apps.openbao.valuesObject' ${SOURCE_ROOT}/root/${VALUES_FILE} > /tmp/openbao_values.yaml
-  yq eval '.apps.openbao.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE} > /tmp/openbao_size_values.yaml
+  if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+    yq eval '.apps.openbao.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE} > /tmp/openbao_size_values.yaml
+  else
+    echo "# No size-specific values" > /tmp/openbao_size_values.yaml
+  fi
   
   # Use server-side apply to match ArgoCD's field management strategy
   helm template --release-name openbao ${SOURCE_ROOT}/sources/openbao/${OPENBAO_VERSION} --namespace cf-openbao \
@@ -429,11 +446,15 @@ bootstrap_gitea() {
   
   # Fill in placeholder values using yq (these are used by gitea-init job)
   yq eval ".global.domain = \"${DOMAIN}\"" -i /tmp/complete_values.yaml
-  yq eval ".global.clusterSize = \"${SIZE_VALUES_FILE}\"" -i /tmp/complete_values.yaml
+  if [ -n "${SIZE_VALUES_FILE}" ]; then
+    yq eval ".global.clusterSize = \"${SIZE_VALUES_FILE}\"" -i /tmp/complete_values.yaml
+  else
+    yq eval ".global.clusterSize = \"values_${CLUSTER_SIZE}.yaml\"" -i /tmp/complete_values.yaml
+  fi
   yq eval ".clusterForge.targetRevision = \"${TARGET_REVISION}\"" -i /tmp/complete_values.yaml
   
   # Merge with size-specific values if they exist
-  if [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+  if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
     yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' /tmp/complete_values.yaml "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > /tmp/complete_values_merged.yaml
     mv /tmp/complete_values_merged.yaml /tmp/complete_values.yaml
   fi
@@ -448,7 +469,11 @@ bootstrap_gitea() {
   
   # Extract Gitea values like main does
   yq eval '.apps.gitea.valuesObject' ${SOURCE_ROOT}/root/${VALUES_FILE} > /tmp/gitea_values.yaml
-  yq eval '.apps.gitea.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE} > /tmp/gitea_size_values.yaml
+  if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+    yq eval '.apps.gitea.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE} > /tmp/gitea_size_values.yaml
+  else
+    echo "# No size-specific values" > /tmp/gitea_size_values.yaml
+  fi
   
   # Bootstrap Gitea - matching main approach
   helm template --release-name gitea ${SOURCE_ROOT}/sources/gitea/${GITEA_VERSION} --namespace cf-gitea \
