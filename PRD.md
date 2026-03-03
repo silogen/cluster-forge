@@ -158,6 +158,7 @@ The cluster-forge Application uses multi-source feature when externalValues.enab
 
 **Layer 6: AIRM Application** (Sync Wave 0)
 - AIRM 0.3.2 - AMD Resource Manager application suite
+- Configurable image repositories for custom registries and air-gapped deployments
 - AIM Cluster Model Source - Cluster resource models for AIRM
 
 ### Repository Structure
@@ -486,6 +487,7 @@ Kueue manages scheduling for:
 
 **FR1: AIRM Platform Delivery**
 - Deploy AMD Resource Manager (AIRM) 0.3.2 with UI and API
+- Support configurable image repositories via `airmImageRepository` bootstrap parameter
 - Provide model serving with KServe v0.16.0
 - Support distributed computing via KubeRay Operator 1.4.2
 - Enable workflow orchestration through Kaiwo v0.2.0-rc11

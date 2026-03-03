@@ -125,6 +125,7 @@ See [Values Inheritance Pattern](docs/values_inheritance_pattern.md) for detaile
 ### Layer 6: AIRM Application
 - **AIRM 0.3.2** - AMD Resource Manager application suite
 - **AIM Cluster Model Source** - Cluster resource models for AIRM
+- **Configurable Image Repositories** - Supports custom container registries via cluster-bloom `AIRM_IMAGE_REPOSITORY` parameter
 
 ## � Configuration
 
