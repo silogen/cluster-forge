@@ -94,7 +94,7 @@ apps:
             end
             return hs
           resource.customizations.health.batch_Job: |
-            -- Custom health check for Jobs, especially openbao-init
+            -- Custom health check for Jobs
             hs = {}
             if obj.status ~= nil then
               if obj.status.conditions ~= nil then
@@ -120,16 +120,6 @@ apps:
             hs.status = "Progressing"
             hs.message = "Job status unknown"
             return hs
-                  end
-                end
-              end
-              hs.status = "Progressing"
-              hs.message = "ScaledObject status unknown"
-            else
-              hs.status = "Progressing"
-              hs.message = "ScaledObject status unknown"
-            end
-            return hs
           resource.customizations.health.keda.sh_ScaledObject: |
             hs = {}
             if obj.status ~= nil then
@@ -143,6 +133,16 @@ apps:
                       hs.status = "Degraded"
                       hs.message = condition.reason or "ScaledObject not ready"
                     end
+                    return hs
+                  end
+                end
+              end
+              hs.status = "Progressing"
+              hs.message = "ScaledObject status unknown"
+            else
+              hs.status = "Progressing"
+              hs.message = "ScaledObject status unknown"
+            end
             return hs
           resource.customizations.health.opentelemetry.io_OpenTelemetryCollector: |
             hs = {}
