@@ -48,7 +48,7 @@ enabledApps:
   # - kaiwo-crds  # Disabled: AIRM-specific
   # - kaiwo       # Disabled: AIRM-specific
   # - kaiwo-config  # Disabled: AIRM-specific
-  # - airm  # Disabled: testing AIWB only
+  - airm
   # AIM Engine (required by AIWB)
   - aim-engine-crds
   - aim-engine
@@ -69,6 +69,13 @@ apps:
   aim-engine:
     path: aim-engine/0.1.0
     namespace: aim-system
+    valuesFile: values.yaml
+    syncWave: 0
+  # AIRM - from silogen-core
+  airm:
+    repoURL: "http://gitea-http.cf-gitea.svc:3000/cluster-org/core.git"
+    path: services/airm/helm/airm
+    namespace: airm
     valuesFile: values.yaml
     syncWave: 0
   # OpenTelemetry operator (required by AIRM for metrics collection)
@@ -191,7 +198,8 @@ apps:
   #   syncWave: 0
   # AIWB resource overrides for local Kind cluster
   aiwb:
-    path: aiwb/0.1.0
+    repoURL: "http://gitea-http.cf-gitea.svc:3000/cluster-org/core.git"
+    path: helm/aiwb
     namespace: aiwb
     syncWave: 0
     helmParameters:
