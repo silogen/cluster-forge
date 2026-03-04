@@ -1,7 +1,3 @@
-# SMALL CLUSTER: All apps enabled (inherited from base values.yaml)
-# Add Kyverno policy for local-path access mode mutation
-
-# Medium & Small clusters add local-path storage policy for RWX→RWO conversion
 enabledApps:
   - aim-cluster-model-source
   - airm
@@ -43,25 +39,13 @@ enabledApps:
   - minio-tenant-config
   - openbao
   - openbao-config
+  - openbao-init
   - opentelemetry-operator
   - otel-lgtm-stack
   - prometheus-crds
   - rabbitmq
 
 apps:
-  # Modular Kyverno policy applications (only the storage-local-path addition)
-  kyverno-policies-storage-local-path:
-    namespace: kyverno
-    path: kyverno-policies/storage-local-path
-    source: clusterForge
-    syncOptions:
-      - CreateNamespace=true
-    ignoreDifferences: []
-    wave: 26  # Deploy after base policies
-    syncWave:
-      - group: kyverno.io
-        kind: ClusterPolicy
-
   argocd:
     valuesObject:
       applicationSet:
@@ -103,7 +87,33 @@ apps:
           requests:
             cpu: "125m"
             memory: "256Mi"
-
+  grafana:
+    valuesObject:
+      persistence:
+        accessModes:
+          - ReadWriteOnce
+        enabled: true
+        size: 5Gi
+        storageClassName: local-path
+      replicas: 1
+      resources:
+        limits:
+          cpu: "1000m"
+          memory: "2Gi"
+        requests:
+          cpu: "250m"
+          memory: "512Mi"
+  kyverno-policies-storage-local-path:
+    ignoreDifferences: []
+    namespace: kyverno
+    path: kyverno-policies/storage-local-path
+    source: clusterForge
+    syncOptions:
+      - CreateNamespace=true
+    syncWave:
+      - group: kyverno.io
+        kind: ClusterPolicy
+    wave: 26  # Deploy after base policies
   minio-tenant:
     valuesObject:
       tenant:
@@ -127,18 +137,17 @@ apps:
           requests:
             cpu: "1000m"
             memory: "2Gi"
-
   openbao:
     valuesObject:
       server:
-        ha:
-          enabled: false
-          replicas: 1
-          raft:
-            enabled: false
         dataStorage:
           size: 5Gi
           storageClass: local-path
+        ha:
+          enabled: false
+          raft:
+            enabled: false
+          replicas: 1
         resources:
           limits:
             cpu: "1000m"
@@ -146,13 +155,10 @@ apps:
           requests:
             cpu: "250m"
             memory: "512Mi"
-
   prometheus:
     valuesObject:
       prometheus:
         prometheusSpec:
-          retention: 15d
-          retentionSize: 20GB
           resources:
             limits:
               cpu: "2000m"
@@ -160,29 +166,14 @@ apps:
             requests:
               cpu: "500m"
               memory: "1Gi"
+          retention: 15d
+          retentionSize: 20GB
           storageSpec:
             volumeClaimTemplate:
               spec:
                 accessModes:
                   - ReadWriteOnce
-                storageClassName: local-path
                 resources:
                   requests:
                     storage: 25Gi
-
-  grafana:
-    valuesObject:
-      replicas: 1
-      resources:
-        limits:
-          cpu: "1000m"
-          memory: "2Gi"
-        requests:
-          cpu: "250m"
-          memory: "512Mi"
-      persistence:
-        enabled: true
-        size: 5Gi
-        storageClassName: local-path
-        accessModes:
-          - ReadWriteOnce
+                storageClassName: local-path

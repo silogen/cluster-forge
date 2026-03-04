@@ -12,6 +12,20 @@ data:
     GITEA_URL="${GITEA_URL:-http://gitea-http.cf-gitea.svc:3000}"
     GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-silogen-admin}"
     
+    echo "Waiting for Gitea service to be ready..."
+    for i in {1..30}; do
+      if curl -s --max-time 5 "${GITEA_URL}" >/dev/null 2>&1; then
+        echo "Gitea service is ready and responding"
+        break
+      fi
+      if [ $i -eq 30 ]; then
+        echo "ERROR: Gitea service not ready after 30 attempts"
+        exit 1
+      fi
+      echo "Waiting for Gitea to be ready... attempt $i/30"
+      sleep 2
+    done
+    
     echo "Step 0: Create admin access token"
     GITEA_TOKEN=$(kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
       gitea admin user generate-access-token --raw --username "$GITEA_ADMIN_USER" --token-name "api-token-$(date +%s)" --scopes all
@@ -134,7 +148,34 @@ data:
     global:
       clusterSize: {{ .Values.clusterSize }}
       domain: DOMAIN_PLACEHOLDER
+    {{- if .Values.airmImageRepository }}
 
+    # AIRM Image Repository Configuration
+    apps:
+      airm:
+        helmParameters:
+          # APP-DOMAIN (defined in base, but would be overridden here if omitted)
+          - name: airm-api.airm.appDomain
+            value: "{{ .Values.domain }}"
+          # BACKEND (airm-api)
+          - name: airm-api.airm.backend.image.repository
+            value: "{{ .Values.airmImageRepository }}/airm-api"
+          - name: airm-api.airm.backend.imagePullSecrets[0].name
+            value: regcred
+          # FRONTEND (airm-ui)
+          - name: airm-api.airm.frontend.image.repository
+            value: "{{ .Values.airmImageRepository }}/airm-ui"
+          - name: airm-api.airm.frontend.imagePullSecrets[0].name
+            value: regcred
+          # DISPATCHER (airm-dispatcher)
+          - name: airm-dispatcher.airm.dispatcher.image.repository
+            value: "{{ .Values.airmImageRepository }}/airm-dispatcher"
+          - name: airm-dispatcher.airm.dispatcher.imagePullSecrets[0].name
+            value: regcred
+          # AGENT (airm-agent)
+          - name: agent.airm.imagePullSecrets[0].name
+            value: regcred
+    {{- end }}
     EOF
     
     sed -i "s/DOMAIN_PLACEHOLDER/${DOMAIN}/g" /tmp/values.yaml

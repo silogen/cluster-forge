@@ -28,13 +28,13 @@ Cluster-Forge uses a three-phase bootstrap process that establishes GitOps infra
 
 **Phase 2: GitOps Foundation Bootstrap** (Manual Helm Templates)
 1. **ArgoCD** (v8.3.5) - GitOps controller deployed via helm template + kubectl apply
-2. **OpenBao** (v0.18.2) - Secrets management with init job to configure vault, policies, and initial secrets
-3. **Gitea** (v12.3.0) - Git server with init job to create cluster-forge and cluster-values repositories
+2. **Gitea** (v12.3.0) - Git server with init job to create cluster-forge and cluster-values repositories
 
 **Phase 3: App-of-Apps Deployment** (ArgoCD-Managed)
 - Creates cluster-forge Application pointing to root/ helm chart
-- ArgoCD syncs and manages all remaining applications from enabledApps list
-- Applications deployed in wave order (-5 to 0) based on dependencies
+- ArgoCD syncs all remaining applications including OpenBao from enabledApps list
+- Applications deployed in wave order (-70 to 0) based on dependencies
+- OpenBao (v0.18.2) deployed via ArgoCD with openbao-init job for vault configuration
 
 ### Dual Repository GitOps Pattern
 
@@ -96,11 +96,11 @@ The cluster-forge Application uses multi-source feature when externalValues.enab
 
 ### Component Categories
 
-**Layer 1: GitOps Foundation** (Sync Wave -4 to -3)
-- ArgoCD 8.3.5 - GitOps continuous deployment controller
-- Gitea 12.3.0 - Self-hosted Git server with SQLite backend
-- OpenBao 0.18.2 - Vault-compatible secrets management
-- External Secrets 0.15.1 - Secrets synchronization operator
+**Layer 1: GitOps Foundation** (Bootstrap + Sync Wave -70 to -30)
+- ArgoCD 8.3.5 - GitOps continuous deployment controller (bootstrap)
+- Gitea 12.3.0 - Self-hosted Git server with SQLite backend (bootstrap)
+- OpenBao 0.18.2 - Vault-compatible secrets management (ArgoCD-managed, sync wave -70)
+- External Secrets 0.15.1 - Secrets synchronization operator (sync wave -40)
 
 **Layer 2: Core Infrastructure** (Sync Wave -5 to -2)
 
@@ -158,6 +158,7 @@ The cluster-forge Application uses multi-source feature when externalValues.enab
 
 **Layer 6: AIRM Application** (Sync Wave 0)
 - AIRM 0.3.2 - AMD Resource Manager application suite
+- Configurable image repositories for custom registries and air-gapped deployments
 - AIM Cluster Model Source - Cluster resource models for AIRM
 
 ### Repository Structure
@@ -199,24 +200,57 @@ cluster-forge/
 
 ### Single-Command Bootstrap
 
-The bootstrap.sh script orchestrates complete cluster setup:
+The bootstrap.sh script orchestrates complete cluster setup with flexible options:
 
 ```bash
-./scripts/bootstrap.sh <domain> [--CLUSTER_SIZE=small|medium|large]
+./scripts/bootstrap.sh <domain> [options]
 ```
 
+**Available Options:**
+- `--cluster-size=[small|medium|large]` - Cluster size configuration (default: medium)
+- `--apps=APP1,APP2` - Deploy only specified components
+  - Bootstrap apps: `namespaces`, `argocd`, `gitea`, `cluster-forge`
+  - Child apps: Any app from enabledApps list (e.g., `openbao`, `keycloak`, `keda`)
+- `--target-revision=BRANCH` - cluster-forge git revision for ArgoCD (default: latest release tag)
+- `--template-only` or `-t` - Output YAML manifests instead of applying to cluster
+- `--skip-deps` - Skip dependency checking for advanced users
+
 **Bootstrap Process:**
-1. **Validation** - Checks domain, cluster size, values files, yq tool availability
+1. **Validation** - Checks domain, cluster size, values files, required tool availability
 2. **Pre-cleanup** - Removes previous installations if gitea-init-job completed
 3. **Values Merge** - Combines base + size-specific values with domain injection
-4. **Namespace Creation** - Creates argocd, cf-gitea, cf-openbao namespaces
+4. **Namespace Creation** - Creates argocd, cf-gitea namespaces
 5. **ArgoCD Deployment** - helm template + kubectl apply with server-side apply
-6. **OpenBao Deployment** - helm template + kubectl apply, waits for pod ready
-7. **OpenBao Init Job** - Configures vault policies, auth methods, initial secrets
-8. **Gitea Deployment** - helm template + kubectl apply, waits for rollout
-9. **Gitea Init Job** - Creates cluster-org, clones/pushes cluster-forge and cluster-values repos
-10. **ClusterForge App** - Creates root Application with merged values
-11. **Cleanup** - Removes temporary values files
+6. **Gitea Deployment** - helm template + kubectl apply, waits for rollout
+7. **Gitea Init Job** - Creates cluster-org, clones/pushes cluster-forge and cluster-values repos
+8. **ClusterForge App** - Creates root Application that manages all remaining components via ArgoCD
+9. **Component Deployment** - ArgoCD syncs all enabledApps including OpenBao, secrets, and application stack
+
+### Selective Component Deployment
+
+The `--apps` flag enables targeted deployment for development and troubleshooting:
+
+**Bootstrap Components** (deployed via helm template):
+- `namespaces` - Core namespaces (argocd, cf-gitea)
+- `argocd` - GitOps controller
+- `gitea` - Local Git server
+- `cluster-forge` - Root ArgoCD Application
+
+**Child Components** (deployed via ArgoCD sync):
+- Any application from enabledApps list
+- Examples: `openbao,openbao-init`, `keycloak`, `keda,kedify-otel`
+
+**Usage Examples:**
+```bash
+# Deploy only core GitOps foundation
+./scripts/bootstrap.sh example.com --apps=namespaces,argocd,gitea,cluster-forge
+
+# Deploy only secrets management
+./scripts/bootstrap.sh example.com --apps=openbao,openbao-init,openbao-config
+
+# Render manifests for debugging
+./scripts/bootstrap.sh example.com --apps=keycloak --template-only
+```
 
 ### Self-Contained GitOps
 
@@ -314,8 +348,9 @@ Each major component has -config variant:
 
 **Bootstrap Secret Flow:**
 - bootstrap.sh generates initial passwords with `openssl rand -hex 16`
-- openbao-init-job writes secrets to OpenBao
-- External Secrets Operator syncs to Kubernetes Secrets
+- ArgoCD deploys OpenBao via cluster-forge Application
+- openbao-init-job (sync wave -50) writes secrets to OpenBao
+- External Secrets Operator (sync wave -40) syncs to Kubernetes Secrets
 - Applications consume via secret references
 
 ### Modular Policy System
@@ -452,6 +487,7 @@ Kueue manages scheduling for:
 
 **FR1: AIRM Platform Delivery**
 - Deploy AMD Resource Manager (AIRM) 0.3.2 with UI and API
+- Support configurable image repositories via `airmImageRepository` bootstrap parameter
 - Provide model serving with KServe v0.16.0
 - Support distributed computing via KubeRay Operator 1.4.2
 - Enable workflow orchestration through Kaiwo v0.2.0-rc11

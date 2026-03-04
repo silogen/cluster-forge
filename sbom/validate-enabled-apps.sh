@@ -2,21 +2,60 @@
 
 set -euo pipefail
 
-# validate-enabled-apps.sh - Validate enabledApps consistency
-# Checks that all apps in enabledApps have corresponding definitions in apps section
+# validate-enabled-apps.sh - Validate enabledApps consistency across all cluster sizes
+# Checks that all apps in enabledApps from all cluster configurations have corresponding definitions in apps section
 
-VALUES_FILE="../root/values.yaml"
+BASE_VALUES_FILE="../root/values.yaml"
+SMALL_VALUES_FILE="../root/values_small.yaml"
+MEDIUM_VALUES_FILE="../root/values_medium.yaml"
+LARGE_VALUES_FILE="../root/values_large.yaml"
 
-echo "📋 Validating enabledApps have app definitions..."
+echo "📋 Validating enabledApps have app definitions across all cluster sizes..."
 
-# Check if values.yaml exists
-if [[ ! -f "$VALUES_FILE" ]]; then
-    echo "❌ Error: $VALUES_FILE not found"
-    exit 1
+# Function to collect enabled apps from a values file
+collect_enabled_apps() {
+    local values_file="$1"
+    if [[ -f "$values_file" ]]; then
+        yq eval '.enabledApps[]' "$values_file" 2>/dev/null || echo ""
+    else
+        echo ""
+    fi
+}
+
+# Collect enabled apps from all cluster size configurations
+echo "🔍 Collecting enabled apps from all cluster configurations..."
+all_enabled_apps=""
+
+# Collect from base values.yaml (if enabledApps exists)
+base_apps=$(collect_enabled_apps "$BASE_VALUES_FILE")
+if [[ -n "$base_apps" ]]; then
+    echo "  📄 Found apps in values.yaml: $(echo "$base_apps" | wc -l) apps"
+    all_enabled_apps="$all_enabled_apps$base_apps"$'\n'
 fi
 
-# Get all enabled apps
-enabled_apps=$(yq eval '.enabledApps[]' "$VALUES_FILE" 2>/dev/null || echo "")
+# Collect from small cluster values
+small_apps=$(collect_enabled_apps "$SMALL_VALUES_FILE")
+if [[ -n "$small_apps" ]]; then
+    echo "  📄 Found apps in values_small.yaml: $(echo "$small_apps" | wc -l) apps"
+    all_enabled_apps="$all_enabled_apps$small_apps"$'\n'
+fi
+
+# Collect from medium cluster values
+medium_apps=$(collect_enabled_apps "$MEDIUM_VALUES_FILE")
+if [[ -n "$medium_apps" ]]; then
+    echo "  📄 Found apps in values_medium.yaml: $(echo "$medium_apps" | wc -l) apps"
+    all_enabled_apps="$all_enabled_apps$medium_apps"$'\n'
+fi
+
+# Collect from large cluster values
+large_apps=$(collect_enabled_apps "$LARGE_VALUES_FILE")
+if [[ -n "$large_apps" ]]; then
+    echo "  📄 Found apps in values_large.yaml: $(echo "$large_apps" | wc -l) apps"
+    all_enabled_apps="$all_enabled_apps$large_apps"$'\n'
+fi
+
+# Get unique enabled apps (remove duplicates and empty lines)
+enabled_apps=$(echo "$all_enabled_apps" | sort -u | grep -v '^$' || echo "")
 
 if [[ -z "$enabled_apps" ]]; then
     echo "ℹ️  No enabled apps found in enabledApps list"
@@ -31,11 +70,44 @@ if [[ -z "$enabled_apps_filtered" ]]; then
     exit 0
 fi
 
-# Get all defined apps in apps section
-defined_apps=$(yq eval '.apps | keys | .[]' "$VALUES_FILE" 2>/dev/null || echo "")
+# Function to collect app definitions from a values file
+collect_app_definitions() {
+    local values_file="$1"
+    if [[ -f "$values_file" ]]; then
+        yq eval '.apps | keys | .[]' "$values_file" 2>/dev/null || echo ""
+    else
+        echo ""
+    fi
+}
+
+# Collect app definitions from all cluster size configurations
+echo "🔍 Collecting app definitions from all cluster configurations..."
+all_defined_apps=""
+
+# Collect from base values.yaml
+base_defined_apps=$(collect_app_definitions "$BASE_VALUES_FILE")
+if [[ -n "$base_defined_apps" ]]; then
+    echo "  📄 Found app definitions in values.yaml: $(echo "$base_defined_apps" | wc -l) apps"
+    all_defined_apps="$all_defined_apps$base_defined_apps"$'\n'
+fi
+
+# Collect from cluster size values
+for size_file in "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
+    if [[ -f "$size_file" ]]; then
+        size_defined_apps=$(collect_app_definitions "$size_file")
+        if [[ -n "$size_defined_apps" ]]; then
+            size_name=$(basename "$size_file")
+            echo "  📄 Found app definitions in $size_name: $(echo "$size_defined_apps" | wc -l) apps"
+            all_defined_apps="$all_defined_apps$size_defined_apps"$'\n'
+        fi
+    fi
+done
+
+# Get unique defined apps (remove duplicates and empty lines)
+defined_apps=$(echo "$all_defined_apps" | sort -u | grep -v '^$' || echo "")
 
 if [[ -z "$defined_apps" ]]; then
-    echo "❌ Error: No app definitions found in apps section"
+    echo "❌ Error: No app definitions found in any cluster configuration files"
     exit 1
 fi
 

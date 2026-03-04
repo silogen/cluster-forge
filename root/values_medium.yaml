@@ -100,7 +100,27 @@ apps:
           requests:
             cpu: "125m"
             memory: "256Mi"
-
+  grafana:
+    valuesObject:
+      persistence:
+        accessModes:
+          - ReadWriteOnce
+        enabled: true
+        size: 5Gi
+        storageClassName: direct
+      replicas: 1
+      resources:
+        limits:
+          cpu: "1000m"
+          memory: "2Gi"
+        requests:
+          cpu: "250m"
+          memory: "512Mi"
+  keycloak:
+    valuesObject:
+      # Increase memory resources for Keycloak to prevent OOMKilled during initialization
+      # Medium preset provides 1536Mi memory limit vs small preset's 768Mi
+      resourcesPreset: "medium"
   minio-tenant:
     valuesObject:
       tenant:
@@ -124,18 +144,17 @@ apps:
           requests:
             cpu: "1000m"
             memory: "2Gi"
-
   openbao:
     valuesObject:
       server:
-        ha:
-          enabled: false
-          replicas: 1
-          raft:
-            enabled: false
         dataStorage:
           size: 5Gi
           storageClass: direct
+        ha:
+          enabled: false
+          raft:
+            enabled: false
+          replicas: 1
         resources:
           limits:
             cpu: "1000m"
@@ -143,56 +162,6 @@ apps:
           requests:
             cpu: "250m"
             memory: "512Mi"
-
-  prometheus:
-    valuesObject:
-      prometheus:
-        prometheusSpec:
-          retention: 15d
-          retentionSize: 20GB
-          resources:
-            limits:
-              cpu: "2000m"
-              memory: "4Gi"
-            requests:
-              cpu: "500m"
-              memory: "1Gi"
-          storageSpec:
-            volumeClaimTemplate:
-              spec:
-                accessModes:
-                  - ReadWriteOnce
-                storageClassName: direct
-                resources:
-                  requests:
-                    storage: 25Gi
-
-  grafana:
-    valuesObject:
-      replicas: 1
-      resources:
-        limits:
-          cpu: "1000m"
-          memory: "2Gi"
-        requests:
-          cpu: "250m"
-          memory: "512Mi"
-      persistence:
-        enabled: true
-        size: 5Gi
-        storageClassName: direct
-        accessModes:
-          - ReadWriteOnce
-
-  otel-lgtm-stack:
-    valuesObject:
-      collectors:
-        resources:
-          metrics:
-            limits:
-              memory: 4Gi
-              cpu: '1'
-
   opentelemetry-operator:
     valuesObject:
       manager:
@@ -200,3 +169,33 @@ apps:
           requests:
             cpu: "250m"
             memory: "512Mi"
+  otel-lgtm-stack:
+    valuesObject:
+      collectors:
+        resources:
+          metrics:
+            cpu: '1'
+            limits:
+              memory: 4Gi
+  prometheus:
+    valuesObject:
+      prometheus:
+        prometheusSpec:
+          resources:
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+          retention: 15d
+          retentionSize: 20GB
+          storageSpec:
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 25Gi
+                storageClassName: direct

@@ -125,13 +125,13 @@ enabledApps:
 
 ```bash
 # Small cluster - Main + local-path policies  
-./scripts/bootstrap.sh dev.example.com --CLUSTER_SIZE=small
+./scripts/bootstrap.sh dev.example.com --cluster-size=small
 
 # Medium cluster - Main + local-path policies
-./scripts/bootstrap.sh team.example.com --CLUSTER_SIZE=medium
+./scripts/bootstrap.sh team.example.com --cluster-size=medium
 
 # Large cluster - Exactly same as main branch
-./scripts/bootstrap.sh prod.example.com --CLUSTER_SIZE=large
+./scripts/bootstrap.sh prod.example.com --cluster-size=large
 ```
 
 ### 🔍 **Policy Verification**

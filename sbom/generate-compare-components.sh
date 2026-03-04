@@ -2,16 +2,20 @@
 
 set -euo pipefail
 
-# Script to update components.yaml from enabledApps in values.yaml
+# Script to update components.yaml from enabledApps across all cluster sizes
+# Collects components from values.yaml, values_small.yaml, values_medium.yaml, values_large.yaml
 # Only updates if there are new items or changes to existing ones
 # Preserves existing sourceUrl and projectUrl values
 # Only includes apps that are in the enabledApps list (excluding -config apps)
 
-VALUES_FILE="../root/values.yaml"
+BASE_VALUES_FILE="../root/values.yaml"
+SMALL_VALUES_FILE="../root/values_small.yaml"
+MEDIUM_VALUES_FILE="../root/values_medium.yaml"
+LARGE_VALUES_FILE="../root/values_large.yaml"
 OUTPUT_FILE="./components.yaml"
 TEMP_FILE="./components.yaml.tmp"
 
-echo "⚙️ Generating/Updating components.yaml from enabledApps..."
+echo "⚙️ Generating/Updating components.yaml from enabledApps across all cluster sizes..."
 
 # Self-validation: Check enabledApps consistency before processing (fail-fast)
 echo "🔍 Pre-validation: Checking enabledApps consistency..."
@@ -30,14 +34,50 @@ fi
 echo ""
 echo "Checking for updates to components.yaml..."
 
-# Check if values.yaml exists
-if [[ ! -f "$VALUES_FILE" ]]; then
-    echo "❌ Error: $VALUES_FILE not found"
-    exit 1
+# Function to collect enabled apps from a values file
+collect_enabled_apps() {
+    local values_file="$1"
+    if [[ -f "$values_file" ]]; then
+        yq eval '.enabledApps[]' "$values_file" 2>/dev/null || echo ""
+    else
+        echo ""
+    fi
+}
+
+# Collect enabled apps from all cluster size configurations
+echo "🔍 Collecting enabled apps from all cluster configurations..."
+all_enabled_apps=""
+
+# Collect from base values.yaml (if enabledApps exists)
+base_apps=$(collect_enabled_apps "$BASE_VALUES_FILE")
+if [[ -n "$base_apps" ]]; then
+    echo "  📄 Found apps in values.yaml: $(echo "$base_apps" | wc -l) apps"
+    all_enabled_apps="$all_enabled_apps$base_apps"$'\n'
 fi
 
-# Get all enabled app names that don't end with -config from values.yaml
-enabled_apps=$(yq eval '.enabledApps[]' "$VALUES_FILE" 2>/dev/null || echo "")
+# Collect from small cluster values
+small_apps=$(collect_enabled_apps "$SMALL_VALUES_FILE")
+if [[ -n "$small_apps" ]]; then
+    echo "  📄 Found apps in values_small.yaml: $(echo "$small_apps" | wc -l) apps"
+    all_enabled_apps="$all_enabled_apps$small_apps"$'\n'
+fi
+
+# Collect from medium cluster values
+medium_apps=$(collect_enabled_apps "$MEDIUM_VALUES_FILE")
+if [[ -n "$medium_apps" ]]; then
+    echo "  📄 Found apps in values_medium.yaml: $(echo "$medium_apps" | wc -l) apps"
+    all_enabled_apps="$all_enabled_apps$medium_apps"$'\n'
+fi
+
+# Collect from large cluster values
+large_apps=$(collect_enabled_apps "$LARGE_VALUES_FILE")
+if [[ -n "$large_apps" ]]; then
+    echo "  📄 Found apps in values_large.yaml: $(echo "$large_apps" | wc -l) apps"
+    all_enabled_apps="$all_enabled_apps$large_apps"$'\n'
+fi
+
+# Get unique enabled apps (remove duplicates and empty lines)
+enabled_apps=$(echo "$all_enabled_apps" | sort -u | grep -v '^$' || echo "")
 
 if [[ -z "$enabled_apps" ]]; then
     echo "Warning: No enabled apps found in enabledApps list"
@@ -71,9 +111,21 @@ else
     
     # Check each enabled app from values.yaml
     for app in $app_names; do
-        # Get current values from values.yaml apps section
-        current_path=$(yq eval ".apps.\"$app\".path" "$VALUES_FILE")
-        current_values_file=$(yq eval ".apps.\"$app\".valuesFile // \"null\"" "$VALUES_FILE")
+        # Get current values from apps section (check all cluster files)
+        current_path=""
+        current_values_file="null"
+        
+        # Try to find the app definition in any of the cluster configuration files
+        for values_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
+            if [[ -f "$values_file" ]]; then
+                app_path=$(yq eval ".apps.\"$app\".path // \"null\"" "$values_file" 2>/dev/null || echo "null")
+                if [[ "$app_path" != "null" ]]; then
+                    current_path="$app_path"
+                    current_values_file=$(yq eval ".apps.\"$app\".valuesFile // \"null\"" "$values_file")
+                    break
+                fi
+            fi
+        done
         
         # Check if app exists in components.yaml
         existing_app=$(yq eval ".components.\"$app\" // \"null\"" "$OUTPUT_FILE")
@@ -124,7 +176,8 @@ echo "Updating $OUTPUT_FILE..."
 # Create components.yaml header
 cat > "$TEMP_FILE" << 'EOF'
 # Generated components metadata for SBOM creation
-# This file contains simplified component information for apps in enabledApps
+# This file contains simplified component information for apps across all cluster sizes
+# Collected from: values.yaml, values_small.yaml, values_medium.yaml, values_large.yaml
 # Apps with "config" suffix are excluded from this SBOM
 
 components:
@@ -134,12 +187,23 @@ EOF
 for app in $app_names; do
     echo "  $app:" >> "$TEMP_FILE"
     
-    # Get path from values.yaml
-    path=$(yq eval ".apps.\"$app\".path" "$VALUES_FILE")
-    echo "    path: $path" >> "$TEMP_FILE"
+    # Get path and valuesFile from any cluster configuration file
+    path=""
+    values_file="null"
     
-    # Get valuesFile from values.yaml if it exists
-    values_file=$(yq eval ".apps.\"$app\".valuesFile // \"null\"" "$VALUES_FILE")
+    # Try to find the app definition in any of the cluster configuration files
+    for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
+        if [[ -f "$config_file" ]]; then
+            app_path=$(yq eval ".apps.\"$app\".path // \"null\"" "$config_file" 2>/dev/null || echo "null")
+            if [[ "$app_path" != "null" ]]; then
+                path="$app_path"
+                values_file=$(yq eval ".apps.\"$app\".valuesFile // \"null\"" "$config_file")
+                break
+            fi
+        fi
+    done
+    
+    echo "    path: $path" >> "$TEMP_FILE"
     if [[ "$values_file" != "null" ]]; then
         echo "    valuesFile: $values_file" >> "$TEMP_FILE"
     fi
@@ -193,7 +257,17 @@ echo "$app_names" | wc -l | xargs echo "Total components:"
 echo ""
 echo "Components with valuesFile:"
 for app in $app_names; do
-    values_file=$(yq eval ".apps.\"$app\".valuesFile // \"null\"" "$VALUES_FILE")
+    # Check all cluster configuration files for valuesFile
+    values_file="null"
+    for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
+        if [[ -f "$config_file" ]]; then
+            app_path=$(yq eval ".apps.\"$app\".path // \"null\"" "$config_file" 2>/dev/null || echo "null")
+            if [[ "$app_path" != "null" ]]; then
+                values_file=$(yq eval ".apps.\"$app\".valuesFile // \"null\"" "$config_file")
+                break
+            fi
+        fi
+    done
     if [[ "$values_file" != "null" ]]; then
         echo "  - $app"
     fi

@@ -19,19 +19,25 @@ Using a bootstrap-first deployment model, Cluster-Forge establishes GitOps infra
 
 ### Single-Command Deployment
 ```bash
-./scripts/bootstrap.sh <domain> [--CLUSTER_SIZE=small|medium|large]
+./scripts/bootstrap.sh <domain> [--cluster-size=small|medium|large]
 ```
 
 ### Size-Aware Deployment Examples
 ```bash
 # Small cluster (1-5 users, development/testing)
-./scripts/bootstrap.sh dev.example.com --CLUSTER_SIZE=small
+./scripts/bootstrap.sh dev.example.com --cluster-size=small
 
 # Medium cluster (5-20 users, team production) [DEFAULT]
-./scripts/bootstrap.sh team.example.com --CLUSTER_SIZE=medium
+./scripts/bootstrap.sh team.example.com --cluster-size=medium
 
 # Large cluster (10s-100s users, enterprise scale)
-./scripts/bootstrap.sh prod.example.com --CLUSTER_SIZE=large
+./scripts/bootstrap.sh prod.example.com --cluster-size=large
+
+# Deploy only specific components
+./scripts/bootstrap.sh dev.example.com --apps=argocd,gitea,cluster-forge
+
+# Deploy from specific branch/tag
+./scripts/bootstrap.sh prod.example.com --target-revision=v1.8.0
 ```
 
 For detailed deployment instructions, see the [Bootstrap Guide](docs/bootstrap_guide.md).
@@ -48,13 +54,13 @@ Cluster-Forge uses a three-phase bootstrap process:
 
 **Phase 2: GitOps Foundation Bootstrap** (Manual Helm Templates)
 1. **ArgoCD** (v8.3.5) - GitOps controller deployed via helm template
-2. **OpenBao** (v0.18.2) - Secrets management with initialization job
-3. **Gitea** (v12.3.0) - Git server with initialization job
+2. **Gitea** (v12.3.0) - Git server with initialization job
 
 **Phase 3: App-of-Apps Deployment** (ArgoCD-Managed)
 - Creates cluster-forge Application pointing to root/ helm chart
-- ArgoCD syncs all remaining applications from enabledApps list
-- Applications deployed in wave order (-5 to 0) based on dependencies
+- ArgoCD syncs all remaining applications including OpenBao from enabledApps list
+- Applications deployed in wave order (-70 to 0) based on dependencies
+- OpenBao (v0.18.2) managed via ArgoCD with openbao-init job
 
 ### Dual Repository GitOps Pattern
 
@@ -119,6 +125,7 @@ See [Values Inheritance Pattern](docs/values_inheritance_pattern.md) for detaile
 ### Layer 6: AIRM Application
 - **AIRM 0.3.2** - AMD Resource Manager application suite
 - **AIM Cluster Model Source** - Cluster resource models for AIRM
+- **Configurable Image Repositories** - Supports custom container registries via cluster-bloom `AIRM_IMAGE_REPOSITORY` parameter
 
 ## � Configuration
 
