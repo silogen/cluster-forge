@@ -16,6 +16,18 @@ TARGET_REVISION="$LATEST_RELEASE"
 TEMPLATE_ONLY=false
 VALUES_FILE="values.yaml"
 
+# Helper function to print messages only when not in template mode
+log_info() {
+  if [ "$TEMPLATE_ONLY" = false ]; then
+    echo "$@"
+  fi
+}
+
+# Generate a secure random password
+generate_password() {
+  openssl rand -hex 16
+}
+
 # Check for required dependencies
 check_dependencies() {
   local silent="${1:-false}"
@@ -301,11 +313,11 @@ setup_values_files() {
     SIZE_VALUES_FILE="values_${CLUSTER_SIZE}.yaml"
     
     if [ ! -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
-        echo "WARNING: Size-specific values file not found: ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}"
-        echo "Proceeding with base values file only: ${VALUES_FILE}"
+        log_info "WARNING: Size-specific values file not found: ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}"
+        log_info "Proceeding with base values file only: ${VALUES_FILE}"
         SIZE_VALUES_FILE=""
     else
-        echo "Using size-specific values file: ${SIZE_VALUES_FILE}"
+        log_info "Using size-specific values file: ${SIZE_VALUES_FILE}"
     fi
 }
 
@@ -369,7 +381,7 @@ EOF
 
 # ArgoCD bootstrap
 bootstrap_argocd() {
-  echo "=== ArgoCD Bootstrap ==="
+  log_info "=== ArgoCD Bootstrap ==="
   extract_argocd_values
   helm template --release-name argocd ${SOURCE_ROOT}/sources/argocd/8.3.5 --namespace argocd \
     --values /tmp/argocd_bootstrap_values.yaml \
@@ -385,41 +397,40 @@ bootstrap_argocd() {
 
 
 bootstrap_openbao() {
-  echo "=== OpenBao Bootstrap ==="
+  log_info "=== OpenBao Bootstrap ==="
   
-  # Debug output for troubleshooting
-  echo "Debug: SOURCE_ROOT='${SOURCE_ROOT}'"
-  echo "Debug: VALUES_FILE='${VALUES_FILE}'"
-  echo "Debug: SIZE_VALUES_FILE='${SIZE_VALUES_FILE}'"
-  echo "Debug: CLUSTER_SIZE='${CLUSTER_SIZE}'"
+  log_info "Debug: SOURCE_ROOT='${SOURCE_ROOT}'"
+  log_info "Debug: VALUES_FILE='${VALUES_FILE}'"
+  log_info "Debug: SIZE_VALUES_FILE='${SIZE_VALUES_FILE}'"
+  log_info "Debug: CLUSTER_SIZE='${CLUSTER_SIZE}'"
   
   # Get OpenBao version from app path - using same method as main
   OPENBAO_VERSION=$(yq eval '.apps.openbao.path' "${SOURCE_ROOT}/root/${VALUES_FILE}" | cut -d'/' -f2)
-  echo "OpenBao version: $OPENBAO_VERSION"
-  
-  # Create a unique temp directory to avoid permission issues
-  TEMP_DIR=$(mktemp -d -t cf-bootstrap.XXXXXX) || { echo "ERROR: Cannot create temp directory"; exit 1; }
-  echo "Using temp directory: $TEMP_DIR"
-  
-  # Extract OpenBao values from merged config - matching main approach
-  echo "Extracting OpenBao values..."
+  log_info "OpenBao version: $OPENBAO_VERSION"
+
+  # Create a temporary directory for processing OpenBao values
+  TEMP_DIR=$(mktemp -d -t cf-bootstrap.XXXXXX) || { log_info "ERROR: Cannot create temp directory"; exit 1; }
+  log_info "Using temp directory: $TEMP_DIR"
+
+  # Extract OpenBao values from base configuration
+  log_info "Extracting OpenBao values..."
   yq eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > "${TEMP_DIR}/openbao_values.yaml" || { echo "ERROR: Failed to extract OpenBao values from ${VALUES_FILE}"; exit 1; }
   
   if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
-    echo "Extracting OpenBao size-specific values from ${SIZE_VALUES_FILE}..."
-    echo "Checking if openbao section exists in size values file..."
-    if yq eval '.apps.openbao' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" >/dev/null 2>&1 && [ "$(yq eval '.apps.openbao' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}")" != "null" ]; then
-      echo "OpenBao section found, extracting values..."
-      yq eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${TEMP_DIR}/openbao_size_values.yaml" || { 
-        echo "WARNING: Failed to extract OpenBao valuesObject from ${SIZE_VALUES_FILE}, using empty values"
+    log_info "Extracting OpenBao size-specific values from ${SIZE_VALUES_FILE}..."
+    log_info "Checking if openbao section exists in size values file..."
+    if yq eval 'has("apps") and .apps.openbao' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | grep -q true; then
+      log_info "OpenBao section found, extracting values..."
+      if ! yq eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${TEMP_DIR}/openbao_size_values.yaml"; then
+        log_info "WARNING: Failed to extract OpenBao valuesObject from ${SIZE_VALUES_FILE}, using empty values"
         printf "# OpenBao valuesObject not found in size file\n" > "${TEMP_DIR}/openbao_size_values.yaml"
-      }
+      fi
     else
-      echo "No OpenBao section in size values file, creating empty placeholder..."
+      log_info "No OpenBao section in size values file, creating empty placeholder..."
       printf "# No OpenBao section in size-specific values\n" > "${TEMP_DIR}/openbao_size_values.yaml"
     fi
   else
-    echo "No size-specific values file, creating empty placeholder..."
+    log_info "No size-specific values file, creating empty placeholder..."
     printf "# No size-specific values\n" > "${TEMP_DIR}/openbao_size_values.yaml"
   fi
   
@@ -434,7 +445,7 @@ bootstrap_openbao() {
     kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
     
     # Create initial secrets config for init job (separate from ArgoCD-managed version)
-    echo "Creating initial OpenBao secrets configuration..."
+    log_info "Creating initial OpenBao secrets configuration..."
     cat ${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-manager-cm.yaml | \
       sed "s|name: openbao-secret-manager-scripts|name: openbao-secret-manager-scripts-init|g" | kubectl apply -f -
     
@@ -458,24 +469,21 @@ bootstrap_openbao() {
 
 
 bootstrap_gitea() {
-  echo "=== Gitea Bootstrap ==="
-  generate_password() {
-      openssl rand -hex 16 | tr 'a-f' 'A-F' | head -c 32
-  }
+  log_info "=== Gitea Bootstrap ==="
   
-  # Debug output for troubleshooting
-  echo "Debug: SOURCE_ROOT='${SOURCE_ROOT}'"
-  echo "Debug: VALUES_FILE='${VALUES_FILE}'"
-  echo "Debug: SIZE_VALUES_FILE='${SIZE_VALUES_FILE}'"
-  echo "Debug: CLUSTER_SIZE='${CLUSTER_SIZE}'"
+  # Print debug information
+  log_info "Debug: SOURCE_ROOT='${SOURCE_ROOT}'"
+  log_info "Debug: VALUES_FILE='${VALUES_FILE}'"
+  log_info "Debug: SIZE_VALUES_FILE='${SIZE_VALUES_FILE}'"
+  log_info "Debug: CLUSTER_SIZE='${CLUSTER_SIZE}'"
   
   # Get Gitea version from app path - matching main approach
   GITEA_VERSION=$(yq eval '.apps.gitea.path' "${SOURCE_ROOT}/root/${VALUES_FILE}" | cut -d'/' -f2)
-  echo "Gitea version: $GITEA_VERSION"
-  
-  # Create a unique temp directory to avoid permission issues
-  TEMP_DIR=$(mktemp -d -t cf-gitea-bootstrap.XXXXXX) || { echo "ERROR: Cannot create temp directory"; exit 1; }
-  echo "Using temp directory: $TEMP_DIR"
+  log_info "Gitea version: $GITEA_VERSION"
+
+  # Create a temporary directory for processing Gitea values
+  TEMP_DIR=$(mktemp -d -t cf-gitea-bootstrap.XXXXXX) || { log_info "ERROR: Cannot create temp directory"; exit 1; }
+  log_info "Using temp directory: $TEMP_DIR"
   
   # Create initial-cf-values configmap (complete values for gitea-init-job)
   # Use the complete root values.yaml with filled placeholders instead of simplified version
@@ -505,24 +513,24 @@ bootstrap_gitea() {
     --dry-run=client -o yaml | apply_or_template -f -
   
   # Extract Gitea values like main does
-  echo "Extracting Gitea values..."
-  yq eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > "${TEMP_DIR}/gitea_values.yaml" || { echo "ERROR: Failed to extract Gitea values from ${VALUES_FILE}"; exit 1; }
+  log_info "Extracting Gitea values..."
+  yq eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > "${TEMP_DIR}/gitea_values.yaml" || { log_info "ERROR: Failed to extract Gitea values from ${VALUES_FILE}"; exit 1; }
   
   if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
-    echo "Extracting Gitea size-specific values from ${SIZE_VALUES_FILE}..."
-    echo "Checking if gitea section exists in size values file..."
+    log_info "Extracting Gitea size-specific values from ${SIZE_VALUES_FILE}..."
+    log_info "Checking if gitea section exists in size values file..."
     if yq eval '.apps.gitea' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" >/dev/null 2>&1 && [ "$(yq eval '.apps.gitea' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}")" != "null" ]; then
-      echo "Gitea section found, extracting values..."
+      log_info "Gitea section found, extracting values..."
       yq eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${TEMP_DIR}/gitea_size_values.yaml" || { 
-        echo "WARNING: Failed to extract Gitea valuesObject from ${SIZE_VALUES_FILE}, using empty values"
+        log_info "WARNING: Failed to extract Gitea valuesObject from ${SIZE_VALUES_FILE}, using empty values"
         printf "# Gitea valuesObject not found in size file\n" > "${TEMP_DIR}/gitea_size_values.yaml"
       }
     else
-      echo "No Gitea section in size values file, creating empty placeholder..."
+      log_info "No Gitea section in size values file, creating empty placeholder..."
       printf "# No Gitea section in size-specific values\n" > "${TEMP_DIR}/gitea_size_values.yaml"
     fi
   else
-    echo "No size-specific values file, creating empty placeholder..."
+    log_info "No size-specific values file, creating empty placeholder..."
     printf "# No size-specific values\n" > "${TEMP_DIR}/gitea_size_values.yaml"
   fi
   
@@ -606,8 +614,8 @@ EOF
 
 apply_cluster_forge_parent_app() {
   # Create cluster-forge parent app only (not all apps)
-  echo "=== Creating ClusterForge Parent App ==="
-  echo "Target revision: $TARGET_REVISION"
+  log_info "=== Creating ClusterForge Parent App ==="
+  log_info "Target revision: $TARGET_REVISION"
   
 
   
@@ -633,15 +641,15 @@ is_cluster_forge_child_app() {
 
 main() {
   parse_args "$@"
-  # Use silent dependency check when using --apps for cleaner output
-  if [ -z "$APPS" ]; then
+  # Use silent dependency check when using --apps or template mode for cleaner output
+  if [ -z "$APPS" ] && [ "$TEMPLATE_ONLY" = false ]; then
     if [ "$SKIP_DEPENDENCY_CHECK" = false ]; then
       check_dependencies
     fi
     validate_args
     print_summary
   else
-    # For --apps mode, check deps silently and skip verbose output
+    # For --apps mode or template mode, check deps silently and skip verbose output
     if [ "$SKIP_DEPENDENCY_CHECK" = false ]; then
       check_dependencies true
     fi
@@ -695,45 +703,45 @@ main() {
     fi
   else
     # Default behavior - run all bootstrap components
-    echo "🚀 Running full bootstrap sequence..."
-    echo "📋 Bootstrap order: namespaces → argocd → openbao → gitea → cluster-forge"
+    log_info "🚀 Running full bootstrap sequence..."
+    log_info "📋 Bootstrap order: namespaces → argocd → openbao → gitea → cluster-forge"
     
     if should_run namespaces; then
-      echo "📦 Step 1/5: Creating namespaces"
+      log_info "📦 Step 1/5: Creating namespaces"
       create_namespaces
     else
-      echo "⏭️  Step 1/5: Skipping namespaces"
+      log_info "⏭️  Step 1/5: Skipping namespaces"
     fi
     
     if should_run argocd; then
-      echo "📦 Step 2/5: Bootstrapping ArgoCD"
+      log_info "📦 Step 2/5: Bootstrapping ArgoCD"
       bootstrap_argocd
     else
-      echo "⏭️  Step 2/5: Skipping ArgoCD"
+      log_info "⏭️  Step 2/5: Skipping ArgoCD"
     fi
     
     if should_run openbao; then
-      echo "📦 Step 3/5: Bootstrapping OpenBao"
+      log_info "📦 Step 3/5: Bootstrapping OpenBao"
       bootstrap_openbao
     else
-      echo "⏭️  Step 3/5: Skipping OpenBao"
+      log_info "⏭️  Step 3/5: Skipping OpenBao"
     fi
     
     if should_run gitea; then
-      echo "📦 Step 4/5: Bootstrapping Gitea"
+      log_info "📦 Step 4/5: Bootstrapping Gitea"
       bootstrap_gitea
     else
-      echo "⏭️  Step 4/5: Skipping Gitea"
+      log_info "⏭️  Step 4/5: Skipping Gitea"
     fi
     
     if should_run cluster-forge; then
-      echo "📦 Step 5/5: Creating ClusterForge parent app"
+      log_info "📦 Step 5/5: Creating ClusterForge parent app"
       apply_cluster_forge_parent_app
     else
-      echo "⏭️  Step 5/5: Skipping ClusterForge"
+      log_info "⏭️  Step 5/5: Skipping ClusterForge"
     fi
     
-    echo "✅ Bootstrap sequence completed"
+    log_info "✅ Bootstrap sequence completed"
   fi
 }
 
