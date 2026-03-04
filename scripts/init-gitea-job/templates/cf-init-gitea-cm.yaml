@@ -156,7 +156,7 @@ data:
         helmParameters:
           # APP-DOMAIN (defined in base, but would be overridden here if omitted)
           - name: airm-api.airm.appDomain
-            value: "{{ .Values.global.domain }}"
+            value: "{{ .Values.domain }}"
           # BACKEND (airm-api)
           - name: airm-api.airm.backend.image.repository
             value: "{{ .Values.airmImageRepository }}/airm-api"
