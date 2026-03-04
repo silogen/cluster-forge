@@ -35,14 +35,15 @@ cluster-forge/
 - **CPU**: 8-32 vCPU total
 - **Memory**: 32-128 GB RAM total  
 - **GPU**: 1-4 GPUs (optional)
-- **Storage**: 250Gi+ total, local-path StorageClass
+- **Storage**: 2Ti+ total, local-path StorageClass
 - **Networking**: 1 GbE acceptable
 
 **Application Configuration**:
-- **ArgoCD**: Single replica, 2 CPU / 4Gi RAM limits
-- **MinIO Tenant**: 250Gi storage, single server
+- **ArgoCD**: Single replica, 2 CPU / 2Gi RAM limits
+- **MinIO Tenant**: 2Ti storage, single server
 - **OpenBao**: Single instance (no HA), 5Gi storage
 - **Storage Policies**: Includes `kyverno-policies-storage-local-path` for RWX→RWO conversion
+- **Storage Classes**: Mix of local-path and direct storage classes
 - **Component Replicas**: All single replica deployments
 
 **Use Cases**: Development, testing, proof-of-concept, local workstations
@@ -59,10 +60,11 @@ cluster-forge/
 - **Networking**: 10 GbE recommended
 
 **Application Configuration**:
-- **ArgoCD**: Single replica, 2 CPU / 4Gi RAM limits
-- **MinIO Tenant**: 250Gi storage, single server
+- **ArgoCD**: Single replica, 1 CPU / 2Gi RAM limits
+- **MinIO Tenant**: 2Ti storage, single server
 - **OpenBao**: Single instance (no HA), 5Gi storage
 - **Storage Policies**: Includes `kyverno-policies-storage-local-path` for RWX→RWO conversion
+- **Storage Classes**: Direct storage class consistently
 - **Component Replicas**: Balanced single replica configuration
 
 **Use Cases**: Team production workloads, staging environments, CI/CD
@@ -151,8 +153,8 @@ Later values override earlier ones, allowing size files to contain only the diff
 
 | Size | Servers | Storage | Buckets | Notes |
 |------|---------|---------|---------|-------|
-| Small | 1 | 250Gi | default-bucket, models | Single server, local-path storage |
-| Medium | 1 | 250Gi | default-bucket, models | Single server, local-path or distributed |
+| Small | 1 | 2Ti | default-bucket, models | Single server, local-path storage |
+| Medium | 1 | 2Ti | default-bucket, models | Single server, direct storage |
 | Large | 1 | 500Gi | default-bucket, models | Single server, external HA S3 recommended |
 
 ### OpenBao Scaling

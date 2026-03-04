@@ -56,16 +56,18 @@ Three cluster profiles with inheritance-based resource optimization:
 
 **Small Clusters** (1-5 users, dev/test):
 - Single replica deployments (ArgoCD, Redis, etc.)
-- Reduced resource limits (ArgoCD controller: 2 CPU, 4Gi RAM)
+- Reduced resource limits (ArgoCD controller: 2 CPU, 2Gi RAM)
 - Adds kyverno-policies-storage-local-path for RWX→RWO PVC mutation
-- MinIO tenant: 250Gi storage, single server
+- MinIO tenant: 2Ti storage, single server
+- Mix of local-path and direct storage classes
 - Suitable for: Local workstations, development environments
 
 **Medium Clusters** (5-20 users, team production):
 - Single replica with moderate resource allocation
 - Same storage policies as small (local-path support)
-- ArgoCD controller: 2 CPU, 4Gi RAM
-- Default configuration for balanced performance
+- ArgoCD controller: 1 CPU, 2Gi RAM
+- MinIO tenant: 2Ti storage
+- Uses direct storage class consistently
 - Suitable for: Small teams, staging environments
 
 **Large Clusters** (10s-100s users, enterprise scale):
@@ -73,6 +75,7 @@ Three cluster profiles with inheritance-based resource optimization:
 - No local-path policies (assumes distributed storage like Longhorn)
 - MinIO tenant: 500Gi storage
 - Production-grade resource allocation
+- Uses direct storage class for all persistent volumes
 - Suitable for: Production deployments, multi-tenant environments
 
 Size configurations use YAML merge semantics where size-specific values override base values.yaml settings.
@@ -80,14 +83,19 @@ Size configurations use YAML merge semantics where size-specific values override
 ### App-of-Apps Architecture
 
 Cluster-Forge root chart generates ArgoCD Application manifests from:
-- `enabledApps[]` - List of applications to deploy
+- `enabledApps[]` - List of applications to deploy (defined in size-specific values files)
 - `apps.<name>` - Configuration for each application including:
   - `path` - Relative path in sources/ directory
   - `namespace` - Target Kubernetes namespace
-  - `syncWave` - Deployment order (-5 to 0)
+  - `syncWave` - Deployment order (-70 to 0)
   - `valuesObject` - Inline Helm values
   - `helmParameters` - Templated Helm parameters (e.g., domain injection)
   - `ignoreDifferences` - ArgoCD diff exclusions
+
+**Size-Specific Application Sets:**
+- **Small clusters**: 46 enabled applications including storage-local-path policies
+- **Medium clusters**: 47 enabled applications including storage-local-path policies and openbao-init
+- **Large clusters**: 45 enabled applications excluding storage-local-path policies
 
 The cluster-forge Application uses multi-source feature when externalValues.enabled=true:
 - Source 1: cluster-forge repo (root/ helm chart)
@@ -157,8 +165,8 @@ The cluster-forge Application uses multi-source feature when externalValues.enab
 - RabbitMQ v2.15.0 - Message broker for async processing
 
 **Layer 6: AIRM Application** (Sync Wave 0)
-- AIRM 0.3.2 - AMD Resource Manager application suite
-- Configurable image repositories for custom registries and air-gapped deployments
+- AIRM 0.3.5 - AMD Resource Manager application suite
+- Configurable image repositories for custom registries and air-gapped deployments via --airm-image-repository flag
 - AIM Cluster Model Source - Cluster resource models for AIRM
 
 ### Repository Structure
@@ -209,22 +217,24 @@ The bootstrap.sh script orchestrates complete cluster setup with flexible option
 **Available Options:**
 - `--cluster-size=[small|medium|large]` - Cluster size configuration (default: medium)
 - `--apps=APP1,APP2` - Deploy only specified components
-  - Bootstrap apps: `namespaces`, `argocd`, `gitea`, `cluster-forge`
-  - Child apps: Any app from enabledApps list (e.g., `openbao`, `keycloak`, `keda`)
+  - Bootstrap apps: `namespaces`, `argocd`, `openbao`, `gitea`, `cluster-forge`
+  - Child apps: Any app from enabledApps list (e.g., `keycloak`, `keda`, `airm`)
 - `--target-revision=BRANCH` - cluster-forge git revision for ArgoCD (default: latest release tag)
 - `--template-only` or `-t` - Output YAML manifests instead of applying to cluster
 - `--skip-deps` - Skip dependency checking for advanced users
+- `--airm-image-repository=REPO` - Custom AIRM container image repository for air-gapped deployments
 
 **Bootstrap Process:**
-1. **Validation** - Checks domain, cluster size, values files, required tool availability
+1. **Validation** - Checks domain, cluster size, values files, required tool availability (kubectl, helm, yq with version checking)
 2. **Pre-cleanup** - Removes previous installations if gitea-init-job completed
 3. **Values Merge** - Combines base + size-specific values with domain injection
-4. **Namespace Creation** - Creates argocd, cf-gitea namespaces
-5. **ArgoCD Deployment** - helm template + kubectl apply with server-side apply
-6. **Gitea Deployment** - helm template + kubectl apply, waits for rollout
-7. **Gitea Init Job** - Creates cluster-org, clones/pushes cluster-forge and cluster-values repos
-8. **ClusterForge App** - Creates root Application that manages all remaining components via ArgoCD
-9. **Component Deployment** - ArgoCD syncs all enabledApps including OpenBao, secrets, and application stack
+4. **Namespace Creation** - Creates argocd, cf-gitea, openbao namespaces
+5. **ArgoCD Deployment** - helm template + kubectl apply with server-side apply using --field-manager=argocd-controller
+6. **OpenBao Bootstrap** - Separate bootstrap phase for secrets management foundation
+7. **Gitea Deployment** - helm template + kubectl apply, waits for rollout
+8. **Gitea Init Job** - Creates cluster-org, clones/pushes cluster-forge and cluster-values repos with AIRM image repository support
+9. **ClusterForge App** - Creates root Application that manages all remaining components via ArgoCD
+10. **Component Deployment** - ArgoCD syncs all enabledApps including secrets and application stack
 
 ### Selective Component Deployment
 
@@ -250,6 +260,9 @@ The `--apps` flag enables targeted deployment for development and troubleshootin
 
 # Render manifests for debugging
 ./scripts/bootstrap.sh example.com --apps=keycloak --template-only
+
+# Deploy with custom AIRM image repository for air-gapped environments
+./scripts/bootstrap.sh example.com --airm-image-repository=registry.internal.com/airm
 ```
 
 ### Self-Contained GitOps
@@ -461,10 +474,12 @@ Kueue manages scheduling for:
 - Production should use Cert-Manager with ACME
 
 **Required Tools:**
-- yq v4+ (YAML processor)
-- helm 3.0+
-- kubectl
+- yq v4+ (YAML processor) with automatic version checking
+- helm 3.0+ with automatic version checking
+- kubectl with automatic version checking
 - openssl (for password generation)
+
+Bootstrap script provides comprehensive dependency validation with platform-specific installation instructions for missing tools.
 
 ### Resource Requirements
 
@@ -486,8 +501,8 @@ Kueue manages scheduling for:
 ### Functional Requirements
 
 **FR1: AIRM Platform Delivery**
-- Deploy AMD Resource Manager (AIRM) 0.3.2 with UI and API
-- Support configurable image repositories via `airmImageRepository` bootstrap parameter
+- Deploy AMD Resource Manager (AIRM) 0.3.5 with UI and API
+- Support configurable image repositories via `--airm-image-repository` bootstrap parameter
 - Provide model serving with KServe v0.16.0
 - Support distributed computing via KubeRay Operator 1.4.2
 - Enable workflow orchestration through Kaiwo v0.2.0-rc11
@@ -613,7 +628,7 @@ ClusterForge includes comprehensive SBOM tooling in `/sbom`:
 
 ## Version Information
 
-**Current Release:** v1.8.0-rc2
+**Current Release:** v1.8.0
 
 **Key Component Versions:**
 - ArgoCD: 8.3.5
@@ -622,7 +637,7 @@ ClusterForge includes comprehensive SBOM tooling in `/sbom`:
 - Keycloak: keycloak-old chart
 - KServe: v0.16.0
 - Kaiwo: v0.2.0-rc11
-- AIRM: 0.3.2
+- AIRM: 0.3.5
 - Kueue: 0.13.0
 - AMD GPU Operator: v1.4.1
 - OTEL-LGTM Stack: v1.0.7
