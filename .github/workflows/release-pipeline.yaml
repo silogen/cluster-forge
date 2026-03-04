@@ -42,27 +42,31 @@ jobs:
           fi
           echo "next=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Update helm values file
-        uses: mikefarah/yq@master
+      - name: Validate LATEST_RELEASE matches release version
         env:
-          GIT_TAG: ${{ steps.semver.outputs.next }}
-        with:
-          cmd: |
-            yq -i '.clusterForge.targetRevision = env(GIT_TAG)' root/values.yaml
-            yq -i '.targetRevision = env(GIT_TAG)' scripts/init-gitea-job/values.yaml
-            
-      - name: Commit and push changes
-        uses: stefanzweifel/git-auto-commit-action@v4
-        env:
-          GIT_TAG: ${{ steps.semver.outputs.next }}
-        with:
-          commit_message: 'Update version to ${{ env.GIT_TAG }} [actions skip]'
+          VERSION: ${{ steps.semver.outputs.next }}
+        run: |
+          # Extract LATEST_RELEASE from bootstrap.sh
+          LATEST_RELEASE=$(grep '^LATEST_RELEASE=' scripts/bootstrap.sh | cut -d'"' -f2 | sed 's/^v//')
+          
+          # Extract base version (before -rc or -alpha, etc.)
+          RELEASE_BASE=$(echo "$VERSION" | sed 's/^v//' | sed 's/-rc[0-9]*$//' | sed 's/-alpha[0-9]*$//' | sed 's/-beta[0-9]*$//')
+          LATEST_BASE=$(echo "$LATEST_RELEASE" | sed 's/-rc[0-9]*$//' | sed 's/-alpha[0-9]*$//' | sed 's/-beta[0-9]*$//')
+          
+          echo "Release version: $VERSION (base: $RELEASE_BASE)"
+          echo "LATEST_RELEASE in bootstrap.sh: $LATEST_RELEASE (base: $LATEST_BASE)"
+          
+          if [[ "$RELEASE_BASE" != "$LATEST_BASE" ]]; then
+            echo "::warning::LATEST_RELEASE base version ($LATEST_BASE) in scripts/bootstrap.sh does not match release version base ($RELEASE_BASE)"
+            echo "::warning::Consider updating LATEST_RELEASE in scripts/bootstrap.sh to match the release being created"
+          else
+            echo "✓ LATEST_RELEASE base version matches release version base"
+          fi
 
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.semver.outputs.next }}
-          EXTRA_ARGS: ${{ steps.version.outputs.extra_args }}
         run: |
           # Prepare release artifact
           tar -zcvf "release-enterprise-ai-${VERSION}.tar.gz" --transform 's,^,cluster-forge/,' root/ scripts/ sources

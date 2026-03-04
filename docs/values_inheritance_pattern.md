@@ -2,111 +2,185 @@
 
 ## Overview
 
-ClusterForge implements a sophisticated GitOps deployment pattern that supports both external GitHub deployment and local cluster-native deployment through dual values files and repository configurations.
+Cluster-Forge implements a sophisticated dual-repository GitOps deployment pattern that supports both external GitHub deployment and local cluster-native deployment through separate configuration and application repositories.
 
 ## Two Deployment Modes
 
-### External Mode (`values.yaml`)
-```yaml
-clusterForge:
-  repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: v1.7.1
-  valuesFile: values.yaml
-
-externalValues:
-  enabled: false  # Uses single external source
-```
-
-**Purpose**: Traditional GitOps with external GitHub dependency
-**Use Cases**: Initial deployment, CI/CD pipelines, production releases
-**Network**: Requires external internet access
-
-### Local Mode (`values_cf.yaml`)
+### Local Mode (Default)
 ```yaml
 clusterForge:
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
   targetRevision: main
 
 externalValues:
-  enabled: true  # Uses local multi-source
+  enabled: true  # Uses multi-source pattern
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
   targetRevision: main
-  path: values_cf.yaml
 ```
 
-**Purpose**: Self-contained GitOps with local Gitea and separate configuration repository
-**Use Cases**: Air-gapped environments, developer clusters, autonomous operation
-**Network**: Self-contained within cluster network
+**Purpose**: Self-contained cluster-native GitOps with local Gitea  
+**Use Cases**: Air-gapped environments, autonomous operation, production deployments  
+**Network**: Self-contained within cluster network  
+**Features**:
+- Local Gitea serves both cluster-forge and cluster-values repositories
+- Initialization handled by gitea-init-job during bootstrap
+- Zero external dependencies once bootstrapped
+- Full configuration version control within cluster
+
+### External Mode
+```yaml
+clusterForge:
+  repoUrl: "https://github.com/silogen/cluster-forge.git"
+  targetRevision: v1.8.0-rc2
+
+externalValues:
+  enabled: false  # Single source from GitHub
+```
+
+**Purpose**: Traditional GitOps with external GitHub dependency  
+**Use Cases**: Initial deployment, CI/CD pipelines, feature branch testing  
+**Network**: Requires external internet access  
+**Features**:
+- Direct GitHub access for application deployment
+- Supports custom branch selection for testing
 
 ## Size-Specific Inheritance
 
-ClusterForge uses Helm's multi-values file support for cluster size configuration:
+Cluster-Forge uses YAML merge semantics for cluster size configuration:
 
 ```bash
-helm template -f values.yaml -f values_medium.yaml
+# Bootstrap merges values using yq eval-all
+yq eval-all '. as $item ireduce ({}; . * $item)' \
+    values.yaml values_medium.yaml
 ```
 
 ### Inheritance Hierarchy
-1. **Base**: `values.yaml` or `values_cf.yaml` (52 common applications)
+1. **Base**: `values.yaml` (common applications and defaults)
 2. **Size Override**: `values_small.yaml`, `values_medium.yaml`, or `values_large.yaml`
-3. **Runtime**: Domain and cluster-specific parameters
+3. **External**: `cluster-values/values.yaml` from Gitea (when externalValues.enabled: true)
+4. **Runtime**: Domain and cluster-specific parameters injected during bootstrap
 
-### Size File Structure
-- **Base files**: Complete application definitions and 52 enabledApps
-- **Size files**: Only contain differences from base (DRY principle)
-- **Large clusters**: No size file needed (inherit everything from base)
+### DRY Principle in Size Files
 
-| Cluster Size | Apps from Base | Additional Apps | Total Apps |
-|--------------|----------------|-----------------|-----------|
-| **Small** | 52 (inherited) | +1 (storage policy) | **53 apps** |
-| **Medium** | 52 (inherited) | +1 (storage policy) | **53 apps** |  
-| **Large** | 52 (inherited) | +0 (no additions) | **52 apps** |
+Size files only contain differences from base (Don't Repeat Yourself):
 
-## Repository Transition Pattern
+**Base values.yaml**:
+- Complete application definitions for all apps
+- Alpha-sorted `enabledApps` list
+- Common defaults applicable to all sizes
 
-### Bootstrap Workflow
-1. **External Bootstrap**: Deploy from GitHub for initial setup
-2. **Local Transition**: Switch to local Gitea for autonomous operation
-3. **Developer Access**: Local Git workflows for cluster configuration
-4. **Upstream Sync**: Periodic synchronization with main project
+**Size-specific values**:
+- Only resource overrides that differ from base
+- Size-specific enabledApps additions (e.g., storage policies)
+- HA configurations for large clusters
 
-### Multi-Source GitOps
-When using `values_cf.yaml`, ArgoCD uses two separate repositories:
-- **Application Source**: `cluster-org/cluster-forge` (Helm charts and manifests)
-- **Configuration Source**: `cluster-org/cluster-values` (values.yaml customizations)
+**Example**:
+```yaml
+# values_small.yaml - only differences
+enabledApps:
+  - kyverno-policies-storage-local-path  # Added to base list
 
-This separation enables independent versioning of infrastructure vs. settings.
+apps:
+  argocd:
+    valuesObject:
+      controller:
+        resources:
+          limits:
+            cpu: 2000m      # Override from base
+            memory: 4Gi
+```
+
+| Cluster Size | Apps from Base | Additional Apps | Configuration Overrides |
+|--------------|----------------|-----------------|------------------------|
+| **Small** | All base apps | +1 (storage policy) | Minimal resources, single replicas |
+| **Medium** | All base apps | +1 (storage policy) | Balanced resources, single replicas | 
+| **Large** | All base apps | +0 (no additions) | Production resources, OpenBao HA (3 replicas) |
+
+## Bootstrap and GitOps Workflow
+
+### Bootstrap Process
+
+The bootstrap script establishes the GitOps foundation:
+
+**Phase 1: Pre-Cleanup**
+- Removes previous installations when applicable
+
+**Phase 2: GitOps Foundation Bootstrap**
+1. ArgoCD deployment (helm template)
+2. OpenBao deployment and initialization
+3. Gitea deployment and initialization
+   - Creates cluster-org organization
+   - Clones cluster-forge from initial-cf-values ConfigMap
+   - Creates cluster-values repository
+
+**Phase 3: App-of-Apps Deployment**
+- Creates cluster-forge Application in ArgoCD
+- Uses multi-source when externalValues.enabled: true
+- ArgoCD manages all remaining applications
+
+### Multi-Source GitOps Pattern
+
+When using local mode (`externalValues.enabled: true`), ArgoCD uses two separate repositories:
+
+**Source 1: Application Source** (`cluster-forge`)
+- Helm charts and manifests in `sources/` directory
+- Application definitions in `root/` chart
+- Component versions and configurations
+
+**Source 2: Configuration Source** (`cluster-values`)  
+- Custom `values.yaml` for environment-specific overrides
+- Domain and cluster-specific settings
+- Independent versioning from application code
+
+This separation enables:
+- Different update cadences for infrastructure vs. configuration
+- Easy configuration rollback without affecting application versions
+- Clear ownership separation
+
+### Value Merge Order
+
+When ArgoCD renders applications with multi-source:
+
+1. **Base values** from `cluster-forge/root/values.yaml`
+2. **Size-specific** from `cluster-forge/root/values_<size>.yaml`
+3. **External overrides** from `cluster-values/values.yaml`
+4. **Runtime parameters** (domain, targetRevision) injected by bootstrap
 
 ## Developer Workflow
 
-### Local Configuration Management
+### Local Configuration Management (Local Mode)
+
 ```bash
-# Clone local configuration repository
+# Clone local configuration repository from Gitea
 git clone http://gitea.cluster.example.com/cluster-org/cluster-values.git
 cd cluster-values
 
 # Modify cluster configurations
-vim values_cf.yaml
-git add values_cf.yaml
+vim values.yaml
+git add values.yaml
 git commit -m "Update cluster configuration"
 git push
 
-# ArgoCD automatically deploys the changes
+# ArgoCD automatically detects and syncs the changes
 ```
 
 ### Configuration Version Control
-- All cluster configuration changes tracked in Git history
-- Pull request workflow for configuration reviews
-- Automatic deployment through ArgoCD sync
-- Rollback capabilities through Git revert
+
+Benefits of the dual-repository pattern:
+- **Full Git history**: Track all cluster configuration changes
+- **Pull request workflow**: Review configuration changes before deployment
+- **Automatic deployment**: ArgoCD syncs on Git push
+- **Rollback capabilities**: Revert via Git history
+- **Separation of concerns**: Infrastructure code vs. environment configuration
 
 ## Benefits
 
-1. **🎯 Deployment Flexibility**: External dependency → local autonomy transition
+1. **🎯 Deployment Flexibility**: Support for both external and local GitOps modes
 2. **🔄 Version Control**: Full Git history for all cluster configuration changes  
-3. **🛡️ Air-Gap Ready**: Works in secure, isolated environments
-4. **👥 Developer Experience**: Local Git access for cluster configuration
-5. **📦 Upstream Sync**: Can receive updates from main project
+3. **🛡️ Air-Gap Ready**: Works in secure, isolated environments with local Gitea
+4. **👥 Developer Experience**: Local Git access for cluster configuration management
+5. **📦 Multi-Source Pattern**: Separate application code from configuration
 6. **🔧 Maintainability**: DRY principle eliminates configuration redundancy
+7. **🚀 Bootstrap Automation**: Single command establishes complete GitOps infrastructure
 
-This architectural pattern enables clusters to evolve from external dependency to local autonomy while maintaining all benefits of declarative configuration management.
+This architectural pattern enables clusters to operate with full GitOps benefits while maintaining flexibility for different deployment scenarios from development to air-gapped production environments.

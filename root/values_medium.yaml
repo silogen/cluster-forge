@@ -1,8 +1,5 @@
-# MEDIUM CLUSTER: All apps enabled (inherited from base values.yaml)
-# Add Kyverno policy for local-path access mode mutation
+# Medium & Small clusters add local-path storage policy for RWX→RWO conversion
 
-# Medium & Small clusters add local-path storage policy for RWX→RWO conversion
-# Medium & Small clusters add local-path storage policy for RWX→RWO conversion
 enabledApps:
   - aim-cluster-model-source
   - airm
@@ -58,9 +55,13 @@ apps:
   kyverno-policies-storage-local-path:
     namespace: kyverno
     path: kyverno-policies/storage-local-path
-    ignoreDifferences: []
-    syncWave: -2
-
+    syncWave: -20
+    ignoreDifferences:
+      - group: kyverno.io
+        kind: ClusterPolicy
+        jsonPointers:
+          - /spec/rules/*/skipBackgroundRequests
+          - /spec/rules/*/validate/allowExistingViolations
   argocd:
     valuesObject:
       applicationSet:
@@ -69,8 +70,8 @@ apps:
         replicas: 1
         resources:
           limits:
-            cpu: "2000m"
-            memory: "4Gi"
+            cpu: "1000m"
+            memory: "2Gi"
           requests:
             cpu: "500m" 
             memory: "1Gi"
@@ -79,8 +80,8 @@ apps:
         redis:
           resources:
             limits:
-              cpu: "1000m"
-              memory: "2Gi"
+              cpu: "500m"
+              memory: "1Gi"
             requests:
               cpu: "250m"
               memory: "512Mi"
@@ -88,8 +89,8 @@ apps:
         replicas: 1
         resources:
           limits:
-            cpu: "1000m" 
-            memory: "2Gi"
+            cpu: "500m" 
+            memory: "1Gi"
           requests:
             cpu: "250m"
             memory: "512Mi"
@@ -185,3 +186,20 @@ apps:
         storageClassName: direct
         accessModes:
           - ReadWriteOnce
+
+  otel-lgtm-stack:
+    valuesObject:
+      collectors:
+        resources:
+          metrics:
+            limits:
+              memory: 4Gi
+              cpu: '1'
+
+  opentelemetry-operator:
+    valuesObject:
+      manager:
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
