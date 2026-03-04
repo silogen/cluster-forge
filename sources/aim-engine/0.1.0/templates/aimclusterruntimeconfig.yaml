@@ -1,0 +1,11 @@
+{{- if .Values.clusterRuntimeConfig.enable }}
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterRuntimeConfig
+metadata:
+  name: {{ .Values.clusterRuntimeConfig.name }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+spec:
+  {{- toYaml .Values.clusterRuntimeConfig.spec | nindent 2 }}
+{{- end }}
+

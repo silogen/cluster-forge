@@ -61,6 +61,16 @@ enabledApps:
   - kueue-config
 # Component-specific overrides for memory reduction  
 apps:
+  # AIM Engine CRDs and Engine
+  aim-engine-crds:
+    path: aim-engine-crds/0.1.0
+    namespace: aim-system
+    syncWave: 0
+  aim-engine:
+    path: aim-engine/0.1.0
+    namespace: aim-system
+    valuesFile: values.yaml
+    syncWave: 0
   # OpenTelemetry operator (required by AIRM for metrics collection)
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
@@ -183,6 +193,7 @@ apps:
   aiwb:
     path: aiwb/0.1.0
     namespace: aiwb
+    syncWave: 0
     helmParameters:
       # Enable standalone mode (AIWB manages its own namespace)
       - name: standAloneMode
