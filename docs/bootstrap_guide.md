@@ -1,6 +1,6 @@
 # Bootstrap Guide
 
-This guide explains how to bootstrap a complete GitOps environment using Cluster-Forge's three-phase deployment model. The bootstrap process establishes ArgoCD and Gitea (Git repository) as foundation components, then creates the cluster-forge Application which manages all remaining components including OpenBao and the full application stack via ArgoCD.
+This guide explains how to bootstrap a complete GitOps environment using Cluster-Forge's five-step deployment model. The bootstrap process establishes ArgoCD, OpenBao, and Gitea as foundation components, then creates the cluster-forge Application which manages all remaining components via ArgoCD.
 
 ## Prerequisites
 
@@ -24,12 +24,14 @@ This guide explains how to bootstrap a complete GitOps environment using Cluster
 ### Options
 
 - **--apps=APP1,APP2**: Deploy only specified components (default: applies to cluster)
-  - options: `namespaces`, `argocd`, `gitea`, `cluster-forge`, or any cluster-forge child app (see values.yaml for app names)  
+  - Bootstrap apps: `namespaces`, `argocd`, `openbao`, `gitea`, `cluster-forge`
+  - Child apps: Any app from enabledApps list (see values_{size}.yaml for app names)  
   - Use with `--template-only` to render instead of applying
 - **--cluster-size** `[small|medium|large]`: Cluster size configuration (default: `medium`)
 - **--template-only**, **-t**: Output YAML manifests to stdout instead of applying to cluster  
 - **--target-revision**, **-r**: cluster-forge git revision for ArgoCD to sync from
 - **--skip-deps**: Skip dependency checking (for advanced users)
+- **--airm-image-repository=REPO**: Custom AIRM container image repository for air-gapped deployments
 - **--help**, **-h**: Show usage information
 
 ### Examples
@@ -52,15 +54,15 @@ This guide explains how to bootstrap a complete GitOps environment using Cluster
 ./scripts/bootstrap.sh example.com --CLUSTER_SIZE=large
 
 # Custom AIRM image repository
-AIRM_IMAGE_REPOSITORY=ghcr.io/mycompany ./scripts/bootstrap.sh example.com
+./scripts/bootstrap.sh example.com --airm-image-repository=ghcr.io/mycompany
 
 # Air-gapped deployment with local registry
-AIRM_IMAGE_REPOSITORY=harbor.internal.com/airm ./scripts/bootstrap.sh 192.168.1.100.nip.io --CLUSTER_SIZE=small
+./scripts/bootstrap.sh 192.168.1.100.nip.io --cluster-size=small --airm-image-repository=harbor.internal.com/airm
 ```
 
 ## How It Works
 
-The bootstrap script uses a three-phase deployment model:
+The bootstrap script uses a five-step deployment model:
 
 ### Phase 1: Pre-Cleanup
 - The pre_cleanup function performs selective cleanup, only affects cf-gitea and cf-openbao namespaces
@@ -78,9 +80,10 @@ The bootstrap script uses a three-phase deployment model:
 - Sets `global.domain` and `global.clusterSize` in merged configuration
 
 **2. Namespace Creation**
-Creates two namespaces for bootstrap components:
+Creates three namespaces for bootstrap components:
 - `argocd` - GitOps controller
 - `cf-gitea` - Git repository server
+- `cf-openbao` - Secrets management system
 
 **3. ArgoCD Bootstrap**
 - Extracts ArgoCD values from merged configuration
