@@ -32,10 +32,6 @@ This guide explains how to bootstrap a complete GitOps environment using Cluster
 - **--skip-deps**: Skip dependency checking (for advanced users)
 - **--help**, **-h**: Show usage information
 
-### Environment Variables
-
-- **AIRM_IMAGE_REPOSITORY**: Optional base repository URL for AIRM container images. When set, overrides default AIRM image repositories in the cluster-values configuration. Example: `ghcr.io/mycompany`
-
 ### Examples
 
 ```bash
