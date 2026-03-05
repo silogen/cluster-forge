@@ -1,0 +1,81 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: '{{ .Release.Name }}-api-route'
+  namespace: '{{ .Release.Namespace }}'
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.kgateway.gatewayName }}
+      namespace: {{ .Values.kgateway.namespace }}
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: '{{ .Release.Name }}-api'
+          port: {{ .Values.kgateway.api.servicePort }}
+          weight: 1
+      matches:
+        - headers:
+            - name: Host
+              type: RegularExpression
+              value: {{ .Values.kgateway.api.prefixValue }}\..*
+          path:
+            type: RegularExpression
+            value: .*/stream.*
+      timeouts:
+        backendRequest: {{ .Values.kgateway.api.timeouts.stream.backendRequest }}
+        request: {{ .Values.kgateway.api.timeouts.stream.request }}
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: '{{ .Release.Name }}-api'
+          port: {{ .Values.kgateway.api.servicePort }}
+          weight: 1
+      matches:
+        - headers:
+            - name: Host
+              type: RegularExpression
+              value: {{ .Values.kgateway.api.prefixValue }}\..*
+          path:
+            type: PathPrefix
+            value: /
+      timeouts:
+        backendRequest: {{ .Values.kgateway.api.timeouts.nonStream.backendRequest }}
+        request: {{ .Values.kgateway.api.timeouts.nonStream.request }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: '{{ .Release.Name }}-ui-route'
+  namespace: '{{ .Release.Namespace }}'
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.kgateway.gatewayName }}
+      namespace: {{ .Values.kgateway.namespace }}
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: '{{ .Release.Name }}-ui'
+          port: {{ .Values.kgateway.ui.servicePort }}
+          weight: 1
+      matches:
+        - headers:
+            - name: Host
+              type: RegularExpression
+              value: {{ .Values.kgateway.ui.prefixValue }}\..*
+          path:
+            type: PathPrefix
+            value: /
+      timeouts:
+        backendRequest: {{ .Values.kgateway.ui.timeouts.backendRequest }}
+        request: {{ .Values.kgateway.ui.timeouts.request }}

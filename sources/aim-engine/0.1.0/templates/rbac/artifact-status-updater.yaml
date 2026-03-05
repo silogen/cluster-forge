@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+    name: aim-engine-artifact-status-updater
+rules:
+    - apiGroups:
+        - aim.eai.amd.com
+      resources:
+        - aimartifacts/status
+      verbs:
+        - get
+        - patch
+        - update
