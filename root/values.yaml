@@ -11,6 +11,15 @@ global:
   domain:         # injected via scripts/bootstrap.sh
 
 apps:
+  aim-engine:
+    path: aim-engine/0.1.0
+    namespace: aim-system
+    valuesFile: values.yaml
+    syncWave: 0
+  aim-engine-crds:
+    path: aim-engine-crds/0.1.0
+    namespace: aim-system
+    syncWave: 0
   aim-cluster-model-source:
     namespace: kaiwo-system
     path: aim-cluster-model-source
