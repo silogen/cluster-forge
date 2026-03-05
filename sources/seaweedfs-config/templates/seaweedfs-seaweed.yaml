@@ -1,3 +1,4 @@
+{{- with .Values.seaweed }}
 apiVersion: seaweed.seaweedfs.com/v1
 kind: Seaweed
 metadata:
@@ -8,18 +9,18 @@ spec:
   volumeServerDiskCount: 1
   hostSuffix: plat-dev-1.silogen.ai
   master:
-    replicas: 1
+    replicas: {{ .master.replicas }}
     volumeSizeLimitMB: 1024
   volume:
-    replicas: 1
-    storageClassName: mlstorage
+    replicas: {{ .volume.replicas }}
+    storageClassName: {{ .storageClassName }}
     requests:
-      storage: 2Gi
+      storage: {{ .volume.requests.storage }}
     # Topology configuration for rack/datacenter-aware placement
     rack: "rack1"
     dataCenter: "dc1"
   filer:
-    replicas: 1
+    replicas: {{ .filer.replicas }}
     volumes:
       - name: s3-metadata
         persistentVolumeClaim:
@@ -36,3 +37,4 @@ spec:
       [leveldb2]
       enabled = true
       dir = "/data/filerldb2"
+{{- end}}
