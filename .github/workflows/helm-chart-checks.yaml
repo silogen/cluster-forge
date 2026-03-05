@@ -28,3 +28,236 @@ jobs:
 
       - name: Helm template
         run: helm template ./root -f ${{ matrix.values }}
+
+  kyverno-policies:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        policy-chart:
+          [
+            "./sources/kyverno-policies/base",
+            "./sources/kyverno-policies/storage-local-path"
+          ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4.3.0
+
+      - name: Install Kyverno CLI
+        # Use the official action
+        uses: kyverno/action-install-cli@v0.2.0
+        with:
+          release: 'v1.17.1' 
+
+      - name: Check install
+        run: kyverno version
+
+      - name: Validate test coverage for all policies
+        run: |
+          echo "=== Validating test coverage for Kyverno policies ==="
+          VALIDATION_FAILED=false
+          
+          # Function to check if a policy has corresponding tests
+          check_policy_tests() {
+            local policy_chart="$1"
+            local policy_name="$(basename "$policy_chart")"
+            
+            echo "Checking test coverage for: $policy_name"
+            
+            # Check if test directory exists
+            if [ ! -d "$policy_chart/test" ]; then
+              echo "❌ ERROR: No test directory found for policy chart: $policy_name"
+              echo "   Expected: $policy_chart/test/"
+              VALIDATION_FAILED=true
+              return
+            fi
+            
+            # Check if kyverno-test.yaml exists
+            if [ ! -f "$policy_chart/test/kyverno-test.yaml" ]; then
+              echo "❌ ERROR: No test configuration found for policy chart: $policy_name"
+              echo "   Expected: $policy_chart/test/kyverno-test.yaml"
+              VALIDATION_FAILED=true
+              return
+            fi
+            
+            # Extract policy names from templates and verify they have test cases
+            echo "Validating individual policy test coverage..."
+            
+            # Generate rendered policies to extract actual policy names
+            helm template test-release "$policy_chart" > /tmp/rendered-policies.yaml
+            
+            # Extract ClusterPolicy names from rendered output
+            POLICIES=$(grep -E "^kind: ClusterPolicy" /tmp/rendered-policies.yaml -A 10 | grep -E "^\s*name:" | sed 's/.*name: *//' | sort -u)
+            
+            if [ -z "$POLICIES" ]; then
+              echo "⚠️  WARNING: No ClusterPolicy resources found in $policy_name"
+              return
+            fi
+            
+            # Check that each policy has test results defined
+            for policy in $POLICIES; do
+              if ! grep -q "policy: $policy" "$policy_chart/test/kyverno-test.yaml"; then
+                echo "❌ ERROR: No test results defined for policy: $policy"
+                echo "   Policy chart: $policy_name"
+                echo "   Missing test results in: $policy_chart/test/kyverno-test.yaml"
+                VALIDATION_FAILED=true
+              else
+                echo "✅ Policy '$policy' has test coverage"
+              fi
+            done
+            
+            # Check for test resource files
+            TEST_RESOURCES=$(find "$policy_chart/test" -name "*.yaml" -not -name "kyverno-test.yaml" | wc -l)
+            if [ "$TEST_RESOURCES" -eq 0 ]; then
+              echo "❌ ERROR: No test resource files found for policy chart: $policy_name"
+              echo "   Expected: At least one test resource YAML file in $policy_chart/test/"
+              VALIDATION_FAILED=true
+            else
+              echo "✅ Found $TEST_RESOURCES test resource file(s)"
+            fi
+          }
+          
+          # Check each policy chart in the matrix
+          for policy_chart in ${{ matrix.policy-chart }}; do
+            check_policy_tests "$policy_chart"
+            echo ""
+          done
+          
+          # Fail the job if validation failed
+          if [ "$VALIDATION_FAILED" = true ]; then
+            echo ""
+            echo "💥 VALIDATION FAILED: One or more policies lack proper test coverage"
+            echo ""
+            echo "To fix this issue:"
+            echo "1. Create a 'test' directory in your policy chart"
+            echo "2. Add 'kyverno-test.yaml' with test configuration"
+            echo "3. Add test resource YAML files"
+            echo "4. Ensure all policies defined in templates/ have corresponding test results"
+            echo ""
+            echo "See existing policy charts for examples:"
+            echo "- sources/kyverno-policies/base/test/"
+            echo "- sources/kyverno-policies/storage-local-path/test/"
+            exit 1
+          fi
+          
+          echo "✅ All policies have proper test coverage!"
+
+      - name: Helm lint Kyverno policies
+        run: helm lint ${{ matrix.policy-chart }}
+
+      - name: Helm template Kyverno policies  
+        run: helm template test-release ${{ matrix.policy-chart }} --dry-run
+
+      - name: Run Kyverno policy tests
+        working-directory: ${{ matrix.policy-chart }}/test
+        run: |
+          echo "Testing policies in ${{ matrix.policy-chart }}"
+          
+          # Generate policies from Helm templates for testing
+          helm template test-release .. > policy.yaml
+          
+          echo "=== Generated policy file ==="
+          cat policy.yaml
+          echo ""
+          echo "=== Test configuration ==="
+          cat kyverno-test.yaml
+          echo ""
+          echo "=== Running Kyverno tests ==="
+          
+          # Run the tests - Kyverno CLI will find policy.yaml and test resources in current directory
+          kyverno test .
+
+  kyverno-coverage-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4.3.0
+
+      - name: Validate all Kyverno policies have tests
+        run: |
+          echo "=== Comprehensive Kyverno Policy Test Coverage Validation ==="
+          VALIDATION_FAILED=false
+          
+          # Find all Kyverno policy charts
+          POLICY_CHARTS=$(find sources/kyverno-policies -name "Chart.yaml" -exec dirname {} \; | sort)
+          
+          if [ -z "$POLICY_CHARTS" ]; then
+            echo "⚠️  No Kyverno policy charts found in sources/kyverno-policies/"
+            exit 0
+          fi
+          
+          echo "Found Kyverno policy charts:"
+          for chart in $POLICY_CHARTS; do
+            echo "  - $chart"
+          done
+          echo ""
+          
+          # Matrix of expected policy charts (should match workflow matrix)
+          EXPECTED_CHARTS="./sources/kyverno-policies/base ./sources/kyverno-policies/storage-local-path"
+          
+          # Check if all discovered charts are in the CI matrix
+          for chart in $POLICY_CHARTS; do
+            chart_path="./$chart"
+            if ! echo "$EXPECTED_CHARTS" | grep -q "$chart_path"; then
+              echo "❌ ERROR: Policy chart '$chart' is not included in CI matrix"
+              echo "   Add '$chart_path' to the matrix in .github/workflows/helm-chart-checks.yaml"
+              VALIDATION_FAILED=true
+            fi
+          done
+          
+          # Validate test coverage for all discovered charts
+          for policy_chart in $POLICY_CHARTS; do
+            policy_name="$(basename "$policy_chart")"
+            echo "Checking test coverage for: $policy_name ($policy_chart)"
+            
+            # Check if test directory exists
+            if [ ! -d "$policy_chart/test" ]; then
+              echo "❌ ERROR: No test directory found for policy chart: $policy_name"
+              echo "   Expected: $policy_chart/test/"
+              VALIDATION_FAILED=true
+              continue
+            fi
+            
+            # Check if kyverno-test.yaml exists
+            if [ ! -f "$policy_chart/test/kyverno-test.yaml" ]; then
+              echo "❌ ERROR: No test configuration found for policy chart: $policy_name"
+              echo "   Expected: $policy_chart/test/kyverno-test.yaml"
+              VALIDATION_FAILED=true
+              continue
+            fi
+            
+            # Check for test resource files
+            TEST_RESOURCES=$(find "$policy_chart/test" -name "*.yaml" -not -name "kyverno-test.yaml" | wc -l)
+            if [ "$TEST_RESOURCES" -eq 0 ]; then
+              echo "❌ ERROR: No test resource files found for policy chart: $policy_name"
+              echo "   Expected: At least one test resource YAML file in $policy_chart/test/"
+              VALIDATION_FAILED=true
+              continue
+            fi
+            
+            echo "✅ Policy chart '$policy_name' has proper test structure"
+          done
+          
+          # Fail the job if validation failed
+          if [ "$VALIDATION_FAILED" = true ]; then
+            echo ""
+            echo "💥 COMPREHENSIVE VALIDATION FAILED"
+            echo ""
+            echo "Policy test coverage requirements:"
+            echo "1. Every Kyverno policy chart must have a 'test' directory"
+            echo "2. Every policy chart must have 'test/kyverno-test.yaml'"
+            echo "3. Every policy chart must have test resource files"
+            echo "4. Every policy chart must be included in the CI matrix"
+            echo ""
+            echo "This ensures all policies are validated on every PR!"
+            exit 1
+          fi
+          
+          echo ""
+          echo "✅ ALL KYVERNO POLICIES HAVE COMPREHENSIVE TEST COVERAGE!"
+          echo "🎯 Ready for production deployment"
