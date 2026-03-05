@@ -1,0 +1,50 @@
+name: kyverno-storage-local-path-policies-test
+policies:
+  - policy.yaml
+resources:
+  - test-pvc-rwx.yaml
+  - test-pvc-rox.yaml
+  - test-pvc-rwo.yaml
+  - test-pvc-no-access-modes.yaml
+results:
+  # Test access mode mutation policy - should convert RWX to RWO
+  - policy: local-path-access-mode-mutation
+    rule: convert-rwx-rox-to-rwo
+    resource: test-pvc-rwx
+    result: pass
+  
+  # Test access mode mutation policy - should convert ROX to RWO
+  - policy: local-path-access-mode-mutation
+    rule: convert-rwx-rox-to-rwo
+    resource: test-pvc-rox
+    result: pass
+  
+  # Test access mode mutation policy - should not affect RWO
+  - policy: local-path-access-mode-mutation
+    rule: convert-rwx-rox-to-rwo
+    resource: test-pvc-rwo
+    result: skip
+  
+  # Test access mode mutation policy - should not affect PVCs without access modes
+  - policy: local-path-access-mode-mutation
+    rule: convert-rwx-rox-to-rwo
+    resource: test-pvc-no-access-modes
+    result: skip
+    
+  # Test warning policy for RWX
+  - policy: local-path-access-mode-warning
+    rule: warn-access-mode-conversion
+    resource: test-pvc-rwx
+    result: warn
+    
+  # Test warning policy for ROX
+  - policy: local-path-access-mode-warning
+    rule: warn-access-mode-conversion
+    resource: test-pvc-rox
+    result: warn
+    
+  # Test warning policy for RWO - should not warn
+  - policy: local-path-access-mode-warning
+    rule: warn-access-mode-conversion
+    resource: test-pvc-rwo
+    result: skip

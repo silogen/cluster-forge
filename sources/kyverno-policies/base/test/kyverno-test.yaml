@@ -1,0 +1,33 @@
+name: kyverno-base-policies-test
+policies:
+  - policy.yaml
+resources:
+  - test-deployment-with-pvc-annotation.yaml
+  - test-deployment-without-pvc-annotation.yaml
+  - test-modelcache-job.yaml
+  - test-regular-job.yaml
+  - test-pod-with-pvc-annotation.yaml
+results:
+  # Test dynamic PVC creation policy
+  - policy: dynamic-pvc-creation
+    rule: create-pvc-if-annotated
+    resource: test-deployment-with-pvc-annotation
+    result: pass
+  - policy: dynamic-pvc-creation
+    rule: create-pvc-if-annotated
+    resource: test-deployment-without-pvc-annotation
+    result: skip
+  - policy: dynamic-pvc-creation
+    rule: create-pvc-if-annotated
+    resource: test-pod-with-pvc-annotation
+    result: pass
+  
+  # Test modelcache resource constraints policy
+  - policy: modelcache-download-resource-limits
+    rule: add-resource-constraints-to-download-jobs
+    resource: test-modelcache-job
+    result: pass
+  - policy: modelcache-download-resource-limits
+    rule: add-resource-constraints-to-download-jobs
+    resource: test-regular-job
+    result: skip
