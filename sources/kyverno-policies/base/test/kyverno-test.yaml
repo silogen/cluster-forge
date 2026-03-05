@@ -12,22 +12,27 @@ results:
   - policy: dynamic-pvc-creation
     rule: create-pvc-if-annotated
     resource: test-deployment-with-pvc-annotation
+    kind: Deployment
     result: pass
   - policy: dynamic-pvc-creation
     rule: create-pvc-if-annotated
     resource: test-deployment-without-pvc-annotation
+    kind: Deployment
     result: skip
   - policy: dynamic-pvc-creation
     rule: create-pvc-if-annotated
     resource: test-pod-with-pvc-annotation
+    kind: Pod
     result: pass
   
   # Test modelcache resource constraints policy
   - policy: modelcache-download-resource-limits
     rule: add-resource-constraints-to-download-jobs
     resource: test-modelcache-job
+    kind: Job
     result: pass
   - policy: modelcache-download-resource-limits
     rule: add-resource-constraints-to-download-jobs
     resource: test-regular-job
+    kind: Job
     result: skip

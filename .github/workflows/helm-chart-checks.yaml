@@ -86,7 +86,11 @@ jobs:
             echo "Validating individual policy test coverage..."
             
             # Generate rendered policies to extract actual policy names
-            helm template test-release "$policy_chart" > /tmp/rendered-policies.yaml
+            helm template test-release "$policy_chart" > /tmp/rendered-policies.yaml || {
+              echo "❌ ERROR: Failed to render Helm template for $policy_chart"
+              VALIDATION_FAILED=true
+              return
+            }
             
             # Extract ClusterPolicy names from rendered output
             POLICIES=$(grep -E "^kind: ClusterPolicy" /tmp/rendered-policies.yaml -A 10 | grep -E "^\s*name:" | sed 's/.*name: *//' | sort -u)
@@ -155,8 +159,25 @@ jobs:
         run: |
           echo "Testing policies in ${{ matrix.policy-chart }}"
           
+          # Clean any existing generated files
+          rm -f policy.yaml
+          
           # Generate policies from Helm templates for testing
+          echo "Generating policies from Helm templates..."
           helm template test-release .. > policy.yaml
+          
+          # Validate that policy.yaml was generated correctly
+          if [ ! -f policy.yaml ]; then
+            echo "❌ ERROR: Failed to generate policy.yaml"
+            exit 1
+          fi
+          
+          # Check that policy.yaml contains valid Kyverno policies
+          if ! grep -q "apiVersion: kyverno.io/v1" policy.yaml; then
+            echo "❌ ERROR: Generated policy.yaml does not contain Kyverno policies"
+            cat policy.yaml
+            exit 1
+          fi
           
           echo "=== Generated policy file ==="
           cat policy.yaml
@@ -164,10 +185,13 @@ jobs:
           echo "=== Test configuration ==="
           cat kyverno-test.yaml
           echo ""
+          echo "=== Available test resources ==="
+          ls -la *.yaml | grep -v policy.yaml | grep -v kyverno-test.yaml || echo "No test resource files found"
+          echo ""
           echo "=== Running Kyverno tests ==="
           
           # Run the tests - Kyverno CLI will find policy.yaml and test resources in current directory
-          kyverno test .
+          kyverno test . --detailed-results
 
   kyverno-coverage-check:
     runs-on: ubuntu-latest

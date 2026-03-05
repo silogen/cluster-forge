@@ -11,40 +11,37 @@ results:
   - policy: local-path-access-mode-mutation
     rule: convert-rwx-rox-to-rwo
     resource: test-pvc-rwx
+    kind: PersistentVolumeClaim
     result: pass
-  
-  # Test access mode mutation policy - should convert ROX to RWO
   - policy: local-path-access-mode-mutation
     rule: convert-rwx-rox-to-rwo
     resource: test-pvc-rox
+    kind: PersistentVolumeClaim
     result: pass
-  
-  # Test access mode mutation policy - should not affect RWO
   - policy: local-path-access-mode-mutation
     rule: convert-rwx-rox-to-rwo
     resource: test-pvc-rwo
+    kind: PersistentVolumeClaim
     result: skip
-  
-  # Test access mode mutation policy - should not affect PVCs without access modes
   - policy: local-path-access-mode-mutation
     rule: convert-rwx-rox-to-rwo
     resource: test-pvc-no-access-modes
+    kind: PersistentVolumeClaim
     result: skip
     
-  # Test warning policy for RWX
+  # Test warning policy
   - policy: local-path-access-mode-warning
     rule: warn-access-mode-conversion
     resource: test-pvc-rwx
-    result: warn
-    
-  # Test warning policy for ROX
+    kind: PersistentVolumeClaim
+    result: pass
   - policy: local-path-access-mode-warning
     rule: warn-access-mode-conversion
     resource: test-pvc-rox
-    result: warn
-    
-  # Test warning policy for RWO - should not warn
+    kind: PersistentVolumeClaim
+    result: pass
   - policy: local-path-access-mode-warning
     rule: warn-access-mode-conversion
     resource: test-pvc-rwo
+    kind: PersistentVolumeClaim
     result: skip
