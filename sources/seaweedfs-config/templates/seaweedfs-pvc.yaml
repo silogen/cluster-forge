@@ -1,3 +1,4 @@
+{{- with .Values.seaweed }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -5,8 +6,9 @@ metadata:
   namespace: seaweedfs-instance
 spec:
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
   resources:
     requests:
-      storage: 10Gi
-  storageClassName: multinode
+      storage: {{ .filer.requests.storage  }}
+  storageClassName: {{ .storageClassName }}
+  {{- end }}
