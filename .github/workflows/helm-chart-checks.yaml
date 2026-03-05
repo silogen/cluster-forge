@@ -164,7 +164,14 @@ jobs:
           
           # Generate policies from Helm templates for testing
           echo "Generating policies from Helm templates..."
-          helm template test-release .. > policy.yaml
+          helm template test-release .. > all-resources.yaml
+          
+          # Extract only Kyverno policies (filter out RBAC and other resources)
+          echo "Extracting Kyverno policies..."
+          yq eval 'select(.apiVersion == "kyverno.io/v1")' all-resources.yaml > policy.yaml || {
+            echo "yq not available, using grep fallback..."
+            awk '/^---$/ { if (kyverno) print "---"; kyverno=0 } /apiVersion: kyverno\.io/ { kyverno=1 } kyverno' all-resources.yaml > policy.yaml
+          }
           
           # Validate that policy.yaml was generated correctly
           if [ ! -f policy.yaml ]; then

@@ -1,47 +1,56 @@
-name: kyverno-storage-local-path-policies-test
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-storage-local-path-policies-test
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - test-pvc-rwx.yaml
-  - test-pvc-rox.yaml
-  - test-pvc-rwo.yaml
-  - test-pvc-no-access-modes.yaml
+- test-pvc-rwx.yaml
+- test-pvc-rox.yaml
+- test-pvc-rwo.yaml
+- test-pvc-no-access-modes.yaml
 results:
-  # Test access mode mutation policy - should convert RWX to RWO
-  - policy: local-path-access-mode-mutation
-    rule: convert-rwx-rox-to-rwo
-    resource: test-pvc-rwx
-    kind: PersistentVolumeClaim
-    result: pass
-  - policy: local-path-access-mode-mutation
-    rule: convert-rwx-rox-to-rwo
-    resource: test-pvc-rox
-    kind: PersistentVolumeClaim
-    result: pass
-  - policy: local-path-access-mode-mutation
-    rule: convert-rwx-rox-to-rwo
-    resource: test-pvc-rwo
-    kind: PersistentVolumeClaim
-    result: skip
-  - policy: local-path-access-mode-mutation
-    rule: convert-rwx-rox-to-rwo
-    resource: test-pvc-no-access-modes
-    kind: PersistentVolumeClaim
-    result: skip
-    
-  # Test warning policy
-  - policy: local-path-access-mode-warning
-    rule: warn-access-mode-conversion
-    resource: test-pvc-rwx
-    kind: PersistentVolumeClaim
-    result: pass
-  - policy: local-path-access-mode-warning
-    rule: warn-access-mode-conversion
-    resource: test-pvc-rox
-    kind: PersistentVolumeClaim
-    result: pass
-  - policy: local-path-access-mode-warning
-    rule: warn-access-mode-conversion
-    resource: test-pvc-rwo
-    kind: PersistentVolumeClaim
-    result: skip
+# Test access mode mutation policy - should convert RWX to RWO
+- policy: local-path-access-mode-mutation
+  rule: convert-rwx-rox-to-rwo
+  kind: PersistentVolumeClaim
+  resources:
+  - test-pvc-rwx
+  result: pass
+- policy: local-path-access-mode-mutation
+  rule: convert-rwx-rox-to-rwo
+  kind: PersistentVolumeClaim
+  resources:
+  - test-pvc-rox
+  result: pass
+- policy: local-path-access-mode-mutation
+  rule: convert-rwx-rox-to-rwo
+  kind: PersistentVolumeClaim
+  resources:
+  - test-pvc-rwo
+  result: skip
+- policy: local-path-access-mode-mutation
+  rule: convert-rwx-rox-to-rwo
+  kind: PersistentVolumeClaim
+  resources:
+  - test-pvc-no-access-modes
+  result: skip
+# Test warning policy - validation with always-false condition should skip
+- policy: local-path-access-mode-warning
+  rule: warn-access-mode-conversion
+  kind: PersistentVolumeClaim
+  resources:
+  - test-pvc-rwx
+  result: skip
+- policy: local-path-access-mode-warning
+  rule: warn-access-mode-conversion
+  kind: PersistentVolumeClaim
+  resources:
+  - test-pvc-rox
+  result: skip
+- policy: local-path-access-mode-warning
+  rule: warn-access-mode-conversion
+  kind: PersistentVolumeClaim
+  resources:
+  - test-pvc-rwo
+  result: skip
