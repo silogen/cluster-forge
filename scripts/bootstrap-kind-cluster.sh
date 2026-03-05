@@ -381,7 +381,7 @@ build_local_images() {
         fi
         IMAGES+=(
             "airm-api|amdenterpriseai/airm-api:local|${DOCKER_DIR}/api.Dockerfile|${SILOGEN_CORE_PATH}"
-            "airm-dispatcher|amdenterpriseai/airm-dispatcher:local|${DOCKER_DIR}/dispatcher.Dockerfile|${SILOGEN_CORE_PATH}"
+            "airm-agent|amdenterpriseai/airm-agent:local|${DOCKER_DIR}/agent.Dockerfile|${SILOGEN_CORE_PATH}"
         )
     fi
     

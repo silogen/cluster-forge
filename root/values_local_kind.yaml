@@ -38,18 +38,18 @@ enabledApps:
   - minio-tenant
   - minio-tenant-config
   # AIWB dependencies
-  # - rabbitmq  # Disabled: only needed by AIRM
+  - rabbitmq
   - kyverno
   - kyverno-config
   - cluster-auth
   - cluster-auth-config
   - keycloak
   - keycloak-config
-  # - kaiwo-crds  # Disabled: AIRM-specific
-  # - kaiwo       # Disabled: AIRM-specific
-  # - kaiwo-config  # Disabled: AIRM-specific
+  - kaiwo-crds
+  - kaiwo
+  - kaiwo-config
   - airm
-  # AIM Engine (required by AIWB)
+  # AIM Engine (required by AIWB) - charts not yet in sources/
   - aim-engine-crds
   - aim-engine
   - aiwb
@@ -69,13 +69,6 @@ apps:
   aim-engine:
     path: aim-engine/0.1.0
     namespace: aim-system
-    valuesFile: values.yaml
-    syncWave: 0
-  # AIRM - from silogen-core
-  airm:
-    repoURL: "http://gitea-http.cf-gitea.svc:3000/cluster-org/core.git"
-    path: services/airm/helm/airm
-    namespace: airm
     valuesFile: values.yaml
     syncWave: 0
   # OpenTelemetry operator (required by AIRM for metrics collection)
@@ -101,23 +94,7 @@ apps:
   minio-tenant:
     path: minio-tenant/7.1.1
     namespace: minio-tenant-default
-    helmParameters:
-      - name: tenant.pools[0].servers
-        value: "1"
-      - name: tenant.pools[0].volumesPerServer
-        value: "1"
-      - name: tenant.pools[0].size
-        value: "10Gi"
-      - name: tenant.pools[0].storageClassName
-        value: "standard"
-      - name: tenant.pools[0].resources.requests.memory
-        value: "512Mi"
-      - name: tenant.pools[0].resources.requests.cpu
-        value: "100m"
-      - name: tenant.pools[0].resources.limits.memory
-        value: "1Gi"
-      - name: tenant.pools[0].resources.limits.cpu
-        value: "500m"
+    valuesFile: ../values_local_kind.yaml # Use local kind values
     syncWave: -2
   keycloak:
     path: keycloak-old
@@ -161,41 +138,50 @@ apps:
       - name: cnpg.walStorage.size
         value: "5Gi"
     syncWave: -1
-  # AIRM configuration - disabled for AIWB-only testing
-  # airm:
-  #   repoURL: "http://gitea-http.cf-gitea.svc:3000/cluster-org/core.git"
-  #   targetRevision: "main"
-  #   path: services/airm/helm/airm
-  #   namespace: airm
-  #   valuesFile: values.yaml
-  #   helmParameters:
-  #     - name: airm-api.airm.appDomain
-  #       value: "localhost.local"
-  #     - name: airm-api.airm.frontend.nextauthUrl
-  #       value: "http://localhost:8000"
-  #     - name: airm-api.airm.frontend.resources.requests.memory
-  #       value: "256Mi"
-  #     - name: airm-api.airm.frontend.resources.limits.memory
-  #       value: "512Mi"
-  #     - name: airm-api.resources.requests.memory
-  #       value: "512Mi"
-  #     - name: airm-api.resources.limits.memory
-  #       value: "512Mi"
-  #     - name: airm-dispatcher.resources.requests.memory
-  #       value: "512Mi"
-  #     - name: airm-dispatcher.resources.limits.memory
-  #       value: "512Mi"
-  #     - name: airm-rabbitmq.resources.requests.memory
-  #       value: "512Mi"
-  #     - name: airm-rabbitmq.resources.limits.memory
-  #       value: "512Mi"
-  #     - name: airm-cnpg.cluster.instances.resources.requests.memory
-  #       value: "256Mi"
-  #     - name: airm-cnpg.cluster.instances.resources.limits.memory
-  #       value: "512Mi"
-  #   syncOptions:
-  #     - ServerSideApply=false
-  #   syncWave: 0
+  airm:
+    repoURL: "http://gitea-http.cf-gitea.svc:3000/cluster-org/core.git"
+    targetRevision: "main"
+    path: services/airm/helm/airm
+    namespace: airm
+    valuesFile: values.yaml
+    helmParameters:
+      - name: airm-api.airm.appDomain
+        value: "localhost.local"
+      - name: airm-api.airm.frontend.nextauthUrl
+        value: "http://localhost:8000"
+      - name: airm-api.airm.frontend.resources.requests.memory
+        value: "256Mi"
+      - name: airm-api.airm.frontend.resources.limits.memory
+        value: "512Mi"
+      - name: airm-api.resources.requests.memory
+        value: "512Mi"
+      - name: airm-api.resources.limits.memory
+        value: "512Mi"
+      - name: airm-dispatcher.resources.requests.memory
+        value: "512Mi"
+      - name: airm-dispatcher.resources.limits.memory
+        value: "512Mi"
+      - name: airm-rabbitmq.resources.requests.memory
+        value: "512Mi"
+      - name: airm-rabbitmq.resources.limits.memory
+        value: "512Mi"
+      - name: airm-cnpg.cluster.instances.resources.requests.memory
+        value: "256Mi"
+      - name: airm-cnpg.cluster.instances.resources.limits.memory
+        value: "512Mi"
+      # Point to local Keycloak (NodePort 30082 → host port 8080)
+      - name: airm-api.airm.keycloak.publicUrl
+        value: "http://localhost:8080"
+      # Use locally built images (override published tags)
+      - name: airm-api.airm.backend.image.tag
+        value: "local"
+      - name: airm-api.airm.frontend.image.tag
+        value: "local"
+      - name: agent.airm.image.tag
+        value: "local"
+    syncOptions:
+      - ServerSideApply=false
+    syncWave: 0
   # AIWB resource overrides for local Kind cluster
   aiwb:
     repoURL: "http://gitea-http.cf-gitea.svc:3000/cluster-org/core.git"
@@ -203,6 +189,11 @@ apps:
     namespace: aiwb
     syncWave: 0
     helmParameters:
+      # Point to local Keycloak (NodePort 30082 → host port 8080)
+      - name: keycloak.publicUrl
+        value: "http://localhost:8080"
+      - name: appDomain
+        value: "localhost.local"
       # Enable standalone mode (AIWB manages its own namespace)
       - name: standAloneMode
         value: "true"
