@@ -125,7 +125,7 @@ airm:
     env:
       dbPort: 5432
       rabbitmqPort: 5672
-      minioUrl: http://minio.minio-tenant-default.svc.cluster.local:80
+      minioUrl: http://filer-s3.seaweedfs-instance.svc.cluster.local:80
       minioBucket: default-bucket
       prometheusUrl: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:9090
       clusterAuthUrl: http://cluster-auth.cluster-auth.svc.cluster.local:8081
