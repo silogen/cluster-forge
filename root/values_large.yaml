@@ -30,7 +30,6 @@ enabledApps:
   - kueue-config
   - kuberay-operator
   - kyverno
-  - kyverno-config
   - kyverno-policies-base
   - metallb
   - minio-operator

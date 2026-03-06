@@ -33,3 +33,4 @@ spec:
                   value: "8"
                 - name: HF_XET_RECONSTRUCT_WRITE_SEQUENTIALLY
                   value: "1"
+    skipBackgroundRequests: true
