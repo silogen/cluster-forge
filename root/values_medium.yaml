@@ -132,6 +132,22 @@ apps:
             cpu: "1000m"
             memory: "2Gi"
 
+  seaweedfs-config:
+    valuesObject:
+      seaweed:
+        storageClassName: mlstorage
+        master:
+          replicas: 1
+          volumeSizeLimitMB: 1024
+        volume:
+          replicas: 1
+          requests:
+            storage: 500Gi
+        filer:
+          replicas: 1
+          requests:
+            storage: 50Gi
+
   openbao:
     valuesObject:
       server:

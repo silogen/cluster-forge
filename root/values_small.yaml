@@ -41,6 +41,9 @@ enabledApps:
   - minio-operator
   - minio-tenant
   - minio-tenant-config
+  - seaweedfs-crds
+  - seaweedfs-operator
+  - seaweedfs-config  
   - openbao
   - openbao-config
   - opentelemetry-operator
@@ -127,6 +130,22 @@ apps:
           requests:
             cpu: "1000m"
             memory: "2Gi"
+
+  seaweedfs-config:
+    valuesObject:
+      seaweed:
+        storageClassName: mlstorage
+        master:
+          replicas: 1
+          volumeSizeLimitMB: 1024
+        volume:
+          replicas: 1
+          requests:
+            storage: 250Gi
+        filer:
+          replicas: 1
+          requests:
+            storage: 10Gi
 
   openbao:
     valuesObject:
