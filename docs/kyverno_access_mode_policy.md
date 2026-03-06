@@ -36,20 +36,19 @@ The policy is **ONLY deployed** to clusters that need it:
 ```yaml
 enabledApps:
   - kyverno
-  - kyverno-config
   - local-path-access-mode-policies  # ✅ Policy included
 
 apps:
   local-path-access-mode-policies:
     namespace: kyverno
-    path: kyverno-config/local-path-access-mode-mutation.yaml
+    path: kyverno-policies/base/local-path-access-mode-mutation.yaml
 ```
 
 #### Large Clusters (`values_large.yaml`)
 ```yaml
 enabledApps:
   - kyverno
-  - kyverno-config
+  - kyverno-policies
   # ❌ local-path-access-mode-policies NOT included
 
 # ❌ No policy app definition at all
@@ -94,7 +93,7 @@ spec:
 ### File Structure
 ```
 cluster-forge/
-├── sources/kyverno-config/
+├── sources/kyverno-policies/base/
 │   └── local-path-access-mode-mutation.yaml    # Simple policy
 ├── root/
 │   ├── values_small.yaml                       # ✅ Includes policy
