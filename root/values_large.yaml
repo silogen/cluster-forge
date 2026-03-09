@@ -70,7 +70,6 @@ apps:
           requests:
             storage: 30Gi
 
-  # Secrets - OpenBao (Production: 3 replicas, 10Gi storage)
   openbao:
     valuesObject:
       server:
