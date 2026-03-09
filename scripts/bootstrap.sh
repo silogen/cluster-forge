@@ -19,6 +19,274 @@ while [[ $# -gt 0 ]]; do
     --CLUSTER-SIZE|--cluster-size|-s)
         if [ -z "$2" ]; then
           echo "ERROR: --cluster-size requires an argument"
+          
+# Helper function to print messages only when not in template mode
+log_info() {
+  if [ "$TEMPLATE_ONLY" = false ]; then
+    echo "$@"
+  fi
+}
+
+# Generate a secure random password
+generate_password() {
+  openssl rand -hex 16
+}
+
+# Check for required dependencies
+check_dependencies() {
+  local silent="${1:-false}"
+  local missing_deps=()
+  local all_good=true
+  
+  if [ "$silent" != "true" ]; then
+    echo "=== Checking Dependencies ==="
+  fi
+  
+  # Define required programs with installation instructions
+  declare -A REQUIRED_PROGRAMS=(
+    ["kubectl"]="Kubernetes CLI - https://kubernetes.io/docs/tasks/tools/install-kubectl/"
+    ["helm"]="Helm package manager - https://helm.sh/docs/intro/install/"
+    ["yq"]="YAML/JSON processor - https://github.com/mikefarah/yq#install"
+    ["openssl"]="OpenSSL for password generation - Usually pre-installed or via package manager"
+  )
+  
+  # Define optional programs (used by shell builtins but good to check)
+  declare -A OPTIONAL_PROGRAMS=(
+    ["cat"]="cat command - Usually pre-installed"
+    ["grep"]="grep command - Usually pre-installed" 
+    ["tr"]="tr command - Usually pre-installed"
+    ["head"]="head command - Usually pre-installed"
+  )
+  
+  # Check required programs with version info
+  for program in "${!REQUIRED_PROGRAMS[@]}"; do
+    if command -v "$program" >/dev/null 2>&1; then
+      case "$program" in
+        "kubectl")
+          version=$(kubectl version --client 2>/dev/null | head -n1 | cut -d' ' -f3 2>/dev/null || echo "unknown")
+          [ "$silent" != "true" ] && printf "  ✓ %-12s %s (%s)\n" "$program" "$(command -v "$program")" "$version"
+          ;;
+        "helm")
+          version=$(helm version --short --client 2>/dev/null | cut -d'+' -f1 2>/dev/null || echo "unknown")
+          [ "$silent" != "true" ] && printf "  ✓ %-12s %s (%s)\n" "$program" "$(command -v "$program")" "$version"
+          ;;
+        "yq")
+          version=$(yq --version 2>/dev/null | head -n1 | cut -d' ' -f4 2>/dev/null || echo "unknown")
+          [ "$silent" != "true" ] && printf "  ✓ %-12s %s (%s)\n" "$program" "$(command -v "$program")" "$version"
+          ;;
+        *)
+          [ "$silent" != "true" ] && printf "  ✓ %-12s %s\n" "$program" "$(command -v "$program")"
+          ;;
+      esac
+    else
+      [ "$silent" != "true" ] && printf "  ✗ %-12s MISSING\n" "$program"
+      missing_deps+=("$program")
+      all_good=false
+    fi
+  done
+  
+  # Check optional programs (warn but don't fail)
+  for program in "${!OPTIONAL_PROGRAMS[@]}"; do
+    if command -v "$program" >/dev/null 2>&1; then
+      [ "$silent" != "true" ] && printf "  ✓ %-12s %s\n" "$program" "$(command -v "$program")"
+    else
+      [ "$silent" != "true" ] && printf "  ! %-12s MISSING (usually pre-installed)\n" "$program"
+    fi
+  done
+  
+  # If any required dependencies are missing, show installation instructions
+  if [ "$all_good" = false ]; then
+    echo ""
+    echo "ERROR: Missing required dependencies!"
+    echo ""
+    echo "Please install the following programs:"
+    echo ""
+    
+    for dep in "${missing_deps[@]}"; do
+      echo "  $dep: ${REQUIRED_PROGRAMS[$dep]}"
+      echo ""
+      
+      # Provide platform-specific installation hints
+      case "$dep" in
+        "kubectl")
+          echo "    # Linux:"
+          echo "    curl -LO \"https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl\""
+          echo "    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl"
+          echo ""
+          echo "    # macOS:"
+          echo "    brew install kubectl"
+          echo ""
+          echo "    # Or download from: https://kubernetes.io/docs/tasks/tools/install-kubectl/"
+          ;;
+        "helm")
+          echo "    # Linux/macOS:"
+          echo "    curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash"
+          echo ""
+          echo "    # Or via package manager:"
+          echo "    # Linux: snap install helm --classic"
+          echo "    # macOS: brew install helm"
+          ;;
+        "yq")
+          echo "    # Linux:"
+          echo "    sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64"
+          echo "    sudo chmod +x /usr/local/bin/yq"
+          echo ""
+          echo "    # macOS:"
+          echo "    brew install yq"
+          ;;
+        "openssl")
+          echo "    # Linux:"
+          echo "    # Ubuntu/Debian: sudo apt-get install openssl"
+          echo "    # RHEL/CentOS: sudo yum install openssl"
+          echo ""
+          echo "    # macOS: Usually pre-installed, or: brew install openssl"
+          ;;
+      esac
+      echo ""
+    done
+    
+    echo "After installing the missing dependencies, please run this script again."
+    exit 1
+  fi
+  
+  if [ "$silent" != "true" ]; then
+    echo "  ✓ All required dependencies are available!"
+    echo ""
+  fi
+}
+
+parse_args() {
+  # Parse arguments 
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --CLUSTER-SIZE|--cluster-size|-s)
+          if [ -z "$2" ]; then
+            echo "ERROR: --cluster-size requires an argument"
+            exit 1
+          fi
+          CLUSTER_SIZE="$2"
+          shift 2
+          ;;
+        --CLUSTER-SIZE=*)
+          CLUSTER_SIZE="${1#*=}"
+          shift
+          ;;
+        --cluster-size=*)
+          CLUSTER_SIZE="${1#*=}"
+          shift
+          ;;
+        -s=*)
+          CLUSTER_SIZE="${1#*=}"
+          shift
+          ;;
+        --TARGET-REVISION|--target-revision|-r)
+          if [ -z "$2" ]; then
+            echo "WARNING: defaulting to --target-revision=$LATEST_RELEASE (no value specified)"
+            TARGET_REVISION="$LATEST_RELEASE"
+            shift
+          else
+            TARGET_REVISION="$2"
+            shift 2
+          fi
+          ;;
+        --TARGET-REVISION=*)
+          TARGET_REVISION="${1#*=}"
+          shift
+          ;;
+        --target-revision=*)
+          TARGET_REVISION="${1#*=}"
+          shift
+          ;;
+        -r=*)
+          TARGET_REVISION="${1#*=}"
+          shift
+          ;;
+        --template-only|-t)
+          TEMPLATE_ONLY=true
+          shift
+          ;;
+        --skip-deps)
+          SKIP_DEPENDENCY_CHECK=true
+          shift
+          ;;
+        --apps=*)
+          APPS="${1#*=}"
+          shift
+          ;;
+        --airm-image-repository)
+          if [ -z "$2" ]; then
+            echo "ERROR: --airm-image-repository requires an argument"
+            exit 1
+          fi
+          AIRM_IMAGE_REPOSITORY="$2"
+          shift 2
+          ;;
+        --airm-image-repository=*)
+          AIRM_IMAGE_REPOSITORY="${1#*=}"
+          shift
+          ;;
+        --image-repository)
+          if [ -z "$2" ]; then
+            echo "ERROR: --image-repository requires an argument"
+            exit 1
+          fi
+          IMAGE_REPOSITORY="$2"
+          shift 2
+          ;;
+        --image-repository=*)
+          IMAGE_REPOSITORY="${1#*=}"
+          shift
+          ;;
+      --help|-h)
+        cat <<HELP_OUTPUT
+        Usage: $0 [options] <domain> [values_file]
+  
+        Arguments:
+          domain                             REQUIRED. Cluster domain (e.g., myIp.nip.io)
+          values_file                        Optional. Values .yaml file to use, default: root/values.yaml
+        
+        Options:
+          --airm-image-repository=url        Custom AIRM image repository for gitea-init job (e.g., ghcr.io/silogen, requires regcreds)
+          --image-repository=url             Custom image repository for all components (e.g., ghcr.io/mycompany, requires regcreds)
+          --apps=app1[,app2,...]             Deploy (kubectl apply) specified components onlye
+                                             options: namespaces, argocd, openbao, gitea, cluster-forge, or any cluster-forge child app (see values.yaml for app names)
+                                             
+          --cluster-size=[size],      -s     [size] can be one of small|medium|large, default: medium
+          --help,                     -h     Show this help message and exit
+          --skip-deps                        Skip dependency checking (not recommended)
+          --target-revision,          -r     Git revision for ArgoCD to sync from, [tag|commit_hash|branch_name], default: $LATEST_RELEASE
+          --template-only,            -t     Output YAML manifests to stdout instead of applying to cluster
+        
+        
+        Examples:
+          $0 compute.amd.com values_custom.yaml --cluster-size=large
+          $0 112.100.97.17.nip.io
+          $0 dev.example.com --cluster-size=small --target-revision=v1.8.0
+          $0 dev.example.com -s=small -r=feature-branch
+          $0 example.com --apps=openbao
+          $0 example.com --apps=keycloak -t
+          
+        Bootstrap Behavior:
+          • deploys ArgoCD + OpenBao + Gitea directly (essential infrastructure)
+          • apply the cluster-forge application manifest (parent app only)
+          • ArgoCD syncs remaining apps from specified target revision, respecting syncWaves and dependencies
+HELP_OUTPUT
+        exit 0
+        ;;
+      --*)
+        echo "ERROR: Unknown option: $1"
+        echo "Use --help for usage information"
+        exit 1
+        ;;
+      *)
+        # Positional arguments
+        if [ -z "$DOMAIN" ]; then
+          DOMAIN="$1"
+        elif [ "$VALUES_FILE" = "values.yaml" ]; then
+          VALUES_FILE="$1"
+        else
+          echo "ERROR: Too many arguments: $1"
+          echo "Usage: $0 [--CLUSTER_SIZE=small|medium|large] [--dev] <domain> [values_file]"
           exit 1
         fi
         CLUSTER_SIZE="$2"
@@ -365,10 +633,14 @@ HELM_ARGS="--release-name gitea-init ${SOURCE_ROOT}/scripts/init-gitea-job \
   --set targetRevision=${TARGET_REVISION} \
   --kube-version=${KUBE_VERSION}"
 
-# Only add airmImageRepository if AIRM_IMAGE_REPOSITORY is set and non-empty
-if [ -n "${AIRM_IMAGE_REPOSITORY:-}" ]; then
-  HELM_ARGS="${HELM_ARGS} --set airmImageRepository=${AIRM_IMAGE_REPOSITORY}"
-fi
+  # Handle image repository precedence: AIRM_IMAGE_REPOSITORY > IMAGE_REPOSITORY
+  if [ -n "${AIRM_IMAGE_REPOSITORY:-}" ]; then
+    HELM_ARGS="${HELM_ARGS} --set airmImageRepository=${AIRM_IMAGE_REPOSITORY}"
+  fi
+  
+  if [ -n "${IMAGE_REPOSITORY:-}" ]; then
+    HELM_ARGS="${HELM_ARGS} --set imageRepository=${IMAGE_REPOSITORY}"
+  fi
 
 helm template ${HELM_ARGS} | kubectl apply -f -
 

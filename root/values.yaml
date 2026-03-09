@@ -55,7 +55,48 @@ enabledApps:
   - prometheus-crds
   - rabbitmq
 apps:
-  # Core apps
+  aim-cluster-model-source:
+    namespace: kaiwo-system
+    path: aim-cluster-model-source
+    syncWave: -20
+    helmParameters:
+      - name: global.imageRepository
+        value: "{{ .Values.global.imageRepository }}"
+  airm:
+    helmParameters:
+      - name: airm-api.airm.appDomain
+        value: "{{ .Values.global.domain }}"
+    ignoreDifferences:
+      - group: external-secrets.io
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+        kind: ExternalSecret
+      - group: kyverno.io
+        jqPathExpressions:
+          - ".spec.rules"
+        kind: ClusterPolicy
+    namespace: airm
+    path: airm/0.3.5
+    syncWave: 0
+    valuesFile: values.yaml
+  amd-gpu-operator:
+    namespace: kube-amd-gpu
+    path: amd-gpu-operator/v1.4.1
+    syncWave: -10
+    valuesObject:
+      crds:
+        defaultCR:
+          install: false
+  amd-gpu-operator-config:
+    namespace: kube-amd-gpu
+    path: amd-gpu-operator-config
+    syncWave: 0
+  appwrapper:
+    namespace: appwrapper-system
+    path: appwrapper/v1.1.2
+    syncWave: -10
   argocd:
     path: argocd/8.3.5
     namespace: argocd

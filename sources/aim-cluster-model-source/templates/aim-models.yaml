@@ -1,0 +1,15 @@
+{{- $imageRepo := .Values.global.imageRepository | default .Values.imageRepository -}}
+apiVersion: aim.silogen.ai/v1alpha1
+kind: AIMClusterModelSource
+metadata:
+  name: amd-aimsource-stable
+spec:
+  maxModels: {{ .Values.maxModels }}
+  filters:
+    - image: {{ $imageRepo }}/aim-*
+      exclude:
+        - {{ $imageRepo }}/aim-base
+  versions:
+{{- range .Values.versions }}
+    - {{ . | quote }}
+{{- end }}

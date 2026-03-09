@@ -1,0 +1,10 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v2
+name: aim-cluster-model-source
+description: AIM Cluster Model Source for discovering and syncing AI models
+type: application
+version: 0.8.4
+appVersion: 0.8.4
