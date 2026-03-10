@@ -15,25 +15,25 @@ apps:
     namespace: kaiwo-system
     path: aim-cluster-model-source
     syncWave: -20
-  airm:
-    helmParameters:
-      - name: airm-api.airm.appDomain
-        value: "{{ .Values.global.domain }}"
-    ignoreDifferences:
-      - group: external-secrets.io
-        jqPathExpressions:
-          - ".spec.data[].remoteRef.conversionStrategy"
-          - ".spec.data[].remoteRef.decodingStrategy"
-          - ".spec.data[].remoteRef.metadataPolicy"
-        kind: ExternalSecret
-      - group: kyverno.io
-        jqPathExpressions:
-          - ".spec.rules"
-        kind: ClusterPolicy
-    namespace: airm
-    path: airm/0.3.5
-    syncWave: 0
-    valuesFile: values.yaml
+  # airm: # REMOVED for testing new helm charts from /home/madillon/wa/core/helm
+  #   helmParameters:
+  #     - name: airm-api.airm.appDomain
+  #       value: "{{ .Values.global.domain }}"
+  #   ignoreDifferences:
+  #     - group: external-secrets.io
+  #       jqPathExpressions:
+  #         - ".spec.data[].remoteRef.conversionStrategy"
+  #         - ".spec.data[].remoteRef.decodingStrategy"
+  #         - ".spec.data[].remoteRef.metadataPolicy"
+  #       kind: ExternalSecret
+  #     - group: kyverno.io
+  #       jqPathExpressions:
+  #         - ".spec.rules"
+  #       kind: ClusterPolicy
+  #   namespace: airm
+  #   path: airm/0.3.5
+  #   syncWave: 0
+  #   valuesFile: values.yaml
   amd-gpu-operator:
     namespace: kube-amd-gpu
     path: amd-gpu-operator/v1.4.1
