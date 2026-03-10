@@ -139,7 +139,6 @@ data:
       {{- end }}
     {{- if or .Values.airmImageRepository .Values.imageRepository }}
 
-    # Image Repository Configuration
     {{- if or .Values.airmImageRepository .Values.imageRepository }}
     airm-api:
       airm:
@@ -166,7 +165,6 @@ data:
           backup:
             image: {{ .Values.imageRepository }}/rabbitmq-backup:0.1
         {{- end }}
-
     airm-dispatcher:
       airm:
         dispatcher:
