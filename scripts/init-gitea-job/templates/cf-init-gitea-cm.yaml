@@ -134,23 +134,57 @@ data:
     global:
       clusterSize: {{ .Values.clusterSize }}
       domain: DOMAIN_PLACEHOLDER
-    {{- if .Values.airmImageRepository }}
+      {{- if .Values.imageRepository }}
+      imageRepository: {{ .Values.imageRepository }}
+      {{- end }}
+    {{- if or .Values.airmImageRepository .Values.imageRepository }}
 
-    # AIRM Image Repository Configuration
+    # Image Repository Configuration
+    {{- if or .Values.airmImageRepository .Values.imageRepository }}
     airm-api:
       airm:
         backend:
           image:
+            {{- if .Values.airmImageRepository }}
             repository: {{ .Values.airmImageRepository }}/airm-api
+            {{- else }}
+            repository: {{ .Values.imageRepository }}/airm-api
+            {{- end }}
         frontend:
           image:
+            {{- if .Values.airmImageRepository }}
             repository: {{ .Values.airmImageRepository }}/airm-ui
+            {{- else }}
+            repository: {{ .Values.imageRepository }}/airm-ui
+            {{- end }}
+        {{- if .Values.airmImageRepository }}
+        rabbitmq:
+          backup:
+            image: {{ .Values.airmImageRepository }}/rabbitmq-backup:0.1
+        {{- else if .Values.imageRepository }}
+        rabbitmq:
+          backup:
+            image: {{ .Values.imageRepository }}/rabbitmq-backup:0.1
+        {{- end }}
 
     airm-dispatcher:
       airm:
         dispatcher:
           image:
+            {{- if .Values.airmImageRepository }}
             repository: {{ .Values.airmImageRepository }}/airm-dispatcher
+            {{- else }}
+            repository: {{ .Values.imageRepository }}/airm-dispatcher
+            {{- end }}
+
+    {{- if .Values.imageRepository }}
+    aiwb-api:
+      aiwb:
+        backend:
+          image:
+            repository: {{ .Values.imageRepository }}/aiwb-api
+    {{- end }}
+    {{- end }}
     {{- end }}
 
     EOF

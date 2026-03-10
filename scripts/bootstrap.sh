@@ -58,6 +58,30 @@ while [[ $# -gt 0 ]]; do
         TARGET_REVISION="${1#*=}"
         shift
         ;;
+      --airm-image-repository)
+        if [ -z "$2" ]; then
+          echo "ERROR: --airm-image-repository requires an argument"
+          exit 1
+        fi
+        AIRM_IMAGE_REPOSITORY="$2"
+        shift 2
+        ;;
+      --airm-image-repository=*)
+        AIRM_IMAGE_REPOSITORY="${1#*=}"
+        shift
+        ;;
+      --image-repository)
+        if [ -z "$2" ]; then
+          echo "ERROR: --image-repository requires an argument"
+          exit 1
+        fi
+        IMAGE_REPOSITORY="$2"
+        shift 2
+        ;;
+      --image-repository=*)
+        IMAGE_REPOSITORY="${1#*=}"
+        shift
+        ;;
     --help|-h)
       cat <<HELP_OUTPUT
       Usage: $0 [options] <domain> [values_file]
@@ -67,7 +91,9 @@ while [[ $# -gt 0 ]]; do
         values_file                 Optional. Values .yaml file to use, default: root/values.yaml
       
       Options:
-        -r, --target-revision       cluster-forge git revision to seed into cluster-values/values.yaml file 
+        --airm-image-repository=url  Custom AIRM image repository for gitea-init job (e.g., ghcr.io/silogen, requires regcreds)
+        --image-repository=url       Custom image repository for all components (e.g., ghcr.io/mycompany, requires regcreds)
+        -r, --target-revision        cluster-forge git revision to seed into cluster-values/values.yaml file 
                                     options: [tag|commit_hash|branch_name], default: $LATEST_RELEASE
         -s, --cluster-size          options: [small|medium|large], default: medium
 
@@ -365,9 +391,13 @@ HELM_ARGS="--release-name gitea-init ${SOURCE_ROOT}/scripts/init-gitea-job \
   --set targetRevision=${TARGET_REVISION} \
   --kube-version=${KUBE_VERSION}"
 
-# Only add airmImageRepository if AIRM_IMAGE_REPOSITORY is set and non-empty
+# Handle image repository precedence: AIRM_IMAGE_REPOSITORY > IMAGE_REPOSITORY
 if [ -n "${AIRM_IMAGE_REPOSITORY:-}" ]; then
   HELM_ARGS="${HELM_ARGS} --set airmImageRepository=${AIRM_IMAGE_REPOSITORY}"
+fi
+
+if [ -n "${IMAGE_REPOSITORY:-}" ]; then
+  HELM_ARGS="${HELM_ARGS} --set imageRepository=${IMAGE_REPOSITORY}"
 fi
 
 helm template ${HELM_ARGS} | kubectl apply -f -

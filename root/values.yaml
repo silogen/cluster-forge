@@ -733,6 +733,9 @@ apps:
     path: aim-cluster-model-source
     namespace: kaiwo-system
     syncWave: -20
+    helmParameters:
+      - name: global.imageRepository
+        value: "{{ .Values.global.imageRepository }}"
   kaiwo-crds:
     path: kaiwo-crds/v0.2.0-rc11
     namespace: kaiwo-system

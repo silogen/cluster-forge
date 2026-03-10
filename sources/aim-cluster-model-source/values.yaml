@@ -1,0 +1,19 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+# Default image repository for AIM models
+imageRepository: amdenterpriseai
+
+# AIM model filtering configuration
+filters:
+  image: amdenterpriseai/aim-*
+  exclude:
+    - amdenterpriseai/aim-base
+
+# Supported model versions
+versions:
+  - ">=0.8.4"
+
+# Maximum number of models to track
+maxModels: 500
