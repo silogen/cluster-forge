@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+# Set umask to ensure temp files are created with proper permissions (readable/writable by owner and group)
+umask 0002
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Initialize variables
@@ -180,6 +183,61 @@ setup_sources() {
     echo "Using local sources for target revision: $TARGET_REVISION"
 }
 
+# Safe cleanup function that handles permission issues
+safe_cleanup_temp_files() {
+    local files="$1"
+    for file in $files; do
+        if [ -f "$file" ]; then
+            if rm -f "$file" 2>/dev/null; then
+                echo "Cleaned up: $file"
+            elif [ -w "$(dirname "$file")" ]; then
+                echo "Warning: Could not remove $file - permission denied"
+            else
+                # Try with sudo if available and file is owned by root
+                if command -v sudo >/dev/null 2>&1 && [ "$(stat -c '%U' "$file" 2>/dev/null)" = "root" ]; then
+                    echo "Attempting to clean root-owned file with sudo: $file"
+                    sudo rm -f "$file" 2>/dev/null || echo "Warning: Could not remove $file even with sudo"
+                else
+                    echo "Warning: Could not remove $file - permission denied"
+                fi
+            fi
+        fi
+    done
+}
+
+# Create temp file with proper permissions
+safe_create_temp_file() {
+    local file="$1"
+    local content="$2"
+    
+    # Create the file
+    echo "$content" > "$file"
+    
+    # Ensure current user owns the file
+    if [ -f "$file" ] && [ "$(stat -c '%U' "$file" 2>/dev/null)" != "$(whoami)" ]; then
+        # If file was created as root (shouldn't happen with > redirect), try to fix it
+        if command -v sudo >/dev/null 2>&1; then
+            sudo chown "$(whoami):$(id -gn)" "$file" 2>/dev/null || echo "Warning: Could not change ownership of $file"
+        fi
+    fi
+}
+
+# Safe yq output to temp file
+safe_yq_to_temp() {
+    local file="$1"
+    shift
+    # Use yq with proper output redirection
+    $YQ_CMD "$@" > "$file"
+    
+    # Ensure current user owns the file
+    if [ -f "$file" ] && [ "$(stat -c '%U' "$file" 2>/dev/null)" != "$(whoami)" ]; then
+        # If file was created as root (shouldn't happen with > redirect), try to fix it
+        if command -v sudo >/dev/null 2>&1; then
+            sudo chown "$(whoami):$(id -gn)" "$file" 2>/dev/null || echo "Warning: Could not change ownership of $file"
+        fi
+    fi
+}
+
 pre_cleanup() {
     echo ""
     echo "=== Pre-cleanup: Checking for previous runs ==="
@@ -209,9 +267,8 @@ pre_cleanup() {
     kubectl delete job openbao-init-job -n cf-openbao --ignore-not-found=true
 
     # Delete temporary files
-    rm -f /tmp/merged_values.yaml /tmp/argocd_values.yaml /tmp/argocd_size_values.yaml \
-      /tmp/openbao_values.yaml /tmp/openbao_size_values.yaml \
-      /tmp/gitea_values.yaml /tmp/gitea_size_values.yaml
+    echo "Cleaning up temporary files from previous runs..."
+    safe_cleanup_temp_files "/tmp/merged_values.yaml /tmp/argocd_values.yaml /tmp/argocd_size_values.yaml /tmp/openbao_values.yaml /tmp/openbao_size_values.yaml /tmp/gitea_values.yaml /tmp/gitea_size_values.yaml"
 
     echo "=== Pre-cleanup complete ==="
     echo ""
@@ -275,7 +332,7 @@ merge_values_files() {
     VALUES=$(echo "$VALUES" | $YQ_CMD eval ".clusterForge.targetRevision = \"${TARGET_REVISION}\"")
     
     # Write merged values to temp file for use throughout script
-    echo "$VALUES" > /tmp/merged_values.yaml
+    safe_create_temp_file "/tmp/merged_values.yaml" "$VALUES"
     echo "Merged values written to /tmp/merged_values.yaml"
 }
 
@@ -313,8 +370,8 @@ kubectl create ns cf-openbao --dry-run=client -o yaml | kubectl apply -f -
 echo ""
 echo "=== ArgoCD Bootstrap ==="
 # Extract ArgoCD values from merged config and write to temp values file
-$YQ_CMD eval '.apps.argocd.valuesObject' ${SOURCE_ROOT}/root/${VALUES_FILE} > /tmp/argocd_values.yaml
-$YQ_CMD eval '.apps.argocd.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE} > /tmp/argocd_size_values.yaml
+safe_yq_to_temp "/tmp/argocd_values.yaml" eval '.apps.argocd.valuesObject' ${SOURCE_ROOT}/root/${VALUES_FILE}
+safe_yq_to_temp "/tmp/argocd_size_values.yaml" eval '.apps.argocd.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}
 # Use server-side apply to match ArgoCD's self-management strategy
 helm template --release-name argocd ${SOURCE_ROOT}/sources/argocd/${ARGOCD_VERSION} --namespace argocd \
   -f /tmp/argocd_values.yaml \
@@ -329,8 +386,8 @@ kubectl rollout status deploy/argocd-repo-server -n argocd
 echo ""
 echo "=== OpenBao Bootstrap ==="
 # Extract OpenBao values from merged config
-$YQ_CMD eval '.apps.openbao.valuesObject' ${SOURCE_ROOT}/root/${VALUES_FILE} > /tmp/openbao_values.yaml
-$YQ_CMD eval '.apps.openbao.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}  > /tmp/openbao_size_values.yaml
+safe_yq_to_temp "/tmp/openbao_values.yaml" eval '.apps.openbao.valuesObject' ${SOURCE_ROOT}/root/${VALUES_FILE}
+safe_yq_to_temp "/tmp/openbao_size_values.yaml" eval '.apps.openbao.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}
 # Use server-side apply to match ArgoCD's field management strategy
 helm template --release-name openbao ${SOURCE_ROOT}/sources/openbao/${OPENBAO_VERSION} --namespace cf-openbao \
   -f /tmp/openbao_values.yaml \
@@ -373,8 +430,8 @@ kubectl create secret generic gitea-admin-credentials \
   --from-literal=password=$(generate_password) \
   --dry-run=client -o yaml | kubectl apply -f -
 
-$YQ_CMD eval '.apps.gitea.valuesObject' ${SOURCE_ROOT}/root/${VALUES_FILE} > /tmp/gitea_values.yaml
-$YQ_CMD eval '.apps.gitea.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE} > /tmp/gitea_size_values.yaml
+safe_yq_to_temp "/tmp/gitea_values.yaml" eval '.apps.gitea.valuesObject' ${SOURCE_ROOT}/root/${VALUES_FILE}
+safe_yq_to_temp "/tmp/gitea_size_values.yaml" eval '.apps.gitea.valuesObject' ${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}
 
 # Bootstrap Gitea
 helm template --release-name gitea ${SOURCE_ROOT}/sources/gitea/${GITEA_VERSION} --namespace cf-gitea \
@@ -427,4 +484,4 @@ __SUMMARY__
 
 # Cleanup temporary files
 echo "Cleaning up temporary files..."
-rm -f /tmp/merged_values.yaml /tmp/argocd_values.yaml /tmp/openbao_values.yaml
+safe_cleanup_temp_files "/tmp/merged_values.yaml /tmp/argocd_values.yaml /tmp/openbao_values.yaml /tmp/argocd_size_values.yaml /tmp/openbao_size_values.yaml /tmp/gitea_values.yaml /tmp/gitea_size_values.yaml"
