@@ -148,9 +148,13 @@ data:
     global:
       clusterSize: {{ .Values.clusterSize }}
       domain: DOMAIN_PLACEHOLDER
-    {{- if .Values.airmImageRepository }}
+      {{- if .Values.imageRepository }}
+      imageRepository: {{ .Values.imageRepository }}
+      {{- end }}
+    {{- if or .Values.airmImageRepository .Values.imageRepository }}
 
-    # AIRM Image Repository Configuration
+    # Image Repository Configuration
+    {{- if or .Values.airmImageRepository .Values.imageRepository }}
     apps:
       airm:
         helmParameters:
@@ -159,22 +163,51 @@ data:
             value: "{{ .Values.domain }}"
           # BACKEND (airm-api)
           - name: airm-api.airm.backend.image.repository
+            {{- if .Values.airmImageRepository }}
             value: "{{ .Values.airmImageRepository }}/airm-api"
+            {{- else }}
+            value: "{{ .Values.imageRepository }}/airm-api"
+            {{- end }}
           - name: airm-api.airm.backend.imagePullSecrets[0].name
             value: regcred
           # FRONTEND (airm-ui)
           - name: airm-api.airm.frontend.image.repository
+            {{- if .Values.airmImageRepository }}
             value: "{{ .Values.airmImageRepository }}/airm-ui"
+            {{- else }}
+            value: "{{ .Values.imageRepository }}/airm-ui"
+            {{- end }}
           - name: airm-api.airm.frontend.imagePullSecrets[0].name
             value: regcred
+          # RabbitMQ Backup
+          - name: airm-api.airm.rabbitmq.backup.image
+            {{- if .Values.airmImageRepository }}
+            value: "{{ .Values.airmImageRepository }}/rabbitmq-backup:0.1"
+            {{- else }}
+            value: "{{ .Values.imageRepository }}/rabbitmq-backup:0.1"
+            {{- end }}
           # DISPATCHER (airm-dispatcher)
           - name: airm-dispatcher.airm.dispatcher.image.repository
+            {{- if .Values.airmImageRepository }}
             value: "{{ .Values.airmImageRepository }}/airm-dispatcher"
+            {{- else }}
+            value: "{{ .Values.imageRepository }}/airm-dispatcher"
+            {{- end }}
           - name: airm-dispatcher.airm.dispatcher.imagePullSecrets[0].name
             value: regcred
           # AGENT (airm-agent)
           - name: agent.airm.imagePullSecrets[0].name
             value: regcred
+      {{- if .Values.imageRepository }}
+      aiwb:
+        helmParameters:
+          # AIWB API
+          - name: aiwb-api.aiwb.backend.image.repository
+            value: "{{ .Values.imageRepository }}/aiwb-api"
+          - name: aiwb-api.aiwb.backend.imagePullSecrets[0].name
+            value: regcred
+      {{- end }}
+    {{- end }}
     {{- end }}
     EOF
     

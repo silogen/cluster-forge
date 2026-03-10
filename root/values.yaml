@@ -15,6 +15,9 @@ apps:
     namespace: kaiwo-system
     path: aim-cluster-model-source
     syncWave: -20
+    helmParameters:
+      - name: global.imageRepository
+        value: "{{ .Values.global.imageRepository }}"
   airm:
     helmParameters:
       - name: airm-api.airm.appDomain

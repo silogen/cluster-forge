@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+# Set umask to ensure temp files are created with proper permissions (readable/writable by owner and group)
+umask 0002
+
 LATEST_RELEASE="v1.8.0"
 
 # Initialize variables
@@ -151,6 +154,61 @@ check_dependencies() {
   fi
 }
 
+# Safe cleanup function that handles permission issues
+safe_cleanup_temp_files() {
+    local files="$1"
+    for file in $files; do
+        if [ -f "$file" ]; then
+            if rm -f "$file" 2>/dev/null; then
+                echo "Cleaned up: $file"
+            elif [ -w "$(dirname "$file")" ]; then
+                echo "Warning: Could not remove $file - permission denied"
+            else
+                # Try with sudo if available and file is owned by root
+                if command -v sudo >/dev/null 2>&1 && [ "$(stat -c '%U' "$file" 2>/dev/null)" = "root" ]; then
+                    echo "Attempting to clean root-owned file with sudo: $file"
+                    sudo rm -f "$file" 2>/dev/null || echo "Warning: Could not remove $file even with sudo"
+                else
+                    echo "Warning: Could not remove $file - permission denied"
+                fi
+            fi
+        fi
+    done
+}
+
+# Create temp file with proper permissions
+safe_create_temp_file() {
+    local file="$1"
+    local content="$2"
+    
+    # Create the file
+    echo "$content" > "$file"
+    
+    # Ensure current user owns the file
+    if [ -f "$file" ] && [ "$(stat -c '%U' "$file" 2>/dev/null)" != "$(whoami)" ]; then
+        # If file was created as root (shouldn't happen with > redirect), try to fix it
+        if command -v sudo >/dev/null 2>&1; then
+            sudo chown "$(whoami):$(id -gn)" "$file" 2>/dev/null || echo "Warning: Could not change ownership of $file"
+        fi
+    fi
+}
+
+# Safe yq output to temp file
+safe_yq_to_temp() {
+    local file="$1"
+    shift
+    # Use yq with proper output redirection
+    $YQ_CMD "$@" > "$file"
+    
+    # Ensure current user owns the file
+    if [ -f "$file" ] && [ "$(stat -c '%U' "$file" 2>/dev/null)" != "$(whoami)" ]; then
+        # If file was created as root (shouldn't happen with > redirect), try to fix it
+        if command -v sudo >/dev/null 2>&1; then
+            sudo chown "$(whoami):$(id -gn)" "$file" 2>/dev/null || echo "Warning: Could not change ownership of $file"
+        fi
+    fi
+}
+
 parse_args() {
   # Parse arguments 
   while [[ $# -gt 0 ]]; do
@@ -221,6 +279,18 @@ parse_args() {
           AIRM_IMAGE_REPOSITORY="${1#*=}"
           shift
           ;;
+        --image-repository)
+          if [ -z "$2" ]; then
+            echo "ERROR: --image-repository requires an argument"
+            exit 1
+          fi
+          IMAGE_REPOSITORY="$2"
+          shift 2
+          ;;
+        --image-repository=*)
+          IMAGE_REPOSITORY="${1#*=}"
+          shift
+          ;;
       --help|-h)
         cat <<HELP_OUTPUT
         Usage: $0 [options] <domain> [values_file]
@@ -231,6 +301,7 @@ parse_args() {
         
         Options:
           --airm-image-repository=url        Custom AIRM image repository for gitea-init job (e.g., ghcr.io/silogen, requires regcreds)
+          --image-repository=url             Custom image repository for all components (e.g., ghcr.io/mycompany, requires regcreds)
           --apps=app1[,app2,...]             Deploy (kubectl apply) specified components onlye
                                              options: namespaces, argocd, openbao, gitea, cluster-forge, or any cluster-forge child app (see values.yaml for app names)
                                              
@@ -364,10 +435,8 @@ create_namespaces() {
 # Extract ArgoCD values using yq
 extract_argocd_values() {
   # Create temporary values file for ArgoCD bootstrap
-  cat > /tmp/argocd_bootstrap_values.yaml << EOF
-global:
-  domain: argocd.${DOMAIN}
-EOF
+  safe_create_temp_file "/tmp/argocd_bootstrap_values.yaml" "global:
+  domain: argocd.${DOMAIN}"
   
   # Extract and merge ArgoCD values from the apps structure
   yq eval '.apps.argocd.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" >> /tmp/argocd_bootstrap_values.yaml
@@ -552,9 +621,13 @@ bootstrap_gitea() {
   --set targetRevision=${TARGET_REVISION} \
   --kube-version=${KUBE_VERSION}"
 
-  # Only add airmImageRepository if AIRM_IMAGE_REPOSITORY is set and non-empty
+  # Handle image repository precedence: AIRM_IMAGE_REPOSITORY > IMAGE_REPOSITORY
   if [ -n "${AIRM_IMAGE_REPOSITORY:-}" ]; then
     HELM_ARGS="${HELM_ARGS} --set airmImageRepository=${AIRM_IMAGE_REPOSITORY}"
+  fi
+
+  if [ -n "${IMAGE_REPOSITORY:-}" ]; then
+    HELM_ARGS="${HELM_ARGS} --set imageRepository=${IMAGE_REPOSITORY}"
   fi
 
   helm template ${HELM_ARGS} | apply_or_template -f -
@@ -609,7 +682,7 @@ EOF
       --kube-version "${KUBE_VERSION}" | apply_or_template -f -
   
   # Clean up
-  rm -f "$temp_values"
+  safe_cleanup_temp_files "$temp_values"
 }
 
 apply_cluster_forge_parent_app() {
