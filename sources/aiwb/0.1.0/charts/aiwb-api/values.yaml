@@ -63,7 +63,7 @@ aiwb:
     servicePortMetrics: 9009
     env:
       dbPort: 5432
-      minioUrl: http://minio.minio-tenant-default.svc.cluster.local:80
+      minioUrl: http://filer-s3.seaweedfs-instance.svc.cluster.local:80
       minioBucket: default-bucket
       prometheusUrl: http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:9090
 
