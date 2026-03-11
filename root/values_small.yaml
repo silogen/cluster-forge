@@ -1,5 +1,7 @@
 enabledApps:
   - aim-cluster-model-source
+  - aim-engine
+  - aim-engine-crds
   # - airm  # REMOVED for testing new helm charts
   - amd-gpu-operator
   - amd-gpu-operator-config
