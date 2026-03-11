@@ -24,25 +24,25 @@ apps:
     namespace: kaiwo-system
     path: aim-cluster-model-source
     syncWave: -20
-  airm:
-    helmParameters:
-      - name: airm-api.airm.appDomain
-        value: "{{ .Values.global.domain }}"
-    ignoreDifferences:
-      - group: external-secrets.io
-        jqPathExpressions:
-          - ".spec.data[].remoteRef.conversionStrategy"
-          - ".spec.data[].remoteRef.decodingStrategy"
-          - ".spec.data[].remoteRef.metadataPolicy"
-        kind: ExternalSecret
-      - group: kyverno.io
-        jqPathExpressions:
-          - ".spec.rules"
-        kind: ClusterPolicy
-    namespace: airm
-    path: airm/0.3.5
-    syncWave: 0
-    valuesFile: values.yaml
+  # airm: # REMOVED for testing new helm charts from /home/madillon/wa/core/helm
+  #   helmParameters:
+  #     - name: airm-api.airm.appDomain
+  #       value: "{{ .Values.global.domain }}"
+  #   ignoreDifferences:
+  #     - group: external-secrets.io
+  #       jqPathExpressions:
+  #         - ".spec.data[].remoteRef.conversionStrategy"
+  #         - ".spec.data[].remoteRef.decodingStrategy"
+  #         - ".spec.data[].remoteRef.metadataPolicy"
+  #       kind: ExternalSecret
+  #     - group: kyverno.io
+  #       jqPathExpressions:
+  #         - ".spec.rules"
+  #       kind: ClusterPolicy
+  #   namespace: airm
+  #   path: airm/0.3.5
+  #   syncWave: 0
+  #   valuesFile: values.yaml
   amd-gpu-operator:
     namespace: kube-amd-gpu
     path: amd-gpu-operator/v1.4.1
@@ -584,22 +584,6 @@ apps:
     path: kyverno/3.5.1
     syncWave: -30
     valuesFile: values.yaml
-  kyverno-config:
-    ignoreDifferences:
-      - group: "kyverno.io"
-        jsonPointers:
-          - /spec/rules/0/skipBackgroundRequests
-        kind: "ClusterPolicy"
-        name: "local-path-access-mode-mutation"
-      - group: "kyverno.io"
-        jsonPointers:
-          - /spec/rules/0/skipBackgroundRequests
-          - /spec/rules/0/validate/allowExistingViolations
-        kind: "ClusterPolicy"
-        name: "local-path-access-mode-warning"
-    namespace: kyverno
-    path: kyverno-config
-    syncWave: -20
   kyverno-policies-base:
     namespace: kyverno
     path: kyverno-policies/base

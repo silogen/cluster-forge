@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-with-pvc-annotation
+  namespace: default
+  annotations:
+    pvc.silogen.ai/user-pvc-auto-create: "true"
+    pvc.silogen.ai/user-pvc-size: "5Gi"
+    pvc.silogen.ai/user-pvc-storage-class-name: "fast"
+    pvc.silogen.ai/user-pvc-uid: "test-pod-456"
+spec:
+  containers:
+  - name: test-container
+    image: nginx:latest
+    ports:
+    - containerPort: 80

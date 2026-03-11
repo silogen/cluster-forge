@@ -2,7 +2,7 @@
 
 enabledApps:
   - aim-cluster-model-source
-  - airm
+  # - airm  # REMOVED for testing new helm charts
   - amd-gpu-operator
   - amd-gpu-operator-config
   - appwrapper
@@ -32,7 +32,6 @@ enabledApps:
   - kueue-config
   - kuberay-operator
   - kyverno
-  - kyverno-config
   - kyverno-policies-base
   - kyverno-policies-storage-local-path
   - metallb

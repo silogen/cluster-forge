@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment-with-pvc-annotation
+  namespace: default
+  annotations:
+    pvc.silogen.ai/user-pvc-auto-create: "true"
+    pvc.silogen.ai/user-pvc-size: "10Gi"
+    pvc.silogen.ai/user-pvc-storage-class-name: "standard"
+    pvc.silogen.ai/user-pvc-uid: "test-user-123"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-app
+  template:
+    metadata:
+      labels:
+        app: test-app
+    spec:
+      containers:
+      - name: test-container
+        image: nginx:latest
+        ports:
+        - containerPort: 80
