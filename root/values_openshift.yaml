@@ -176,6 +176,9 @@ apps:
             cpu: '1'
             limits:
               memory: 4Gi
+      services:
+        nodeExporter:
+          metrics: 9101
   prometheus:
     valuesObject:
       prometheus:
