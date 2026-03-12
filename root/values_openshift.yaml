@@ -6,8 +6,8 @@ enabledApps:
   # - amd-gpu-operator
   # - amd-gpu-operator-config
   - appwrapper
-  - argocd
-  - argocd-config
+  # - argocd
+  # - argocd-config
   - cert-manager
   - cluster-auth
   - cluster-auth-config
