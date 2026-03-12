@@ -14,18 +14,14 @@ enabledApps:
   - cnpg-operator
   - external-secrets
   - external-secrets-config
-  # - gateway-api
-  - gitea
-  - gitea-config
+  # - gitea
+  # - gitea-config
   - kaiwo
   - kaiwo-config
   - kaiwo-crds
   - keda
   - kedify-otel
   - keycloak
-  # - kgateway
-  # - kgateway-config
-  # - kgateway-crds
   - kserve
   - kserve-crds
   - kueue
@@ -34,7 +30,6 @@ enabledApps:
   - kyverno
   - kyverno-policies-base
   - kyverno-policies-storage-local-path
-  # - metallb
   # - minio-operator
   # - minio-tenant
   # - minio-tenant-config
@@ -46,6 +41,12 @@ enabledApps:
   - rabbitmq
 
 apps:
+
+  gitea:
+    helmParameters:
+      - name: persistence.storageClass
+        value: direct
+
   # Modular Kyverno policy applications (only the storage-local-path addition)
   kyverno-policies-storage-local-path:
     namespace: kyverno
