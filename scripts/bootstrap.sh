@@ -8,6 +8,8 @@ LATEST_RELEASE="v1.8.0"
 APPS=""
 CLUSTER_SIZE="medium"  # Default to medium
 DEFAULT_TIMEOUT="5m"
+# ArgoCD apply can be slow on distant clusters; increase if you hit request timeout / connection lost
+ARGOCD_APPLY_TIMEOUT="${ARGOCD_APPLY_TIMEOUT:-20m}"
 DOMAIN=""
 KUBE_VERSION=1.33
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,6 +22,52 @@ VALUES_FILE="values.yaml"
 log_info() {
   if [ "$TEMPLATE_ONLY" = false ]; then
     echo "$@"
+  fi
+}
+
+# Detect yq variant: mikefarah/yq (Go) uses "eval"; kislyuk/yq (Python/jq) does not
+detect_yq_variant() {
+  YQ_CMD="${YQ_CMD:-yq}"
+  if ! command -v "$YQ_CMD" >/dev/null 2>&1; then
+    [ -f "$HOME/yq" ] && YQ_CMD="$HOME/yq"
+  fi
+  if $YQ_CMD eval '.' /dev/stdin <<< 'a: 1' >/dev/null 2>&1; then
+    YQ_KISLYUK=false
+  else
+    YQ_KISLYUK=true
+  fi
+}
+
+# Read YAML path from file (works with both mikefarah/yq and kislyuk/yq)
+yq_read() {
+  local filter="$1"
+  local file="$2"
+  if [ "$YQ_KISLYUK" = true ]; then
+    $YQ_CMD "$filter" "$file"
+  else
+    $YQ_CMD eval "$filter" "$file"
+  fi
+}
+
+# Merge two YAML files (file1 * file2)
+yq_merge() {
+  local f1="$1"
+  local f2="$2"
+  if [ "$YQ_KISLYUK" = true ]; then
+    $YQ_CMD -s '.[0] * .[1]' "$f1" "$f2"
+  else
+    $YQ_CMD eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' "$f1" "$f2"
+  fi
+}
+
+# In-place update (filter must be a full assignment expression)
+yq_inplace() {
+  local filter="$1"
+  local file="$2"
+  if [ "$YQ_KISLYUK" = true ]; then
+    $YQ_CMD --in-place -y "$filter" "$file"
+  else
+    $YQ_CMD eval "$filter" -i "$file"
   fi
 }
 
@@ -175,6 +223,18 @@ parse_args() {
           CLUSTER_SIZE="${1#*=}"
           shift
           ;;
+        --CLUSTER_SIZE)
+          if [ -z "$2" ]; then
+            echo "ERROR: --CLUSTER_SIZE requires an argument"
+            exit 1
+          fi
+          CLUSTER_SIZE="$2"
+          shift 2
+          ;;
+        --CLUSTER_SIZE=*)
+          CLUSTER_SIZE="${1#*=}"
+          shift
+          ;;
         --TARGET-REVISION|--target-revision|-r)
           if [ -z "$2" ]; then
             echo "WARNING: defaulting to --target-revision=$LATEST_RELEASE (no value specified)"
@@ -234,7 +294,7 @@ parse_args() {
           --apps=app1[,app2,...]             Deploy (kubectl apply) specified components onlye
                                              options: namespaces, argocd, openbao, gitea, cluster-forge, or any cluster-forge child app (see values.yaml for app names)
                                              
-          --cluster-size=[size],      -s     [size] can be one of small|medium|large, default: medium
+          --cluster-size=[size],      -s     [size] can be one of small|medium|large|openshift, default: medium
           --help,                     -h     Show this help message and exit
           --skip-deps                        Skip dependency checking (not recommended)
           --target-revision,          -r     Git revision for ArgoCD to sync from, [tag|commit_hash|branch_name], default: $LATEST_RELEASE
@@ -289,11 +349,11 @@ validate_args() {
   
   # Validate cluster size
   case "$CLUSTER_SIZE" in
-    small|medium|large)
+    small|medium|large|openshift)
       ;;
     *)
       echo "ERROR: Invalid cluster size '$CLUSTER_SIZE'"
-      echo "Valid sizes: small, medium, large"
+      echo "Valid sizes: small, medium, large, openshift"
       exit 1
       ;;
   esac
@@ -306,6 +366,7 @@ validate_args() {
   
   SOURCE_ROOT="${SCRIPT_DIR}/.."
   setup_values_files
+  detect_yq_variant
 }
 
 # Check if size-specific values file exists - matching main approach
@@ -363,19 +424,28 @@ create_namespaces() {
 
 # Extract ArgoCD values using yq
 extract_argocd_values() {
-  # Create temporary values file for ArgoCD bootstrap
+  # Start with global.domain only (always valid YAML)
   cat > /tmp/argocd_bootstrap_values.yaml << EOF
 global:
   domain: argocd.${DOMAIN}
 EOF
-  
-  # Extract and merge ArgoCD values from the apps structure
-  yq eval '.apps.argocd.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" >> /tmp/argocd_bootstrap_values.yaml
+
+  # Merge base argocd valuesObject if present (avoid appending "null" which breaks parsing)
+  yq_read '.apps.argocd.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > /tmp/argocd_base_argocd.yaml 2>/dev/null || true
+  if [ -s /tmp/argocd_base_argocd.yaml ] && ! grep -qx 'null' /tmp/argocd_base_argocd.yaml; then
+    yq_merge /tmp/argocd_bootstrap_values.yaml /tmp/argocd_base_argocd.yaml > /tmp/argocd_bootstrap_values_merged.yaml
+    mv /tmp/argocd_bootstrap_values_merged.yaml /tmp/argocd_bootstrap_values.yaml
+  fi
+  rm -f /tmp/argocd_base_argocd.yaml
+
+  # Merge size-specific argocd values if present
   if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
-    if yq eval '.apps.argocd.valuesObject // ""' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | grep -q .; then
-      yq eval '.apps.argocd.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' /tmp/argocd_bootstrap_values.yaml - > /tmp/argocd_bootstrap_values_merged.yaml
+    yq_read '.apps.argocd.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > /tmp/argocd_size_argocd.yaml 2>/dev/null || true
+    if [ -s /tmp/argocd_size_argocd.yaml ] && ! grep -qx 'null' /tmp/argocd_size_argocd.yaml; then
+      yq_merge /tmp/argocd_bootstrap_values.yaml /tmp/argocd_size_argocd.yaml > /tmp/argocd_bootstrap_values_merged.yaml
       mv /tmp/argocd_bootstrap_values_merged.yaml /tmp/argocd_bootstrap_values.yaml
     fi
+    rm -f /tmp/argocd_size_argocd.yaml
   fi
 }
 
@@ -383,14 +453,29 @@ EOF
 bootstrap_argocd() {
   log_info "=== ArgoCD Bootstrap ==="
   extract_argocd_values
-  helm template --release-name argocd ${SOURCE_ROOT}/sources/argocd/8.3.5 --namespace argocd \
+  argocd_apply_err=$(mktemp)
+  if ! helm template --release-name argocd ${SOURCE_ROOT}/sources/argocd/8.3.5 --namespace argocd \
     --values /tmp/argocd_bootstrap_values.yaml \
-    --kube-version=${KUBE_VERSION} | apply_or_template --server-side --field-manager=argocd-controller --force-conflicts -f -
+    --kube-version=${KUBE_VERSION} | apply_or_template --request-timeout="${ARGOCD_APPLY_TIMEOUT}" --server-side --field-manager=argocd-controller --force-conflicts -f - 2> "$argocd_apply_err"; then
+    if grep -qE "Timeout: request did not complete within requested timeout|context deadline exceeded" "$argocd_apply_err"; then
+      log_info "Ignoring known false-positive ArgoCD apply timeout; resources are created."
+    else
+      cat "$argocd_apply_err" >&2
+      rm -f "$argocd_apply_err"
+      exit 1
+    fi
+  fi
+  rm -f "$argocd_apply_err"
   if [ "$TEMPLATE_ONLY" = false ]; then
-    kubectl rollout status statefulset/argocd-application-controller -n argocd --timeout="${DEFAULT_TIMEOUT}"
-    kubectl rollout status deploy/argocd-applicationset-controller -n argocd --timeout="${DEFAULT_TIMEOUT}"
-    kubectl rollout status deploy/argocd-redis -n argocd --timeout="${DEFAULT_TIMEOUT}"
-    kubectl rollout status deploy/argocd-repo-server -n argocd --timeout="${DEFAULT_TIMEOUT}"
+    # Wait for ArgoCD resources to be created by the API server after apply (apply is async)
+    log_info "Waiting for ArgoCD StatefulSet and Deployments to be created..."
+    sleep 5
+    if [ "$TEMPLATE_ONLY" = false ]; then
+      kubectl rollout status statefulset/argocd-application-controller -n argocd --timeout="${DEFAULT_TIMEOUT}"
+      kubectl rollout status deploy/argocd-applicationset-controller -n argocd --timeout="${DEFAULT_TIMEOUT}"
+      kubectl rollout status deploy/argocd-redis -n argocd --timeout="${DEFAULT_TIMEOUT}"
+      kubectl rollout status deploy/argocd-repo-server -n argocd --timeout="${DEFAULT_TIMEOUT}"
+    fi
   fi
 }
 
@@ -405,7 +490,7 @@ bootstrap_openbao() {
   log_info "Debug: CLUSTER_SIZE='${CLUSTER_SIZE}'"
   
   # Get OpenBao version from app path - using same method as main
-  OPENBAO_VERSION=$(yq eval '.apps.openbao.path' "${SOURCE_ROOT}/root/${VALUES_FILE}" | cut -d'/' -f2)
+  OPENBAO_VERSION=$(yq_read '.apps.openbao.path' "${SOURCE_ROOT}/root/${VALUES_FILE}" | cut -d'/' -f2 | tr -d '"')
   log_info "OpenBao version: $OPENBAO_VERSION"
 
   # Create a temporary directory for processing OpenBao values
@@ -414,14 +499,14 @@ bootstrap_openbao() {
 
   # Extract OpenBao values from base configuration
   log_info "Extracting OpenBao values..."
-  yq eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > "${TEMP_DIR}/openbao_values.yaml" || { echo "ERROR: Failed to extract OpenBao values from ${VALUES_FILE}"; exit 1; }
+  yq_read '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > "${TEMP_DIR}/openbao_values.yaml" || { echo "ERROR: Failed to extract OpenBao values from ${VALUES_FILE}"; exit 1; }
   
   if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
     log_info "Extracting OpenBao size-specific values from ${SIZE_VALUES_FILE}..."
     log_info "Checking if openbao section exists in size values file..."
-    if yq eval 'has("apps") and .apps.openbao' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | grep -q true; then
+    if yq_read 'has("apps") and .apps.openbao' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | grep -q true; then
       log_info "OpenBao section found, extracting values..."
-      if ! yq eval '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${TEMP_DIR}/openbao_size_values.yaml"; then
+      if ! yq_read '.apps.openbao.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${TEMP_DIR}/openbao_size_values.yaml"; then
         log_info "WARNING: Failed to extract OpenBao valuesObject from ${SIZE_VALUES_FILE}, using empty values"
         printf "# OpenBao valuesObject not found in size file\n" > "${TEMP_DIR}/openbao_size_values.yaml"
       fi
@@ -478,7 +563,7 @@ bootstrap_gitea() {
   log_info "Debug: CLUSTER_SIZE='${CLUSTER_SIZE}'"
   
   # Get Gitea version from app path - matching main approach
-  GITEA_VERSION=$(yq eval '.apps.gitea.path' "${SOURCE_ROOT}/root/${VALUES_FILE}" | cut -d'/' -f2)
+  GITEA_VERSION=$(yq_read '.apps.gitea.path' "${SOURCE_ROOT}/root/${VALUES_FILE}" | cut -d'/' -f2 | tr -d '"')
   log_info "Gitea version: $GITEA_VERSION"
 
   # Create a temporary directory for processing Gitea values
@@ -490,17 +575,17 @@ bootstrap_gitea() {
   cp "${SOURCE_ROOT}/root/${VALUES_FILE}" "${TEMP_DIR}/complete_values.yaml"
   
   # Fill in placeholder values using yq (these are used by gitea-init job)
-  yq eval ".global.domain = \"${DOMAIN}\"" -i "${TEMP_DIR}/complete_values.yaml"
+  yq_inplace ".global.domain = \"${DOMAIN}\"" "${TEMP_DIR}/complete_values.yaml"
   if [ -n "${SIZE_VALUES_FILE}" ]; then
-    yq eval ".global.clusterSize = \"${SIZE_VALUES_FILE}\"" -i "${TEMP_DIR}/complete_values.yaml"
+    yq_inplace ".global.clusterSize = \"${SIZE_VALUES_FILE}\"" "${TEMP_DIR}/complete_values.yaml"
   else
-    yq eval ".global.clusterSize = \"values_${CLUSTER_SIZE}.yaml\"" -i "${TEMP_DIR}/complete_values.yaml"
+    yq_inplace ".global.clusterSize = \"values_${CLUSTER_SIZE}.yaml\"" "${TEMP_DIR}/complete_values.yaml"
   fi
-  yq eval ".clusterForge.targetRevision = \"${TARGET_REVISION}\"" -i "${TEMP_DIR}/complete_values.yaml"
+  yq_inplace ".clusterForge.targetRevision = \"${TARGET_REVISION}\"" "${TEMP_DIR}/complete_values.yaml"
   
   # Merge with size-specific values if they exist
   if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
-    yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' "${TEMP_DIR}/complete_values.yaml" "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${TEMP_DIR}/complete_values_merged.yaml"
+    yq_merge "${TEMP_DIR}/complete_values.yaml" "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${TEMP_DIR}/complete_values_merged.yaml"
     mv "${TEMP_DIR}/complete_values_merged.yaml" "${TEMP_DIR}/complete_values.yaml"
   fi
   
@@ -514,14 +599,14 @@ bootstrap_gitea() {
   
   # Extract Gitea values like main does
   log_info "Extracting Gitea values..."
-  yq eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > "${TEMP_DIR}/gitea_values.yaml" || { log_info "ERROR: Failed to extract Gitea values from ${VALUES_FILE}"; exit 1; }
+  yq_read '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" > "${TEMP_DIR}/gitea_values.yaml" || { log_info "ERROR: Failed to extract Gitea values from ${VALUES_FILE}"; exit 1; }
   
   if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
     log_info "Extracting Gitea size-specific values from ${SIZE_VALUES_FILE}..."
     log_info "Checking if gitea section exists in size values file..."
-    if yq eval '.apps.gitea' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" >/dev/null 2>&1 && [ "$(yq eval '.apps.gitea' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}")" != "null" ]; then
+    if yq_read '.apps.gitea' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" >/dev/null 2>&1 && [ "$(yq_read '.apps.gitea' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}")" != "null" ]; then
       log_info "Gitea section found, extracting values..."
-      yq eval '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${TEMP_DIR}/gitea_size_values.yaml" || { 
+      yq_read '.apps.gitea.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${TEMP_DIR}/gitea_size_values.yaml" || { 
         log_info "WARNING: Failed to extract Gitea valuesObject from ${SIZE_VALUES_FILE}, using empty values"
         printf "# Gitea valuesObject not found in size file\n" > "${TEMP_DIR}/gitea_size_values.yaml"
       }
@@ -583,17 +668,25 @@ EOF
   local IFS=','
   for app in $APPS; do
     # Add to enabledApps list
-    yq eval ".enabledApps += [\"$app\"]" -i "$temp_values"
+    yq_inplace ".enabledApps += [\"$app\"]" "$temp_values"
     
     # Copy app configuration if it exists in values.yaml
-    if yq eval ".apps | has(\"$app\")" "${SOURCE_ROOT}/root/${VALUES_FILE}" 2>/dev/null | grep -q "true"; then
-      yq eval ".apps[\"$app\"] = load(\"${SOURCE_ROOT}/root/${VALUES_FILE}\").apps[\"$app\"]" -i "$temp_values"
+    if yq_read ".apps | has(\"$app\")" "${SOURCE_ROOT}/root/${VALUES_FILE}" 2>/dev/null | grep -q "true"; then
+      if [ "$YQ_KISLYUK" = true ]; then
+        $YQ_CMD -s '.[0] | .apps["'"$app"'"] = (.[1].apps["'"$app"'"] // {})' "$temp_values" "${SOURCE_ROOT}/root/${VALUES_FILE}" > "${temp_values}.tmp" && mv "${temp_values}.tmp" "$temp_values"
+      else
+        $YQ_CMD eval ".apps[\"$app\"] = load(\"${SOURCE_ROOT}/root/${VALUES_FILE}\").apps[\"$app\"]" -i "$temp_values"
+      fi
     fi
     
     # Merge size-specific configuration if it exists
     if [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
-      if yq eval ".apps | has(\"$app\")" "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" 2>/dev/null | grep -q "true"; then
-        yq eval ".apps[\"$app\"] = (.apps[\"$app\"] // {}) * load(\"${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}\").apps[\"$app\"]" -i "$temp_values"
+      if yq_read ".apps | has(\"$app\")" "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" 2>/dev/null | grep -q "true"; then
+        if [ "$YQ_KISLYUK" = true ]; then
+          $YQ_CMD -s '.[0] | .apps["'"$app"'"] = ((.[0].apps["'"$app"'"] // {}) * (.[1].apps["'"$app"'"] // {}))' "$temp_values" "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${temp_values}.tmp" && mv "${temp_values}.tmp" "$temp_values"
+        else
+          $YQ_CMD eval ".apps[\"$app\"] = (.apps[\"$app\"] // {}) * load(\"${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}\").apps[\"$app\"]" -i "$temp_values"
+        fi
       fi
     fi
   done
@@ -634,7 +727,7 @@ apply_cluster_forge_parent_app() {
 is_cluster_forge_child_app() {
   local app="$1"
   # Check if the app is defined in the values.yaml apps section
-  local app_config=$(yq eval ".apps[\"$app\"]" "${SOURCE_ROOT}/root/${VALUES_FILE}" 2>/dev/null)
+  local app_config=$(yq_read ".apps[\"$app\"]" "${SOURCE_ROOT}/root/${VALUES_FILE}" 2>/dev/null)
   [ "$app_config" != "null" ] && return 0
   return 1
 }
