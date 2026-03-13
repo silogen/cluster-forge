@@ -1,0 +1,78 @@
+{{- if .Values.initJob.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seaweedfs-init-job
+  namespace: seaweedfs-instance
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: seaweedfs-init-job-sa
+      containers:
+        - name: seaweedfs-init
+          image: ghcr.io/silogen/cluster-tool:latest
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              #!/bin/bash
+              set -e
+              
+              S3_ENDPOINT="${S3_ENDPOINT:-http://seaweed-s3.seaweedfs-instance.svc:8333}"
+              
+              echo "Extracting S3 credentials from secret..."
+              S3_CONFIG=$(kubectl get secret seaweedfs-s3-config -n seaweedfs-instance -o jsonpath='{.data.s3\.json}' | base64 -d)
+              
+              export AWS_ACCESS_KEY_ID=$(echo "$S3_CONFIG" | jq -r '.identities[] | select(.name == "ApiUser") | .credentials[0].accessKey')
+              export AWS_SECRET_ACCESS_KEY=$(echo "$S3_CONFIG" | jq -r '.identities[] | select(.name == "ApiUser") | .credentials[0].secretKey')
+              
+              if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+                echo "ERROR: Failed to extract S3 credentials from secret"
+                exit 1
+              fi
+              
+              echo "Waiting for SeaweedFS S3 service to be ready..."
+              for i in {1..60}; do
+                if curl -s --max-time 5 "${S3_ENDPOINT}" >/dev/null 2>&1; then
+                  echo "SeaweedFS S3 service is ready and responding"
+                  break
+                fi
+                if [ $i -eq 60 ]; then
+                  echo "ERROR: SeaweedFS S3 service not ready after 60 attempts"
+                  exit 1
+                fi
+                echo "Waiting for SeaweedFS S3 to be ready... attempt $i/60"
+                sleep 5
+              done
+              
+              aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
+              aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
+              aws configure set default.region us-east-1
+              
+              echo "Creating S3 buckets..."
+              
+              {{- range .Values.initJob.buckets }}
+              BUCKET_NAME="{{ .name }}"
+              echo "Checking if bucket '$BUCKET_NAME' exists..."
+              
+              if aws --endpoint-url="$S3_ENDPOINT" s3 ls "s3://$BUCKET_NAME" 2>/dev/null; then
+                echo "Bucket '$BUCKET_NAME' already exists"
+              else
+                echo "Creating bucket '$BUCKET_NAME'..."
+                if aws --endpoint-url="$S3_ENDPOINT" s3 mb "s3://$BUCKET_NAME"; then
+                  echo "Successfully created bucket '$BUCKET_NAME'"
+                else
+                  echo "ERROR: Failed to create bucket '$BUCKET_NAME'"
+                  exit 1
+                fi
+              fi
+              {{- end }}
+              
+              echo "All buckets initialized successfully!"
+              echo "Current buckets:"
+              aws --endpoint-url="$S3_ENDPOINT" s3 ls
+{{- end }}
