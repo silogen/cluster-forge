@@ -1,6 +1,9 @@
 enabledApps:
   - aim-cluster-model-source
+  - aim-engine
+  - aim-engine-crds
   - airm
+  - aiwb
   - amd-gpu-operator
   - amd-gpu-operator-config
   - appwrapper

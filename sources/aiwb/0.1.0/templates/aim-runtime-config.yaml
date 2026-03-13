@@ -1,0 +1,28 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+# Cluster-scoped AIMClusterRuntimeConfig - always created by this chart.
+# This config is referenced by AIMService resources created by AIWB.
+---
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterRuntimeConfig
+metadata:
+  name: {{ .Values.aim.clusterRuntimeConfigName }}
+  labels:
+    {{- include "aiwb.labels" . | nindent 4 }}
+spec:
+  pvcHeadroomPercent: {{ .Values.aim.pvcHeadroomPercent }}
+  labelPropagation:
+    enabled: true
+    match:
+      - "{{ .Values.metadataPrefix.eaiApps }}/*"
+  routing:
+    enabled: {{ .Values.aim.routing.enabled }}
+    gatewayRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.kgateway.gatewayName }}
+      namespace: {{ .Values.kgateway.namespace }}
+    pathTemplate: "{.metadata.namespace}/{.metadata.labels['{{ .Values.metadataPrefix.eaiApps }}/workload-id']}"
+    requestTimeout: {{ .Values.aim.routing.requestTimeout }}

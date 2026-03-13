@@ -11,6 +11,15 @@ global:
   domain:         # injected via scripts/bootstrap.sh
 
 apps:
+  aim-engine:
+    path: aim-engine/0.1.0
+    namespace: aim-system
+    valuesFile: values.yaml
+    syncWave: 0
+  aim-engine-crds:
+    path: aim-engine-crds/0.1.0
+    namespace: aim-system
+    syncWave: 0
   aim-cluster-model-source:
     namespace: kaiwo-system
     path: aim-cluster-model-source
@@ -34,6 +43,21 @@ apps:
     path: airm/0.3.5
     syncWave: 0
     valuesFile: values.yaml
+  aiwb:
+    path: aiwb/0.1.0
+    namespace: aiwb
+    valuesFile: values.yaml
+    helmParameters:
+      - name: appDomain
+        value: "{{ .Values.global.domain }}"
+    syncWave: 0
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
   amd-gpu-operator:
     namespace: kube-amd-gpu
     path: amd-gpu-operator/v1.4.1
