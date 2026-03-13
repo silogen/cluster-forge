@@ -1,0 +1,35 @@
+{{- if .Values.initJob.enabled }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: seaweedfs-init-job-sa
+  namespace: seaweedfs-instance
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: seaweedfs-init-job-role
+  namespace: seaweedfs-instance
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: seaweedfs-init-job-rolebinding
+  namespace: seaweedfs-instance
+subjects:
+  - kind: ServiceAccount
+    name: seaweedfs-init-job-sa
+    namespace: seaweedfs-instance
+roleRef:
+  kind: Role
+  name: seaweedfs-init-job-role
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
