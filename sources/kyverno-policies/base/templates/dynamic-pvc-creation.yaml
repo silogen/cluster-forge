@@ -41,13 +41,11 @@ spec:
               - ReadWriteMany
             resources:
               requests:
-                storage: '{{ request.object.metadata.annotations."pvc.silogen.ai/user-pvc-size"
-                }}'
-            storageClassName: '{{ request.object.metadata.annotations."pvc.silogen.ai/user-pvc-storage-class-name"
-            }}'
+                storage: '{{ "{{" }} request.object.metadata.annotations."pvc.silogen.ai/user-pvc-size" {{ "}}" }}'
+            storageClassName: '{{ "{{" }} request.object.metadata.annotations."pvc.silogen.ai/user-pvc-storage-class-name" {{ "}}" }}'
         kind: PersistentVolumeClaim
-        name: pvc-{{ request.object.metadata.annotations."pvc.silogen.ai/user-pvc-uid" }}
-        namespace: '{{ request.object.metadata.namespace }}'
+        name: pvc-{{ "{{" }} request.object.metadata.annotations."pvc.silogen.ai/user-pvc-uid" {{ "}}" }}
+        namespace: '{{ "{{" }} request.object.metadata.namespace {{ "}}" }}'
         synchronize: false
       match:
         resources:
@@ -57,16 +55,13 @@ spec:
       name: create-pvc-if-annotated
       preconditions:
         all:
-          - key: '{{ request.object.metadata.annotations."pvc.silogen.ai/user-pvc-auto-create"
-          }}'
+          - key: '{{ "{{" }} request.object.metadata.annotations."pvc.silogen.ai/user-pvc-auto-create" {{ "}}" }}'
             operator: Equals
             value: "true"
-          - key: '{{ request.object.metadata.annotations."pvc.silogen.ai/user-pvc-size"
-          }}'
+          - key: '{{ "{{" }} request.object.metadata.annotations."pvc.silogen.ai/user-pvc-size" {{ "}}" }}'
             operator: NotEquals
             value: ""
-          - key: '{{ request.object.metadata.annotations."pvc.silogen.ai/user-pvc-storage-class-name"
-          }}'
+          - key: '{{ "{{" }} request.object.metadata.annotations."pvc.silogen.ai/user-pvc-storage-class-name" {{ "}}" }}'
             operator: NotEquals
             value: ""
       skipBackgroundRequests: true

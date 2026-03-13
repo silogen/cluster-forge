@@ -599,22 +599,6 @@ apps:
     path: kyverno/3.5.1
     syncWave: -30
     valuesFile: values.yaml
-  kyverno-config:
-    ignoreDifferences:
-      - group: "kyverno.io"
-        jsonPointers:
-          - /spec/rules/0/skipBackgroundRequests
-        kind: "ClusterPolicy"
-        name: "local-path-access-mode-mutation"
-      - group: "kyverno.io"
-        jsonPointers:
-          - /spec/rules/0/skipBackgroundRequests
-          - /spec/rules/0/validate/allowExistingViolations
-        kind: "ClusterPolicy"
-        name: "local-path-access-mode-warning"
-    namespace: kyverno
-    path: kyverno-config
-    syncWave: -20
   kyverno-policies-base:
     namespace: kyverno
     path: kyverno-policies/base

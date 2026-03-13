@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-regular-job
+  namespace: default
+spec:
+  template:
+    metadata:
+      labels:
+        app: regular-batch-job
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: worker
+        image: busybox:latest
+        command: ["sh", "-c", "echo 'Processing batch job...'"]
+        resources:
+          requests:
+            cpu: "0.5"
+            memory: "1Gi"
