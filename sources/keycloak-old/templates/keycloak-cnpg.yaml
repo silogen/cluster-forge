@@ -7,6 +7,8 @@ metadata:
 spec:
   affinity:
     enablePodAntiAffinity: true
+    nodeSelector:
+      kubernetes.io/hostname: cas05.fusion.isys.hpc.dc.uq.edu.au
     topologyKey: topology.kubernetes.io/zone
   bootstrap:
     initdb:
