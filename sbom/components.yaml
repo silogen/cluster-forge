@@ -19,7 +19,6 @@ components:
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   aim-engine-crds:
     path: aim-engine-crds/0.1.0
-    valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine-crds
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine-crds
     license: Apache License 2.0
