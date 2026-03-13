@@ -12,6 +12,8 @@ spec:
   affinity:
     enablePodAntiAffinity: true
     topologyKey: topology.kubernetes.io/zone
+    nodeSelector:
+      kubernetes.io/hostname: cas05.fusion.isys.hpc.dc.uq.edu.au
   bootstrap:
     initdb:
       database: airm
