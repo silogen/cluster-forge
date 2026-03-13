@@ -10,11 +10,32 @@ components:
     projectUrl: https://github.com/silogen/kaiwo/
     license: MIT License
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
+  aim-engine:
+    path: aim-engine/0.1.0
+    valuesFile: values.yaml
+    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine
+    projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine
+    license: Apache License 2.0
+    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
+  aim-engine-crds:
+    path: aim-engine-crds/0.1.0
+    valuesFile: values.yaml
+    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine-crds
+    projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine-crds
+    license: Apache License 2.0
+    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   airm:
     path: airm/0.3.5
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm
+    license: Apache License 2.0
+    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
+  aiwb:
+    path: aiwb/0.1.0
+    valuesFile: values.yaml
+    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb
+    projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   amd-gpu-operator:
