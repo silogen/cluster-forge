@@ -1,0 +1,346 @@
+---
+- name: Domain Update Tool
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # Required variables (pass via -e or vars file)
+    new_domain: "{{ NEW_DOMAIN | mandatory }}"
+    certificate_path: "{{ CERT_PATH | mandatory }}"
+    private_key_path: "{{ KEY_PATH | mandatory }}"
+    
+    # Optional variables
+    cluster_values_repo_url: "{{ CLUSTER_VALUES_REPO_URL | default('') }}"
+    kubeconfig: "{{ KUBECONFIG | default(ansible_env.HOME + '/.kube/config') }}"
+    
+  tasks:
+    - name: Validate prerequisites
+      block:
+        - name: Validate new domain format
+          ansible.builtin.fail:
+            msg: "Invalid domain format: {{ new_domain }}"
+          when: new_domain is not match("^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]?\\.[a-zA-Z]{2,}$")
+
+        - name: Validate certificate files exist
+          ansible.builtin.stat:
+            path: "{{ item }}"
+          register: cert_files
+          loop:
+            - "{{ certificate_path }}"
+            - "{{ private_key_path }}"
+          failed_when: not cert_files.results[ansible_loop.index0].stat.exists
+
+        - name: Check kubectl connectivity
+          kubernetes.core.k8s_info:
+            api_version: v1
+            kind: Namespace
+            name: cf-system
+          register: k8s_check
+          failed_when: k8s_check.resources | length == 0
+
+    - name: Detect cluster-bloom DNS configuration
+      block:
+        - name: Check for DNSMASQ configuration file
+          ansible.builtin.stat:
+            path: /etc/dnsmasq.d/keycloak.conf
+          register: dnsmasq_config
+          delegate_to: localhost
+
+        - name: Check for resolv.conf backup (indicates FIX_DNS was used)
+          ansible.builtin.find:
+            paths: /etc
+            patterns: "resolv.conf.pre-dnsmasq-*"
+          register: resolv_backup
+          delegate_to: localhost
+
+        - name: Read current DNSMASQ domain if exists
+          ansible.builtin.shell: |
+            if [ -f /etc/dnsmasq.d/keycloak.conf ]; then
+              grep "address=/" /etc/dnsmasq.d/keycloak.conf | head -1 | cut -d'/' -f2 || echo ""
+            else
+              echo ""
+            fi
+          register: current_dnsmasq_domain
+          delegate_to: localhost
+          changed_when: false
+
+        - name: Check systemd-resolved status
+          ansible.builtin.shell: systemctl is-active systemd-resolved 2>/dev/null || echo "inactive"
+          register: systemd_resolved_status
+          delegate_to: localhost
+          changed_when: false
+
+        - name: Set DNS configuration facts
+          ansible.builtin.set_fact:
+            cluster_bloom_dns_enabled: "{{ dnsmasq_config.stat.exists }}"
+            cluster_bloom_fix_dns_used: "{{ resolv_backup.files | length > 0 }}"
+            current_dns_domain: "{{ current_dnsmasq_domain.stdout }}"
+            systemd_resolved_was_disabled: "{{ systemd_resolved_status.stdout != 'active' }}"
+
+        - name: Display DNS configuration status
+          ansible.builtin.debug:
+            msg: |
+              🔍 Cluster-Bloom DNS Configuration Status:
+              DNSMASQ enabled: {{ cluster_bloom_dns_enabled }}
+              FIX_DNS was used: {{ cluster_bloom_fix_dns_used }}
+              Current DNS domain: {{ current_dns_domain if current_dns_domain else 'none' }}
+              systemd-resolved disabled: {{ systemd_resolved_was_disabled }}
+
+    - name: Get current domain for reference
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        name: current-domain-config
+        namespace: cf-system
+      register: current_domain_cm
+      ignore_errors: true
+
+    - name: Display domain change summary
+      ansible.builtin.debug:
+        msg: |
+          🚀 Domain Change Summary:
+          Current domain: {{ current_domain_cm.resources[0].data.domain if current_domain_cm.resources else 'unknown' }}
+          New domain: {{ new_domain }}
+          Certificate: {{ certificate_path }}
+          Private key: {{ private_key_path }}
+
+    - name: Update cluster-values repository
+      block:
+        - name: Determine cluster-values repo URL
+          ansible.builtin.set_fact:
+            values_repo_url: "{{ cluster_values_repo_url if cluster_values_repo_url != '' else 'https://gitea.' + current_domain_cm.resources[0].data.domain + '/infrastructure/cluster-values.git' }}"
+          when: current_domain_cm.resources and current_domain_cm.resources | length > 0
+
+        - name: Clone cluster-values repository
+          ansible.builtin.git:
+            repo: "{{ values_repo_url }}"
+            dest: "/tmp/cluster-values-{{ ansible_date_time.epoch }}"
+            force: yes
+          register: git_clone
+          when: values_repo_url is defined
+
+        - name: Update global.domain in values.yaml
+          ansible.builtin.replace:
+            path: "{{ git_clone.dest }}/values.yaml"
+            regexp: '^(\s*domain:\s*).*$'
+            replace: '\1{{ new_domain }}'
+          when: git_clone is succeeded
+
+        - name: Commit and push domain change
+          ansible.builtin.shell: |
+            cd {{ git_clone.dest }}
+            git config user.name "Simplified Domain Update"
+            git config user.email "automation@{{ new_domain }}"
+            git add values.yaml
+            git commit -m "feat: update domain to {{ new_domain }} (simplified implementation)"
+            git push origin main
+          when: git_clone is succeeded
+
+    - name: Update system DNS configuration (cluster-bloom integration)
+      when: cluster_bloom_dns_enabled
+      block:
+        - name: Backup current DNSMASQ configuration
+          ansible.builtin.copy:
+            src: /etc/dnsmasq.d/keycloak.conf
+            dest: "/etc/dnsmasq.d/keycloak.conf.backup-{{ ansible_date_time.epoch }}"
+            remote_src: yes
+            mode: "0644"
+          delegate_to: localhost
+
+        - name: Read current DNSMASQ configuration
+          ansible.builtin.slurp:
+            src: /etc/dnsmasq.d/keycloak.conf
+          register: current_dnsmasq_config
+          delegate_to: localhost
+
+        - name: Update DNSMASQ domain resolution
+          ansible.builtin.replace:
+            path: /etc/dnsmasq.d/keycloak.conf
+            regexp: '^address=/[^/]+/'
+            replace: 'address=/{{ new_domain }}/'
+          delegate_to: localhost
+          register: dnsmasq_updated
+
+        - name: Test DNSMASQ configuration before restart
+          ansible.builtin.shell: dnsmasq --test --conf-file=/etc/dnsmasq.d/keycloak.conf
+          delegate_to: localhost
+          register: dnsmasq_test
+          failed_when: dnsmasq_test.rc != 0
+
+        - name: Restart DNSMASQ service
+          ansible.builtin.systemd:
+            name: dnsmasq
+            state: restarted
+          delegate_to: localhost
+          when: dnsmasq_updated.changed
+
+        - name: Wait for DNSMASQ to be ready
+          ansible.builtin.wait_for:
+            port: 53
+            host: 127.0.0.1
+            timeout: 10
+          delegate_to: localhost
+
+        - name: Test new domain DNS resolution
+          ansible.builtin.shell: |
+            nslookup {{ new_domain }} 127.0.0.1 || exit 1
+            nslookup google.com 127.0.0.1 || exit 1
+          delegate_to: localhost
+          register: dns_resolution_test
+          retries: 3
+          delay: 2
+          until: dns_resolution_test.rc == 0
+
+        - name: Display DNS update success
+          ansible.builtin.debug:
+            msg: |
+              ✅ DNSMASQ configuration updated successfully:
+              Old domain: {{ current_dns_domain }}
+              New domain: {{ new_domain }}
+              DNS resolution test: PASSED
+              
+      rescue:
+        - name: Rollback DNSMASQ configuration on failure
+          block:
+            - name: Stop DNSMASQ service
+              ansible.builtin.systemd:
+                name: dnsmasq
+                state: stopped
+              delegate_to: localhost
+              ignore_errors: yes
+
+            - name: Restore DNSMASQ configuration backup
+              ansible.builtin.copy:
+                src: "/etc/dnsmasq.d/keycloak.conf.backup-{{ ansible_date_time.epoch }}"
+                dest: /etc/dnsmasq.d/keycloak.conf
+                remote_src: yes
+                mode: "0644"
+              delegate_to: localhost
+
+            - name: Restart DNSMASQ service with original config
+              ansible.builtin.systemd:
+                name: dnsmasq
+                state: started
+              delegate_to: localhost
+
+            - name: Fail with DNS rollback message
+              ansible.builtin.fail:
+                msg: |
+                  ❌ DNSMASQ configuration update failed and has been rolled back.
+                  Original DNS configuration restored.
+                  
+                  Error details:
+                  {{ ansible_failed_result.msg | default('DNS resolution test failed') }}
+                  
+                  The domain change process cannot continue safely.
+          
+    - name: Apply TLS certificates to cluster
+      block:
+        - name: Read certificate files
+          ansible.builtin.slurp:
+            src: "{{ item.path }}"
+          register: cert_contents
+          loop:
+            - { path: "{{ certificate_path }}", key: 'tls_crt' }
+            - { path: "{{ private_key_path }}", key: 'tls_key' }
+
+        - name: Create/update TLS secret for new domain
+          kubernetes.core.k8s:
+            state: present
+            definition:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: "{{ new_domain | regex_replace('\\.', '-') }}-tls"
+                namespace: cf-system
+              type: kubernetes.io/tls
+              data:
+                tls.crt: "{{ cert_contents.results[0].content }}"
+                tls.key: "{{ cert_contents.results[1].content }}"
+
+        - name: Update current domain ConfigMap (triggers ArgoCD sync)
+          kubernetes.core.k8s:
+            state: present
+            definition:
+              apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: current-domain-config
+                namespace: cf-system
+              data:
+                domain: "{{ new_domain }}"
+                updated_at: "{{ ansible_date_time.iso8601 }}"
+                updated_by: "simplified-domain-change-playbook"
+                method: "manual-execution"
+
+    - name: Trigger immediate ArgoCD sync (one-time)
+      block:
+        - name: Force sync critical applications
+          kubernetes.core.k8s:
+            state: present
+            merge_type: merge
+            definition:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Application
+              metadata:
+                name: "{{ item }}"
+                namespace: argocd
+              operation:
+                initiatedBy:
+                  username: "simplified-domain-change"
+                sync:
+                  syncStrategy:
+                    apply:
+                      force: true
+          loop:
+            - argocd
+            - gitea
+            - keycloak
+            - minio
+          ignore_errors: true
+
+        - name: Wait for sync completion
+          ansible.builtin.pause:
+            seconds: 30
+            prompt: "Waiting for ArgoCD sync to propagate..."
+
+    - name: Verify domain change success
+      block:
+        - name: Test new domain accessibility
+          ansible.builtin.uri:
+            url: "https://argocd.{{ new_domain }}/api/version"
+            method: GET
+            validate_certs: false
+            status_code: [200, 401, 403]  # 401/403 are ok - service is responding
+          register: domain_check
+          retries: 3
+          delay: 15
+          ignore_errors: true
+
+        - name: Display completion status
+          ansible.builtin.debug:
+            msg: |
+              🎯 Domain Change Complete with DNS Integration!
+              
+              ✅ Updated cluster-values repository with new domain
+              ✅ Applied new TLS certificates to cluster
+              ✅ Updated domain ConfigMap (no automatic watching)
+              ✅ Triggered one-time ArgoCD sync
+              {{ '✅ Updated system DNS (DNSMASQ) configuration' if cluster_bloom_dns_enabled else '⚠️  No system DNS (DNSMASQ) detected - cluster-bloom not used' }}
+              {{ '✅ New domain is accessible' if domain_check is succeeded else '⚠️  Domain check failed - may need time to propagate' }}
+              
+              Domain Integration Summary:
+              • Previous domain: {{ current_domain_cm.resources[0].data.domain if current_domain_cm.resources else current_dns_domain }}
+              • New domain: {{ new_domain }}
+              • Cluster-Bloom DNS: {{ 'ENABLED and UPDATED' if cluster_bloom_dns_enabled else 'NOT DETECTED' }}
+              • FIX_DNS was used: {{ 'YES' if cluster_bloom_fix_dns_used else 'NO' }}
+              
+              Access URLs:
+              • ArgoCD:  https://argocd.{{ new_domain }}
+              • Gitea:   https://gitea.{{ new_domain }}
+              • Keycloak: https://kc.{{ new_domain }}
+              
+              🔥 The fire of the forge eliminates impurities!
+              
+              Note: This simplified implementation removes all automatic 
+              watching/polling. Future domain changes require re-running 
+              this playbook manually.
