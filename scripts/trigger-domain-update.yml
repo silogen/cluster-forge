@@ -27,6 +27,7 @@
           loop:
             - "{{ certificate_path }}"
             - "{{ private_key_path }}"
+          delegate_to: localhost
           failed_when: not cert_files.results[ansible_loop.index0].stat.exists
 
         - name: Check kubectl connectivity
@@ -275,6 +276,7 @@
           loop:
             - { path: "{{ certificate_path }}", key: 'tls_crt' }
             - { path: "{{ private_key_path }}", key: 'tls_key' }
+          delegate_to: localhost
 
         - name: Create/update TLS secret for new domain
           kubernetes.core.k8s:
