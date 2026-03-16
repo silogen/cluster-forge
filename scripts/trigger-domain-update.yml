@@ -31,12 +31,8 @@
           changed_when: false
 
         - name: Check kubectl connectivity
-          kubernetes.core.k8s_info:
-            api_version: v1
-            kind: Namespace
-            name: kgateway-system
-          register: k8s_check
-          failed_when: k8s_check.resources | length == 0
+          ansible.builtin.shell: "kubectl get namespace kgateway-system"
+          changed_when: false
 
     - name: Detect cluster-bloom DNS configuration
       block:
@@ -90,21 +86,20 @@
       when: old_domain == ''
       block:
         - name: Get gitea-config-script ConfigMap
-          kubernetes.core.k8s_info:
-            api_version: v1
-            kind: ConfigMap
-            name: gitea-config-script
-            namespace: cf-gitea
-          register: gitea_config_cm
+          ansible.builtin.shell: |
+            kubectl get configmap gitea-config-script -n cf-gitea -o jsonpath='{.data.configure-gitea\.sh}' | grep "KC_URL=" | head -1 | cut -d'=' -f2 | sed 's|https://[^.]*\.||' | sed 's|{{.*}}||' | xargs
+          register: gitea_config_result
           ignore_errors: true
+          changed_when: false
 
         - name: Extract domain from KC_URL in gitea config
           ansible.builtin.set_fact:
-            extracted_domain: "{{ gitea_config_cm.resources[0].data['configure-gitea.sh'] | regex_search('KC_URL=(.+)', '\\1') | first | regex_replace('https://[^.]*\\.', '') | regex_replace('{{.*}}', '') | trim }}"
+            extracted_domain: "{{ gitea_config_result.stdout | trim }}"
           when: 
-            - gitea_config_cm.resources is defined
-            - gitea_config_cm.resources | length > 0
-            - "'KC_URL=' in gitea_config_cm.resources[0].data['configure-gitea.sh']"
+            - gitea_config_result.rc == 0
+            - gitea_config_result.stdout is defined
+            - gitea_config_result.stdout | trim != ""
+            - "'Values' not in gitea_config_result.stdout"
           ignore_errors: true
 
         - name: Set old_domain from extraction
@@ -121,13 +116,10 @@
           when: old_domain == ''
 
     - name: Get current domain for reference
-      kubernetes.core.k8s_info:
-        api_version: v1
-        kind: ConfigMap
-        name: current-domain-config
-        namespace: kgateway-system
-      register: current_domain_cm
+      ansible.builtin.shell: "kubectl get configmap current-domain-config -n kgateway-system -o jsonpath='{.data.domain}' 2>/dev/null || echo 'unknown'"
+      register: current_domain_result
       ignore_errors: true
+      changed_when: false
 
     - name: Display domain change summary
       ansible.builtin.debug:
@@ -279,59 +271,48 @@
           delegate_to: localhost
 
         - name: Create/update TLS secret for new domain
-          kubernetes.core.k8s:
-            state: present
-            definition:
-              apiVersion: v1
-              kind: Secret
-              metadata:
-                name: "{{ new_domain | regex_replace('\\.', '-') }}-tls"
-                namespace: kgateway-system
-              type: kubernetes.io/tls
-              data:
-                tls.crt: "{{ cert_contents.results[0].content }}"
-                tls.key: "{{ cert_contents.results[1].content }}"
+          ansible.builtin.shell: |
+            kubectl apply -f - <<EOF
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: {{ new_domain | regex_replace('\.', '-') }}-tls
+              namespace: kgateway-system
+            type: kubernetes.io/tls
+            data:
+              tls.crt: {{ cert_contents.results[0].content }}
+              tls.key: {{ cert_contents.results[1].content }}
+            EOF
+          changed_when: true
 
         - name: Update current domain ConfigMap (triggers ArgoCD sync)
-          kubernetes.core.k8s:
-            state: present
-            definition:
-              apiVersion: v1
-              kind: ConfigMap
-              metadata:
-                name: current-domain-config
-                namespace: kgateway-system
-              data:
-                domain: "{{ new_domain }}"
-                updated_at: "{{ ansible_date_time.iso8601 }}"
-                updated_by: "simplified-domain-change-playbook"
-                method: "manual-execution"
+          ansible.builtin.shell: |
+            kubectl apply -f - <<EOF
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: current-domain-config
+              namespace: kgateway-system
+            data:
+              domain: {{ new_domain }}
+              updated_at: "{{ ansible_date_time.iso8601 }}"
+              updated_by: "simplified-domain-change-playbook"
+              method: "manual-execution"
+            EOF
+          changed_when: true
 
     - name: Trigger immediate ArgoCD sync (one-time)
       block:
         - name: Force sync critical applications
-          kubernetes.core.k8s:
-            state: present
-            merge_type: merge
-            definition:
-              apiVersion: argoproj.io/v1alpha1
-              kind: Application
-              metadata:
-                name: "{{ item }}"
-                namespace: argocd
-              operation:
-                initiatedBy:
-                  username: "simplified-domain-change"
-                sync:
-                  syncStrategy:
-                    apply:
-                      force: true
+          ansible.builtin.shell: |
+            kubectl patch application {{ item }} -n argocd --type merge -p '{"operation":{"initiatedBy":{"username":"simplified-domain-change"},"sync":{"syncStrategy":{"apply":{"force":true}}}}}'
           loop:
             - argocd
             - gitea
             - keycloak
             - minio
           ignore_errors: true
+          changed_when: true
 
         - name: Wait for sync completion
           ansible.builtin.pause:
