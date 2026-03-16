@@ -39,22 +39,24 @@ helm upgrade -n airm agent ./agent
 
 ### 3. Helm Settings
 
-| Field Path                                | Description                                                  | Type   | Example / Default |
-| ----------------------------------------- | ------------------------------------------------------------ | ------ | ----------------- |
-| airm.image.repository                     | Shared image repository for agent and webhook                | string | ``                |
-| airm.image.tag                            | Shared image tag for agent and webhook                       | string | ``                |
-| airm.image.pullPolicy                     | Shared image pull policy                                     | string | `IfNotPresent`    |
-| airm.imagePullSecrets                     | Image pull secrets for private registries                    | array  | `[]`              |
-| airm.agent.servicePort                    | Agent service port                                           | int    | `8000`            |
-| airm.agent.env.rabbitmqPort               | RabbitMQ port                                                | string | `"5672"`          |
-| airm.agent.resources                      | Agent resource requests and limits (standard format)         | object | See values.yaml   |
-| airm.webhook.servicePort                  | Webhook service port                                         | int    | `9443`            |
-| airm.webhook.resources                    | Webhook resource requests and limits (standard format)       | object | See values.yaml   |
-| airm.utilities.netcat.image.repository    | Netcat image repository                                      | string | `busybox`         |
-| airm.utilities.netcat.image.tag           | Netcat image tag                                             | string | `1.37.0`          |
-| airm.utilities.netcat.image.pullPolicy    | Netcat image pull policy                                     | string | `IfNotPresent`    |
-| airm.utilities.curl.image.repository      | Curl image repository                                        | string | `curlimages/curl` |
-| airm.utilities.curl.image.tag             | Curl image tag                                               | string | `8.16.0`          |
-| airm.utilities.curl.image.pullPolicy      | Curl image pull policy                                       | string | `IfNotPresent`    |
-| airm.additionalClusterRoles.platformAdmin | Additional cluster roles for the Platform Administrator role | array  | `[]`              |
-| airm.additionalClusterRoles.projectMember | Additional cluster roles for the Project Member role         | array  | `[]`              |
+| Field Path                                | Description                                                  | Type   | Example / Default                                       |
+| ----------------------------------------- | ------------------------------------------------------------ | ------ | ------------------------------------------------------- |
+| airm.image.repository                     | Shared image repository for agent and webhook                | string | ``                                                      |
+| airm.image.tag                            | Shared image tag for agent and webhook                       | string | ``                                                      |
+| airm.image.pullPolicy                     | Shared image pull policy                                     | string | `IfNotPresent`                                          |
+| airm.imagePullSecrets                     | Image pull secrets for private registries                    | array  | `[]`                                                    |
+| airm.agent.servicePort                    | Agent service port                                           | int    | `8000`                                                  |
+| airm.agent.rabbitmq.host                  | RabbitMQ host                                                | string | `"airm-infra-rabbitmq-rabbitmq.airm.svc.cluster.local"` |
+| airm.agent.rabbitmq.port                  | RabbitMQ port                                                | string | `"5672"`                                                |
+| airm.agent.rabbitmq.userSecretName        | Secret containing RabbitMQ connection credentials            | string | `"airm-rabbitmq-common-vhost-user"`                     |
+| airm.agent.resources                      | Agent resource requests and limits (standard format)         | object | See values.yaml                                         |
+| airm.webhook.servicePort                  | Webhook service port                                         | int    | `9443`                                                  |
+| airm.webhook.resources                    | Webhook resource requests and limits (standard format)       | object | See values.yaml                                         |
+| airm.utilities.netcat.image.repository    | Netcat image repository                                      | string | `busybox`                                               |
+| airm.utilities.netcat.image.tag           | Netcat image tag                                             | string | `1.37.0`                                                |
+| airm.utilities.netcat.image.pullPolicy    | Netcat image pull policy                                     | string | `IfNotPresent`                                          |
+| airm.utilities.curl.image.repository      | Curl image repository                                        | string | `curlimages/curl`                                       |
+| airm.utilities.curl.image.tag             | Curl image tag                                               | string | `8.16.0`                                                |
+| airm.utilities.curl.image.pullPolicy      | Curl image pull policy                                       | string | `IfNotPresent`                                          |
+| airm.additionalClusterRoles.platformAdmin | Additional cluster roles for the Platform Administrator role | array  | `[]`                                                    |
+| airm.additionalClusterRoles.projectMember | Additional cluster roles for the Project Member role         | array  | `[]`                                                    |

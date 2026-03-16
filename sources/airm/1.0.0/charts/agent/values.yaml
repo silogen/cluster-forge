@@ -11,8 +11,10 @@ airm:
   imagePullSecrets: []
   agent:
     servicePort: 8000
-    env:
-      rabbitmqPort: "5672"
+    rabbitmq:
+      host: "airm-infra-rabbitmq-rabbitmq.airm.svc.cluster.local"
+      port: 5672
+      userSecretName: "airm-rabbitmq-common-vhost-user"
     resources:
       requests:
         memory: "1Gi"

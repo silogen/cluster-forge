@@ -170,7 +170,7 @@ aim:
 
 # PostgreSQL CNPG Configuration
 postgresql:
-  host: "aiwb-cnpg-rw.aiwb.svc.cluster.local"
+  host: "aiwb-infra-cnpg-cnpg-rw.aiwb.svc.cluster.local"
   port: 5432
   database: "aiwb"
   username: "aiwb_user"

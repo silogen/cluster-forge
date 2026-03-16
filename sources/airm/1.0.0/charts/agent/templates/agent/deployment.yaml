@@ -35,9 +35,9 @@ spec:
             - name: KUBE_CLUSTER_NAME
               value: demo-cluster
             - name: RABBITMQ_HOST
-              value: "{{ .Release.Name }}-rabbitmq.{{ .Release.Namespace }}.svc.cluster.local"
+              value: "{{ .Values.airm.agent.rabbitmq.host }}"
             - name: RABBITMQ_PORT
-              value: "{{ .Values.airm.agent.env.rabbitmqPort }}"
+              value: "{{ .Values.airm.agent.rabbitmq.port }}"
             - name: RABBITMQ_AIRM_COMMON_VHOST
               value: "vh_airm_common"
             - name: RABBITMQ_AIRM_COMMON_QUEUE
@@ -45,12 +45,12 @@ spec:
             - name: RABBITMQ_USER
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Release.Name }}-rabbitmq-common-vhost-user"
+                  name: "{{ .Values.airm.agent.rabbitmq.userSecretName }}"
                   key: username
             - name: RABBITMQ_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Release.Name }}-rabbitmq-common-vhost-user"
+                  name: "{{ .Values.airm.agent.rabbitmq.userSecretName }}"
                   key: password
           livenessProbe:
             httpGet:

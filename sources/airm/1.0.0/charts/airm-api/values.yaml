@@ -36,11 +36,11 @@ airm:
     userCredentialsSecretName: "airm-user-credentials"
 
   postgresql:
-    host: "airm-cnpg-rw.airm.svc.cluster.local"
+    host: "airm-infra-cnpg-cnpg-rw.airm.svc.cluster.local"
     port: 5432
     userSecretName: "airm-cnpg-user"
   rabbitmq:
-    host: "airm-rabbitmq.airm.svc.cluster.local"
+    host: "airm-infra-rabbitmq-rabbitmq.airm.svc.cluster.local"
     port: 5672
     managementPort: 15672
     adminUserSecretName: "airm-rabbitmq-admin"

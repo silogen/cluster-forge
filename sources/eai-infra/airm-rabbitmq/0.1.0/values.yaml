@@ -5,8 +5,8 @@
 # RabbitMQ Configuration
 tls:
   hosts:
-    - "airm-rabbitmq.airm.svc.cluster.local"
-    - "*.airm-rabbitmq-nodes.airm.svc.cluster.local"
+    - "airm-infra-rabbitmq-rabbitmq.airm.svc.cluster.local"
+    - "*.airm-infra-rabbitmq-rabbitmq-nodes.airm.svc.cluster.local"
 replicas: 1
 adminSecretName: "airm-rabbitmq-admin"
 tlsSecretName: "airm-tls-secret"

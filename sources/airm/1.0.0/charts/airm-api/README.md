@@ -62,7 +62,7 @@ helm upgrade -n airm --set airm.appDomain=<PUBLIC-DOMAIN-HERE> airm-api ./airm-a
 | airm.postgresql.host                                  | PostgreSQL host address                                         | string | `airm-cnpg-rw.airm.svc.cluster.local`                      |
 | airm.postgresql.port                                  | PostgreSQL port number                                          | int    | `5432`                                                     |
 | airm.postgresql.userSecretName                        | Secret containing the PostgreSQL credentials                    | string | `airm-cnpg-user`                                           |
-| airm.rabbitmq.host                                    | RabbitMQ host address                                           | string | `airm-rabbitmq.airm.svc.cluster.local`                     |
+| airm.rabbitmq.host                                    | RabbitMQ host address                                           | string | `airm-infra-rabbitmq-rabbitmq.airm.svc.cluster.local`      |
 | airm.rabbitmq.port                                    | RabbitMQ port number                                            | int    | `5672`                                                     |
 | airm.rabbitmq.managementPort                          | RabbitMQ management port number                                 | int    | `15672`                                                    |
 | airm.rabbitmq.adminUserSecretName                     | Secret containing the RabbitMQ admin user credentials           | string | `airm-rabbitmq-admin`                                      |
