@@ -1,5 +1,7 @@
 # Cluster-Forge
 
+## *** *Instructions for installing the AMD Enterprise AI Suite (for most users) are [here](https://enterprise-ai.docs.amd.com/en/latest/platform-infrastructure/on-premises-installation.html)* ***
+<br>
 **A Kubernetes platform automation tool that deploys [AMD Enterprise AI Suite](https://enterprise-ai.docs.amd.com/en/latest/) with complete GitOps infrastructure.**
 
 ## Overview
