@@ -740,6 +740,8 @@ data:
           "redirectUris": [
             "https://airmapi.{{ .Values.domain }}/*",
             "https://airmui.{{ .Values.domain }}/*",
+            "https://aiwbui.{{ .Values.domain }}/*",
+            "https://aiwbapi.{{ .Values.domain }}/*",
             "https://{{ .Values.domain }}/*"
           ],
           "webOrigins": [
