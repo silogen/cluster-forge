@@ -1,0 +1,241 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: minio-mirror-job-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: minio-mirror-job-role
+  namespace: default
+rules:
+  - apiGroups: [""]
+    resources: ["secrets", "services"]
+    verbs: ["get", "list", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: minio-mirror-job-rolebinding
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: minio-mirror-job-role
+subjects:
+  - kind: ServiceAccount
+    name: minio-mirror-job-sa
+    namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: minio-mirror-job-role-minio
+  namespace: minio-tenant-default
+rules:
+  - apiGroups: [""]
+    resources: ["secrets", "services"]
+    verbs: ["get", "list", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: minio-mirror-job-rolebinding-minio
+  namespace: minio-tenant-default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: minio-mirror-job-role-minio
+subjects:
+  - kind: ServiceAccount
+    name: minio-mirror-job-sa
+    namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: minio-mirror-job-role-seaweed
+  namespace: seaweedfs-instance
+rules:
+  - apiGroups: [""]
+    resources: ["secrets", "services"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: minio-mirror-job-rolebinding-seaweed
+  namespace: seaweedfs-instance
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: minio-mirror-job-role-seaweed
+subjects:
+  - kind: ServiceAccount
+    name: minio-mirror-job-sa
+    namespace: default
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-to-seaweedfs-mirror-job
+  namespace: default
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: minio-mirror-job-sa
+      containers:
+        - name: mirror
+          image: ghcr.io/silogen/cluster-tool:latest
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              #!/bin/bash
+              set -e
+              
+              echo "====================================="
+              echo "MinIO to SeaweedFS S3 Mirror Job"
+              echo "====================================="
+              
+              # Configuration
+              SOURCE_BUCKET="${SOURCE_BUCKET:-default-bucket}"
+              TARGET_BUCKET="${TARGET_BUCKET:-default-bucket}"
+              MINIO_NAMESPACE="${MINIO_NAMESPACE:-minio-tenant-default}"
+              SEAWEEDFS_NAMESPACE="${SEAWEEDFS_NAMESPACE:-seaweedfs-instance}"
+              
+              echo "Source bucket: $SOURCE_BUCKET (MinIO)"
+              echo "Target bucket: $TARGET_BUCKET (SeaweedFS)"
+              
+              # Install MinIO Client
+              echo ""
+              echo "Installing MinIO Client (mc)..."
+              wget -q https://dl.min.io/client/mc/release/linux-amd64/mc -O /tmp/mc
+              chmod +x /tmp/mc
+              MC=/tmp/mc
+              
+              MINIO_USER=$(kubectl get secret default-user -n "$MINIO_NAMESPACE" -o jsonpath="{.data.API_ACCESS_KEY}" | base64 -d)
+              MINIO_PASS=$(kubectl get secret default-user -n "$MINIO_NAMESPACE" -o jsonpath="{.data.API_SECRET_KEY}" | base64 -d)
+              
+              if [ -z "$MINIO_USER" ] || [ -z "$MINIO_PASS" ]; then
+                echo "ERROR: Failed to retrieve MinIO configuration"
+                exit 1
+              fi
+                                         
+              $MC alias set minio-source "http://minio.${MINIO_NAMESPACE}.svc.cluster.local:80" "$MINIO_USER" "$MINIO_PASS"
+
+              # Test MinIO connection
+              echo ""
+              echo "Testing MinIO connection..."
+              if ! $MC ls minio-source/"$SOURCE_BUCKET" >/dev/null 2>&1; then
+                echo "ERROR: Cannot access MinIO bucket '$SOURCE_BUCKET'"
+                kubectl patch svc minio -n "$MINIO_NAMESPACE" -p '{"spec":{"type":"ClusterIP"}}'
+                exit 1
+              fi
+              echo "✓ MinIO connection successful"
+              
+              # Configure SeaweedFS target
+              echo ""
+              echo "Configuring SeaweedFS target..."
+              
+              SEAWEED_ENDPOINT="http://filer-s3.${SEAWEEDFS_NAMESPACE}.svc.cluster.local"              
+              
+              # Extract SeaweedFS credentials
+              S3_CONFIG=$(kubectl get secret seaweedfs-s3-config -n "$SEAWEEDFS_NAMESPACE" -o jsonpath='{.data.s3\.json}' | base64 -d)
+              SEAWEED_USER=$(echo "$S3_CONFIG" | jq -r '.identities[] | select(.name == "ApiUser") | .credentials[0].accessKey')
+              SEAWEED_PASS=$(echo "$S3_CONFIG" | jq -r '.identities[] | select(.name == "ApiUser") | .credentials[0].secretKey')
+              
+              if [ -z "$SEAWEED_USER" ] || [ -z "$SEAWEED_PASS" ]; then
+                echo "ERROR: Failed to extract SeaweedFS credentials"
+                kubectl patch svc minio -n "$MINIO_NAMESPACE" -p '{"spec":{"type":"ClusterIP"}}'
+                exit 1
+              fi
+              
+              $MC alias set seaweed-target "$SEAWEED_ENDPOINT" "$SEAWEED_USER" "$SEAWEED_PASS"
+              
+              # Wait for SeaweedFS to be ready
+              echo ""
+              echo "Waiting for SeaweedFS S3 service to be ready..."
+              for i in {1..30}; do
+                if $MC ls seaweed-target >/dev/null 2>&1; then
+                  echo "✓ SeaweedFS connection successful"
+                  break
+                fi
+                if [ $i -eq 30 ]; then
+                  echo "ERROR: SeaweedFS S3 service not ready after 30 attempts"
+                  kubectl patch svc minio -n "$MINIO_NAMESPACE" -p '{"spec":{"type":"ClusterIP"}}'
+                  exit 1
+                fi
+                echo "Waiting for SeaweedFS S3 to be ready... attempt $i/30"
+                sleep 2
+              done
+              
+              # Ensure target bucket exists
+              echo ""
+              echo "Ensuring target bucket exists..."
+              if ! $MC ls seaweed-target/"$TARGET_BUCKET" >/dev/null 2>&1; then
+                echo "Creating bucket '$TARGET_BUCKET' in SeaweedFS..."
+                $MC mb seaweed-target/"$TARGET_BUCKET"
+              else
+                echo "Bucket '$TARGET_BUCKET' already exists"
+              fi
+              
+              # Mirror buckets
+              echo ""
+              echo "====================================="
+              echo "Starting mirror operation..."
+              echo "====================================="
+              echo "Source: minio-source/$SOURCE_BUCKET"
+              echo "Target: seaweed-target/$TARGET_BUCKET"
+              echo ""
+              
+              # Mirror with options:
+              # --overwrite: Overwrite existing files
+              # --remove: Remove extraneous files on target
+              # --preserve: Preserve filesystem attributes (metadata)
+              $MC mirror minio-source/"$SOURCE_BUCKET" seaweed-target/"$TARGET_BUCKET" \
+                --overwrite \
+                --remove \
+                --preserve
+              
+              MIRROR_EXIT_CODE=$?
+              
+              echo ""
+              echo "====================================="
+              if [ $MIRROR_EXIT_CODE -eq 0 ]; then
+                echo "✓ Mirror operation completed successfully!"
+              else
+                echo "✗ Mirror operation failed with exit code $MIRROR_EXIT_CODE"
+              fi
+              echo "====================================="
+              
+              # Show summary
+              echo ""
+              echo "Target bucket contents:"
+              $MC ls seaweed-target/"$TARGET_BUCKET"
+              
+              # Cleanup: Revert MinIO service type back to ClusterIP
+              echo ""
+              echo "Cleaning up..."
+              kubectl patch svc minio -n "$MINIO_NAMESPACE" -p '{"spec":{"type":"ClusterIP"}}'
+              
+              # Remove aliases
+              $MC alias remove minio-source
+              $MC alias remove seaweed-target
+              
+              echo ""
+              echo "Cleanup complete."
+              
+              exit $MIRROR_EXIT_CODE
+          env:
+            - name: SOURCE_BUCKET
+              value: "default-bucket"
+            - name: TARGET_BUCKET
+              value: "default-bucket"
+            - name: MINIO_NAMESPACE
+              value: "minio-tenant-default"
+            - name: SEAWEEDFS_NAMESPACE
+              value: "seaweedfs-instance"
