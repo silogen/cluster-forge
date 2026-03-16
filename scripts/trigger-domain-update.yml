@@ -9,7 +9,7 @@
     private_key_path: "{{ KEY_PATH | mandatory }}"
     
     # Optional variables
-    cluster_values_repo_url: "{{ CLUSTER_VALUES_REPO_URL | default('') }}"
+    old_domain: "{{ OLD_DOMAIN | default('') }}"
     kubeconfig: "{{ KUBECONFIG | default(ansible_env.HOME + '/.kube/config') }}"
     
   tasks:
@@ -33,7 +33,7 @@
           kubernetes.core.k8s_info:
             api_version: v1
             kind: Namespace
-            name: cf-system
+            name: kgateway-system
           register: k8s_check
           failed_when: k8s_check.resources | length == 0
 
@@ -85,30 +85,64 @@
               Current DNS domain: {{ current_dns_domain if current_dns_domain else 'none' }}
               systemd-resolved disabled: {{ systemd_resolved_was_disabled }}
 
+    - name: Extract domain from gitea config if old_domain not provided
+      when: old_domain == ''
+      block:
+        - name: Get gitea-config-script ConfigMap
+          kubernetes.core.k8s_info:
+            api_version: v1
+            kind: ConfigMap
+            name: gitea-config-script
+            namespace: cf-gitea
+          register: gitea_config_cm
+          ignore_errors: true
+
+        - name: Extract domain from KC_URL in gitea config
+          ansible.builtin.set_fact:
+            extracted_domain: "{{ gitea_config_cm.resources[0].data['configure-gitea.sh'] | regex_search('KC_URL=(.+)', '\\1') | first | regex_replace('https://[^.]*\\.', '') | regex_replace('{{.*}}', '') | trim }}"
+          when: 
+            - gitea_config_cm.resources is defined
+            - gitea_config_cm.resources | length > 0
+            - "'KC_URL=' in gitea_config_cm.resources[0].data['configure-gitea.sh']"
+          ignore_errors: true
+
+        - name: Set old_domain from extraction
+          ansible.builtin.set_fact:
+            old_domain: "{{ extracted_domain }}"
+          when: 
+            - extracted_domain is defined
+            - extracted_domain != ''
+            - "'Values' not in extracted_domain"
+
+        - name: Fail if old_domain could not be determined
+          ansible.builtin.fail:
+            msg: "Could not extract old domain from cluster configuration. Please provide OLD_DOMAIN parameter."
+          when: old_domain == ''
+
     - name: Get current domain for reference
       kubernetes.core.k8s_info:
         api_version: v1
         kind: ConfigMap
         name: current-domain-config
-        namespace: cf-system
+        namespace: kgateway-system
       register: current_domain_cm
       ignore_errors: true
 
     - name: Display domain change summary
       ansible.builtin.debug:
-        msg: |
-          🚀 Domain Change Summary:
-          Current domain: {{ current_domain_cm.resources[0].data.domain if current_domain_cm.resources else 'unknown' }}
-          New domain: {{ new_domain }}
-          Certificate: {{ certificate_path }}
-          Private key: {{ private_key_path }}
+            msg: |
+              🚀 Domain Change Summary:
+              Old domain: {{ old_domain }}
+              New domain: {{ new_domain }}
+              Certificate: {{ certificate_path }}
+              Private key: {{ private_key_path }}
+              Repository URL: {{ values_repo_url }}
 
     - name: Update cluster-values repository
       block:
         - name: Determine cluster-values repo URL
           ansible.builtin.set_fact:
-            values_repo_url: "{{ cluster_values_repo_url if cluster_values_repo_url != '' else 'https://gitea.' + current_domain_cm.resources[0].data.domain + '/infrastructure/cluster-values.git' }}"
-          when: current_domain_cm.resources and current_domain_cm.resources | length > 0
+            values_repo_url: "https://gitea.{{ old_domain }}/infrastructure/cluster-values.git"
 
         - name: Clone cluster-values repository
           ansible.builtin.git:
@@ -116,7 +150,6 @@
             dest: "/tmp/cluster-values-{{ ansible_date_time.epoch }}"
             force: yes
           register: git_clone
-          when: values_repo_url is defined
 
         - name: Update global.domain in values.yaml
           ansible.builtin.replace:
@@ -251,7 +284,7 @@
               kind: Secret
               metadata:
                 name: "{{ new_domain | regex_replace('\\.', '-') }}-tls"
-                namespace: cf-system
+                namespace: kgateway-system
               type: kubernetes.io/tls
               data:
                 tls.crt: "{{ cert_contents.results[0].content }}"
@@ -265,7 +298,7 @@
               kind: ConfigMap
               metadata:
                 name: current-domain-config
-                namespace: cf-system
+                namespace: kgateway-system
               data:
                 domain: "{{ new_domain }}"
                 updated_at: "{{ ansible_date_time.iso8601 }}"
@@ -329,7 +362,7 @@
               {{ '✅ New domain is accessible' if domain_check is succeeded else '⚠️  Domain check failed - may need time to propagate' }}
               
               Domain Integration Summary:
-              • Previous domain: {{ current_domain_cm.resources[0].data.domain if current_domain_cm.resources else current_dns_domain }}
+              • Previous domain: {{ old_domain }} (K8s) / {{ current_dns_domain if current_dns_domain else 'none' }} (DNS)
               • New domain: {{ new_domain }}
               • Cluster-Bloom DNS: {{ 'ENABLED and UPDATED' if cluster_bloom_dns_enabled else 'NOT DETECTED' }}
               • FIX_DNS was used: {{ 'YES' if cluster_bloom_fix_dns_used else 'NO' }}

@@ -8,7 +8,7 @@ ansible-playbook scripts/trigger-domain-update.yml \
   -e NEW_DOMAIN=newdomain.com \
   -e CERT_PATH=/path/to/cert.pem \
   -e KEY_PATH=/path/to/key.pem \
-  -e CLUSTER_VALUES_REPO_URL=https://gitea.olddomain.com/infrastructure/cluster-values.git
+  -e OLD_DOMAIN=olddomain.com
 ```
 
 **What it does:**
@@ -26,35 +26,46 @@ ansible-playbook scripts/trigger-domain-update.yml \
 
 **Usage:**
 ```bash
-./scripts/trigger-domain-update.sh newdomain.com /path/to/cert.pem /path/to/key.pem [repo-url]
+./scripts/trigger-domain-update.sh newdomain.com /path/to/cert.pem /path/to/key.pem [old-domain]
 ```
 
 **Features:**
 - 🎯 Interactive confirmation prompts
 - 🛡️ Built-in validation and error handling
 - 📊 Colored output with progress indicators
-- ⚡ Automatic repository URL detection
+- ⚡ Automatic old domain detection from cluster configuration
 - 🔍 Automatic cluster-bloom DNS detection
 - ⚙️ System DNS (DNSMASQ) configuration updates
 - 🔄 DNS rollback on configuration failures
 
 ## Features
 
-1. **Global Domain Templating**
+1. **Automatic Domain Detection**
+   - Automatically extracts old domain from cluster configuration
+   - Falls back to manual specification if auto-detection fails
+   - Extracts domain from gitea-config-script ConfigMap in cf-gitea namespace
+
+2. **Global Domain Templating**
    - All applications still use `{{ .Values.global.domain }}`
    - Helm parameter injection continues to work
    - ArgoCD application definitions unchanged
 
-2. **Manual Script Execution**
+2. **Simplified Parameters**
+   - Uses OLD_DOMAIN parameter instead of full repository URL
+   - Repository URL constructed automatically from old domain
+   - More user-friendly interface
+
+3. **Manual Script Execution**
    - Clean, single-purpose scripts
    - Direct cluster-values repo updates
    - One-time ArgoCD sync triggers
 
-3. **Certificate Management**
-   - TLS secret creation/updates
+4. **Certificate Management**
+   - TLS secret creation/updates in kgateway-system namespace
+   - External Secrets Operator propagates to other namespaces
    - cert-manager integration (if used)
 
-4. **Cluster-Bloom Integration**
+5. **Cluster-Bloom Integration**
    - Automatic detection of DNSMASQ configuration
    - System DNS updates for local domain resolution
    - FIX_DNS detection and validation
@@ -75,15 +86,15 @@ ansible-playbook scripts/trigger-domain-update.yml \
 ./scripts/trigger-domain-update.sh prod.example.com ./certs/prod-cert.pem ./certs/prod-key.pem
 ```
 
-### Example 2: With Custom Repository
+### Example 2: With Explicit Old Domain
 
 ```bash
-# When cluster-values repo URL cannot be auto-detected
+# When old domain cannot be auto-detected or you want to be explicit
 ansible-playbook scripts/trigger-domain-update.yml \
   -e NEW_DOMAIN=staging.company.org \
   -e CERT_PATH=/etc/ssl/staging.crt \
   -e KEY_PATH=/etc/ssl/staging.key \
-  -e CLUSTER_VALUES_REPO_URL=https://git.company.org/k8s/cluster-values.git
+  -e OLD_DOMAIN=oldstaging.company.org
 ```
 
 ### Example 3: Dry Run (Validation Only)
@@ -106,7 +117,7 @@ After running the domain change script, verify the update:
 
 ```bash
 # Check current domain
-kubectl get configmap current-domain-config -n cf-system -o jsonpath='{.data.domain}'
+kubectl get configmap current-domain-config -n kgateway-system -o jsonpath='{.data.domain}'
 
 # Check ArgoCD accessibility
 curl -k https://argocd.NEWDOMAIN.com/api/version
@@ -115,7 +126,7 @@ curl -k https://argocd.NEWDOMAIN.com/api/version
 kubectl get applications -n argocd
 
 # Monitor ArgoCD sync progress
-kubectl get events -n cf-system --sort-by='.lastTimestamp' | grep domain
+kubectl get events -n kgateway-system --sort-by='.lastTimestamp' | grep domain
 ```
 
 ## Troubleshooting
@@ -130,9 +141,9 @@ kubectl get events -n cf-system --sort-by='.lastTimestamp' | grep domain
 
 2. **Kubectl Connection Issues**
    ```bash
-   # Verify cluster connectivity
-   kubectl get namespaces
-   kubectl get namespace cf-system
+    # Verify cluster connectivity
+    kubectl get namespaces
+    kubectl get namespace kgateway-system
    ```
 
 3. **Git Repository Access**
@@ -188,15 +199,15 @@ If domain change fails midway:
 
 ```bash
 # Check what was updated
-kubectl get configmap current-domain-config -n cf-system -o yaml
-kubectl get secrets -n cf-system | grep tls
+kubectl get configmap current-domain-config -n kgateway-system -o yaml
+kubectl get secrets -n kgateway-system | grep tls
 
 # Check DNS configuration status
 sudo cat /etc/dnsmasq.d/keycloak.conf
 sudo ls -la /etc/dnsmasq.d/keycloak.conf.backup-*
 
 # Manual Kubernetes rollback if needed
-kubectl patch configmap current-domain-config -n cf-system -p '{"data":{"domain":"old-domain.com"}}'
+kubectl patch configmap current-domain-config -n kgateway-system -p '{"data":{"domain":"old-domain.com"}}'
 
 # Manual DNS rollback if needed
 sudo cp /etc/dnsmasq.d/keycloak.conf.backup-LATEST /etc/dnsmasq.d/keycloak.conf

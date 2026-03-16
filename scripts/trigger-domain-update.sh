@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Simplified Domain Update Script - No Automatic Watching  
-# Usage: ./trigger-domain-update.sh <new-domain> <cert-path> <key-path> [cluster-values-repo-url]
+# Usage: ./trigger-domain-update.sh <new-domain> <cert-path> <key-path> [old-domain]
 
 # Color codes for output
 RED='\033[0;31m'
@@ -36,12 +36,13 @@ log_error() {
 }
 
 show_usage() {
-    echo "Usage: $0 <new-domain> <cert-path> <key-path> [cluster-values-repo-url]"
+    echo "Usage: $0 <new-domain> <cert-path> <key-path> [old-domain]"
     echo ""
     echo "Examples:"
     echo "  $0 newdomain.com /path/to/cert.pem /path/to/key.pem"
-    echo "  $0 prod.example.com ./certs/tls.crt ./certs/tls.key https://gitea.olddomain.com/infrastructure/cluster-values.git"
+    echo "  $0 prod.example.com ./certs/tls.crt ./certs/tls.key olddomain.com"
     echo ""
+    echo "If old-domain is not provided, it will be automatically extracted from cluster configuration."
     echo "This simplified script eliminates automatic watching and requires manual execution for domain changes."
     echo "🔥 The fire of the forge eliminates impurities - keeping it simple!"
     exit 1
@@ -71,8 +72,8 @@ validate_files() {
 }
 
 check_kubectl() {
-    if ! kubectl get namespace cf-system &>/dev/null; then
-        log_error "Cannot connect to cluster or cf-system namespace not found"
+    if ! kubectl get namespace kgateway-system &>/dev/null; then
+        log_error "Cannot connect to cluster or kgateway-system namespace not found"
     fi
     log_success "Kubernetes connectivity verified"
 }
@@ -174,13 +175,35 @@ update_dnsmasq_config() {
     return 1
 }
 
+extract_domain_from_gitea_config() {
+    local kc_url
+    if kc_url=$(kubectl get configmap gitea-config-script -n cf-gitea -o jsonpath='{.data.configure-gitea\.sh}' 2>/dev/null | grep "KC_URL=" | head -1 | cut -d'=' -f2); then
+        # Extract domain from KC_URL like https://kc.plat-ci.silogen.ai
+        local domain=$(echo "$kc_url" | sed 's|https://[^.]*\.||' | sed 's|{{.*}}||' | xargs)
+        if [[ -n "$domain" && "$domain" != *"Values"* ]]; then
+            echo "$domain"
+            return 0
+        fi
+    fi
+    return 1
+}
+
 get_current_domain() {
     local current_domain
-    if current_domain=$(kubectl get configmap current-domain-config -n cf-system -o jsonpath='{.data.domain}' 2>/dev/null); then
+    # Try to get from existing domain config first
+    if current_domain=$(kubectl get configmap current-domain-config -n kgateway-system -o jsonpath='{.data.domain}' 2>/dev/null); then
         echo "$current_domain"
-    else
-        echo "unknown"
+        return 0
     fi
+    
+    # Fallback to extracting from gitea config
+    if current_domain=$(extract_domain_from_gitea_config); then
+        echo "$current_domain"
+        return 0
+    fi
+    
+    echo "unknown"
+    return 1
 }
 
 update_cluster_values_repo() {
@@ -246,7 +269,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: $secret_name
-  namespace: cf-system
+  namespace: kgateway-system
 type: kubernetes.io/tls
 data:
   tls.crt: $cert_content
@@ -266,7 +289,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: current-domain-config
-  namespace: cf-system
+  namespace: kgateway-system
 data:
   domain: $new_domain
   updated_at: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -326,21 +349,24 @@ main() {
     local new_domain=$1
     local cert_path=$2
     local key_path=$3
-    local cluster_values_repo_url=${4:-""}
+    local old_domain=${4:-""}
     
-    # Get current domain for repository URL if not provided
-    local current_domain
-    current_domain=$(get_current_domain)
-    
-    if [[ -z "$cluster_values_repo_url" ]] && [[ "$current_domain" != "unknown" ]]; then
-        cluster_values_repo_url="https://gitea.$current_domain/infrastructure/cluster-values.git"
-    elif [[ -z "$cluster_values_repo_url" ]]; then
-        log_error "Could not determine cluster-values repository URL. Please provide it as the 4th argument."
+    # Determine old domain if not provided
+    if [[ -z "$old_domain" ]]; then
+        log_info "OLD_DOMAIN not provided, attempting to extract from cluster configuration..."
+        old_domain=$(get_current_domain)
+        if [[ "$old_domain" == "unknown" ]]; then
+            log_error "Could not determine old domain automatically. Please provide it as the 4th argument."
+        fi
+        log_success "Extracted old domain: $old_domain"
     fi
+    
+    # Construct cluster-values repository URL
+    local cluster_values_repo_url="https://gitea.$old_domain/infrastructure/cluster-values.git"
     
     echo "🚀 Simplified Domain Change Script"
     echo "================================="
-    echo "Current domain: $current_domain"
+    echo "Old domain: $old_domain"
     echo "New domain: $new_domain"
     echo "Certificate: $cert_path"
     echo "Private key: $key_path"
@@ -399,7 +425,7 @@ main() {
     echo "$domain_status"
     echo ""
     echo "Domain Integration Summary:"
-    echo "• Previous domain: ${current_domain} (K8s) / ${CURRENT_DNS_DOMAIN:-none} (DNS)"
+    echo "• Previous domain: ${old_domain} (K8s) / ${CURRENT_DNS_DOMAIN:-none} (DNS)"
     echo "• New domain: $new_domain"
     echo "• Cluster-Bloom DNS: $([ "$CLUSTER_BLOOM_DNS_ENABLED" == "true" ] && echo "ENABLED and UPDATED" || echo "NOT DETECTED")"
     echo "• FIX_DNS was used: $([ "$CLUSTER_BLOOM_FIX_DNS_USED" == "true" ] && echo "YES" || echo "NO")"
