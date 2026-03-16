@@ -50,7 +50,8 @@ show_usage() {
 
 validate_domain() {
     local domain=$1
-    if ! [[ "$domain" =~ ^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$ ]]; then
+    # Allow multiple subdomain levels with hyphens, but no leading/trailing hyphens in labels
+    if ! [[ "$domain" =~ ^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$ ]]; then
         log_error "Invalid domain format: $domain"
     fi
     log_success "Domain format validated: $domain"
