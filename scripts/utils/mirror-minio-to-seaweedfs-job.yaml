@@ -125,7 +125,7 @@ spec:
                 exit 1
               fi
                                          
-              $MC alias set minio-source "http://minio.${MINIO_NAMESPACE}.svc.cluster.local:80" "$MINIO_USER" "$MINIO_PASS"
+              $MC alias set minio-source "http://minio.${MINIO_NAMESPACE}.svc.cluster.local" "$MINIO_USER" "$MINIO_PASS"
 
               # Test MinIO connection
               echo ""
@@ -150,7 +150,6 @@ spec:
               
               if [ -z "$SEAWEED_USER" ] || [ -z "$SEAWEED_PASS" ]; then
                 echo "ERROR: Failed to extract SeaweedFS credentials"
-                kubectl patch svc minio -n "$MINIO_NAMESPACE" -p '{"spec":{"type":"ClusterIP"}}'
                 exit 1
               fi
               
@@ -166,7 +165,6 @@ spec:
                 fi
                 if [ $i -eq 30 ]; then
                   echo "ERROR: SeaweedFS S3 service not ready after 30 attempts"
-                  kubectl patch svc minio -n "$MINIO_NAMESPACE" -p '{"spec":{"type":"ClusterIP"}}'
                   exit 1
                 fi
                 echo "Waiting for SeaweedFS S3 to be ready... attempt $i/30"
@@ -217,11 +215,8 @@ spec:
               echo "Target bucket contents:"
               $MC ls seaweed-target/"$TARGET_BUCKET"
               
-              # Cleanup: Revert MinIO service type back to ClusterIP
-              echo ""
               echo "Cleaning up..."
-              kubectl patch svc minio -n "$MINIO_NAMESPACE" -p '{"spec":{"type":"ClusterIP"}}'
-              
+
               # Remove aliases
               $MC alias remove minio-source
               $MC alias remove seaweed-target
