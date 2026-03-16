@@ -20,15 +20,15 @@
             msg: "Invalid domain format: {{ new_domain }}"
           when: new_domain is not match("^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$")
 
-        - name: Validate certificate files exist
-          ansible.builtin.stat:
-            path: "{{ item }}"
-          register: cert_files
-          loop:
-            - "{{ certificate_path }}"
-            - "{{ private_key_path }}"
+        - name: Validate certificate file exists
+          ansible.builtin.shell: "test -f {{ certificate_path }}"
           delegate_to: localhost
-          failed_when: not cert_files.results[ansible_loop.index0].stat.exists
+          changed_when: false
+
+        - name: Validate private key file exists
+          ansible.builtin.shell: "test -f {{ private_key_path }}"
+          delegate_to: localhost
+          changed_when: false
 
         - name: Check kubectl connectivity
           kubernetes.core.k8s_info:
