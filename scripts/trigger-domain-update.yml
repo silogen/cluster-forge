@@ -87,7 +87,7 @@
       block:
         - name: Get gitea-config-script ConfigMap
           ansible.builtin.shell: |
-            kubectl get configmap gitea-config-script -n cf-gitea -o jsonpath='{.data.configure-gitea\.sh}' | grep "KC_URL=" | head -1 | cut -d'=' -f2 | sed 's|https://[^.]*\.||' | sed 's|{{.*}}||' | xargs
+            kubectl get configmap gitea-config-script -n cf-gitea -o yaml 2>/dev/null | grep "KC_URL=" | head -1 | cut -d'=' -f2 | sed 's|https://[^.]*\.||g' | sed 's|{{.*}}||g' | xargs || echo ""
           register: gitea_config_result
           ignore_errors: true
           changed_when: false
@@ -96,7 +96,7 @@
           ansible.builtin.set_fact:
             extracted_domain: "{{ gitea_config_result.stdout | trim }}"
           when: 
-            - gitea_config_result.rc == 0
+            - gitea_config_result is succeeded
             - gitea_config_result.stdout is defined
             - gitea_config_result.stdout | trim != ""
             - "'Values' not in gitea_config_result.stdout"
