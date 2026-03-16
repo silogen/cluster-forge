@@ -22,7 +22,7 @@ spec:
               #!/bin/bash
               set -e
               
-              S3_ENDPOINT="${S3_ENDPOINT:-http://seaweed-s3.seaweedfs-instance.svc:8333}"
+              S3_ENDPOINT="${S3_ENDPOINT:-http://filer-s3.seaweedfs-instance.svc.cluster.local}"
               
               echo "Extracting S3 credentials from secret..."
               S3_CONFIG=$(kubectl get secret seaweedfs-s3-config -n seaweedfs-instance -o jsonpath='{.data.s3\.json}' | base64 -d)
