@@ -1,0 +1,17 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+externalSecretStore: "openbao-secret-store"
+postgresql:
+  superuserSecretName: "airm-cnpg-superuser"
+  userSecretName: "airm-cnpg-user"
+keycloak:
+  adminClientSecretName: "airm-keycloak-admin-client"
+  uiClientSecretName: "airm-keycloak-ui-creds"
+  userCredentialsSecretName: "airm-user-credentials"
+rabbitmq:
+  adminUserSecretName: "airm-rabbitmq-admin"
+ui:
+  secretName: "airm-secrets-airm"

@@ -1,0 +1,22 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+# RabbitMQ Configuration
+tls:
+  hosts:
+    - "airm-rabbitmq.airm.svc.cluster.local"
+    - "*.airm-rabbitmq-nodes.airm.svc.cluster.local"
+replicas: 1
+adminSecretName: "airm-rabbitmq-admin"
+tlsSecretName: "airm-tls-secret"
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+persistence:
+  storage: 20Gi
+  storageClassName: default

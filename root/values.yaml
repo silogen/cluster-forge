@@ -40,11 +40,11 @@ apps:
           - ".spec.rules"
         kind: ClusterPolicy
     namespace: airm
-    path: airm/0.3.5
+    path: airm/1.0.0
     syncWave: 0
     valuesFile: values.yaml
   aiwb:
-    path: aiwb/0.1.0
+    path: aiwb/1.0.0
     namespace: aiwb
     valuesFile: values.yaml
     helmParameters:
@@ -58,6 +58,31 @@ apps:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
+  airm-infra-cnpg:
+    path: eai-infra/airm-cnpg/0.1.0
+    namespace: airm
+    syncWave: -10
+    valuesFile: values.yaml
+  airm-infra-external-secrets:
+    path: eai-infra/airm-external-secrets/0.1.0
+    namespace: airm
+    syncWave: -20
+    valuesFile: values.yaml
+  airm-infra-rabbitmq:
+    path: eai-infra/airm-rabbitmq/0.1.0
+    namespace: airm
+    syncWave: -5
+    valuesFile: values.yaml
+  aiwb-infra-cnpg:
+    path: eai-infra/aiwb-cnpg/0.1.0
+    namespace: aiwb
+    syncWave: -10
+    valuesFile: values.yaml
+  aiwb-infra-external-secrets:
+    path: eai-infra/aiwb-external-secrets/0.1.0
+    namespace: aiwb
+    syncWave: -20
+    valuesFile: values.yaml
   amd-gpu-operator:
     namespace: kube-amd-gpu
     path: amd-gpu-operator/v1.4.1

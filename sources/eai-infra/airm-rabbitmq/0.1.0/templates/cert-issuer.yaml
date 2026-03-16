@@ -1,0 +1,25 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: "{{ .Release.Name }}-selfsigned-issuer"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "{{ .Release.Name }}-tls-secret"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  dnsNames:
+    {{- toYaml .Values.tls.hosts | nindent 4 }}
+  issuerRef:
+    kind: Issuer
+    name: "{{ .Release.Name }}-selfsigned-issuer"
+  secretName: "{{ .Values.tlsSecretName }}"

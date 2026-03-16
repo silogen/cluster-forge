@@ -1,0 +1,290 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+# Single MutatingWebhookConfiguration with kind-specific webhooks.
+# Each webhook handles all mutations (quota enforcement + workload tracking) for its resource type.
+# This reduces HTTP round-trips compared to having separate webhooks per concern.
+
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ .Release.Name }}-agent-webhooks
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ .Release.Name }}-agent-webhook-cert
+webhooks:
+# Pod webhook
+- name: pod.airm.silogen.ai
+  admissionReviewVersions: ["v1"]
+  clientConfig:
+    service:
+      name: {{ .Release.Name }}-agent-webhook
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-pod
+      port: {{ .Values.airm.webhook.servicePort }}
+  failurePolicy: Fail
+  sideEffects: None
+  timeoutSeconds: 10
+  namespaceSelector:
+    matchExpressions:
+    - key: airm.silogen.ai/project-id
+      operator: Exists
+  rules:
+  - operations: ["CREATE", "UPDATE"]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+    scope: "Namespaced"
+
+# Deployment webhook
+- name: deployment.airm.silogen.ai
+  admissionReviewVersions: ["v1"]
+  clientConfig:
+    service:
+      name: {{ .Release.Name }}-agent-webhook
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-deployment
+      port: {{ .Values.airm.webhook.servicePort }}
+  failurePolicy: Fail
+  sideEffects: None
+  timeoutSeconds: 10
+  namespaceSelector:
+    matchExpressions:
+    - key: airm.silogen.ai/project-id
+      operator: Exists
+  rules:
+  - operations: ["CREATE", "UPDATE"]
+    apiGroups: ["apps"]
+    apiVersions: ["v1"]
+    resources: ["deployments"]
+    scope: "Namespaced"
+
+# StatefulSet webhook
+- name: statefulset.airm.silogen.ai
+  admissionReviewVersions: ["v1"]
+  clientConfig:
+    service:
+      name: {{ .Release.Name }}-agent-webhook
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-statefulset
+      port: {{ .Values.airm.webhook.servicePort }}
+  failurePolicy: Fail
+  sideEffects: None
+  timeoutSeconds: 10
+  namespaceSelector:
+    matchExpressions:
+    - key: airm.silogen.ai/project-id
+      operator: Exists
+  rules:
+  - operations: ["CREATE", "UPDATE"]
+    apiGroups: ["apps"]
+    apiVersions: ["v1"]
+    resources: ["statefulsets"]
+    scope: "Namespaced"
+
+# DaemonSet webhook
+- name: daemonset.airm.silogen.ai
+  admissionReviewVersions: ["v1"]
+  clientConfig:
+    service:
+      name: {{ .Release.Name }}-agent-webhook
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-daemonset
+      port: {{ .Values.airm.webhook.servicePort }}
+  failurePolicy: Fail
+  sideEffects: None
+  timeoutSeconds: 10
+  namespaceSelector:
+    matchExpressions:
+    - key: airm.silogen.ai/project-id
+      operator: Exists
+  rules:
+  - operations: ["CREATE", "UPDATE"]
+    apiGroups: ["apps"]
+    apiVersions: ["v1"]
+    resources: ["daemonsets"]
+    scope: "Namespaced"
+
+# ReplicaSet webhook
+- name: replicaset.airm.silogen.ai
+  admissionReviewVersions: ["v1"]
+  clientConfig:
+    service:
+      name: {{ .Release.Name }}-agent-webhook
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-replicaset
+      port: {{ .Values.airm.webhook.servicePort }}
+  failurePolicy: Fail
+  sideEffects: None
+  timeoutSeconds: 10
+  namespaceSelector:
+    matchExpressions:
+    - key: airm.silogen.ai/project-id
+      operator: Exists
+  rules:
+  - operations: ["CREATE", "UPDATE"]
+    apiGroups: ["apps"]
+    apiVersions: ["v1"]
+    resources: ["replicasets"]
+    scope: "Namespaced"
+
+# Job webhook
+- name: job.airm.silogen.ai
+  admissionReviewVersions: ["v1"]
+  clientConfig:
+    service:
+      name: {{ .Release.Name }}-agent-webhook
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-job
+      port: {{ .Values.airm.webhook.servicePort }}
+  failurePolicy: Fail
+  sideEffects: None
+  timeoutSeconds: 10
+  namespaceSelector:
+    matchExpressions:
+    - key: airm.silogen.ai/project-id
+      operator: Exists
+  rules:
+  - operations: ["CREATE", "UPDATE"]
+    apiGroups: ["batch"]
+    apiVersions: ["v1"]
+    resources: ["jobs"]
+    scope: "Namespaced"
+
+# CronJob webhook
+- name: cronjob.airm.silogen.ai
+  admissionReviewVersions: ["v1"]
+  clientConfig:
+    service:
+      name: {{ .Release.Name }}-agent-webhook
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-cronjob
+      port: {{ .Values.airm.webhook.servicePort }}
+  failurePolicy: Fail
+  sideEffects: None
+  timeoutSeconds: 10
+  namespaceSelector:
+    matchExpressions:
+    - key: airm.silogen.ai/project-id
+      operator: Exists
+  rules:
+  - operations: ["CREATE", "UPDATE"]
+    apiGroups: ["batch"]
+    apiVersions: ["v1"]
+    resources: ["cronjobs"]
+    scope: "Namespaced"
+
+# KaiwoJob webhook
+- name: kaiwojob.airm.silogen.ai
+  admissionReviewVersions: ["v1"]
+  clientConfig:
+    service:
+      name: {{ .Release.Name }}-agent-webhook
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-kaiwojob
+      port: {{ .Values.airm.webhook.servicePort }}
+  failurePolicy: Fail
+  sideEffects: None
+  timeoutSeconds: 10
+  namespaceSelector:
+    matchExpressions:
+    - key: airm.silogen.ai/project-id
+      operator: Exists
+  rules:
+  - operations: ["CREATE", "UPDATE"]
+    apiGroups: ["kaiwo.silogen.ai"]
+    apiVersions: ["v1alpha1"]
+    resources: ["kaiwojobs"]
+    scope: "Namespaced"
+
+# KaiwoService webhook
+- name: kaiwoservice.airm.silogen.ai
+  admissionReviewVersions: ["v1"]
+  clientConfig:
+    service:
+      name: {{ .Release.Name }}-agent-webhook
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-kaiwoservice
+      port: {{ .Values.airm.webhook.servicePort }}
+  failurePolicy: Fail
+  sideEffects: None
+  timeoutSeconds: 10
+  namespaceSelector:
+    matchExpressions:
+    - key: airm.silogen.ai/project-id
+      operator: Exists
+  rules:
+  - operations: ["CREATE", "UPDATE"]
+    apiGroups: ["kaiwo.silogen.ai"]
+    apiVersions: ["v1alpha1"]
+    resources: ["kaiwoservices"]
+    scope: "Namespaced"
+
+# AIMService webhook
+- name: aimservice.airm.silogen.ai
+  admissionReviewVersions: ["v1"]
+  clientConfig:
+    service:
+      name: {{ .Release.Name }}-agent-webhook
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-aimservice
+      port: {{ .Values.airm.webhook.servicePort }}
+  failurePolicy: Fail
+  sideEffects: None
+  timeoutSeconds: 10
+  namespaceSelector:
+    matchExpressions:
+    - key: airm.silogen.ai/project-id
+      operator: Exists
+  rules:
+    - operations: ["CREATE", "UPDATE"]
+      apiGroups: ["aim.eai.amd.com"]
+      apiVersions: ["v1alpha1"]
+      resources: ["aimservices"]
+      scope: "Namespaced"
+
+# Secret webhook (autodiscovery)
+- name: secret.airm.silogen.ai
+  admissionReviewVersions: ["v1"]
+  clientConfig:
+    service:
+      name: {{ .Release.Name }}-agent-webhook
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-secret
+      port: {{ .Values.airm.webhook.servicePort }}
+  failurePolicy: Fail
+  sideEffects: None
+  timeoutSeconds: 10
+  namespaceSelector:
+    matchExpressions:
+    - key: airm.silogen.ai/project-id
+      operator: Exists
+  rules:
+  - operations: ["CREATE", "UPDATE"]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["secrets"]
+    scope: "Namespaced"
+
+# ExternalSecret webhook (autodiscovery)
+- name: externalsecret.airm.silogen.ai
+  admissionReviewVersions: ["v1"]
+  clientConfig:
+    service:
+      name: {{ .Release.Name }}-agent-webhook
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-externalsecret
+      port: {{ .Values.airm.webhook.servicePort }}
+  failurePolicy: Fail
+  sideEffects: None
+  timeoutSeconds: 10
+  namespaceSelector:
+    matchExpressions:
+    - key: airm.silogen.ai/project-id
+      operator: Exists
+  rules:
+  - operations: ["CREATE", "UPDATE"]
+    apiGroups: ["external-secrets.io"]
+    apiVersions: ["v1beta1"]
+    resources: ["externalsecrets"]
+    scope: "Namespaced"

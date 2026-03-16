@@ -1,0 +1,74 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-agent"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: "{{ .Release.Name }}-agent"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Release.Name }}-agent"
+    spec:
+      serviceAccountName: "{{ .Release.Name }}-agent-sa"
+      {{- with .Values.airm.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: agent
+          image: "{{ .Values.airm.image.repository }}:{{ .Values.airm.image.tag }}"
+          imagePullPolicy: "{{ .Values.airm.image.pullPolicy }}"
+          ports:
+            - containerPort: 8000
+              name: http
+            - containerPort: 8081
+              name: health
+          env:
+            - name: KUBE_CLUSTER_NAME
+              value: demo-cluster
+            - name: RABBITMQ_HOST
+              value: "{{ .Release.Name }}-rabbitmq.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: RABBITMQ_PORT
+              value: "{{ .Values.airm.agent.env.rabbitmqPort }}"
+            - name: RABBITMQ_AIRM_COMMON_VHOST
+              value: "vh_airm_common"
+            - name: RABBITMQ_AIRM_COMMON_QUEUE
+              value: "airm_common"
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-rabbitmq-common-vhost-user"
+                  key: username
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-rabbitmq-common-vhost-user"
+                  key: password
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.airm.agent.resources | nindent 16 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault

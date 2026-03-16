@@ -3,7 +3,12 @@ enabledApps:
   - aim-engine
   - aim-engine-crds
   - airm
+  - airm-infra-cnpg
+  - airm-infra-external-secrets
+  - airm-infra-rabbitmq
   - aiwb
+  - aiwb-infra-cnpg
+  - aiwb-infra-external-secrets
   - amd-gpu-operator
   - amd-gpu-operator-config
   - appwrapper

@@ -1,0 +1,34 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+# Standalone mode: true or false
+# true: AIWB manages its own namespace, creates Kyverno policies, and secrets
+# false: AIRM manages namespaces, policies, and secrets
+standAloneMode: false
+
+# Name of the default namespace to create (only used when standAloneMode: true)
+defaultNamespace: "workbench"
+
+frontend:
+  nextAuthSecretName: "aiwb-nextauth-secret"
+
+keycloak:
+  secretName: "aiwb-ui-keycloak-secret"
+
+# MinIO configuration
+minio:
+  credentialsSecretName: "aiwb-minio-credentials"
+  accessKeyKey: "minio-access-key"
+  secretKeyKey: "minio-secret-key"
+
+# ClusterAuth configuration (for API key management)
+clusterAuth:
+  secretName: "cluster-auth-admin-token"
+
+# PostgreSQL CNPG Configuration
+postgresql:
+  username: "aiwb_user"
+  userSecretName: "aiwb-cnpg-user"
+  superuserSecretName: "aiwb-cnpg-superuser"

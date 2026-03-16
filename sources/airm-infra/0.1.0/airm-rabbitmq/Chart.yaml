@@ -1,0 +1,15 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: v2
+name: airm-rabbitmq
+description: RabbitMQ cluster infrastructure for AIRM
+
+type: application
+
+# Chart version
+version: 0.1.0
+
+appVersion: "0.1.0"

@@ -1,0 +1,106 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+kgateway:
+  namespace: kgateway-system
+  gatewayName: https
+  airmapi:
+    servicePort: 80
+    prefixValue: airmapi
+    timeouts:
+      stream:
+        backendRequest: 30m
+        request: 30m
+      nonStream:
+        backendRequest: 10m
+        request: 10m
+  airmui:
+    servicePort: 80
+    prefixValue: airmui
+    timeouts:
+      backendRequest: 1m
+      request: 1m
+  keycloak:
+    prefixValue: kc
+
+airm:
+  appDomain: PUBLIC-IP
+  includeDemoSetup: true
+
+  keycloak:
+    internalUrl: http://keycloak.keycloak.svc.cluster.local:8080
+    clientId: "354a0fa1-35ac-4a6d-9c4d-d661129c2cd0"
+    realm: airm
+    adminClientSecretName: "airm-keycloak-admin-client"
+    uiClientSecretName: "airm-keycloak-ui-creds"
+    userCredentialsSecretName: "airm-user-credentials"
+
+  postgresql:
+    host: "airm-cnpg-rw.airm.svc.cluster.local"
+    port: 5432
+    userSecretName: "airm-cnpg-user"
+  rabbitmq:
+    host: "airm-rabbitmq.airm.svc.cluster.local"
+    port: 5672
+    managementPort: 15672
+    adminUserSecretName: "airm-rabbitmq-admin"
+  prometheus:
+    url: "http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:9090"
+
+  frontend:
+    image:
+      repository: amdenterpriseai/airm-ui
+      tag: 1.0.0
+      pullPolicy: IfNotPresent
+    servicePort: 80
+    resources:
+      limits:
+        memory: 4Gi
+      requests:
+        cpu: 500m
+        memory: 4Gi
+    secretName: "airm-secrets-airm"
+
+  backend:
+    image:
+      repository: amdenterpriseai/airm-api
+      tag: 1.0.0
+      pullPolicy: IfNotPresent
+
+    servicePort: 80
+    servicePortMetrics: 9009
+
+    resources:
+      limits:
+        memory: 1Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      runAsUser: 1000
+      seccompProfile:
+        type: RuntimeDefault
+
+  utilities:
+    netcat:
+      image:
+        repository: busybox
+        tag: 1.37.0
+        pullPolicy: IfNotPresent
+    curl:
+      image:
+        repository: curlimages/curl
+        tag: 8.16.0
+        pullPolicy: IfNotPresent
+    liquibase:
+      image:
+        repository: docker.io/liquibase/liquibase
+        tag: 4.31
+        pullPolicy: IfNotPresent
+    clusterTool:
+      image:
+        repository: amdenterpriseai/cluster-tool
+        tag: latest
+        pullPolicy: IfNotPresent

@@ -1,0 +1,43 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+airm:
+  # Shared configuration between agent and webhook
+  image:
+    repository: ghcr.io/silogen/core/airm-agent
+    tag: 1.0.0
+    pullPolicy: IfNotPresent
+  imagePullSecrets: []
+  agent:
+    servicePort: 8000
+    env:
+      rabbitmqPort: "5672"
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "4Gi"
+  webhook:
+    servicePort: 9443
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "1Gi"
+  utilities:
+    netcat:
+      image:
+        repository: busybox
+        tag: 1.37.0
+        pullPolicy: IfNotPresent
+    curl:
+      image:
+        repository: curlimages/curl
+        tag: 8.16.0
+        pullPolicy: IfNotPresent
+  additionalClusterRoles:
+    platformAdmin: []
+    projectMember: []
