@@ -9,13 +9,10 @@ kubectl patch "$CNPG_POD_NAME" -n airm --type merge -p '{"metadata":{"finalizers
 
 ARGO_INITIAL_ADMIN=$(kubectl get secret -n argocd argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d && echo)
 
-# Login to ArgoCD
-kubectl exec -it -n argocd $(kubectl get pods -n argocd -l app.kubernetes.io/name=argocd-server -o jsonpath='{.items[0].metadata.name}') \
-  -- argocd login localhost:8080 --username admin --password ${ARGO_INITIAL_ADMIN} --insecure
-
-# Set sync policy to none for both applications
-argocd app set cluster-forge --sync-policy none --source-position 1
-argocd app set airm --sync-policy none --source-position 1
-
-# do a delete so the db stays in place
-argocd app delete airm --cascade=false
+ARGO_POD=$(kubectl get pods -n argocd -l app.kubernetes.io/name=argocd-server -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n argocd "$ARGO_POD" -- sh -c "
+  argocd login localhost:8080 --username admin --password '${ARGO_INITIAL_ADMIN}' --insecure &&
+  argocd app set cluster-forge --sync-policy none --source-position 1 &&
+  argocd app set airm --sync-policy none --source-position 1 &&
+  argocd app delete airm --cascade=false
+"
