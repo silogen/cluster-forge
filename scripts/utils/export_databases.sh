@@ -39,6 +39,8 @@ Options:
   --airm                  Backup only the AIRM database (mutually exclusive with --keycloak)
   
   --keycloak              Backup only the Keycloak database (mutually exclusive with --airm)
+  
+  --no-clean              Run pg_dump without the --clean option (omits DROP statements before CREATE)
 
 Behavior:
   - Creates timestamped SQL dump files: *_backup_YYYY-MM-DD.sql
@@ -80,6 +82,7 @@ PORT_FORWARD_PID=""
 BACKUP_AIRM=true
 BACKUP_KEYCLOAK=true
 CONTAINER_NAME="postgres"
+PG_DUMP_CLEAN="--clean"
 
 # Parse arguments
 if [[ "$1" == "--help" ]]; then
@@ -122,6 +125,10 @@ while [ $# -gt 0 ]; do
             fi
             BACKUP_AIRM=false
             BACKUP_KEYCLOAK=true
+            shift
+            ;;
+        --no-clean)
+            PG_DUMP_CLEAN=""
             shift
             ;;
         *)
@@ -222,7 +229,7 @@ run_pg_dump() {
     echo "Running pg_dump inside pod $POD_NAME..."
     
     # Run pg_dump inside the container
-    kubectl exec -n $NAMESPACE $POD_NAME --container=$CONTAINER_NAME -- bash -c "PGPASSWORD='$PASSWORD' pg_dump --clean -h $HOST -U $USERNAME $DBNAME > $CONTAINER_BACKUP_FILE"
+    kubectl exec -n $NAMESPACE $POD_NAME --container=$CONTAINER_NAME -- bash -c "PGPASSWORD='$PASSWORD' pg_dump $PG_DUMP_CLEAN -h $HOST -U $USERNAME $DBNAME > $CONTAINER_BACKUP_FILE"
     
     # Copy the backup file from container to host
     echo "Copying backup from container to $OUTPUT_FILE..."

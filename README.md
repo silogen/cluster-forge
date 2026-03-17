@@ -143,6 +143,7 @@ Three cluster profiles with inheritance-based resource optimization:
 - Suitable for: Local workstations, development environments
 
 **Medium Clusters** (5-20 users, team production):
+- Requires a minimum of 20 CPU cores
 - Single replica with moderate resource allocation
 - Same storage policies as small (local-path support)
 - ArgoCD controller: 2 CPU, 4Gi RAM
@@ -150,6 +151,7 @@ Three cluster profiles with inheritance-based resource optimization:
 - Suitable for: Small teams, staging environments
 
 **Large Clusters** (10s-100s users, enterprise scale):
+- Requires a minimum of 20 CPU cores
 - OpenBao HA: 3 replicas with Raft consensus
 - No local-path policies (assumes distributed storage)
 - MinIO tenant: 500Gi storage

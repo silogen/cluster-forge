@@ -24,17 +24,52 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   airm:
-    path: airm/0.3.5
+    path: airm/1.0.0
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
+  airm-infra-cnpg:
+    path: eai-infra/airm-cnpg/0.1.0
+    valuesFile: values.yaml
+    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/eai-infra/airm-cnpg
+    projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/eai-infra/airm-cnpg
+    license: Apache License 2.0
+    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
+  airm-infra-external-secrets:
+    path: eai-infra/airm-external-secrets/0.1.0
+    valuesFile: values.yaml
+    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/eai-infra/airm-external-secrets
+    projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/eai-infra/airm-external-secrets
+    license: Apache License 2.0
+    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
+  airm-infra-rabbitmq:
+    path: eai-infra/airm-rabbitmq/0.1.0
+    valuesFile: values.yaml
+    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/eai-infra/airm-rabbitmq
+    projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/eai-infra/airm-rabbitmq
+    license: Apache License 2.0
+    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   aiwb:
-    path: aiwb/0.1.0
+    path: aiwb/1.0.0
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb
+    license: Apache License 2.0
+    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
+  aiwb-infra-cnpg:
+    path: eai-infra/aiwb-cnpg/0.1.0
+    valuesFile: values.yaml
+    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-cnpg
+    projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-cnpg
+    license: Apache License 2.0
+    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
+  aiwb-infra-external-secrets:
+    path: eai-infra/aiwb-external-secrets/0.1.0
+    valuesFile: values.yaml
+    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-external-secrets
+    projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-external-secrets
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   amd-gpu-operator:
