@@ -49,7 +49,7 @@ enabledApps:
   - openbao
   - openbao-config
   - opentelemetry-operator
-  #- otel-lgtm-stack
+  - otel-lgtm-stack
   - prometheus-crds
   - rabbitmq
 
