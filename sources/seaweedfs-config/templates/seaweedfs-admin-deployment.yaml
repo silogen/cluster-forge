@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seaweedfs-admin
+  namespace: seaweedfs-instance
+  labels:
+    app.kubernetes.io/name: seaweedfs 
+    app.kubernetes.io/component: admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: seaweedfs
+      app.kubernetes.io/component: admin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: seaweedfs
+        app.kubernetes.io/component: admin
+    spec:
+      initContainers:
+      - name: wait-for-masters
+        image: ghcr.io/silogen/cluster-tool:latest
+        command:
+        - 'sh'
+        - '-c'
+        - |
+          echo "Waiting for SeaweedFS master pods to be ready..."
+          until kubectl -n seaweedfs-instance get pods -l app.kubernetes.io/name=seaweedfs,app.kubernetes.io/component=master -o jsonpath='{.items[*].status.containerStatuses[0].ready}' | grep -q true; do
+            echo "Master pods not ready yet. Retrying in 5 seconds..."
+            sleep 5
+          done
+          echo "Master pods are ready!"
+        env:
+        - name: KUBECONFIG
+          value: /var/run/secrets/kubernetes.io/serviceaccount/config
+      containers:
+      - name: seaweedfs-admin
+        image: chrislusf/seaweedfs:latest
+        imagePullPolicy: Always
+        command:
+        - weed
+        - admin
+        - -masters=seaweed-master.seaweedfs-instance.svc.cluster.local:9333        
+        - -adminUser=admin
+        - -adminPassword=thisistheway1234
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+      serviceAccountName: seaweedfs-admin
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: seaweedfs-admin
+  namespace: seaweedfs-instance
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: seaweedfs-admin
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: seaweedfs-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: seaweedfs-admin
+subjects:
+- kind: ServiceAccount
+  name: seaweedfs-admin
+  namespace: seaweedfs-instance
