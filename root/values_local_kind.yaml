@@ -1,0 +1,227 @@
+clusterForge:
+  repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
+  targetRevision: main # use main for local development
+externalValues:
+  enabled: true
+  repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
+  targetRevision: main
+  path: values_local_kind.yaml
+global:
+  domain: localhost.local # to be filled by bootstrap script or use localhost
+enabledApps:
+  # Minimal set for local development
+  - argocd
+  - argocd-config
+  - cert-manager
+  - openbao
+  - openbao-config
+  - external-secrets
+  - external-secrets-config
+  - gitea
+  # - gitea-config  # Disabled: OIDC not needed for local Kind
+  - gateway-api
+  - metallb
+  - kgateway-crds
+  - kgateway
+  - kgateway-config
+  # Storage policies for local-path (converts RWX to RWO automatically)
+  - kyverno-policies-storage-local-path
+  # Monitoring (required by AIRM)
+  - prometheus-crds
+  - opentelemetry-operator
+  # Note: otel-lgtm-stack disabled for local-kind to save memory
+  # If you need Prometheus metrics, increase Colima memory or reduce other resources
+  # Database operator
+  - cnpg-operator
+  # Minimal storage (with reduced resources)
+  - minio-operator
+  - minio-tenant
+  - minio-tenant-config
+  # AIWB dependencies
+  - rabbitmq
+  - kyverno
+  - kyverno-config
+  - cluster-auth
+  - cluster-auth-config
+  - keycloak
+  - keycloak-config
+  - kaiwo-crds
+  - kaiwo
+  - kaiwo-config
+  - airm
+  # AIM Engine (required by AIWB) - charts not yet in sources/
+  - aim-engine-crds
+  - aim-engine
+  - aiwb
+  # Optional: Add other components as needed
+  - kuberay-operator
+  - kserve-crds
+  - appwrapper
+  - kueue
+  - kueue-config
+# Component-specific overrides for memory reduction  
+apps:
+  # AIM Engine CRDs and Engine
+  aim-engine-crds:
+    path: aim-engine-crds/0.1.0
+    namespace: aim-system
+    syncWave: 0
+  aim-engine:
+    path: aim-engine/0.1.0
+    namespace: aim-system
+    valuesFile: values.yaml
+    syncWave: 0
+  # OpenTelemetry operator (required by AIRM for metrics collection)
+  opentelemetry-operator:
+    path: opentelemetry-operator/0.93.1
+    namespace: opentelemetry-operator-system
+    valuesFile: null # Override base values.yaml which sets ../values_cf.yaml
+    valuesObject:
+      manager:
+        collectorImage:
+          repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
+          tag: "0.140.0"
+    syncWave: -3
+  # Kyverno policy for local-path storage (converts RWX to RWO automatically)
+  kyverno-policies-storage-local-path:
+    namespace: kyverno
+    path: kyverno-policies/storage-local-path
+    source: clusterForge
+    syncOptions:
+      - CreateNamespace=true
+    ignoreDifferences: []
+    syncWave: 26 # Deploy after Kyverno base policies
+  minio-tenant:
+    path: minio-tenant/7.1.1
+    namespace: minio-tenant-default
+    valuesFile: ../values_local_kind.yaml # Use local kind values
+    syncWave: -2
+  keycloak:
+    path: keycloak-old
+    namespace: keycloak
+    valuesFile: values.yaml
+    helmParameters:
+      - name: enableNodePort
+        value: "true"
+      - name: localDev
+        value: "true"
+      - name: hostname
+        value: "http://localhost:8080"
+      - name: resources.requests.cpu
+        value: "100m"
+      - name: resources.requests.memory
+        value: "256Mi"
+      - name: resources.limits.cpu
+        value: "250m"
+      - name: resources.limits.memory
+        value: "1Gi"
+    syncWave: -1
+  keycloak-config:
+    path: keycloak-config
+    namespace: keycloak
+    valuesFile: values.yaml
+    helmParameters:
+      - name: domain
+        value: "localhost.local" # Use valid TLD for devuser email
+      - name: cnpg.instances
+        value: "1"
+      - name: cnpg.resources.requests.cpu
+        value: "100m"
+      - name: cnpg.resources.requests.memory
+        value: "256Mi"
+      - name: cnpg.resources.limits.cpu
+        value: "500m"
+      - name: cnpg.resources.limits.memory
+        value: "512Mi"
+      - name: cnpg.storage.size
+        value: "5Gi"
+      - name: cnpg.walStorage.size
+        value: "5Gi"
+    syncWave: -1
+  airm:
+    repoURL: "http://gitea-http.cf-gitea.svc:3000/cluster-org/core.git"
+    targetRevision: "main"
+    path: services/airm/helm/airm
+    namespace: airm
+    valuesFile: values.yaml
+    helmParameters:
+      - name: airm-api.airm.appDomain
+        value: "localhost.local"
+      - name: airm-api.airm.frontend.nextauthUrl
+        value: "http://localhost:8000"
+      - name: airm-api.airm.frontend.resources.requests.memory
+        value: "256Mi"
+      - name: airm-api.airm.frontend.resources.limits.memory
+        value: "512Mi"
+      - name: airm-api.resources.requests.memory
+        value: "512Mi"
+      - name: airm-api.resources.limits.memory
+        value: "512Mi"
+      - name: airm-dispatcher.resources.requests.memory
+        value: "512Mi"
+      - name: airm-dispatcher.resources.limits.memory
+        value: "512Mi"
+      - name: airm-rabbitmq.resources.requests.memory
+        value: "512Mi"
+      - name: airm-rabbitmq.resources.limits.memory
+        value: "512Mi"
+      - name: airm-cnpg.cluster.instances.resources.requests.memory
+        value: "256Mi"
+      - name: airm-cnpg.cluster.instances.resources.limits.memory
+        value: "512Mi"
+      # Point to local Keycloak (NodePort 30082 → host port 8080)
+      - name: airm-api.airm.keycloak.publicUrl
+        value: "http://localhost:8080"
+      # Use locally built images (override published tags)
+      - name: airm-api.airm.backend.image.tag
+        value: "local"
+      - name: airm-api.airm.frontend.image.tag
+        value: "local"
+      - name: agent.airm.image.tag
+        value: "local"
+    syncOptions:
+      - ServerSideApply=false
+    syncWave: 0
+  # AIWB resource overrides for local Kind cluster
+  aiwb:
+    repoURL: "http://gitea-http.cf-gitea.svc:3000/cluster-org/core.git"
+    path: helm/aiwb
+    namespace: aiwb
+    syncWave: 0
+    helmParameters:
+      # Point to local Keycloak (NodePort 30082 → host port 8080)
+      - name: keycloak.publicUrl
+        value: "http://localhost:8080"
+      - name: appDomain
+        value: "localhost.local"
+      # Use locally built images (override published tags)
+      - name: backend.image.tag
+        value: "local"
+      - name: frontend.image.tag
+        value: "local"
+      # Enable standalone mode (AIWB manages its own namespace)
+      - name: standAloneMode
+        value: "true"
+      # Backend (API) resources - reduced for local
+      - name: backend.resources.requests.cpu
+        value: "250m"
+      - name: backend.resources.requests.memory
+        value: "256Mi"
+      - name: backend.resources.limits.memory
+        value: "512Mi"
+      # Frontend (UI) resources - minimal
+      - name: frontend.resources.requests.memory
+        value: "64Mi"
+      - name: frontend.resources.limits.memory
+        value: "256Mi"
+      # PostgreSQL resources - single instance for local
+      - name: postgresql.instances
+        value: "1"
+      - name: postgresql.resources.requests.memory
+        value: "256Mi"
+      - name: postgresql.resources.limits.memory
+        value: "512Mi"
+      - name: postgresql.storage.size
+        value: "5Gi"
+      - name: postgresql.walStorage.size
+        value: "1Gi"
