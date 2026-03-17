@@ -252,7 +252,7 @@ apps:
         kind: ExternalSecret
     namespace: cluster-auth
     path: cluster-auth-config
-    syncWave: 5
+    syncWave: -20
   cnpg-operator:
     namespace: cnpg-system
     path: cnpg-operator/0.26.0
