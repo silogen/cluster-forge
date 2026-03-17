@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# exit early on error
+set -e
+
 echo "WARNING: This script will delete the airm ArgoCD application."
 echo "Please ensure the airm-cnpg database has been backed up before proceeding."
 echo ""
@@ -18,3 +21,7 @@ kubectl exec -n argocd "$ARGO_POD" -- sh -c "
   argocd app set airm --sync-policy none --source-position 1 &&
   argocd app delete airm --cascade=true
 "
+
+# manually delete AIRM secrets that will be recreated by the new app
+kubectl delete secret/airm-rabbitmq-common-vhost-user -n airm
+kubectl delete secret/airm-tls-secret -n airm
