@@ -11,6 +11,7 @@ standAloneMode: false
 # Name of the default namespace to create (only used when standAloneMode: true)
 defaultNamespace: "workbench"
 
+externalSecretStore: "openbao-secret-store"
 frontend:
   nextAuthSecretName: "aiwb-nextauth-secret"
 
