@@ -363,18 +363,19 @@ create_namespaces() {
 
 # Extract ArgoCD values using yq
 extract_argocd_values() {
+  local temp_dir="$1"
   # Create temporary values file for ArgoCD bootstrap
-  cat > /tmp/argocd_bootstrap_values.yaml << EOF
+  cat > "${temp_dir}/argocd_bootstrap_values.yaml" << EOF
 global:
   domain: argocd.${DOMAIN}
 EOF
   
   # Extract and merge ArgoCD values from the apps structure
-  yq eval '.apps.argocd.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" >> /tmp/argocd_bootstrap_values.yaml
+  yq eval '.apps.argocd.valuesObject' "${SOURCE_ROOT}/root/${VALUES_FILE}" >> "${temp_dir}/argocd_bootstrap_values.yaml"
   if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
     if yq eval '.apps.argocd.valuesObject // ""' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | grep -q .; then
-      yq eval '.apps.argocd.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' /tmp/argocd_bootstrap_values.yaml - > /tmp/argocd_bootstrap_values_merged.yaml
-      mv /tmp/argocd_bootstrap_values_merged.yaml /tmp/argocd_bootstrap_values.yaml
+      yq eval '.apps.argocd.valuesObject' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" | yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' "${temp_dir}/argocd_bootstrap_values.yaml" - > "${temp_dir}/argocd_bootstrap_values_merged.yaml"
+      mv "${temp_dir}/argocd_bootstrap_values_merged.yaml" "${temp_dir}/argocd_bootstrap_values.yaml"
     fi
   fi
 }
@@ -382,9 +383,10 @@ EOF
 # ArgoCD bootstrap
 bootstrap_argocd() {
   log_info "=== ArgoCD Bootstrap ==="
-  extract_argocd_values
+  TEMP_DIR=$(mktemp -d -t cf-argocd-bootstrap.XXXXXX) || { log_info "ERROR: Cannot create temp directory"; exit 1; }
+  extract_argocd_values "${TEMP_DIR}"
   helm template --release-name argocd ${SOURCE_ROOT}/sources/argocd/8.3.5 --namespace argocd \
-    --values /tmp/argocd_bootstrap_values.yaml \
+    --values "${TEMP_DIR}/argocd_bootstrap_values.yaml" \
     --kube-version=${KUBE_VERSION} | apply_or_template --server-side --field-manager=argocd-controller --force-conflicts -f -
   if [ "$TEMPLATE_ONLY" = false ]; then
     kubectl rollout status statefulset/argocd-application-controller -n argocd --timeout="${DEFAULT_TIMEOUT}"
@@ -392,6 +394,7 @@ bootstrap_argocd() {
     kubectl rollout status deploy/argocd-redis -n argocd --timeout="${DEFAULT_TIMEOUT}"
     kubectl rollout status deploy/argocd-repo-server -n argocd --timeout="${DEFAULT_TIMEOUT}"
   fi
+  rm -rf "${TEMP_DIR}"
 }
 
 
