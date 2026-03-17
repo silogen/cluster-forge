@@ -336,14 +336,14 @@ restore_airm_database() {
         
         # Restore via port-forward
         export PGPASSWORD=$AIRM_DB_PASSWORD
-        psql -h 127.0.0.1 -p $LOCAL_PORT -U $AIRM_DB_USERNAME airm < $AIRM_DB_FILE
+        grep -v '^\\\(un\)\?restrict' "$AIRM_DB_FILE" | psql -h 127.0.0.1 -p $LOCAL_PORT -U $AIRM_DB_USERNAME airm
         restore_status=$?
         unset PGPASSWORD
         disable_port_forward
     else
         # Restore directly in container
         echo "Executing restore in container..."
-        kubectl exec -i -n airm $PRIMARY_POD --container=postgres -- bash -c "PGPASSWORD='$AIRM_DB_PASSWORD' psql -h localhost -U $AIRM_DB_USERNAME -d airm" < "$AIRM_DB_FILE"
+        grep -v '^\\\(un\)\?restrict' "$AIRM_DB_FILE" | kubectl exec -i -n airm $PRIMARY_POD --container=postgres -- bash -c "PGPASSWORD='$AIRM_DB_PASSWORD' psql -h localhost -U $AIRM_DB_USERNAME -d airm"
         restore_status=$?
     fi
     
@@ -395,14 +395,14 @@ restore_keycloak_database() {
         
         # Restore via port-forward
         export PGPASSWORD=$KEYCLOAK_DB_PASSWORD
-        psql -h 127.0.0.1 -p $LOCAL_PORT -U $KEYCLOAK_DB_USERNAME keycloak < $KEYCLOAK_DB_FILE
+        grep -v '^\\\(un\)\?restrict' "$KEYCLOAK_DB_FILE" | psql -h 127.0.0.1 -p $LOCAL_PORT -U $KEYCLOAK_DB_USERNAME keycloak
         restore_status=$?
         unset PGPASSWORD
         disable_port_forward
     else
         # Restore directly in container
         echo "Executing restore in container..."
-        kubectl exec -i -n keycloak $PRIMARY_POD --container=postgres -- bash -c "PGPASSWORD='$KEYCLOAK_DB_PASSWORD' psql -h localhost -U $KEYCLOAK_DB_USERNAME -d keycloak" < "$KEYCLOAK_DB_FILE"
+        grep -v '^\\\(un\)\?restrict' "$KEYCLOAK_DB_FILE" | kubectl exec -i -n keycloak $PRIMARY_POD --container=postgres -- bash -c "PGPASSWORD='$KEYCLOAK_DB_PASSWORD' psql -h localhost -U $KEYCLOAK_DB_USERNAME -d keycloak"
         restore_status=$?
     fi
     
