@@ -23,5 +23,5 @@ kubectl exec -n argocd "$ARGO_POD" -- sh -c "
 "
 
 # manually delete AIRM secrets that will be recreated by the new app
-kubectl delete secret/airm-rabbitmq-common-vhost-user -n airm
 kubectl delete secret/airm-tls-secret -n airm
+kubectl delete secret/airm-rabbitmq-common-vhost-user -n airm
