@@ -68,6 +68,13 @@ apps:
     namespace: airm
     syncWave: -20
     valuesFile: values.yaml
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
   airm-infra-rabbitmq:
     path: eai-infra/airm-rabbitmq/0.1.0
     namespace: airm
@@ -83,6 +90,13 @@ apps:
     namespace: aiwb
     syncWave: -20
     valuesFile: values.yaml
+    ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
   amd-gpu-operator:
     namespace: kube-amd-gpu
     path: amd-gpu-operator/v1.4.1
