@@ -20,7 +20,14 @@ kubectl exec -n argocd "$ARGO_POD" -- sh -c "
   argocd app set cluster-forge --sync-policy none --source-position 1 &&
   argocd app set airm --sync-policy none --source-position 1 &&
   argocd app delete airm --cascade=true
+  argocd app delete kaiwo --cascade=true
+  argocd app delete kaiwo-crds --cascade=true
+  argocd app delete kaiwo-config --cascade=true
 "
+
+kubectl delete aimclustermodel.aim.silogen.ai --all -A
+kubectl delete aimclustermodelsource.aim.silogen.ai --all -A
+kubectl delete aimclusterservicetemplates.aim.silogen.ai --all -A
 
 # manually delete AIRM secrets that will be recreated by the new app
 kubectl delete secret/airm-tls-secret -n airm
