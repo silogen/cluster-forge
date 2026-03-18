@@ -30,5 +30,5 @@ kubectl delete aimclustermodelsource.aim.silogen.ai --all -A
 kubectl delete aimclusterservicetemplates.aim.silogen.ai --all -A
 
 # manually delete AIRM secrets that will be recreated by the new app
-kubectl delete secret/airm-tls-secret -n airm
-kubectl delete secret/airm-rabbitmq-common-vhost-user -n airm
+kubectl delete secret/airm-tls-secret -n airm --ignore-not-found=false
+kubectl delete secret/airm-rabbitmq-common-vhost-user -n airm --ignore-not-found=false
