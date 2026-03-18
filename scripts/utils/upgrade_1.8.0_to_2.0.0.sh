@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash +x
 
 # exit early on error
 set -e
@@ -12,14 +12,12 @@ if [[ "$CONFIRM" != "yes" ]]; then
   exit 1
 fi
 
-# disable auto-sync for cluster-forge
-argocd app set cluster-forge --sync-policy none --source-position 1
-
 ARGO_INITIAL_ADMIN=$(kubectl get secret -n argocd argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d && echo)
 ARGO_POD=$(kubectl get pods -n argocd -l app.kubernetes.io/name=argocd-server -o jsonpath='{.items[0].metadata.name}')
 kubectl exec -n argocd "$ARGO_POD" -- sh -c "
   argocd login localhost:8080 --username admin --password '${ARGO_INITIAL_ADMIN}' --plaintext &&  
-  for app in aim-cluster-model-source kaiwo kaiwo-crds kaiwo-config airm; do
+  argocd app set cluster-forge --sync-policy none --source-position 1
+  for app in aim-cluster-model-source kaiwo kaiwo-crds kaiwo-config airm aiwb; do
     argocd app get \$app &>/dev/null && \
     argocd app set \$app --sync-policy none --source-position 1 && \
     argocd app delete \$app --cascade=true || true
@@ -38,3 +36,5 @@ kubectl delete aimclusterservicetemplates.aim.silogen.ai --all -A
 # manually delete AIRM secrets that will be recreated by the new app
 kubectl delete secret/airm-tls-secret -n airm --ignore-not-found=true
 kubectl delete secret/airm-rabbitmq-common-vhost-user -n airm --ignore-not-found=true
+
+# remove finalizer
