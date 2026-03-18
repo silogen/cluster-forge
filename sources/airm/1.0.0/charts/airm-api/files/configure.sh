@@ -251,10 +251,10 @@ function add_user_to_project() {
 }
 
 function create_cluster() {
-    # Check if cluster exists
+    # Check if cluster exists by kube_api_url (clusters are created without a name, so name-based lookup always fails)
     CLUSTER_EXISTS=$(curl -s -X GET "${AIRM_API_URL}/v1/clusters" \
         -H "Authorization: Bearer ${TOKEN}" \
-        -H 'Content-Type: application/json' | jq -r '.data[] | select(.name=="'$CLUSTER_NAME'") | .id')
+        -H 'Content-Type: application/json' | jq -r '.data[] | select(.kube_api_url=="'"$CLUSTER_KUBE_API_URL"'") | .id')
 
     if [ -z "$CLUSTER_EXISTS" ] || [ "$CLUSTER_EXISTS" == "null" ]; then
         # Create cluster
@@ -280,7 +280,7 @@ function create_secret_and_start_agent() {
     # Cluster was just onboarded and we have a secret
     if [ -n "$CLUSTER_SECRET" ] && [ "$CLUSTER_SECRET" != "null" ]; then
       # Create secret for agent to use
-      kubectl create secret generic airm-rabbitmq-common-vhost-user --from-literal=username="$CLUSTER_ID" --from-literal=password="$CLUSTER_SECRET" -n airm
+      kubectl create secret generic airm-rabbitmq-common-vhost-user --from-literal=username="$CLUSTER_ID" --from-literal=password="$CLUSTER_SECRET" -n airm --dry-run=client -o yaml | kubectl apply -f -
 
       sleep 10
       echo "Just waiting 10 seconds for agent deployment to rollout and take the secret that has been created"
