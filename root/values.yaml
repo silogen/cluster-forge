@@ -28,7 +28,6 @@ apps:
     helmParameters:
       - name: airm-api.airm.appDomain
         value: "{{ .Values.global.domain }}"
-        kind: ExternalSecret
       - group: kyverno.io
         jqPathExpressions:
           - ".spec.rules"
@@ -57,6 +56,7 @@ apps:
     valuesFile: values.yaml
     ignoreDifferences:
       - group: external-secrets.io
+        kind: ExternalSecret
         jqPathExpressions:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
@@ -78,6 +78,7 @@ apps:
     valuesFile: values.yaml
     ignoreDifferences:
       - group: external-secrets.io
+        kind: ExternalSecret
         jqPathExpressions:
           - ".spec.data[].remoteRef.conversionStrategy"
           - ".spec.data[].remoteRef.decodingStrategy"
