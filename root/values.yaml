@@ -549,7 +549,20 @@ apps:
     valuesObject:
       kserve:
         controller:
-          deploymentMode: "Standard"
+          deploymentMode: Standard
+          gateway:
+            ingressGateway:
+              enableGatewayApi: false
+        localmodel:
+          enabled: false
+        inferenceservice:
+          resources:
+            limits:
+              cpu: ""
+              memory: ""
+            requests:
+              cpu: ""
+              memory: ""
   kserve-crds:
     namespace: kserve-system
     path: kserve-crds/v0.16.0
