@@ -145,3 +145,6 @@ echo ""
 echo "To restore this backup, use:"
 echo "  ./scripts/utils/import_rabbitmq.sh $OUTPUT_FILE"
 echo ""
+
+# Machine-readable output for programmatic use
+echo "EXPORT_RMQ_FILE:$OUTPUT_FILE"

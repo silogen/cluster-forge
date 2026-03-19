@@ -99,8 +99,8 @@ get_db_credentials() {
     echo "Retrieving database credentials..."
     
     if [ "$AIRM_DB_FILE" != "skip" ]; then
-        export AIRM_DB_USERNAME=$(kubectl get secret ${AIRM_CLUSTER_NAME}-user -n airm -o jsonpath='{.data.username}' | base64 --decode)
-        export AIRM_DB_PASSWORD=$(kubectl get secret ${AIRM_CLUSTER_NAME}-user -n airm -o jsonpath='{.data.password}' | base64 --decode)
+        export AIRM_DB_USERNAME=$(kubectl get secret airm-cnpg-user -n airm -o jsonpath='{.data.username}' | base64 --decode)
+        export AIRM_DB_PASSWORD=$(kubectl get secret airm-cnpg-user -n airm -o jsonpath='{.data.password}' | base64 --decode)
     fi
     
     if [ -n "$KEYCLOAK_DB_FILE" ]; then

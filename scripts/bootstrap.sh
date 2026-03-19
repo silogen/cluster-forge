@@ -2,6 +2,16 @@
 
 set -euo pipefail
 
+#
+#
+# # # UPDATE ON RELEASES # # #
+#
+LATEST_RELEASE="v2.0.0"
+#
+#
+#
+#
+
 CLEANUP_DIRS=()
 cleanup() {
   for dir in "${CLEANUP_DIRS[@]:-}"; do
@@ -9,8 +19,6 @@ cleanup() {
   done
 }
 trap cleanup EXIT
-
-LATEST_RELEASE="v1.8.0"
 
 # Initialize variables
 APPS=""
