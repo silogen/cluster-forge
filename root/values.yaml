@@ -28,12 +28,6 @@ apps:
     helmParameters:
       - name: airm-api.airm.appDomain
         value: "{{ .Values.global.domain }}"
-    ignoreDifferences:
-      - group: external-secrets.io
-        jqPathExpressions:
-          - ".spec.data[].remoteRef.conversionStrategy"
-          - ".spec.data[].remoteRef.decodingStrategy"
-          - ".spec.data[].remoteRef.metadataPolicy"
         kind: ExternalSecret
       - group: kyverno.io
         jqPathExpressions:
@@ -51,13 +45,6 @@ apps:
       - name: appDomain
         value: "{{ .Values.global.domain }}"
     syncWave: 0
-    ignoreDifferences:
-      - group: external-secrets.io
-        kind: ExternalSecret
-        jqPathExpressions:
-          - ".spec.data[].remoteRef.conversionStrategy"
-          - ".spec.data[].remoteRef.decodingStrategy"
-          - ".spec.data[].remoteRef.metadataPolicy"
   airm-infra-cnpg:
     path: eai-infra/airm-cnpg/0.1.0
     namespace: airm
@@ -68,6 +55,12 @@ apps:
     namespace: airm
     syncWave: -20
     valuesFile: values.yaml
+    ignoreDifferences:
+      - group: external-secrets.io
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
   airm-infra-rabbitmq:
     path: eai-infra/airm-rabbitmq/0.1.0
     namespace: airm
@@ -83,6 +76,12 @@ apps:
     namespace: aiwb
     syncWave: -20
     valuesFile: values.yaml
+    ignoreDifferences:
+      - group: external-secrets.io
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
   amd-gpu-operator:
     namespace: kube-amd-gpu
     path: amd-gpu-operator/v1.4.1
