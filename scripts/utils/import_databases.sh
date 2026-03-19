@@ -20,6 +20,7 @@ set -e
 USE_PORT_FORWARD=false
 LOCAL_PORT=5432
 PORT_FORWARD_PID=""
+AIRM_CLUSTER_NAME=""
 
 # Parse arguments
 if [ $# -lt 1 ]; then
@@ -76,6 +77,23 @@ if [ -n "$KEYCLOAK_DB_FILE" ] && [ ! -f "$KEYCLOAK_DB_FILE" ]; then
     echo "ERROR: Keycloak database file not found: $KEYCLOAK_DB_FILE"
     exit 1
 fi
+
+detect_airm_cluster_name() {
+    if [ "$AIRM_DB_FILE" = "skip" ]; then
+        return 0
+    fi
+
+    if kubectl get cluster airm-cnpg -n airm &>/dev/null; then
+        AIRM_CLUSTER_NAME="airm-cnpg"
+    elif kubectl get cluster airm-infra-cnpg-cnpg -n airm &>/dev/null; then
+        AIRM_CLUSTER_NAME="airm-infra-cnpg-cnpg"
+    else
+        echo "ERROR: Could not find AIRM CNPG cluster (expected 'airm-cnpg' or 'airm-infra-cnpg-cnpg') in namespace 'airm'"
+        exit 1
+    fi
+
+    echo "Detected AIRM cluster name: $AIRM_CLUSTER_NAME"
+}
 
 get_db_credentials() {
     echo "Retrieving database credentials..."
@@ -229,7 +247,7 @@ check_workloads_table() {
     
     # Get primary pod
     local PRIMARY_POD
-    PRIMARY_POD=$(get_cluster_info "airm-cnpg" "airm")
+    PRIMARY_POD=$(get_cluster_info "$AIRM_CLUSTER_NAME" "airm")
     local status=$?
     
     if [ $status -ne 0 ]; then
@@ -287,9 +305,9 @@ check_workloads_table() {
     
     if [ "$AIRM_DB_FILE" != "skip" ]; then
         echo "Deleting AIRM CNPG cluster..."
-        kubectl delete cluster airm-cnpg -n airm --ignore-not-found=true
+        kubectl delete cluster "$AIRM_CLUSTER_NAME" -n airm --ignore-not-found=true
         echo "Waiting for AIRM CNPG cluster to be recreated..."
-        kubectl wait --for=condition=Ready pod -l cnpg.io/cluster=airm-cnpg -n airm --timeout=300s
+        kubectl wait --for=condition=Ready pod -l "cnpg.io/cluster=${AIRM_CLUSTER_NAME}" -n airm --timeout=300s
     fi
     
     if [ -n "$KEYCLOAK_DB_FILE" ]; then
@@ -310,11 +328,11 @@ restore_airm_database() {
     
     # Wait for the PostgreSQL pod to be ready
     echo "Waiting for AIRM database pod to be ready..."
-    kubectl wait --for=condition=Ready pod -l cnpg.io/cluster=airm-cnpg -n airm --timeout=300s
+    kubectl wait --for=condition=Ready pod -l "cnpg.io/cluster=${AIRM_CLUSTER_NAME}" -n airm --timeout=300s
     
     # Get primary pod
     local PRIMARY_POD
-    PRIMARY_POD=$(get_cluster_info "airm-cnpg" "airm")
+    PRIMARY_POD=$(get_cluster_info "$AIRM_CLUSTER_NAME" "airm")
     local status=$?
     
     if [ $status -ne 0 ]; then
@@ -426,8 +444,8 @@ verify_airm_database_restore() {
         
         # Check AIRM database pod status
         echo "Checking AIRM database pod status..."
-        kubectl get pods -n airm | grep airm-cnpg-
-        kubectl describe pod -n airm -l cnpg.io/cluster=airm-cnpg | grep -A 5 "Status:"
+        kubectl get pods -n airm | grep "${AIRM_CLUSTER_NAME}-"
+        kubectl describe pod -n airm -l "cnpg.io/cluster=${AIRM_CLUSTER_NAME}" | grep -A 5 "Status:"
         
         echo "AIRM database restore verification completed."
     fi
@@ -450,6 +468,7 @@ verify_keycloak_database_restore() {
 }
 
 main() {
+    detect_airm_cluster_name  # Detect which AIRM cluster name is in use
     get_db_credentials  # Get new credentials after reinstall
     
     # Trap to ensure cleanup on exit

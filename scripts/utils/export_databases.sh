@@ -373,6 +373,14 @@ main() {
     
     echo "========================================"
     
+    # Machine-readable output for programmatic use
+    if [ "$BACKUP_AIRM" = true ]; then
+        echo "EXPORT_AIRM_FILE:$AIRM_DB_FILE"
+    fi
+    if [ "$BACKUP_KEYCLOAK" = true ]; then
+        echo "EXPORT_KC_FILE:$KEYCLOAK_DB_FILE"
+    fi
+
     set -o history
 }
 
