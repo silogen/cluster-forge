@@ -10,11 +10,11 @@ set -euo pipefail
 ## The backup and restore process is **not guaranteed to be backwards compatible between two arbitrary versions.** 
 
 ###################################################################################################
-#                                                                                                 #
-# Description:  Exports RabbitMQ definitions to JSON file                                        #
-#                                                                                                 #
-# Run with --help flag for usage information and flag descriptions                               #
-#                                                                                                 #
+#                                                                                                 
+# Description:  Exports RabbitMQ definitions to JSON file                                        
+#                                                                                                 
+# Run with --help flag for usage information and flag descriptions                               
+#                                                                                                 
 ###################################################################################################
 
 show_help() {

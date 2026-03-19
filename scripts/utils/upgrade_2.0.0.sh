@@ -1,4 +1,25 @@
 #!/bin/bash
+#
+# upgrade_1.8.0_to_2.0.0.sh — Assisted migration from cluster-forge pre v2.0.0 to v2.0.0
+#
+# DISCLAIMER: This is an example script only. Adjust paths and commands as needed
+# for your system. This is not officially supported. Always test in a safe
+# environment before running in production.
+#
+# What this script does:
+#   1. Exports AIRM CNPG database data to /tmp/backups/ via export_databases.sh
+#   2. Exports RabbitMQ data to /tmp/backups/ via export_rabbitmq.sh
+#   3. Logs into ArgoCD and disables auto-sync on cluster-forge
+#   4. Disables auto-sync and cascade-deletes: aim-cluster-model-source, kaiwo,
+#      kaiwo-crds, kaiwo-config, airm, aiwb
+#   5. Waits for all deleted applications to be fully removed (15 min timeout)
+#   6. Deletes all aimclustermodel, aimclustermodelsource, and
+#      aimclusterservicetemplates resources cluster-wide
+#   7. Deletes AIRM secrets that will be recreated by the new app version
+#   8. Prints the remaining manual steps (Gitea, ArgoCD, import, Keycloak)
+#                            
+#                                                                                                 
+###################################################################################################
 
 # exit early on error, treat unset vars as errors, enable debug output, and fail if any command in a pipeline fails
 set -euxo pipefail

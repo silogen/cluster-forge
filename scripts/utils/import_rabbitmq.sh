@@ -11,11 +11,11 @@
 set -euo pipefail
 
 ###################################################################################################
-#                                                                                                 #
-# Description:  Imports RabbitMQ definitions from JSON file                                      #
-#                                                                                                 #
-# Run with --help flag for usage information and flag descriptions                               #
-#                                                                                                 #
+#                                                                                                 
+# Description:  Imports RabbitMQ definitions from JSON file                                      
+#                                                                                                 
+# Run with --help flag for usage information and flag descriptions                               
+#                                                                                                 
 ###################################################################################################
 
 show_help() {
