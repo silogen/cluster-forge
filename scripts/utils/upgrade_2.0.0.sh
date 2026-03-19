@@ -74,41 +74,15 @@ kubectl delete aimclusterservicetemplates.aim.silogen.ai --all -A
 kubectl delete secret/airm-tls-secret -n airm --ignore-not-found=true
 kubectl delete secret/airm-rabbitmq-common-vhost-user -n airm --ignore-not-found=true
 
-envsubst '$SCRIPT_DIR $AIRM_DB_EXPORT_FILE $RMQ_EXPORT_FILE' <<'EOF'
-All applications deleted, proceed with upgrade:
-
-# # # Gitea cluster-values/values.yaml: 
-- ensure your list of enabled apps is in sync with the root/<size>_values.yaml appropriate for your global.clusterSize
-- comment out 'airm' from the list of enabled apps (to create a window for importing the AIRM DB and RabbitMQ data) 
-- update global.targetRevision to v2.0.0 or v2.0.0-rcX
-- add helmParameters for airm and aiwb if installing a release candidate
-
-# # #  ArgoCD web UI:
-- update cluster-forge parent app in Gitea to match Gitea global.targetRevision
-- enable cluster-forge auto-sync (disabled by this script)
-- refresh the cluster-forge app in ArgoCD
-- wait for the airm-infra-components app to be healthy and synced before proceeding
-
-# # # Shell
-- run the import scripts to restore the AIRM DB and RabbitMQ data:
-  - $SCRIPT_DIR/import_databases.sh "$AIRM_DB_EXPORT_FILE"
-  - $SCRIPT_DIR/import_rabbitmq.sh "$RMQ_EXPORT_FILE"
-
-# # # Gitea cluster-values/values.yaml:
-- uncomment 'airm' in the list of enabled apps to redeploy AIRM with the restored data
-
-# # # ArgoCD web UI:
-- sync the cluster-forge app to deploy AIRM with the restored data
-
-# # # Keycloak:
-- open browser to kc.<domain>
-- user: silogen-admin with password from secret keycloak/keycloak-credentials
-- change to realm AIRM
-- click 'Clients' and edit first entry (354a0fa1-35ac-4a6d-9c4d-d661129c2cd0)
-- add valid redirect URIs:
-  - https://aiwbapi.<domain>/*
-  - https://aiwbui.<domain>/* 
-
-# # # Validate
-- login to https://airmui.<domain> with devuser@<domain>, password from secret airm/airm-user-credentials
-- login to https://aiwbui.<domain>
+echo "All applications deleted, proceed with upgrade."
+echo ""
+DOC="$SCRIPT_DIR/../../docs/upgrade_to_v2.0.0.md"
+if [[ -f "$DOC" ]]; then
+  cat "$DOC"
+else
+  echo "  (upgrade guide not found at $DOC)"
+fi
+echo ""
+echo "Resolved import commands for this run:"
+echo "  $SCRIPT_DIR/import_databases.sh \"$AIRM_DB_EXPORT_FILE\""
+echo "  $SCRIPT_DIR/import_rabbitmq.sh \"$RMQ_EXPORT_FILE\""
