@@ -1,0 +1,172 @@
+# Default values for aim-engine
+# This is a YAML-formatted file.
+# Structure matches kubebuilder helm/v2-alpha plugin expectations
+#
+# Documentation comments:
+#   # -- description     → documented parameter (appears in generated reference)
+#   # @default -- `val`  → override the displayed default for arrays/objects
+#   # plain comment       → ignored by the doc generator
+#
+# Run `make generate-helm-docs` to regenerate docs/docs/reference/helm-values.md
+
+# -- Controller manager configuration
+manager:
+  # -- Number of operator replicas
+  replicas: 1
+
+  # Image configuration
+  image:
+    # -- Operator container image repository
+    repository: amdenterpriseai/aim-engine
+    # -- Operator container image tag
+    tag: v0.2.1
+    # -- Image pull policy
+    pullPolicy: IfNotPresent
+
+  # -- Secrets for pulling the operator image from private registries
+  # @default -- `[]`
+  # imagePullSecrets:
+  #   - name: ghcr-pull-secret
+  imagePullSecrets: []
+
+  # -- Controller command-line arguments
+  # @default -- `["--leader-elect"]`
+  args:
+    - --leader-elect
+
+  # -- Additional environment variables for the controller
+  env: []
+
+  # Pod-level security settings
+  podSecurityContext:
+    # -- Require non-root user
+    runAsNonRoot: true
+    seccompProfile:
+      # -- Seccomp profile type
+      type: RuntimeDefault
+
+  # Container-level security settings
+  securityContext:
+    # -- Prevent privilege escalation
+    allowPrivilegeEscalation: false
+    capabilities:
+      # -- Dropped Linux capabilities
+      # @default -- `["ALL"]`
+      drop:
+        - ALL
+    # -- Read-only root filesystem
+    readOnlyRootFilesystem: true
+
+  # Resource limits and requests
+  resources:
+    limits:
+      # -- CPU limit
+      cpu: 500m
+      # -- Memory limit
+      memory: 4Gi
+    requests:
+      # -- CPU request
+      cpu: 100m
+      # -- Memory request
+      memory: 256Mi
+
+# -- Create admin/editor/viewer ClusterRoles for each CRD
+rbacHelpers:
+  # -- Enable RBAC helper roles
+  enable: true
+
+# -- Custom Resource Definitions
+crd:
+  # -- Install CRDs with the chart
+  enable: true
+  # -- Keep CRDs when uninstalling (prevents data loss)
+  keep: true
+
+# -- Controller metrics endpoint
+metrics:
+  # -- Enable metrics endpoint
+  enable: true
+  # -- Metrics endpoint port
+  port: 8443
+
+# -- Cert-manager integration for TLS certificates
+certManager:
+  # -- Enable cert-manager integration
+  enable: false
+
+# -- Prometheus ServiceMonitor for metrics scraping
+prometheus:
+  # -- Create a Prometheus ServiceMonitor resource
+  enable: false
+
+# -- Cluster-wide runtime configuration for AIM resources.
+# Creates an AIMClusterRuntimeConfig CR when enabled.
+clusterRuntimeConfig:
+  # -- Enable creation of the AIMClusterRuntimeConfig resource
+  enable: false
+  # -- Name of the AIMClusterRuntimeConfig resource
+  name: default
+
+  # -- Spec fields for the AIMClusterRuntimeConfig.
+  # See [Runtime Configuration](../../concepts/runtime-config.md) for details.
+  # @default -- `{}` (see examples below)
+  # spec:
+  #   storage:
+  #     defaultStorageClassName: "standard"
+  #     pvcHeadroomPercent: 10
+  #   routing:
+  #     enabled: true
+  #     gatewayRef:
+  #       group: gateway.networking.k8s.io
+  #       kind: Gateway
+  #       name: aim-gateway
+  #       namespace: kgateway-system
+  #     pathTemplate: "/{.metadata.namespace}/{.metadata.name}"
+  #     annotations: {}
+  #   model:
+  #     autoDiscovery: true
+  #   env: []
+  #   labelPropagation:
+  #     enabled: true
+  #     match:
+  #       - "aim.eai.amd.com/*"
+
+# -- Cluster-wide model source for automatic model discovery from container registries.
+# Creates an AIMClusterModelSource CR when enabled, installing latest AIM Container Images.
+clusterModelSource:
+  # -- Enable creation of the AIMClusterModelSource resource
+  enable: false
+  # -- Name of the AIMClusterModelSource resource
+  name: amd-aim-model-source
+
+  # -- Spec fields for the AIMClusterModelSource
+  spec:
+    # -- Container registry to sync from (e.g., docker.io, ghcr.io, gcr.io)
+    registry: docker.io
+
+    # -- Secrets for authenticating to private registries (must exist in operator namespace)
+    # @default -- `[]`
+    # imagePullSecrets:
+    #   - name: ghcr-pull-secret
+
+    # -- Filters define which images to discover and sync.
+    # Each filter specifies an image pattern with optional version constraints.
+    filters:
+      - image: "amdenterpriseai/aim-*"
+        # exclude:
+        #   - "amdenterpriseai/aim-base"
+        #   - "amdenterpriseai/aim-experimental"
+        versions:
+          - ">=0.8.4"
+
+    # -- How often to sync with the registry (minimum recommended: 15m)
+    syncInterval: 1h
+
+    # -- Global semantic version constraints applied to all filters
+    # @default -- `[]`
+    # versions:
+    #   - ">=1.0.0"
+    #   - "<2.0.0"
+
+    # -- Maximum number of AIMClusterModel resources to create (prevents runaway creation)
+    maxModels: 500

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: aim-engine-chart
+description: A Helm chart to distribute the project aim-engine
+type: application
+version: 0.2.1
+appVersion: "v0.2.1"
+icon: "https://example.com/icon.png"

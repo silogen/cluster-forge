@@ -30,7 +30,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKUP_DIR="/tmp/backups"
 mkdir -p "$BACKUP_DIR"
 echo "Exporting AIRM CNPG DB and RabbitMQ data to $BACKUP_DIR..."
-OUTPUT=$("$SCRIPT_DIR/export_databases.sh" "$BACKUP_DIR")
+OUTPUT=$("$SCRIPT_DIR/export_databases.sh" "$BACKUP_DIR" --airm)
 echo "$OUTPUT"  # show progress to user
 AIRM_DB_EXPORT_FILE=$(echo "$OUTPUT" | grep '^EXPORT_AIRM_FILE:' | cut -d: -f2-)
 
@@ -64,15 +64,11 @@ Waiting for ArgoCD applications to be deleted (15 min timeout)...
 EOF
 
 kubectl wait applications.argoproj.io -n argocd --for=delete --timeout=900s \
-  aim-cluster-model-source airm kaiwo kaiwo-crds kaiwo-config
+  aim-cluster-model-source kaiwo kaiwo-crds kaiwo-config airm aiwb
 
 kubectl delete aimclustermodel.aim.silogen.ai --all -A
 kubectl delete aimclustermodelsource.aim.silogen.ai --all -A
 kubectl delete aimclusterservicetemplates.aim.silogen.ai --all -A
-
-# manually delete AIRM secrets that will be recreated by the new app
-kubectl delete secret/airm-tls-secret -n airm --ignore-not-found=true
-kubectl delete secret/airm-rabbitmq-common-vhost-user -n airm --ignore-not-found=true
 
 echo "All applications deleted, proceed with upgrade."
 echo ""
@@ -80,7 +76,7 @@ DOC="$SCRIPT_DIR/../../docs/upgrade_to_v2.0.0.md"
 if [[ -f "$DOC" ]]; then
   cat "$DOC"
 else
-  echo "  (upgrade guide not found at $DOC)"
+  echo "for next steps, refer to the documentation at: https://github.com/silogen/cluster-forge/blob/main/docs/upgrade_to_v2.0.0.md"
 fi
 echo ""
 echo "Resolved import commands for this run:"

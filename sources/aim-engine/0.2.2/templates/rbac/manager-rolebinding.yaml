@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+    labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/name: aim-engine
+    name: aim-engine-manager-rolebinding
+roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: aim-engine-manager-role
+subjects:
+    - kind: ServiceAccount
+      name: aim-engine-controller-manager
+      namespace: {{ .Release.Namespace }}

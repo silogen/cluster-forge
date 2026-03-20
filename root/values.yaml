@@ -12,12 +12,12 @@ global:
 
 apps:
   aim-engine:
-    path: aim-engine/0.1.0
+    path: aim-engine/0.2.2
     namespace: aim-system
     valuesFile: values.yaml
     syncWave: 0
   aim-engine-crds:
-    path: aim-engine-crds/0.1.0
+    path: aim-engine-crds/0.2.2
     namespace: aim-system
     syncWave: 0
   aim-cluster-model-source:
@@ -325,7 +325,7 @@ apps:
     valuesFile: values.yaml
   kaiwo:
     namespace: kaiwo-system
-    path: kaiwo/v0.2.0-rc11
+    path: kaiwo/v0.2.0-rc12
     syncWave: -10
     valuesFile: values.yaml
   kaiwo-config:
@@ -345,7 +345,7 @@ apps:
     syncWave: 0
   kaiwo-crds:
     namespace: kaiwo-system
-    path: kaiwo-crds/v0.2.0-rc11
+    path: kaiwo-crds/v0.2.0-rc12
     syncWave: -20
   keda:
     namespace: keda
