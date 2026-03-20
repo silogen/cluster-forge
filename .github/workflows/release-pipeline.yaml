@@ -84,7 +84,7 @@ jobs:
       VERSION: ${{ needs.release.outputs.new_version }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
 
