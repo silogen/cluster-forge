@@ -1,0 +1,182 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+    name: aim-engine-manager-role
+rules:
+    - apiGroups:
+        - ""
+      resources:
+        - events
+      verbs:
+        - create
+        - get
+        - list
+        - patch
+        - watch
+    - apiGroups:
+        - ""
+      resources:
+        - namespaces
+        - nodes
+        - pods
+        - secrets
+      verbs:
+        - get
+        - list
+        - watch
+    - apiGroups:
+        - ""
+      resources:
+        - persistentvolumeclaims
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+    - apiGroups:
+        - ""
+      resources:
+        - pods/log
+      verbs:
+        - get
+    - apiGroups:
+        - aim.eai.amd.com
+      resources:
+        - aimartifacts
+        - aimclustermodels
+        - aimclustermodelsources
+        - aimclusterruntimeconfigs
+        - aimclusterservicetemplates
+        - aimmodels
+        - aimruntimeconfigs
+        - aimservices
+        - aimservicetemplates
+        - aimtemplatecaches
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+    - apiGroups:
+        - aim.eai.amd.com
+      resources:
+        - aimartifacts/finalizers
+        - aimclustermodels/finalizers
+        - aimclustermodelsources/finalizers
+        - aimclusterruntimeconfigs/finalizers
+        - aimclusterservicetemplates/finalizers
+        - aimmodels/finalizers
+        - aimruntimeconfigs/finalizers
+        - aimservices/finalizers
+        - aimservicetemplates/finalizers
+        - aimtemplatecaches/finalizers
+      verbs:
+        - update
+    - apiGroups:
+        - aim.eai.amd.com
+      resources:
+        - aimartifacts/status
+        - aimclustermodels/status
+        - aimclustermodelsources/status
+        - aimclusterruntimeconfigs/status
+        - aimclusterservicetemplates/status
+        - aimmodels/status
+        - aimruntimeconfigs/status
+        - aimservices/status
+        - aimservicetemplates/status
+        - aimtemplatecaches/status
+      verbs:
+        - get
+        - patch
+        - update
+    - apiGroups:
+        - autoscaling
+      resources:
+        - horizontalpodautoscalers
+      verbs:
+        - get
+        - list
+        - watch
+    - apiGroups:
+        - batch
+      resources:
+        - jobs
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+    - apiGroups:
+        - coordination.k8s.io
+      resources:
+        - leases
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+    - apiGroups:
+        - gateway.networking.k8s.io
+      resources:
+        - httproutes
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+    - apiGroups:
+        - rbac.authorization.k8s.io
+      resourceNames:
+        - artifact-status-updater
+      resources:
+        - clusterroles
+      verbs:
+        - bind
+    - apiGroups:
+        - rbac.authorization.k8s.io
+      resources:
+        - rolebindings
+      verbs:
+        - create
+        - get
+        - list
+        - patch
+        - update
+        - watch
+    - apiGroups:
+        - serving.kserve.io
+      resources:
+        - clusterservingruntimes
+        - inferenceservices
+        - servingruntimes
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+    - apiGroups:
+        - storage.k8s.io
+      resources:
+        - storageclasses
+      verbs:
+        - get
+        - list
+        - watch
