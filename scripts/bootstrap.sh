@@ -279,11 +279,15 @@ parse_args() {
           $0 dev.example.com -s=small -r=feature-branch
           $0 example.com --apps=openbao
           $0 example.com --apps=keycloak -t
+          $0 example.com --disabled-apps=airm,airm-infra-*
+          $0 example.com --apps=airm,keycloak --disabled-apps=airm
           
         Bootstrap Behavior:
           • deploys ArgoCD + OpenBao + Gitea directly (essential infrastructure)
           • apply the cluster-forge application manifest (parent app only)
           • ArgoCD syncs remaining apps from specified target revision, respecting syncWaves and dependencies
+          • --disabled-apps patterns are removed from enabledApps before pushing to Gitea, so ArgoCD never deploys them
+          • if an app appears in both --apps and --disabled-apps, it is skipped (disabled takes priority)
 HELP_OUTPUT
         exit 0
         ;;

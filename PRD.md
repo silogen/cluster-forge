@@ -222,6 +222,10 @@ The bootstrap.sh script orchestrates complete cluster setup with flexible option
 - `--apps=APP1,APP2` - Deploy only specified components
   - Bootstrap apps: `namespaces`, `argocd`, `openbao`, `gitea`, `cluster-forge`
   - Child apps: Any app from enabledApps list (e.g., `keycloak`, `keda`, `airm`)
+- `--disabled-apps=APP1,GLOB*` - Exclude apps from installation (supports `*` and `?` wildcards)
+  - Patterns are matched against each entry in `enabledApps` before the values configmap is pushed to Gitea
+  - If an app appears in both `--apps` and `--disabled-apps`, it is skipped (disabled takes priority)
+  - Example: `--disabled-apps=airm,airm-infra-*` skips `airm`, `airm-infra-cnpg`, `airm-infra-external-secrets`, `airm-infra-rabbitmq`
 - `--target-revision=BRANCH` - cluster-forge git revision for ArgoCD (default: latest release tag)
 - `--template-only` or `-t` - Output YAML manifests instead of applying to cluster
 - `--skip-deps` - Skip dependency checking for advanced users
@@ -266,6 +270,12 @@ The `--apps` flag enables targeted deployment for development and troubleshootin
 
 # Deploy with custom AIRM image repository for air-gapped environments
 ./scripts/bootstrap.sh example.com --airm-image-repository=registry.internal.com/airm
+
+# Install everything except AIRM and all its infra dependencies
+./scripts/bootstrap.sh example.com --disabled-apps=airm,airm-infra-*
+
+# Combine --apps and --disabled-apps (disabled takes priority)
+./scripts/bootstrap.sh example.com --apps=airm,keycloak --disabled-apps=airm
 ```
 
 ### Self-Contained GitOps
