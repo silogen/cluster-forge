@@ -379,18 +379,17 @@ should_run() {
   echo ",${APPS}," | grep -q ",${app},"
 }
 
-# Returns 0 if the app matches any pattern in DISABLED_APPS (supports * and ? glob wildcards)
+# Returns 0 if the app matches any pattern in DISABLED_APPS (supports * and ? glob wildcards).
+# Uses [[ ]] pattern matching (no filename expansion) and IFS-safe array splitting.
 is_disabled_app() {
   local app="$1"
   [ -z "$DISABLED_APPS" ] && return 1
 
-  local IFS=','
   local pattern
-  for pattern in $DISABLED_APPS; do
-    # shellcheck disable=SC2254
-    case "$app" in
-      $pattern) return 0 ;;
-    esac
+  local -a patterns
+  IFS=',' read -ra patterns <<< "$DISABLED_APPS"
+  for pattern in "${patterns[@]}"; do
+    [[ "$app" == $pattern ]] && return 0
   done
   return 1
 }
