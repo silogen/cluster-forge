@@ -23,6 +23,7 @@ trap cleanup EXIT
 # Initialize variables
 APPS=""
 CLUSTER_SIZE="medium"  # Default to medium
+DISABLED_APPS=""
 DEFAULT_TIMEOUT="5m"
 DOMAIN=""
 KUBE_VERSION=1.33
@@ -225,6 +226,18 @@ parse_args() {
           APPS="${1#*=}"
           shift
           ;;
+        --disabled-apps)
+          if [ -z "$2" ]; then
+            echo "ERROR: --disabled-apps requires an argument"
+            exit 1
+          fi
+          DISABLED_APPS="$2"
+          shift 2
+          ;;
+        --disabled-apps=*)
+          DISABLED_APPS="${1#*=}"
+          shift
+          ;;
         --airm-image-repository)
           if [ -z "$2" ]; then
             echo "ERROR: --airm-image-repository requires an argument"
@@ -249,6 +262,8 @@ parse_args() {
           --airm-image-repository=url        Custom AIRM image repository for gitea-init job (e.g., ghcr.io/silogen, requires regcreds)
           --apps=app1[,app2,...]             Deploy (kubectl apply) specified components onlye
                                              options: namespaces, argocd, openbao, gitea, cluster-forge, or any cluster-forge child app (see values.yaml for app names)
+          --disabled-apps=app1[,app2,glob*]  Exclude specified apps from installation. Supports * and ? wildcards.
+                                             Example: --disabled-apps=airm,airm-infra-* skips airm, airm-infra-cnpg, airm-infra-external-secrets, etc.
                                              
           --cluster-size=[size],      -s     [size] can be one of small|medium|large, default: medium
           --help,                     -h     Show this help message and exit
@@ -358,6 +373,22 @@ should_run() {
   local app="$1"
   [ -z "$APPS" ] && return 0
   echo ",${APPS}," | grep -q ",${app},"
+}
+
+# Returns 0 if the app matches any pattern in DISABLED_APPS (supports * and ? glob wildcards)
+is_disabled_app() {
+  local app="$1"
+  [ -z "$DISABLED_APPS" ] && return 1
+
+  local IFS=','
+  local pattern
+  for pattern in $DISABLED_APPS; do
+    # shellcheck disable=SC2254
+    case "$app" in
+      $pattern) return 0 ;;
+    esac
+  done
+  return 1
 }
 
 
@@ -524,7 +555,19 @@ bootstrap_gitea() {
     yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' "${TEMP_DIR}/complete_values.yaml" "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${TEMP_DIR}/complete_values_merged.yaml"
     mv "${TEMP_DIR}/complete_values_merged.yaml" "${TEMP_DIR}/complete_values.yaml"
   fi
-  
+
+  # Remove disabled apps from enabledApps so ArgoCD won't deploy them
+  if [ -n "$DISABLED_APPS" ]; then
+    log_info "Removing disabled apps from initial-cf-values..."
+    while IFS= read -r app; do
+      [ -z "$app" ] && continue
+      if is_disabled_app "$app"; then
+        log_info "  Disabling app: $app"
+        yq eval "del(.enabledApps[] | select(. == \"$app\"))" -i "${TEMP_DIR}/complete_values.yaml"
+      fi
+    done < <(yq eval '.enabledApps[]' "${TEMP_DIR}/complete_values.yaml" 2>/dev/null || true)
+  fi
+
   kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$(cat "${TEMP_DIR}/complete_values.yaml")" --dry-run=client -o yaml | apply_or_template -n cf-gitea -f -
   
   kubectl create secret generic gitea-admin-credentials \
@@ -603,6 +646,11 @@ EOF
   # Copy specific app configurations from the main values
   local IFS=','
   for app in $APPS; do
+    # Skip disabled apps
+    if is_disabled_app "$app"; then
+      log_info "  Skipping disabled app: $app"
+      continue
+    fi
     # Add to enabledApps list
     yq eval ".enabledApps += [\"$app\"]" -i "$temp_values"
     
@@ -677,6 +725,20 @@ main() {
     validate_args
   fi
   
+  # Remove disabled apps from --apps list (disabled takes priority)
+  if [ -n "$APPS" ] && [ -n "$DISABLED_APPS" ]; then
+    local filtered_apps=""
+    local IFS=','
+    for app in $APPS; do
+      if is_disabled_app "$app"; then
+        log_info "NOTE: '$app' is in both --apps and --disabled-apps; skipping it"
+      else
+        filtered_apps="${filtered_apps:+$filtered_apps,}$app"
+      fi
+    done
+    APPS="$filtered_apps"
+  fi
+
   # If specific apps are requested, check if they're cluster-forge child apps
   if [ -n "$APPS" ]; then
     local has_bootstrap_apps=false
