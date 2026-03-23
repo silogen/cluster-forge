@@ -213,13 +213,12 @@ run_pg_dump() {
     local DBNAME=$4
     local OUTPUT_FILE=$5
     local NAMESPACE=$6
-    local POD_PATTERN=$7
     
-    # Get the pod name
-    local POD_NAME=$(kubectl get pods -n $NAMESPACE | grep -P "${POD_PATTERN}-\d" | head -1 | awk '{print $1}')
+    # Get the primary CNPG pod in the namespace
+    local POD_NAME=$(kubectl get pods -n $NAMESPACE -l cnpg.io/instanceRole=primary -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
     
     if [ -z "$POD_NAME" ]; then
-        echo "Error: Could not find pod matching pattern '${POD_PATTERN}' in namespace '${NAMESPACE}'"
+        echo "Error: Could not find primary CNPG pod (cnpg.io/instanceRole=primary) in namespace '${NAMESPACE}'"
         exit 1
     fi
     
@@ -246,10 +245,10 @@ backup_airm_database() {
     # Enable port-forward if requested
     if [ "$USE_PORT_FORWARD" = true ]; then
         enable_port_forward "AIRM"
-        run_pg_dump "127.0.0.1" "$AIRM_DB_USERNAME" "$AIRM_DB_PASSWORD" "airm" "$AIRM_DB_FILE" "airm" "airm-cnpg"
+        run_pg_dump "127.0.0.1" "$AIRM_DB_USERNAME" "$AIRM_DB_PASSWORD" "airm" "$AIRM_DB_FILE" "airm"
         disable_port_forward
     else
-        run_pg_dump "localhost" "$AIRM_DB_USERNAME" "$AIRM_DB_PASSWORD" "airm" "$AIRM_DB_FILE" "airm" "airm-cnpg"
+        run_pg_dump "localhost" "$AIRM_DB_USERNAME" "$AIRM_DB_PASSWORD" "airm" "$AIRM_DB_FILE" "airm"
     fi
     
     echo "AIRM database backup completed."
@@ -261,10 +260,10 @@ backup_keycloak_database() {
     # Enable port-forward if requested
     if [ "$USE_PORT_FORWARD" = true ]; then
         enable_port_forward "KC"
-        run_pg_dump "127.0.0.1" "$KEYCLOAK_DB_USERNAME" "$KEYCLOAK_DB_PASSWORD" "keycloak" "$KEYCLOAK_DB_FILE" "keycloak" "keycloak-cnpg"
+        run_pg_dump "127.0.0.1" "$KEYCLOAK_DB_USERNAME" "$KEYCLOAK_DB_PASSWORD" "keycloak" "$KEYCLOAK_DB_FILE" "keycloak"
         disable_port_forward
     else
-        run_pg_dump "localhost" "$KEYCLOAK_DB_USERNAME" "$KEYCLOAK_DB_PASSWORD" "keycloak" "$KEYCLOAK_DB_FILE" "keycloak" "keycloak-cnpg"
+        run_pg_dump "localhost" "$KEYCLOAK_DB_USERNAME" "$KEYCLOAK_DB_PASSWORD" "keycloak" "$KEYCLOAK_DB_FILE" "keycloak"
     fi
     
     echo "Keycloak database backup completed."
@@ -273,14 +272,10 @@ backup_keycloak_database() {
 enable_port_forward() {
     local DB_TYPE=$1
     local NAMESPACE=""
-    local POD_PATTERN=""
-    
     if [ "$DB_TYPE" = "AIRM" ]; then
         NAMESPACE="airm"
-        POD_PATTERN="airm-cnpg"
     elif [ "$DB_TYPE" = "KC" ]; then
         NAMESPACE="keycloak"
-        POD_PATTERN="keycloak-cnpg"
     fi
     
     # Check if port is already in use by any process
@@ -300,10 +295,10 @@ enable_port_forward() {
     fi
     
     echo "Starting port-forward for $DB_TYPE database on port ${LOCAL_PORT}..."
-    local POD_NAME=$(kubectl get pods -n $NAMESPACE | grep -P "${POD_PATTERN}-\d" | head -1 | awk '{print $1}')
+    local POD_NAME=$(kubectl get pods -n $NAMESPACE -l cnpg.io/instanceRole=primary -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
     
     if [ -z "$POD_NAME" ]; then
-        echo "ERROR: Could not find pod matching pattern '${POD_PATTERN}' in namespace '${NAMESPACE}'"
+        echo "ERROR: Could not find primary CNPG pod (cnpg.io/instanceRole=primary) in namespace '${NAMESPACE}'"
         exit 1
     fi
     
