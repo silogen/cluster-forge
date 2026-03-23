@@ -82,7 +82,7 @@ echo ""
 
 # Find RabbitMQ pod (use lowest numbered instance)
 echo "Finding RabbitMQ pod in namespace $NAMESPACE..."
-POD_NAME=$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=airm-rabbitmq -o jsonpath='{.items[*].metadata.name}' 2>/dev/null | tr ' ' '\n' | sort -V | head -n 1)
+POD_NAME=$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/part-of=rabbitmq -o jsonpath='{.items[*].metadata.name}' 2>/dev/null | tr ' ' '\n' | sort -V | head -n 1)
 
 # Fallback to generic airm label if airm-rabbitmq not found
 if [[ -z "$POD_NAME" ]]; then
