@@ -644,7 +644,7 @@ bootstrap_gitea() {
   
   # Only add disabledApps if DISABLED_APPS is set and non-empty
   if [ -n "${DISABLED_APPS:-}" ]; then
-    helm_args+=("--set" "disabledApps=${DISABLED_APPS}")
+    helm_args+=("--set-string" "disabledApps=${DISABLED_APPS}")
   fi
 
   helm template "${helm_args[@]}" | apply_or_template -f -
