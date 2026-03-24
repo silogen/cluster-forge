@@ -8,3 +8,6 @@ targetRevision: v1.8.0-rc4
 # Base image repository for AIRM components (injected by bootstrap script when specified)
 # Example: "ghcr.io/silogen"
 airmImageRepository: null
+# Comma-separated list of disabled apps (injected by bootstrap script when --disabled-apps is used)
+# Example: "airm,airm-infra-cnpg"
+disabledApps: null

@@ -23,6 +23,7 @@ trap cleanup EXIT
 # Initialize variables
 APPS=""
 CLUSTER_SIZE="medium"  # Default to medium
+DISABLED_APPS=""
 DEFAULT_TIMEOUT="5m"
 DOMAIN=""
 KUBE_VERSION=1.33
@@ -42,6 +43,22 @@ log_info() {
 # Generate a secure random password
 generate_password() {
   openssl rand -hex 16
+}
+
+# Generate enabledApps section with disabled apps commented out
+generate_enabled_apps_yaml() {
+  local values_file="$1"
+  local disabled_apps="$2"
+  
+  # Extract enabledApps list and generate YAML with commented disabled apps
+  while IFS= read -r app; do
+    [ -z "$app" ] && continue
+    if [ -n "$disabled_apps" ] && is_disabled_app "$app"; then
+      echo "    #- $app                    # Disabled by --disabled-apps"
+    else
+      echo "    - $app"
+    fi
+  done < <(yq eval '.enabledApps[]' "$values_file" 2>/dev/null || true)
 }
 
 # Check for required dependencies
@@ -225,6 +242,18 @@ parse_args() {
           APPS="${1#*=}"
           shift
           ;;
+        --disabled-apps)
+          if [ -z "$2" ]; then
+            echo "ERROR: --disabled-apps requires an argument"
+            exit 1
+          fi
+          DISABLED_APPS="$2"
+          shift 2
+          ;;
+        --disabled-apps=*)
+          DISABLED_APPS="${1#*=}"
+          shift
+          ;;
         --airm-image-repository)
           if [ -z "$2" ]; then
             echo "ERROR: --airm-image-repository requires an argument"
@@ -249,6 +278,8 @@ parse_args() {
           --airm-image-repository=url        Custom AIRM image repository for gitea-init job (e.g., ghcr.io/silogen, requires regcreds)
           --apps=app1[,app2,...]             Deploy (kubectl apply) specified components onlye
                                              options: namespaces, argocd, openbao, gitea, cluster-forge, or any cluster-forge child app (see values.yaml for app names)
+          --disabled-apps=app1[,app2,glob*]  Exclude specified apps from installation. Supports * and ? wildcards.
+                                             Example: --disabled-apps=airm,airm-infra-* skips airm, airm-infra-cnpg, airm-infra-external-secrets, etc.
                                              
           --cluster-size=[size],      -s     [size] can be one of small|medium|large, default: medium
           --help,                     -h     Show this help message and exit
@@ -264,11 +295,15 @@ parse_args() {
           $0 dev.example.com -s=small -r=feature-branch
           $0 example.com --apps=openbao
           $0 example.com --apps=keycloak -t
+          $0 example.com --disabled-apps=airm,airm-infra-*
+          $0 example.com --apps=airm,keycloak --disabled-apps=airm
           
         Bootstrap Behavior:
           • deploys ArgoCD + OpenBao + Gitea directly (essential infrastructure)
           • apply the cluster-forge application manifest (parent app only)
           • ArgoCD syncs remaining apps from specified target revision, respecting syncWaves and dependencies
+          • --disabled-apps patterns are removed from enabledApps before pushing to Gitea, so ArgoCD never deploys them
+          • if an app appears in both --apps and --disabled-apps, it is skipped (disabled takes priority)
 HELP_OUTPUT
         exit 0
         ;;
@@ -358,6 +393,22 @@ should_run() {
   local app="$1"
   [ -z "$APPS" ] && return 0
   echo ",${APPS}," | grep -q ",${app},"
+}
+
+# Returns 0 if the app matches any pattern in DISABLED_APPS (supports * and ? glob wildcards)
+is_disabled_app() {
+  local app="$1"
+  [ -z "$DISABLED_APPS" ] && return 1
+
+  local IFS=','
+  local pattern
+  for pattern in $DISABLED_APPS; do
+    # shellcheck disable=SC2254
+    case "$app" in
+      $pattern) return 0 ;;
+    esac
+  done
+  return 1
 }
 
 
@@ -521,10 +572,20 @@ bootstrap_gitea() {
   
   # Merge with size-specific values if they exist
   if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+    log_info "Merging with size-specific values: ${SIZE_VALUES_FILE}"
     yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' "${TEMP_DIR}/complete_values.yaml" "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${TEMP_DIR}/complete_values_merged.yaml"
     mv "${TEMP_DIR}/complete_values_merged.yaml" "${TEMP_DIR}/complete_values.yaml"
+    log_info "Merged values enabledApps count: $(yq eval '.enabledApps | length' "${TEMP_DIR}/complete_values.yaml" 2>/dev/null || echo "0")"
+  else
+    log_info "No size-specific values file to merge"
   fi
-  
+
+  # Note: We no longer remove disabled apps here since the Gitea init job will handle 
+  # commenting them out in the values.yaml file that gets pushed to the Gitea repository
+  if [ -n "$DISABLED_APPS" ]; then
+    log_info "Disabled apps will be commented out in Gitea values.yaml: $DISABLED_APPS"
+  fi
+
   kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$(cat "${TEMP_DIR}/complete_values.yaml")" --dry-run=client -o yaml | apply_or_template -n cf-gitea -f -
   
   kubectl create secret generic gitea-admin-credentials \
@@ -567,21 +628,105 @@ bootstrap_gitea() {
   fi
   
   # Gitea Init Job - preserve AIRM repository functionality
-  HELM_ARGS="--release-name gitea-init ${SOURCE_ROOT}/scripts/init-gitea-job \
-  --set clusterSize=${SIZE_VALUES_FILE:-values_${CLUSTER_SIZE}.yaml} \
-  --set domain=${DOMAIN} \
-  --set targetRevision=${TARGET_REVISION} \
-  --kube-version=${KUBE_VERSION}"
+  local helm_args=(
+    "--release-name" "gitea-init"
+    "${SOURCE_ROOT}/scripts/init-gitea-job"
+    "--set" "clusterSize=${SIZE_VALUES_FILE:-values_${CLUSTER_SIZE}.yaml}"
+    "--set" "domain=${DOMAIN}"
+    "--set" "targetRevision=${TARGET_REVISION}"
+    "--kube-version=${KUBE_VERSION}"
+  )
 
   # Only add airmImageRepository if AIRM_IMAGE_REPOSITORY is set and non-empty
   if [ -n "${AIRM_IMAGE_REPOSITORY:-}" ]; then
-    HELM_ARGS="${HELM_ARGS} --set airmImageRepository=${AIRM_IMAGE_REPOSITORY}"
+    helm_args+=("--set" "airmImageRepository=${AIRM_IMAGE_REPOSITORY}")
+  fi
+  
+  # Create temporary values file for disabledApps if needed
+  local temp_values_file=""
+  if [ -n "${DISABLED_APPS:-}" ]; then
+    temp_values_file=$(mktemp -t gitea-disabled-apps.XXXXXX)
+    CLEANUP_DIRS+=("${temp_values_file}")
+    cat > "${temp_values_file}" << EOF
+disabledApps: "${DISABLED_APPS}"
+EOF
+    helm_args+=("--values" "${temp_values_file}")
   fi
 
-  helm template ${HELM_ARGS} | apply_or_template -f -
+  helm template "${helm_args[@]}" | apply_or_template -f -
   
   if [ "$TEMPLATE_ONLY" = false ]; then
-    kubectl wait --for=condition=complete --timeout="${DEFAULT_TIMEOUT}" job/gitea-init-job -n cf-gitea
+    log_info "Waiting for Gitea init job to complete..."
+    
+    # Wait for job to finish (either Complete or Failed)
+    local timeout_seconds=300  # 5 minutes
+    local elapsed=0
+    local sleep_interval=5
+    
+    while [ $elapsed -lt $timeout_seconds ]; do
+      # Check job status
+      local job_status=$(kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.conditions[0].type}' 2>/dev/null || echo "")
+      
+      if [ "$job_status" = "Complete" ]; then
+        log_info "Gitea init job completed successfully"
+        break
+      elif [ "$job_status" = "Failed" ]; then
+        log_info "ERROR: Gitea init job failed after all retries"
+        
+        # Show failure details
+        log_info "Job conditions:"
+        kubectl describe job gitea-init-job -n cf-gitea | grep -A 10 "Conditions:"
+        
+        log_info "Pod logs:"
+        kubectl logs job/gitea-init-job -n cf-gitea --tail=30
+        
+        exit 1
+      else
+        # Check if we have too many failed pods (indicates persistent failure)
+        local failed_pod_count=$(kubectl get pods -n cf-gitea -l job-name=gitea-init-job --field-selector=status.phase=Failed --no-headers 2>/dev/null | wc -l)
+        
+        if [ "$failed_pod_count" -ge 3 ]; then
+          log_info "ERROR: Gitea init job has $failed_pod_count failed attempts"
+          log_info "This indicates a persistent failure. Exiting early instead of waiting for all retries."
+          
+          # Get the most recent failed pod logs
+          local latest_failed_pod=$(kubectl get pods -n cf-gitea -l job-name=gitea-init-job --field-selector=status.phase=Failed --sort-by='.metadata.creationTimestamp' --no-headers -o custom-columns=":metadata.name" | tail -n1)
+          
+          if [ -n "$latest_failed_pod" ]; then
+            log_info "Latest failed pod: $latest_failed_pod"
+            log_info "Pod logs:"
+            kubectl logs "$latest_failed_pod" -n cf-gitea --tail=50
+          fi
+          
+          log_info "All failed pods:"
+          kubectl get pods -n cf-gitea -l job-name=gitea-init-job --field-selector=status.phase=Failed --no-headers
+          
+          exit 1
+        fi
+      fi
+      
+      # Still running, wait a bit more
+      sleep $sleep_interval
+      elapsed=$((elapsed + sleep_interval))
+      
+      if [ $((elapsed % 30)) -eq 0 ]; then
+        log_info "Still waiting for Gitea init job... (${elapsed}s elapsed)"
+      fi
+    done
+    
+    # Check if we timed out
+    if [ $elapsed -ge $timeout_seconds ]; then
+      log_info "ERROR: Gitea init job timed out after ${timeout_seconds} seconds"
+      
+      # Show current status
+      log_info "Current job status:"
+      kubectl describe job gitea-init-job -n cf-gitea
+      
+      log_info "Pod logs:"
+      kubectl logs job/gitea-init-job -n cf-gitea --tail=50
+      
+      exit 1
+    fi
   fi
   
   # Cleanup temp directory
@@ -603,6 +748,11 @@ EOF
   # Copy specific app configurations from the main values
   local IFS=','
   for app in $APPS; do
+    # Skip disabled apps
+    if is_disabled_app "$app"; then
+      log_info "  Skipping disabled app: $app"
+      continue
+    fi
     # Add to enabledApps list
     yq eval ".enabledApps += [\"$app\"]" -i "$temp_values"
     
@@ -677,6 +827,20 @@ main() {
     validate_args
   fi
   
+  # Remove disabled apps from --apps list (disabled takes priority)
+  if [ -n "$APPS" ] && [ -n "$DISABLED_APPS" ]; then
+    local filtered_apps=""
+    local IFS=','
+    for app in $APPS; do
+      if is_disabled_app "$app"; then
+        log_info "NOTE: '$app' is in both --apps and --disabled-apps; skipping it"
+      else
+        filtered_apps="${filtered_apps:+$filtered_apps,}$app"
+      fi
+    done
+    APPS="$filtered_apps"
+  fi
+
   # If specific apps are requested, check if they're cluster-forge child apps
   if [ -n "$APPS" ]; then
     local has_bootstrap_apps=false

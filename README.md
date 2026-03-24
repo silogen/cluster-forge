@@ -42,6 +42,12 @@ Using a bootstrap-first deployment model, Cluster-Forge establishes GitOps infra
 
 # Deploy from specific branch/tag
 ./scripts/bootstrap.sh prod.example.com --target-revision=v1.8.0
+
+# Install everything except AIRM and its infra dependencies
+./scripts/bootstrap.sh prod.example.com --disabled-apps=airm,airm-infra-*
+
+# Combine --apps and --disabled-apps (disabled takes priority)
+./scripts/bootstrap.sh dev.example.com --apps=airm,keycloak --disabled-apps=airm
 ```
 
 For detailed deployment instructions, see the [Bootstrap Guide](docs/bootstrap_guide.md).

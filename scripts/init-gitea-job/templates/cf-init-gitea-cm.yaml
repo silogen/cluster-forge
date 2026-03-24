@@ -138,6 +138,34 @@ data:
       -H "Content-Type: application/json" || echo "Failed to add user to organization"
     
     echo "Step 7: Creating values.yaml file with cluster-forge reference in cluster-values repo..."
+    
+    # Get the complete values file from the configmap created by bootstrap.sh
+    echo "DEBUG: Checking if initial-cf-values configmap exists..."
+    if kubectl get configmap initial-cf-values -n cf-gitea >/dev/null 2>&1; then
+        echo "DEBUG: ConfigMap found, extracting data..."
+        kubectl get configmap initial-cf-values -n cf-gitea -o jsonpath='{.data.initial-cf-values}' > /tmp/complete_values.yaml
+        
+        # Debug: Show what we got from the configmap
+        echo "DEBUG: Content of initial-cf-values configmap (first 20 lines):"
+        head -20 /tmp/complete_values.yaml
+        echo "DEBUG: File size: $(wc -l < /tmp/complete_values.yaml) lines"
+        
+        # Install yq if not present (lightweight approach)
+        if ! command -v yq >/dev/null 2>&1; then
+            echo "DEBUG: Installing yq..."
+            wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+            chmod +x /usr/local/bin/yq
+        fi
+        
+        echo "DEBUG: Checking for enabledApps section:"
+        yq eval '.enabledApps' /tmp/complete_values.yaml || echo "DEBUG: No enabledApps found"
+        echo "DEBUG: EnabledApps count: $(yq eval '.enabledApps | length' /tmp/complete_values.yaml 2>/dev/null || echo 0)"
+    else
+        echo "ERROR: initial-cf-values configmap not found!"
+        exit 1
+    fi
+    
+    # Extract enabledApps and create enabledApps section with disabled apps commented out
     cat > /tmp/values.yaml << 'EOF'
     clusterForge:
       repoURL: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git
@@ -148,7 +176,97 @@ data:
     global:
       clusterSize: {{ .Values.clusterSize }}
       domain: DOMAIN_PLACEHOLDER
+    
+    # Applications enabled for this cluster
+    # This overrides the enabledApps from size-specific values to exclude disabled apps
+    enabledApps:
+    EOF
+    
+    # Get the complete app list from the merged values (which includes size-specific enabledApps)
+    {{- if .Values.disabledApps }}
+    echo "DEBUG: Filtering out disabled apps: {{ .Values.disabledApps }}"
+    
+    # Validate that disabled patterns match at least one real app
+    echo "DEBUG: Validating disabled app patterns..."
+    IFS=',' read -ra PATTERNS <<< "{{ .Values.disabledApps }}"
+    declare -A pattern_matched
+    for pattern in "${PATTERNS[@]}"; do
+      pattern_matched["$pattern"]=false
+    done
+    
+    # Process enabledApps with disabled apps filtered out completely
+    yq eval '.enabledApps[]' /tmp/complete_values.yaml | while IFS= read -r app; do
+      # Check if app matches any disabled pattern (supports wildcards)
+      disabled=false
+      matched_pattern=""
+      for pattern in "${PATTERNS[@]}"; do
+        # Use case statement for wildcard matching
+        case "$app" in
+          $pattern) 
+            disabled=true
+            matched_pattern="$pattern"
+            pattern_matched["$pattern"]=true
+            break
+            ;;
+        esac
+      done
+      
+      if [ "$disabled" = "true" ]; then
+        echo "DEBUG: Excluding disabled app: $app (matches pattern: $matched_pattern)"
+        # Add as comment for documentation
+        echo "  #- $app                    # Disabled by --disabled-apps" >> /tmp/values.yaml
+      else
+        echo "DEBUG: Including enabled app: $app"
+        echo "  - $app" >> /tmp/values.yaml
+      fi
+    done
+    
+    # Check if any patterns didn't match anything
+    echo "DEBUG: Checking for unmatched patterns..."
+    unmatched_patterns=()
+    for pattern in "${PATTERNS[@]}"; do
+      # Re-check each pattern against all apps
+      pattern_found=false
+      while IFS= read -r app; do
+        case "$app" in
+          $pattern) 
+            pattern_found=true
+            break
+            ;;
+        esac
+      done < <(yq eval '.enabledApps[]' /tmp/complete_values.yaml)
+      
+      if [ "$pattern_found" = "false" ]; then
+        unmatched_patterns+=("$pattern")
+      fi
+    done
+    
+    # Fail if any patterns didn't match
+    if [ ${#unmatched_patterns[@]} -gt 0 ]; then
+      echo "ERROR: The following disabled app patterns did not match any applications:"
+      for pattern in "${unmatched_patterns[@]}"; do
+        echo "  - $pattern"
+      done
+      echo ""
+      echo "Available applications:"
+      yq eval '.enabledApps[]' /tmp/complete_values.yaml | sed 's/^/  - /'
+      echo ""
+      echo "Please check your --disabled-apps parameter for typos."
+      exit 1
+    fi
+    {{- else }}
+    echo "DEBUG: No disabled apps specified, including all apps normally"
+    # No disabled apps, include all enabledApps from merged values
+    yq eval '.enabledApps[]' /tmp/complete_values.yaml | while IFS= read -r app; do
+      echo "DEBUG: Adding app: $app"
+      echo "  - $app" >> /tmp/values.yaml
+    done
+    {{- end }}
+    
     {{- if .Values.airmImageRepository }}
+    
+    # Add AIRM configuration if repository is specified
+    cat >> /tmp/values.yaml << 'EOF'
 
     # AIRM Image Repository Configuration
     apps:
@@ -156,7 +274,7 @@ data:
         helmParameters:
           # APP-DOMAIN (defined in base, but would be overridden here if omitted)
           - name: airm-api.airm.appDomain
-            value: "{{ .Values.domain }}"
+            value: "DOMAIN_PLACEHOLDER"
           # BACKEND (airm-api)
           - name: airm-api.airm.backend.image.repository
             value: "{{ .Values.airmImageRepository }}/airm-api"
@@ -175,10 +293,14 @@ data:
           # AGENT (airm-agent)
           - name: agent.airm.imagePullSecrets[0].name
             value: regcred
-    {{- end }}
     EOF
+    {{- end }}
     
     sed -i "s/DOMAIN_PLACEHOLDER/${DOMAIN}/g" /tmp/values.yaml
+    
+    # Debug: Show final values.yaml content
+    echo "DEBUG: Final values.yaml content:"
+    cat /tmp/values.yaml
     
     curl -X POST "${GITEA_URL}/api/v1/repos/cluster-org/cluster-values/contents/values.yaml" \
       -H "Authorization: token ${GITEA_TOKEN}" \
