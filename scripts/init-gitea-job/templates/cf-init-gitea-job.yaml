@@ -11,6 +11,7 @@ spec:
       containers:
         - name: gitea-init
           image: ghcr.io/silogen/cluster-tool:latest
+          imagePullPolicy: Always
           command: ["/bin/bash"]
           args: ["/tmp/scripts/init-gitea.sh"]
           volumeMounts:

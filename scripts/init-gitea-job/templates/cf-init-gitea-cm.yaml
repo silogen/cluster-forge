@@ -140,13 +140,30 @@ data:
     echo "Step 7: Creating values.yaml file with cluster-forge reference in cluster-values repo..."
     
     # Get the complete values file from the configmap created by bootstrap.sh
-    kubectl get configmap initial-cf-values -n cf-gitea -o jsonpath='{.data.initial-cf-values}' > /tmp/complete_values.yaml
-    
-    # Debug: Show what we got from the configmap
-    echo "DEBUG: Content of initial-cf-values configmap:"
-    head -20 /tmp/complete_values.yaml
-    echo "DEBUG: Checking for enabledApps section:"
-    yq eval '.enabledApps' /tmp/complete_values.yaml || echo "DEBUG: No enabledApps found"
+    echo "DEBUG: Checking if initial-cf-values configmap exists..."
+    if kubectl get configmap initial-cf-values -n cf-gitea >/dev/null 2>&1; then
+        echo "DEBUG: ConfigMap found, extracting data..."
+        kubectl get configmap initial-cf-values -n cf-gitea -o jsonpath='{.data.initial-cf-values}' > /tmp/complete_values.yaml
+        
+        # Debug: Show what we got from the configmap
+        echo "DEBUG: Content of initial-cf-values configmap (first 20 lines):"
+        head -20 /tmp/complete_values.yaml
+        echo "DEBUG: File size: $(wc -l < /tmp/complete_values.yaml) lines"
+        
+        # Install yq if not present (lightweight approach)
+        if ! command -v yq >/dev/null 2>&1; then
+            echo "DEBUG: Installing yq..."
+            wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+            chmod +x /usr/local/bin/yq
+        fi
+        
+        echo "DEBUG: Checking for enabledApps section:"
+        yq eval '.enabledApps' /tmp/complete_values.yaml || echo "DEBUG: No enabledApps found"
+        echo "DEBUG: EnabledApps count: $(yq eval '.enabledApps | length' /tmp/complete_values.yaml 2>/dev/null || echo 0)"
+    else
+        echo "ERROR: initial-cf-values configmap not found!"
+        exit 1
+    fi
     
     # Extract enabledApps and create enabledApps section with disabled apps commented out
     cat > /tmp/values.yaml << 'EOF'

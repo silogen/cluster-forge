@@ -572,8 +572,12 @@ bootstrap_gitea() {
   
   # Merge with size-specific values if they exist
   if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+    log_info "Merging with size-specific values: ${SIZE_VALUES_FILE}"
     yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' "${TEMP_DIR}/complete_values.yaml" "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${TEMP_DIR}/complete_values_merged.yaml"
     mv "${TEMP_DIR}/complete_values_merged.yaml" "${TEMP_DIR}/complete_values.yaml"
+    log_info "Merged values enabledApps count: $(yq eval '.enabledApps | length' "${TEMP_DIR}/complete_values.yaml" 2>/dev/null || echo "0")"
+  else
+    log_info "No size-specific values file to merge"
   fi
 
   # Note: We no longer remove disabled apps here since the GitEa init job will handle 
