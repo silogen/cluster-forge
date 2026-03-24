@@ -653,9 +653,23 @@ EOF
     helm_args+=("--values" "${temp_values_file}")
   fi
 
-  helm template "${helm_args[@]}" | apply_or_template -f -
+  # Check if gitea-init-job already completed successfully
+  local skip_job_wait=false
+  if [ "$TEMPLATE_ONLY" = false ] && kubectl get job gitea-init-job -n cf-gitea >/dev/null 2>&1; then
+    local existing_succeeded=$(kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.succeeded}' 2>/dev/null || echo "0")
+    if [ "$existing_succeeded" -gt 0 ]; then
+      log_info "Gitea init job already completed successfully, skipping creation and wait"
+      skip_job_wait=true
+    else
+      log_info "Existing gitea-init-job found but not completed, recreating..."
+      kubectl delete job gitea-init-job -n cf-gitea --ignore-not-found
+      helm template "${helm_args[@]}" | apply_or_template -f -
+    fi
+  else
+    helm template "${helm_args[@]}" | apply_or_template -f -
+  fi
   
-  if [ "$TEMPLATE_ONLY" = false ]; then
+  if [ "$TEMPLATE_ONLY" = false ] && [ "$skip_job_wait" = false ]; then
     log_info "Waiting for Gitea init job to complete..."
     
     # Wait for job to finish (either Complete or Failed)
@@ -663,63 +677,27 @@ EOF
     local elapsed=0
     local sleep_interval=5
     
-    while [ $elapsed -lt $timeout_seconds ]; do
-      # Check job completion using reliable status counters
-      local job_succeeded=$(kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.succeeded}' 2>/dev/null || echo "0")
-      local job_failed=$(kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.failed}' 2>/dev/null || echo "0")
-      
-      if [ "$job_succeeded" -gt 0 ]; then
-        log_info "Gitea init job completed successfully"
-        break
-      elif [ "$job_failed" -gt 0 ]; then
-        log_info "ERROR: Gitea init job failed after all retries"
-        
-        # Show failure details
-        log_info "Job conditions:"
-        kubectl describe job gitea-init-job -n cf-gitea | grep -A 10 "Conditions:"
-        
-        log_info "Pod logs:"
-        kubectl logs job/gitea-init-job -n cf-gitea --tail=30
-        
-        exit 1
-      else
-        # Check if we have too many failed pods (indicates persistent failure)
-        local failed_pod_count=$(kubectl get pods -n cf-gitea -l job-name=gitea-init-job --field-selector=status.phase=Failed --no-headers 2>/dev/null | wc -l)
-        
-        if [ "$failed_pod_count" -ge 3 ]; then
-          log_info "ERROR: Gitea init job has $failed_pod_count failed attempts"
-          log_info "This indicates a persistent failure. Exiting early instead of waiting for all retries."
-          
-          # Get the most recent failed pod logs
-          local latest_failed_pod=$(kubectl get pods -n cf-gitea -l job-name=gitea-init-job --field-selector=status.phase=Failed --sort-by='.metadata.creationTimestamp' --no-headers -o custom-columns=":metadata.name" | tail -n1)
-          
-          if [ -n "$latest_failed_pod" ]; then
-            log_info "Latest failed pod: $latest_failed_pod"
-            log_info "Pod logs:"
-            kubectl logs "$latest_failed_pod" -n cf-gitea --tail=50
-          fi
-          
-          log_info "All failed pods:"
-          kubectl get pods -n cf-gitea -l job-name=gitea-init-job --field-selector=status.phase=Failed --no-headers
-          
-          exit 1
-        fi
-      fi
-      
-      # Still running, wait a bit more
-      sleep $sleep_interval
-      elapsed=$((elapsed + sleep_interval))
-      
-      if [ $((elapsed % 30)) -eq 0 ]; then
-        log_info "Still waiting for Gitea init job... (${elapsed}s elapsed)"
-      fi
-    done
+    # Use kubectl wait for reliable job completion detection
+    log_info "Using kubectl wait to monitor job completion..."
     
-    # Check if we timed out
-    if [ $elapsed -ge $timeout_seconds ]; then
-      log_info "ERROR: Gitea init job timed out after ${timeout_seconds} seconds"
+    # Wait for either completion or failure with timeout
+    if kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea 2>/dev/null; then
+      log_info "Gitea init job completed successfully"
+    elif kubectl wait --for=condition=failed --timeout=5s job/gitea-init-job -n cf-gitea 2>/dev/null; then
+      log_info "ERROR: Gitea init job failed"
+      # Show failure details
+      log_info "Job conditions:"
+      kubectl describe job gitea-init-job -n cf-gitea | grep -A 10 "Conditions:"
       
-      # Show current status
+      log_info "Pod logs:"
+      kubectl logs job/gitea-init-job -n cf-gitea --tail=30
+      
+      exit 1
+    else
+      # If neither condition was met, the job might still be running or kubectl wait timed out
+      log_info "ERROR: Gitea init job did not complete within timeout"
+      
+      # Show current status for debugging
       log_info "Current job status:"
       kubectl describe job gitea-init-job -n cf-gitea
       
