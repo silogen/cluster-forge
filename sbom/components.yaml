@@ -66,7 +66,7 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   aiwb-infra-external-secrets:
-    path: eai-infra/aiwb-external-secrets/0.1.0
+    path: eai-infra/aiwb-external-secrets/0.1.1
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-external-secrets
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-external-secrets
@@ -269,9 +269,3 @@ components:
     projectUrl: https://github.com/prometheus-community/helm-charts
     license: Apache License 2.0
     licenseUrl: https://github.com/prometheus-community/helm-charts/blob/main/LICENSE
-  rabbitmq:
-    path: rabbitmq/v2.15.0
-    sourceUrl: https://github.com/rabbitmq/cluster-operator/releases/download/v2.15.0/cluster-operator.yml
-    projectUrl: https://github.com/rabbitmq/cluster-operator/
-    license: Mozilla Public License 2.0
-    licenseUrl: https://github.com/rabbitmq/cluster-operator/blob/main/LICENSE.txt
