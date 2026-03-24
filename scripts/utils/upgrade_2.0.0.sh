@@ -64,11 +64,15 @@ Waiting for ArgoCD applications to be deleted (15 min timeout)...
 EOF
 
 kubectl wait applications.argoproj.io -n argocd --for=delete --timeout=900s \
-  aim-cluster-model-source kaiwo kaiwo-crds kaiwo-config airm aiwb
+  aim-cluster-model-source aiwb kaiwo kaiwo-crds kaiwo-config
 
+# these deletions should occur before trying to remove airm
 kubectl delete aimclustermodel.aim.silogen.ai --all -A
 kubectl delete aimclustermodelsource.aim.silogen.ai --all -A
 kubectl delete aimclusterservicetemplates.aim.silogen.ai --all -A
+
+# remove AIRM application
+kubectl wait applications.argoproj.io -n argocd --for=delete --timeout=900s airm
 
 echo "All applications deleted, proceed with upgrade."
 echo ""

@@ -51,8 +51,6 @@ enabledApps:
   - opentelemetry-operator
   - otel-lgtm-stack
   - prometheus-crds
-  - rabbitmq
-
 
 apps:
   # Modular Kyverno policy applications (only the storage-local-path addition)
