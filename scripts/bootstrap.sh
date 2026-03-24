@@ -45,6 +45,22 @@ generate_password() {
   openssl rand -hex 16
 }
 
+# Generate enabledApps section with disabled apps commented out
+generate_enabled_apps_yaml() {
+  local values_file="$1"
+  local disabled_apps="$2"
+  
+  # Extract enabledApps list and generate YAML with commented disabled apps
+  while IFS= read -r app; do
+    [ -z "$app" ] && continue
+    if [ -n "$disabled_apps" ] && is_disabled_app "$app"; then
+      echo "    #- $app                    # Disabled by --disabled-apps"
+    else
+      echo "    - $app"
+    fi
+  done < <(yq eval '.enabledApps[]' "$values_file" 2>/dev/null || true)
+}
+
 # Check for required dependencies
 check_dependencies() {
   local silent="${1:-false}"
@@ -560,16 +576,10 @@ bootstrap_gitea() {
     mv "${TEMP_DIR}/complete_values_merged.yaml" "${TEMP_DIR}/complete_values.yaml"
   fi
 
-  # Remove disabled apps from enabledApps so ArgoCD won't deploy them
+  # Note: We no longer remove disabled apps here since the GitEa init job will handle 
+  # commenting them out in the values.yaml file that gets pushed to the GitEa repository
   if [ -n "$DISABLED_APPS" ]; then
-    log_info "Removing disabled apps from initial-cf-values..."
-    while IFS= read -r app; do
-      [ -z "$app" ] && continue
-      if is_disabled_app "$app"; then
-        log_info "  Disabling app: $app"
-        yq eval "del(.enabledApps[] | select(. == \"$app\"))" -i "${TEMP_DIR}/complete_values.yaml"
-      fi
-    done < <(yq eval '.enabledApps[]' "${TEMP_DIR}/complete_values.yaml" 2>/dev/null || true)
+    log_info "Disabled apps will be commented out in GitEa values.yaml: $DISABLED_APPS"
   fi
 
   kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$(cat "${TEMP_DIR}/complete_values.yaml")" --dry-run=client -o yaml | apply_or_template -n cf-gitea -f -
@@ -623,6 +633,11 @@ bootstrap_gitea() {
   # Only add airmImageRepository if AIRM_IMAGE_REPOSITORY is set and non-empty
   if [ -n "${AIRM_IMAGE_REPOSITORY:-}" ]; then
     HELM_ARGS="${HELM_ARGS} --set airmImageRepository=${AIRM_IMAGE_REPOSITORY}"
+  fi
+  
+  # Only add disabledApps if DISABLED_APPS is set and non-empty
+  if [ -n "${DISABLED_APPS:-}" ]; then
+    HELM_ARGS="${HELM_ARGS} --set disabledApps=${DISABLED_APPS}"
   fi
 
   helm template ${HELM_ARGS} | apply_or_template -f -
