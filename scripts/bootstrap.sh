@@ -580,10 +580,10 @@ bootstrap_gitea() {
     log_info "No size-specific values file to merge"
   fi
 
-  # Note: We no longer remove disabled apps here since the GitEa init job will handle 
-  # commenting them out in the values.yaml file that gets pushed to the GitEa repository
+  # Note: We no longer remove disabled apps here since the Gitea init job will handle 
+  # commenting them out in the values.yaml file that gets pushed to the Gitea repository
   if [ -n "$DISABLED_APPS" ]; then
-    log_info "Disabled apps will be commented out in GitEa values.yaml: $DISABLED_APPS"
+    log_info "Disabled apps will be commented out in Gitea values.yaml: $DISABLED_APPS"
   fi
 
   kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$(cat "${TEMP_DIR}/complete_values.yaml")" --dry-run=client -o yaml | apply_or_template -n cf-gitea -f -
@@ -656,7 +656,7 @@ EOF
   helm template "${helm_args[@]}" | apply_or_template -f -
   
   if [ "$TEMPLATE_ONLY" = false ]; then
-    log_info "Waiting for GitEa init job to complete..."
+    log_info "Waiting for Gitea init job to complete..."
     
     # Wait for job to finish (either Complete or Failed)
     local timeout_seconds=300  # 5 minutes
@@ -668,10 +668,10 @@ EOF
       local job_status=$(kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.conditions[0].type}' 2>/dev/null || echo "")
       
       if [ "$job_status" = "Complete" ]; then
-        log_info "GitEa init job completed successfully"
+        log_info "Gitea init job completed successfully"
         break
       elif [ "$job_status" = "Failed" ]; then
-        log_info "ERROR: GitEa init job failed"
+        log_info "ERROR: Gitea init job failed"
         
         # Show failure details
         log_info "Job conditions:"
@@ -688,13 +688,13 @@ EOF
       elapsed=$((elapsed + sleep_interval))
       
       if [ $((elapsed % 30)) -eq 0 ]; then
-        log_info "Still waiting for GitEa init job... (${elapsed}s elapsed)"
+        log_info "Still waiting for Gitea init job... (${elapsed}s elapsed)"
       fi
     done
     
     # Check if we timed out
     if [ $elapsed -ge $timeout_seconds ]; then
-      log_info "ERROR: GitEa init job timed out after ${timeout_seconds} seconds"
+      log_info "ERROR: Gitea init job timed out after ${timeout_seconds} seconds"
       
       # Show current status
       log_info "Current job status:"
