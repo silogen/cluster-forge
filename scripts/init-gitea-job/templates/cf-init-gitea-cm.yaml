@@ -161,16 +161,18 @@ data:
       domain: DOMAIN_PLACEHOLDER
     
     # Applications enabled for this cluster
+    # This overrides the enabledApps from size-specific values to exclude disabled apps
     enabledApps:
     EOF
     
-    # Generate enabledApps section with disabled apps commented out
+    # Get the complete app list from the merged values (which includes size-specific enabledApps)
     {{- if .Values.disabledApps }}
-    echo "DEBUG: Processing with disabled apps: {{ .Values.disabledApps }}"
-    # Process enabledApps with disabled apps commented out
+    echo "DEBUG: Filtering out disabled apps: {{ .Values.disabledApps }}"
+    # Process enabledApps with disabled apps filtered out completely
     yq eval '.enabledApps[]' /tmp/complete_values.yaml | while IFS= read -r app; do
       if echo "{{ .Values.disabledApps }}" | grep -E "(^|,)${app}(,|$)" >/dev/null 2>&1; then
-        echo "DEBUG: Commenting out disabled app: $app"
+        echo "DEBUG: Excluding disabled app: $app"
+        # Add as comment for documentation
         echo "  #- $app                    # Disabled by --disabled-apps" >> /tmp/values.yaml
       else
         echo "DEBUG: Including enabled app: $app"
@@ -179,7 +181,7 @@ data:
     done
     {{- else }}
     echo "DEBUG: No disabled apps specified, including all apps normally"
-    # No disabled apps, include all enabledApps normally  
+    # No disabled apps, include all enabledApps from merged values
     yq eval '.enabledApps[]' /tmp/complete_values.yaml | while IFS= read -r app; do
       echo "DEBUG: Adding app: $app"
       echo "  - $app" >> /tmp/values.yaml
