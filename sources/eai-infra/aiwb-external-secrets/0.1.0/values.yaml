@@ -17,11 +17,11 @@ frontend:
 
 keycloak:
   secretName: "aiwb-ui-keycloak-secret"
-  userCredentialsSecretName: "aiwb-user-credentials"
 
 # MinIO configuration
 minio:
   credentialsSecretName: "aiwb-minio-credentials"
+  workloadCredentialsSecretName: "minio-credentials"
   accessKeyKey: "minio-access-key"
   secretKeyKey: "minio-secret-key"
 
