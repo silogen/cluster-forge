@@ -671,7 +671,7 @@ EOF
         log_info "Gitea init job completed successfully"
         break
       elif [ "$job_status" = "Failed" ]; then
-        log_info "ERROR: Gitea init job failed"
+        log_info "ERROR: Gitea init job failed after all retries"
         
         # Show failure details
         log_info "Job conditions:"
@@ -681,6 +681,26 @@ EOF
         kubectl logs job/gitea-init-job -n cf-gitea --tail=30
         
         exit 1
+      else
+        # Check if any pod failed with exit code 1 (our validation error)
+        local failed_pod=$(kubectl get pods -n cf-gitea -l job-name=gitea-init-job -o jsonpath='{.items[?(@.status.containerStatuses[0].state.terminated.exitCode==1)].metadata.name}' | head -n1)
+        
+        if [ -n "$failed_pod" ]; then
+          log_info "ERROR: Gitea init job failed with validation error"
+          
+          log_info "Failed pod: $failed_pod"
+          log_info "Pod logs:"
+          kubectl logs "$failed_pod" -n cf-gitea --tail=50
+          
+          # Check if it's our validation error
+          if kubectl logs "$failed_pod" -n cf-gitea | grep -q "did not match any applications"; then
+            log_info "This appears to be a disabled-apps validation error."
+            log_info "The job will continue retrying but will keep failing."
+            log_info "Exiting early to avoid waiting for all retries."
+          fi
+          
+          exit 1
+        fi
       fi
       
       # Still running, wait a bit more
