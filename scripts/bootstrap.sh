@@ -664,13 +664,14 @@ EOF
     local sleep_interval=5
     
     while [ $elapsed -lt $timeout_seconds ]; do
-      # Check job status
-      local job_status=$(kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.conditions[0].type}' 2>/dev/null || echo "")
+      # Check job completion using reliable status counters
+      local job_succeeded=$(kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.succeeded}' 2>/dev/null || echo "0")
+      local job_failed=$(kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.failed}' 2>/dev/null || echo "0")
       
-      if [ "$job_status" = "Complete" ]; then
+      if [ "$job_succeeded" -gt 0 ]; then
         log_info "Gitea init job completed successfully"
         break
-      elif [ "$job_status" = "Failed" ]; then
+      elif [ "$job_failed" -gt 0 ]; then
         log_info "ERROR: Gitea init job failed after all retries"
         
         # Show failure details
