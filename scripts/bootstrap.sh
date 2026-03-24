@@ -657,35 +657,54 @@ EOF
   
   if [ "$TEMPLATE_ONLY" = false ]; then
     log_info "Waiting for GitEa init job to complete..."
-    if ! kubectl wait --for=condition=complete --timeout="${DEFAULT_TIMEOUT}" job/gitea-init-job -n cf-gitea; then
-      log_info "ERROR: GitEa init job failed or timed out"
-      
-      # Show job status and logs for debugging
-      log_info "Job status:"
-      kubectl describe job gitea-init-job -n cf-gitea | grep -A 5 "Conditions:"
-      
-      log_info "Last 20 lines of job logs:"
-      kubectl logs job/gitea-init-job -n cf-gitea --tail=20
-      
-      exit 1
-    fi
     
-    # Check if job succeeded (exit code 0)
-    job_status=$(kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.conditions[0].type}')
-    if [ "$job_status" != "Complete" ]; then
-      log_info "ERROR: GitEa init job did not complete successfully"
+    # Wait for job to finish (either Complete or Failed)
+    local timeout_seconds=300  # 5 minutes
+    local elapsed=0
+    local sleep_interval=5
+    
+    while [ $elapsed -lt $timeout_seconds ]; do
+      # Check job status
+      local job_status=$(kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.conditions[0].type}' 2>/dev/null || echo "")
       
-      # Show failure details
-      log_info "Job conditions:"
-      kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.conditions[*]}' | jq '.'
+      if [ "$job_status" = "Complete" ]; then
+        log_info "GitEa init job completed successfully"
+        break
+      elif [ "$job_status" = "Failed" ]; then
+        log_info "ERROR: GitEa init job failed"
+        
+        # Show failure details
+        log_info "Job conditions:"
+        kubectl describe job gitea-init-job -n cf-gitea | grep -A 10 "Conditions:"
+        
+        log_info "Pod logs:"
+        kubectl logs job/gitea-init-job -n cf-gitea --tail=30
+        
+        exit 1
+      fi
+      
+      # Still running, wait a bit more
+      sleep $sleep_interval
+      elapsed=$((elapsed + sleep_interval))
+      
+      if [ $((elapsed % 30)) -eq 0 ]; then
+        log_info "Still waiting for GitEa init job... (${elapsed}s elapsed)"
+      fi
+    done
+    
+    # Check if we timed out
+    if [ $elapsed -ge $timeout_seconds ]; then
+      log_info "ERROR: GitEa init job timed out after ${timeout_seconds} seconds"
+      
+      # Show current status
+      log_info "Current job status:"
+      kubectl describe job gitea-init-job -n cf-gitea
       
       log_info "Pod logs:"
-      kubectl logs job/gitea-init-job -n cf-gitea
+      kubectl logs job/gitea-init-job -n cf-gitea --tail=50
       
       exit 1
     fi
-    
-    log_info "GitEa init job completed successfully"
   fi
   
   # Cleanup temp directory
