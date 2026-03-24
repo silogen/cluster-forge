@@ -624,23 +624,26 @@ bootstrap_gitea() {
   fi
   
   # Gitea Init Job - preserve AIRM repository functionality
-  HELM_ARGS="--release-name gitea-init ${SOURCE_ROOT}/scripts/init-gitea-job \
-  --set clusterSize=${SIZE_VALUES_FILE:-values_${CLUSTER_SIZE}.yaml} \
-  --set domain=${DOMAIN} \
-  --set targetRevision=${TARGET_REVISION} \
-  --kube-version=${KUBE_VERSION}"
+  local helm_args=(
+    "--release-name" "gitea-init"
+    "${SOURCE_ROOT}/scripts/init-gitea-job"
+    "--set" "clusterSize=${SIZE_VALUES_FILE:-values_${CLUSTER_SIZE}.yaml}"
+    "--set" "domain=${DOMAIN}"
+    "--set" "targetRevision=${TARGET_REVISION}"
+    "--kube-version=${KUBE_VERSION}"
+  )
 
   # Only add airmImageRepository if AIRM_IMAGE_REPOSITORY is set and non-empty
   if [ -n "${AIRM_IMAGE_REPOSITORY:-}" ]; then
-    HELM_ARGS="${HELM_ARGS} --set airmImageRepository=${AIRM_IMAGE_REPOSITORY}"
+    helm_args+=("--set" "airmImageRepository=${AIRM_IMAGE_REPOSITORY}")
   fi
   
   # Only add disabledApps if DISABLED_APPS is set and non-empty
   if [ -n "${DISABLED_APPS:-}" ]; then
-    HELM_ARGS="${HELM_ARGS} --set disabledApps=${DISABLED_APPS}"
+    helm_args+=("--set" "disabledApps=${DISABLED_APPS}")
   fi
 
-  helm template ${HELM_ARGS} | apply_or_template -f -
+  helm template "${helm_args[@]}" | apply_or_template -f -
   
   if [ "$TEMPLATE_ONLY" = false ]; then
     kubectl wait --for=condition=complete --timeout="${DEFAULT_TIMEOUT}" job/gitea-init-job -n cf-gitea
