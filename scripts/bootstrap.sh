@@ -642,9 +642,15 @@ bootstrap_gitea() {
     helm_args+=("--set" "airmImageRepository=${AIRM_IMAGE_REPOSITORY}")
   fi
   
-  # Only add disabledApps if DISABLED_APPS is set and non-empty
+  # Create temporary values file for disabledApps if needed
+  local temp_values_file=""
   if [ -n "${DISABLED_APPS:-}" ]; then
-    helm_args+=("--set-string" "disabledApps=${DISABLED_APPS}")
+    temp_values_file=$(mktemp -t gitea-disabled-apps.XXXXXX)
+    CLEANUP_DIRS+=("${temp_values_file}")
+    cat > "${temp_values_file}" << EOF
+disabledApps: "${DISABLED_APPS}"
+EOF
+    helm_args+=("--values" "${temp_values_file}")
   fi
 
   helm template "${helm_args[@]}" | apply_or_template -f -
