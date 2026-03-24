@@ -66,7 +66,7 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   aiwb-infra-external-secrets:
-    path: eai-infra/aiwb-external-secrets/0.1.0
+    path: eai-infra/aiwb-external-secrets/0.1.1
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-external-secrets
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-external-secrets
