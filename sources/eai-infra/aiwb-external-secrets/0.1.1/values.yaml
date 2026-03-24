@@ -21,7 +21,7 @@ keycloak:
 
 # MinIO configuration
 minio:
-  credentialsSecretName: "aiwb-minio-credentials"
+  credentialsSecretName: "minio-credentials"
   accessKeyKey: "minio-access-key"
   secretKeyKey: "minio-secret-key"
 
