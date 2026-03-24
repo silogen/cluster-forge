@@ -677,32 +677,76 @@ EOF
     local elapsed=0
     local sleep_interval=5
     
-    # Use kubectl wait for reliable job completion detection
-    log_info "Using kubectl wait to monitor job completion..."
+    # Hybrid approach: kubectl wait with early failure detection
+    log_info "Monitoring job completion with early failure detection..."
     
-    # Wait for either completion or failure with timeout
-    if kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea 2>/dev/null; then
+    # Start kubectl wait in background for success detection
+    kubectl wait --for=condition=complete --timeout=300s job/gitea-init-job -n cf-gitea 2>/dev/null &
+    local wait_pid=$!
+    
+    # Monitor for early failure indicators
+    while kill -0 $wait_pid 2>/dev/null; do
+      # Check for too many failed pods (early exit)
+      local failed_pod_count=$(kubectl get pods -n cf-gitea -l job-name=gitea-init-job --field-selector=status.phase=Failed --no-headers 2>/dev/null | wc -l)
+      
+      if [ "$failed_pod_count" -ge 3 ]; then
+        # Kill the background wait and exit early
+        kill $wait_pid 2>/dev/null || true
+        wait $wait_pid 2>/dev/null || true
+        
+        log_info "ERROR: Gitea init job has $failed_pod_count failed attempts"
+        log_info "This indicates a persistent failure. Exiting early instead of waiting for all retries."
+        
+        # Get the most recent failed pod logs
+        local latest_failed_pod=$(kubectl get pods -n cf-gitea -l job-name=gitea-init-job --field-selector=status.phase=Failed --sort-by='.metadata.creationTimestamp' --no-headers -o custom-columns=":metadata.name" | tail -n1)
+        
+        if [ -n "$latest_failed_pod" ]; then
+          log_info "Latest failed pod: $latest_failed_pod"
+          log_info "Pod logs:"
+          kubectl logs "$latest_failed_pod" -n cf-gitea --tail=50
+        fi
+        
+        log_info "All failed pods:"
+        kubectl get pods -n cf-gitea -l job-name=gitea-init-job --field-selector=status.phase=Failed --no-headers
+        
+        exit 1
+      fi
+      
+      # Brief sleep before checking again
+      sleep 5
+      elapsed=$((elapsed + 5))
+      
+      # Progress logging every 30 seconds
+      if [ $((elapsed % 30)) -eq 0 ]; then
+        log_info "Still waiting for Gitea init job... (${elapsed}s elapsed)"
+      fi
+    done
+    
+    # kubectl wait completed, check the result
+    if wait $wait_pid; then
       log_info "Gitea init job completed successfully"
-    elif kubectl wait --for=condition=failed --timeout=5s job/gitea-init-job -n cf-gitea 2>/dev/null; then
-      log_info "ERROR: Gitea init job failed"
-      # Show failure details
-      log_info "Job conditions:"
-      kubectl describe job gitea-init-job -n cf-gitea | grep -A 10 "Conditions:"
-      
-      log_info "Pod logs:"
-      kubectl logs job/gitea-init-job -n cf-gitea --tail=30
-      
-      exit 1
     else
-      # If neither condition was met, the job might still be running or kubectl wait timed out
-      log_info "ERROR: Gitea init job did not complete within timeout"
-      
-      # Show current status for debugging
-      log_info "Current job status:"
-      kubectl describe job gitea-init-job -n cf-gitea
-      
-      log_info "Pod logs:"
-      kubectl logs job/gitea-init-job -n cf-gitea --tail=50
+      # Job failed or timed out
+      local job_failed=$(kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.failed}' 2>/dev/null || echo "0")
+      if [ "$job_failed" -gt 0 ]; then
+        log_info "ERROR: Gitea init job failed after all retries"
+        
+        # Show failure details
+        log_info "Job conditions:"
+        kubectl describe job gitea-init-job -n cf-gitea | grep -A 10 "Conditions:"
+        
+        log_info "Pod logs:"
+        kubectl logs job/gitea-init-job -n cf-gitea --tail=30
+      else
+        log_info "ERROR: Gitea init job timed out"
+        
+        # Show current status
+        log_info "Current job status:"
+        kubectl describe job gitea-init-job -n cf-gitea
+        
+        log_info "Pod logs:"
+        kubectl logs job/gitea-init-job -n cf-gitea --tail=50
+      fi
       
       exit 1
     fi
