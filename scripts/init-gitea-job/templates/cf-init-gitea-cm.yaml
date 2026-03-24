@@ -148,7 +148,52 @@ data:
     global:
       clusterSize: {{ .Values.clusterSize }}
       domain: DOMAIN_PLACEHOLDER
+    EOF
+    
+    # Add enabledApps section with disabled apps commented out if applicable
+    {{- if gt (len .Values.disabledApps) 0 }}
+    echo "" >> /tmp/values.yaml
+    echo "# Enabled apps (apps commented below were disabled via --disabled-apps flag)" >> /tmp/values.yaml
+    echo "enabledApps:" >> /tmp/values.yaml
+    
+    # Get the full list of enabled apps from the initial configmap
+    ENABLED_APPS=$(kubectl get configmap initial-cf-values -n cf-gitea -o jsonpath='{.data.initial-cf-values}' | yq eval '.enabledApps[]' -)
+    
+    # Create disabled apps lookup
+    {{- range .Values.disabledApps }}
+    DISABLED_APP_{{ . | replace "-" "_" | upper }}=1
+    {{- end }}
+    
+    # Process each enabled app
+    while IFS= read -r app; do
+      [ -z "$app" ] && continue
+      
+      # Check if this app is disabled (using variable indirection pattern)
+      is_disabled=false
+      {{- range .Values.disabledApps }}
+      if [ "$app" = "{{ . }}" ]; then
+        is_disabled=true
+      fi
+      {{- end }}
+      
+      if [ "$is_disabled" = true ]; then
+        echo "  # - $app  # disabled" >> /tmp/values.yaml
+      else
+        echo "  - $app" >> /tmp/values.yaml
+      fi
+    done <<< "$ENABLED_APPS"
+    {{- else }}
+    # No disabled apps, use all enabled apps from initial values
+    echo "" >> /tmp/values.yaml
+    echo "enabledApps:" >> /tmp/values.yaml
+    kubectl get configmap initial-cf-values -n cf-gitea -o jsonpath='{.data.initial-cf-values}' | yq eval '.enabledApps[]' - | while IFS= read -r app; do
+      [ -z "$app" ] && continue
+      echo "  - $app" >> /tmp/values.yaml
+    done
+    {{- end }}
+    
     {{- if .Values.airmImageRepository }}
+    cat >> /tmp/values.yaml << 'AIRM_EOF'
 
     # AIRM Image Repository Configuration
     apps:
@@ -175,8 +220,8 @@ data:
           # AGENT (airm-agent)
           - name: agent.airm.imagePullSecrets[0].name
             value: regcred
+    AIRM_EOF
     {{- end }}
-    EOF
     
     sed -i "s/DOMAIN_PLACEHOLDER/${DOMAIN}/g" /tmp/values.yaml
     

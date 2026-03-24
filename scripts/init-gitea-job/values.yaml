@@ -8,3 +8,6 @@ targetRevision: v1.8.0-rc4
 # Base image repository for AIRM components (injected by bootstrap script when specified)
 # Example: "ghcr.io/silogen"
 airmImageRepository: null
+# List of apps to disable (injected by bootstrap script when --disabled-apps flag is used)
+# Example: ["airm", "airm-infra-rabbitmq"]
+disabledApps: []
