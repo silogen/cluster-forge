@@ -142,6 +142,12 @@ data:
     # Get the complete values file from the configmap created by bootstrap.sh
     kubectl get configmap initial-cf-values -n cf-gitea -o jsonpath='{.data.initial-cf-values}' > /tmp/complete_values.yaml
     
+    # Debug: Show what we got from the configmap
+    echo "DEBUG: Content of initial-cf-values configmap:"
+    head -20 /tmp/complete_values.yaml
+    echo "DEBUG: Checking for enabledApps section:"
+    yq eval '.enabledApps' /tmp/complete_values.yaml || echo "DEBUG: No enabledApps found"
+    
     # Extract enabledApps and create enabledApps section with disabled apps commented out
     cat > /tmp/values.yaml << 'EOF'
     clusterForge:
@@ -160,17 +166,24 @@ data:
     
     # Generate enabledApps section with disabled apps commented out
     {{- if .Values.disabledApps }}
+    echo "DEBUG: Processing with disabled apps: {{ .Values.disabledApps }}"
     # Process enabledApps with disabled apps commented out
     yq eval '.enabledApps[]' /tmp/complete_values.yaml | while IFS= read -r app; do
       if echo "{{ .Values.disabledApps }}" | grep -E "(^|,)${app}(,|$)" >/dev/null 2>&1; then
+        echo "DEBUG: Commenting out disabled app: $app"
         echo "  #- $app                    # Disabled by --disabled-apps" >> /tmp/values.yaml
       else
+        echo "DEBUG: Including enabled app: $app"
         echo "  - $app" >> /tmp/values.yaml
       fi
     done
     {{- else }}
+    echo "DEBUG: No disabled apps specified, including all apps normally"
     # No disabled apps, include all enabledApps normally  
-    yq eval '.enabledApps[]' /tmp/complete_values.yaml | sed 's/^/  - /' >> /tmp/values.yaml
+    yq eval '.enabledApps[]' /tmp/complete_values.yaml | while IFS= read -r app; do
+      echo "DEBUG: Adding app: $app"
+      echo "  - $app" >> /tmp/values.yaml
+    done
     {{- end }}
     
     {{- if .Values.airmImageRepository }}
@@ -207,6 +220,10 @@ data:
     {{- end }}
     
     sed -i "s/DOMAIN_PLACEHOLDER/${DOMAIN}/g" /tmp/values.yaml
+    
+    # Debug: Show final values.yaml content
+    echo "DEBUG: Final values.yaml content:"
+    cat /tmp/values.yaml
     
     curl -X POST "${GITEA_URL}/api/v1/repos/cluster-org/cluster-values/contents/values.yaml" \
       -H "Authorization: token ${GITEA_TOKEN}" \
