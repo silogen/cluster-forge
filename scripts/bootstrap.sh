@@ -24,6 +24,7 @@ trap cleanup EXIT
 APPS=""
 CLUSTER_SIZE="medium"  # Default to medium
 DEFAULT_TIMEOUT="5m"
+DISABLED_APPS=""
 DOMAIN=""
 KUBE_VERSION=1.33
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -225,6 +226,10 @@ parse_args() {
           APPS="${1#*=}"
           shift
           ;;
+        --disabled-apps=*)
+          DISABLED_APPS="${1#*=}"
+          shift
+          ;;
         --airm-image-repository)
           if [ -z "$2" ]; then
             echo "ERROR: --airm-image-repository requires an argument"
@@ -249,8 +254,9 @@ parse_args() {
           --airm-image-repository=url        Custom AIRM image repository for gitea-init job (e.g., ghcr.io/silogen, requires regcreds)
           --apps=app1[,app2,...]             Deploy (kubectl apply) specified components onlye
                                              options: namespaces, argocd, openbao, gitea, cluster-forge, or any cluster-forge child app (see values.yaml for app names)
-                                             
           --cluster-size=[size],      -s     [size] can be one of small|medium|large, default: medium
+          --disabled-apps=app1[,app2,...]    Exclude specific apps from enabledApps in cluster-values (comma-separated)
+                                             Apps must be in the enabled list for the selected cluster size
           --help,                     -h     Show this help message and exit
           --skip-deps                        Skip dependency checking (not recommended)
           --target-revision,          -r     Git revision for ArgoCD to sync from, [tag|commit_hash|branch_name], default: $LATEST_RELEASE
@@ -264,6 +270,8 @@ parse_args() {
           $0 dev.example.com -s=small -r=feature-branch
           $0 example.com --apps=openbao
           $0 example.com --apps=keycloak -t
+          $0 example.com --disabled-apps=airm,airm-infra-rabbitmq
+          $0 example.com --cluster-size=large --disabled-apps=amd-gpu-operator,amd-gpu-operator-config
           
         Bootstrap Behavior:
           • deploys ArgoCD + OpenBao + Gitea directly (essential infrastructure)
@@ -322,6 +330,28 @@ validate_args() {
   
   SOURCE_ROOT="${SCRIPT_DIR}/.."
   setup_values_files
+  
+  # Validate disabled apps if specified
+  if [ -n "${DISABLED_APPS}" ]; then
+    # Early validation: check disabled apps exist in enabled list
+    local enabled_apps_list=$(yq eval '.enabledApps[]' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" 2>/dev/null)
+    IFS=',' read -ra disabled_apps_check <<< "${DISABLED_APPS}"
+    
+    for disabled_app in "${disabled_apps_check[@]}"; do
+      disabled_app=$(echo "$disabled_app" | xargs)  # Trim whitespace
+      
+      # Check if app is in enabled list
+      if ! echo "$enabled_apps_list" | grep -q "^${disabled_app}$"; then
+        echo "ERROR: Cannot disable app '${disabled_app}' - it is not in the enabled apps list for cluster size '${CLUSTER_SIZE}'"
+        echo ""
+        echo "Enabled apps for ${CLUSTER_SIZE}:"
+        echo "$enabled_apps_list" | sed 's/^/  - /'
+        exit 1
+      fi
+    done
+    
+    log_info "Validated disabled apps: ${DISABLED_APPS}"
+  fi
 }
 
 # Check if size-specific values file exists - matching main approach
@@ -349,8 +379,13 @@ print_summary() {
   Base values: $VALUES_FILE
   Cluster size: $CLUSTER_SIZE
   Target revision: $TARGET_REVISION
-
 SUMMARY_OUTPUT
+
+  if [ -n "${DISABLED_APPS}" ]; then
+    echo "  Disabled apps: $DISABLED_APPS"
+  fi
+  
+  echo ""
 }
 
 # Returns 0 if the given app should be run (no filter set, or app is in APPS list)
@@ -486,6 +521,89 @@ bootstrap_openbao() {
   rm -rf "${TEMP_DIR}"
 }
 
+# Process enabled apps and disabled apps for cluster-values initialization
+process_enabled_apps() {
+  local size_values_file="${1}"
+  
+  # Extract enabled apps from size-specific values file
+  if [ -z "${size_values_file}" ] || [ ! -f "${SOURCE_ROOT}/root/${size_values_file}" ]; then
+    log_info "ERROR: Size-specific values file not found: ${size_values_file}"
+    exit 1
+  fi
+  
+  # Read enabled apps from size values file into an array
+  local enabled_apps=()
+  while IFS= read -r line; do
+    # Remove leading/trailing whitespace and "-" prefix
+    local app=$(echo "$line" | sed 's/^[[:space:]]*-[[:space:]]*//' | sed 's/[[:space:]]*$//')
+    if [ -n "$app" ]; then
+      enabled_apps+=("$app")
+    fi
+  done < <(yq eval '.enabledApps[]' "${SOURCE_ROOT}/root/${size_values_file}" 2>/dev/null)
+  
+  if [ ${#enabled_apps[@]} -eq 0 ]; then
+    log_info "WARNING: No enabled apps found in ${size_values_file}"
+  fi
+  
+  # Process disabled apps if specified
+  if [ -n "${DISABLED_APPS}" ]; then
+    log_info "Processing disabled apps: ${DISABLED_APPS}"
+    
+    # Convert disabled apps to array
+    IFS=',' read -ra disabled_apps_array <<< "${DISABLED_APPS}"
+    
+    # Validate that each disabled app is in the enabled list
+    for disabled_app in "${disabled_apps_array[@]}"; do
+      # Trim whitespace
+      disabled_app=$(echo "$disabled_app" | xargs)
+      
+      # Check if app is in enabled list (exact match)
+      local found=false
+      for enabled_app in "${enabled_apps[@]}"; do
+        if [ "$enabled_app" = "$disabled_app" ]; then
+          found=true
+          break
+        fi
+      done
+      
+      if [ "$found" = false ]; then
+        echo "ERROR: Cannot disable app '${disabled_app}' - it is not in the enabled apps list for cluster size '${CLUSTER_SIZE}'"
+        echo ""
+        echo "Enabled apps for ${CLUSTER_SIZE}:"
+        printf "  - %s\n" "${enabled_apps[@]}"
+        exit 1
+      fi
+    done
+    
+    # Filter out disabled apps from enabled list
+    local filtered_apps=()
+    for enabled_app in "${enabled_apps[@]}"; do
+      local should_exclude=false
+      for disabled_app in "${disabled_apps_array[@]}"; do
+        disabled_app=$(echo "$disabled_app" | xargs)
+        if [ "$enabled_app" = "$disabled_app" ]; then
+          should_exclude=true
+          break
+        fi
+      done
+      
+      if [ "$should_exclude" = false ]; then
+        filtered_apps+=("$enabled_app")
+      fi
+    done
+    
+    # Export results as global variables for use in other functions
+    FILTERED_ENABLED_APPS=("${filtered_apps[@]}")
+    DISABLED_APPS_ARRAY=("${disabled_apps_array[@]}")
+    
+    log_info "Filtered enabled apps (${#filtered_apps[@]} apps after excluding ${#disabled_apps_array[@]})"
+  else
+    # No disabled apps, use all enabled apps
+    FILTERED_ENABLED_APPS=("${enabled_apps[@]}")
+    DISABLED_APPS_ARRAY=()
+    log_info "Using all enabled apps from ${size_values_file} (${#enabled_apps[@]} apps)"
+  fi
+}
 
 
 bootstrap_gitea() {
@@ -496,6 +614,16 @@ bootstrap_gitea() {
   log_info "Debug: VALUES_FILE='${VALUES_FILE}'"
   log_info "Debug: SIZE_VALUES_FILE='${SIZE_VALUES_FILE}'"
   log_info "Debug: CLUSTER_SIZE='${CLUSTER_SIZE}'"
+  
+  # Process enabled/disabled apps if disabled apps are specified
+  if [ -n "${DISABLED_APPS}" ]; then
+    if [ -n "${SIZE_VALUES_FILE}" ]; then
+      process_enabled_apps "${SIZE_VALUES_FILE}"
+    else
+      log_info "ERROR: Cannot process disabled apps without a size-specific values file"
+      exit 1
+    fi
+  fi
   
   # Get Gitea version from app path - matching main approach
   GITEA_VERSION=$(yq eval '.apps.gitea.path' "${SOURCE_ROOT}/root/${VALUES_FILE}" | cut -d'/' -f2)
@@ -523,6 +651,22 @@ bootstrap_gitea() {
   if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
     yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' "${TEMP_DIR}/complete_values.yaml" "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${TEMP_DIR}/complete_values_merged.yaml"
     mv "${TEMP_DIR}/complete_values_merged.yaml" "${TEMP_DIR}/complete_values.yaml"
+  fi
+  
+  # Filter enabledApps if disabled apps were specified
+  if [ -n "${DISABLED_APPS}" ] && [ ${#FILTERED_ENABLED_APPS[@]} -gt 0 ]; then
+    log_info "Filtering enabledApps in initial-cf-values ConfigMap"
+    
+    # Clear the existing enabledApps array and rebuild with filtered list
+    yq eval 'del(.enabledApps)' -i "${TEMP_DIR}/complete_values.yaml"
+    yq eval '.enabledApps = []' -i "${TEMP_DIR}/complete_values.yaml"
+    
+    # Add each filtered app to the enabledApps array
+    for app in "${FILTERED_ENABLED_APPS[@]}"; do
+      yq eval ".enabledApps += [\"$app\"]" -i "${TEMP_DIR}/complete_values.yaml"
+    done
+    
+    log_info "Filtered enabledApps: ${#FILTERED_ENABLED_APPS[@]} apps (excluded: ${DISABLED_APPS})"
   fi
   
   kubectl create configmap initial-cf-values --from-literal=initial-cf-values="$(cat "${TEMP_DIR}/complete_values.yaml")" --dry-run=client -o yaml | apply_or_template -n cf-gitea -f -
@@ -576,6 +720,17 @@ bootstrap_gitea() {
   # Only add airmImageRepository if AIRM_IMAGE_REPOSITORY is set and non-empty
   if [ -n "${AIRM_IMAGE_REPOSITORY:-}" ]; then
     HELM_ARGS="${HELM_ARGS} --set airmImageRepository=${AIRM_IMAGE_REPOSITORY}"
+  fi
+  
+  # Pass disabled apps if specified (using array index notation)
+  if [ -n "${DISABLED_APPS}" ] && [ ${#DISABLED_APPS_ARRAY[@]} -gt 0 ]; then
+    local i=0
+    for app in "${DISABLED_APPS_ARRAY[@]}"; do
+      app=$(echo "$app" | xargs)  # Trim whitespace
+      HELM_ARGS="${HELM_ARGS} --set disabledApps[$i]=${app}"
+      i=$((i + 1))
+    done
+    log_info "Passing ${#DISABLED_APPS_ARRAY[@]} disabled apps to init-gitea-job"
   fi
 
   helm template ${HELM_ARGS} | apply_or_template -f -
@@ -662,6 +817,15 @@ is_cluster_forge_child_app() {
 
 main() {
   parse_args "$@"
+  
+  # Validate incompatible flag combinations
+  if [ -n "$APPS" ] && [ -n "$DISABLED_APPS" ]; then
+    echo "ERROR: Cannot use --apps and --disabled-apps together"
+    echo "The --apps flag deploys specific apps, while --disabled-apps filters the full enabledApps list"
+    echo "These flags serve different purposes and cannot be combined"
+    exit 1
+  fi
+  
   # Use silent dependency check when using --apps or template mode for cleaner output
   if [ -z "$APPS" ] && [ "$TEMPLATE_ONLY" = false ]; then
     if [ "$SKIP_DEPENDENCY_CHECK" = false ]; then
