@@ -333,12 +333,6 @@ validate_args() {
   
   # Validate disabled apps if specified
   if [ -n "${DISABLED_APPS}" ]; then
-    # Check that we have a size values file to validate against
-    if [ -z "${SIZE_VALUES_FILE}" ] || [ ! -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
-      echo "ERROR: Cannot use --disabled-apps without a valid size-specific values file"
-      exit 1
-    fi
-    
     # Early validation: check disabled apps exist in enabled list
     local enabled_apps_list=$(yq eval '.enabledApps[]' "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" 2>/dev/null)
     IFS=',' read -ra disabled_apps_check <<< "${DISABLED_APPS}"
