@@ -656,7 +656,36 @@ EOF
   helm template "${helm_args[@]}" | apply_or_template -f -
   
   if [ "$TEMPLATE_ONLY" = false ]; then
-    kubectl wait --for=condition=complete --timeout="${DEFAULT_TIMEOUT}" job/gitea-init-job -n cf-gitea
+    log_info "Waiting for GitEa init job to complete..."
+    if ! kubectl wait --for=condition=complete --timeout="${DEFAULT_TIMEOUT}" job/gitea-init-job -n cf-gitea; then
+      log_info "ERROR: GitEa init job failed or timed out"
+      
+      # Show job status and logs for debugging
+      log_info "Job status:"
+      kubectl describe job gitea-init-job -n cf-gitea | grep -A 5 "Conditions:"
+      
+      log_info "Last 20 lines of job logs:"
+      kubectl logs job/gitea-init-job -n cf-gitea --tail=20
+      
+      exit 1
+    fi
+    
+    # Check if job succeeded (exit code 0)
+    job_status=$(kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.conditions[0].type}')
+    if [ "$job_status" != "Complete" ]; then
+      log_info "ERROR: GitEa init job did not complete successfully"
+      
+      # Show failure details
+      log_info "Job conditions:"
+      kubectl get job gitea-init-job -n cf-gitea -o jsonpath='{.status.conditions[*]}' | jq '.'
+      
+      log_info "Pod logs:"
+      kubectl logs job/gitea-init-job -n cf-gitea
+      
+      exit 1
+    fi
+    
+    log_info "GitEa init job completed successfully"
   fi
   
   # Cleanup temp directory
