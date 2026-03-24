@@ -682,22 +682,24 @@ EOF
         
         exit 1
       else
-        # Check if any pod failed with exit code 1 (our validation error)
-        local failed_pod=$(kubectl get pods -n cf-gitea -l job-name=gitea-init-job -o jsonpath='{.items[?(@.status.containerStatuses[0].state.terminated.exitCode==1)].metadata.name}' | head -n1)
+        # Check if we have too many failed pods (indicates persistent failure)
+        local failed_pod_count=$(kubectl get pods -n cf-gitea -l job-name=gitea-init-job --field-selector=status.phase=Failed --no-headers 2>/dev/null | wc -l)
         
-        if [ -n "$failed_pod" ]; then
-          log_info "ERROR: Gitea init job failed with validation error"
+        if [ "$failed_pod_count" -ge 3 ]; then
+          log_info "ERROR: Gitea init job has $failed_pod_count failed attempts"
+          log_info "This indicates a persistent failure. Exiting early instead of waiting for all retries."
           
-          log_info "Failed pod: $failed_pod"
-          log_info "Pod logs:"
-          kubectl logs "$failed_pod" -n cf-gitea --tail=50
+          # Get the most recent failed pod logs
+          local latest_failed_pod=$(kubectl get pods -n cf-gitea -l job-name=gitea-init-job --field-selector=status.phase=Failed --sort-by='.metadata.creationTimestamp' --no-headers -o custom-columns=":metadata.name" | tail -n1)
           
-          # Check if it's our validation error
-          if kubectl logs "$failed_pod" -n cf-gitea | grep -q "did not match any applications"; then
-            log_info "This appears to be a disabled-apps validation error."
-            log_info "The job will continue retrying but will keep failing."
-            log_info "Exiting early to avoid waiting for all retries."
+          if [ -n "$latest_failed_pod" ]; then
+            log_info "Latest failed pod: $latest_failed_pod"
+            log_info "Pod logs:"
+            kubectl logs "$latest_failed_pod" -n cf-gitea --tail=50
           fi
+          
+          log_info "All failed pods:"
+          kubectl get pods -n cf-gitea -l job-name=gitea-init-job --field-selector=status.phase=Failed --no-headers
           
           exit 1
         fi
