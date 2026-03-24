@@ -187,8 +187,21 @@ data:
     echo "DEBUG: Filtering out disabled apps: {{ .Values.disabledApps }}"
     # Process enabledApps with disabled apps filtered out completely
     yq eval '.enabledApps[]' /tmp/complete_values.yaml | while IFS= read -r app; do
-      if echo "{{ .Values.disabledApps }}" | grep -E "(^|,)${app}(,|$)" >/dev/null 2>&1; then
-        echo "DEBUG: Excluding disabled app: $app"
+      # Check if app matches any disabled pattern (supports wildcards)
+      disabled=false
+      IFS=',' read -ra PATTERNS <<< "{{ .Values.disabledApps }}"
+      for pattern in "${PATTERNS[@]}"; do
+        # Use case statement for wildcard matching
+        case "$app" in
+          $pattern) 
+            disabled=true
+            break
+            ;;
+        esac
+      done
+      
+      if [ "$disabled" = "true" ]; then
+        echo "DEBUG: Excluding disabled app: $app (matches pattern)"
         # Add as comment for documentation
         echo "  #- $app                    # Disabled by --disabled-apps" >> /tmp/values.yaml
       else
