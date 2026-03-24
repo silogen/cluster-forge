@@ -185,23 +185,34 @@ data:
     # Get the complete app list from the merged values (which includes size-specific enabledApps)
     {{- if .Values.disabledApps }}
     echo "DEBUG: Filtering out disabled apps: {{ .Values.disabledApps }}"
+    
+    # Validate that disabled patterns match at least one real app
+    echo "DEBUG: Validating disabled app patterns..."
+    IFS=',' read -ra PATTERNS <<< "{{ .Values.disabledApps }}"
+    declare -A pattern_matched
+    for pattern in "${PATTERNS[@]}"; do
+      pattern_matched["$pattern"]=false
+    done
+    
     # Process enabledApps with disabled apps filtered out completely
     yq eval '.enabledApps[]' /tmp/complete_values.yaml | while IFS= read -r app; do
       # Check if app matches any disabled pattern (supports wildcards)
       disabled=false
-      IFS=',' read -ra PATTERNS <<< "{{ .Values.disabledApps }}"
+      matched_pattern=""
       for pattern in "${PATTERNS[@]}"; do
         # Use case statement for wildcard matching
         case "$app" in
           $pattern) 
             disabled=true
+            matched_pattern="$pattern"
+            pattern_matched["$pattern"]=true
             break
             ;;
         esac
       done
       
       if [ "$disabled" = "true" ]; then
-        echo "DEBUG: Excluding disabled app: $app (matches pattern)"
+        echo "DEBUG: Excluding disabled app: $app (matches pattern: $matched_pattern)"
         # Add as comment for documentation
         echo "  #- $app                    # Disabled by --disabled-apps" >> /tmp/values.yaml
       else
@@ -209,6 +220,40 @@ data:
         echo "  - $app" >> /tmp/values.yaml
       fi
     done
+    
+    # Check if any patterns didn't match anything
+    echo "DEBUG: Checking for unmatched patterns..."
+    unmatched_patterns=()
+    for pattern in "${PATTERNS[@]}"; do
+      # Re-check each pattern against all apps
+      pattern_found=false
+      while IFS= read -r app; do
+        case "$app" in
+          $pattern) 
+            pattern_found=true
+            break
+            ;;
+        esac
+      done < <(yq eval '.enabledApps[]' /tmp/complete_values.yaml)
+      
+      if [ "$pattern_found" = "false" ]; then
+        unmatched_patterns+=("$pattern")
+      fi
+    done
+    
+    # Fail if any patterns didn't match
+    if [ ${#unmatched_patterns[@]} -gt 0 ]; then
+      echo "ERROR: The following disabled app patterns did not match any applications:"
+      for pattern in "${unmatched_patterns[@]}"; do
+        echo "  - $pattern"
+      done
+      echo ""
+      echo "Available applications:"
+      yq eval '.enabledApps[]' /tmp/complete_values.yaml | sed 's/^/  - /'
+      echo ""
+      echo "Please check your --disabled-apps parameter for typos."
+      exit 1
+    fi
     {{- else }}
     echo "DEBUG: No disabled apps specified, including all apps normally"
     # No disabled apps, include all enabledApps from merged values
