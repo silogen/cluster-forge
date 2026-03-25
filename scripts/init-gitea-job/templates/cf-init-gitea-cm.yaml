@@ -265,7 +265,7 @@ data:
     
     # if either aiwbOnly or airmImageRepository is set, we need to add the app top-level key
     {{- if or .Values.aiwbOnly .Values.airmImageRepository }}
-    echo "    apps:" >> /tmp/values.yaml
+    echo "apps:" >> /tmp/values.yaml
     {{- end }}
 
     {{- if .Values.aiwbOnly }}
