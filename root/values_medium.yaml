@@ -180,7 +180,8 @@ apps:
       collectors:
         resources:
           metrics:
-            cpu: '0'
+            requests:
+              cpu: '0'
             limits:
               memory: 4Gi
   prometheus:
