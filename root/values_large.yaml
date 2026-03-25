@@ -49,6 +49,7 @@ enabledApps:
   - opentelemetry-operator
   - otel-lgtm-stack
   - prometheus-crds
+  - rabbitmq
   
 apps:
   minio-tenant:
