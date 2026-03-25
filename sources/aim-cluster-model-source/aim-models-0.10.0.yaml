@@ -1,16 +1,19 @@
-apiVersion: aim.eai.amd.com/v1alpha1
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: aim.silogen.ai/v1alpha1
 kind: AIMClusterModelSource
 metadata:
-  generation: 1
-  name: amd-aim-release-v0.10
+  name: amd-aim-release-0.10.0
 spec:
   filters:
   - image: amdenterpriseai/aim-base:0.10
   - image: amdenterpriseai/aim-coherelabs-command-a-reasoning-08-2025:0.10.0
-  - image: amdenterpriseai/aim-deepseek-ai-deepseek-r1:0.10.0
   - image: amdenterpriseai/aim-deepseek-ai-deepseek-r1-0528:0.10.0
-  - image: amdenterpriseai/aim-deepseek-ai-deepseek-v3-1:0.10.0
+  - image: amdenterpriseai/aim-deepseek-ai-deepseek-r1:0.10.0
   - image: amdenterpriseai/aim-deepseek-ai-deepseek-v3-1-terminus:0.10.0
+  - image: amdenterpriseai/aim-deepseek-ai-deepseek-v3-1:0.10.0
   - image: amdenterpriseai/aim-meta-llama-llama-3-1-405b-instruct:0.10.0
   - image: amdenterpriseai/aim-meta-llama-llama-3-1-8b-instruct:0.10.0
   - image: amdenterpriseai/aim-meta-llama-llama-3-2-1b-instruct:0.10.0
