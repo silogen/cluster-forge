@@ -205,7 +205,7 @@ apps:
                 resources:
                   requests:
                     storage: 25Gi
-                 storageClassName: direct
+                  storageClassName: direct
   airm:
     valuesObject:
       airm:
