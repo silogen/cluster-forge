@@ -294,11 +294,11 @@ data:
           # STANDALONE-MODE
           - name: standAloneMode
             value: "true"
-        aiwb-infra-external-secrets:
-          helmParameters:
-            # STANDALONE-MODE
-            - name: standAloneMode
-              value: "true"
+      aiwb-infra-external-secrets:
+        helmParameters:
+          # STANDALONE-MODE
+          - name: standAloneMode
+            value: "true"
     EOF
     {{- end }}
 
