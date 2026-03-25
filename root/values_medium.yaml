@@ -205,4 +205,150 @@ apps:
                 resources:
                   requests:
                     storage: 25Gi
-                storageClassName: direct
+                 storageClassName: direct
+  airm:
+    valuesObject:
+      airm:
+        frontend:
+          resources:
+            requests:
+              cpu: "0"
+        backend:
+          resources:
+            requests:
+              cpu: "0"
+  aiwb:
+    valuesObject:
+      aiwb:
+        backend:
+          resources:
+            requests:
+              cpu: "0"
+        frontend:
+          resources:
+            requests:
+              cpu: "0"
+  kaiwo:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "0"
+  keda:
+    valuesObject:
+      resources:
+        operator:
+          requests:
+            cpu: "0"
+        metricServer:
+          requests:
+            cpu: "0"
+        webhooks:
+          requests:
+            cpu: "0"
+  external-secrets:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "0"
+      webhook:
+        resources:
+          requests:
+            cpu: "0"
+      certController:
+        resources:
+          requests:
+            cpu: "0"
+  cert-manager:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "0"
+      webhook:
+        resources:
+          requests:
+            cpu: "0"
+      cainjector:
+        resources:
+          requests:
+            cpu: "0"
+      startupapicheck:
+        resources:
+          requests:
+            cpu: "0"
+  gitea:
+    valuesObject:
+      gitea:
+        resources:
+          requests:
+            cpu: "0"
+  kueue:
+    valuesObject:
+      controllerManager:
+        resources:
+          requests:
+            cpu: "0"
+  kuberay-operator:
+    valuesObject:
+      image:
+        resources:
+          requests:
+            cpu: "0"
+  cnpg-operator:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "0"
+  minio-operator:
+    valuesObject:
+      operator:
+        resources:
+          requests:
+            cpu: "0"
+      console:
+        resources:
+          requests:
+            cpu: "0"
+  kgateway:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "0"
+  metallb:
+    valuesObject:
+      controller:
+        resources:
+          requests:
+            cpu: "0"
+      speaker:
+        resources:
+          requests:
+            cpu: "0"
+  kyverno:
+    valuesObject:
+      admissionController:
+        resources:
+          requests:
+            cpu: "0"
+      backgroundController:
+        resources:
+          requests:
+            cpu: "0"
+      cleanupController:
+        resources:
+          requests:
+            cpu: "0"
+      reportsController:
+        resources:
+          requests:
+            cpu: "0"
+  amd-gpu-operator:
+    valuesObject:
+      operator:
+        resources:
+          requests:
+            cpu: "0"
+  cluster-auth:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "0"
