@@ -265,10 +265,11 @@ data:
     
     # if either aiwbOnly or airmImageRepository is set, we need to add the app top-level key
     {{- if or .Values.aiwbOnly .Values.airmImageRepository }}
-    apps:
+    echo "    apps:" >> /tmp/values.yaml
     {{- end }}
 
     {{- if .Values.aiwbOnly }}
+    cat >> /tmp/values.yaml << 'EOF'
       aiwb:
         helmParameters:
           # APP_DOMAIN
@@ -298,6 +299,7 @@ data:
             # STANDALONE-MODE
             - name: standAloneMode
               value: "true"
+    EOF
     {{- end }}
 
     {{- if .Values.airmImageRepository }}
