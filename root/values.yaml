@@ -72,7 +72,7 @@ apps:
     syncWave: -10
     valuesFile: values.yaml
   aiwb-infra-external-secrets:
-    path: eai-infra/aiwb-external-secrets/0.1.0
+    path: eai-infra/aiwb-external-secrets/0.1.1
     namespace: aiwb
     syncWave: -20
     valuesFile: values.yaml
@@ -325,7 +325,7 @@ apps:
     valuesFile: values.yaml
   kaiwo:
     namespace: kaiwo-system
-    path: kaiwo/v0.2.0-rc12
+    path: kaiwo/v0.2.0-rc11
     syncWave: -10
     valuesFile: values.yaml
   kaiwo-config:
@@ -345,7 +345,7 @@ apps:
     syncWave: 0
   kaiwo-crds:
     namespace: kaiwo-system
-    path: kaiwo-crds/v0.2.0-rc12
+    path: kaiwo-crds/v0.2.0-rc11
     syncWave: -20
   keda:
     namespace: keda
