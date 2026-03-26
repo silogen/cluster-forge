@@ -1,13 +1,20 @@
 # small|medium|large (injected by bootstrap script)
 clusterSize: null
+
 # Domain for the cluster (injected by bootstrap script)
 # Example: "compute.amd.com"
 domain: null
+
 # Git revision to deploy (injected by bootstrap script)
-targetRevision: v1.8.0-rc4
+targetRevision: null
+
 # Base image repository for AIRM components (injected by bootstrap script when specified)
 # Example: "ghcr.io/silogen"
 airmImageRepository: null
+
 # Comma-separated list of disabled apps (injected by bootstrap script when --disabled-apps is used)
 # Example: "airm,airm-infra-cnpg"
 disabledApps: null
+
+# Whether to deploy only AIWB components (injected by bootstrap script when --aiwb-only is used)
+aiwbOnly: false

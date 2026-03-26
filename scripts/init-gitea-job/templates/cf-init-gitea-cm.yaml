@@ -263,18 +263,52 @@ data:
     done
     {{- end }}
     
-    {{- if .Values.airmImageRepository }}
-    
-    # Add AIRM configuration if repository is specified
-    cat >> /tmp/values.yaml << 'EOF'
+    # if either aiwbOnly or airmImageRepository is set, we need to add the app top-level key
+    {{- if or .Values.aiwbOnly .Values.airmImageRepository }}
+    echo "apps:" >> /tmp/values.yaml
+    {{- end }}
 
-    # AIRM Image Repository Configuration
-    apps:
+    {{- if .Values.aiwbOnly }}
+    cat >> /tmp/values.yaml << 'EOF'
+      aiwb:
+        helmParameters:
+          # APP_DOMAIN
+          - name: appDomain
+            value: {{ .Values.domain | quote }}
+          # BACKEND
+          - name: backend.image.repository
+            value: "ghcr.io/silogen/core/aiwb-api"
+          - name: backend.imagePullSecrets[0].name
+            value: regcred
+          # CLUSTER_HOST
+          - name: cluster_host
+            value: https://workloads.{{ .Values.domain }}
+          # FRONTEND
+          - name: frontend.image.repository
+            value: "ghcr.io/silogen/core/aiwb-ui"
+          - name: frontend.imagePullSecrets[0].name
+            value: regcred
+          # KEYCLOAK_URL
+          - name: keycloak.url
+            value: "https://kc.{{ .Values.domain }}"
+          # STANDALONE-MODE
+          - name: standAloneMode
+            value: "true"
+      aiwb-infra-external-secrets:
+        helmParameters:
+          # STANDALONE-MODE
+          - name: standAloneMode
+            value: "true"
+    EOF
+    {{- end }}
+
+    {{- if .Values.airmImageRepository }}
+    cat >> /tmp/values.yaml << 'EOF'
       airm:
         helmParameters:
-          # APP-DOMAIN (defined in base, but would be overridden here if omitted)
+          # APP-DOMAIN
           - name: airm-api.airm.appDomain
-            value: "DOMAIN_PLACEHOLDER"
+            value: {{ .Values.domain | quote }}
           # BACKEND (airm-api)
           - name: airm-api.airm.backend.image.repository
             value: "{{ .Values.airmImageRepository }}/airm-api"

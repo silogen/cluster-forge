@@ -22,6 +22,7 @@ trap cleanup EXIT
 
 # Initialize variables
 APPS=""
+AIWB_ONLY=false
 CLUSTER_SIZE="medium"  # Default to medium
 DISABLED_APPS=""
 DEFAULT_TIMEOUT="5m"
@@ -254,6 +255,18 @@ parse_args() {
           DISABLED_APPS="${1#*=}"
           shift
           ;;
+        --aiwb-only)
+          AIWB_ONLY=true
+          shift
+          ;;
+        --aiwb-only=true)
+          AIWB_ONLY=true
+          shift
+          ;;
+        --aiwb-only=false)
+          AIWB_ONLY=false
+          shift
+          ;;
         --airm-image-repository)
           if [ -z "$2" ]; then
             echo "ERROR: --airm-image-repository requires an argument"
@@ -275,6 +288,8 @@ parse_args() {
           values_file                        Optional. Values .yaml file to use, default: root/values.yaml
         
         Options:
+          --aiwb-only                        Deploy only AIWB components; implicitly sets --disabled-apps=airm,airm-*,kaiwo,kaiwo-*
+                                             and passes aiwbOnly=true to the gitea-init job. User-supplied --disabled-apps are appended.
           --airm-image-repository=url        Custom AIRM image repository for gitea-init job (e.g., ghcr.io/silogen, requires regcreds)
           --apps=app1[,app2,...]             Deploy (kubectl apply) specified components onlye
                                              options: namespaces, argocd, openbao, gitea, cluster-forge, or any cluster-forge child app (see values.yaml for app names)
@@ -297,6 +312,8 @@ parse_args() {
           $0 example.com --apps=keycloak -t
           $0 example.com --disabled-apps=airm,airm-infra-*
           $0 example.com --apps=airm,keycloak --disabled-apps=airm
+          $0 example.com --aiwb-only
+          $0 example.com --aiwb-only --disabled-apps=extra-app
           
         Bootstrap Behavior:
           • deploys ArgoCD + OpenBao + Gitea directly (essential infrastructure)
@@ -304,6 +321,7 @@ parse_args() {
           • ArgoCD syncs remaining apps from specified target revision, respecting syncWaves and dependencies
           • --disabled-apps patterns are removed from enabledApps before pushing to Gitea, so ArgoCD never deploys them
           • if an app appears in both --apps and --disabled-apps, it is skipped (disabled takes priority)
+          • --aiwb-only implicitly disables airm,airm-*,kaiwo,kaiwo-* (appended to any --disabled-apps)
 HELP_OUTPUT
         exit 0
         ;;
@@ -641,6 +659,11 @@ bootstrap_gitea() {
   if [ -n "${AIRM_IMAGE_REPOSITORY:-}" ]; then
     helm_args+=("--set" "airmImageRepository=${AIRM_IMAGE_REPOSITORY}")
   fi
+
+  # Pass aiwbOnly flag if set
+  if [ "${AIWB_ONLY}" = true ]; then
+    helm_args+=("--set" "aiwbOnly=true")
+  fi
   
   # Create temporary values file for disabledApps if needed
   local temp_values_file=""
@@ -850,6 +873,17 @@ main() {
     validate_args
   fi
   
+  # If --aiwb-only, prepend the standard aiwb-only disabled patterns to DISABLED_APPS
+  if [ "$AIWB_ONLY" = true ]; then
+    local aiwb_disabled="airm,airm-infra-cnpg,airm-infra-external-secrets,airm-infra-rabbitmq,kaiwo*"
+    if [ -n "$DISABLED_APPS" ]; then
+      DISABLED_APPS="${aiwb_disabled},${DISABLED_APPS}"
+    else
+      DISABLED_APPS="${aiwb_disabled}"
+    fi
+    log_info "NOTE: --aiwb-only active; disabled apps set to: $DISABLED_APPS"
+  fi
+
   # Remove disabled apps from --apps list (disabled takes priority)
   if [ -n "$APPS" ] && [ -n "$DISABLED_APPS" ]; then
     local filtered_apps=""
