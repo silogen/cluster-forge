@@ -1,0 +1,218 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: "{{ .Release.Name }}-api"
+  name: "{{ .Release.Name }}-api"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: web
+      port: {{ .Values.airm.backend.servicePort }}
+      targetPort: 8080
+    - name: metrics
+      port: {{ .Values.airm.backend.servicePortMetrics }}
+      targetPort: 9009
+  selector:
+    app: "{{ .Release.Name }}-api"
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-api"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: "{{ .Release.Name }}-api"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Release.Name }}-api"
+    spec:
+      {{- with .Values.airm.backend.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - env:
+            - name: OPENID_CLIENT_ID
+              value: "{{ .Values.airm.keycloak.clientId }}"
+            - name: DISABLE_JWT_VALIDATION
+              value: "false"
+            - name: POST_REGISTRATION_REDIRECT_URL
+              value: "https://{{ .Values.kgateway.airmui.prefixValue }}.{{ .Values.airm.appDomain }}/"
+            - name: DATABASE_HOST
+              value: "{{ .Values.airm.postgresql.host }}"
+            - name: DATABASE_PORT
+              value: "{{ .Values.airm.postgresql.port }}"
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: "{{ .Values.airm.postgresql.userSecretName }}"
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: "{{ .Values.airm.postgresql.userSecretName }}"
+            - name: RABBITMQ_HOST
+              value: "{{ .Values.airm.rabbitmq.host }}"
+            - name: RABBITMQ_PORT
+              value: "{{ .Values.airm.rabbitmq.port }}"
+            - name: RABBITMQ_MANAGEMENT_URL
+              value: http://{{ .Values.airm.rabbitmq.host }}:{{ .Values.airm.rabbitmq.managementPort }}/api
+            - name: RABBITMQ_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: "{{ .Values.airm.rabbitmq.adminUserSecretName }}"
+            - name: RABBITMQ_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: "{{ .Values.airm.rabbitmq.adminUserSecretName }}"
+            - name: KEYCLOAK_PUBLIC_URL
+              value: {{ template "airm-api.keycloakPublicUrl" . }}
+            - name: KEYCLOAK_INTERNAL_URL
+              value: "{{ .Values.airm.keycloak.internalUrl }}"
+            - name: KEYCLOAK_REALM
+              value: "{{ .Values.airm.keycloak.realm }}"
+            - name: KEYCLOAK_ADMIN_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  key: client-id
+                  name: "{{ .Values.airm.keycloak.adminClientSecretName }}"
+            - name: KEYCLOAK_ADMIN_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: client-secret
+                  name: "{{ .Values.airm.keycloak.adminClientSecretName }}"
+            - name: PROMETHEUS_URL
+              value: "{{ .Values.airm.prometheus.url }}"
+          image: "{{ .Values.airm.backend.image.repository }}:{{ .Values.airm.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.airm.backend.image.pullPolicy }}
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /v1/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 2
+          name: airm
+          ports:
+            - containerPort: 8080
+            - containerPort: 9009
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /v1/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 2
+          resources:
+            {{- toYaml .Values.airm.backend.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.airm.backend.securityContext | nindent 12 }}
+      initContainers:
+        - name: wait-for-db
+          image: postgres:17-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h "{{ .Values.airm.postgresql.host }}" -p {{ .Values.airm.postgresql.port }} -U postgres; do
+                echo "Waiting for database..."
+                sleep 2
+              done
+              echo "Database is ready!"
+        - name: init-migration-scripts
+          command:
+            - sh
+            - -c
+            - cp /code/migrations/* /mnt/code/migrations/
+          image: "{{ .Values.airm.backend.image.repository }}:{{ .Values.airm.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.airm.backend.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - mountPath: /mnt/code/migrations
+              name: airm-migration-volume
+        - name: liquibase-migrate
+          command:
+            - liquibase
+            - --url=jdbc:postgresql://{{ .Values.airm.postgresql.host }}:{{ .Values.airm.postgresql.port }}/airm
+            - --username=$(DATABASE_USER)
+            - --password=$(DATABASE_PASSWORD)
+            - --logLevel=INFO
+            - --changeLogFile=changelog/changelog.xml
+            - update
+          env:
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: "{{ .Values.airm.postgresql.userSecretName }}"
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: "{{ .Values.airm.postgresql.userSecretName }}"
+          image: "{{ .Values.airm.utilities.liquibase.image.repository }}:{{ .Values.airm.utilities.liquibase.image.tag }}"
+          imagePullPolicy: {{ .Values.airm.utilities.liquibase.image.pullPolicy }}
+          volumeMounts:
+            - mountPath: /liquibase/changelog
+              name: airm-migration-volume
+              readOnly: true
+        - name: check-rabbitmq-is-ready
+          command:
+            [
+              "/bin/sh",
+              "-c",
+              "while ! nc -z \"$ENDPOINT_URL_TO_CHECK\" \"$ENDPOINT_PORT_TO_CHECK\"; do echo \"Waiting for Airm RabbitMQ at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}...\"; sleep 3; done; echo \"Airm RabbitMQ is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}.\"; sleep 3; exit 0"
+            ]
+          image: "{{ .Values.airm.utilities.netcat.image.repository }}:{{ .Values.airm.utilities.netcat.image.tag }}"
+          imagePullPolicy: "{{ .Values.airm.utilities.netcat.image.pullPolicy }}"
+          env:
+            - name: ENDPOINT_URL_TO_CHECK
+              value: "{{ .Values.airm.rabbitmq.host }}"
+            - name: ENDPOINT_PORT_TO_CHECK
+              value: "{{ .Values.airm.rabbitmq.port }}"
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: false
+            runAsUser: 0
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - SETUID
+                - SETGID
+                - CHOWN
+                - DAC_OVERRIDE
+                - FOWNER
+                - FSETID
+            seccompProfile:
+              type: RuntimeDefault
+      enableServiceLinks: false
+      volumes:
+        - emptyDir: {}
+          name: airm-migration-volume
