@@ -8,7 +8,6 @@ metadata:
   name: amd-aim-release-0.8.5
 spec:
   filters:
-    - image: amdenterpriseai/aim-base:0.8
     - image: amdenterpriseai/aim-meta-llama-llama-3-1-405b-instruct:0.8.5
     - image: amdenterpriseai/aim-meta-llama-llama-3-1-8b-instruct:0.8.5
     - image: amdenterpriseai/aim-meta-llama-llama-3-2-1b-instruct:0.8.5
