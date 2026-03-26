@@ -269,3 +269,10 @@ components:
     projectUrl: https://github.com/prometheus-community/helm-charts
     license: Apache License 2.0
     licenseUrl: https://github.com/prometheus-community/helm-charts/blob/main/LICENSE
+  rabbitmq:
+    path: rabbitmq/v2.15.0
+    sourceUrl: https://github.com/rabbitmq/cluster-operator/releases/download/v2.15.0/cluster-operator.yml
+    projectUrl: https://github.com/rabbitmq/cluster-operator/
+    license: Mozilla Public License 2.0
+    licenseUrl: https://github.com/rabbitmq/cluster-operator/blob/main/LICENSE.txt
+  
