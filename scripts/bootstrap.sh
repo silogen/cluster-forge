@@ -875,7 +875,7 @@ main() {
   
   # If --aiwb-only, prepend the standard aiwb-only disabled patterns to DISABLED_APPS
   if [ "$AIWB_ONLY" = true ]; then
-    local aiwb_disabled="airm,airm-infra-cnpg,airm-infra-external-secrets,airm-infra-rabbitmq,kaiwo*"
+    local aiwb_disabled="airm,airm-infra-cnpg,airm-infra-external-secrets,airm-infra-rabbitmq,kaiwo*,rabbitmq"
     if [ -n "$DISABLED_APPS" ]; then
       DISABLED_APPS="${aiwb_disabled},${DISABLED_APPS}"
     else

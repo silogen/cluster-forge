@@ -272,25 +272,6 @@ data:
     cat >> /tmp/values.yaml << 'EOF'
       aiwb:
         helmParameters:
-          # APP_DOMAIN
-          - name: appDomain
-            value: {{ .Values.domain | quote }}
-          # BACKEND
-          - name: backend.image.repository
-            value: "ghcr.io/silogen/core/aiwb-api"
-          - name: backend.imagePullSecrets[0].name
-            value: regcred
-          # CLUSTER_HOST
-          - name: cluster_host
-            value: https://workloads.{{ .Values.domain }}
-          # FRONTEND
-          - name: frontend.image.repository
-            value: "ghcr.io/silogen/core/aiwb-ui"
-          - name: frontend.imagePullSecrets[0].name
-            value: regcred
-          # KEYCLOAK_URL
-          - name: keycloak.url
-            value: "https://kc.{{ .Values.domain }}"
           # STANDALONE-MODE
           - name: standAloneMode
             value: "true"
