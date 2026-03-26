@@ -33,11 +33,11 @@ apps:
           - ".spec.rules"
         kind: ClusterPolicy
     namespace: airm
-    path: airm/1.0.0
+    path: airm/1.0.2
     syncWave: 0
     valuesFile: values.yaml
   aiwb:
-    path: aiwb/1.0.0
+    path: aiwb/1.0.2
     namespace: aiwb
     valuesFile: values.yaml
     helmParameters:
@@ -72,7 +72,7 @@ apps:
     syncWave: -10
     valuesFile: values.yaml
   aiwb-infra-external-secrets:
-    path: eai-infra/aiwb-external-secrets/0.1.1
+    path: eai-infra/aiwb-external-secrets/0.1.2
     namespace: aiwb
     syncWave: -20
     valuesFile: values.yaml

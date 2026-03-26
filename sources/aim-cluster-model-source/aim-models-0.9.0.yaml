@@ -8,7 +8,6 @@ metadata:
   name: amd-aim-release-0.9.0
 spec:
   filters:
-    - image: amdenterpriseai/aim-base:0.9
     - image: amdenterpriseai/aim-coherelabs-command-a-reasoning-08-2025:0.9.0
     - image: amdenterpriseai/aim-openai-gpt-oss-20b:0.9.0
     - image: amdenterpriseai/aim-openai-gpt-oss-120b:0.9.0
