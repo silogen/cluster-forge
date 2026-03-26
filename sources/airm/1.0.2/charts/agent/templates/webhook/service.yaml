@@ -1,0 +1,19 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ .Release.Name }}-agent-webhook"
+  namespace: "{{ .Release.Namespace }}"
+  labels:
+    app: "{{ .Release.Name }}-agent-webhook"
+spec:
+  ports:
+    - name: webhook
+      port: {{ .Values.airm.webhook.servicePort }}
+      targetPort: 9443
+  selector:
+    app: "{{ .Release.Name }}-agent-webhook"
+  type: ClusterIP

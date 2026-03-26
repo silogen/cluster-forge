@@ -1,0 +1,69 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-agent-webhook"
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: "{{ .Release.Name }}-agent-webhook"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Release.Name }}-agent-webhook"
+    spec:
+      serviceAccountName: "{{ .Release.Name }}-agent-webhook-sa"
+      {{- with .Values.airm.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: webhook
+          image: "{{ .Values.airm.image.repository }}:{{ .Values.airm.image.tag }}"
+          imagePullPolicy: "{{ .Values.airm.image.pullPolicy }}"
+          command: ["/webhook"]
+          env:
+            - name: WEBHOOK_PORT
+              value: "9443"
+            - name: WEBHOOKS_CERT_PATH
+              value: "/etc/mutating-webhook/tls/"
+            - name: HEALTH_PORT
+              value: "8081"
+          ports:
+            - containerPort: 9443
+              name: webhook
+            - containerPort: 8081
+              name: health
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          volumeMounts:
+            - name: certificates
+              readOnly: true
+              mountPath: "/etc/mutating-webhook/tls/"
+          resources:
+            {{- toYaml .Values.airm.webhook.resources | nindent 16 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+      volumes:
+        - name: certificates
+          secret:
+            secretName: {{ .Release.Name }}-agent-webhook-cert
