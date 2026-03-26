@@ -24,7 +24,7 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   airm:
-    path: airm/1.0.0
+    path: airm/1.0.2
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm
@@ -52,7 +52,7 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   aiwb:
-    path: aiwb/1.0.0
+    path: aiwb/1.0.2
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb
@@ -66,7 +66,7 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   aiwb-infra-external-secrets:
-    path: eai-infra/aiwb-external-secrets/0.1.1
+    path: eai-infra/aiwb-external-secrets/0.1.2
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-external-secrets
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-external-secrets
