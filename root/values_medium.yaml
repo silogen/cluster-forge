@@ -383,10 +383,9 @@ apps:
           cpu: "0"
   aim-engine:
     valuesObject:
-      controllerManager:
-        resources:
-          requests:
-            cpu: "0"
+      resources:
+        requests:
+          cpu: "0"
   appwrapper:
     valuesObject:
       controllerManager:
@@ -395,31 +394,27 @@ apps:
             cpu: "0"
   kserve:
     valuesObject:
-      kserve:
-        controller:
-          resources:
-            requests:
-              cpu: "0"
-        storageInitializer:
-          resources:
-            requests:
-              cpu: "0"
+      controller:
+        resources:
+          requests:
+            cpu: "0"
+      storageInitializer:
+        resources:
+          requests:
+            cpu: "0"
   airm-infra-cnpg:
     valuesObject:
-      cnpg:
-        resources:
-          requests:
-            cpu: "0"
+      resources:
+        requests:
+          cpu: "0"
   airm-infra-rabbitmq:
     valuesObject:
-      rabbitmq:
-        resources:
-          requests:
-            cpu: "0"
+      resources:
+        requests:
+          cpu: "0"
   aiwb-infra-cnpg:
     valuesObject:
-      cnpg:
-        resources:
-          requests:
-            cpu: "0"
+      resources:
+        requests:
+          cpu: "0"
 
