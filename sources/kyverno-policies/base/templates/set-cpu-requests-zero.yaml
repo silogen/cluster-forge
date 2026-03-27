@@ -1,0 +1,37 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: set-cpu-requests-zero
+  annotations:
+    policies.kyverno.io/title: Set CPU Requests to Zero
+    policies.kyverno.io/category: Resource Management
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/minversion: 1.6.0
+    policies.kyverno.io/description: >-
+      This policy automatically sets CPU requests to 0 for all containers
+      in pods across all namespaces.
+spec:
+  admission: true
+  background: true
+  schemaValidation: false
+  rules:
+  - name: set-cpu-requests-zero
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    mutate:
+      patchStrategicMerge:
+        spec:
+          containers:
+          - (name): "*"
+            resources:
+              requests:
+                cpu: "0"
+          initContainers:
+          - (name): "*"
+            resources:
+              requests:
+                cpu: "0"
