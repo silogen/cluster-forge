@@ -25,6 +25,7 @@ spec:
   emitWarning: false
   rules:
     - name: add-workload-id-label
+      skipBackgroundRequests: true
       match:
         any:
           - resources:
@@ -40,6 +41,7 @@ spec:
             labels:
               {{ .Values.metadataPrefix.eaiApps }}/workload-id: '{{`{{request.object.metadata.labels."`}}{{ .Values.metadataPrefix.eaiApps }}/workload-id{{`" || request.oldObject.metadata.labels."`}}{{ .Values.metadataPrefix.eaiApps }}/workload-id{{`" || request.uid}}`}}'
     - name: add-workload-id-label-with-template
+      skipBackgroundRequests: true
       match:
         any:
           - resources:
