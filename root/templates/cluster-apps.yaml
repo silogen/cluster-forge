@@ -43,8 +43,14 @@ spec:
     {{- with .directory }}
     directory: {{ . | toYaml | nindent 6 }}
     {{- end }}
-{{- with .ignoreDifferences }}
-  ignoreDifferences: {{ . | toYaml | nindent 2 }}
+{{- $ignoreDiffs := .ignoreDifferences | default list }}
+{{- if $.Values.global.requestsIgnoreDifferences }}
+  {{- $podRequestsIgnore := dict "group" "" "kind" "Pod" "jqPathExpressions" (list ".spec.containers[].resources.requests.cpu" ".spec.initContainers[].resources.requests.cpu") }}
+  {{- $ignoreDiffs = append $ignoreDiffs $podRequestsIgnore }}
+{{- end }}
+{{- if $ignoreDiffs }}
+  ignoreDifferences:
+{{ $ignoreDiffs | toYaml | nindent 4 }}
 {{- end }}
   destination:
     server: https://kubernetes.default.svc
@@ -56,7 +62,7 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
-      {{- if .ignoreDifferences }}
+      {{- if or .ignoreDifferences $.Values.global.requestsIgnoreDifferences }}
       - RespectIgnoreDifferences=true
       {{- end }}
 {{- end }}

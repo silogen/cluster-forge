@@ -1,3 +1,6 @@
+global:
+  requestsIgnoreDifferences: false  # Disable for large clusters
+
 enabledApps:
   - aim-cluster-model-source
   - aim-engine

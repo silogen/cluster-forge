@@ -9,6 +9,7 @@ externalValues:
 global:
   clusterSize:    # injected via scripts/bootstrap.sh
   domain:         # injected via scripts/bootstrap.sh
+  requestsIgnoreDifferences: false  # ignore differences in pod CPU requests
 
 apps:
   aim-engine:
