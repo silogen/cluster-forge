@@ -45,8 +45,13 @@ spec:
     {{- end }}
 {{- $ignoreDiffs := .ignoreDifferences | default list }}
 {{- if $.Values.global.requestsIgnoreDifferences }}
-  {{- $podRequestsIgnore := dict "group" "" "kind" "Pod" "jqPathExpressions" (list ".spec.containers[].resources.requests.cpu" ".spec.initContainers[].resources.requests.cpu") }}
-  {{- $ignoreDiffs = append $ignoreDiffs $podRequestsIgnore }}
+  {{- $deploymentIgnore := dict "group" "apps" "kind" "Deployment" "jqPathExpressions" (list ".spec.template.spec.containers[].resources.requests.cpu" ".spec.template.spec.initContainers[].resources.requests.cpu") }}
+  {{- $statefulSetIgnore := dict "group" "apps" "kind" "StatefulSet" "jqPathExpressions" (list ".spec.template.spec.containers[].resources.requests.cpu" ".spec.template.spec.initContainers[].resources.requests.cpu") }}
+  {{- $daemonSetIgnore := dict "group" "apps" "kind" "DaemonSet" "jqPathExpressions" (list ".spec.template.spec.containers[].resources.requests.cpu" ".spec.template.spec.initContainers[].resources.requests.cpu") }}
+  {{- $replicaSetIgnore := dict "group" "apps" "kind" "ReplicaSet" "jqPathExpressions" (list ".spec.template.spec.containers[].resources.requests.cpu" ".spec.template.spec.initContainers[].resources.requests.cpu") }}
+  {{- $jobIgnore := dict "group" "batch" "kind" "Job" "jqPathExpressions" (list ".spec.template.spec.containers[].resources.requests.cpu" ".spec.template.spec.initContainers[].resources.requests.cpu") }}
+  {{- $cronJobIgnore := dict "group" "batch" "kind" "CronJob" "jqPathExpressions" (list ".spec.jobTemplate.spec.template.spec.containers[].resources.requests.cpu" ".spec.jobTemplate.spec.template.spec.initContainers[].resources.requests.cpu") }}
+  {{- $ignoreDiffs = append $ignoreDiffs $deploymentIgnore $statefulSetIgnore $daemonSetIgnore $replicaSetIgnore $jobIgnore $cronJobIgnore }}
 {{- end }}
 {{- if $ignoreDiffs }}
   ignoreDifferences:
