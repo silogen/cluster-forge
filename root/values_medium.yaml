@@ -76,7 +76,7 @@ apps:
             cpu: "1000m"
             memory: "2Gi"
           requests:
-            cpu: "0" 
+            cpu: "500m" 
             memory: "1Gi"
       redis-ha:
         enabled: false
@@ -86,7 +86,7 @@ apps:
               cpu: "500m"
               memory: "1Gi"
             requests:
-              cpu: "0"
+              cpu: "250m"
               memory: "512Mi"
       repoServer:
         replicas: 1
@@ -95,7 +95,7 @@ apps:
             cpu: "500m" 
             memory: "1Gi"
           requests:
-            cpu: "0"
+            cpu: "250m"
             memory: "512Mi"
       server:
         replicas: 1
@@ -104,7 +104,7 @@ apps:
             cpu: "500m"
             memory: "1Gi"
           requests:
-            cpu: "0"
+            cpu: "125m"
             memory: "256Mi"
   grafana:
     valuesObject:
@@ -120,16 +120,13 @@ apps:
           cpu: "1000m"
           memory: "2Gi"
         requests:
-          cpu: "0"
+          cpu: "250m"
           memory: "512Mi"
   keycloak:
     valuesObject:
       # Increase memory resources for Keycloak to prevent OOMKilled during initialization
       # Medium preset provides 1536Mi memory limit vs small preset's 768Mi
       resourcesPreset: "medium"
-      resources:
-        requests:
-          cpu: "0"
   minio-tenant:
     valuesObject:
       tenant:
@@ -151,7 +148,7 @@ apps:
             cpu: "4000m"
             memory: "8Gi"
           requests:
-            cpu: "0"
+            cpu: "1000m"
             memory: "2Gi"
   openbao:
     valuesObject:
@@ -169,26 +166,21 @@ apps:
             cpu: "1000m"
             memory: "2Gi"
           requests:
-            cpu: "0"
+            cpu: "250m"
             memory: "512Mi"
   opentelemetry-operator:
     valuesObject:
       manager:
         resources:
           requests:
-            cpu: "0"
+            cpu: "250m"
             memory: "512Mi"
   otel-lgtm-stack:
     valuesObject:
-      lgtm:
-        resources:
-          requests:
-            cpu: "0"
       collectors:
         resources:
           metrics:
-            requests:
-              cpu: '0'
+            cpu: '1'
             limits:
               memory: 4Gi
   prometheus:
@@ -200,7 +192,7 @@ apps:
               cpu: "2000m"
               memory: "4Gi"
             requests:
-              cpu: "0"
+              cpu: "500m"
               memory: "1Gi"
           retention: 15d
           retentionSize: 20GB
@@ -212,207 +204,4 @@ apps:
                 resources:
                   requests:
                     storage: 25Gi
-                  storageClassName: direct
-  airm:
-    valuesObject:
-      frontend:
-        resources:
-          requests:
-            cpu: "0"
-      backend:
-        resources:
-          requests:
-            cpu: "0"
-  aiwb:
-    valuesObject:
-      backend:
-        resources:
-          requests:
-            cpu: "0"
-      frontend:
-        resources:
-          requests:
-            cpu: "0"
-  kaiwo:
-    valuesObject:
-      resources:
-        requests:
-          cpu: "0"
-  keda:
-    valuesObject:
-      resources:
-        operator:
-          requests:
-            cpu: "0"
-        metricServer:
-          requests:
-            cpu: "0"
-        webhooks:
-          requests:
-            cpu: "0"
-  external-secrets:
-    valuesObject:
-      resources:
-        requests:
-          cpu: "0"
-      webhook:
-        resources:
-          requests:
-            cpu: "0"
-      certController:
-        resources:
-          requests:
-            cpu: "0"
-  cert-manager:
-    valuesObject:
-      resources:
-        requests:
-          cpu: "0"
-      webhook:
-        resources:
-          requests:
-            cpu: "0"
-      cainjector:
-        resources:
-          requests:
-            cpu: "0"
-      startupapicheck:
-        resources:
-          requests:
-            cpu: "0"
-  gitea:
-    valuesObject:
-      gitea:
-        resources:
-          requests:
-            cpu: "0"
-  kueue:
-    valuesObject:
-      controllerManager:
-        resources:
-          requests:
-            cpu: "0"
-  kuberay-operator:
-    valuesObject:
-      image:
-        resources:
-          requests:
-            cpu: "0"
-  cnpg-operator:
-    valuesObject:
-      resources:
-        requests:
-          cpu: "0"
-  minio-operator:
-    valuesObject:
-      operator:
-        resources:
-          requests:
-            cpu: "0"
-      console:
-        resources:
-          requests:
-            cpu: "0"
-  kgateway:
-    valuesObject:
-      resources:
-        requests:
-          cpu: "0"
-  metallb:
-    valuesObject:
-      controller:
-        resources:
-          requests:
-            cpu: "0"
-      speaker:
-        resources:
-          requests:
-            cpu: "0"
-  kyverno:
-    valuesObject:
-      admissionController:
-        resources:
-          requests:
-            cpu: "0"
-      backgroundController:
-        resources:
-          requests:
-            cpu: "0"
-      cleanupController:
-        resources:
-          requests:
-            cpu: "0"
-      reportsController:
-        resources:
-          requests:
-            cpu: "0"
-  amd-gpu-operator:
-    valuesObject:
-      operator:
-        resources:
-          requests:
-            cpu: "0"
-      kmm:
-        controller:
-          resources:
-            requests:
-              cpu: "0"
-        webhook:
-          resources:
-            requests:
-              cpu: "0"
-      nodeFeatureDiscovery:
-        master:
-          resources:
-            requests:
-              cpu: "0"
-        worker:
-          resources:
-            requests:
-              cpu: "0"
-        gc:
-          resources:
-            requests:
-              cpu: "0"
-  cluster-auth:
-    valuesObject:
-      resources:
-        requests:
-          cpu: "0"
-  aim-engine:
-    valuesObject:
-      resources:
-        requests:
-          cpu: "0"
-  appwrapper:
-    valuesObject:
-      controllerManager:
-        resources:
-          requests:
-            cpu: "0"
-  kserve:
-    valuesObject:
-      controller:
-        resources:
-          requests:
-            cpu: "0"
-      storageInitializer:
-        resources:
-          requests:
-            cpu: "0"
-  airm-infra-cnpg:
-    valuesObject:
-      resources:
-        requests:
-          cpu: "0"
-  airm-infra-rabbitmq:
-    valuesObject:
-      resources:
-        requests:
-          cpu: "0"
-  aiwb-infra-cnpg:
-    valuesObject:
-      resources:
-        requests:
-          cpu: "0"
-
+                storageClassName: direct
