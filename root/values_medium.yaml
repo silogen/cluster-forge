@@ -127,6 +127,9 @@ apps:
       # Increase memory resources for Keycloak to prevent OOMKilled during initialization
       # Medium preset provides 1536Mi memory limit vs small preset's 768Mi
       resourcesPreset: "medium"
+      resources:
+        requests:
+          cpu: "0"
   minio-tenant:
     valuesObject:
       tenant:
@@ -177,6 +180,10 @@ apps:
             memory: "512Mi"
   otel-lgtm-stack:
     valuesObject:
+      lgtm:
+        resources:
+          requests:
+            cpu: "0"
       collectors:
         resources:
           metrics:
@@ -347,8 +354,72 @@ apps:
         resources:
           requests:
             cpu: "0"
+      kmm:
+        controller:
+          resources:
+            requests:
+              cpu: "0"
+        webhook:
+          resources:
+            requests:
+              cpu: "0"
+      nodeFeatureDiscovery:
+        master:
+          resources:
+            requests:
+              cpu: "0"
+        worker:
+          resources:
+            requests:
+              cpu: "0"
+        gc:
+          resources:
+            requests:
+              cpu: "0"
   cluster-auth:
     valuesObject:
       resources:
         requests:
           cpu: "0"
+  aim-engine:
+    valuesObject:
+      controllerManager:
+        resources:
+          requests:
+            cpu: "0"
+  appwrapper:
+    valuesObject:
+      controllerManager:
+        resources:
+          requests:
+            cpu: "0"
+  kserve:
+    valuesObject:
+      kserve:
+        controller:
+          resources:
+            requests:
+              cpu: "0"
+        storageInitializer:
+          resources:
+            requests:
+              cpu: "0"
+  airm-infra-cnpg:
+    valuesObject:
+      cnpg:
+        resources:
+          requests:
+            cpu: "0"
+  airm-infra-rabbitmq:
+    valuesObject:
+      rabbitmq:
+        resources:
+          requests:
+            cpu: "0"
+  aiwb-infra-cnpg:
+    valuesObject:
+      cnpg:
+        resources:
+          requests:
+            cpu: "0"
+
