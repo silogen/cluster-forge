@@ -215,26 +215,24 @@ apps:
                   storageClassName: direct
   airm:
     valuesObject:
-      airm:
-        frontend:
-          resources:
-            requests:
-              cpu: "0"
-        backend:
-          resources:
-            requests:
-              cpu: "0"
+      frontend:
+        resources:
+          requests:
+            cpu: "0"
+      backend:
+        resources:
+          requests:
+            cpu: "0"
   aiwb:
     valuesObject:
-      aiwb:
-        backend:
-          resources:
-            requests:
-              cpu: "0"
-        frontend:
-          resources:
-            requests:
-              cpu: "0"
+      backend:
+        resources:
+          requests:
+            cpu: "0"
+      frontend:
+        resources:
+          requests:
+            cpu: "0"
   kaiwo:
     valuesObject:
       resources:
