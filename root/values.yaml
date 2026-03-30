@@ -37,7 +37,7 @@ apps:
     syncWave: 0
     valuesFile: values.yaml
   aiwb:
-    path: aiwb/1.0.2
+    path: aiwb/1.0.3
     namespace: aiwb
     valuesFile: values.yaml
     helmParameters:

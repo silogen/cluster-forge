@@ -52,7 +52,7 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   aiwb:
-    path: aiwb/1.0.2
+    path: aiwb/1.0.3
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb
