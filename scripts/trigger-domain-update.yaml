@@ -148,8 +148,11 @@
 
         - name: Start port-forward to Gitea
           ansible.builtin.shell: |
-            kubectl port-forward -n cf-gitea svc/{{ gitea_svc_name.stdout | trim }} 3000:3000 &
-            echo $!
+            nohup kubectl port-forward -n cf-gitea svc/{{ gitea_svc_name.stdout | trim }} 3000:3000 \
+              > /tmp/gitea-port-forward.log 2>&1 &
+            PF_PID=$!
+            disown $PF_PID
+            echo $PF_PID
           register: port_forward_pid
           changed_when: false
 
