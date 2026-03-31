@@ -181,26 +181,52 @@
             if [ -n "{{ gitea_admin_pass.stdout | trim }}" ]; then
               AUTH_ARGS="-u admin:{{ gitea_admin_pass.stdout | trim }}"
             fi
-            curl -sf $AUTH_ARGS "http://localhost:3000/api/v1/repos/search?q=cluster-values&limit=10" \
-              | python3 -c "
-            import sys, json
-            data = json.load(sys.stdin)
-            repos = data.get('data', [])
-            match = next((r['full_name'] for r in repos if 'cluster-values' in r['name']), '')
+            # Try targeted search first, fall back to listing all repos
+            python3 -c "
+            import urllib.request, json, sys
+            base = 'http://localhost:3000/api/v1'
+            auth = ('admin', '{{ gitea_admin_pass.stdout | trim }}')
+            import base64, urllib.request
+            req_headers = {}
+            if auth[1]:
+                creds = base64.b64encode(f'{auth[0]}:{auth[1]}'.encode()).decode()
+                req_headers['Authorization'] = f'Basic {creds}'
+            def get(url):
+                r = urllib.request.urlopen(urllib.request.Request(url, headers=req_headers))
+                return json.loads(r.read())
+            all_repos = []
+            page = 1
+            while True:
+                data = get(f'{base}/repos/search?limit=50&page={page}')
+                repos = data.get('data', [])
+                if not repos:
+                    break
+                all_repos.extend(repos)
+                page += 1
+            names = [r['full_name'] for r in all_repos]
+            keywords = ['cluster-values', 'values', 'cluster_values']
+            match = next((n for kw in keywords for n in names if kw in n.lower()), '')
             print(match)
-            " 2>/dev/null || echo ""
+            sys.stderr.write('AVAILABLE_REPOS:' + ','.join(names) + '
+')
+            " 2>/tmp/gitea-repo-discovery.log
           register: gitea_repo_discovery
           changed_when: false
+          ignore_errors: true
+
+        - name: Show available repos if discovery failed
+          ansible.builtin.shell: cat /tmp/gitea-repo-discovery.log 2>/dev/null || echo "no discovery log"
+          register: available_repos_log
+          changed_when: false
+          when: gitea_repo_discovery.stdout | trim == "" and (GITEA_REPO_PATH | default('')) == ""
 
         - name: Fail if cluster-values repo not found
           ansible.builtin.fail:
             msg: |
               Could not find cluster-values repository via Gitea API.
-              Check manually: curl http://localhost:3000/api/v1/repos/search?q=cluster-values
-              Or set GITEA_REPO_PATH=org/cluster-values in your vars file.
-          when: >
-            gitea_repo_discovery.stdout | trim == "" and
-            (GITEA_REPO_PATH | default('')) == ""
+              Available repos: {{ available_repos_log.stdout | default('unknown') }}
+              Set GITEA_REPO_PATH=<org>/<reponame> in your vars file to override.
+          when: gitea_repo_discovery.stdout | trim == "" and (GITEA_REPO_PATH | default('')) == ""
 
         - name: Set resolved repo path
           ansible.builtin.set_fact:
