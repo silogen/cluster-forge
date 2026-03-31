@@ -87,7 +87,7 @@
       block:
         - name: Get gitea-config-script ConfigMap
           ansible.builtin.shell: |
-            kubectl get configmap gitea-config-script -n cf-gitea -o yaml 2>/dev/null | grep "KC_URL=" | head -1 | cut -d'=' -f2 | sed 's|https://[^.]*\.||g' | sed 's|{{.*}}||g' | xargs || echo ""
+            kubectl get configmap gitea-config-script -n cf-gitea -o yaml 2>/dev/null | grep "KC_URL=" | head -1 | cut -d'=' -f2 | sed 's|https://[^.]*\.||g' | sed 's|{{ '{{' }}.*{{ '}}' }}||g' | xargs || echo ""
           register: gitea_config_result
           ignore_errors: true
           changed_when: false
