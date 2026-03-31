@@ -11,6 +11,7 @@
     # Optional variables
     old_domain: "{{ OLD_DOMAIN | default('') }}"
     kubeconfig: "{{ KUBECONFIG | default(ansible_env.HOME + '/.kube/config') }}"
+    skip_git_update: "{{ SKIP_GIT_UPDATE | default(false) | bool }}"
     
   tasks:
     - name: Validate prerequisites
@@ -132,14 +133,35 @@
               Repository URL: https://gitea.{{ old_domain }}/infrastructure/cluster-values.git
 
     - name: Update cluster-values repository
+      when: not skip_git_update
       block:
-        - name: Determine cluster-values repo URL
-          ansible.builtin.set_fact:
-            values_repo_url: "https://gitea.{{ old_domain }}/infrastructure/cluster-values.git"
+        - name: Discover Gitea HTTP service name
+          ansible.builtin.shell: |
+            kubectl get svc -n cf-gitea -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep -E 'http|web|gitea' | grep -v ssh | head -1
+          register: gitea_svc_name
+          changed_when: false
 
-        - name: Clone cluster-values repository
+        - name: Fail if no Gitea HTTP service found
+          ansible.builtin.fail:
+            msg: "No Gitea HTTP service found in namespace cf-gitea. Check: kubectl get svc -n cf-gitea"
+          when: gitea_svc_name.stdout | trim == ""
+
+        - name: Start port-forward to Gitea
+          ansible.builtin.shell: |
+            kubectl port-forward -n cf-gitea svc/{{ gitea_svc_name.stdout | trim }} 3000:3000 &
+            echo $!
+          register: port_forward_pid
+          changed_when: false
+
+        - name: Wait for port-forward to be ready
+          ansible.builtin.wait_for:
+            port: 3000
+            host: 127.0.0.1
+            timeout: 15
+
+        - name: Clone cluster-values via port-forward
           ansible.builtin.git:
-            repo: "{{ values_repo_url }}"
+            repo: "http://localhost:3000/infrastructure/cluster-values.git"
             dest: "/tmp/cluster-values-{{ lookup('pipe', 'date +%s') }}"
             force: yes
           register: git_clone
@@ -149,17 +171,22 @@
             path: "{{ git_clone.dest }}/values.yaml"
             regexp: '^(\s*domain:\s*).*$'
             replace: '\1{{ new_domain }}'
-          when: git_clone is succeeded
 
         - name: Commit and push domain change
           ansible.builtin.shell: |
             cd {{ git_clone.dest }}
-            git config user.name "Simplified Domain Update"
+            git config user.name "Domain Update"
             git config user.email "automation@{{ new_domain }}"
             git add values.yaml
-            git commit -m "feat: update domain to {{ new_domain }} (simplified implementation)"
+            git commit -m "feat: update domain to {{ new_domain }}"
             git push origin main
-          when: git_clone is succeeded
+
+      always:
+        - name: Stop port-forward
+          ansible.builtin.shell: |
+            kill {{ port_forward_pid.stdout | trim }} 2>/dev/null || true
+          when: port_forward_pid is defined and port_forward_pid.stdout | trim != ""
+          changed_when: false
 
     - name: Update system DNS configuration (cluster-bloom integration)
       when: cluster_bloom_dns_enabled
