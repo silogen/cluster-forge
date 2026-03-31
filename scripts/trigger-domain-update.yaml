@@ -222,10 +222,7 @@
 
         - name: Fail if cluster-values repo not found
           ansible.builtin.fail:
-            msg: |
-              Could not find cluster-values repository via Gitea API.
-              Available repos: {{ available_repos_log.stdout | default('unknown') }}
-              Set GITEA_REPO_PATH=<org>/<reponame> in your vars file to override.
+            msg: "Could not find cluster-values repository via Gitea API. Available repos: {{ available_repos_log.stdout | default('unknown') }} -- Set GITEA_REPO_PATH=<org>/<reponame> in your vars file to override."
           when: gitea_repo_discovery.stdout | trim == "" and (GITEA_REPO_PATH | default('')) == ""
 
         - name: Set resolved repo path
