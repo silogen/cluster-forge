@@ -129,7 +129,7 @@
               New domain: {{ new_domain }}
               Certificate: {{ certificate_path }}
               Private key: {{ private_key_path }}
-              Repository URL: {{ values_repo_url }}
+              Repository URL: https://gitea.{{ old_domain }}/infrastructure/cluster-values.git
 
     - name: Update cluster-values repository
       block:
