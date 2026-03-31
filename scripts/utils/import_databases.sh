@@ -361,7 +361,9 @@ restore_airm_database() {
     else
         # Restore directly in container
         echo "Executing restore in container..."
-        grep -v '^\\\(un\)\?restrict' "$AIRM_DB_FILE" | kubectl exec -i -n airm $PRIMARY_POD --container=postgres -- bash -c "PGPASSWORD='$AIRM_DB_PASSWORD' psql -h localhost -U $AIRM_DB_USERNAME -d airm"
+        grep -v '^\\\(un\)\?restrict' "$AIRM_DB_FILE" > /tmp/airm_db_restore.sql
+        kubectl cp /tmp/airm_db_restore.sql -n airm "$PRIMARY_POD":/tmp/airm_db_restore.sql -c postgres
+        kubectl exec -i -n airm $PRIMARY_POD --container=postgres -- bash -c "PGPASSWORD='$AIRM_DB_PASSWORD' psql -h localhost -U $AIRM_DB_USERNAME -d airm -f /tmp/airm_db_restore.sql"
         restore_status=$?
     fi
     
