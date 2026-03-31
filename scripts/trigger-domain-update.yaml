@@ -140,7 +140,7 @@
         - name: Clone cluster-values repository
           ansible.builtin.git:
             repo: "{{ values_repo_url }}"
-            dest: "/tmp/cluster-values-{{ ansible_date_time.epoch }}"
+            dest: "/tmp/cluster-values-{{ lookup('pipe', 'date +%s') }}"
             force: yes
           register: git_clone
 
@@ -167,7 +167,7 @@
         - name: Backup current DNSMASQ configuration
           ansible.builtin.copy:
             src: /etc/dnsmasq.d/keycloak.conf
-            dest: "/etc/dnsmasq.d/keycloak.conf.backup-{{ ansible_date_time.epoch }}"
+            dest: "/etc/dnsmasq.d/keycloak.conf.backup-{{ lookup('pipe', 'date +%s') }}"
             remote_src: yes
             mode: "0644"
           delegate_to: localhost
@@ -236,7 +236,7 @@
 
             - name: Restore DNSMASQ configuration backup
               ansible.builtin.copy:
-                src: "/etc/dnsmasq.d/keycloak.conf.backup-{{ ansible_date_time.epoch }}"
+                src: "/etc/dnsmasq.d/keycloak.conf.backup-{{ lookup('pipe', 'date +%s') }}"
                 dest: /etc/dnsmasq.d/keycloak.conf
                 remote_src: yes
                 mode: "0644"
@@ -295,7 +295,7 @@
               namespace: kgateway-system
             data:
               domain: {{ new_domain }}
-              updated_at: "{{ ansible_date_time.iso8601 }}"
+              updated_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
               updated_by: "simplified-domain-change-playbook"
               method: "manual-execution"
             EOF
