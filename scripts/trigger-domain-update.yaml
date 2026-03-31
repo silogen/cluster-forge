@@ -148,11 +148,14 @@
 
         - name: Start port-forward to Gitea
           ansible.builtin.shell: |
+            #!/bin/bash
             nohup kubectl port-forward -n cf-gitea svc/{{ gitea_svc_name.stdout | trim }} 3000:3000 \
               > /tmp/gitea-port-forward.log 2>&1 &
             PF_PID=$!
             disown $PF_PID
             echo $PF_PID
+          args:
+            executable: /bin/bash
           register: port_forward_pid
           changed_when: false
 
@@ -162,9 +165,55 @@
             host: 127.0.0.1
             timeout: 15
 
+        - name: Get Gitea admin credentials from cluster
+          ansible.builtin.shell: |
+            SECRET=$(kubectl get secret -n cf-gitea -o name 2>/dev/null | grep -iE 'admin|gitea-admin|init-gitea' | head -1)
+            if [ -n "$SECRET" ]; then
+              kubectl get $SECRET -n cf-gitea -o jsonpath='{.data.password}' 2>/dev/null | base64 -d 2>/dev/null || true
+            fi
+          register: gitea_admin_pass
+          changed_when: false
+          ignore_errors: true
+
+        - name: Discover cluster-values repository path via Gitea API
+          ansible.builtin.shell: |
+            AUTH_ARGS=""
+            if [ -n "{{ gitea_admin_pass.stdout | trim }}" ]; then
+              AUTH_ARGS="-u admin:{{ gitea_admin_pass.stdout | trim }}"
+            fi
+            curl -sf $AUTH_ARGS "http://localhost:3000/api/v1/repos/search?q=cluster-values&limit=10" \
+              | python3 -c "
+            import sys, json
+            data = json.load(sys.stdin)
+            repos = data.get('data', [])
+            match = next((r['full_name'] for r in repos if 'cluster-values' in r['name']), '')
+            print(match)
+            " 2>/dev/null || echo ""
+          register: gitea_repo_discovery
+          changed_when: false
+
+        - name: Fail if cluster-values repo not found
+          ansible.builtin.fail:
+            msg: |
+              Could not find cluster-values repository via Gitea API.
+              Check manually: curl http://localhost:3000/api/v1/repos/search?q=cluster-values
+              Or set GITEA_REPO_PATH=org/cluster-values in your vars file.
+          when: >
+            gitea_repo_discovery.stdout | trim == "" and
+            (GITEA_REPO_PATH | default('')) == ""
+
+        - name: Set resolved repo path
+          ansible.builtin.set_fact:
+            cluster_values_repo_path: >-
+              {{ gitea_repo_discovery.stdout | trim
+                 if gitea_repo_discovery.stdout | trim != ''
+                 else (GITEA_REPO_PATH | default('infrastructure/cluster-values')) }}
+
         - name: Clone cluster-values via port-forward
           ansible.builtin.git:
-            repo: "http://localhost:3000/infrastructure/cluster-values.git"
+            repo: >-
+              http://{{ 'admin:' + (gitea_admin_pass.stdout | trim) + '@'
+                        if (gitea_admin_pass.stdout | trim) != '' else '' }}localhost:3000/{{ cluster_values_repo_path }}.git
             dest: "/tmp/cluster-values-{{ lookup('pipe', 'date +%s') }}"
             force: yes
           register: git_clone
