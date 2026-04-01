@@ -80,7 +80,7 @@
               🔍 Cluster-Bloom DNS Configuration Status:
               DNSMASQ enabled: {{ cluster_bloom_dns_enabled }}
               FIX_DNS was used: {{ cluster_bloom_fix_dns_used }}
-              Current DNS domain: {{ current_dns_domain if current_dns_domain else 'none' }}
+              Current DNS domain: {{ current_dns_domain if current_dns_domain else "none" }}
               systemd-resolved disabled: {{ systemd_resolved_was_disabled }}
 
     - name: Extract domain from gitea config if old_domain not provided
@@ -222,7 +222,10 @@
 
         - name: Fail if cluster-values repo not found
           ansible.builtin.fail:
-            msg: "Could not find cluster-values repository via Gitea API. Available repos: {{ available_repos_log.stdout | default('unknown') }} -- Set GITEA_REPO_PATH=<org>/<reponame> in your vars file to override."
+            msg: >-
+              Could not find cluster-values repository via Gitea API.
+              Available repos - {{ available_repos_log.stdout | default("unknown") }}.
+              Set GITEA_REPO_PATH=ORG/REPONAME in your vars file to override.
           when: gitea_repo_discovery.stdout | trim == "" and (GITEA_REPO_PATH | default('')) == ""
 
         - name: Set resolved repo path
@@ -355,7 +358,7 @@
                 msg: >-
                   ❌ DNSMASQ configuration update failed and has been rolled back.
                   Original DNS configuration restored.
-                  Error details: {{ ansible_failed_result.msg | default('DNS resolution test failed') }}.
+                  Error details: {{ ansible_failed_result.msg | default("DNS resolution test failed") }}.
                   The domain change process cannot continue safely.
           
     - name: Apply TLS certificates to cluster
@@ -440,14 +443,14 @@
               ✅ Applied new TLS certificates to cluster
               ✅ Updated domain ConfigMap (no automatic watching)
               ✅ Triggered one-time ArgoCD sync
-              {{ '✅ Updated system DNS (DNSMASQ) configuration' if cluster_bloom_dns_enabled else '⚠️  No system DNS (DNSMASQ) detected - cluster-bloom not used' }}
-              {{ '✅ New domain is accessible' if domain_check is succeeded else '⚠️  Domain check failed - may need time to propagate' }}
+              {% if cluster_bloom_dns_enabled %}✅ Updated system DNS (DNSMASQ) configuration{% else %}⚠️  No system DNS (DNSMASQ) detected - cluster-bloom not used{% endif %}
+              {% if domain_check is succeeded %}✅ New domain is accessible{% else %}⚠️  Domain check failed - may need time to propagate{% endif %}
               
               Domain Integration Summary:
-              • Previous domain: {{ old_domain }} (K8s) / {{ current_dns_domain if current_dns_domain else 'none' }} (DNS)
+              • Previous domain: {{ old_domain }} (K8s) / {{ current_dns_domain if current_dns_domain else "none" }} (DNS)
               • New domain: {{ new_domain }}
-              • Cluster-Bloom DNS: {{ 'ENABLED and UPDATED' if cluster_bloom_dns_enabled else 'NOT DETECTED' }}
-              • FIX_DNS was used: {{ 'YES' if cluster_bloom_fix_dns_used else 'NO' }}
+              • Cluster-Bloom DNS: {% if cluster_bloom_dns_enabled %}ENABLED and UPDATED{% else %}NOT DETECTED{% endif %}
+              • FIX_DNS was used: {% if cluster_bloom_fix_dns_used %}YES{% else %}NO{% endif %}
               
               Access URLs:
               • ArgoCD:  https://argocd.{{ new_domain }}
