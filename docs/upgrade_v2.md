@@ -1,4 +1,4 @@
-# Upgrade Guide: to v2.0.0
+# Upgrade Guide: to v2.0.x
 
 > ⚠️ **Important Disclaimers**
 > - The helper script referenced below is an **example script only**; adjust paths and commands as needed for your system.
@@ -8,12 +8,12 @@
 
 ## Overview
 
-This guide covers the migration to cluster-forge **v2.0.0**. The upgrade involves:
+This guide covers the migration to cluster-forge **v2.0.x**. The upgrade involves:
 
 - Exporting AIRM CNPG database and RabbitMQ data before removing affected applications
 - Disabling ArgoCD auto-sync and deleting deprecated applications (`aim-cluster-model-source`, `kaiwo`, `kaiwo-crds`, `kaiwo-config`, `airm`, `aiwb`)
 - Removing deprecated CRDs (`aimclustermodel`, `aimclustermodelsource`, `aimclusterservicetemplates`)
-- Updating `global.targetRevision` to `v2.0.0` in your Gitea `cluster-values/values.yaml`
+- Updating `global.targetRevision` to `v2.0.1` in your Gitea `cluster-values/values.yaml`
 - Re-importing AIRM database and RabbitMQ data after the new `airm-infra-components` app is healthy
 - Redeploying AIRM with the restored data
 - Updating Keycloak redirect URIs for AIWorkbench
@@ -23,7 +23,7 @@ This guide covers the migration to cluster-forge **v2.0.0**. The upgrade involve
 A helper script is provided to automate the data export, ArgoCD cleanup, and to print the remaining manual steps:
 
 ```
-scripts/utils/upgrade_2.0.0.sh
+scripts/utils/upgrade_v2.sh
 ```
 
 See [scripts/utils/README.md](../scripts/utils/README.md) for the full list of utility scripts and further context.
@@ -54,7 +54,7 @@ cd scripts/utils
 
 - Ensure your enabled apps list is in sync with `root/<size>_values.yaml` for your `global.clusterSize`
 - Comment out `airm` from the enabled apps list (to create a window for importing data)
-- Set `global.targetRevision` to `v2.0.0` (or a release candidate tag)
+- Set `global.targetRevision` to `v2.0.1 (or latest patch / release candidate tag)
 - Add `helmParameters` for `airm` and `aiwb` if installing a release candidate
 
 ### ArgoCD Web UI
