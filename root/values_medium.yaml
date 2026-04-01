@@ -65,6 +65,9 @@ apps:
         jsonPointers:
           - /spec/rules/*/skipBackgroundRequests
           - /spec/rules/*/validate/allowExistingViolations
+  aiwb-infra-cnpg:
+    valuesObject:
+      instances: 1
   argocd:
     valuesObject:
       applicationSet:
@@ -76,7 +79,7 @@ apps:
             cpu: "1000m"
             memory: "2Gi"
           requests:
-            cpu: "500m" 
+            cpu: "125m" 
             memory: "1Gi"
       redis-ha:
         enabled: false
@@ -86,7 +89,7 @@ apps:
               cpu: "500m"
               memory: "1Gi"
             requests:
-              cpu: "250m"
+              cpu: "5m"
               memory: "512Mi"
       repoServer:
         replicas: 1
@@ -95,7 +98,7 @@ apps:
             cpu: "500m" 
             memory: "1Gi"
           requests:
-            cpu: "250m"
+            cpu: "25m"
             memory: "512Mi"
       server:
         replicas: 1
@@ -104,7 +107,7 @@ apps:
             cpu: "500m"
             memory: "1Gi"
           requests:
-            cpu: "125m"
+            cpu: "25m"
             memory: "256Mi"
   grafana:
     valuesObject:
@@ -119,14 +122,18 @@ apps:
         limits:
           cpu: "1000m"
           memory: "2Gi"
-        requests:
-          cpu: "250m"
-          memory: "512Mi"
+          requests:
+            cpu: "125m"
+            memory: "512Mi"
   keycloak:
     valuesObject:
       # Increase memory resources for Keycloak to prevent OOMKilled during initialization
       # Medium preset provides 1536Mi memory limit vs small preset's 768Mi
       resourcesPreset: "medium"
+  minio-operator:
+    valuesObject:
+      operator:
+        replicaCount: 1
   minio-tenant:
     valuesObject:
       tenant:
@@ -148,7 +155,7 @@ apps:
             cpu: "4000m"
             memory: "8Gi"
           requests:
-            cpu: "1000m"
+            cpu: "500m"
             memory: "2Gi"
   openbao:
     valuesObject:
@@ -161,28 +168,38 @@ apps:
           raft:
             enabled: false
           replicas: 1
-        resources:
-          limits:
-            cpu: "1000m"
-            memory: "2Gi"
+      resources:
+        limits:
+          cpu: "1000m"
+          memory: "2Gi"
           requests:
-            cpu: "250m"
+            cpu: "5m"
             memory: "512Mi"
   opentelemetry-operator:
     valuesObject:
       manager:
         resources:
           requests:
-            cpu: "250m"
+            cpu: "125m"
             memory: "512Mi"
   otel-lgtm-stack:
     valuesObject:
       collectors:
         resources:
           metrics:
-            cpu: '1'
+            requests:
+              cpu: 500m
+              memory: 1Gi
             limits:
+              cpu: '1'
               memory: 4Gi
+          logs:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
   prometheus:
     valuesObject:
       prometheus:
@@ -192,7 +209,7 @@ apps:
               cpu: "2000m"
               memory: "4Gi"
             requests:
-              cpu: "500m"
+              cpu: "250m"
               memory: "1Gi"
           retention: 15d
           retentionSize: 20GB
@@ -205,3 +222,193 @@ apps:
                   requests:
                     storage: 25Gi
                 storageClassName: direct
+  aim-engine:
+    valuesObject:
+      operator:
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+  airm:
+    valuesObject:
+      backend:
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "512Mi"
+      frontend:
+        resources:
+          requests:
+            cpu: "400m"
+            memory: "1Gi"
+  airm-infra-cnpg:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "500m"
+          memory: "512Mi"
+  airm-infra-external-secrets:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "128Mi"
+  airm-infra-rabbitmq:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "200m"
+          memory: "512Mi"
+  aiwb:
+    valuesObject:
+      backend:
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "512Mi"
+  aiwb-infra-external-secrets:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "25m"
+          memory: "128Mi"
+  amd-gpu-operator:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "256Mi"
+  cert-manager:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "5m"
+          memory: "256Mi"
+  cluster-auth:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "256Mi"
+  cnpg-operator:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "256Mi"
+  external-secrets:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "5m"
+          memory: "256Mi"
+  gitea:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "200m"
+          memory: "512Mi"
+  gitea-config:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "25m"
+          memory: "128Mi"
+  kaiwo:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "200m"
+          memory: "512Mi"
+  keda:
+    valuesObject:
+      resources:
+        operator:
+          requests:
+            cpu: "50m"
+            memory: "128Mi"
+        metricServer:
+          requests:
+            cpu: "50m"
+            memory: "128Mi"
+        webhooks:
+          requests:
+            cpu: "50m"
+            memory: "128Mi"
+  kedify-otel:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "256Mi"
+  kgateway:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "200m"
+          memory: "512Mi"
+  kgateway-config:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "25m"
+          memory: "128Mi"
+  kserve:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "256Mi"
+  kueue:
+    valuesObject:
+      controllerManager:
+        manager:
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+  kuberay-operator:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "256Mi"
+  kyverno:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "256Mi"
+  minio-tenant-config:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "25m"
+          memory: "128Mi"
+  openbao-config:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "25m"
+          memory: "128Mi"
+  prometheus-crds:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "25m"
+          memory: "128Mi"
+  kgateway-crds:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "25m"
+          memory: "128Mi"
+  kserve-crds:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "25m"
+          memory: "128Mi"
