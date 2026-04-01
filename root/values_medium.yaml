@@ -65,6 +65,9 @@ apps:
         jsonPointers:
           - /spec/rules/*/skipBackgroundRequests
           - /spec/rules/*/validate/allowExistingViolations
+  aiwb-infra-cnpg:
+    valuesObject:
+      instances: 1
   argocd:
     valuesObject:
       applicationSet:
@@ -127,6 +130,10 @@ apps:
       # Increase memory resources for Keycloak to prevent OOMKilled during initialization
       # Medium preset provides 1536Mi memory limit vs small preset's 768Mi
       resourcesPreset: "medium"
+  minio-operator:
+    valuesObject:
+      operator:
+        replicaCount: 1
   minio-tenant:
     valuesObject:
       tenant:
