@@ -352,13 +352,10 @@
 
             - name: Fail with DNS rollback message
               ansible.builtin.fail:
-                msg: |
+                msg: >-
                   ❌ DNSMASQ configuration update failed and has been rolled back.
                   Original DNS configuration restored.
-                  
-                  Error details:
-                  {{ ansible_failed_result.msg | default('DNS resolution test failed') }}
-                  
+                  Error details: {{ ansible_failed_result.msg | default('DNS resolution test failed') }}.
                   The domain change process cannot continue safely.
           
     - name: Apply TLS certificates to cluster
