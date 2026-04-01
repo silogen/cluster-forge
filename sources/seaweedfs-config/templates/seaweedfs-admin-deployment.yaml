@@ -38,12 +38,18 @@ spec:
       - name: seaweedfs-admin
         image: chrislusf/seaweedfs:latest
         imagePullPolicy: Always
+        env:
+        - name: SEAWEEDFS_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: seaweedfs-admin-secret
+              key: admin-password
         command:
         - weed
         - admin
         - -masters=seaweed-master.seaweedfs-instance.svc.cluster.local:9333        
         - -adminUser=admin
-        - -adminPassword=thisistheway1234
+        - -adminPassword=$(SEAWEEDFS_ADMIN_PASSWORD)
         resources:
           requests:
             memory: "64Mi"
