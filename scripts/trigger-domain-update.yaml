@@ -234,11 +234,13 @@
                  if gitea_repo_discovery.stdout | trim != \"\"
                  else (GITEA_REPO_PATH | default(\"infrastructure/cluster-values\")) }}"
 
+        - name: Build Gitea clone URL
+          ansible.builtin.set_fact:
+            gitea_clone_url: "http://{% if gitea_admin_pass.stdout | trim != \"\"}admin:{{ gitea_admin_pass.stdout | trim }}@{% endif %}localhost:3000/{{ cluster_values_repo_path }}.git"
+
         - name: Clone cluster-values via port-forward
           ansible.builtin.git:
-            repo: >-
-              http://{{ 'admin:' + (gitea_admin_pass.stdout | trim) + '@'
-                        if (gitea_admin_pass.stdout | trim) != '' else '' }}localhost:3000/{{ cluster_values_repo_path }}.git
+            repo: "{{ gitea_clone_url }}"
             dest: "/tmp/cluster-values-{{ lookup('pipe', 'date +%s') }}"
             force: yes
           register: git_clone
