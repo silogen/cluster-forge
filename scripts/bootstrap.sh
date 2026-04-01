@@ -6,7 +6,7 @@ set -euo pipefail
 #
 # # # UPDATE ON RELEASES # # #
 #
-LATEST_RELEASE="v2.0.0"
+LATEST_RELEASE="v2.0.2"
 #
 #
 #

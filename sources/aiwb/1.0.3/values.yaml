@@ -27,7 +27,7 @@ metadataPrefix:
   aiwb: "aiwb.apps.eai.amd.com"
 
 # Application domain (base domain for all services)
-appDomain: "app-dev.silogen.ai"
+appDomain: "PUBLIC-IP"
 
 # kgateway configuration for HTTPRoute resources
 kgateway:
