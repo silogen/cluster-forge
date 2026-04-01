@@ -230,10 +230,9 @@
 
         - name: Set resolved repo path
           ansible.builtin.set_fact:
-            cluster_values_repo_path: >-
-              {{ gitea_repo_discovery.stdout | trim
-                 if gitea_repo_discovery.stdout | trim != ''
-                 else (GITEA_REPO_PATH | default('infrastructure/cluster-values')) }}
+            cluster_values_repo_path: "{{ gitea_repo_discovery.stdout | trim
+                 if gitea_repo_discovery.stdout | trim != \"\"
+                 else (GITEA_REPO_PATH | default(\"infrastructure/cluster-values\")) }}"
 
         - name: Clone cluster-values via port-forward
           ansible.builtin.git:
