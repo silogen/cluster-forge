@@ -58,7 +58,7 @@ backend:
   # If not set, defaults to https://workloads.{appDomain}
   clusterHost: ""
   image:
-    repository: aiwb-api
+    repository: amdenterpriseai/aiwb-api
     pullPolicy: IfNotPresent
     tag: 1.0.3
   # NOTE: AIWB currently only supports 1 replica due to the poller/syncer setup.
@@ -115,7 +115,7 @@ backend:
 # Frontend (UI) configuration
 frontend:
   image:
-    repository: aiwb-ui
+    repository: amdenterpriseai/aiwb-ui
     pullPolicy: IfNotPresent
     tag: 1.0.3
   replicaCount: 1
