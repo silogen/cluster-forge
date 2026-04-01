@@ -14,6 +14,16 @@
     skip_git_update: "{{ SKIP_GIT_UPDATE | default(false) | bool }}"
     
   tasks:
+    - name: Capture run timestamp
+      ansible.builtin.shell: date +%s
+      register: run_timestamp
+      changed_when: false
+
+    - name: Capture run timestamp ISO
+      ansible.builtin.shell: date -u +%Y-%m-%dT%H:%M:%SZ
+      register: run_timestamp_iso
+      changed_when: false
+
     - name: Validate prerequisites
       block:
         - name: Validate new domain format
@@ -241,7 +251,7 @@
         - name: Clone cluster-values via port-forward
           ansible.builtin.git:
             repo: "{{ gitea_clone_url }}"
-            dest: "/tmp/cluster-values-{{ lookup('pipe', 'date +%s') }}"
+            dest: "/tmp/cluster-values-{{ run_timestamp.stdout }}"
             force: yes
           register: git_clone
 
@@ -273,7 +283,7 @@
         - name: Backup current DNSMASQ configuration
           ansible.builtin.copy:
             src: /etc/dnsmasq.d/keycloak.conf
-            dest: "/etc/dnsmasq.d/keycloak.conf.backup-{{ lookup('pipe', 'date +%s') }}"
+            dest: "/etc/dnsmasq.d/keycloak.conf.backup-{{ run_timestamp.stdout }}"
             remote_src: yes
             mode: "0644"
           delegate_to: localhost
@@ -342,7 +352,7 @@
 
             - name: Restore DNSMASQ configuration backup
               ansible.builtin.copy:
-                src: "/etc/dnsmasq.d/keycloak.conf.backup-{{ lookup('pipe', 'date +%s') }}"
+                src: "/etc/dnsmasq.d/keycloak.conf.backup-{{ run_timestamp.stdout }}"
                 dest: /etc/dnsmasq.d/keycloak.conf
                 remote_src: yes
                 mode: "0644"
@@ -398,7 +408,7 @@
               namespace: kgateway-system
             data:
               domain: {{ new_domain }}
-              updated_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+              updated_at: "{{ run_timestamp_iso.stdout }}"
               updated_by: "simplified-domain-change-playbook"
               method: "manual-execution"
             EOF
