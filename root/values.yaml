@@ -285,7 +285,8 @@ apps:
       image:
         registry: ""
         repository: "gitea/gitea"
-        tag: "1.24.6-rootless"
+        tag: "1.24.6"
+        rootless: true
       gitea:
         admin:
           existingSecret: gitea-admin-credentials
