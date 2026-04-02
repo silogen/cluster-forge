@@ -282,6 +282,11 @@ apps:
     syncWave: -30
     valuesObject:
       clusterDomain: # to be filled by cluster-forge app
+      image:
+        registry: ""
+        repository: "gitea/gitea"
+        tag: "1.24.6"
+        rootless: true
       gitea:
         admin:
           existingSecret: gitea-admin-credentials
