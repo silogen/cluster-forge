@@ -1,0 +1,506 @@
+---
+- name: Domain Update Tool
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # Required variables (pass via -e or vars file)
+    new_domain: "{{ NEW_DOMAIN | mandatory }}"
+    certificate_path: "{{ CERT_PATH | mandatory }}"
+    private_key_path: "{{ KEY_PATH | mandatory }}"
+    
+    # Optional variables
+    old_domain: "{{ OLD_DOMAIN | default('') }}"
+    kubeconfig: "{{ KUBECONFIG | default(ansible_env.HOME + '/.kube/config') }}"
+    skip_git_update: "{{ SKIP_GIT_UPDATE | default(false) | bool }}"
+    # Regexp stored as var to avoid YAML parser issues with backslash+colon in inline values
+    domain_regexp: "^(\\s*domain:\\s*).*$"
+    domain_replace: "\\1{{ new_domain }}"
+    dnsmasq_regexp: "^address=/[^/]+/"
+    dot_pattern: "."
+    dash_char: "-"
+    default_repo_path: infrastructure/cluster-values
+
+  tasks:
+    - name: Capture run timestamp
+      ansible.builtin.shell: date +%s
+      register: run_timestamp
+      changed_when: false
+
+    - name: Capture run timestamp ISO
+      ansible.builtin.shell: date -u +%Y-%m-%dT%H:%M:%SZ
+      register: run_timestamp_iso
+      changed_when: false
+
+    - name: Validate prerequisites
+      block:
+        - name: Validate new domain format
+          ansible.builtin.fail:
+            msg: "Invalid domain format: {{ new_domain }}"
+          when: new_domain is not match("^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$")
+
+        - name: Validate certificate file exists
+          ansible.builtin.shell: "test -f {{ certificate_path }}"
+          delegate_to: localhost
+          changed_when: false
+
+        - name: Validate private key file exists
+          ansible.builtin.shell: "test -f {{ private_key_path }}"
+          delegate_to: localhost
+          changed_when: false
+
+        - name: Check kubectl connectivity
+          ansible.builtin.shell: "kubectl get namespace kgateway-system"
+          changed_when: false
+
+    - name: Detect cluster-bloom DNS configuration
+      block:
+        - name: Check for DNSMASQ configuration file
+          ansible.builtin.stat:
+            path: /etc/dnsmasq.d/keycloak.conf
+          register: dnsmasq_config
+          delegate_to: localhost
+
+        - name: Check for resolv.conf backup (indicates FIX_DNS was used)
+          ansible.builtin.find:
+            paths: /etc
+            patterns: "resolv.conf.pre-dnsmasq-*"
+          register: resolv_backup
+          delegate_to: localhost
+
+        - name: Read current DNSMASQ domain if exists
+          ansible.builtin.shell: |
+            if [ -f /etc/dnsmasq.d/keycloak.conf ]; then
+              grep "address=/" /etc/dnsmasq.d/keycloak.conf | head -1 | cut -d'/' -f2 || echo ""
+            else
+              echo ""
+            fi
+          register: current_dnsmasq_domain
+          delegate_to: localhost
+          changed_when: false
+
+        - name: Check systemd-resolved status
+          ansible.builtin.shell: systemctl is-active systemd-resolved 2>/dev/null || echo "inactive"
+          register: systemd_resolved_status
+          delegate_to: localhost
+          changed_when: false
+
+        - name: Set DNS configuration facts
+          ansible.builtin.set_fact:
+            cluster_bloom_dns_enabled: "{{ dnsmasq_config.stat.exists }}"
+            cluster_bloom_fix_dns_used: "{{ resolv_backup.files | length > 0 }}"
+            current_dns_domain: "{{ current_dnsmasq_domain.stdout }}"
+            systemd_resolved_was_disabled: "{{ systemd_resolved_status.stdout != 'active' }}"
+
+        - name: Display DNS configuration status
+          ansible.builtin.debug:
+            msg: |
+              🔍 Cluster-Bloom DNS Configuration Status:
+              DNSMASQ enabled: {{ cluster_bloom_dns_enabled }}
+              FIX_DNS was used: {{ cluster_bloom_fix_dns_used }}
+              Current DNS domain: {{ current_dns_domain if current_dns_domain else "none" }}
+              systemd-resolved disabled: {{ systemd_resolved_was_disabled }}
+
+    - name: Extract domain from gitea config if old_domain not provided
+      when: old_domain == ''
+      block:
+        - name: Get gitea-config-script ConfigMap
+          ansible.builtin.shell: |
+            kubectl get configmap gitea-config-script -n cf-gitea -o yaml 2>/dev/null | grep "KC_URL=" | head -1 | cut -d'=' -f2 | sed 's|https://[^.]*\.||g' | sed 's|{{ '{{' }}.*{{ '}}' }}||g' | xargs || echo ""
+          register: gitea_config_result
+          ignore_errors: true
+          changed_when: false
+
+        - name: Extract domain from KC_URL in gitea config
+          ansible.builtin.set_fact:
+            extracted_domain: "{{ gitea_config_result.stdout | trim }}"
+          when: 
+            - gitea_config_result is succeeded
+            - gitea_config_result.stdout is defined
+            - gitea_config_result.stdout | trim != ""
+            - "'Values' not in gitea_config_result.stdout"
+          ignore_errors: true
+
+        - name: Set old_domain from extraction
+          ansible.builtin.set_fact:
+            old_domain: "{{ extracted_domain }}"
+          when: 
+            - extracted_domain is defined
+            - extracted_domain != ''
+            - "'Values' not in extracted_domain"
+
+        - name: Fail if old_domain could not be determined
+          ansible.builtin.fail:
+            msg: "Could not extract old domain from cluster configuration. Please provide OLD_DOMAIN parameter."
+          when: old_domain == ''
+
+    - name: Get current domain for reference
+      ansible.builtin.shell: "kubectl get configmap current-domain-config -n kgateway-system -o jsonpath='{.data.domain}' 2>/dev/null || echo 'unknown'"
+      register: current_domain_result
+      ignore_errors: true
+      changed_when: false
+
+    - name: Display domain change summary
+      ansible.builtin.debug:
+            msg: |
+              🚀 Domain Change Summary:
+              Old domain: {{ old_domain }}
+              New domain: {{ new_domain }}
+              Certificate: {{ certificate_path }}
+              Private key: {{ private_key_path }}
+              Repository URL: https://gitea.{{ old_domain }}/infrastructure/cluster-values.git
+
+    - name: Update cluster-values repository
+      when: not skip_git_update
+      block:
+        - name: Discover Gitea HTTP service name
+          ansible.builtin.shell: |
+            kubectl get svc -n cf-gitea -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep -E 'http|web|gitea' | grep -v ssh | head -1
+          register: gitea_svc_name
+          changed_when: false
+
+        - name: Fail if no Gitea HTTP service found
+          ansible.builtin.fail:
+            msg: "No Gitea HTTP service found in namespace cf-gitea. Check: kubectl get svc -n cf-gitea"
+          when: gitea_svc_name.stdout | trim == ""
+
+        - name: Start port-forward to Gitea
+          ansible.builtin.shell: |
+            #!/bin/bash
+            nohup kubectl port-forward -n cf-gitea svc/{{ gitea_svc_name.stdout | trim }} 3000:3000 \
+              > /tmp/gitea-port-forward.log 2>&1 &
+            PF_PID=$!
+            disown $PF_PID
+            echo $PF_PID
+          args:
+            executable: /bin/bash
+          register: port_forward_pid
+          changed_when: false
+
+        - name: Wait for port-forward to be ready
+          ansible.builtin.wait_for:
+            port: 3000
+            host: 127.0.0.1
+            timeout: 15
+
+        - name: Get Gitea admin credentials from cluster
+          ansible.builtin.shell: |
+            SECRET=$(kubectl get secret -n cf-gitea -o name 2>/dev/null | grep -iE 'admin|gitea-admin|init-gitea' | head -1)
+            if [ -n "$SECRET" ]; then
+              kubectl get $SECRET -n cf-gitea -o jsonpath='{.data.password}' 2>/dev/null | base64 -d 2>/dev/null || true
+            fi
+          register: gitea_admin_pass
+          changed_when: false
+          ignore_errors: true
+
+        - name: Write Gitea repo discovery script
+          ansible.builtin.copy:
+            dest: /tmp/gitea-discover.py
+            content: |
+              import urllib.request, json, sys, base64
+              base_url = sys.argv[1]
+              password = sys.argv[2] if len(sys.argv) > 2 else ""
+              headers = {}
+              if password:
+                  creds = base64.b64encode(("admin:" + password).encode()).decode()
+                  headers["Authorization"] = "Basic " + creds
+              def get(url):
+                  r = urllib.request.urlopen(urllib.request.Request(url, headers=headers))
+                  return json.loads(r.read())
+              all_repos = []
+              page = 1
+              while True:
+                  data = get(base_url + "/repos/search?limit=50&page=" + str(page))
+                  repos = data.get("data", [])
+                  if not repos:
+                      break
+                  all_repos.extend(repos)
+                  page += 1
+              names = [r["full_name"] for r in all_repos]
+              keywords = ["cluster-values", "values", "cluster_values"]
+              match = next((n for kw in keywords for n in names if kw in n.lower()), "")
+              print(match)
+              sys.stderr.write("AVAILABLE_REPOS:" + ",".join(names) + "\n")
+
+        - name: Discover cluster-values repository path via Gitea API
+          ansible.builtin.shell: >-
+            python3 /tmp/gitea-discover.py
+            http://localhost:3000/api/v1
+            {{ gitea_admin_pass.stdout | trim }}
+            2>/tmp/gitea-repo-discovery.log
+          register: gitea_repo_discovery
+          changed_when: false
+          ignore_errors: true
+
+        - name: Show available repos if discovery failed
+          ansible.builtin.shell: cat /tmp/gitea-repo-discovery.log 2>/dev/null || echo "no log"
+          register: available_repos_log
+          changed_when: false
+          when: gitea_repo_discovery.stdout | trim == ""
+
+        - name: Fail if cluster-values repo not found
+          ansible.builtin.fail:
+            msg: >-
+              Could not find cluster-values repository via Gitea API.
+              Set GITEA_REPO_PATH=ORG/REPONAME in your vars file to override.
+          when: gitea_repo_discovery.stdout | trim == "" and (GITEA_REPO_PATH is not defined or GITEA_REPO_PATH == "")
+
+        - name: Set resolved repo path (from discovery)
+          ansible.builtin.set_fact:
+            cluster_values_repo_path: "{{ gitea_repo_discovery.stdout | trim }}"
+          when: gitea_repo_discovery.stdout | trim != ""
+
+        - name: Set resolved repo path (from override)
+          ansible.builtin.set_fact:
+            cluster_values_repo_path: "{{ GITEA_REPO_PATH | default(default_repo_path) }}"
+          when: gitea_repo_discovery.stdout | trim == ""
+
+        - name: Build Gitea clone URL
+          ansible.builtin.shell: |
+            PASS="{{ gitea_admin_pass.stdout | trim }}"
+            if [ -n "$PASS" ]; then
+              echo "http://admin:${PASS}@localhost:3000/{{ cluster_values_repo_path }}.git"
+            else
+              echo "http://localhost:3000/{{ cluster_values_repo_path }}.git"
+            fi
+          register: gitea_clone_url_result
+          changed_when: false
+
+        - name: Clone cluster-values via port-forward
+          ansible.builtin.git:
+            repo: "{{ gitea_clone_url_result.stdout | trim }}"
+            dest: "/tmp/cluster-values-{{ run_timestamp.stdout }}"
+            force: yes
+          register: git_clone
+
+        - name: Update global.domain in values.yaml
+          ansible.builtin.replace:
+            path: "{{ git_clone.dest }}/values.yaml"
+            regexp: "{{ domain_regexp }}"
+            replace: "{{ domain_replace }}"
+
+        - name: Commit and push domain change
+          ansible.builtin.shell: |
+            cd {{ git_clone.dest }}
+            git config user.name "Domain Update"
+            git config user.email "automation@{{ new_domain }}"
+            git add values.yaml
+            git commit -m "feat: update domain to {{ new_domain }}"
+            git push origin main
+
+      always:
+        - name: Stop port-forward
+          ansible.builtin.shell: |
+            kill {{ port_forward_pid.stdout | trim }} 2>/dev/null || true
+          when: port_forward_pid is defined and port_forward_pid.stdout | trim != ""
+          changed_when: false
+
+    - name: Update system DNS configuration (cluster-bloom integration)
+      when: cluster_bloom_dns_enabled
+      block:
+        - name: Backup current DNSMASQ configuration
+          ansible.builtin.copy:
+            src: /etc/dnsmasq.d/keycloak.conf
+            dest: "/etc/dnsmasq.d/keycloak.conf.backup-{{ run_timestamp.stdout }}"
+            remote_src: yes
+            mode: "0644"
+          delegate_to: localhost
+
+        - name: Read current DNSMASQ configuration
+          ansible.builtin.slurp:
+            src: /etc/dnsmasq.d/keycloak.conf
+          register: current_dnsmasq_config
+          delegate_to: localhost
+
+        - name: Update DNSMASQ domain resolution
+          ansible.builtin.replace:
+            path: /etc/dnsmasq.d/keycloak.conf
+            regexp: "{{ dnsmasq_regexp }}"
+            replace: "address=/{{ new_domain }}/"
+          delegate_to: localhost
+          register: dnsmasq_updated
+
+        - name: Test DNSMASQ configuration before restart
+          ansible.builtin.shell: dnsmasq --test --conf-file=/etc/dnsmasq.d/keycloak.conf
+          delegate_to: localhost
+          register: dnsmasq_test
+          failed_when: dnsmasq_test.rc != 0
+
+        - name: Restart DNSMASQ service
+          ansible.builtin.systemd:
+            name: dnsmasq
+            state: restarted
+          delegate_to: localhost
+          when: dnsmasq_updated.changed
+
+        - name: Wait for DNSMASQ to be ready
+          ansible.builtin.wait_for:
+            port: 53
+            host: 127.0.0.1
+            timeout: 10
+          delegate_to: localhost
+
+        - name: Test new domain DNS resolution
+          ansible.builtin.shell: |
+            nslookup {{ new_domain }} 127.0.0.1 || exit 1
+            nslookup google.com 127.0.0.1 || exit 1
+          delegate_to: localhost
+          register: dns_resolution_test
+          retries: 3
+          delay: 2
+          until: dns_resolution_test.rc == 0
+
+        - name: Display DNS update success
+          ansible.builtin.debug:
+            msg: |
+              ✅ DNSMASQ configuration updated successfully:
+              Old domain: {{ current_dns_domain }}
+              New domain: {{ new_domain }}
+              DNS resolution test: PASSED
+              
+      rescue:
+        - name: Rollback DNSMASQ configuration on failure
+          block:
+            - name: Stop DNSMASQ service
+              ansible.builtin.systemd:
+                name: dnsmasq
+                state: stopped
+              delegate_to: localhost
+              ignore_errors: yes
+
+            - name: Restore DNSMASQ configuration backup
+              ansible.builtin.copy:
+                src: "/etc/dnsmasq.d/keycloak.conf.backup-{{ run_timestamp.stdout }}"
+                dest: /etc/dnsmasq.d/keycloak.conf
+                remote_src: yes
+                mode: "0644"
+              delegate_to: localhost
+
+            - name: Restart DNSMASQ service with original config
+              ansible.builtin.systemd:
+                name: dnsmasq
+                state: started
+              delegate_to: localhost
+
+            - name: Fail with DNS rollback message
+              ansible.builtin.fail:
+                msg: >-
+                  ❌ DNSMASQ configuration update failed and has been rolled back.
+                  Original DNS configuration restored.
+                  Error details: {{ ansible_failed_result.msg | default("DNS resolution test failed") }}.
+                  The domain change process cannot continue safely.
+          
+    - name: Apply TLS certificates to cluster
+      block:
+        - name: Read certificate files
+          ansible.builtin.slurp:
+            src: "{{ item.path }}"
+          register: cert_contents
+          loop:
+            - path: "{{ certificate_path }}"
+              key: tls_crt
+            - path: "{{ private_key_path }}"
+              key: tls_key
+          delegate_to: localhost
+
+        - name: Compute TLS secret name
+          ansible.builtin.set_fact:
+            tls_secret_name: "{{ new_domain | replace(dot_pattern, dash_char) }}-tls"
+
+        - name: Create/update TLS secret for new domain
+          ansible.builtin.shell: |
+            kubectl apply -f - <<EOF
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: {{ tls_secret_name }}
+              namespace: kgateway-system
+            type: kubernetes.io/tls
+            data:
+              tls.crt: {{ cert_contents.results[0].content }}
+              tls.key: {{ cert_contents.results[1].content }}
+            EOF
+          changed_when: true
+
+        - name: Update current domain ConfigMap (triggers ArgoCD sync)
+          ansible.builtin.shell: |
+            kubectl apply -f - <<EOF
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: current-domain-config
+              namespace: kgateway-system
+            data:
+              domain: {{ new_domain }}
+              updated_at: "{{ run_timestamp_iso.stdout }}"
+              updated_by: "simplified-domain-change-playbook"
+              method: "manual-execution"
+            EOF
+          changed_when: true
+
+    - name: Trigger immediate ArgoCD sync (one-time)
+      block:
+        - name: Write ArgoCD sync patch file
+          ansible.builtin.copy:
+            dest: /tmp/argocd-sync-patch.json
+            content: >-
+              {"operation":{"initiatedBy":{"username":"simplified-domain-change"},"sync":{"syncStrategy":{"apply":{"force":true}}}}}
+
+        - name: Force sync critical applications
+          ansible.builtin.shell: >-
+            kubectl patch application {{ item }}
+            -n argocd --type merge
+            -p "$(cat /tmp/argocd-sync-patch.json)"
+          loop:
+            - argocd
+            - gitea
+            - keycloak
+            - minio
+          ignore_errors: true
+          changed_when: true
+
+        - name: Wait for sync completion
+          ansible.builtin.pause:
+            seconds: 30
+            prompt: "Waiting for ArgoCD sync to propagate..."
+
+    - name: Verify domain change success
+      block:
+        - name: Test new domain accessibility
+          ansible.builtin.uri:
+            url: "https://argocd.{{ new_domain }}/api/version"
+            method: GET
+            validate_certs: false
+            status_code: [200, 401, 403]  # 401/403 are ok - service is responding
+          register: domain_check
+          retries: 3
+          delay: 15
+          ignore_errors: true
+
+        - name: Display completion status
+          ansible.builtin.debug:
+            msg: |
+              🎯 Domain Change Complete with DNS Integration!
+              
+              ✅ Updated cluster-values repository with new domain
+              ✅ Applied new TLS certificates to cluster
+              ✅ Updated domain ConfigMap (no automatic watching)
+              ✅ Triggered one-time ArgoCD sync
+              {% if cluster_bloom_dns_enabled %}✅ Updated system DNS (DNSMASQ) configuration{% else %}⚠️  No system DNS (DNSMASQ) detected - cluster-bloom not used{% endif %}
+              {% if domain_check is succeeded %}✅ New domain is accessible{% else %}⚠️  Domain check failed - may need time to propagate{% endif %}
+              
+              Domain Integration Summary:
+              • Previous domain: {{ old_domain }} (K8s) / {{ current_dns_domain if current_dns_domain else "none" }} (DNS)
+              • New domain: {{ new_domain }}
+              • Cluster-Bloom DNS: {% if cluster_bloom_dns_enabled %}ENABLED and UPDATED{% else %}NOT DETECTED{% endif %}
+              • FIX_DNS was used: {% if cluster_bloom_fix_dns_used %}YES{% else %}NO{% endif %}
+              
+              Access URLs:
+              • ArgoCD:  https://argocd.{{ new_domain }}
+              • Gitea:   https://gitea.{{ new_domain }}
+              • Keycloak: https://kc.{{ new_domain }}
+              
+              🔥 The fire of the forge eliminates impurities!
+              
+              Note: This simplified implementation removes all automatic 
+              watching/polling. Future domain changes require re-running 
+              this playbook manually.
