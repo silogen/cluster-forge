@@ -497,10 +497,54 @@
           ignore_errors: true
           changed_when: true
 
-        - name: Wait for sync completion
-          ansible.builtin.pause:
-            seconds: 30
-            prompt: "Waiting for ArgoCD sync to propagate..."
+        - name: Wait for ArgoCD applications to sync (polling)
+          ansible.builtin.shell: |
+            #!/bin/bash
+            set -e
+
+            APPS=("argocd" "gitea" "keycloak" "minio")
+            MAX_WAIT=300  # 5 minutes total timeout
+            CHECK_INTERVAL=10  # Check every 10 seconds
+            ELAPSED=0
+
+            echo "Waiting for ArgoCD applications to sync..."
+
+            while [ $ELAPSED -lt $MAX_WAIT ]; do
+              ALL_SYNCED=true
+
+              for APP in "${APPS[@]}"; do
+                SYNC_STATUS=$(kubectl get application "$APP" -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown")
+                HEALTH_STATUS=$(kubectl get application "$APP" -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown")
+
+                echo "[$ELAPSED s] $APP: sync=$SYNC_STATUS, health=$HEALTH_STATUS"
+
+                # Check if app is synced (Synced or OutOfSync is acceptable, we just want it to finish attempting)
+                # Health can be Progressing/Healthy/Degraded
+                if [[ "$SYNC_STATUS" != "Synced" ]]; then
+                  ALL_SYNCED=false
+                fi
+              done
+
+              if [ "$ALL_SYNCED" = true ]; then
+                echo "All applications synced successfully!"
+                exit 0
+              fi
+
+              sleep $CHECK_INTERVAL
+              ELAPSED=$((ELAPSED + CHECK_INTERVAL))
+            done
+
+            echo "WARNING: Timeout reached after ${MAX_WAIT}s. Some applications may not be fully synced."
+            echo "Continuing anyway - check application status manually if needed."
+            exit 0  # Don't fail the playbook, just warn
+          args:
+            executable: /bin/bash
+          register: sync_wait_result
+          changed_when: false
+
+        - name: Display sync wait results
+          ansible.builtin.debug:
+            var: sync_wait_result.stdout_lines
 
     - name: Verify domain change success
       block:
