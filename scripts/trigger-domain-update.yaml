@@ -504,6 +504,82 @@
 
     - name: Verify domain change success
       block:
+        - name: Check DNS resolution for new domain
+          ansible.builtin.shell: |
+            echo "=== DNS Resolution Test ==="
+            nslookup argocd.{{ new_domain }} || echo "nslookup failed"
+            echo ""
+            echo "=== Checking /etc/resolv.conf ==="
+            cat /etc/resolv.conf
+            echo ""
+            echo "=== Testing DNS with dig (if available) ==="
+            dig argocd.{{ new_domain }} || echo "dig not available"
+          register: dns_debug
+          changed_when: false
+          ignore_errors: true
+
+        - name: Display DNS debug info
+          ansible.builtin.debug:
+            var: dns_debug.stdout_lines
+
+        - name: Check TLS secret status
+          ansible.builtin.shell: |
+            echo "=== TLS Secret Status ==="
+            kubectl get secret {{ tls_secret_name }} -n kgateway-system -o yaml | grep -A 2 "kind:\|name:\|namespace:\|type:"
+            echo ""
+            echo "=== Current Domain ConfigMap ==="
+            kubectl get configmap current-domain-config -n kgateway-system -o yaml | grep -A 5 "^data:"
+          register: tls_debug
+          changed_when: false
+          ignore_errors: true
+
+        - name: Display TLS debug info
+          ansible.builtin.debug:
+            var: tls_debug.stdout_lines
+
+        - name: Check ArgoCD application sync status
+          ansible.builtin.shell: |
+            echo "=== ArgoCD App Status ==="
+            kubectl get applications -n argocd -o custom-columns=NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status
+            echo ""
+            echo "=== ArgoCD Pods ==="
+            kubectl get pods -n argocd
+          register: argocd_debug
+          changed_when: false
+          ignore_errors: true
+
+        - name: Display ArgoCD debug info
+          ansible.builtin.debug:
+            var: argocd_debug.stdout_lines
+
+        - name: Check gateway/ingress configuration
+          ansible.builtin.shell: |
+            echo "=== Gateway Resources ==="
+            kubectl get gateway,httproute -n kgateway-system || echo "No gateways found"
+            echo ""
+            echo "=== Ingress Resources ==="
+            kubectl get ingress -A | grep -E "argocd|gitea|keycloak" || echo "No ingresses found"
+          register: gateway_debug
+          changed_when: false
+          ignore_errors: true
+
+        - name: Display Gateway debug info
+          ansible.builtin.debug:
+            var: gateway_debug.stdout_lines
+
+        - name: Test new domain accessibility with verbose output
+          ansible.builtin.shell: |
+            echo "=== Testing HTTPS Connection ==="
+            curl -v -k --connect-timeout 10 --max-time 15 \
+              "https://argocd.{{ new_domain }}/api/version" 2>&1 || echo "curl failed with exit code: $?"
+          register: curl_debug
+          changed_when: false
+          ignore_errors: true
+
+        - name: Display curl debug info
+          ansible.builtin.debug:
+            var: curl_debug.stdout_lines
+
         - name: Test new domain accessibility
           ansible.builtin.uri:
             url: "https://argocd.{{ new_domain }}/api/version"
