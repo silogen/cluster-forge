@@ -483,17 +483,26 @@
 
         - name: Restart kGateway pods to pick up new certificate
           ansible.builtin.shell: |
-            # Find kGateway deployment/daemonset
-            KGATEWAY_RESOURCE=$(kubectl get deploy,daemonset -n kgateway-system -o name | grep -i kgateway | head -1)
-            if [ -n "$KGATEWAY_RESOURCE" ]; then
-              echo "Restarting $KGATEWAY_RESOURCE"
-              kubectl rollout restart -n kgateway-system $KGATEWAY_RESOURCE
-              kubectl rollout status -n kgateway-system $KGATEWAY_RESOURCE --timeout=120s
+            echo "Restarting all gateway deployments in kgateway-system..."
+
+            RESOURCES=$(kubectl get deploy -n kgateway-system -o name)
+            if [ -z "$RESOURCES" ]; then
+              echo "No deployments found, trying pod deletion"
+              kubectl delete pods -n kgateway-system --all || true
+              sleep 10
             else
-              echo "No kGateway deployment/daemonset found, trying pod deletion"
-              kubectl delete pods -n kgateway-system -l app.kubernetes.io/name=kgateway || true
-              sleep 5
+              for RESOURCE in $RESOURCES; do
+                echo "Restarting $RESOURCE"
+                kubectl rollout restart -n kgateway-system $RESOURCE
+              done
+
+              for RESOURCE in $RESOURCES; do
+                echo "Waiting for $RESOURCE to complete rollout..."
+                kubectl rollout status -n kgateway-system $RESOURCE --timeout=120s || echo "Warning: $RESOURCE rollout status check failed"
+              done
             fi
+
+            echo "All gateway deployments restarted successfully"
           changed_when: true
 
         - name: Update current domain ConfigMap (triggers ArgoCD sync)
