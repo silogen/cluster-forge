@@ -289,6 +289,10 @@
             cluster_values_repo_path: "{{ GITEA_REPO_PATH | default(default_repo_path) }}"
           when: gitea_repo_discovery.stdout | trim == ""
 
+        - name: Set clone destination path
+          ansible.builtin.set_fact:
+            cluster_values_clone_path: "/tmp/cluster-values-{{ run_timestamp.stdout }}"
+
         - name: Build Gitea clone URL
           ansible.builtin.shell: |
             CREDS="{{ gitea_admin_creds.stdout | trim }}"
@@ -303,19 +307,19 @@
         - name: Clone cluster-values via port-forward
           ansible.builtin.git:
             repo: "{{ gitea_clone_url_result.stdout | trim }}"
-            dest: "/tmp/cluster-values-{{ run_timestamp.stdout }}"
+            dest: "{{ cluster_values_clone_path }}"
             force: yes
           register: git_clone
 
         - name: Update global.domain in values.yaml
           ansible.builtin.replace:
-            path: "{{ git_clone.dest }}/values.yaml"
+            path: "{{ cluster_values_clone_path }}/values.yaml"
             regexp: "{{ domain_regexp }}"
             replace: "{{ domain_replace }}"
 
         - name: Commit and push domain change
           ansible.builtin.shell: |
-            cd {{ git_clone.dest }}
+            cd {{ cluster_values_clone_path }}
             git config user.name "Domain Update"
             git config user.email "automation@{{ new_domain }}"
             git add values.yaml
