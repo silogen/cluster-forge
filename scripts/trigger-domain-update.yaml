@@ -441,11 +441,29 @@
               key: tls_key
           delegate_to: localhost
 
-        - name: Compute TLS secret name
+        - name: Compute TLS secret name (domain-specific backup)
           ansible.builtin.set_fact:
             tls_secret_name: "{{ new_domain | replace(dot_pattern, dash_char) }}-tls"
 
-        - name: Create/update TLS secret for new domain
+        - name: Update cluster-tls secret (used by gateway)
+          ansible.builtin.shell: |
+            kubectl apply -f - <<EOF
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: cluster-tls
+              namespace: kgateway-system
+              annotations:
+                cluster-forge.silogen.ai/domain: "{{ new_domain }}"
+                cluster-forge.silogen.ai/updated-at: "{{ run_timestamp_iso.stdout }}"
+            type: kubernetes.io/tls
+            data:
+              tls.crt: {{ cert_contents.results[0].content }}
+              tls.key: {{ cert_contents.results[1].content }}
+            EOF
+          changed_when: true
+
+        - name: Create domain-specific TLS secret backup
           ansible.builtin.shell: |
             kubectl apply -f - <<EOF
             apiVersion: v1
@@ -453,11 +471,29 @@
             metadata:
               name: {{ tls_secret_name }}
               namespace: kgateway-system
+              annotations:
+                cluster-forge.silogen.ai/domain: "{{ new_domain }}"
+                cluster-forge.silogen.ai/backup: "true"
             type: kubernetes.io/tls
             data:
               tls.crt: {{ cert_contents.results[0].content }}
               tls.key: {{ cert_contents.results[1].content }}
             EOF
+          changed_when: true
+
+        - name: Restart kGateway pods to pick up new certificate
+          ansible.builtin.shell: |
+            # Find kGateway deployment/daemonset
+            KGATEWAY_RESOURCE=$(kubectl get deploy,daemonset -n kgateway-system -o name | grep -i kgateway | head -1)
+            if [ -n "$KGATEWAY_RESOURCE" ]; then
+              echo "Restarting $KGATEWAY_RESOURCE"
+              kubectl rollout restart -n kgateway-system $KGATEWAY_RESOURCE
+              kubectl rollout status -n kgateway-system $KGATEWAY_RESOURCE --timeout=120s
+            else
+              echo "No kGateway deployment/daemonset found, trying pod deletion"
+              kubectl delete pods -n kgateway-system -l app.kubernetes.io/name=kgateway || true
+              sleep 5
+            fi
           changed_when: true
 
         - name: Update current domain ConfigMap (triggers ArgoCD sync)
@@ -600,6 +636,18 @@
           ansible.builtin.shell: |
             echo "=== Gateway Resources ==="
             kubectl get gateway,httproute -n kgateway-system || echo "No gateways found"
+            echo ""
+            echo "=== Gateway HTTPS Listener Details ==="
+            kubectl get gateway https -n kgateway-system -o yaml | grep -A 20 "listeners:"
+            echo ""
+            echo "=== HTTPRoute Details ==="
+            kubectl get httproute -A -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,HOSTNAMES:.spec.hostnames
+            echo ""
+            echo "=== HTTPRoute for ArgoCD ==="
+            kubectl get httproute -A -o yaml | grep -B 5 -A 10 "argocd\." || echo "No argocd HTTPRoute found"
+            echo ""
+            echo "=== All TLS Secrets in kgateway-system ==="
+            kubectl get secrets -n kgateway-system | grep tls || echo "No TLS secrets found"
             echo ""
             echo "=== Ingress Resources ==="
             kubectl get ingress -A | grep -E "argocd|gitea|keycloak" || echo "No ingresses found"
