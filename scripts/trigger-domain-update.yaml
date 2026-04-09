@@ -539,11 +539,11 @@
             set -e
 
             APPS=("argocd" "gitea" "keycloak" "minio")
-            MAX_WAIT=300  # 5 minutes total timeout
-            CHECK_INTERVAL=10  # Check every 10 seconds
+            MAX_WAIT=300
+            CHECK_INTERVAL=10
             ELAPSED=0
 
-            echo "Waiting for ArgoCD applications to sync..."
+            echo "Waiting for ArgoCD applications to sync (max ${MAX_WAIT}s)..."
 
             while [ $ELAPSED -lt $MAX_WAIT ]; do
               ALL_SYNCED=true
@@ -554,8 +554,6 @@
 
                 echo "[$ELAPSED s] $APP: sync=$SYNC_STATUS, health=$HEALTH_STATUS"
 
-                # Check if app is synced (Synced or OutOfSync is acceptable, we just want it to finish attempting)
-                # Health can be Progressing/Healthy/Degraded
                 if [[ "$SYNC_STATUS" != "Synced" ]]; then
                   ALL_SYNCED=false
                 fi
@@ -572,7 +570,7 @@
 
             echo "WARNING: Timeout reached after ${MAX_WAIT}s. Some applications may not be fully synced."
             echo "Continuing anyway - check application status manually if needed."
-            exit 0  # Don't fail the playbook, just warn
+            exit 0
           args:
             executable: /bin/bash
           register: sync_wait_result
