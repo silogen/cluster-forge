@@ -4,10 +4,10 @@
   gather_facts: false
   vars:
     # Required variables (pass via -e or vars file)
-    new_domain: "{{ NEW_DOMAIN | mandatory }}"
-    certificate_path: "{{ CERT_PATH | mandatory }}"
-    private_key_path: "{{ KEY_PATH | mandatory }}"
-    
+    new_domain: "{{ NEW_DOMAIN | default('') }}"
+    certificate_path: "{{ CERT_PATH | default('') }}"
+    private_key_path: "{{ KEY_PATH | default('') }}"
+
     # Optional variables
     old_domain: "{{ OLD_DOMAIN | default('') }}"
     kubeconfig: "{{ KUBECONFIG | default(ansible_env.HOME + '/.kube/config') }}"
@@ -21,6 +21,39 @@
     default_repo_path: infrastructure/cluster-values
 
   tasks:
+    - name: Check required variables and display usage
+      when: new_domain == '' or certificate_path == '' or private_key_path == ''
+      block:
+        - name: Display usage information
+          ansible.builtin.debug:
+            msg: |
+              ❌ ERROR: Missing required variables
+
+              Usage: sudo ~/bloom run {{ ansible_play_book | default('./trigger-domain-update.yaml') }} \
+                       -e NEW_DOMAIN=new-domain.silogen.ai \
+                       -e CERT_PATH=/usr/local/share/ca-certificates/new-domain.pem \
+                       -e KEY_PATH=/usr/local/share/ca-certificates/new-domain.key
+
+              Required variables:
+                NEW_DOMAIN    - The new domain name (e.g., new-domain.silogen.ai)
+                CERT_PATH     - Absolute path to the TLS certificate file
+                KEY_PATH      - Absolute path to the TLS private key file
+
+              Optional variables:
+                OLD_DOMAIN       - Previous domain (auto-detected if not provided)
+                SKIP_GIT_UPDATE  - Set to 'true' to skip git repository update (default: false)
+                GITEA_REPO_PATH  - Override repository path (default: auto-discover)
+
+              Example:
+                sudo ~/bloom run {{ ansible_play_book | default('./trigger-domain-update.yaml') }} \
+                  -e NEW_DOMAIN=my-cluster.example.com \
+                  -e CERT_PATH=/etc/ssl/certs/my-cluster.pem \
+                  -e KEY_PATH=/etc/ssl/private/my-cluster.key
+
+        - name: Fail with clear message
+          ansible.builtin.fail:
+            msg: "Missing required variables. See usage above."
+
     - name: Capture run timestamp
       ansible.builtin.shell: date +%s
       register: run_timestamp
