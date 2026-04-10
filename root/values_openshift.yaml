@@ -1,19 +1,24 @@
+disabledApps:
+  - amd-gpu-operator
+  - minio-operator
+  - minio-tenant
+  - minio-tenant-config
+
 enabledApps:
+  - gitea
+  - gitea-config
+  - argocd
+  - argocd-config
+  - amd-gpu-operator-config
   - aim-cluster-model-source
   - airm
-  # - amd-gpu-operator
-  # - amd-gpu-operator-config
   - appwrapper
-  # - argocd
-  # - argocd-config
   - cert-manager
   - cluster-auth
   - cluster-auth-config
   - cnpg-operator
   - external-secrets
   - external-secrets-config
-  # - gitea
-  # - gitea-config
   - kaiwo
   - kaiwo-config
   - kaiwo-crds
@@ -28,9 +33,6 @@ enabledApps:
   - kyverno
   - kyverno-policies-base
   - kyverno-policies-storage-local-path
-  # - minio-operator
-  # - minio-tenant
-  # - minio-tenant-config
   - openbao
   - openbao-config
   - opentelemetry-operator

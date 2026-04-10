@@ -41,8 +41,6 @@ log_info() {
   fi
 }
 
-
-
 # Generate a secure random password
 generate_password() {
   openssl rand -hex 16
@@ -443,6 +441,7 @@ is_disabled_app() {
   done
   return 1
 }
+
 
 # Helper function to either apply directly or output YAML for templating
 apply_or_template() {
