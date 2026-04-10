@@ -64,22 +64,6 @@ generate_enabled_apps_yaml() {
   done < <(yq eval '.enabledApps[]' "$values_file" 2>/dev/null || true)
 }
 
-# Returns 0 if the app matches any pattern in DISABLED_APPS (supports * and ? glob wildcards)
-is_disabled_app() {
-  local app="$1"
-  [ -z "$DISABLED_APPS" ] && return 1
-
-  local IFS=','
-  local pattern
-  for pattern in $DISABLED_APPS; do
-    # shellcheck disable=SC2254
-    case "$app" in
-      $pattern) return 0 ;;
-    esac
-  done
-  return 1
-}
-
 # Check for required dependencies
 check_dependencies() {
   local silent="${1:-false}"
@@ -444,6 +428,21 @@ should_run() {
   echo ",${APPS}," | grep -q ",${app},"
 }
 
+# Returns 0 if the app matches any pattern in DISABLED_APPS (supports * and ? glob wildcards)
+is_disabled_app() {
+  local app="$1"
+  [ -z "$DISABLED_APPS" ] && return 1
+
+  local IFS=','
+  local pattern
+  for pattern in $DISABLED_APPS; do
+    # shellcheck disable=SC2254
+    case "$app" in
+      $pattern) return 0 ;;
+    esac
+  done
+  return 1
+}
 
 # Helper function to either apply directly or output YAML for templating
 apply_or_template() {
