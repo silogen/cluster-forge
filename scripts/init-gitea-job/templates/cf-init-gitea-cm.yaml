@@ -149,17 +149,56 @@ data:
       }' || echo "Repository might already exist"
     
     echo "Step 4: Creating user 'devuser'..."
-    curl -X POST "${GITEA_URL}/api/v1/admin/users" \
+    echo "DEBUG: Password length: ${#GITEA_DEVUSER_PASSWORD}"
+    echo "DEBUG: Password first 4 chars: ${GITEA_DEVUSER_PASSWORD:0:4}..."
+    
+    # Create user with proper JSON escaping
+    RESPONSE=$(curl -s -w "%{http_code}" -X POST "${GITEA_URL}/api/v1/admin/users" \
       -H "Authorization: token ${GITEA_TOKEN}" \
       -H "Content-Type: application/json" \
       -d '{
         "username": "devuser",
         "email": "devuser@'${DOMAIN}'",
-        "password": "${GITEA_DEVUSER_PASSWORD}",
+        "password": "'"${GITEA_DEVUSER_PASSWORD}"'",
         "full_name": "Dev User",
         "must_change_password": false,
         "send_notify": false
-      }' || echo "User creation failed, might already exist or insufficient permissions"
+      }')
+    
+    HTTP_CODE=$(echo "$RESPONSE" | tail -c 4)
+    RESPONSE_BODY=$(echo "$RESPONSE" | head -c -4)
+    
+    echo "DEBUG: User creation HTTP status: $HTTP_CODE"
+    echo "DEBUG: Response body: $RESPONSE_BODY"
+    
+    if [ "$HTTP_CODE" -eq 201 ]; then
+      echo "User 'devuser' created successfully"
+    elif [ "$HTTP_CODE" -eq 422 ]; then
+      echo "User 'devuser' might already exist (HTTP 422)"
+    else
+      echo "User creation failed with HTTP $HTTP_CODE: $RESPONSE_BODY"
+    fi
+    
+    # Verify user exists
+    echo "DEBUG: Verifying user 'devuser' exists..."
+    USER_CHECK=$(curl -s -H "Authorization: token ${GITEA_TOKEN}" \
+      "${GITEA_URL}/api/v1/users/devuser")
+    echo "DEBUG: User check response: $USER_CHECK"
+    
+    # Test authentication (this will fail if password is wrong)
+    echo "DEBUG: Testing devuser authentication..."
+    AUTH_TEST=$(curl -s -w "%{http_code}" -u "devuser:${GITEA_DEVUSER_PASSWORD}" \
+      "${GITEA_URL}/api/v1/user")
+    AUTH_HTTP_CODE=$(echo "$AUTH_TEST" | tail -c 4)
+    AUTH_RESPONSE=$(echo "$AUTH_TEST" | head -c -4)
+    
+    echo "DEBUG: Auth test HTTP status: $AUTH_HTTP_CODE"
+    if [ "$AUTH_HTTP_CODE" -eq 200 ]; then
+      echo "SUCCESS: devuser authentication works"
+    else
+      echo "WARNING: devuser authentication failed (HTTP $AUTH_HTTP_CODE)"
+      echo "DEBUG: Auth response: $AUTH_RESPONSE"
+    fi
     
     echo "Step 5: Getting organization 'cluster-org' owners team id..."
     OWNERS_TEAM_ID=$(curl -s -H "Authorization: token ${GITEA_TOKEN}" -H "Content-Type: application/json" \
@@ -359,5 +398,14 @@ data:
         "content": "'$(base64 -w 0 < /tmp/values.yaml)'",
         "branch": "main"
       }' || echo "Failed to create values.yaml file"
+    
+    echo "=== FINAL DEBUG INFO ==="
+    echo "Username: devuser"
+    echo "Email: devuser@${DOMAIN}"
+    echo "Password (first 8 chars): ${GITEA_DEVUSER_PASSWORD:0:8}..."
+    echo "Password length: ${#GITEA_DEVUSER_PASSWORD}"
+    echo "Full domain: ${DOMAIN}"
+    echo "Gitea URL: ${GITEA_URL}"
+    echo "==========================="
     
     echo "Setup completed successfully!"
