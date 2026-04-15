@@ -7,7 +7,7 @@ externalValues:
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
   targetRevision: main
 global:
-  clusterSize:    # injected via scripts/bootstrap.sh
+  clusterSize: values_small.yaml
   domain:         # injected via scripts/bootstrap.sh
 
 apps:
