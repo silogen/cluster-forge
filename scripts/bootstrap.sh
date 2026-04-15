@@ -429,6 +429,26 @@ is_disabled_app() {
   return 1
 }
 
+# Returns 0 if gitea is in enabledApps in the values file(s)
+is_gitea_enabled() {
+  local values_file="${SOURCE_ROOT}/root/${VALUES_FILE}"
+  local size_values_file="${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}"
+  
+  # Check base values file
+  if yq eval '.enabledApps[] | select(. == "gitea")' "$values_file" 2>/dev/null | grep -q "gitea"; then
+    return 0
+  fi
+  
+  # Check size-specific values file if it exists
+  if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "$size_values_file" ]; then
+    if yq eval '.enabledApps[] | select(. == "gitea")' "$size_values_file" 2>/dev/null | grep -q "gitea"; then
+      return 0
+    fi
+  fi
+  
+  return 1
+}
+
 
 # Helper function to either apply directly or output YAML for templating
 apply_or_template() {
@@ -441,9 +461,15 @@ apply_or_template() {
 
 # Create namespaces
 create_namespaces() {
-  for ns in argocd cf-gitea cf-openbao; do
+  # Always create argocd and openbao namespaces
+  for ns in argocd cf-openbao; do
     kubectl create ns "$ns" --dry-run=client -o yaml | apply_or_template -f -
   done
+  
+  # Only create gitea namespace if gitea is enabled
+  if is_gitea_enabled; then
+    kubectl create ns cf-gitea --dry-run=client -o yaml | apply_or_template -f -
+  fi
 }
 
 # Extract ArgoCD values using yq
@@ -815,13 +841,22 @@ EOF
     fi
   done
   
+  # Determine repo URLs based on whether gitea is enabled
+  local cluster_forge_repo="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
+  local external_values_repo="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
+  
+  if ! is_gitea_enabled; then
+    cluster_forge_repo="https://github.com/ROCm/cluster-forge.git"
+    external_values_repo="https://github.com/ROCm/cluster-forge.git"
+  fi
+  
   # Render only the cluster-apps template with filtered values
   helm template cluster-forge "${SOURCE_ROOT}/root" \
       --show-only templates/cluster-apps.yaml \
       --values "$temp_values" \
       --set clusterForge.targetRevision="${TARGET_REVISION}" \
-      --set externalValues.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git" \
-      --set clusterForge.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git" \
+      --set externalValues.repoUrl="${external_values_repo}" \
+      --set clusterForge.repoUrl="${cluster_forge_repo}" \
       --namespace argocd \
       --kube-version "${KUBE_VERSION}" | apply_or_template -f -
   
@@ -834,7 +869,18 @@ apply_cluster_forge_parent_app() {
   log_info "=== Creating ClusterForge Parent App ==="
   log_info "Target revision: $TARGET_REVISION"
   
-
+  # Determine repo URLs based on whether gitea is enabled
+  local cluster_forge_repo="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
+  local external_values_repo="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
+  local external_values_enabled="true"
+  
+  if ! is_gitea_enabled; then
+    log_info "Gitea not enabled, using GitHub repository"
+    cluster_forge_repo="https://github.com/ROCm/cluster-forge.git"
+    external_values_enabled="false"
+  else
+    log_info "Gitea enabled, using local Gitea repository"
+  fi
   
   helm template cluster-forge "${SOURCE_ROOT}/root" \
       --show-only templates/cluster-forge.yaml \
@@ -842,7 +888,10 @@ apply_cluster_forge_parent_app() {
       --values "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" \
       --set global.clusterSize="${SIZE_VALUES_FILE}" \
       --set global.domain="${DOMAIN}" \
+      --set clusterForge.repoUrl="${cluster_forge_repo}" \
       --set clusterForge.targetRevision="${TARGET_REVISION}" \
+      --set externalValues.enabled="${external_values_enabled}" \
+      --set externalValues.repoUrl="${external_values_repo}" \
       --namespace argocd \
       --kube-version "${KUBE_VERSION}" | apply_or_template -f -
 }
@@ -970,8 +1019,12 @@ main() {
     fi
     
     if should_run gitea; then
-      log_info "📦 Step 4/5: Bootstrapping Gitea"
-      bootstrap_gitea
+      if is_gitea_enabled; then
+        log_info "📦 Step 4/5: Bootstrapping Gitea"
+        bootstrap_gitea
+      else
+        log_info "⏭️  Step 4/5: Skipping Gitea (not in enabledApps)"
+      fi
     else
       log_info "⏭️  Step 4/5: Skipping Gitea"
     fi
