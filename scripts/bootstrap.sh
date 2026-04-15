@@ -846,8 +846,8 @@ EOF
   local external_values_repo="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
   
   if ! is_gitea_enabled; then
-    cluster_forge_repo="https://github.com/ROCm/cluster-forge.git"
-    external_values_repo="https://github.com/ROCm/cluster-forge.git"
+    cluster_forge_repo="https://github.com/silogen/cluster-forge.git"
+    external_values_repo="https://github.com/silogen/cluster-forge.git"
   fi
   
   # Render only the cluster-apps template with filtered values
@@ -876,7 +876,7 @@ apply_cluster_forge_parent_app() {
   
   if ! is_gitea_enabled; then
     log_info "Gitea not enabled, using GitHub repository"
-    cluster_forge_repo="https://github.com/ROCm/cluster-forge.git"
+    cluster_forge_repo="https://github.com/silogen/cluster-forge.git"
     external_values_enabled="false"
   else
     log_info "Gitea enabled, using local Gitea repository"
@@ -890,6 +890,7 @@ apply_cluster_forge_parent_app() {
       --set global.domain="${DOMAIN}" \
       --set clusterForge.repoUrl="${cluster_forge_repo}" \
       --set clusterForge.targetRevision="${TARGET_REVISION}" \
+      --set clusterForge.valuesFile="${VALUES_FILE}" \
       --set externalValues.enabled="${external_values_enabled}" \
       --set externalValues.repoUrl="${external_values_repo}" \
       --namespace argocd \
