@@ -1,3 +1,5 @@
+# Medium & Small clusters add local-path storage policy for RWX→RWO conversion
+
 enabledApps:
   - aim-cluster-model-source
   - aim-engine
@@ -53,6 +55,20 @@ enabledApps:
   - rabbitmq
 
 apps:
+  # Modular Kyverno policy applications (only the storage-local-path addition)
+  kyverno-policies-storage-local-path:
+    namespace: kyverno
+    path: kyverno-policies/storage-local-path
+    syncWave: -20
+    ignoreDifferences:
+      - group: kyverno.io
+        kind: ClusterPolicy
+        jsonPointers:
+          - /spec/rules/*/skipBackgroundRequests
+          - /spec/rules/*/validate/allowExistingViolations
+  aiwb-infra-cnpg:
+    valuesObject:
+      instances: 1
   argocd:
     valuesObject:
       applicationSet:
@@ -61,38 +77,34 @@ apps:
         replicas: 1
         resources:
           limits:
-            cpu: "2000m"
-            memory: "4Gi"
+            memory: "2Gi"
           requests:
-            cpu: "500m" 
+            cpu: "125m" 
             memory: "1Gi"
       redis-ha:
         enabled: false
         redis:
           resources:
             limits:
-              cpu: "1000m"
-              memory: "2Gi"
+              memory: "1Gi"
             requests:
-              cpu: "250m"
+              cpu: "5m"
               memory: "512Mi"
       repoServer:
         replicas: 1
         resources:
           limits:
-            cpu: "1000m" 
-            memory: "2Gi"
+            memory: "1Gi"
           requests:
-            cpu: "250m"
+            cpu: "25m"
             memory: "512Mi"
       server:
         replicas: 1
         resources:
           limits:
-            cpu: "500m"
             memory: "1Gi"
           requests:
-            cpu: "125m"
+            cpu: "25m"
             memory: "256Mi"
   grafana:
     valuesObject:
@@ -101,26 +113,23 @@ apps:
           - ReadWriteOnce
         enabled: true
         size: 5Gi
-        storageClassName: local-path
+        storageClassName: direct
       replicas: 1
       resources:
         limits:
-          cpu: "1000m"
           memory: "2Gi"
         requests:
-          cpu: "250m"
+          cpu: "125m"
           memory: "512Mi"
-  kyverno-policies-storage-local-path:
-    ignoreDifferences: []
-    namespace: kyverno
-    path: kyverno-policies/storage-local-path
-    source: clusterForge
-    syncOptions:
-      - CreateNamespace=true
-    syncWave:
-      - group: kyverno.io
-        kind: ClusterPolicy
-    wave: 26  # Deploy after base policies
+  keycloak:
+    valuesObject:
+      # Increase memory resources for Keycloak to prevent OOMKilled during initialization
+      # Medium preset provides 1536Mi memory limit vs small preset's 768Mi
+      resourcesPreset: "medium"
+  minio-operator:
+    valuesObject:
+      operator:
+        replicaCount: 1
   minio-tenant:
     valuesObject:
       tenant:
@@ -135,21 +144,20 @@ apps:
           - name: pool-0
             servers: 1
             size: 2Ti
-            storageClassName: local-path
+            storageClassName: direct
             volumesPerServer: 2
         resources:
           limits:
-            cpu: "4000m"
             memory: "8Gi"
           requests:
-            cpu: "1000m"
+            cpu: "500m"
             memory: "2Gi"
   openbao:
     valuesObject:
       server:
         dataStorage:
           size: 5Gi
-          storageClass: local-path
+          storageClass: direct
         ha:
           enabled: false
           raft:
@@ -157,10 +165,9 @@ apps:
           replicas: 1
         resources:
           limits:
-            cpu: "1000m"
             memory: "2Gi"
           requests:
-            cpu: "250m"
+            cpu: "5m"
             memory: "512Mi"
   prometheus:
     valuesObject:
@@ -168,10 +175,9 @@ apps:
         prometheusSpec:
           resources:
             limits:
-              cpu: "2000m"
               memory: "4Gi"
             requests:
-              cpu: "500m"
+              cpu: "250m"
               memory: "1Gi"
           retention: 15d
           retentionSize: 20GB
