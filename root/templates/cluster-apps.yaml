@@ -22,16 +22,16 @@ spec:
     {{- else }}
     path: sources/{{ .path }}
     {{- end }}
-    {{- if or .valuesFile .valueFiles .valuesObject .helmParameters }}
+    {{- if or .valuesFile .valuesFiles .valuesObject .helmParameters }}
     helm:
-      {{- if or .valuesFile valuesFiles }}
+      {{- if or .valuesFile .valuesFiles }}
       valueFiles:
       {{- end }}
       {{- if .valuesFile }}
         - {{ .valuesFile }}
       {{- end }}
       {{- if .valuesFiles }}
-      {{- if kindls "slice" .valuesFiles }}
+      {{- if kindIs "slice" .valuesFiles }}
       {{- range .valuesFiles }}
         - {{.}}
         {{- end}}
