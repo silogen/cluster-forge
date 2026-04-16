@@ -3,6 +3,12 @@
 global:
   clusterSize: values_small.yaml
 
+# Small cluster uses GitHub (no Gitea deployed)
+clusterForge:
+  repoUrl: "https://github.com/silogen/cluster-forge.git"
+externalValues:
+  enabled: false
+
 enabledApps:
   - aim-cluster-model-source
   - aim-engine
