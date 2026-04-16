@@ -114,7 +114,8 @@ else
         # Get current values from apps section (check all cluster files)
         current_path=""
         current_values_file="null"
-        
+        current_values_files="null"
+
         # Try to find the app definition in any of the cluster configuration files
         for values_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
             if [[ -f "$values_file" ]]; then
@@ -122,20 +123,21 @@ else
                 if [[ "$app_path" != "null" ]]; then
                     current_path="$app_path"
                     current_values_file=$(yq eval ".apps.\"$app\".valuesFile // \"null\"" "$values_file")
+                    current_values_files=$(yq eval ".apps.\"$app\".valuesFiles // \"null\"" "$values_file")
                     break
                 fi
             fi
         done
-        
+
         # Check if app exists in components.yaml
         existing_app=$(yq eval ".components.\"$app\" // \"null\"" "$OUTPUT_FILE")
-        
+
         if [[ "$existing_app" == "null" ]]; then
             echo "  New app found: $app"
             needs_update=true
             break
         fi
-        
+
         # Check if path changed
         existing_path=$(yq eval ".components.\"$app\".path // \"null\"" "$OUTPUT_FILE")
         if [[ "$existing_path" != "$current_path" ]]; then
@@ -143,10 +145,19 @@ else
             needs_update=true
             break
         fi
-        
-        # Check if valuesFile changed
+
+        # Check if valuesFile or valuesFiles changed
         existing_values_file=$(yq eval ".components.\"$app\".valuesFile // \"null\"" "$OUTPUT_FILE")
-        if [[ "$existing_values_file" != "$current_values_file" ]]; then
+        existing_values_files=$(yq eval ".components.\"$app\".valuesFiles // \"null\"" "$OUTPUT_FILE")
+
+        # Prefer valuesFiles if it exists in current config
+        if [[ "$current_values_files" != "null" ]]; then
+            if [[ "$existing_values_files" != "$current_values_files" ]]; then
+                echo "  ValuesFiles changed for $app: $existing_values_files -> $current_values_files"
+                needs_update=true
+                break
+            fi
+        elif [[ "$existing_values_file" != "$current_values_file" ]]; then
             echo "  ValuesFile changed for $app: $existing_values_file -> $current_values_file"
             needs_update=true
             break
@@ -186,11 +197,12 @@ EOF
 # Process each app
 for app in $app_names; do
     echo "  $app:" >> "$TEMP_FILE"
-    
-    # Get path and valuesFile from any cluster configuration file
+
+    # Get path, valuesFile, and valuesFiles from any cluster configuration file
     path=""
     values_file="null"
-    
+    values_files="null"
+
     # Try to find the app definition in any of the cluster configuration files
     for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
         if [[ -f "$config_file" ]]; then
@@ -198,13 +210,22 @@ for app in $app_names; do
             if [[ "$app_path" != "null" ]]; then
                 path="$app_path"
                 values_file=$(yq eval ".apps.\"$app\".valuesFile // \"null\"" "$config_file")
+                values_files=$(yq eval ".apps.\"$app\".valuesFiles // \"null\"" "$config_file")
                 break
             fi
         fi
     done
-    
+
     echo "    path: $path" >> "$TEMP_FILE"
-    if [[ "$values_file" != "null" ]]; then
+
+    # Write valuesFiles if it exists (takes precedence over valuesFile)
+    if [[ "$values_files" != "null" ]]; then
+        echo "    valuesFiles:" >> "$TEMP_FILE"
+        # Extract array values and write them
+        yq eval ".apps.\"$app\".valuesFiles[]" "$config_file" 2>/dev/null | while read -r file; do
+            echo "      - $file" >> "$TEMP_FILE"
+        done
+    elif [[ "$values_file" != "null" ]]; then
         echo "    valuesFile: $values_file" >> "$TEMP_FILE"
     fi
     
@@ -255,21 +276,25 @@ echo ""
 echo "📊 Summary of components:"
 echo "$app_names" | wc -l | xargs echo "Total components:"
 echo ""
-echo "Components with valuesFile:"
+echo "Components with valuesFile/valuesFiles:"
 for app in $app_names; do
-    # Check all cluster configuration files for valuesFile
+    # Check all cluster configuration files for valuesFile or valuesFiles
     values_file="null"
+    values_files="null"
     for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
         if [[ -f "$config_file" ]]; then
             app_path=$(yq eval ".apps.\"$app\".path // \"null\"" "$config_file" 2>/dev/null || echo "null")
             if [[ "$app_path" != "null" ]]; then
                 values_file=$(yq eval ".apps.\"$app\".valuesFile // \"null\"" "$config_file")
+                values_files=$(yq eval ".apps.\"$app\".valuesFiles // \"null\"" "$config_file")
                 break
             fi
         fi
     done
-    if [[ "$values_file" != "null" ]]; then
-        echo "  - $app"
+    if [[ "$values_files" != "null" ]]; then
+        echo "  - $app (valuesFiles)"
+    elif [[ "$values_file" != "null" ]]; then
+        echo "  - $app (valuesFile)"
     fi
 done
 

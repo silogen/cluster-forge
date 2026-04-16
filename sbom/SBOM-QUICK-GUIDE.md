@@ -70,7 +70,7 @@ The new modular validation system ensures data consistency:
 2. Components Sync Check  
    ├── Verifies components.yaml matches enabledApps from all cluster configurations
    ├── Checks for missing/extra components
-   └── Validates path/valuesFile consistency across cluster files
+   └── Validates path/valuesFile/valuesFiles consistency across cluster files
 
 3. Metadata Completeness Check
    ├── Ensures sourceUrl and projectUrl are populated
@@ -83,7 +83,8 @@ The new modular validation system ensures data consistency:
 - **projectUrl**: Main project repository (⚠️ Manual entry required - use GitHub for auto-license detection)
 - **license/licenseUrl**: Auto-populated from GitHub by `update_licenses.sh`
 - **path**: Auto-synced from values.yaml by generation script
-- **valuesFile**: Auto-synced from values.yaml when present
+- **valuesFile**: Auto-synced from values.yaml when present (single file)
+- **valuesFiles**: Auto-synced from values.yaml when present (multiple files array)
 
 ## CI/CD Integration
 

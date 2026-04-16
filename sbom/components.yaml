@@ -131,7 +131,9 @@ components:
     licenseUrl: https://github.com/go-gitea/gitea/blob/main/LICENSE
   kaiwo:
     path: kaiwo/v0.2.0-rc11
-    valuesFile: values.yaml
+    valuesFiles:
+      - values.yaml
+      - ../values.yaml
     sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc11/install.yaml
     projectUrl: https://github.com/silogen/kaiwo/
     license: MIT License
@@ -275,4 +277,3 @@ components:
     projectUrl: https://github.com/rabbitmq/cluster-operator/
     license: Mozilla Public License 2.0
     licenseUrl: https://github.com/rabbitmq/cluster-operator/blob/main/LICENSE.txt
-  
