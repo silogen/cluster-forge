@@ -238,6 +238,11 @@ apps:
     syncWave: -40
     valuesObject:
       installCRDs: true
+  cert-manager-config:
+    namespace: cert-manager
+    path: cert-manager-config
+    syncWave: -35
+    valuesFile: values.yaml
   cluster-auth:
     namespace: cluster-auth
     path: cluster-auth/0.5.0
@@ -254,6 +259,12 @@ apps:
     namespace: cluster-auth
     path: cluster-auth-config
     syncWave: -20
+  cluster-cert:
+    namespace: cluster-cert
+    path: cluster-cert
+    syncWave: -15
+    directory:
+      recurse: true
   cnpg-operator:
     namespace: cnpg-system
     path: cnpg-operator/0.26.0
@@ -526,6 +537,18 @@ apps:
         requests:
           cpu: "250m"
           memory: "512Mi"
+  keycloak-config:
+    ignoreDifferences:
+      - group: external-secrets.io
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+        kind: ExternalSecret
+    namespace: keycloak
+    path: keycloak-config
+    syncWave: -5
+    valuesFile: values.yaml
   kgateway:
     namespace: kgateway-system
     path: kgateway/v2.1.0-main
