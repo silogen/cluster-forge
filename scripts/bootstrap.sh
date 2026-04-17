@@ -209,6 +209,18 @@ parse_args() {
           CLUSTER_SIZE="${1#*=}"
           shift
           ;;
+        --CLUSTER_SIZE)
+          if [ -z "$2" ]; then
+            echo "ERROR: --CLUSTER_SIZE requires an argument"
+            exit 1
+          fi
+          CLUSTER_SIZE="$2"
+          shift 2
+          ;;
+        --CLUSTER_SIZE=*)
+          CLUSTER_SIZE="${1#*=}"
+          shift
+          ;;
         --TARGET-REVISION|--target-revision|-r)
           if [ -z "$2" ]; then
             echo "WARNING: defaulting to --target-revision=$LATEST_RELEASE (no value specified)"
@@ -296,7 +308,7 @@ parse_args() {
           --disabled-apps=app1[,app2,glob*]  Exclude specified apps from installation. Supports * and ? wildcards.
                                              Example: --disabled-apps=airm,airm-infra-* skips airm, airm-infra-cnpg, airm-infra-external-secrets, etc.
                                              
-          --cluster-size=[size],      -s     [size] can be one of small|medium|large, default: medium
+          --cluster-size=[size],      -s     [size] can be one of small|medium|large|openshift, default: medium
           --help,                     -h     Show this help message and exit
           --skip-deps                        Skip dependency checking (not recommended)
           --target-revision,          -r     Git revision for ArgoCD to sync from, [tag|commit_hash|branch_name], default: $LATEST_RELEASE
@@ -306,7 +318,7 @@ parse_args() {
         Examples:
           $0 compute.amd.com values_custom.yaml --cluster-size=large
           $0 112.100.97.17.nip.io
-          $0 dev.example.com --cluster-size=small --target-revision=v1.8.0
+          $0 dev.example.com --cluster-size=small --target-revision=v2.0.2
           $0 dev.example.com -s=small -r=feature-branch
           $0 example.com --apps=openbao
           $0 example.com --apps=keycloak -t
@@ -314,6 +326,7 @@ parse_args() {
           $0 example.com --apps=airm,keycloak --disabled-apps=airm
           $0 example.com --aiwb-only
           $0 example.com --aiwb-only --disabled-apps=extra-app
+          $0 example.com --cluster-size=openshift
           
         Bootstrap Behavior:
           • deploys ArgoCD + OpenBao + Gitea directly (essential infrastructure)
@@ -351,18 +364,18 @@ validate_args() {
   # Validate required arguments
   if [ -z "$DOMAIN" ]; then
       echo "ERROR: Domain argument is required"
-      echo "Usage: $0 <domain> [values_file] [--CLUSTER_SIZE=small|medium|large]"
+      echo "Usage: $0 <domain> [values_file] [--CLUSTER_SIZE=small|medium|large|openshift]"
       echo "Use --help for more details"
       exit 1
   fi
   
   # Validate cluster size
   case "$CLUSTER_SIZE" in
-    small|medium|large)
+    small|medium|large|openshift)
       ;;
     *)
       echo "ERROR: Invalid cluster size '$CLUSTER_SIZE'"
-      echo "Valid sizes: small, medium, large"
+      echo "Valid sizes: small, medium, large, openshift"
       exit 1
       ;;
   esac
