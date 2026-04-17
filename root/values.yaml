@@ -1,6 +1,6 @@
 clusterForge:
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
-  targetRevision: # injected via scripts/bootstrap.sh; tag, branch, or commit
+  targetRevision: main  # Overridden by size-specific values or --target-revision bootstrap flag
   valuesFile: values.yaml
 externalValues:
   enabled: false

@@ -4,6 +4,7 @@ global:
 # Large cluster uses Gitea for GitOps (multi-source)
 clusterForge:
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
+  targetRevision: main  # Default branch, can be overridden via --target-revision
 externalValues:
   enabled: true
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
