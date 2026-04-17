@@ -1,6 +1,6 @@
 clusterForge:
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
-  targetRevision: main  # Overridden by size-specific values or --target-revision bootstrap flag
+  targetRevision: main  # Overridden by bootstrap --target-revision flag
   valuesFile: values.yaml
 externalValues:
   enabled: false

@@ -18,6 +18,9 @@ spec:
         - {{ .Values.externalValues.path }}
         - {{ .Values.global.clusterSize }}
         - $cluster-values/values.yaml
+      parameters:
+      - name: clusterForge.targetRevision
+        value: {{ .Values.clusterForge.targetRevision | default "HEAD" | quote }}
   - repoURL: {{ .Values.externalValues.repoUrl }}
     targetRevision: {{ .Values.externalValues.targetRevision }}
     ref: cluster-values
@@ -31,6 +34,9 @@ spec:
       valueFiles:
         - {{ .Values.clusterForge.valuesFile }}
         - {{ .Values.global.clusterSize }}
+      parameters:
+      - name: clusterForge.targetRevision
+        value: {{ .Values.clusterForge.targetRevision | default "HEAD" | quote }}
 {{- end }}
   destination:
     server: https://kubernetes.default.svc
@@ -39,3 +45,12 @@ spec:
     automated:
       prune: true
       selfHeal: true
+  ignoreDifferences:
+  - group: argoproj.io
+    kind: Application
+    name: cluster-forge
+    jsonPointers:
+    - /spec/source/targetRevision
+    - /spec/sources/0/targetRevision
+    - /spec/source/helm/parameters
+    - /spec/sources/0/helm/parameters

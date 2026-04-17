@@ -6,7 +6,7 @@ global:
 # Small cluster uses GitHub (no Gitea deployed)
 clusterForge:
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-  targetRevision: main  # Default branch, can be overridden via --target-revision
+  targetRevision: main  # Overridden by bootstrap --target-revision flag
 externalValues:
   enabled: false
 

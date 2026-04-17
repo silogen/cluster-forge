@@ -896,8 +896,6 @@ apply_cluster_forge_parent_app() {
       --namespace argocd \
       --kube-version "${KUBE_VERSION}" | apply_or_template -f -
 }
-
-# Check if requested apps are cluster-forge child apps
 is_cluster_forge_child_app() {
   local app="$1"
   # Check if the app is defined in the values.yaml apps section
