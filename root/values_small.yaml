@@ -74,9 +74,24 @@ apps:
         jsonPointers:
           - /spec/rules/*/skipBackgroundRequests
           - /spec/rules/*/validate/allowExistingViolations
+  airm-infra-cnpg:
+    valuesObject:
+      instances: 1
+      storage:
+        storageClass: local-path
+      walStorage:
+        storageClass: local-path
+  airm-infra-rabbitmq:
+    valuesObject:
+      persistence:
+        storageClassName: local-path
   aiwb-infra-cnpg:
     valuesObject:
       instances: 1
+      storage:
+        storageClass: local-path
+      walStorage:
+        storageClass: local-path
   argocd:
     valuesObject:
       applicationSet:
@@ -134,6 +149,11 @@ apps:
       # Increase memory resources for Keycloak to prevent OOMKilled during initialization
       # Medium preset provides 1536Mi memory limit vs small preset's 768Mi
       resourcesPreset: "medium"
+      cnpg:
+        storage:
+          storageClass: local-path
+        walStorage:
+          storageClass: local-path
   minio-operator:
     valuesObject:
       operator:
