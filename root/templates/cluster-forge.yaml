@@ -1,4 +1,4 @@
-{{- if .Values.bootstrap.renderSelfReference | default false }}
+{{- if ((.Values.bootstrap).renderSelfReference) }}
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
