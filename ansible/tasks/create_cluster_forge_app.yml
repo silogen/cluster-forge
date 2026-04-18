@@ -20,6 +20,7 @@
       --set clusterForge.targetRevision="{{ target_revision }}" \
       --set clusterForge.repoUrl="{{ cf_repo_url }}" \
       --set externalValues.enabled={{ enable_external_values }} \
+      --set bootstrap.renderSelfReference=true \
       {% if cluster_size != 'small' %}--set externalValues.repoUrl="{{ cf_values_repo_url }}" \{% endif %}
       --namespace argocd \
       --kube-version "{{ kube_version }}" | \
