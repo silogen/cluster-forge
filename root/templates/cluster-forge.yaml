@@ -32,6 +32,11 @@ spec:
       valueFiles:
         - {{ .Values.clusterForge.valuesFile }}
         - {{ .Values.global.clusterSize }}
+      parameters:
+        - name: clusterForge.repoUrl
+          value: {{ .Values.clusterForge.repoUrl | quote }}
+        - name: clusterForge.targetRevision
+          value: {{ .Values.clusterForge.targetRevision | quote }}
 {{- end }}
   destination:
     server: https://kubernetes.default.svc

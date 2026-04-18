@@ -21,8 +21,6 @@ enabledApps:
   - external-secrets
   - external-secrets-config
   - gateway-api
-  - gitea
-  - gitea-config
   - kaiwo
   - kaiwo-config
   - kaiwo-crds
