@@ -1,0 +1,6 @@
+[local]
+localhost ansible_connection=local
+
+[local:vars]
+# These can be overridden via command line with -e
+# ansible_python_interpreter=/usr/bin/python3

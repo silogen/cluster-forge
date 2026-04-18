@@ -1,0 +1,71 @@
+---
+# Example variables file for ClusterForge bootstrap
+# Copy this file and customize for your environment
+# Usage: ansible-playbook bootstrap.yml -e @vars/my-cluster.yml
+
+# ============================
+# Required Variables
+# ============================
+
+# Cluster domain (REQUIRED)
+cluster_domain: "example.com"
+# Or use nip.io for IP-based domains:
+# cluster_domain: "192.168.1.100.nip.io"
+
+# ============================
+# Cluster Configuration
+# ============================
+
+# Cluster size: small, medium, or large
+cluster_size: "medium"
+
+# Kubernetes version for Helm template rendering
+kube_version: "1.33"
+
+# ============================
+# Repository Configuration
+# ============================
+
+# ClusterForge repository URL
+cluster_forge_repo: "https://github.com/yourusername/cluster-forge.git"
+
+# Target revision (tag, branch, or commit)
+cluster_forge_target_revision: "v2.0.4"
+
+# Local directory for cloning (defaults to ~/.cluster-forge-bootstrap)
+# clone_dir: "/tmp/cluster-forge-bootstrap"
+
+# ============================
+# Application Filtering
+# ============================
+
+# Deploy only specific apps (comma-separated)
+# Leave empty to deploy all apps
+# apps: "argocd,openbao,gitea,cluster-forge"
+
+# Disable specific apps (supports wildcards)
+# Examples:
+# disabled_apps: "airm,airm-infra-*"
+# disabled_apps: "kaiwo*,kedify-otel"
+
+# AIWB-only mode (automatically disables AIRM and Kaiwo components)
+# aiwb_only: true
+
+# Custom AIRM image repository (requires registry credentials)
+# airm_image_repository: "ghcr.io/silogen"
+
+# ============================
+# Bootstrap Behavior
+# ============================
+
+# Only output YAML templates without applying to cluster
+# template_only: false
+
+# Skip dependency checking (not recommended)
+# skip_dependency_check: false
+
+# Default timeout for rollout status checks
+# default_timeout: "5m"
+
+# Clean up cloned repository after bootstrap
+# cleanup_clone: false

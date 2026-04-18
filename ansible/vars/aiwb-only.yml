@@ -1,0 +1,14 @@
+---
+# AIWB-only deployment example
+# Deploys only AI Workbench components, excluding AIRM and Kaiwo
+
+cluster_domain: "aiwb.example.com"
+cluster_size: "medium"
+cluster_forge_repo: "https://github.com/yourusername/cluster-forge.git"
+cluster_forge_target_revision: "v2.0.4"
+
+# Enable AIWB-only mode
+aiwb_only: true
+
+# Additional apps to disable (optional)
+# disabled_apps: "extra-app"

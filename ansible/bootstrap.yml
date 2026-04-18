@@ -1,0 +1,189 @@
+---
+# ClusterForge Bootstrap Playbook
+# This playbook bootstraps a ClusterForge cluster by:
+# 1. Cloning the cluster-forge repository (shallow, no history)
+# 2. Installing ArgoCD, OpenBao, and Gitea
+# 3. Setting up the cluster-forge parent application
+#
+# Usage:
+#   ansible-playbook bootstrap.yml -e domain=example.com -e cluster_size=medium
+
+- name: Bootstrap ClusterForge
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  
+  vars:
+    # Repository configuration
+    cluster_forge_repo: "https://github.com/yourusername/cluster-forge.git"
+    target_revision: "{{ cluster_forge_target_revision | default('v2.0.4') }}"
+    clone_dir: "{{ lookup('env', 'HOME') }}/.cluster-forge-bootstrap"
+    
+    # Cluster configuration (can be overridden via -e)
+    domain: "{{ cluster_domain | default('') }}"
+    cluster_size: "{{ cluster_size | default('medium') }}"
+    kube_version: "{{ kube_version | default('1.33') }}"
+    
+    # Application filtering
+    enabled_apps: "{{ apps | default('') }}"  # comma-separated list
+    disabled_apps: "{{ disabled_apps | default('') }}"  # comma-separated list, supports wildcards
+    aiwb_only: "{{ aiwb_only | default(false) | bool }}"
+    airm_image_repository: "{{ airm_image_repository | default('') }}"
+    
+    # Bootstrap behavior
+    template_only: "{{ template_only | default(false) | bool }}"
+    skip_dependency_check: "{{ skip_dependency_check | default(false) | bool }}"
+    default_timeout: "5m"
+    
+    # Namespaces
+    namespaces:
+      - argocd
+      - cf-gitea
+      - cf-openbao
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - domain | length > 0
+          - cluster_size in ['small', 'medium', 'large']
+        fail_msg: "Domain is required and cluster_size must be one of: small, medium, large"
+        success_msg: "Configuration validated successfully"
+
+    - name: Display bootstrap configuration
+      ansible.builtin.debug:
+        msg:
+          - "=== ClusterForge Bootstrap ==="
+          - "Domain: {{ domain }}"
+          - "Cluster size: {{ cluster_size }}"
+          - "Target revision: {{ target_revision }}"
+          - "Repository: {{ cluster_forge_repo }}"
+          - "Clone directory: {{ clone_dir }}"
+      when: not template_only
+
+    - name: Check required dependencies
+      ansible.builtin.command: "which {{ item }}"
+      register: dep_check
+      failed_when: false
+      changed_when: false
+      loop:
+        - kubectl
+        - helm
+        - yq
+        - openssl
+        - git
+      when: not skip_dependency_check
+
+    - name: Verify all dependencies are installed
+      ansible.builtin.assert:
+        that: item.rc == 0
+        fail_msg: |
+          Missing required dependency: {{ item.item }}
+          Please install the following:
+          - kubectl: https://kubernetes.io/docs/tasks/tools/install-kubectl/
+          - helm: https://helm.sh/docs/intro/install/
+          - yq: https://github.com/mikefarah/yq#install
+          - openssl: Usually pre-installed
+          - git: Usually pre-installed or via package manager
+        success_msg: "{{ item.item }} found at {{ item.stdout }}"
+      loop: "{{ dep_check.results }}"
+      when: 
+        - not skip_dependency_check
+        - dep_check.results is defined
+      loop_control:
+        label: "{{ item.item }}"
+
+  tasks:
+    - name: Clean up any existing clone directory
+      ansible.builtin.file:
+        path: "{{ clone_dir }}"
+        state: absent
+      when: not template_only
+
+    - name: Clone cluster-forge repository (shallow)
+      ansible.builtin.git:
+        repo: "{{ cluster_forge_repo }}"
+        dest: "{{ clone_dir }}"
+        version: "{{ target_revision }}"
+        depth: 1
+        single_branch: true
+      when: not template_only
+
+    - name: Set source root variable
+      ansible.builtin.set_fact:
+        source_root: "{{ clone_dir }}"
+
+    - name: Determine values file paths
+      ansible.builtin.set_fact:
+        base_values_file: "{{ source_root }}/root/values.yaml"
+        size_values_file: "{{ source_root }}/root/values_{{ cluster_size }}.yaml"
+
+    - name: Check if size-specific values file exists
+      ansible.builtin.stat:
+        path: "{{ size_values_file }}"
+      register: size_values_stat
+
+    - name: Handle AIWB-only mode
+      when: aiwb_only | bool
+      block:
+        - name: Set AIWB disabled apps patterns
+          ansible.builtin.set_fact:
+            aiwb_disabled: "airm,airm-infra-cnpg,airm-infra-external-secrets,airm-infra-rabbitmq,kaiwo*,rabbitmq"
+        
+        - name: Merge AIWB patterns with user-provided disabled apps
+          ansible.builtin.set_fact:
+            disabled_apps: "{{ aiwb_disabled }}{{ (',' + disabled_apps) if disabled_apps | length > 0 else '' }}"
+        
+        - name: Log AIWB-only mode
+          ansible.builtin.debug:
+            msg: "NOTE: --aiwb-only active; disabled apps set to: {{ disabled_apps }}"
+          when: not template_only
+
+    # Bootstrap tasks
+    - name: Create namespaces
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ item }}"
+      loop: "{{ namespaces }}"
+      when: 
+        - not template_only
+        - enabled_apps | length == 0 or 'namespaces' in enabled_apps
+
+    - name: Bootstrap ArgoCD
+      ansible.builtin.include_tasks: tasks/bootstrap_argocd.yml
+      when: enabled_apps | length == 0 or 'argocd' in enabled_apps
+
+    - name: Bootstrap OpenBao
+      ansible.builtin.include_tasks: tasks/bootstrap_openbao.yml
+      when: enabled_apps | length == 0 or 'openbao' in enabled_apps
+
+    - name: Bootstrap Gitea
+      ansible.builtin.include_tasks: tasks/bootstrap_gitea.yml
+      when: enabled_apps | length == 0 or 'gitea' in enabled_apps
+
+    - name: Create ClusterForge parent application
+      ansible.builtin.include_tasks: tasks/create_cluster_forge_app.yml
+      when: enabled_apps | length == 0 or 'cluster-forge' in enabled_apps
+
+  post_tasks:
+    - name: Bootstrap complete
+      ansible.builtin.debug:
+        msg:
+          - "✅ Bootstrap sequence completed"
+          - "ArgoCD will now sync the remaining applications based on:"
+          - "  - Target revision: {{ target_revision }}"
+          - "  - Enabled apps from values.yaml (minus disabled apps)"
+      when: not template_only
+
+    - name: Clean up clone directory (optional)
+      ansible.builtin.file:
+        path: "{{ clone_dir }}"
+        state: absent
+      when: 
+        - not template_only
+        - cleanup_clone | default(false) | bool
+      tags: [cleanup]

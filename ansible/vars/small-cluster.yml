@@ -1,0 +1,11 @@
+---
+# Small cluster configuration example
+# Optimized for resource-constrained environments
+
+cluster_domain: "dev.example.com"
+cluster_size: "small"
+cluster_forge_repo: "https://github.com/yourusername/cluster-forge.git"
+cluster_forge_target_revision: "v2.0.4"
+
+# Optional: Disable resource-intensive components
+# disabled_apps: "prometheus-operator-crds,otel-lgtm-stack"

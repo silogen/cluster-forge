@@ -1,0 +1,113 @@
+---
+# Bootstrap OpenBao task file
+
+- name: Create temporary directory for OpenBao values
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: .openbao-bootstrap
+  register: openbao_temp_dir
+  when: not template_only
+
+- name: Extract OpenBao version from values.yaml
+  ansible.builtin.shell: |
+    yq eval '.apps.openbao.path' "{{ base_values_file }}" | cut -d'/' -f2
+  register: openbao_version
+  changed_when: false
+
+- name: Extract OpenBao values from base values file
+  ansible.builtin.shell: |
+    yq eval '.apps.openbao.valuesObject' "{{ base_values_file }}" > "{{ openbao_temp_dir.path }}/openbao_values.yaml"
+  when: not template_only
+  changed_when: false
+
+- name: Extract OpenBao size-specific values
+  when:
+    - not template_only
+    - size_values_stat.stat.exists
+  block:
+    - name: Check if OpenBao section exists in size values
+      ansible.builtin.shell: |
+        yq eval 'has("apps") and .apps.openbao' "{{ size_values_file }}" | grep -q true
+      register: openbao_size_check
+      failed_when: false
+      changed_when: false
+
+    - name: Extract OpenBao size values
+      ansible.builtin.shell: |
+        yq eval '.apps.openbao.valuesObject' "{{ size_values_file }}" > "{{ openbao_temp_dir.path }}/openbao_size_values.yaml"
+      when: openbao_size_check.rc == 0
+      changed_when: false
+
+    - name: Create empty OpenBao size values placeholder
+      ansible.builtin.copy:
+        content: "# No OpenBao section in size-specific values\n"
+        dest: "{{ openbao_temp_dir.path }}/openbao_size_values.yaml"
+      when: openbao_size_check.rc != 0
+
+- name: Create empty size values if no size file
+  ansible.builtin.copy:
+    content: "# No size-specific values\n"
+    dest: "{{ openbao_temp_dir.path }}/openbao_size_values.yaml"
+  when:
+    - not template_only
+    - not size_values_stat.stat.exists
+
+- name: Deploy OpenBao using Helm template
+  ansible.builtin.shell: |
+    helm template --release-name openbao \
+      {{ source_root }}/sources/openbao/{{ openbao_version.stdout }} \
+      --namespace cf-openbao \
+      -f "{{ openbao_temp_dir.path }}/openbao_values.yaml" \
+      -f "{{ openbao_temp_dir.path }}/openbao_size_values.yaml" \
+      --set ui.enabled=true \
+      --kube-version={{ kube_version }} | \
+    kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
+  when: not template_only
+  changed_when: true
+
+- name: Wait for OpenBao pod to be running
+  ansible.builtin.command: |
+    kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
+  when: not template_only
+  changed_when: false
+
+- name: Create OpenBao initial configuration
+  when: not template_only
+  block:
+    - name: Create initial OpenBao secrets manager ConfigMap
+      ansible.builtin.shell: |
+        cat {{ source_root }}/sources/openbao-config/0.1.0/templates/openbao-secret-manager-cm.yaml | \
+          sed "s|name: openbao-secret-manager-scripts|name: openbao-secret-manager-scripts-init|g" | \
+          kubectl apply -f -
+      changed_when: true
+
+    - name: Create initial OpenBao secrets definitions
+      ansible.builtin.shell: |
+        cat {{ source_root }}/sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml | \
+          sed "s|{{ '{{' }} .Values.domain {{ '}}' }}|{{ domain }}|g" | \
+          sed "s|name: openbao-secrets-config|name: openbao-secrets-init-config|g" | \
+          kubectl apply -f -
+      changed_when: true
+
+    - name: Deploy OpenBao init job
+      ansible.builtin.shell: |
+        helm template --release-name openbao-init \
+          {{ source_root }}/scripts/init-openbao-job \
+          -f "{{ openbao_temp_dir.path }}/openbao_values.yaml" \
+          --set domain="{{ domain }}" \
+          --kube-version={{ kube_version }} | \
+        kubectl apply -f -
+      changed_when: true
+
+    - name: Wait for OpenBao init job to complete
+      ansible.builtin.command: |
+        kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
+      changed_when: false
+
+- name: Clean up OpenBao temporary directory
+  ansible.builtin.file:
+    path: "{{ openbao_temp_dir.path }}"
+    state: absent
+  when:
+    - not template_only
+    - openbao_temp_dir.path is defined

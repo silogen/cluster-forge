@@ -1,0 +1,94 @@
+---
+# Bootstrap ArgoCD task file
+
+- name: Create temporary directory for ArgoCD values
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: .argocd-bootstrap
+  register: argocd_temp_dir
+  when: not template_only
+
+- name: Extract ArgoCD version from values.yaml
+  ansible.builtin.shell: |
+    yq eval '.apps.argocd.path' "{{ base_values_file }}" | cut -d'/' -f2
+  register: argocd_version
+  changed_when: false
+
+- name: Create ArgoCD bootstrap values file
+  ansible.builtin.copy:
+    content: |
+      global:
+        domain: argocd.{{ domain }}
+    dest: "{{ argocd_temp_dir.path }}/argocd_bootstrap_values.yaml"
+  when: not template_only
+
+- name: Extract ArgoCD values from base values file
+  ansible.builtin.shell: |
+    yq eval '.apps.argocd.valuesObject' "{{ base_values_file }}" >> "{{ argocd_temp_dir.path }}/argocd_bootstrap_values.yaml"
+  when: not template_only
+  changed_when: false
+
+- name: Merge size-specific ArgoCD values if available
+  when:
+    - not template_only
+    - size_values_stat.stat.exists
+  block:
+    - name: Check if ArgoCD section exists in size values
+      ansible.builtin.shell: |
+        yq eval '.apps.argocd.valuesObject // ""' "{{ size_values_file }}" | grep -q .
+      register: argocd_size_check
+      failed_when: false
+      changed_when: false
+
+    - name: Merge ArgoCD size values
+      ansible.builtin.shell: |
+        yq eval '.apps.argocd.valuesObject' "{{ size_values_file }}" | \
+        yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
+          "{{ argocd_temp_dir.path }}/argocd_bootstrap_values.yaml" - > \
+          "{{ argocd_temp_dir.path }}/argocd_bootstrap_values_merged.yaml"
+        mv "{{ argocd_temp_dir.path }}/argocd_bootstrap_values_merged.yaml" \
+           "{{ argocd_temp_dir.path }}/argocd_bootstrap_values.yaml"
+      when: argocd_size_check.rc == 0
+      changed_when: false
+
+- name: Deploy ArgoCD using Helm template
+  ansible.builtin.shell: |
+    helm template --release-name argocd \
+      {{ source_root }}/sources/argocd/{{ argocd_version.stdout }} \
+      --namespace argocd \
+      --values "{{ argocd_temp_dir.path }}/argocd_bootstrap_values.yaml" \
+      --kube-version={{ kube_version }} | \
+    kubectl apply --server-side --field-manager=argocd-controller --force-conflicts -f -
+  when: not template_only
+  changed_when: true
+
+- name: Wait for ArgoCD components to be ready
+  when: not template_only
+  block:
+    - name: Wait for ArgoCD application controller
+      ansible.builtin.command: |
+        kubectl rollout status statefulset/argocd-application-controller -n argocd --timeout={{ default_timeout }}
+      changed_when: false
+
+    - name: Wait for ArgoCD applicationset controller
+      ansible.builtin.command: |
+        kubectl rollout status deploy/argocd-applicationset-controller -n argocd --timeout={{ default_timeout }}
+      changed_when: false
+
+    - name: Wait for ArgoCD redis
+      ansible.builtin.command: |
+        kubectl rollout status deploy/argocd-redis -n argocd --timeout={{ default_timeout }}
+      changed_when: false
+
+    - name: Wait for ArgoCD repo server
+      ansible.builtin.command: |
+        kubectl rollout status deploy/argocd-repo-server -n argocd --timeout={{ default_timeout }}
+      changed_when: false
+
+- name: Clean up ArgoCD temporary directory
+  ansible.builtin.file:
+    path: "{{ argocd_temp_dir.path }}"
+    state: absent
+  when: 
+    - not template_only
+    - argocd_temp_dir.path is defined

@@ -1,0 +1,34 @@
+# Ansible runtime files
+*.retry
+.ansible/
+
+# Temporary files
+*.tmp
+*.swp
+*~
+
+# Cache
+/tmp/
+ansible_facts/
+fact_cache/
+
+# Logs
+*.log
+ansible.log
+
+# Collections (installed via ansible-galaxy)
+collections/
+
+# Local variable files (keep examples)
+vars/*.yml
+!vars/example.yml
+!vars/small-cluster.yml
+!vars/aiwb-only.yml
+!vars/development.yml
+
+# Python
+__pycache__/
+*.pyc
+
+# Clone directory if someone runs it locally
+.cluster-forge-bootstrap/

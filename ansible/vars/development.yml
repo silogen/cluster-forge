@@ -1,0 +1,14 @@
+---
+# Development/testing configuration
+# Uses nip.io for DNS and enables extra debugging
+
+cluster_domain: "192.168.1.100.nip.io"
+cluster_size: "medium"
+cluster_forge_repo: "https://github.com/yourusername/cluster-forge.git"
+cluster_forge_target_revision: "main"  # Use main branch for latest changes
+
+# Clean up clone after bootstrap
+cleanup_clone: true
+
+# Enable template-only mode for dry-run testing
+# template_only: true
