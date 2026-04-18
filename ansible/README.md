@@ -105,6 +105,28 @@ ansible-playbook bootstrap.yml \
 | `cluster_domain` | Domain for the cluster | `example.com` or `192.168.1.100.nip.io` |
 | `cluster_forge_repo` | Git repository URL | `https://github.com/user/cluster-forge.git` |
 
+### Cluster Size Behavior
+
+The bootstrap behavior varies based on cluster size:
+
+| Size | Gitea Deployed | Git Repository | Use Case |
+|------|----------------|----------------|----------|
+| **small** | ❌ No | External (GitHub/GitLab) | Development, testing, resource-constrained environments |
+| **medium** | ✅ Yes | Local Gitea instance | Team production, self-contained |
+| **large** | ✅ Yes | Local Gitea instance | Enterprise scale, self-contained |
+
+**Small Cluster Optimization:**
+- Skips Gitea deployment to reduce resource usage
+- Points ClusterForge directly to external Git repository (GitHub, GitLab, etc.)
+- Uses `cluster_forge_repo` and `target_revision` directly
+- Ideal for development environments and resource-constrained clusters
+
+**Medium/Large Clusters:**
+- Deploys local Gitea instance
+- Creates internal cluster-forge and cluster-values repositories
+- Self-contained GitOps workflow
+- No external dependencies after bootstrap
+
 ### Optional Variables
 
 | Variable | Default | Description |

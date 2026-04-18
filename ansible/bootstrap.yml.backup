@@ -6,7 +6,7 @@
 # 3. Setting up the cluster-forge parent application
 #
 # Usage:
-#   ansible-playbook bootstrap.yml -e cluster_domain=example.com -e cluster_size=medium
+#   ansible-playbook bootstrap.yml -e domain=example.com -e cluster_size=medium
 
 - name: Bootstrap ClusterForge
   hosts: localhost
@@ -14,29 +14,32 @@
   gather_facts: true
   
   vars:
+    # Repository configuration
+    repo_url: "{{ cluster_forge_repo | default('https://github.com/yourusername/cluster-forge.git') }}"
+    target_revision: "{{ cluster_forge_target_revision | default('v2.0.4') }}"
+    bootstrap_clone_dir: "{{ clone_dir | default(lookup('env', 'HOME') + '/.cluster-forge-bootstrap') }}"
+    
+    # Cluster configuration (can be overridden via -e)
+    domain: "{{ cluster_domain | default('') }}"
+    size: "{{ cluster_size | default('medium') }}"
+    k8s_version: "{{ kube_version | default('1.33') }}"
+    
+    # Application filtering
+    enabled_apps: "{{ apps | default('') }}"  # comma-separated list
+    disabled_apps: "{{ disabled_apps | default('') }}"  # comma-separated list, supports wildcards
+    aiwb_mode: "{{ aiwb_only | default(false) | bool }}"
+    airm_image_repo: "{{ airm_image_repository | default('') }}"
+    
+    # Bootstrap behavior
+    render_only: "{{ template_only | default(false) | bool }}"
+    skip_deps: "{{ skip_dependency_check | default(false) | bool }}"
     # Namespaces
     namespaces:
       - argocd
       - cf-gitea
       - cf-openbao
-    default_timeout: "5m"
 
   pre_tasks:
-    - name: Set default variables if not provided
-      ansible.builtin.set_fact:
-        cluster_forge_repo: "{{ cluster_forge_repo | default('https://github.com/yourusername/cluster-forge.git') }}"
-        target_revision: "{{ cluster_forge_target_revision | default('v2.0.4') }}"
-        clone_dir: "{{ clone_dir | default(lookup('env', 'HOME') + '/.cluster-forge-bootstrap') }}"
-        domain: "{{ cluster_domain | default('') }}"
-        cluster_size: "{{ cluster_size | default('medium') }}"
-        kube_version: "{{ kube_version | default('1.33') }}"
-        enabled_apps: "{{ apps | default('') }}"
-        disabled_apps: "{{ disabled_apps | default('') }}"
-        aiwb_only: "{{ aiwb_only | default(false) | bool }}"
-        airm_image_repository: "{{ airm_image_repository | default('') }}"
-        template_only: "{{ template_only | default(false) | bool }}"
-        skip_dependency_check: "{{ skip_dependency_check | default(false) | bool }}"
-
     - name: Validate required variables
       ansible.builtin.assert:
         that:
@@ -80,7 +83,7 @@
           - yq: https://github.com/mikefarah/yq#install
           - openssl: Usually pre-installed
           - git: Usually pre-installed or via package manager
-        success_msg: "{{ item.item }} found at {{item.stdout }}"
+        success_msg: "{{ item.item }} found at {{ item.stdout }}"
       loop: "{{ dep_check.results }}"
       when: 
         - not skip_dependency_check
@@ -135,10 +138,6 @@
           when: not template_only
 
     # Bootstrap tasks
-    - name: Set namespaces list based on cluster size
-      ansible.builtin.set_fact:
-        bootstrap_namespaces: "{{ ['argocd', 'cf-openbao'] if cluster_size == 'small' else namespaces }}"
-
     - name: Create namespaces
       kubernetes.core.k8s:
         state: present
@@ -147,7 +146,7 @@
           kind: Namespace
           metadata:
             name: "{{ item }}"
-      loop: "{{ bootstrap_namespaces }}"
+      loop: "{{ namespaces }}"
       when: 
         - not template_only
         - enabled_apps | length == 0 or 'namespaces' in enabled_apps
@@ -162,9 +161,7 @@
 
     - name: Bootstrap Gitea
       ansible.builtin.include_tasks: tasks/bootstrap_gitea.yml
-      when: 
-        - cluster_size != 'small'
-        - enabled_apps | length == 0 or 'gitea' in enabled_apps
+      when: enabled_apps | length == 0 or 'gitea' in enabled_apps
 
     - name: Create ClusterForge parent application
       ansible.builtin.include_tasks: tasks/create_cluster_forge_app.yml

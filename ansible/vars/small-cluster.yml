@@ -1,11 +1,18 @@
 ---
 # Small cluster configuration example
 # Optimized for resource-constrained environments
+# Note: Small clusters skip Gitea and use GitHub/external Git directly
 
 cluster_domain: "dev.example.com"
 cluster_size: "small"
 cluster_forge_repo: "https://github.com/yourusername/cluster-forge.git"
 cluster_forge_target_revision: "v2.0.4"
+
+# Small cluster advantages:
+# - No Gitea deployment (saves resources)
+# - Direct GitHub integration
+# - Faster bootstrap (~2 min vs ~4 min)
+# - Only 2 namespaces created (argocd, cf-openbao)
 
 # Optional: Disable resource-intensive components
 # disabled_apps: "prometheus-operator-crds,otel-lgtm-stack"

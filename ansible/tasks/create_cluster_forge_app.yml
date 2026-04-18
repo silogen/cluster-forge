@@ -1,15 +1,26 @@
 ---
 # Create ClusterForge parent application
 
+- name: Set repository configuration based on cluster size
+  ansible.builtin.set_fact:
+    cf_repo_url: "{{ cluster_forge_repo if cluster_size == 'small' else 'http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git' }}"
+    # For small clusters: disable externalValues to use single-source mode (same repo for chart and values)
+    # For medium/large: enable externalValues to use Gitea-based separate values repo
+    enable_external_values: "{{ 'false' if cluster_size == 'small' else 'true' }}"
+    cf_values_repo_url: "{{ 'http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git' if cluster_size != 'small' else '' }}"
+
 - name: Deploy ClusterForge parent application
   ansible.builtin.shell: |
     helm template cluster-forge "{{ source_root }}/root" \
       --show-only templates/cluster-forge.yaml \
       --values "{{ base_values_file }}" \
-      {% if size_values_stat.stat.exists %}--values "{{ size_values_file }}" \{% endif %}
+      {% if size_values_stat.stat.exists %}--values "{{ size_values_file }}" {% endif %}\
       --set global.clusterSize="values_{{ cluster_size }}.yaml" \
       --set global.domain="{{ domain }}" \
       --set clusterForge.targetRevision="{{ target_revision }}" \
+      --set clusterForge.repoUrl="{{ cf_repo_url }}" \
+      --set externalValues.enabled={{ enable_external_values }} \
+      {% if cluster_size != 'small' %}--set externalValues.repoUrl="{{ cf_values_repo_url }}" \{% endif %}
       --namespace argocd \
       --kube-version "{{ kube_version }}" | \
     kubectl apply -f -

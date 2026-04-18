@@ -69,7 +69,11 @@ ansible-playbook bootstrap.yml -e @vars/my-cluster.yml
 ### Small Development Cluster
 
 ```bash
+# Small clusters skip Gitea and use GitHub directly
 ./run-bootstrap.sh dev.example.com --cluster-size small
+
+# Note: Requires valid GitHub repository URL in cluster_forge_repo
+# Small clusters are optimized for minimal resource usage
 ```
 
 ### Production Cluster with IP Address
