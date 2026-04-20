@@ -95,6 +95,36 @@ spec:
               name: keycloak-package-volume
             - mountPath: /opt/scripts
               name: keycloak-script-volume
+        - name: check-db-is-ready
+          command:
+            [
+              "/bin/sh",
+              "-c",
+              "while ! nc -z \"$ENDPOINT_URL_TO_CHECK\" \"$ENDPOINT_PORT_TO_CHECK\"; do echo \"Waiting for Keycloak DB at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}...\"; sleep 3; done; echo \"Keycloak DB is accepting connections at ${ENDPOINT_URL_TO_CHECK}:${ENDPOINT_PORT_TO_CHECK}.\"; sleep 3; exit 0"
+            ]
+          image: "busybox:1.37.0"
+          imagePullPolicy: "IfNotPresent"
+          env:
+            - name: ENDPOINT_URL_TO_CHECK
+              value: "keycloak-cnpg-rw.keycloak.svc.cluster.local"
+            - name: ENDPOINT_PORT_TO_CHECK
+              value: "5432"
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: false
+            runAsUser: 0
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - SETUID
+                - SETGID
+                - CHOWN
+                - DAC_OVERRIDE
+                - FOWNER
+                - FSETID
+            seccompProfile:
+              type: RuntimeDefault
         - command:
             - /bin/sh
             - -c
