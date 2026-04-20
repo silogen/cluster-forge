@@ -332,7 +332,9 @@ apps:
     namespace: kaiwo-system
     path: kaiwo/v0.2.0-rc11
     syncWave: -10
-    valuesFile: values.yaml
+    valuesFiles:
+      - "values.yaml"
+      - "../values.yaml" 
   kaiwo-config:
     ignoreDifferences:
       - group: external-secrets.io
