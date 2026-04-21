@@ -17,7 +17,9 @@ spec:
   source:
     repoURL: {{ .repoURL | default $clusterForgeRepoUrl }}
     targetRevision: {{ .repoVersion | default $clusterForgeTargetRevision }}
-    {{- if .repoURL }}
+    {{- if .chart }}
+    chart: {{ .chart }}
+    {{- else if .repoURL }}
     path: {{ .path }}
     {{- else }}
     path: sources/{{ .path }}
