@@ -29,6 +29,7 @@ enabledApps:
   - cert-manager
   - cert-manager-config
   - cluster-auth
+  - cluster-cert
   - cluster-auth-config
   - cnpg-operator
   - external-secrets
@@ -68,7 +69,7 @@ apps:
   kyverno-policies-storage-local-path:
     namespace: kyverno
     path: kyverno-policies/storage-local-path
-    syncWave: -20
+    syncWave: -25
     ignoreDifferences:
       - group: kyverno.io
         kind: ClusterPolicy
@@ -76,6 +77,7 @@ apps:
           - /spec/rules/*/skipBackgroundRequests
           - /spec/rules/*/validate/allowExistingViolations
   airm-infra-cnpg:
+    syncWave: 5
     valuesObject:
       instances: 1
       storage:
@@ -83,10 +85,12 @@ apps:
       walStorage:
         storageClass: local-path
   airm-infra-rabbitmq:
+    syncWave: 5
     valuesObject:
       persistence:
         storageClassName: local-path
   aiwb-infra-cnpg:
+    syncWave: 5
     valuesObject:
       instances: 1
       storage:
