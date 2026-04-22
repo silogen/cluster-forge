@@ -1,0 +1,4 @@
+apiVersion: v2
+name: envoy-gateway-config
+description: A Helm chart with CR config for envoy-gateway
+version: 0.1.0
