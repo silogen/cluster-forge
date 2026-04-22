@@ -1,13 +1,4 @@
 ---
-# Namespace for envoy-gateway-system (created first)
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: envoy-gateway-system
-  labels:
-    app.kubernetes.io/name: envoy-gateway
-    app.kubernetes.io/part-of: cluster-forge
----
 # ServiceAccount for TLS secret migration
 apiVersion: v1
 kind: ServiceAccount
@@ -42,7 +33,7 @@ subjects:
   name: tls-migration-sa
   namespace: envoy-gateway-system
 ---
-# Job to migrate and split TLS secret from kgateway-system to envoy-gateway-system
+# Job to migrate TLS secret from kgateway-system to envoy-gateway-system
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -69,11 +60,10 @@ spec:
             exit 0
           fi
           
-          # Verify target namespace exists
+          # Check if target namespace exists, create if not
           if ! kubectl get namespace envoy-gateway-system >/dev/null 2>&1; then
-            echo "ERROR: envoy-gateway-system namespace not found"
-            echo "This job should be applied after namespace creation"
-            exit 1
+            echo "Creating envoy-gateway-system namespace"
+            kubectl create namespace envoy-gateway-system
           fi
           
           # Check if target secret already exists
