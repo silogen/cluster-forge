@@ -267,10 +267,7 @@ apps:
     namespace: external-secrets
     path: external-secrets-config
     syncWave: -10
-  gateway-api:
-    namespace: default
-    path: gateway-api/v1.3.0
-    syncWave: -50
+
   gitea:
     helmParameters:
       - name: clusterDomain
@@ -525,28 +522,19 @@ apps:
         requests:
           cpu: "250m"
           memory: "512Mi"
-  kgateway:
-    namespace: kgateway-system
-    path: kgateway/v2.1.0-main
-    syncWave: -20
+  envoy-gateway:
+    namespace: envoy-gateway-system
+    path: envoy-gateway/v1.7.1
+    syncWave: -30
     valuesObject:
-      controller:
-        image:
-          registry: "ghcr.io"
-          repository: silogen/kgateway-v2.1.0-main-websocket
-          tag: "0.0.1"
-  kgateway-config:
+      kubernetesClusterDomain: cluster.local
+  envoy-gateway-config:
     helmParameters:
       - name: domain
         value: "{{ .Values.global.domain }}"
-    namespace: kgateway-system
-    path: kgateway-config
+    namespace: envoy-gateway-system
+    path: envoy-gateway-config
     syncWave: -15
-    valuesFile: values.yaml
-  kgateway-crds:
-    namespace: kgateway-system
-    path: kgateway-crds/v2.1.0-main
-    syncWave: -30
     valuesFile: values.yaml
   kserve:
     namespace: kserve-system
