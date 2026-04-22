@@ -18,8 +18,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: kgateway-restart-role
-  namespace: kgateway-system
+  name: envoy-gateway-restart-role
+  namespace: envoy-gateway-system
 rules:
   - apiGroups: ["apps"]
     resources: ["deployments"]
@@ -42,13 +42,13 @@ roleRef:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: kgateway-restart-binding
-  namespace: kgateway-system
+  name: envoy-gateway-restart-binding
+  namespace: envoy-gateway-system
 subjects:
   - kind: ServiceAccount
     name: {{ include "cluster-auth.fullname" . }}-restart-kgateway-sa
     namespace: {{ .Values.namespace.name }}
 roleRef:
   kind: Role
-  name: kgateway-restart-role
+  name: envoy-gateway-restart-role
   apiGroup: rbac.authorization.k8s.io

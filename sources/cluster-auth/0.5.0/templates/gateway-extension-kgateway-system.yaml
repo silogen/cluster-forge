@@ -1,15 +1,22 @@
-apiVersion: gateway.kgateway.dev/v1alpha1
-kind: GatewayExtension
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
 metadata:
-  name: {{ include "cluster-auth.fullname" . }}-extauth
-  namespace: kgateway-system
+  name: {{ include "cluster-auth.fullname" . }}-extauth-policy
+  namespace: envoy-gateway-system
   labels:
     {{- include "cluster-auth.labels" . | nindent 4 }}
 spec:
-  type: ExtAuth
+  # Target the Gateway for global external auth (replaces TrafficPolicy functionality)
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: https
+
+  # External Authorization configuration (replaces GatewayExtension functionality)
   extAuth:
-    grpcService:
-      backendRef:
-        name: {{ include "cluster-auth.fullname" . }}
-        namespace: {{ .Values.namespace.name }}
-        port: {{ .Values.service.grpc.port }}
+    grpc:
+      backendRefs:
+        - name: {{ include "cluster-auth.fullname" . }}
+          namespace: {{ .Values.namespace.name }}
+          port: {{ .Values.service.grpc.port }}
+          weight: 1

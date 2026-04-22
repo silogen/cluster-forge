@@ -16,5 +16,5 @@ spec:
             - -c
             - |
               kubectl wait deployment {{ include "cluster-auth.fullname" . }} -n {{ .Values.namespace.name }} --for=condition=Available=True --timeout=180s
-              kubectl rollout restart deployment kgateway -n kgateway-system
+              kubectl rollout restart deployment -l gateway.envoyproxy.io/owning-gateway-name=https -n envoy-gateway-system
       restartPolicy: Never
