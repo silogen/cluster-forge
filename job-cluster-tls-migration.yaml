@@ -1,0 +1,148 @@
+---
+# ServiceAccount for TLS secret migration
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tls-migration-sa
+  namespace: envoy-gateway-system
+---
+# ClusterRole with permissions to manage secrets across namespaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tls-migration-role
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "create", "update", "patch"]
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list", "create"]
+---
+# ClusterRoleBinding to grant permissions to ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tls-migration-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tls-migration-role
+subjects:
+- kind: ServiceAccount
+  name: tls-migration-sa
+  namespace: envoy-gateway-system
+---
+# Job to migrate TLS secret from kgateway-system to envoy-gateway-system
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tls-secret-migration
+  namespace: envoy-gateway-system
+spec:
+  template:
+    spec:
+      serviceAccountName: tls-migration-sa
+      restartPolicy: OnFailure
+      containers:
+      - name: migrate-tls
+        image: alpine/k8s:1.28.13
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Starting TLS secret migration from kgateway-system to envoy-gateway-system"
+          
+          # Check if source secret exists
+          if ! kubectl get secret cluster-tls -n kgateway-system >/dev/null 2>&1; then
+            echo "Source secret cluster-tls not found in kgateway-system namespace"
+            echo "This is expected during initial deployment - no migration needed"
+            exit 0
+          fi
+          
+          # Check if target namespace exists, create if not
+          if ! kubectl get namespace envoy-gateway-system >/dev/null 2>&1; then
+            echo "Creating envoy-gateway-system namespace"
+            kubectl create namespace envoy-gateway-system
+          fi
+          
+          # Check if target secret already exists
+          if kubectl get secret cluster-tls -n envoy-gateway-system >/dev/null 2>&1; then
+            echo "Target secret cluster-tls already exists in envoy-gateway-system"
+            echo "Migration completed previously"
+            exit 0
+          fi
+          
+          echo "Migrating cluster-tls secret with certificate chain splitting"
+          
+          # Extract certificate data from source secret
+          TLS_CRT_DATA=$(kubectl get secret cluster-tls -n kgateway-system -o jsonpath='{.data.tls\.crt}')
+          TLS_KEY_DATA=$(kubectl get secret cluster-tls -n kgateway-system -o jsonpath='{.data.tls\.key}')
+          
+          # Decode the certificate chain
+          echo "$TLS_CRT_DATA" | base64 -d > /tmp/full_chain.crt
+          
+          # Split certificate chain: first cert is server cert, second cert is CA cert
+          # Count certificates in the chain
+          CERT_COUNT=$(grep -c "BEGIN CERTIFICATE" /tmp/full_chain.crt)
+          echo "Found $CERT_COUNT certificates in chain"
+          
+          if [ "$CERT_COUNT" -eq 1 ]; then
+            # Only one certificate (server cert), no CA to split
+            echo "Single certificate found, no CA cert to extract"
+            SERVER_CERT_B64="$TLS_CRT_DATA"
+            CA_CERT_B64=""
+          elif [ "$CERT_COUNT" -ge 2 ]; then
+            # Multiple certificates: split them
+            echo "Splitting certificate chain: server cert + CA cert"
+            
+            # Extract first certificate (server certificate)
+            awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/ {print; if(/END CERTIFICATE/) exit}' /tmp/full_chain.crt > /tmp/server.crt
+            
+            # Extract remaining certificates (CA certificate chain)
+            awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/ {if(first_cert_done) print} /END CERTIFICATE/ {first_cert_done=1}' /tmp/full_chain.crt > /tmp/ca.crt
+            
+            # Base64 encode the split certificates
+            SERVER_CERT_B64=$(cat /tmp/server.crt | base64 -w 0)
+            CA_CERT_B64=$(cat /tmp/ca.crt | base64 -w 0)
+          else
+            echo "No certificates found in tls.crt data"
+            exit 1
+          fi
+          
+          # Create the new secret with split certificates
+          cat > /tmp/new_secret.yaml << 'EOF'
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: cluster-tls
+            namespace: envoy-gateway-system
+          type: kubernetes.io/tls
+          data:
+          EOF
+          
+          echo "  tls.crt: $SERVER_CERT_B64" >> /tmp/new_secret.yaml
+          echo "  tls.key: $TLS_KEY_DATA" >> /tmp/new_secret.yaml
+          
+          # Add CA certificate if it exists
+          if [ -n "$CA_CERT_B64" ]; then
+            echo "  ca.crt: $CA_CERT_B64" >> /tmp/new_secret.yaml
+          fi
+          
+          # Apply the new secret
+          kubectl apply -f /tmp/new_secret.yaml
+          
+          if [ $? -eq 0 ]; then
+            echo "Successfully migrated and split cluster-tls secret to envoy-gateway-system"
+            if [ -n "$CA_CERT_B64" ]; then
+              echo "Certificate chain split: tls.crt (server) + ca.crt (CA)"
+            else
+              echo "Single certificate migrated: tls.crt only"
+            fi
+          else
+            echo "Failed to migrate cluster-tls secret"
+            exit 1
+          fi
+          
+          # Clean up temporary files
+          rm -f /tmp/full_chain.crt /tmp/server.crt /tmp/ca.crt /tmp/new_secret.yaml
