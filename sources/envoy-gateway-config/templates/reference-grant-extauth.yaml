@@ -1,0 +1,16 @@
+# ReferenceGrant to allow cross-namespace access
+# Required because SecurityPolicy is in envoy-gateway-system but cluster-auth service is in cluster-auth namespace
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: cluster-auth-extauth-grant
+  namespace: cluster-auth  # cluster-auth service namespace
+spec:
+  from:
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: envoy-gateway-system  # SecurityPolicy namespace
+  to:
+    - group: ""
+      kind: Service
+      name: cluster-auth  # cluster-auth service name

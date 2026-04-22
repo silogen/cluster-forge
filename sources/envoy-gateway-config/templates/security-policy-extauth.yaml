@@ -1,0 +1,25 @@
+# Envoy Gateway ExtAuth Configuration
+# SecurityPolicy for Gateway-level ExtAuth (equivalent to kgateway global TrafficPolicy)
+# Replaces kgateway TrafficPolicy + GatewayExtension with Envoy Gateway SecurityPolicy
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: cluster-auth-extauth-policy
+  namespace: envoy-gateway-system  # Envoy Gateway namespace
+spec:
+  # Target the Gateway for global-like behavior (same as current TrafficPolicy)
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: https  # Same Gateway name as current setup
+
+  # External Authorization configuration (matches current kgateway GatewayExtension)
+  extAuth:
+    # Use gRPC external auth service (plain gRPC, no TLS - matches current setup)
+    grpc:
+      # Backend reference to cluster-auth service (exact match to current config)
+      backendRefs:
+        - name: cluster-auth
+          namespace: cluster-auth
+          port: 50051
+          weight: 1
