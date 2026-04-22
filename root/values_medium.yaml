@@ -22,7 +22,8 @@ enabledApps:
   - cnpg-operator
   - external-secrets
   - external-secrets-config
-  - gateway-api
+  - envoy-gateway
+  - envoy-gateway-config
   - gitea
   - gitea-config
   - kaiwo
@@ -31,9 +32,6 @@ enabledApps:
   - keda
   - kedify-otel
   - keycloak
-  - kgateway
-  - kgateway-config
-  - kgateway-crds
   - kserve
   - kserve-crds
   - kueue
@@ -331,18 +329,14 @@ apps:
         requests:
           cpu: "50m"
           memory: "256Mi"
-  kgateway:
+  envoy-gateway:
     valuesObject:
-      resources:
-        requests:
-          cpu: "200m"
-          memory: "512Mi"
-  kgateway-config:
-    valuesObject:
-      resources:
-        requests:
-          cpu: "25m"
-          memory: "128Mi"
+      deployment:
+        envoyGateway:
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
   kserve:
     valuesObject:
       resources:
@@ -389,12 +383,7 @@ apps:
         requests:
           cpu: "25m"
           memory: "128Mi"
-  kgateway-crds:
-    valuesObject:
-      resources:
-        requests:
-          cpu: "25m"
-          memory: "128Mi"
+
   kserve-crds:
     valuesObject:
       resources:
