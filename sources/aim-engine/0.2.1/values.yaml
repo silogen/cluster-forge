@@ -119,8 +119,8 @@ clusterRuntimeConfig:
   #     gatewayRef:
   #       group: gateway.networking.k8s.io
   #       kind: Gateway
-  #       name: aim-gateway
-  #       namespace: kgateway-system
+  #       name: https
+  #       namespace: envoy-gateway-system
   #     pathTemplate: "/{.metadata.namespace}/{.metadata.name}"
   #     annotations: {}
   #   model:
