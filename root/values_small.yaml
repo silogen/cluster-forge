@@ -150,6 +150,7 @@ apps:
           cpu: "125m"
           memory: "512Mi"
   keycloak:
+    syncWave: 5
     valuesObject:
       # Increase memory resources for Keycloak to prevent OOMKilled during initialization
       # Medium preset provides 1536Mi memory limit vs small preset's 768Mi
