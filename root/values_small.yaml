@@ -205,6 +205,8 @@ apps:
           requests:
             cpu: "5m"
             memory: "512Mi"
+  otel-lgtm-stack:
+    syncWave: 5
   prometheus:
     valuesObject:
       prometheus:

@@ -37,6 +37,8 @@ spec:
       parameters:
       - name: clusterForge.targetRevision
         value: {{ .Values.clusterForge.targetRevision | default "HEAD" | quote }}
+      - name: global.domain
+        value: {{ .Values.global.domain | quote }}
 {{- end }}
   destination:
     server: https://kubernetes.default.svc
