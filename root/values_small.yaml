@@ -66,6 +66,8 @@ enabledApps:
 
 apps:
   # Modular Kyverno policy applications (only the storage-local-path addition)
+  cluster-cert:
+    namespace: static-cert-system
   kyverno-policies-storage-local-path:
     namespace: kyverno
     path: kyverno-policies/storage-local-path
