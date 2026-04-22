@@ -1,0 +1,35 @@
+# EnvoyProxy configuration for access logging
+# Replaces kgateway HTTPListenerPolicy_access-logs.yaml functionality
+# Referenced by Gateway to enable per-gateway access logging
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: access-logging-config
+  namespace: envoy-gateway-system
+spec:
+  telemetry:
+    accessLog:
+      settings:
+        - format:
+            type: JSON
+            json:
+              start_time: "%START_TIME%"
+              method: "%REQ(X-ENVOY-ORIGINAL-METHOD?:METHOD)%"
+              path: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"
+              protocol: "%PROTOCOL%"
+              response_code: "%RESPONSE_CODE%"
+              response_flags: "%RESPONSE_FLAGS%"
+              bytes_received: "%BYTES_RECEIVED%"
+              bytes_sent: "%BYTES_SENT%"
+              total_duration: "%DURATION%"
+              resp_backend_service_time: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"
+              req_x_forwarded_for: "%REQ(X-FORWARDED-FOR)%"
+              user_agent: "%REQ(USER-AGENT)%"
+              request_id: "%REQ(X-REQUEST-ID)%"
+              authority: "%REQ(:AUTHORITY)%"
+              backendHost: "%UPSTREAM_HOST%"
+              backendCluster: "%UPSTREAM_CLUSTER%"
+          sinks:
+            - type: File
+              file:
+                path: /dev/stdout
