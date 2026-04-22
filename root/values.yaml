@@ -28,6 +28,8 @@ apps:
     helmParameters:
       - name: airm-api.airm.appDomain
         value: "{{ .Values.global.domain }}"
+      - name: airm-api.kgateway.namespace
+        value: envoy-gateway-system
       - group: kyverno.io
         jqPathExpressions:
           - ".spec.rules"
@@ -43,6 +45,8 @@ apps:
     helmParameters:
       - name: appDomain
         value: "{{ .Values.global.domain }}"
+      - name: kgateway.namespace
+        value: envoy-gateway-system
     syncWave: 0
   airm-infra-cnpg:
     path: eai-infra/airm-cnpg/0.1.0
