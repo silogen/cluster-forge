@@ -145,6 +145,16 @@ apps:
         requests:
           cpu: "125m"
           memory: "512Mi"
+  airm:
+    valuesObject:
+      airm-api:
+        frontend:
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
   keycloak-config:
     valuesObject:
       storageClass: local-path
@@ -202,12 +212,93 @@ apps:
           requests:
             cpu: "5m"
             memory: "512Mi"
+  cnpg-operator:
+    valuesObject:
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "10m"
+        limits:
+          memory: "256Mi"
+  cert-manager:
+    valuesObject:
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "10m"
+        limits:
+          memory: "256Mi"
+      webhook:
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "128Mi"
+      cainjector:
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "256Mi"
+  external-secrets:
+    valuesObject:
+      resources:
+        requests:
+          memory: "32Mi"
+          cpu: "10m"
+        limits:
+          memory: "128Mi"
+      webhook:
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "128Mi"
+      certController:
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "128Mi"
+  opentelemetry-operator:
+    valuesObject:
+      manager:
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "256Mi"
   otel-lgtm-stack:
     syncWave: 5
     valuesObject:
       lgtm:
         storage:
           storageClass: local-path
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "8Gi"
+      collectors:
+        resources:
+          metrics:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "8Gi"
+          logs:
+            requests:
+              memory: "200Mi"
+              cpu: "100m"
+            limits:
+              memory: "2Gi"
   prometheus:
     valuesObject:
       prometheus:
@@ -218,8 +309,8 @@ apps:
             requests:
               cpu: "250m"
               memory: "1Gi"
-          retention: 15d
-          retentionSize: 20GB
+          retention: 3d
+          retentionSize: 4GB
           storageSpec:
             volumeClaimTemplate:
               spec:
@@ -227,5 +318,5 @@ apps:
                   - ReadWriteOnce
                 resources:
                   requests:
-                    storage: 25Gi
+                    storage: 5Gi
                 storageClassName: local-path
