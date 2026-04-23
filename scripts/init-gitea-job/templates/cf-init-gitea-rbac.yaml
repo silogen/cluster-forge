@@ -40,3 +40,30 @@ roleRef:
   kind: Role
   name: gitea-init-job-role
   apiGroup: rbac.authorization.k8s.io
+---
+# Cross-namespace Role for accessing OpenBao secrets
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gitea-init-openbao-access-role
+  namespace: cf-openbao
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["openbao-keys"]
+    verbs: ["get"]
+---
+# Cross-namespace RoleBinding for OpenBao secret access
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gitea-init-openbao-access-rolebinding
+  namespace: cf-openbao
+subjects:
+  - kind: ServiceAccount
+    name: gitea-init-job-sa
+    namespace: cf-gitea
+roleRef:
+  kind: Role
+  name: gitea-init-openbao-access-role
+  apiGroup: rbac.authorization.k8s.io
