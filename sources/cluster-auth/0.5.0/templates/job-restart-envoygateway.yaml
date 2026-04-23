@@ -2,12 +2,12 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "cluster-auth.fullname" . }}-restart-kgateway
+  name: {{ include "cluster-auth.fullname" . }}-restart-envoygateway
   namespace: {{ .Values.namespace.name }}
 spec:
   template:
     spec:
-      serviceAccountName: {{ include "cluster-auth.fullname" . }}-restart-kgateway-sa
+      serviceAccountName: {{ include "cluster-auth.fullname" . }}-restart-envoygateway-sa
       containers:
         - name: restart
           image: bitnami/kubectl:latest
