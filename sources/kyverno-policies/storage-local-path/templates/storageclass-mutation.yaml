@@ -1,0 +1,101 @@
+---
+# Kyverno ClusterPolicy to mutate PVC storage class references
+# This policy is ONLY deployed to small and medium clusters via enabledApps configuration
+# Converts "default" and "multinode" storage classes to "local-path" for compatibility
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: local-path-storageclass-mutation
+  annotations:
+    policies.kyverno.io/title: "Local-Path Storage Class Mutation"
+    policies.kyverno.io/category: "Storage"
+    policies.kyverno.io/severity: "medium"
+    policies.kyverno.io/subject: "PersistentVolumeClaim"
+    policies.kyverno.io/minversion: "1.6.0"
+    policies.kyverno.io/description: >-
+      This policy automatically converts "default" and "multinode" storage class references
+      to "local-path" for clusters using local-path provisioner. This handles components
+      that cannot be configured via values.yaml overrides (e.g., hardcoded templates).
+      NOTE: This policy is only deployed to small/medium clusters, never to large clusters.
+spec:
+  admission: true
+  background: false
+  validationFailureAction: Enforce
+  rules:
+    - name: convert-default-to-local-path
+      match:
+        resources:
+          kinds:
+            - PersistentVolumeClaim
+      preconditions:
+        any:
+          # Apply if PVC requests "default" or "multinode" storage class
+          - key: "{{ "{{" }} request.object.spec.storageClassName || '' {{ "}}" }}"
+            operator: Equals
+            value: "default"
+          - key: "{{ "{{" }} request.object.spec.storageClassName || '' {{ "}}" }}"
+            operator: Equals
+            value: "multinode"
+      skipBackgroundRequests: true
+      mutate:
+        patchStrategicMerge:
+          spec:
+            # Replace with local-path storage class
+            storageClassName: local-path
+          metadata:
+            annotations:
+              +(kyverno.io/original-storageclass): "{{ "{{" }} request.object.spec.storageClassName || 'undefined' {{ "}}" }}"
+              +(kyverno.io/mutation-applied): "storageclass-to-local-path"
+              +(kyverno.io/policy-reason): "Components using 'default' or 'multinode' storage classes are converted to 'local-path' for small/medium cluster compatibility"
+
+---
+# Validation policy to warn about storage class changes
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: local-path-storageclass-warning
+  annotations:
+    policies.kyverno.io/title: "Local-Path Storage Class Warning"
+    policies.kyverno.io/category: "Storage"
+    policies.kyverno.io/severity: "low"
+    policies.kyverno.io/subject: "PersistentVolumeClaim"
+    policies.kyverno.io/description: >-
+      This policy generates warnings when PVCs request "default" or "multinode" storage classes
+      that will be converted to "local-path" due to cluster size limitations.
+      NOTE: This policy is only deployed to small/medium clusters, never to large clusters.
+spec:
+  admission: true
+  background: false
+  validationFailureAction: Audit  # Warning only, don't block
+  rules:
+    - name: warn-storageclass-conversion
+      match:
+        resources:
+          kinds:
+            - PersistentVolumeClaim
+      preconditions:
+        any:
+          # Warn for storage classes that will be converted
+          - key: "{{ "{{" }} request.object.spec.storageClassName || '' {{ "}}" }}"
+            operator: Equals
+            value: "default"
+          - key: "{{ "{{" }} request.object.spec.storageClassName || '' {{ "}}" }}"
+            operator: Equals
+            value: "multinode"
+      skipBackgroundRequests: true
+      validate:
+        allowExistingViolations: true
+        message: >-
+          INFO: The requested storage class "{{ "{{" }} request.object.spec.storageClassName || 'undefined' {{ "}}" }}"
+          is not available in small/medium clusters. The storage class has been automatically
+          converted to "local-path". Components that cannot be overridden via values.yaml:
+          - keycloak-old/keycloak-cnpg (hardcoded template)
+          - kaiwo-config/pvc-user-demo (static PVC)
+          - otel-lgtm-stack PVCs (hardcoded template)
+          For large clusters with distributed storage, this policy is not deployed.
+        deny:
+          conditions:
+            # This condition is always false, so it only generates a warning
+            - key: "false"
+              operator: Equals
+              value: "true"

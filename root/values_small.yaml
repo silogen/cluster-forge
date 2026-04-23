@@ -1,3 +1,15 @@
+# Medium & Small clusters add local-path storage policy for RWX→RWO conversion
+
+global:
+  clusterSize: values_small.yaml
+
+# Small cluster uses GitHub (no Gitea deployed)
+clusterForge:
+  repoUrl: "https://github.com/silogen/cluster-forge.git"
+  targetRevision: main  # Overridden by bootstrap --target-revision flag
+externalValues:
+  enabled: false
+
 enabledApps:
   - aim-cluster-model-source
   - aim-engine
@@ -15,14 +27,14 @@ enabledApps:
   - argocd
   - argocd-config
   - cert-manager
+  - cert-manager-config
   - cluster-auth
+  - cluster-cert
   - cluster-auth-config
   - cnpg-operator
   - external-secrets
   - external-secrets-config
   - gateway-api
-  - gitea
-  - gitea-config
   - kaiwo
   - kaiwo-config
   - kaiwo-crds
@@ -53,6 +65,34 @@ enabledApps:
   - rabbitmq
 
 apps:
+  # Modular Kyverno policy applications (only the storage-local-path addition)
+  cluster-cert:
+    namespace: static-cert-system
+  kyverno-policies-storage-local-path:
+    namespace: kyverno
+    path: kyverno-policies/storage-local-path
+    syncWave: -25
+  airm-infra-cnpg:
+    syncWave: 5
+    valuesObject:
+      instances: 1
+      storage:
+        storageClass: local-path
+      walStorage:
+        storageClass: local-path
+  airm-infra-rabbitmq:
+    syncWave: 5
+    valuesObject:
+      persistence:
+        storageClassName: local-path
+  aiwb-infra-cnpg:
+    syncWave: 5
+    valuesObject:
+      instances: 1
+      storage:
+        storageClass: local-path
+      walStorage:
+        storageClass: local-path
   argocd:
     valuesObject:
       applicationSet:
@@ -61,38 +101,34 @@ apps:
         replicas: 1
         resources:
           limits:
-            cpu: "2000m"
-            memory: "4Gi"
+            memory: "2Gi"
           requests:
-            cpu: "500m" 
+            cpu: "125m" 
             memory: "1Gi"
       redis-ha:
         enabled: false
         redis:
           resources:
             limits:
-              cpu: "1000m"
-              memory: "2Gi"
+              memory: "1Gi"
             requests:
-              cpu: "250m"
+              cpu: "5m"
               memory: "512Mi"
       repoServer:
         replicas: 1
         resources:
           limits:
-            cpu: "1000m" 
-            memory: "2Gi"
+            memory: "1Gi"
           requests:
-            cpu: "250m"
+            cpu: "25m"
             memory: "512Mi"
       server:
         replicas: 1
         resources:
           limits:
-            cpu: "500m"
             memory: "1Gi"
           requests:
-            cpu: "125m"
+            cpu: "25m"
             memory: "256Mi"
   grafana:
     valuesObject:
@@ -105,22 +141,38 @@ apps:
       replicas: 1
       resources:
         limits:
-          cpu: "1000m"
           memory: "2Gi"
         requests:
-          cpu: "250m"
+          cpu: "125m"
           memory: "512Mi"
-  kyverno-policies-storage-local-path:
-    ignoreDifferences: []
-    namespace: kyverno
-    path: kyverno-policies/storage-local-path
-    source: clusterForge
-    syncOptions:
-      - CreateNamespace=true
-    syncWave:
-      - group: kyverno.io
-        kind: ClusterPolicy
-    wave: 26  # Deploy after base policies
+  airm:
+    valuesObject:
+      airm-api:
+        frontend:
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+  keycloak-config:
+    valuesObject:
+      storageClass: local-path
+  keycloak:
+    syncWave: 5
+    valuesObject:
+      # Increase memory resources for Keycloak to prevent OOMKilled during initialization
+      # Medium preset provides 1536Mi memory limit vs small preset's 768Mi
+      resourcesPreset: "medium"
+      cnpg:
+        storage:
+          storageClass: local-path
+        walStorage:
+          storageClass: local-path
+  minio-operator:
+    valuesObject:
+      operator:
+        replicaCount: 1
   minio-tenant:
     valuesObject:
       tenant:
@@ -139,10 +191,9 @@ apps:
             volumesPerServer: 2
         resources:
           limits:
-            cpu: "4000m"
             memory: "8Gi"
           requests:
-            cpu: "1000m"
+            cpu: "500m"
             memory: "2Gi"
   openbao:
     valuesObject:
@@ -157,24 +208,109 @@ apps:
           replicas: 1
         resources:
           limits:
-            cpu: "1000m"
             memory: "2Gi"
           requests:
-            cpu: "250m"
+            cpu: "5m"
             memory: "512Mi"
+  cnpg-operator:
+    valuesObject:
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "10m"
+        limits:
+          memory: "256Mi"
+  cert-manager:
+    valuesObject:
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "10m"
+        limits:
+          memory: "256Mi"
+      webhook:
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "128Mi"
+      cainjector:
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "256Mi"
+  external-secrets:
+    valuesObject:
+      resources:
+        requests:
+          memory: "32Mi"
+          cpu: "10m"
+        limits:
+          memory: "128Mi"
+      webhook:
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "128Mi"
+      certController:
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "128Mi"
+  opentelemetry-operator:
+    valuesObject:
+      manager:
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "256Mi"
+  otel-lgtm-stack:
+    syncWave: 5
+    valuesObject:
+      lgtm:
+        storage:
+          storageClass: local-path
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "8Gi"
+      collectors:
+        resources:
+          metrics:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "8Gi"
+          logs:
+            requests:
+              memory: "200Mi"
+              cpu: "100m"
+            limits:
+              memory: "2Gi"
   prometheus:
     valuesObject:
       prometheus:
         prometheusSpec:
           resources:
             limits:
-              cpu: "2000m"
               memory: "4Gi"
             requests:
-              cpu: "500m"
+              cpu: "250m"
               memory: "1Gi"
-          retention: 15d
-          retentionSize: 20GB
+          retention: 3d
+          retentionSize: 4GB
           storageSpec:
             volumeClaimTemplate:
               spec:
@@ -182,5 +318,5 @@ apps:
                   - ReadWriteOnce
                 resources:
                   requests:
-                    storage: 25Gi
+                    storage: 5Gi
                 storageClassName: local-path

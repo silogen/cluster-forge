@@ -60,7 +60,8 @@ data:
     cp /tmp/server.crt /certs/tls.crt
     cp /tmp/server.key /certs/tls.key
     cp /tmp/ca.crt /certs/ca.crt
-    
+    chmod 644 /certs/tls.crt /certs/tls.key /certs/ca.crt
+
     echo "Certificates copied to /certs/"
     
     # Create Kubernetes secret
