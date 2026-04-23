@@ -103,6 +103,12 @@ components:
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/cluster-auth
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
+  cluster-cert:
+    path: cluster-cert/0.0.6
+    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/cluster-cert
+    projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/cluster-cert
+    license: Apache License 2.0
+    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   cnpg-operator:
     path: cnpg-operator/0.26.0
     valuesFile: values.yaml
@@ -275,4 +281,3 @@ components:
     projectUrl: https://github.com/rabbitmq/cluster-operator/
     license: Mozilla Public License 2.0
     licenseUrl: https://github.com/rabbitmq/cluster-operator/blob/main/LICENSE.txt
-  
