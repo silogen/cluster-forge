@@ -292,6 +292,10 @@ spec:
         - name: lgtm
           image: ghcr.io/silogen/docker-otel-lgtm:v1.0.7
           env:
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "false"
+            - name: GF_AUTH_BASIC_ENABLED
+              value: "true"
             - name: GF_SECURITY_ADMIN_USER
               valueFrom:
                 secretKeyRef:
