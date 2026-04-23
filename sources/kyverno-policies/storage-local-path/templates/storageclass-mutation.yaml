@@ -36,6 +36,7 @@ spec:
           - key: "{{ "{{" }} request.object.spec.storageClassName || '' {{ "}}" }}"
             operator: Equals
             value: "multinode"
+      skipBackgroundRequests: true
       mutate:
         patchStrategicMerge:
           spec:
@@ -81,10 +82,12 @@ spec:
           - key: "{{ "{{" }} request.object.spec.storageClassName || '' {{ "}}" }}"
             operator: Equals
             value: "multinode"
+      skipBackgroundRequests: true
       validate:
+        allowExistingViolations: true
         message: >-
           INFO: The requested storage class "{{ "{{" }} request.object.spec.storageClassName || 'undefined' {{ "}}" }}"
-          is not available in small/medium clusters. The storage class has been automatically 
+          is not available in small/medium clusters. The storage class has been automatically
           converted to "local-path". Components that cannot be overridden via values.yaml:
           - keycloak-old/keycloak-cnpg (hardcoded template)
           - kaiwo-config/pvc-user-demo (static PVC)

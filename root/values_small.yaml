@@ -72,12 +72,6 @@ apps:
     namespace: kyverno
     path: kyverno-policies/storage-local-path
     syncWave: -25
-    ignoreDifferences:
-      - group: kyverno.io
-        kind: ClusterPolicy
-        jsonPointers:
-          - /spec/rules/*/skipBackgroundRequests
-          - /spec/rules/*/validate/allowExistingViolations
   airm-infra-cnpg:
     syncWave: 5
     valuesObject:
@@ -151,6 +145,9 @@ apps:
         requests:
           cpu: "125m"
           memory: "512Mi"
+  keycloak-config:
+    valuesObject:
+      storageClass: local-path
   keycloak:
     syncWave: 5
     valuesObject:
@@ -207,6 +204,10 @@ apps:
             memory: "512Mi"
   otel-lgtm-stack:
     syncWave: 5
+    valuesObject:
+      lgtm:
+        storage:
+          storageClass: local-path
   prometheus:
     valuesObject:
       prometheus:
