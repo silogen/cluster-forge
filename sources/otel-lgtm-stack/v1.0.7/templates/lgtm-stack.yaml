@@ -266,9 +266,15 @@ spec:
             - name: FOLDER_ANNOTATION
               value: "grafana_folder"
             - name: REQ_USERNAME
-              value: admin
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-admin-credentials
+                  key: username
             - name: REQ_PASSWORD
-              value: admin
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-admin-credentials
+                  key: password
             - name: REQ_URL
               value: http://localhost:3000/api/admin/provisioning/dashboards/reload
             - name: REQ_METHOD
@@ -285,6 +291,17 @@ spec:
               mountPath: "/tmp/dashboards"
         - name: lgtm
           image: ghcr.io/silogen/docker-otel-lgtm:v1.0.7
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-admin-credentials
+                  key: username
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-admin-credentials
+                  key: password
           ports:
             - containerPort: 3000
             - containerPort: 4317
