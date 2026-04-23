@@ -1,0 +1,102 @@
+---
+# Namespace for envoy-gateway-system (created first)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: envoy-gateway-system
+  labels:
+    app.kubernetes.io/name: envoy-gateway
+    app.kubernetes.io/part-of: cluster-forge
+---
+# ServiceAccount for TLS secret copy
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tls-copy-sa
+  namespace: envoy-gateway-system
+---
+# ClusterRole with permissions to manage secrets across namespaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tls-copy-role
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "create", "update", "patch"]
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list", "create"]
+---
+# ClusterRoleBinding to grant permissions to ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tls-copy-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tls-copy-role
+subjects:
+- kind: ServiceAccount
+  name: tls-copy-sa
+  namespace: envoy-gateway-system
+---
+# Job to copy TLS secret from kgateway-system to envoy-gateway-system (without modification)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tls-secret-copy
+  namespace: envoy-gateway-system
+spec:
+  template:
+    spec:
+      serviceAccountName: tls-copy-sa
+      restartPolicy: OnFailure
+      containers:
+      - name: copy-tls
+        image: alpine/k8s:1.28.13
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Starting TLS secret copy from kgateway-system to envoy-gateway-system"
+          
+          # Check if source secret exists
+          if ! kubectl get secret cluster-tls -n kgateway-system >/dev/null 2>&1; then
+            echo "Source secret cluster-tls not found in kgateway-system namespace"
+            echo "This is expected during initial deployment - no copy needed"
+            exit 0
+          fi
+          
+          # Verify target namespace exists
+          if ! kubectl get namespace envoy-gateway-system >/dev/null 2>&1; then
+            echo "ERROR: envoy-gateway-system namespace not found"
+            echo "This job should be applied after namespace creation"
+            exit 1
+          fi
+          
+          # Check if target secret already exists
+          if kubectl get secret cluster-tls -n envoy-gateway-system >/dev/null 2>&1; then
+            echo "Target secret cluster-tls already exists in envoy-gateway-system"
+            echo "Copy completed previously"
+            exit 0
+          fi
+          
+          echo "Copying cluster-tls secret with identical key-value pairs"
+          
+          # Copy the secret directly using kubectl
+          kubectl get secret cluster-tls -n kgateway-system -o yaml | \
+          sed 's/namespace: kgateway-system/namespace: envoy-gateway-system/' | \
+          sed '/resourceVersion:/d' | \
+          sed '/uid:/d' | \
+          sed '/creationTimestamp:/d' | \
+          kubectl apply -f -
+          
+          if [ $? -eq 0 ]; then
+            echo "Successfully copied cluster-tls secret to envoy-gateway-system"
+            echo "Secret contains the same key-value pairs as the original"
+          else
+            echo "Failed to copy cluster-tls secret"
+            exit 1
+          fi
