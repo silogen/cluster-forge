@@ -69,6 +69,11 @@ services:
 # Component enablement
 dashboards:
   enabled: true
+  github:
+    enabled: false
+    folder: kubernetes
+    image: curlimages/curl:8.8.0
+    urls: []
 
 nodeExporter:
   enabled: true

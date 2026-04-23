@@ -250,6 +250,39 @@ spec:
     spec:
       serviceAccountName: grafana-sidecar
       automountServiceAccountToken: true
+      {{- if and .Values.dashboards.enabled .Values.dashboards.github.enabled (gt (len .Values.dashboards.github.urls) 0) }}
+      initContainers:
+        - name: grafana-github-dashboards
+          image: {{ .Values.dashboards.github.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - |
+              set -eu
+              target_dir="/tmp/dashboards/{{ .Values.dashboards.github.folder }}"
+              mkdir -p "$target_dir"
+              i=1
+              {{- range $url := .Values.dashboards.github.urls }}
+              if curl -fsSL {{ $url | quote }} -o "$target_dir/dashboard-$i.json"; then
+                echo "Downloaded dashboard $i"
+              else
+                echo "WARN: failed to download dashboard $i from {{ $url }}"
+              fi
+              i=$((i+1))
+              {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: sc-dashboard-volume
+              mountPath: /tmp/dashboards
+      {{- end }}
       containers:
         - name: grafana-sc-dashboard
           image: "quay.io/kiwigrid/k8s-sidecar:1.27.4"

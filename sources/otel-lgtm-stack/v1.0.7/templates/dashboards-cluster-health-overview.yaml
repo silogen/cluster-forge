@@ -72,7 +72,7 @@ data:
       "links": [],
       "panels": [
         {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": {
             "defaults": {
               "color": { "mode": "thresholds" },
@@ -154,7 +154,7 @@ data:
           ],
           "targets": [
             {
-              "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "expr": "sum by (nodename, device, mountpoint) ((node_filesystem_size_bytes{instance=~\"$instance\", mountpoint=~\"^/$|^/mnt(/.*)?$|^/var/lib/rancher(/.*)?$\", fstype!~\"tmpfs|overlay|squashfs|fuse.lxcfs\"} / 1024 / 1024 / 1024) * on(instance) group_left(nodename) node_uname_info{instance=~\"$instance\"})",
               "format": "table",
               "instant": true,
@@ -162,7 +162,7 @@ data:
               "refId": "A"
             },
             {
-              "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "expr": "sum by (nodename, device, mountpoint) ((((node_filesystem_size_bytes{instance=~\"$instance\", mountpoint=~\"^/$|^/mnt(/.*)?$|^/var/lib/rancher(/.*)?$\", fstype!~\"tmpfs|overlay|squashfs|fuse.lxcfs\"} - node_filesystem_avail_bytes{instance=~\"$instance\", mountpoint=~\"^/$|^/mnt(/.*)?$|^/var/lib/rancher(/.*)?$\", fstype!~\"tmpfs|overlay|squashfs|fuse.lxcfs\"}) / 1024 / 1024 / 1024) * on(instance) group_left(nodename) node_uname_info{instance=~\"$instance\"}))",
               "format": "table",
               "instant": true,
@@ -170,7 +170,7 @@ data:
               "refId": "B"
             },
             {
-              "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "expr": "sum by (nodename, device, mountpoint) (((100 - (node_filesystem_avail_bytes{instance=~\"$instance\", mountpoint=~\"^/$|^/mnt(/.*)?$|^/var/lib/rancher(/.*)?$\", fstype!~\"tmpfs|overlay|squashfs|fuse.lxcfs\"} / node_filesystem_size_bytes{instance=~\"$instance\", mountpoint=~\"^/$|^/mnt(/.*)?$|^/var/lib/rancher(/.*)?$\", fstype!~\"tmpfs|overlay|squashfs|fuse.lxcfs\"} * 100)) * on(instance) group_left(nodename) node_uname_info{instance=~\"$instance\"}))",
               "format": "table",
               "instant": true,
@@ -180,7 +180,7 @@ data:
           ]
         },
         {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": {
             "defaults": {
               "color": { "mode": "thresholds" },
@@ -330,7 +330,7 @@ data:
           ],
           "targets": [
             {
-              "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "expr": "max by (hostname) (label_replace(kube_node_role{role=~\"control-plane|master\"}, \"hostname\", \"$1\", \"node\", \"(.*)\"))",
               "format": "table",
               "instant": true,
@@ -338,7 +338,7 @@ data:
               "refId": "role"
             },
             {
-              "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "expr": "max by (hostname) (label_replace(kube_node_status_condition{condition=\"Ready\",status=\"true\"}, \"hostname\", \"$1\", \"node\", \"(.*)\"))",
               "format": "table",
               "instant": true,
@@ -346,7 +346,7 @@ data:
               "refId": "status"
             },
             {
-              "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "expr": "100 - (avg by (hostname) (rate(node_cpu_seconds_total{mode=\"idle\",instance=~\"$instance\"}[5m]) * on(instance) group_left(hostname) label_replace(node_uname_info{instance=~\"$instance\"}, \"hostname\", \"$1\", \"nodename\", \"(.*)\")) * 100)",
               "format": "table",
               "instant": true,
@@ -354,7 +354,7 @@ data:
               "refId": "cpu"
             },
             {
-              "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "expr": "100 * (1 - avg by (hostname) ((node_memory_MemAvailable_bytes{instance=~\"$instance\"} * on(instance) group_left(hostname) label_replace(node_uname_info{instance=~\"$instance\"}, \"hostname\", \"$1\", \"nodename\", \"(.*)\")) / (node_memory_MemTotal_bytes{instance=~\"$instance\"} * on(instance) group_left(hostname) label_replace(node_uname_info{instance=~\"$instance\"}, \"hostname\", \"$1\", \"nodename\", \"(.*)\"))))",
               "format": "table",
               "instant": true,
@@ -362,7 +362,7 @@ data:
               "refId": "mem"
             },
             {
-              "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "expr": "avg by (hostname) ((time() - node_boot_time_seconds{instance=~\"$instance\"}) * on(instance) group_left(hostname) label_replace(node_uname_info{instance=~\"$instance\"}, \"hostname\", \"$1\", \"nodename\", \"(.*)\"))",
               "format": "table",
               "instant": true,
@@ -372,7 +372,7 @@ data:
           ]
         },
         {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": {
             "defaults": {
               "color": { "mode": "thresholds" },
@@ -428,7 +428,7 @@ data:
           ],
           "targets": [
             {
-              "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "expr": "max by (namespace, pod, phase) (((time() - kube_pod_created) * on(namespace, pod) group_left(phase) max by (namespace, pod, phase) (kube_pod_status_phase{phase=~\"Pending|Running|Failed|Unknown\"} == 1)) * on(namespace, pod) group_left() (max by (namespace, pod) (kube_pod_container_status_waiting_reason{reason=~\"CrashLoopBackOff|ImagePullBackOff|ErrImagePull|CreateContainerConfigError|CreateContainerError\"} == 1) or max by (namespace, pod) (kube_pod_container_status_terminated_reason{reason=~\"Error|OOMKilled|ContainerCannotRun\"} == 1) or max by (namespace, pod) (kube_pod_status_phase{phase=~\"Pending|Failed|Unknown\"} == 1) or max by (namespace, pod) (kube_pod_status_ready{condition=\"true\"} == 0)))",
               "format": "table",
               "instant": true,
@@ -438,7 +438,7 @@ data:
           ]
         },
         {
-          "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+          "datasource": { "type": "loki", "uid": "loki" },
           "gridPos": { "h": 10, "w": 24, "x": 0, "y": 26 },
           "id": 5,
           "options": {
@@ -452,7 +452,7 @@ data:
           },
           "targets": [
             {
-              "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+              "datasource": { "type": "loki", "uid": "loki" },
               "expr": "{pod=~\".*kube-apiserver.*\"} |~ \"(?i)error\"",
               "queryType": "range",
               "refId": "A"
@@ -462,7 +462,7 @@ data:
           "type": "logs"
         },
         {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": {
             "defaults": {
               "color": { "mode": "thresholds" },
@@ -522,7 +522,7 @@ data:
           ],
           "targets": [
             {
-              "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "expr": "max by (namespace, name) ((certmanager_certificate_expiration_timestamp_seconds - time()) / 86400)",
               "format": "table",
               "instant": true,
@@ -539,7 +539,7 @@ data:
         "list": [
           {
             "current": {},
-            "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
             "definition": "label_values(node_filesystem_size_bytes, instance)",
             "hide": 0,
             "includeAll": true,
@@ -561,7 +561,7 @@ data:
       "time": { "from": "now-5m", "to": "now" },
       "timepicker": {},
       "timezone": "browser",
-      "title": "Disk Space Monitor",
-      "uid": "disk-space-monitor",
+      "title": "Cluster Health Overview",
+      "uid": "cluster-health-overview",
       "version": 1
     }
