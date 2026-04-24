@@ -257,10 +257,12 @@ echo "📦 Installing KServe operator..."
 # IMPORTANT: cert-manager Certificate resources don't work well with --server-side
 # Apply them separately with regular kubectl apply
 # Set deploymentMode to RawDeployment (default is Knative, which requires Knative Serving)
+kubectl config set-context --current --namespace=kserve-system
 helm template kserve ${SOURCES_DIR}/kserve/v0.16.0 \
   --namespace kserve-system \
   --set kserve.controller.deploymentMode=RawDeployment \
-  | kubectl apply -f - 2>&1 | grep -v "Error from server" || true
+  | kubectl apply -f -
+kubectl config set-context --current --namespace=default
 
 # Wait for certificate to be ready
 echo "⏳ Waiting for KServe webhook certificate to be ready..."
