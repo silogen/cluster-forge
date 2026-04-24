@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# BYO Database Override Script for Kubernetes
+# Pluggable Database Override Script for Kubernetes
 # This script patches Kubernetes resources to use an external PostgreSQL database
 # instead of the in-cluster CNPG (CloudNativePG) instances
 
@@ -82,7 +82,7 @@ encode_base64() {
 
 echo ""
 echo "=========================================================================="
-echo "  BYO Database Override — External PostgreSQL Configuration"
+echo "  Pluggable Database Override — External PostgreSQL Configuration"
 echo "=========================================================================="
 echo "  External PostgreSQL: ${POSTGRES_HOST}:${POSTGRES_PORT}"
 echo "  AIWB database:       ${AIWB_DB_NAME} (user: ${AIWB_DB_USER})"
@@ -277,7 +277,7 @@ kubectl get secret keycloak-cnpg-user -n "${KEYCLOAK_NAMESPACE}" -o jsonpath='{.
 
 echo ""
 echo "=========================================================================="
-echo "BYO Database Override Complete"
+echo "Pluggable Database Override Complete"
 echo "=========================================================================="
 echo ""
 echo "External Database Configuration:"

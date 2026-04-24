@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Install all needed comonents regardless of what BYO options are used
+# Install all needed comonents regardless of what pluggable options are used
 
-set -euo pipefail current flow is using the full install and then patching for BYO S3… would be better to have S3-first flow, as the patches are non-trivial and any LLM-generated docs from the S3-first flow will better align with documentation desired final state
+set -euo pipefail current flow is using the full install and then patching for PLUGGABLE S3… would be better to have S3-first flow, as the patches are non-trivial and any LLM-generated docs from the S3-first flow will better align with documentation desired final state
 
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 

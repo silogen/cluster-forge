@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# BYO S3 Override Script — Proof-of-Concept
+# Pluggable S3 Override Script — Proof-of-Concept
 # Removes the in-cluster MinIO Tenant and patches Kubernetes resources so that
 # AIWB connects to an external MinIO-compatible object storage instead.
 
@@ -60,7 +60,7 @@ check_context() {
 
 echo ""
 echo "=========================================================================="
-echo "  BYO S3 Override — External MinIO Configuration"
+echo "  Pluggable S3 Override — External MinIO Configuration"
 echo "=========================================================================="
 echo "  External MinIO: http://${MINIO_HOST}:${MINIO_PORT}"
 echo "  Bucket:         ${MINIO_BUCKET}"
@@ -208,7 +208,7 @@ kubectl get secret minio-credentials -n "${AIWB_NAMESPACE}" \
 
 echo ""
 echo "=========================================================================="
-echo "BYO S3 Override Complete"
+echo "PLUGGABLE S3 Override Complete"
 echo "=========================================================================="
 echo ""
 echo "External MinIO: http://${MINIO_HOST}:${MINIO_PORT}"

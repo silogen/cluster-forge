@@ -110,10 +110,10 @@ else
     minio server "${MINIO_DATA_DIR}" \
       --address ":${MINIO_API_PORT}" \
       --console-address ":${MINIO_CONSOLE_PORT}" \
-      >/tmp/minio-byo.log 2>&1 &
+      >/tmp/minio-pluggable.log 2>&1 &
 
   MINIO_PID=$!
-  echo "${MINIO_PID}" > /tmp/minio-byo.pid
+  echo "${MINIO_PID}" > /tmp/minio-pluggable.pid
   log_info "MinIO started (PID ${MINIO_PID}), waiting for it to be ready..."
 
   for i in $(seq 1 30); do
@@ -122,7 +122,7 @@ else
       break
     fi
     if [ "$i" -eq 30 ]; then
-      log_error "MinIO did not become ready in time. Check /tmp/minio-byo.log"
+      log_error "MinIO did not become ready in time. Check /tmp/minio-pluggable.log"
       exit 1
     fi
     sleep 2
@@ -163,10 +163,10 @@ echo ""
 echo "  From Kubernetes pods, use:  host.docker.internal:${MINIO_API_PORT}"
 echo "  (Supported on Rancher Desktop and Docker Desktop.)"
 echo ""
-if [ -f /tmp/minio-byo.pid ]; then
-  echo "  MinIO was started by this script (PID $(cat /tmp/minio-byo.pid))."
-  echo "  Logs: /tmp/minio-byo.log"
-  echo "  To stop: kill $(cat /tmp/minio-byo.pid)"
+if [ -f /tmp/minio-pluggable.pid ]; then
+  echo "  MinIO was started by this script (PID $(cat /tmp/minio-pluggable.pid))."
+  echo "  Logs: /tmp/minio-pluggable.log"
+  echo "  To stop: kill $(cat /tmp/minio-pluggable.pid)"
   echo ""
 fi
 echo "  To start automatically on login, use a brew service (macOS only):"
@@ -184,6 +184,6 @@ echo "    MINIO_HOST=host.docker.internal \\"
 echo "    MINIO_PORT=${MINIO_API_PORT} \\"
 echo "    MINIO_ACCESS_KEY=${MINIO_ROOT_USER} \\"
 echo "    MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD} \\"
-echo "    ./BYO/scripts/s3.sh"
+echo "    ./pluggable/scripts/s3.sh"
 echo ""
 echo "=========================================================================="

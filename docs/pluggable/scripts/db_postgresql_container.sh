@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# BYO Database Setup Script for AIWB
+# Pluggable Database Setup Script for AIWB
 # This script sets up PostgreSQL in a Docker container on WSL
 # and configures it to accept connections from Kubernetes Pods
 # Prerequisites: Docker installed and running on WSL
@@ -215,10 +215,10 @@ if [ ! -f /var/lib/postgresql/data/pgdata/pg_hba.conf.backup ]; then
 fi
 
 # Check if rules already exist to avoid duplicates
-if ! grep -q "# AIWB BYO Database Configuration" /var/lib/postgresql/data/pgdata/pg_hba.conf; then
+if ! grep -q "# AIWB Pluggable Database Configuration" /var/lib/postgresql/data/pgdata/pg_hba.conf; then
   cat >> /var/lib/postgresql/data/pgdata/pg_hba.conf <<'EOF'
 
-# AIWB BYO Database Configuration - Added by db_postgresql_container.sh
+# AIWB Pluggable Database Configuration - Added by db_postgresql_container.sh
 # Allow password authentication for AIWB and Keycloak users from any host
 # This allows Kubernetes pods to connect to the PostgreSQL container
 host    all              all              0.0.0.0/0       scram-sha-256
@@ -259,7 +259,7 @@ fi
 
 echo ""
 echo "=========================================================================="
-echo "BYO Database Setup Complete"
+echo "Pluggable Database Setup Complete"
 echo "=========================================================================="
 echo ""
 echo "Container Information:"

@@ -11,7 +11,7 @@ set -euo pipefail
 # Configuration
 # ============================================================================
 
-CONTAINER_NAME="${CONTAINER_NAME:-minio-byo}"
+CONTAINER_NAME="${CONTAINER_NAME:-minio-pluggable}"
 MINIO_API_PORT="${MINIO_API_PORT:-9000}"        # host port for S3 API
 MINIO_CONSOLE_PORT="${MINIO_CONSOLE_PORT:-9001}" # host port for web console
 MINIO_ROOT_USER="${MINIO_ROOT_USER:-examplepass}"
@@ -146,7 +146,7 @@ echo "    MINIO_HOST=host.docker.internal \\"
 echo "    MINIO_PORT=${MINIO_API_PORT} \\"
 echo "    MINIO_ACCESS_KEY=${MINIO_ROOT_USER} \\"
 echo "    MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD} \\"
-echo "    ./BYO/scripts/s3.sh"
+echo "    ./pluggable/scripts/s3.sh"
 echo ""
 echo "  To stop the container:"
 echo "    docker stop ${CONTAINER_NAME}"

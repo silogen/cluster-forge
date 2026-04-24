@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# BYO Database Setup Script for AIWB
+# Pluggable Database Setup Script for AIWB
 # This script sets up PostgreSQL users and databases required for AIWB and Keycloak
 # Prerequisites: PostgreSQL installed and running (e.g., via `brew install postgresql`)
 
@@ -199,10 +199,10 @@ fi
 
 # Update pg_hba.conf to allow password authentication from remote hosts
 # Check if rules already exist to avoid duplicates
-if ! grep -q "# AIWB BYO Database Configuration" "${PG_CONFIG_DIR}/pg_hba.conf"; then
+if ! grep -q "# AIWB Pluggable Database Configuration" "${PG_CONFIG_DIR}/pg_hba.conf"; then
   cat >> "${PG_CONFIG_DIR}/pg_hba.conf" <<EOF
 
-# AIWB BYO Database Configuration - Added by db_postgresql_homebrew.sh
+# AIWB Pluggable Database Configuration - Added by db_postgresql_homebrew.sh
 # Allow password authentication for AIWB and Keycloak users from any host
 # For production, replace 0.0.0.0/0 with specific IP ranges or CIDR blocks
 host    ${AIWB_DB_NAME}      ${AIWB_DB_USER}      0.0.0.0/0       scram-sha-256
@@ -266,7 +266,7 @@ fi
 
 echo ""
 echo "=========================================================================="
-echo "BYO Database Setup Complete"
+echo "Pluggable Database Setup Complete"
 echo "=========================================================================="
 echo ""
 echo "Database Configuration:"
