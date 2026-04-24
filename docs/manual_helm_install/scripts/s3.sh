@@ -11,7 +11,12 @@ set -euo pipefail
 # ============================================================================
 
 MINIO_HOST="${MINIO_HOST:-host.docker.internal}"
-MINIO_PORT="${MINIO_PORT:-9000}"
+# Host port external MinIO publishes its S3 API on. Default 19000 matches the
+# minio-byo container layout used in this dev workflow (container :9000 → host :19000).
+MINIO_PORT="${MINIO_PORT:-19000}"
+# IP that backs the redirect Endpoints. Defaults to the Rancher Desktop host IP.
+# Override with MINIO_HOST_IP=<ip> for other engines (kind, minikube, etc).
+MINIO_HOST_IP="${MINIO_HOST_IP:-192.168.127.254}"
 MINIO_ACCESS_KEY="${MINIO_ACCESS_KEY:-examplepass}"
 MINIO_SECRET_KEY="${MINIO_SECRET_KEY:-examplepass}"
 MINIO_BUCKET="${MINIO_BUCKET:-default-bucket}"
@@ -146,6 +151,57 @@ kubectl wait --for=delete pod \
 echo ""
 
 # ============================================================================
+# Create redirect Service for in-cluster minio name → external host
+# ============================================================================
+# Forwards http://minio.minio-tenant-default.svc.cluster.local:80 to
+# ${MINIO_HOST}:${MINIO_PORT} so aim-performance workloads (and any other
+# in-cluster consumer that bakes in the in-cluster URL via env vars like
+# BUCKET_STORAGE_HOST) reach the external MinIO transparently.
+# aiwb-api itself is set directly to ${MINIO_HOST}:${MINIO_PORT} below and
+# does not depend on this redirect.
+#
+# DOC NOTE: The "default-user" secret in ${MINIO_NAMESPACE} (created by
+# install_base.sh from secrets-aiwb.yaml / secrets-override-hardcoded.yaml)
+# was consumed by the in-cluster MinIO Tenant which is now gone. It is left
+# in place harmlessly — nothing reads it after the Tenant is deleted.
+
+log_info "Creating in-cluster redirect Service for external MinIO..."
+
+# Ensure the namespace exists (s3.sh may run before in-cluster MinIO was ever installed)
+kubectl create namespace "${MINIO_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
+
+log_info "Redirect target: ${MINIO_HOST_IP}:${MINIO_PORT} (override with MINIO_HOST_IP=<ip>)"
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: ${MINIO_NAMESPACE}
+spec:
+  ports:
+  - name: http-minio
+    port: 80
+    targetPort: ${MINIO_PORT}
+    protocol: TCP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: minio
+  namespace: ${MINIO_NAMESPACE}
+subsets:
+- addresses:
+  - ip: ${MINIO_HOST_IP}
+  ports:
+  - name: http-minio
+    port: ${MINIO_PORT}
+    protocol: TCP
+EOF
+log_success "In-cluster MinIO redirect Service ready"
+
+echo ""
+
+# ============================================================================
 # Patch Secrets
 # ============================================================================
 
@@ -164,6 +220,32 @@ kubectl patch secret minio-credentials -n "${WORKBENCH_NAMESPACE}" --type='json'
   {\"op\": \"replace\", \"path\": \"/data/minio-access-key\", \"value\": \"${ACCESS_KEY_B64}\"},
   {\"op\": \"replace\", \"path\": \"/data/minio-secret-key\", \"value\": \"${SECRET_KEY_B64}\"}
 ]" && log_success "workbench/minio-credentials updated" || log_warning "workbench/minio-credentials patch may have failed"
+
+# ============================================================================
+# Ensure workbench namespace has the project-id label AIWB requires
+# ============================================================================
+# aiwb-api rejects requests to a workbench namespace that lacks the
+# airm.silogen.ai/project-id label (see aiwb security.py: "is not a workbench
+# namespace (missing project-id label)"). The label is normally set by the
+# AIWB chart's templates/namespace.yaml during install_base.sh, but on partial
+# re-installs (e.g. when SSA conflicts with manually-set fields cause the
+# helm apply to abort) the label can end up missing on the existing namespace.
+# This step idempotently restores it: --overwrite=false preserves any existing
+# project-id, and adds a fresh UUID only when the label is absent.
+
+log_info "Ensuring workbench namespace has project-id label..."
+PROJECT_ID_LABEL="airm.silogen.ai/project-id"
+EXISTING_PROJECT_ID=$(kubectl get namespace "${WORKBENCH_NAMESPACE}" \
+  -o jsonpath="{.metadata.labels.${PROJECT_ID_LABEL//./\\.}}" 2>/dev/null || echo "")
+if [[ -n "${EXISTING_PROJECT_ID}" ]]; then
+  log_success "workbench namespace already has ${PROJECT_ID_LABEL}=${EXISTING_PROJECT_ID}"
+else
+  NEW_PROJECT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
+  kubectl label namespace "${WORKBENCH_NAMESPACE}" \
+    "${PROJECT_ID_LABEL}=${NEW_PROJECT_ID}" --overwrite=false \
+    && log_success "workbench namespace labeled ${PROJECT_ID_LABEL}=${NEW_PROJECT_ID}" \
+    || log_warning "Failed to label workbench namespace"
+fi
 
 # ============================================================================
 # Patch AIWB Deployment
@@ -205,6 +287,25 @@ echo ""
 kubectl get secret minio-credentials -n "${AIWB_NAMESPACE}" \
   -o jsonpath='{.data.minio-access-key}' 2>/dev/null \
   | base64 -d | xargs -I {} echo "  aiwb/minio-credentials access-key: {}"
+
+echo ""
+echo "Redirect Service:"
+kubectl get endpoints minio -n "${MINIO_NAMESPACE}" \
+  -o jsonpath='{range .subsets[*]}{.addresses[*].ip}:{.ports[*].port}{"\n"}{end}' \
+  2>/dev/null | xargs -I {} echo "  minio.${MINIO_NAMESPACE} → {}"
+
+log_info "Verifying in-cluster URL → external MinIO..."
+REDIRECT_STATUS=$(kubectl run "minio-check-$$" \
+  --rm -i --restart=Never --quiet \
+  --image=curlimages/curl:8.10.1 \
+  -- curl -s -o /dev/null -w '%{http_code}' \
+     "http://minio.${MINIO_NAMESPACE}.svc.cluster.local/minio/health/live" 2>/dev/null \
+  || echo "??")
+if [[ "${REDIRECT_STATUS}" == "200" ]]; then
+  log_success "In-cluster URL returns 200 (redirect working)"
+else
+  log_warning "In-cluster URL health check returned: ${REDIRECT_STATUS} (expected 200)"
+fi
 
 echo ""
 echo "=========================================================================="

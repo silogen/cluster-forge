@@ -12,6 +12,15 @@ PLUGGABLE_S3=${PLUGGABLE_S3:-false}
 CNPG_INSTANCES=1
 DOMAIN="${DOMAIN:-localhost}"
 DEFAULT_STORAGE_CLASS_NAME="local-path"
+
+# External MinIO config — used only when PLUGGABLE_S3=true to override the
+# AIWB chart's MinIO endpoint. The in-cluster redirect Service that backs the
+# in-cluster MinIO URL is set up separately by scripts/s3.sh.
+MINIO_HOST="${MINIO_HOST:-host.docker.internal}"
+# Host port external MinIO publishes its S3 API on. Default 19000 matches the
+# minio-byo container layout used in this dev workflow (container :9000 → host :19000).
+MINIO_PORT="${MINIO_PORT:-19000}"
+MINIO_BUCKET="${MINIO_BUCKET:-default-bucket}"
 METALLB_IP_RANGE="${METALLB_IP_RANGE:-192.168.127.240-192.168.127.250}"
 
 # Derive protocol-aware URL bases from DOMAIN.
@@ -585,7 +594,9 @@ if [[ "${PLUGGABLE_S3}" != true ]]; then
   echo ""
 else
   echo "PLUGGABLE_S3=true => Skipping in-cluster MinIO Operator, Tenant and configuration."
-  echo "See components/s3.md for instructions on connecting AIWB to your external MinIO."
+  echo "Run scripts/s3.sh after this script completes — it creates the in-cluster"
+  echo "redirect Service that forwards the in-cluster MinIO URL to ${MINIO_HOST}:${MINIO_PORT}"
+  echo "and patches the AIWB credentials."
   echo ""
 fi
 
@@ -616,6 +627,14 @@ fi
 # ============================================================================
 # AIWB APPLICATION
 # ============================================================================
+# When PLUGGABLE_S3=true, point AIWB directly at the external MinIO endpoint
+# rather than relying on the redirect Service. Keeps aiwb-api one indirection
+# closer to the truth.
+AIWB_PLUGGABLE_S3_ARGS=""
+if [[ "${PLUGGABLE_S3}" == true ]]; then
+  AIWB_PLUGGABLE_S3_ARGS="--set minio.url=http://${MINIO_HOST}:${MINIO_PORT} --set minio.bucket=${MINIO_BUCKET}"
+fi
+
 echo "🚀 Installing AIWB application..."
 helm template aiwb ${SOURCES_DIR}/aiwb/1.0.3 \
   --namespace aiwb \
@@ -625,6 +644,7 @@ helm template aiwb ${SOURCES_DIR}/aiwb/1.0.3 \
   --set keycloak.url="${KC_URL}" \
   --set frontend.env.NEXTAUTH_URL="${AIWB_UI_URL}" \
   --set frontend.env.KEYCLOAK_ISSUER="${KC_URL}/realms/airm" \
+  ${AIWB_PLUGGABLE_S3_ARGS} \
   | kubectl apply --server-side -f -
 
 # Wait for AIWB to be ready
