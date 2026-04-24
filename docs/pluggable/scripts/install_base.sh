@@ -28,7 +28,7 @@ if [ -d "${CLUSTER_FORGE_DIR}" ]; then
   fi
 else
   echo "📥 Downloading cluster-forge sources from GitHub..."
-  git clone --depth 1 --branch poc_helm_byok --single-branch \
+  git clone --depth 1 --branch main --single-branch \
     https://github.com/silogen/cluster-forge.git "${CLUSTER_FORGE_DIR}"
   echo "✅ Sources downloaded to ${SOURCES_DIR}"
 fi
