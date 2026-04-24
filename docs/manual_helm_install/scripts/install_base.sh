@@ -261,8 +261,7 @@ kubectl config set-context --current --namespace=kserve-system
 helm template kserve ${SOURCES_DIR}/kserve/v0.16.0 \
   --namespace kserve-system \
   --set kserve.controller.deploymentMode=RawDeployment \
-  | kubectl apply -f -
-kubectl config set-context --current --namespace=default
+  | kubectl apply -f - 2>&1 | grep -v "Error from server" || true
 
 # Wait for certificate to be ready
 echo "⏳ Waiting for KServe webhook certificate to be ready..."
@@ -271,6 +270,13 @@ kubectl wait --for=condition=ready --timeout=60s certificate/serving-cert -n kse
 # Wait for KServe webhook to be ready
 echo "⏳ Waiting for KServe controller to be ready..."
 kubectl wait --for=condition=available --timeout=120s deployment/kserve-controller-manager -n kserve-system
+
+echo "Applying KServe again to ensure all resources are created (some may fail on first apply due to webhook not being ready)..."
+helm template kserve ${SOURCES_DIR}/kserve/v0.16.0 \
+  --namespace kserve-system \
+  --set kserve.controller.deploymentMode=RawDeployment \
+  | kubectl apply -f -
+kubectl config set-context --current --namespace=default
 
 # Wait for webhook endpoints to be available (can take 10-30 seconds after deployment is ready)
 echo "⏳ Waiting for KServe webhook endpoints to be ready..."
