@@ -534,14 +534,14 @@ if [[ "${BYO_DB}" != true ]]; then
     sleep 5
   done
   echo "✅ Keycloak database is ready"
-else
-  echo "BYO_DB=true => Not waiting for Keycloak or its database to be ready since it's going to be patched later."
 
   # Wait for Keycloak deployment to be ready
   echo "⏳ Waiting for Keycloak to be ready..."
   kubectl wait --for=condition=available --timeout=300s deployment/keycloak -n keycloak || { echo "⚠️  Keycloak deployment check timed out, exiting..."; exit 1; }
   echo "✅ Keycloak is ready"
   echo ""
+else
+  echo "BYO_DB=true => Not waiting for Keycloak or its database to be ready since it's going to be patched later."
 fi
 
 
