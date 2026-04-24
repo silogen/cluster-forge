@@ -10,8 +10,22 @@ PLUGGABLE_DB=${PLUGGABLE_DB:-false}
 PLUGGABLE_S3=${PLUGGABLE_S3:-false}
 
 CNPG_INSTANCES=1
-DOMAIN="localhost"
+DOMAIN="${DOMAIN:-localhost}"
 DEFAULT_STORAGE_CLASS_NAME="local-path"
+METALLB_IP_RANGE="${METALLB_IP_RANGE:-192.168.127.240-192.168.127.250}"
+
+# Derive protocol-aware URL bases from DOMAIN.
+# For a real domain the gateway uses HTTPS with subdomain routing;
+# for localhost it uses plain HTTP on fixed ports (overridden by post_install.sh).
+if [ "${DOMAIN}" = "localhost" ]; then
+  KC_HOSTNAME="http://localhost:8080"
+  KC_URL="http://localhost:8080"
+  AIWB_UI_URL="http://localhost:8000"
+else
+  KC_HOSTNAME="https://kc.${DOMAIN}"
+  KC_URL="https://kc.${DOMAIN}"
+  AIWB_UI_URL="https://aiwbui.${DOMAIN}"
+fi
 
 # Download cluster-forge sources from GitHub
 # User can force update with: FORCE_UPDATE=true ./install_base.sh
@@ -171,9 +185,14 @@ echo ""
 # METALLB CONFIGURATION
 # ============================================================================
 
-# Configure MetalLB with L2 mode and IP address pool
-# Using 192.168.127.240-192.168.127.250 as the LoadBalancer IP range
-kubectl apply -f - <<EOF
+# Configure MetalLB with L2 mode and IP address pool.
+# Skip creating the IPAddressPool if one already covers METALLB_IP_RANGE
+# (e.g. a cloud provider or previous install already configured MetalLB).
+if KUBECONFIG="${KUBECONFIG:-}" kubectl get ipaddresspools -n metallb-system -o jsonpath='{.items[*].spec.addresses[*]}' 2>/dev/null \
+    | tr ' ' '\n' | grep -qF "${METALLB_IP_RANGE%%-*}"; then
+  echo "ℹ️  MetalLB IPAddressPool covering ${METALLB_IP_RANGE} already exists — skipping pool creation"
+else
+  kubectl apply -f - <<EOF
 apiVersion: metallb.io/v1beta1
 kind: IPAddressPool
 metadata:
@@ -181,7 +200,7 @@ metadata:
   namespace: metallb-system
 spec:
   addresses:
-  - 192.168.127.240-192.168.127.250
+  - ${METALLB_IP_RANGE}
 ---
 apiVersion: metallb.io/v1beta1
 kind: L2Advertisement
@@ -192,6 +211,7 @@ spec:
   ipAddressPools:
   - default
 EOF
+fi
 
 echo "✅ MetalLB installed and configured"
 echo ""
@@ -311,14 +331,34 @@ echo ""
 # advertises amd.com/gpu resources so workloads can request them.
 echo "📦 Installing AMD GPU Operator..."
 kubectl create namespace amd-gpu-operator --dry-run=client -o yaml | kubectl apply -f -
-helm template amd-gpu-operator ${SOURCES_DIR}/amd-gpu-operator/v1.4.1 \
+
+# Apply CRDs directly first and wait for them to be established.
+# The GPU operator chart's subchart CRDs (NFD, KMM) must exist in the API server
+# before any pods start, otherwise they crash-loop on missing nodefeatures/nodefeaturegroups.
+# We use kubectl apply rather than helm's CRD handling because helm install with CRDs
+# is not idempotent across re-runs without a pre-existing release.
+kubectl apply --server-side -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/crds/
+kubectl apply --server-side -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/charts/node-feature-discovery/crds/
+kubectl apply --server-side -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/charts/kmm/crds/
+
+echo "⏳ Waiting for AMD GPU Operator CRDs to be established..."
+kubectl wait --for=condition=established --timeout=60s \
+  crd/nodefeatures.nfd.k8s-sigs.io \
+  crd/deviceconfigs.amd.com \
+  crd/modules.kmm.sigs.x-k8s.io
+
+# Use helm upgrade --install (not helm template | kubectl apply) so that all resources
+# get the correct release namespace injected. The GPU operator chart omits explicit
+# namespace on several cluster-scoped resources and relies on Helm's injection.
+helm upgrade --install amd-gpu-operator ${SOURCES_DIR}/amd-gpu-operator/v1.4.1 \
   --namespace amd-gpu-operator \
   --set crds.defaultCR.install=true \
-  | kubectl apply --server-side -f -
+  --skip-crds \
+  --kubeconfig "${KUBECONFIG:-}"
 
 echo "⏳ Waiting for AMD GPU Operator controller to be ready..."
 kubectl wait --for=condition=available --timeout=180s \
-  deployment/amd-gpu-operator-controller-manager -n amd-gpu-operator
+  deployment/amd-gpu-operator-gpu-operator-charts-controller-manager -n amd-gpu-operator
 echo "✅ AMD GPU Operator is ready"
 echo ""
 
@@ -455,7 +495,7 @@ sed -i 's/"admin-client-id-value"/"__AIRM_ADMIN_CLIENT_ID__"/g' ${TEMP_KC_DIR}/t
 sed -i 's|zip -r /opt/keycloak/providers/SilogenExtensionPackage.jar .|zip -r -y /opt/keycloak/providers/SilogenExtensionPackage.jar . -x "*/dev/*" "*/sys/*" "*/proc/*" 2>/dev/null \|\| true|' ${TEMP_KC_DIR}/templates/keycloak-deployment.yaml
 
 # Fix KC_HOSTNAME to use configured domain
-sed -i "s|value: https://kc.{{ .Values.domain }}|value: http://${DOMAIN}:8080|" ${TEMP_KC_DIR}/templates/keycloak-deployment.yaml
+sed -i "s|value: https://kc.{{ .Values.domain }}|value: ${KC_HOSTNAME}|" ${TEMP_KC_DIR}/templates/keycloak-deployment.yaml
 
 # Fix storageClass for CNPG data and WAL volumes
 sed -i "s|storageClass: default|storageClass: ${DEFAULT_STORAGE_CLASS_NAME}|g" ${TEMP_KC_DIR}/templates/keycloak-cnpg.yaml
@@ -463,7 +503,7 @@ sed -i "s|storageClass: default|storageClass: ${DEFAULT_STORAGE_CLASS_NAME}|g" $
 helm template keycloak ${TEMP_KC_DIR} \
   --set cnpg.instances=${CNPG_INSTANCES} \
   --set domain="$DOMAIN" \
-  --set hostname="http://localhost:8080" \
+  --set hostname="${KC_HOSTNAME}" \
   --set 'extraEnvVars[0].name=JAVA_OPTS_APPEND' \
   --set 'extraEnvVars[0].value=-XX:MaxRAMPercentage=65.0 -XX:InitialRAMPercentage=50.0 -XX:MaxMetaspaceSize=512m -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true' \
   --set storageClassName=${DEFAULT_STORAGE_CLASS_NAME} \
@@ -581,10 +621,10 @@ helm template aiwb ${SOURCES_DIR}/aiwb/1.0.3 \
   --namespace aiwb \
   --set standAloneMode=true \
   --set appDomain="${DOMAIN}" \
-  --set backend.clusterHost="http://${DOMAIN}:8000" \
-  --set keycloak.url="http://${DOMAIN}:8080" \
-  --set frontend.env.NEXTAUTH_URL="http://${DOMAIN}:8000" \
-  --set frontend.env.KEYCLOAK_ISSUER="http://${DOMAIN}:8080/realms/airm" \
+  --set backend.clusterHost="${AIWB_UI_URL}" \
+  --set keycloak.url="${KC_URL}" \
+  --set frontend.env.NEXTAUTH_URL="${AIWB_UI_URL}" \
+  --set frontend.env.KEYCLOAK_ISSUER="${KC_URL}/realms/airm" \
   | kubectl apply --server-side -f -
 
 # Wait for AIWB to be ready
