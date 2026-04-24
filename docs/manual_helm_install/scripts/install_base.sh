@@ -302,6 +302,27 @@ echo "✅ KServe is ready"
 echo ""
 
 # ============================================================================
+# AMD GPU OPERATOR
+# ============================================================================
+# syncWave: -10
+# Installs Node Feature Discovery (NFD), Kernel Module Management (KMM),
+# and the AMD GPU device plugin/metrics exporter.
+# Nodes with AMD GPUs are automatically labelled via NFD and the device plugin
+# advertises amd.com/gpu resources so workloads can request them.
+echo "📦 Installing AMD GPU Operator..."
+kubectl create namespace amd-gpu-operator --dry-run=client -o yaml | kubectl apply -f -
+helm template amd-gpu-operator ${SOURCES_DIR}/amd-gpu-operator/v1.4.1 \
+  --namespace amd-gpu-operator \
+  --set crds.defaultCR.install=true \
+  | kubectl apply --server-side -f -
+
+echo "⏳ Waiting for AMD GPU Operator controller to be ready..."
+kubectl wait --for=condition=available --timeout=180s \
+  deployment/amd-gpu-operator-controller-manager -n amd-gpu-operator
+echo "✅ AMD GPU Operator is ready"
+echo ""
+
+# ============================================================================
 # AIM ENGINE (Controller + CRDs)
 # ============================================================================
 # Required by AIWB for AIMService resources and model catalog
@@ -580,6 +601,7 @@ echo "   kubectl get pods -n kaiwo-system"
 # echo "   kubectl get pods -n kueue-system"
 echo "   kubectl get pods -n cnpg-system"
 # echo "   kubectl get pods -n rabbitmq-system"
+echo "   kubectl get pods -n amd-gpu-operator"
 echo "   kubectl get cluster --all-namespaces"
 echo ""
 if [ "$DOMAIN" = "localhost" ]; then

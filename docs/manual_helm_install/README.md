@@ -35,6 +35,7 @@ These components are essential for AIWB operation and cannot be substituted:
 | **Keycloak** | OIDC authentication provider | `keycloak` |
 | **AIM Engine** | Model catalog and serving management | `aim-system` |
 | **KServe** | Model serving infrastructure | `kserve-system` |
+| **AMD GPU Operator** | GPU detection, device plugin, and metrics | `amd-gpu-operator` |
 | **cert-manager** | TLS certificate management | `cert-manager` |
 | **Kyverno** | Policy engine for workspace PVC auto-creation | `kyverno` |
 | **Gateway API CRDs** | Standard Kubernetes ingress abstraction | cluster-wide |
@@ -101,6 +102,12 @@ AIWB deployment consists of three phases that must be completed in order:
 8. **OpenTelemetry Operator** (v0.93.1 or later)
    - Optional: Only if using AIWB observability features
    - Namespace: `opentelemetry-system`
+
+9. **AMD GPU Operator** (v1.4.1)
+   - Installs NFD (node detection), KMM (kernel module management), device plugin, and metrics exporter
+   - Nodes with AMD GPUs are automatically labelled and `amd.com/gpu` resources are registered
+   - Namespace: `amd-gpu-operator`
+   - See [gpu_operator.md](components/gpu_operator.md) for optional configuration
 
 ### Phase 2: Data Layer
 
@@ -256,6 +263,12 @@ Complete list of components and their versions:
 |-----------|---------|-----------|----------|-------------|
 | Keycloak | v26.0.0 | `keycloak` | ✅ Yes | None (OIDC support pending) |
 | AIWB | v1.0.3 | `aiwb` | ✅ Yes | None |
+
+### GPU
+
+| Component | Version | Namespace | Required | Notes |
+|-----------|---------|-----------|----------|-------|
+| AMD GPU Operator | v1.4.1 | `amd-gpu-operator` | ✅ Yes (GPU nodes) | Includes NFD, KMM, device plugin, metrics exporter. See [gpu_operator.md](components/gpu_operator.md) |
 
 ### Optional
 
