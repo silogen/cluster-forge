@@ -6,8 +6,8 @@ set -euo pipefail current flow is using the full install and then patching for P
 
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
-BYO_DB=${BYO_DB:-false}
-BYO_S3=${BYO_S3:-false}
+PLUGGABLE_DB=${PLUGGABLE_DB:-false}
+PLUGGABLE_S3=${PLUGGABLE_S3:-false}
 
 CNPG_INSTANCES=1
 DOMAIN="localhost"
@@ -44,13 +44,13 @@ echo "📦 Installing CloudNativePG operator..."
 kubectl create namespace cnpg-system --dry-run=client -o yaml | kubectl apply -f -
 helm template cnpg-operator ${SOURCES_DIR}/cnpg-operator/0.26.0 --namespace cnpg-system | kubectl apply --server-side -f -
 
-if [[ ${BYO_DB} != true ]]; then
+if [[ ${PLUGGABLE_DB} != true ]]; then
   echo "⏳ Waiting for CNPG operator to be ready..."
   kubectl wait --for=condition=available --timeout=120s deployment/cnpg-operator-cloudnative-pg -n cnpg-system
   echo "✅ CloudNativePG is ready"
   echo ""
 else
-  echo "BYO_DB=true => Not waiting for CloudNativePG as it's going to be removed later."
+  echo "PLUGGABLE_DB=true => Not waiting for CloudNativePG as it's going to be removed later."
 fi
 
 # ============================================================================
@@ -385,7 +385,7 @@ helm template aiwb-infra-cnpg ${SOURCES_DIR}/eai-infra/aiwb-cnpg/0.1.0 \
   --set walStorage.storageClass=${DEFAULT_STORAGE_CLASS_NAME} \
   --namespace aiwb | kubectl apply --server-side -f -
 
-if [[ "${BYO_DB}" != true ]]; then
+if [[ "${PLUGGABLE_DB}" != true ]]; then
   # Wait for AIWB database cluster to be ready
   echo "⏳ Waiting for AIWB database cluster to be ready..."
   sleep 2
@@ -396,7 +396,7 @@ if [[ "${BYO_DB}" != true ]]; then
   echo "✅ AIWB infrastructure is ready"
   echo ""
 else
-  echo "BYO_DB=true => Not waiting for AIWB database."
+  echo "PLUGGABLE_DB=true => Not waiting for AIWB database."
 fi
 
 # Install kgateway itself
@@ -448,7 +448,7 @@ echo ""
 # ============================================================================
 # MINIO (Object Storage)
 # ============================================================================
-if [[ "${BYO_S3}" != true ]]; then
+if [[ "${PLUGGABLE_S3}" != true ]]; then
   echo "📦 Installing MinIO..."
 
   # Install MinIO Operator
@@ -516,7 +516,7 @@ if [[ "${BYO_S3}" != true ]]; then
   echo "✅ MinIO configuration applied"
   echo ""
 else
-  echo "BYO_S3=true => Skipping in-cluster MinIO Operator, Tenant and configuration."
+  echo "PLUGGABLE_S3=true => Skipping in-cluster MinIO Operator, Tenant and configuration."
   echo "See components/s3.md for instructions on connecting AIWB to your external MinIO."
   echo ""
 fi
@@ -526,7 +526,7 @@ fi
 # ============================================================================
 # Keycloak was started earlier (in parallel with MinIO)
 # Now wait for it to be ready before installing AIWB
-if [[ "${BYO_DB}" != true ]]; then
+if [[ "${PLUGGABLE_DB}" != true ]]; then
   echo "⏳ Waiting for Keycloak database cluster to be ready..."
   sleep 5
   until kubectl get cluster keycloak-cnpg -n keycloak -o jsonpath='{.status.phase}' 2>/dev/null | grep -q "Cluster in healthy state"; do
@@ -541,7 +541,7 @@ if [[ "${BYO_DB}" != true ]]; then
   echo "✅ Keycloak is ready"
   echo ""
 else
-  echo "BYO_DB=true => Not waiting for Keycloak or its database to be ready since it's going to be patched later."
+  echo "PLUGGABLE_DB=true => Not waiting for Keycloak or its database to be ready since it's going to be patched later."
 fi
 
 
@@ -620,8 +620,8 @@ echo ""
 echo "ℹ️  To install the CPU-only dummy model for local testing, see internal/DEV_INSTRUCTIONS.md"
 echo ""
 
-if [[ "$BYO_DB" == true ]]; then
+if [[ "$PLUGGABLE_DB" == true ]]; then
   echo ""
-  echo "BYO_DB=true => Run scripts/db.sh to continue"
+  echo "PLUGGABLE_DB=true => Run scripts/db.sh to continue"
   echo "and connect AIWB to your external PostgreSQL. See components/db.md for instructions."
 fi
