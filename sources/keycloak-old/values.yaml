@@ -1,1 +1,4 @@
 domain: # to be filled by cluster-forge app
+
+# Name of the storage class to use for Keycloak. If not set, a storage class named 'default' will be used.
+#storageClassName: default
