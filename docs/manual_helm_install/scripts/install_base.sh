@@ -380,7 +380,6 @@ sleep 1
 echo " 📦 Installing AIWB database cluster (${CNPG_INSTANCES} instance(s))..."
 helm template aiwb-infra-cnpg ${SOURCES_DIR}/eai-infra/aiwb-cnpg/0.1.0 \
   -f ${SOURCES_DIR}/eai-infra/aiwb-cnpg/0.1.0/values.yaml \
-  -f ${SOURCES_DIR}/eai-infra/aiwb-cnpg/values.yaml \
   --set instances=${CNPG_INSTANCES} \
   --set username=aiwb_user \
   --set storage.storageClass=${DEFAULT_STORAGE_CLASS_NAME} \
