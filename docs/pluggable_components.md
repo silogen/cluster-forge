@@ -45,11 +45,11 @@ These components can be replaced with your own implementations:
 
 | Component | Reference Implementation | Pluggable? | Instructions |
 |-----------|-------------------------|-----------------|--------------|
-| **Database** | CloudNativePG PostgreSQL clusters | ✅ Yes - Any PostgreSQL 14+ | [db.md](components/db.md) |
-| **Gateway Controller** | kgateway (Gateway API) | ✅ Yes - Any Gateway API controller | [gateway.md](components/gateway.md) |
-| **Object Storage** | MinIO | ✅ Yes - Any S3-compatible storage | [s3.md](components/s3.md) |
-| **StorageClasses** | local-path (rancher.io) | ✅ Yes - Any CSI provisioner | [storage_classes.md](components/storage_classes.md) |
-| **Secrets Management** | Direct Kubernetes Secrets | ✅ Yes - ExternalSecrets, Vault, etc. | [secrets.md](secrets.md) |
+| **Database** | CloudNativePG PostgreSQL clusters | ✅ Yes - Any PostgreSQL 14+ | [db.md](pluggable/components/db.md) |
+| **Gateway Controller** | kgateway (Gateway API) | ✅ Yes - Any Gateway API controller | [gateway.md](pluggable/components/gateway.md) |
+| **Object Storage** | MinIO | ✅ Yes - Any S3-compatible storage | [s3.md](pluggable/components/s3.md) |
+| **StorageClasses** | local-path (rancher.io) | ✅ Yes - Any CSI provisioner | [storage_classes.md](pluggable/components/storage_classes.md) |
+| **Secrets Management** | Direct Kubernetes Secrets | ✅ Yes - ExternalSecrets, Vault, etc. | [secrets.md](pluggable/secrets/secrets.md) |
 | **LoadBalancer** | MetalLB | ✅ Yes - Cloud LB, HAProxy, etc. | — |
 
 ---
@@ -168,7 +168,7 @@ AIWB deployment consists of three phases that must be completed in order:
 
 **To use your own PostgreSQL-compatible DB:**
 
-See [db.md](components/db.md) for configuration instructions.
+See [db.md](pluggable/components/db.md) for configuration instructions.
 
 ---
 
@@ -178,7 +178,7 @@ See [db.md](components/db.md) for configuration instructions.
 
 **To use your own Gateway:**
 
-See [gateway.md](components/gateway.md) for configuration instructions.
+See [gateway.md](pluggable/components/gateway.md) for configuration instructions.
 
 ---
 
@@ -188,7 +188,7 @@ See [gateway.md](components/gateway.md) for configuration instructions.
 
 **To use your own S3-compatible storage:**
 
-See [s3.md](components/s3.md) for configuration instructions.
+See [s3.md](pluggable/components/s3.md) for configuration instructions.
 
 ---
 
@@ -198,7 +198,7 @@ See [s3.md](components/s3.md) for configuration instructions.
 
 **To use your own StorageClasses:**
 
-See [storage_classes.md](components/storage_classes.md) for configuration instructions.
+See [storage_classes.md](pluggable/components/storage_classes.md) for configuration instructions.
 
 ---
 
@@ -208,7 +208,7 @@ See [storage_classes.md](components/storage_classes.md) for configuration instru
 
 **To use ExternalSecrets or another secrets provider:**
 
-See [secrets.md](secrets.md) for the complete list of required secrets and configuration instructions.
+See [secrets.md](pluggable/secrets/secrets.md) for the complete list of required secrets and configuration instructions.
 
 ---
 
