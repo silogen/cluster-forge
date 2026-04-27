@@ -4,8 +4,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
-export PLUGGABLE_DB=false
-export PLUGGABLE_S3=false
+export PLUGGABLE_DB=true
+export PLUGGABLE_S3=true
 export PLUGGABLE_GW=false
 
 "${SCRIPT_DIR}/install_base.sh"
