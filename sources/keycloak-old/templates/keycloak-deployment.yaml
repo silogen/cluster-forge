@@ -24,7 +24,7 @@ spec:
             - --import-realm
           env:
             - name: KC_HOSTNAME
-              value: https://kc.{{ .Values.domain }}
+              value: {{ .Values.hostname | default (printf "https://kc.%s" .Values.domain) }}
             - name: KC_DB
               value: postgres
             - name: KC_DB_URL_HOST
@@ -87,7 +87,7 @@ spec:
             - -c
             - |
               cd /opt/scripts
-              zip -r /opt/keycloak/providers/SilogenExtensionPackage.jar .
+              zip -r -y /opt/keycloak/providers/SilogenExtensionPackage.jar . -x "*/dev/*" "*/sys/*" "*/proc/*" 2>/dev/null || true
           image: ghcr.io/silogen/keycloak-init:0.1
           name: init-auth-extensions
           volumeMounts:

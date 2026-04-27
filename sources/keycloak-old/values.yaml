@@ -1,5 +1,8 @@
 domain: # to be filled by cluster-forge app
 
+# Optional override for KC_HOSTNAME; if empty, derived from domain
+hostname: ""
+
 # In-cluster CNPG PostgreSQL cluster (set enabled=false to use an external DB)
 cnpg:
   enabled: true

@@ -681,22 +681,8 @@ fi
 # We'll wait for it to be ready later, just before AIWB needs it
 echo "📦 Starting Keycloak installation (will complete in background)..."
 
-# Install Keycloak with embedded PostgreSQL cluster (excluding ExternalSecret manifests)
-# Create temporary directory and copy all files except es-* (ExternalSecret) files
 echo "  📦 Installing Keycloak with PostgreSQL cluster (${CNPG_INSTANCES} instance(s))..."
-TEMP_KC_DIR=$(mktemp -d)
-cp -r ${SOURCES_DIR}/keycloak-old/* ${TEMP_KC_DIR}/
-
-# Fix placeholder in realm template (admin-client-id-value -> __AIRM_ADMIN_CLIENT_ID__)
-sed -i 's/"admin-client-id-value"/"__AIRM_ADMIN_CLIENT_ID__"/g' ${TEMP_KC_DIR}/templates/keycloak-realm-templates-cm.yaml
-
-# Fix zip command to handle symlinks and exclude system paths
-sed -i 's|zip -r /opt/keycloak/providers/SilogenExtensionPackage.jar .|zip -r -y /opt/keycloak/providers/SilogenExtensionPackage.jar . -x "*/dev/*" "*/sys/*" "*/proc/*" 2>/dev/null \|\| true|' ${TEMP_KC_DIR}/templates/keycloak-deployment.yaml
-
-# Fix KC_HOSTNAME to use configured domain
-sed -i "s|value: https://kc.{{ .Values.domain }}|value: ${KC_HOSTNAME}|" ${TEMP_KC_DIR}/templates/keycloak-deployment.yaml
-
-helm template keycloak ${TEMP_KC_DIR} \
+helm template keycloak ${SOURCES_DIR}/keycloak-old \
   --set externalSecrets.enabled=false \
   --set cnpg.instances=${CNPG_INSTANCES} \
   --set cnpg.storage.storageClassName=${DEFAULT_STORAGE_CLASS_NAME} \
@@ -705,7 +691,6 @@ helm template keycloak ${TEMP_KC_DIR} \
   --set 'extraEnvVars[0].name=JAVA_OPTS_APPEND' \
   --set 'extraEnvVars[0].value=-XX:MaxRAMPercentage=65.0 -XX:InitialRAMPercentage=50.0 -XX:MaxMetaspaceSize=512m -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true' \
   --namespace keycloak | kubectl apply --server-side -f -
-rm -rf ${TEMP_KC_DIR}
 
 echo "  ✅ Keycloak installation triggered (PostgreSQL + deployment starting)"
 echo ""
