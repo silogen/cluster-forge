@@ -696,17 +696,14 @@ sed -i 's|zip -r /opt/keycloak/providers/SilogenExtensionPackage.jar .|zip -r -y
 # Fix KC_HOSTNAME to use configured domain
 sed -i "s|value: https://kc.{{ .Values.domain }}|value: ${KC_HOSTNAME}|" ${TEMP_KC_DIR}/templates/keycloak-deployment.yaml
 
-# Fix storageClass for CNPG data and WAL volumes
-sed -i "s|storageClass: default|storageClass: ${DEFAULT_STORAGE_CLASS_NAME}|g" ${TEMP_KC_DIR}/templates/keycloak-cnpg.yaml
-
 helm template keycloak ${TEMP_KC_DIR} \
   --set externalSecrets.enabled=false \
   --set cnpg.instances=${CNPG_INSTANCES} \
+  --set cnpg.storage.storageClassName=${DEFAULT_STORAGE_CLASS_NAME} \
   --set domain="$DOMAIN" \
   --set hostname="${KC_HOSTNAME}" \
   --set 'extraEnvVars[0].name=JAVA_OPTS_APPEND' \
   --set 'extraEnvVars[0].value=-XX:MaxRAMPercentage=65.0 -XX:InitialRAMPercentage=50.0 -XX:MaxMetaspaceSize=512m -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true' \
-  --set storageClassName=${DEFAULT_STORAGE_CLASS_NAME} \
   --namespace keycloak | kubectl apply --server-side -f -
 rm -rf ${TEMP_KC_DIR}
 
