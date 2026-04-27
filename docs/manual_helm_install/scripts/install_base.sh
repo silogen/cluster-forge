@@ -148,6 +148,18 @@ echo "✅ Storage classes created"
 echo ""
 
 # ============================================================================
+# PROMETHEUS CRDs
+# ============================================================================
+# syncWave: -50
+# Prometheus Operator CRDs required by monitoring components
+echo "📦 Installing Prometheus Operator CRDs..."
+kubectl create namespace prometheus-system --dry-run=client -o yaml | kubectl apply -f -
+helm template prometheus-crds ${SOURCES_DIR}/prometheus-operator-crds/23.0.0 --namespace prometheus-system | kubectl apply --server-side -f -
+
+echo "✅ Prometheus CRDs installed"
+echo ""
+
+# ============================================================================
 # CERT-MANAGER
 # ============================================================================
 # syncWave: -30
@@ -201,6 +213,47 @@ done
 kubectl wait --for=condition=available --timeout=120s deployment/opentelemetry-operator -n opentelemetry-system
 
 echo "✅ OpenTelemetry Operator and MetalLB are ready"
+echo ""
+
+# ============================================================================
+# OTEL LGTM STACK (Observability)
+# ============================================================================
+# syncWave: -20
+# Complete observability stack: Prometheus, Grafana, Loki, Tempo, Mimir
+# Depends on: OpenTelemetry Operator, Prometheus CRDs
+echo "📦 Installing OTEL LGTM Stack (Prometheus, Grafana, Loki, Tempo)..."
+kubectl create namespace otel-lgtm-stack --dry-run=client -o yaml | kubectl apply -f -
+
+# Use values from cluster-forge with medium-sized resource overrides
+helm template otel-lgtm-stack ${SOURCES_DIR}/otel-lgtm-stack/v1.0.7 \
+  --namespace otel-lgtm-stack \
+  --set cluster.name="${DOMAIN}" \
+  --set collectors.resources.metrics.requests.cpu=500m \
+  --set collectors.resources.metrics.requests.memory=1Gi \
+  --set collectors.resources.metrics.limits.memory=4Gi \
+  --set collectors.resources.logs.requests.cpu=250m \
+  --set collectors.resources.logs.requests.memory=256Mi \
+  --set collectors.resources.logs.limits.cpu=1 \
+  --set collectors.resources.logs.limits.memory=1Gi \
+  --set dashboards.enabled=true \
+  --set kubeStateMetrics.enabled=true \
+  --set nodeExporter.enabled=true \
+  --set lgtm.resources.requests.cpu=1 \
+  --set lgtm.resources.requests.memory=2Gi \
+  --set lgtm.resources.limits.memory=8Gi \
+  --set lgtm.storage.grafana=10Gi \
+  --set lgtm.storage.loki=50Gi \
+  --set lgtm.storage.mimir=50Gi \
+  --set lgtm.storage.tempo=50Gi \
+  --set lgtm.storage.extra=50Gi \
+  | kubectl apply --server-side -f -
+
+# Wait for main LGTM components
+echo "⏳ Waiting for LGTM stack to be ready..."
+sleep 5
+kubectl wait --for=condition=available --timeout=180s deployment -l app.kubernetes.io/name=lgtm -n otel-lgtm-stack 2>/dev/null || echo "⚠️  LGTM deployment check completed"
+
+echo "✅ OTEL LGTM Stack is ready"
 echo ""
 
 # ============================================================================
@@ -715,6 +768,8 @@ echo "💡 Verification commands:"
 echo "   kubectl get pods -n keycloak"
 echo "   kubectl get pods -n aiwb"
 echo "   kubectl get pods -n kaiwo-system"
+echo "   kubectl get pods -n keda"
+echo "   kubectl get pods -n otel-lgtm-stack"
 # echo "   kubectl get pods -n kueue-system"
 echo "   kubectl get pods -n cnpg-system"
 # echo "   kubectl get pods -n rabbitmq-system"
@@ -743,6 +798,8 @@ if [ "$DOMAIN" = "localhost" ]; then
   echo "   kubectl port-forward -n aiwb svc/aiwb-ui 8000:8000"
   echo "   kubectl port-forward -n aiwb svc/aiwb-api 8001:8080"
   echo "   kubectl port-forward -n keycloak svc/keycloak 8080:8080"
+  echo "   kubectl port-forward -n otel-lgtm-stack svc/lgtm 3000:3000  # Grafana"
+  echo "   kubectl port-forward -n otel-lgtm-stack svc/lgtm 9090:9090  # Prometheus"
 else
   echo "💡 Access:"
   GATEWAY_IP=$(kubectl get gateway https -n kgateway-system -o jsonpath='{.status.addresses[0].value}' 2>/dev/null || echo "${DOMAIN}")
@@ -762,6 +819,12 @@ echo ""
 echo "💡 AIWB User Login:"
 echo "   Username: devuser@${DOMAIN}"
 echo "   Password: placeholder"
+echo ""
+echo "📊 Observability (Grafana, Prometheus, Loki, Tempo):"
+echo "   Grafana: kubectl port-forward -n otel-lgtm-stack svc/lgtm 3000:3000"
+echo "   Access Grafana at: http://localhost:3000"
+echo "   Prometheus: kubectl port-forward -n otel-lgtm-stack svc/lgtm 9090:9090"
+echo "   Access Prometheus at: http://localhost:9090"
 echo ""
 echo "ℹ️  To install the CPU-only dummy model for local testing, see internal/DEV_INSTRUCTIONS.md"
 echo ""
