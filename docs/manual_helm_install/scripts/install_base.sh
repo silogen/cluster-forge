@@ -24,7 +24,7 @@ PLUGGABLE_DB=${PLUGGABLE_DB:-false}
 PLUGGABLE_S3=${PLUGGABLE_S3:-false}
 
 CNPG_INSTANCES=1
-DEFAULT_STORAGE_CLASS_NAME="local-path"
+DEFAULT_STORAGE_CLASS_NAME="default"
 
 # External MinIO config — used only when PLUGGABLE_S3=true to override the
 # AIWB chart's MinIO endpoint. The in-cluster redirect Service that backs the
@@ -201,6 +201,50 @@ done
 kubectl wait --for=condition=available --timeout=120s deployment/opentelemetry-operator -n opentelemetry-system
 
 echo "✅ OpenTelemetry Operator and MetalLB are ready"
+echo ""
+
+# ============================================================================
+# KEDA (Kubernetes Event-Driven Autoscaling)
+# ============================================================================
+# syncWave: -10
+# Required by KServe for autoscaling inference workloads
+# Depends on: OpenTelemetry Operator (for metrics), cert-manager (for webhooks)
+echo "📦 Installing KEDA..."
+kubectl create namespace keda --dry-run=client -o yaml | kubectl apply -f -
+helm template keda ${SOURCES_DIR}/keda/2.18.1 --namespace keda | kubectl apply --server-side -f -
+
+# Wait for KEDA operator to be ready
+echo "⏳ Waiting for KEDA operator to be ready..."
+kubectl wait --for=condition=available --timeout=120s deployment/keda-operator -n keda
+
+# Wait for KEDA metrics server to be ready
+echo "⏳ Waiting for KEDA metrics server to be ready..."
+kubectl wait --for=condition=available --timeout=120s deployment/keda-metrics-apiserver -n keda
+
+# Wait for KEDA admission webhooks to be ready
+echo "⏳ Waiting for KEDA admission webhooks to be ready..."
+kubectl wait --for=condition=available --timeout=120s deployment/keda-admission-webhooks -n keda
+
+echo "✅ KEDA is ready"
+echo ""
+
+# ============================================================================
+# KEDIFY OTEL SCALER
+# ============================================================================
+# syncWave: -5
+# Provides OpenTelemetry metrics integration for KEDA
+# Depends on: KEDA
+echo "📦 Installing Kedify OTEL Scaler..."
+helm template kedify-otel ${SOURCES_DIR}/kedify-otel/v0.0.6 \
+  --namespace keda \
+  --set validatingAdmissionPolicy.enabled=false \
+  | kubectl apply --server-side -f -
+
+# Wait for Kedify OTEL scaler to be ready
+echo "⏳ Waiting for Kedify OTEL scaler to be ready..."
+kubectl wait --for=condition=available --timeout=120s deployment/keda-otel-scaler -n keda 2>/dev/null || echo "⚠️  Kedify OTEL scaler deployment check completed"
+
+echo "✅ Kedify OTEL Scaler is ready"
 echo ""
 
 # ============================================================================
