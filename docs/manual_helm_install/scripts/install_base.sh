@@ -686,7 +686,6 @@ echo "📦 Starting Keycloak installation (will complete in background)..."
 echo "  📦 Installing Keycloak with PostgreSQL cluster (${CNPG_INSTANCES} instance(s))..."
 TEMP_KC_DIR=$(mktemp -d)
 cp -r ${SOURCES_DIR}/keycloak-old/* ${TEMP_KC_DIR}/
-rm -f ${TEMP_KC_DIR}/templates/es-*.yaml
 
 # Fix placeholder in realm template (admin-client-id-value -> __AIRM_ADMIN_CLIENT_ID__)
 sed -i 's/"admin-client-id-value"/"__AIRM_ADMIN_CLIENT_ID__"/g' ${TEMP_KC_DIR}/templates/keycloak-realm-templates-cm.yaml
@@ -701,6 +700,7 @@ sed -i "s|value: https://kc.{{ .Values.domain }}|value: ${KC_HOSTNAME}|" ${TEMP_
 sed -i "s|storageClass: default|storageClass: ${DEFAULT_STORAGE_CLASS_NAME}|g" ${TEMP_KC_DIR}/templates/keycloak-cnpg.yaml
 
 helm template keycloak ${TEMP_KC_DIR} \
+  --set externalSecrets.enabled=false \
   --set cnpg.instances=${CNPG_INSTANCES} \
   --set domain="$DOMAIN" \
   --set hostname="${KC_HOSTNAME}" \
@@ -770,17 +770,12 @@ if [[ "${PLUGGABLE_S3}" != true ]]; then
   echo "✅ MinIO Tenant is ready"
   echo ""
 
-  # Install MinIO Tenant Config (excluding ExternalSecret manifests)
   echo "  📦 Installing MinIO Tenant configuration..."
-  TEMP_MINIO_CONFIG_DIR=$(mktemp -d)
-  cp -r ${SOURCES_DIR}/minio-tenant-config/* ${TEMP_MINIO_CONFIG_DIR}/
-  rm -f ${TEMP_MINIO_CONFIG_DIR}/templates/*-es-*.yaml
-  rm -f ${TEMP_MINIO_CONFIG_DIR}/templates/*-clustersecretstore.yaml
-  helm template minio-tenant-config ${TEMP_MINIO_CONFIG_DIR} \
+  helm template minio-tenant-config ${SOURCES_DIR}/minio-tenant-config \
     --namespace minio-tenant-default \
+    --set externalSecrets.enabled=false \
     --set domain=${DOMAIN} \
     | kubectl apply --server-side -f -
-  rm -rf ${TEMP_MINIO_CONFIG_DIR}
   echo "✅ MinIO configuration applied"
   echo ""
 else

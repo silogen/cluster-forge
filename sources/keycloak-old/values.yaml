@@ -1,4 +1,9 @@
 domain: # to be filled by cluster-forge app
 
+# Render ExternalSecret/ClusterSecretStore resources (requires external-secrets
+# operator). Set false to provide credentials as plain Kubernetes Secrets.
+externalSecrets:
+  enabled: true
+
 # Name of the storage class to use for Keycloak. If not set, a storage class named 'default' will be used.
 #storageClassName: default
