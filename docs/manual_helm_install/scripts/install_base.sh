@@ -523,7 +523,6 @@ kubectl create namespace aiwb --dry-run=client -o yaml | kubectl apply -f -
 # Create namespaces needed for secrets which don't exist yet
 NAMESPACES=(
   airm
-  cluster-auth
   demo
   keycloak
   metallb-system
@@ -737,42 +736,6 @@ fi
 
 
 # ============================================================================
-# CLUSTER-AUTH (API key + authorization service)
-# ============================================================================
-# Must be running before AIWB, which calls cluster-auth to create API key
-# groups when deploying models.
-echo "📦 Installing cluster-auth..."
-
-# The admin token in the aiwb secret and the cluster-auth secret must match.
-# Read the value already placed in the aiwb namespace by the secrets manifests.
-CLUSTER_AUTH_ADMIN_TOKEN=$(kubectl get secret cluster-auth-admin-token -n aiwb \
-  -o jsonpath='{.data.value}' 2>/dev/null | base64 -d)
-if [[ -z "${CLUSTER_AUTH_ADMIN_TOKEN}" || "${CLUSTER_AUTH_ADMIN_TOKEN}" == "placeholder" ]]; then
-  # Fall back to a generated token and patch both secrets so they stay in sync.
-  CLUSTER_AUTH_ADMIN_TOKEN=$(openssl rand -hex 32)
-  kubectl create secret generic cluster-auth-admin-token \
-    --from-literal=value="${CLUSTER_AUTH_ADMIN_TOKEN}" \
-    -n aiwb --dry-run=client -o yaml | kubectl apply -f -
-fi
-
-kubectl create secret generic cluster-auth-secrets \
-  --from-literal=openbao-token="placeholder" \
-  --from-literal=admin-token="${CLUSTER_AUTH_ADMIN_TOKEN}" \
-  -n cluster-auth --dry-run=client -o yaml | kubectl apply -f -
-
-helm template cluster-auth ${SOURCES_DIR}/cluster-auth/0.5.0 \
-  --namespace cluster-auth \
-  --set config.authentication.methods[0].enabled=false \
-  --set config.authentication.methods[1].enabled=true \
-  --set "config.authentication.methods[1].staticTokens.${CLUSTER_AUTH_ADMIN_TOKEN}=admin" \
-  | kubectl apply --server-side -f -
-
-echo "⏳ Waiting for cluster-auth to be ready..."
-kubectl wait --for=condition=available --timeout=120s deployment/cluster-auth -n cluster-auth
-echo "✅ cluster-auth is ready"
-echo ""
-
-# ============================================================================
 # AIWB APPLICATION
 # ============================================================================
 # When PLUGGABLE_S3=true, point AIWB directly at the external MinIO endpoint
@@ -784,7 +747,7 @@ if [[ "${PLUGGABLE_S3}" == true ]]; then
 fi
 
 echo "🚀 Installing AIWB application..."
-helm template aiwb ${SOURCES_DIR}/aiwb/1.0.3 \
+helm template aiwb ${SOURCES_DIR}/aiwb/1.0.31 \
   --namespace aiwb \
   --set standAloneMode=true \
   --set appDomain="${DOMAIN}" \
