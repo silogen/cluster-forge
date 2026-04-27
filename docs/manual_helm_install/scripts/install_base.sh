@@ -219,7 +219,7 @@ kubectl wait --for=condition=available --timeout=120s deployment/keda-operator -
 
 # Wait for KEDA metrics server to be ready
 echo "⏳ Waiting for KEDA metrics server to be ready..."
-kubectl wait --for=condition=available --timeout=120s deployment/keda-metrics-apiserver -n keda
+kubectl wait --for=condition=available --timeout=120s deployment/keda-operator-metrics-apiserver -n keda
 
 # Wait for KEDA admission webhooks to be ready
 echo "⏳ Waiting for KEDA admission webhooks to be ready..."
