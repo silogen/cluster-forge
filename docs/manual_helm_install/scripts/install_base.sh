@@ -506,6 +506,8 @@ helm template aim-engine ${SOURCES_DIR}/aim-engine/0.2.2 \
 
 # Stage 3: Install AIMClusterModelSource for model auto-discovery
 echo "📦 Installing AIM Cluster Model Source (v0.11.0)..."
+kubectl apply -f ${SOURCES_DIR}/aim-cluster-model-source/aim-models-0.9.0.yaml
+kubectl apply -f ${SOURCES_DIR}/aim-cluster-model-source/aim-models-0.10.0.yaml
 kubectl apply -f ${SOURCES_DIR}/aim-cluster-model-source/aim-models-0.11.0.yaml
 
 echo "✅ AIM Engine installed"
