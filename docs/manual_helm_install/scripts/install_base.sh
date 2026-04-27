@@ -460,7 +460,7 @@ helm template kgateway-crds ${SOURCES_DIR}/kgateway-crds/v2.0.4 | kubectl apply 
 # FIX-ME: had to use --validate=ignore Kind=HTTPListenerPolicy): .spec.upgradeConfig: field not declared in schema
 helm template kgateway-config ${SOURCES_DIR}/kgateway-config \
   --namespace kgateway-system \
-  --set domain=ipAddress.nip.io \
+  --set domain=${DOMAIN} \
   --set cnpg.instances=${CNPG_INSTANCES} \
   | kubectl apply --validate=ignore -f -
 sleep 1
