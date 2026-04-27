@@ -4,13 +4,26 @@
 
 set -euo pipefail
 
+# Require DOMAIN as first argument
+if [ -z "${1:-}" ]; then
+  echo "❌ Error: DOMAIN parameter is required"
+  echo ""
+  echo "Usage: $0 <DOMAIN>"
+  echo ""
+  echo "Examples:"
+  echo "  $0 localhost              # For local testing"
+  echo "  $0 example.com            # For production deployment"
+  echo ""
+  exit 1
+fi
+
+DOMAIN="$1"
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
 PLUGGABLE_DB=${PLUGGABLE_DB:-false}
 PLUGGABLE_S3=${PLUGGABLE_S3:-false}
 
 CNPG_INSTANCES=1
-DOMAIN="${DOMAIN:-localhost}"
 DEFAULT_STORAGE_CLASS_NAME="local-path"
 
 # External MinIO config — used only when PLUGGABLE_S3=true to override the
@@ -447,7 +460,7 @@ helm template kgateway-crds ${SOURCES_DIR}/kgateway-crds/v2.0.4 | kubectl apply 
 # FIX-ME: had to use --validate=ignore Kind=HTTPListenerPolicy): .spec.upgradeConfig: field not declared in schema
 helm template kgateway-config ${SOURCES_DIR}/kgateway-config \
   --namespace kgateway-system \
-  --set domain=placeholder.example.com \
+  --set domain=ipAddress.nip.io \
   --set cnpg.instances=${CNPG_INSTANCES} \
   | kubectl apply --validate=ignore -f -
 sleep 1

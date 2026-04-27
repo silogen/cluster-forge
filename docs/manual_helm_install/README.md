@@ -2,6 +2,28 @@
 
 This guide explains how to deploy AI Workbench on a Kubernetes cluster, including the base required components and optional pluggable components that can be substituted with your own implementations.
 
+## Quick Start
+
+To deploy AIWB with all reference components:
+
+```bash
+cd docs/manual_helm_install/scripts
+./install_base.sh <DOMAIN>
+```
+
+**Examples:**
+```bash
+# Local testing
+./install_base.sh localhost
+
+# Production deployment
+./install_base.sh example.com
+```
+
+The `DOMAIN` parameter is required and determines:
+- For `localhost`: Uses HTTP on fixed ports (8080, 8000) for gateway routing
+- For any other domain: Uses HTTPS with subdomain routing (e.g., `aiwbui.example.com`, `kc.example.com`)
+
 ## Table of Contents
 
 - [Component Architecture Overview](#component-architecture-overview)
