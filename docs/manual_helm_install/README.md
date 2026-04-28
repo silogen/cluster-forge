@@ -39,6 +39,7 @@ The `DOMAIN` parameter is required and determines:
   - [Object Storage (S3-compatible)](#object-storage-s3-compatible)
   - [StorageClasses](#storageclasses)
   - [Secrets Management](#secrets-management)
+- [Known Workarounds](#known-workarounds)
 - [Component Reference](#component-reference)
 
 ---
@@ -267,6 +268,38 @@ See [storage_classes.md](components/storage_classes.md) for configuration instru
 **To use ExternalSecrets or another secrets provider:**
 
 See [secrets.md](secrets/secrets.md) for the complete list of required secrets and configuration instructions.
+
+---
+
+## Known Workarounds
+
+The standalone Helm install path diverges from the production deployment in two
+places. Both are intentional simplifications for single-node / dev clusters and
+are not suitable for production.
+
+### cluster-auth shim
+
+In production AIWB depends on a cluster-auth service backed by OpenBao for API
+key group persistence. The standalone install replaces it with a small
+in-memory Python stub
+([`scripts/cluster-auth-shim.py`](scripts/cluster-auth-shim.py)) that
+implements the REST endpoints `aiwb-api` calls when creating model
+deployments. The shim is deployed by `install_base.sh` as a `Deployment` +
+`Service` named `cluster-auth` in the `cluster-auth` namespace, mounted from
+a ConfigMap.
+
+State is held in process memory and is **lost on pod restart** — any API key
+groups created through AIWB disappear when the pod restarts. Suitable for
+demos and development; not for production.
+
+### AIWB chart v1.0.31 (forked from v1.0.3)
+
+`sources/aiwb/1.0.31/` is a fork of the upstream `1.0.3` chart with the
+`Chart.yaml` version bumped to `1.0.31`. Templates and values are otherwise
+identical to `1.0.3` at the time of the fork. The fork exists to give the
+standalone install a stable target for future patches without touching the
+upstream chart that ArgoCD-based deployments consume. The application image
+remains `appVersion: 1.0.3`.
 
 ---
 
