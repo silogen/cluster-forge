@@ -236,7 +236,7 @@ See [db.md](components/db.md) for configuration instructions.
 
 **To use your own Gateway:**
 
-See [gateway.md](pluggable/components/gateway.md) for configuration instructions.
+See [gateway.md](components/gateway.md) for configuration instructions.
 
 ---
 
@@ -246,7 +246,7 @@ See [gateway.md](pluggable/components/gateway.md) for configuration instructions
 
 **To use your own S3-compatible storage:**
 
-See [s3.md](pluggable/components/s3.md) for configuration instructions.
+See [s3.md](components/s3.md) for configuration instructions.
 
 ---
 
@@ -256,7 +256,7 @@ See [s3.md](pluggable/components/s3.md) for configuration instructions.
 
 **To use your own StorageClasses:**
 
-See [storage_classes.md](pluggable/components/storage_classes.md) for configuration instructions.
+See [storage_classes.md](components/storage_classes.md) for configuration instructions.
 
 ---
 
@@ -266,7 +266,7 @@ See [storage_classes.md](pluggable/components/storage_classes.md) for configurat
 
 **To use ExternalSecrets or another secrets provider:**
 
-See [secrets.md](pluggable/secrets/secrets.md) for the complete list of required secrets and configuration instructions.
+See [secrets.md](secrets/secrets.md) for the complete list of required secrets and configuration instructions.
 
 ---
 
