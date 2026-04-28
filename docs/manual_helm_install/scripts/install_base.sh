@@ -72,7 +72,7 @@ fi
 # User can force update with: FORCE_UPDATE=true ./install_base.sh
 CLUSTER_FORGE_DIR="/tmp/cluster-forge"
 # Delete CLUSTER_FORGE_DIR manually if CLUSTER_FORGE_BRANCH changes
-CLUSTER_FORGE_BRANCH="main"
+CLUSTER_FORGE_BRANCH="${CLUSTER_FORGE_BRANCH:-main}"
 SOURCES_DIR="${CLUSTER_FORGE_DIR}/sources"
 FORCE_UPDATE=${FORCE_UPDATE:-false}
 
