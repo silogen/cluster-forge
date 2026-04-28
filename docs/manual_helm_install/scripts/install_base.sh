@@ -24,7 +24,9 @@ PLUGGABLE_DB=${PLUGGABLE_DB:-false}
 PLUGGABLE_S3=${PLUGGABLE_S3:-false}
 
 CNPG_INSTANCES=1
-DEFAULT_STORAGE_CLASS_NAME="default"
+
+# Rancher Desktop has "local-path", most environments use "default"
+DEFAULT_STORAGE_CLASS_NAME="${DEFAULT_STORAGE_CLASS_NAME:-default}"
 
 # External PostgreSQL config — used only when PLUGGABLE_DB=true to point AIWB
 # and Keycloak at a user-supplied database instead of the in-cluster CNPG cluster.
