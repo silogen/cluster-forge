@@ -76,18 +76,24 @@ CLUSTER_FORGE_BRANCH="main"
 SOURCES_DIR="${CLUSTER_FORGE_DIR}/sources"
 FORCE_UPDATE=${FORCE_UPDATE:-false}
 
-if [ -d "${CLUSTER_FORGE_DIR}" ]; then
-  if [ "${FORCE_UPDATE}" = "true" ]; then
-    echo "📥 Updating cluster-forge sources from GitHub..."
-    (cd "${CLUSTER_FORGE_DIR}" && git pull)
-  else
-    echo "ℹ️  Using existing sources at ${SOURCES_DIR} (set FORCE_UPDATE=true to update)"
-  fi
-else
+_clone_cluster_forge() {
   echo "📥 Downloading cluster-forge sources from GitHub..."
   git clone --depth 1 --branch "${CLUSTER_FORGE_BRANCH}" --single-branch \
     https://github.com/silogen/cluster-forge.git "${CLUSTER_FORGE_DIR}"
   echo "✅ Sources downloaded to ${SOURCES_DIR}"
+}
+
+if [ -d "${CLUSTER_FORGE_DIR}" ]; then
+  if [ "${FORCE_UPDATE}" = "true" ]; then
+    echo "📥 Updating cluster-forge sources from GitHub..."
+    OLD_CF_DIR=$(mktemp -d)
+    mv -v "${CLUSTER_FORGE_DIR}" "${OLD_CF_DIR}"
+    _clone_cluster_forge
+  else
+    echo "ℹ️  Using existing sources at ${SOURCES_DIR} (set FORCE_UPDATE=true to update)"
+  fi
+else
+  _clone_cluster_forge
 fi
 
 # ============================================================================
