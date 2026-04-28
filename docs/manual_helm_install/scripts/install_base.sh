@@ -30,9 +30,9 @@ DEFAULT_STORAGE_CLASS_NAME="default"
 # AIWB chart's MinIO endpoint. The in-cluster redirect Service that backs the
 # in-cluster MinIO URL is set up separately by scripts/s3.sh.
 MINIO_HOST="${MINIO_HOST:-host.docker.internal}"
-# Host port external MinIO publishes its S3 API on. Default 19000 matches the
-# minio-byo container layout used in this dev workflow (container :9000 → host :19000).
-MINIO_PORT="${MINIO_PORT:-19000}"
+# Host port external MinIO publishes its S3 API on. Default 9999 matches the
+# minio-byo container layout used in this dev workflow (container :9000 → host :9999).
+MINIO_PORT="${MINIO_PORT:-9999}"
 MINIO_BUCKET="${MINIO_BUCKET:-default-bucket}"
 METALLB_IP_RANGE="${METALLB_IP_RANGE:-192.168.127.240-192.168.127.250}"
 
