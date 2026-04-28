@@ -26,6 +26,23 @@ PLUGGABLE_S3=${PLUGGABLE_S3:-false}
 CNPG_INSTANCES=1
 DEFAULT_STORAGE_CLASS_NAME="default"
 
+# External PostgreSQL config — used only when PLUGGABLE_DB=true to point AIWB
+# and Keycloak at a user-supplied database instead of the in-cluster CNPG cluster.
+# User must have created the databases and roles before running this script
+# (see components/db.md for instructions).
+POSTGRES_HOST="${POSTGRES_HOST:-host.docker.internal}"
+POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+AIWB_DB_NAME="${AIWB_DB_NAME:-aiwb}"
+AIWB_DB_USER="${AIWB_DB_USER:-aiwb_user}"
+AIWB_DB_PASSWORD="${AIWB_DB_PASSWORD:-examplepassword}"
+KEYCLOAK_DB_NAME="${KEYCLOAK_DB_NAME:-keycloak}"
+KEYCLOAK_DB_USER="${KEYCLOAK_DB_USER:-keycloak}"
+KEYCLOAK_DB_PASSWORD="${KEYCLOAK_DB_PASSWORD:-examplepassword}"
+# Secret names used in pluggable mode (chart defaults are aiwb-cnpg-user /
+# keycloak-cnpg-user; we use db-suffixed names to make the source obvious).
+AIWB_DB_SECRET_NAME="aiwb-db-user"
+KEYCLOAK_DB_SECRET_NAME="keycloak-db-user"
+
 # External MinIO config — used only when PLUGGABLE_S3=true to override the
 # AIWB chart's MinIO endpoint. The in-cluster redirect Service that backs the
 # in-cluster MinIO URL is set up separately by scripts/s3.sh.
@@ -74,9 +91,10 @@ fi
 # ============================================================================
 # DATABASE OPERATOR (CloudNativePG)
 # ============================================================================
-# CNPG Cluster CRD is required for Keycloak and AIWB database templates.
-# CNPG Cluster database resources will be removed by scripts/db.sh if selected.
-# But scripts/install_base.sh needs the CRD to exist in the cluster first.
+# CNPG Cluster CRD is required for Keycloak and AIWB database templates when
+# PLUGGABLE_DB=false (the default). When PLUGGABLE_DB=true the helm charts
+# render with cnpg.enabled=false so no Cluster resource is created, but the
+# operator install is left in for now in case other components rely on it.
 #
 echo "📦 Installing CloudNativePG operator..."
 kubectl create namespace cnpg-system --dry-run=client -o yaml | kubectl apply -f -
@@ -579,6 +597,22 @@ kubectl apply -f "${SCRIPT_DIR}/../secrets/secrets-override-hardcoded.yaml"
 kubectl apply -f "${SCRIPT_DIR}/../secrets/secrets-aiwb-standalone.yaml"
 echo "  ✅ Secrets applied"
 
+# Pluggable database: create credentials secrets that AIWB and Keycloak read
+# at startup. The chart templates reference these via .Values.postgresql.userSecretName.
+if [[ "${PLUGGABLE_DB}" == true ]]; then
+  echo "  📦 Creating pluggable database credentials secrets..."
+  kubectl create secret generic "${AIWB_DB_SECRET_NAME}" -n aiwb \
+    --from-literal=username="${AIWB_DB_USER}" \
+    --from-literal=password="${AIWB_DB_PASSWORD}" \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+  kubectl create secret generic "${KEYCLOAK_DB_SECRET_NAME}" -n keycloak \
+    --from-literal=username="${KEYCLOAK_DB_USER}" \
+    --from-literal=password="${KEYCLOAK_DB_PASSWORD}" \
+    --dry-run=client -o yaml | kubectl apply -f -
+  echo "  ✅ Pluggable database credentials secrets created"
+fi
+
 # ============================================================================
 # CLUSTER-AUTH SHIM (standalone mode only)
 # ============================================================================
@@ -682,9 +716,11 @@ fi
 # We'll wait for it to be ready later, just before AIWB needs it
 echo "📦 Starting Keycloak installation (will complete in background)..."
 
+KEYCLOAK_PLUGGABLE_DB_ARGS=""
 if [[ ${PLUGGABLE_DB} == true ]]; then
-  echo "  📦 Installing Keycloak with pluggable database"
+  echo "  📦 Installing Keycloak with pluggable database (host: ${POSTGRES_HOST}:${POSTGRES_PORT}, database: ${KEYCLOAK_DB_NAME})"
   KEYCLOAK_CNPG_ENABLED=false
+  KEYCLOAK_PLUGGABLE_DB_ARGS="--set postgresql.host=${POSTGRES_HOST} --set postgresql.port=${POSTGRES_PORT} --set postgresql.database=${KEYCLOAK_DB_NAME} --set postgresql.username=${KEYCLOAK_DB_USER} --set postgresql.userSecretName=${KEYCLOAK_DB_SECRET_NAME}"
 else
   echo "  📦 Installing Keycloak with PostgreSQL cluster (${CNPG_INSTANCES} instance(s))..."
   KEYCLOAK_CNPG_ENABLED=true
@@ -699,6 +735,7 @@ helm template keycloak ${SOURCES_DIR}/keycloak-old \
   --set hostname="${KC_HOSTNAME}" \
   --set 'extraEnvVars[0].name=JAVA_OPTS_APPEND' \
   --set 'extraEnvVars[0].value=-XX:MaxRAMPercentage=65.0 -XX:InitialRAMPercentage=50.0 -XX:MaxMetaspaceSize=512m -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true' \
+  ${KEYCLOAK_PLUGGABLE_DB_ARGS} \
   --namespace keycloak | kubectl apply --server-side -f -
 
 echo "  ✅ Keycloak installation triggered (PostgreSQL + deployment starting)"
@@ -812,6 +849,11 @@ if [[ "${PLUGGABLE_S3}" == true ]]; then
   AIWB_PLUGGABLE_S3_ARGS="--set minio.url=http://${MINIO_HOST}:${MINIO_PORT} --set minio.bucket=${MINIO_BUCKET}"
 fi
 
+AIWB_PLUGGABLE_DB_ARGS=""
+if [[ "${PLUGGABLE_DB}" == true ]]; then
+  AIWB_PLUGGABLE_DB_ARGS="--set postgresql.host=${POSTGRES_HOST} --set postgresql.port=${POSTGRES_PORT} --set postgresql.database=${AIWB_DB_NAME} --set postgresql.username=${AIWB_DB_USER} --set postgresql.userSecretName=${AIWB_DB_SECRET_NAME}"
+fi
+
 echo "🚀 Installing AIWB application..."
 helm template aiwb ${SOURCES_DIR}/aiwb/1.0.31 \
   --namespace aiwb \
@@ -822,6 +864,7 @@ helm template aiwb ${SOURCES_DIR}/aiwb/1.0.31 \
   --set frontend.env.NEXTAUTH_URL="${AIWB_UI_URL}" \
   --set frontend.env.KEYCLOAK_ISSUER="${KC_URL}/realms/airm" \
   ${AIWB_PLUGGABLE_S3_ARGS} \
+  ${AIWB_PLUGGABLE_DB_ARGS} \
   | kubectl apply --server-side -f -
 
 # Wait for AIWB to be ready
@@ -898,6 +941,10 @@ echo ""
 
 if [[ "$PLUGGABLE_DB" == true ]]; then
   echo ""
-  echo "PLUGGABLE_DB=true => Run scripts/db.sh to continue"
-  echo "and connect AIWB to your external PostgreSQL. See components/db.md for instructions."
+  echo "PLUGGABLE_DB=true => AIWB and Keycloak deployed against external PostgreSQL:"
+  echo "  Host:     ${POSTGRES_HOST}:${POSTGRES_PORT}"
+  echo "  AIWB DB:  ${AIWB_DB_NAME} (user: ${AIWB_DB_USER}, secret: ${AIWB_DB_SECRET_NAME})"
+  echo "  Keycloak: ${KEYCLOAK_DB_NAME} (user: ${KEYCLOAK_DB_USER}, secret: ${KEYCLOAK_DB_SECRET_NAME})"
+  echo "Ensure the databases and roles exist on your PostgreSQL server"
+  echo "(see components/db.md for setup instructions)."
 fi
