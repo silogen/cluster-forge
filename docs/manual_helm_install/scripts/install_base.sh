@@ -92,15 +92,12 @@ fi
 # DATABASE OPERATOR (CloudNativePG)
 # ============================================================================
 # CNPG Cluster CRD is required for Keycloak and AIWB database templates when
-# PLUGGABLE_DB=false (the default). When PLUGGABLE_DB=true the helm charts
-# render with cnpg.enabled=false so no Cluster resource is created, but the
-# operator install is left in for now in case other components rely on it.
-#
-echo "📦 Installing CloudNativePG operator..."
-kubectl create namespace cnpg-system --dry-run=client -o yaml | kubectl apply -f -
-helm template cnpg-operator ${SOURCES_DIR}/cnpg-operator/0.26.0 --namespace cnpg-system | kubectl apply --server-side -f -
-
+# PLUGGABLE_DB=false (the default).
 if [[ ${PLUGGABLE_DB} != true ]]; then
+  echo "📦 Installing CloudNativePG operator..."
+  kubectl create namespace cnpg-system --dry-run=client -o yaml | kubectl apply -f -
+  helm template cnpg-operator ${SOURCES_DIR}/cnpg-operator/0.26.0 --namespace cnpg-system | kubectl apply --server-side -f -
+
   echo "⏳ Waiting for CNPG operator to be ready..."
   kubectl wait --for=condition=available --timeout=120s deployment/cnpg-operator-cloudnative-pg -n cnpg-system
   echo "✅ CloudNativePG is ready"
