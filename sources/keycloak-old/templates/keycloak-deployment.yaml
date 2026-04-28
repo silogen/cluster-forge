@@ -87,7 +87,7 @@ spec:
             - -c
             - |
               cd /opt/scripts
-              zip -r -y /opt/keycloak/providers/SilogenExtensionPackage.jar . -x "*/dev/*" "*/sys/*" "*/proc/*" 2>/dev/null || true
+              zip -r -y /opt/keycloak/providers/SilogenExtensionPackage.jar . -x "*/dev/*" "*/sys/*" "*/proc/*"
           image: ghcr.io/silogen/keycloak-init:0.1
           name: init-auth-extensions
           volumeMounts:
