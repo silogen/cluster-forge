@@ -745,15 +745,7 @@ apps:
     path: openbao-config/0.1.0
     syncWave: -60
     valuesFile: values.yaml
-  openbao-init:
-    helmParameters:
-      - name: domain
-        value: "{{ .Values.global.domain }}"
-    namespace: cf-openbao
-    path: ../scripts/init-openbao-job
-    syncWave: -50
-    valuesObject:
-      domain: # to be filled by cluster-forge app
+
   opentelemetry-operator:
     namespace: opentelemetry-operator-system
     path: opentelemetry-operator/0.93.1
