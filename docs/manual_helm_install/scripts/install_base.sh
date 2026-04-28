@@ -52,6 +52,8 @@ fi
 # Download cluster-forge sources from GitHub
 # User can force update with: FORCE_UPDATE=true ./install_base.sh
 CLUSTER_FORGE_DIR="/tmp/cluster-forge"
+# Delete CLUSTER_FORGE_DIR manually if CLUSTER_FORGE_BRANCH changes
+CLUSTER_FORGE_BRANCH="main"
 SOURCES_DIR="${CLUSTER_FORGE_DIR}/sources"
 FORCE_UPDATE=${FORCE_UPDATE:-false}
 
@@ -64,7 +66,7 @@ if [ -d "${CLUSTER_FORGE_DIR}" ]; then
   fi
 else
   echo "📥 Downloading cluster-forge sources from GitHub..."
-  git clone --depth 1 --branch main --single-branch \
+  git clone --depth 1 --branch "${CLUSTER_FORGE_BRANCH}" --single-branch \
     https://github.com/silogen/cluster-forge.git "${CLUSTER_FORGE_DIR}"
   echo "✅ Sources downloaded to ${SOURCES_DIR}"
 fi
