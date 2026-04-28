@@ -53,7 +53,7 @@ fi
 # User can force update with: FORCE_UPDATE=true ./install_base.sh
 CLUSTER_FORGE_DIR="/tmp/cluster-forge"
 # Delete CLUSTER_FORGE_DIR manually if CLUSTER_FORGE_BRANCH changes
-CLUSTER_FORGE_BRANCH="main"
+CLUSTER_FORGE_BRANCH="EAI-5784_byok_documentation"
 SOURCES_DIR="${CLUSTER_FORGE_DIR}/sources"
 FORCE_UPDATE=${FORCE_UPDATE:-false}
 
@@ -376,7 +376,12 @@ spec:
 EOF
 else
   # For production: use kgateway-config templates with HTTPS/TLS
-  helm template kgateway-config ${SOURCES_DIR}/kgateway-config --namespace kgateway-system --set domain=${DOMAIN} | kubectl apply --server-side -f -
+  # --validate=ignore required: HTTPListenerPolicy.spec.upgradeConfig not yet in the CRD schema
+  helm template kgateway-config ${SOURCES_DIR}/kgateway-config \
+    --namespace kgateway-system \
+    --set domain=${DOMAIN} \
+    --set cnpg.instances=${CNPG_INSTANCES} \
+    | kubectl apply --validate=ignore -f -
 fi
 
 # Apply WebSocket policy (needed for workbench terminals and logs streaming)
@@ -533,6 +538,7 @@ NAMESPACES=(
   workbench
   kaiwo-system
   minio-tenant-default
+  cluster-auth
 )
 
 for ns in "${NAMESPACES[@]}"; do
@@ -551,22 +557,80 @@ kubectl apply -f "${SCRIPT_DIR}/../secrets/secrets-override-hardcoded.yaml"
 kubectl apply -f "${SCRIPT_DIR}/../secrets/secrets-aiwb-standalone.yaml"
 echo "  ✅ Secrets applied"
 
-# Install Gateway API CRDs (standard)
-kubectl apply -f ${SOURCES_DIR}/gateway-api/v1.3.0/experimental-install.yaml --server-side
+# ============================================================================
+# CLUSTER-AUTH SHIM (standalone mode only)
+# ============================================================================
+# cluster-auth normally requires OpenBao for API key group persistence.
+# This in-memory shim implements the cluster-auth REST API so that aiwb-api
+# can create API key groups for model deployments without OpenBao.
+# State is lost on pod restart; suitable for standalone/dev installs only.
+echo "📦 Installing cluster-auth shim..."
 
-# Install kgateway CRDs
-helm template kgateway-crds ${SOURCES_DIR}/kgateway-crds/v2.0.4 | kubectl apply --server-side -f -
+kubectl create configmap cluster-auth-shim \
+  -n cluster-auth \
+  --from-file=shim.py="${SCRIPT_DIR}/cluster-auth-shim.py" \
+  --dry-run=client -o yaml | kubectl apply -f -
 
-# FIX-ME: had to use --validate=ignore Kind=HTTPListenerPolicy): .spec.upgradeConfig: field not declared in schema
-helm template kgateway-config ${SOURCES_DIR}/kgateway-config \
-  --namespace kgateway-system \
-  --set domain=${DOMAIN} \
-  --set cnpg.instances=${CNPG_INSTANCES} \
-  | kubectl apply --validate=ignore -f -
-sleep 1
+kubectl apply -f - <<'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-auth
+  namespace: cluster-auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cluster-auth
+  template:
+    metadata:
+      labels:
+        app: cluster-auth
+    spec:
+      containers:
+      - name: shim
+        image: python:3.11-slim
+        command: ["python3", "/shim/shim.py"]
+        ports:
+        - containerPort: 8081
+        volumeMounts:
+        - name: shim
+          mountPath: /shim
+      volumes:
+      - name: shim
+        configMap:
+          name: cluster-auth-shim
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cluster-auth
+  namespace: cluster-auth
+spec:
+  selector:
+    app: cluster-auth
+  ports:
+  - name: rest-api
+    port: 8081
+    targetPort: 8081
+  type: ClusterIP
+EOF
 
-# Install AIWB PostgreSQL cluster
-echo " 📦 Installing AIWB database cluster (${CNPG_INSTANCES} instance(s))..."
+# Admin token secret consumed by aiwb-api as CLUSTER_AUTH_ADMIN_TOKEN
+kubectl create secret generic cluster-auth-admin-token \
+  -n aiwb \
+  --from-literal=value=standalone-shim-token \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+echo "⏳ Waiting for cluster-auth shim to be ready..."
+kubectl wait --for=condition=available --timeout=60s deployment/cluster-auth -n cluster-auth
+echo "✅ cluster-auth shim is ready"
+echo ""
+
+# ============================================================================
+# AIWB DATABASE CLUSTER
+# ============================================================================
+echo "📦 Installing AIWB database cluster (${CNPG_INSTANCES} instance(s))..."
 helm template aiwb-infra-cnpg ${SOURCES_DIR}/eai-infra/aiwb-cnpg/0.1.0 \
   -f ${SOURCES_DIR}/eai-infra/aiwb-cnpg/0.1.0/values.yaml \
   --set instances=${CNPG_INSTANCES} \
@@ -576,25 +640,17 @@ helm template aiwb-infra-cnpg ${SOURCES_DIR}/eai-infra/aiwb-cnpg/0.1.0 \
   --namespace aiwb | kubectl apply --server-side -f -
 
 if [[ "${PLUGGABLE_DB}" != true ]]; then
-  # Wait for AIWB database cluster to be ready
   echo "⏳ Waiting for AIWB database cluster to be ready..."
   sleep 2
   until kubectl get cluster -n aiwb -o jsonpath='{.items[0].status.phase}' 2>/dev/null | grep -q "Cluster in healthy state"; do
     echo "  Still waiting for AIWB PostgreSQL cluster..."
     sleep 5
   done
-  echo "✅ AIWB infrastructure is ready"
+  echo "✅ AIWB database is ready"
   echo ""
 else
   echo "PLUGGABLE_DB=true => Not waiting for AIWB database."
 fi
-
-# Install kgateway itself
-kubectl create namespace kgateway-system --dry-run=client -o yaml | kubectl apply -f -
-helm template kgateway ${SOURCES_DIR}/kgateway/v2.0.4 --namespace kgateway-system | kubectl apply --server-side -f -
-
-# Wait for kgateway to be ready
-kubectl wait --for=condition=available --timeout=120s deployment -l app.kubernetes.io/name=kgateway -n kgateway-system
 
 # ============================================================================
 # KEYCLOAK (Identity and Access Management) - Start Early
