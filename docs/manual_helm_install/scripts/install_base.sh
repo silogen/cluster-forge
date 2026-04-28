@@ -652,16 +652,17 @@ echo ""
 # ============================================================================
 # AIWB DATABASE CLUSTER
 # ============================================================================
-echo "📦 Installing AIWB database cluster (${CNPG_INSTANCES} instance(s))..."
-helm template aiwb-infra-cnpg ${SOURCES_DIR}/eai-infra/aiwb-cnpg/0.1.0 \
-  -f ${SOURCES_DIR}/eai-infra/aiwb-cnpg/0.1.0/values.yaml \
-  --set instances=${CNPG_INSTANCES} \
-  --set username=aiwb_user \
-  --set storage.storageClass=${DEFAULT_STORAGE_CLASS_NAME} \
-  --set walStorage.storageClass=${DEFAULT_STORAGE_CLASS_NAME} \
-  --namespace aiwb | kubectl apply --server-side -f -
-
 if [[ "${PLUGGABLE_DB}" != true ]]; then
+  # Install AIWB PostgreSQL cluster
+  echo " 📦 Installing AIWB database cluster (${CNPG_INSTANCES} instance(s))..."
+  helm template aiwb-infra-cnpg ${SOURCES_DIR}/eai-infra/aiwb-cnpg/0.1.0 \
+    -f ${SOURCES_DIR}/eai-infra/aiwb-cnpg/0.1.0/values.yaml \
+    --set instances=${CNPG_INSTANCES} \
+    --set username=aiwb_user \
+    --set storage.storageClass=${DEFAULT_STORAGE_CLASS_NAME} \
+    --set walStorage.storageClass=${DEFAULT_STORAGE_CLASS_NAME} \
+    --namespace aiwb | kubectl apply --server-side -f -
+
   echo "⏳ Waiting for AIWB database cluster to be ready..."
   sleep 2
   until kubectl get cluster -n aiwb -o jsonpath='{.items[0].status.phase}' 2>/dev/null | grep -q "Cluster in healthy state"; do
@@ -681,9 +682,17 @@ fi
 # We'll wait for it to be ready later, just before AIWB needs it
 echo "📦 Starting Keycloak installation (will complete in background)..."
 
-echo "  📦 Installing Keycloak with PostgreSQL cluster (${CNPG_INSTANCES} instance(s))..."
+if [[ ${PLUGGABLE_DB} == true ]]; then
+  echo "  📦 Installing Keycloak with pluggable database"
+  KEYCLOAK_CNPG_ENABLED=false
+else
+  echo "  📦 Installing Keycloak with PostgreSQL cluster (${CNPG_INSTANCES} instance(s))..."
+  KEYCLOAK_CNPG_ENABLED=true
+fi
+
 helm template keycloak ${SOURCES_DIR}/keycloak-old \
   --set externalSecrets.enabled=false \
+  --set cnpg.enabled=${KEYCLOAK_CNPG_ENABLED} \
   --set cnpg.instances=${CNPG_INSTANCES} \
   --set cnpg.storage.storageClassName=${DEFAULT_STORAGE_CLASS_NAME} \
   --set domain="$DOMAIN" \
