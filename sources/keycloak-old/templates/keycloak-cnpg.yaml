@@ -1,3 +1,4 @@
+{{- if .Values.cnpg.enabled }}
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
@@ -10,14 +11,14 @@ spec:
     topologyKey: topology.kubernetes.io/zone
   bootstrap:
     initdb:
-      database: keycloak
-      owner: keycloak
+      database: {{ .Values.postgresql.database }}
+      owner: {{ .Values.postgresql.username }}
       postInitSQL:
-        - GRANT CREATE ON SCHEMA public TO keycloak
+        - GRANT CREATE ON SCHEMA public TO {{ .Values.postgresql.username }}
       secret:
-        name: keycloak-cnpg-user
+        name: {{ .Values.postgresql.userSecretName }}
   imageName: ghcr.io/cloudnative-pg/postgresql:17
-  instances: 1
+  instances: {{ .Values.cnpg.instances }}
   nodeMaintenanceWindow:
     inProgress: false
     reusePVC: true
@@ -45,9 +46,10 @@ spec:
   stopDelay: 300
   storage:
     size: 50Gi
-    storageClass: {{ .Values.storageClassName | default "default" }}
+    storageClass: {{ .Values.storageClassName | default .Values.cnpg.storage.storageClassName }}
   superuserSecret:
     name: keycloak-cnpg-superuser
   walStorage:
     size: 50Gi
-    storageClass:  {{ .Values.storageClassName | default "default" }}
+    storageClass: {{ .Values.storageClassName | default .Values.cnpg.storage.storageClassName }}
+{{- end }}

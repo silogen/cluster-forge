@@ -10,10 +10,6 @@ export PLUGGABLE_GW=false
 
 "${SCRIPT_DIR}/install_base.sh" "$@"
 
-if [[ ${PLUGGABLE_DB} == true ]]; then
-  "${SCRIPT_DIR}/db.sh"
-fi
-
 if [[ ${PLUGGABLE_S3} == true ]]; then
   "${SCRIPT_DIR}/s3.sh"
 fi

@@ -12,7 +12,7 @@ set -euo pipefail
 # ============================================================================
 
 CONTAINER_NAME="${CONTAINER_NAME:-minio-pluggable}"
-MINIO_API_PORT="${MINIO_API_PORT:-9000}"        # host port for S3 API
+MINIO_API_PORT="${MINIO_API_PORT:-9999}"        # host port for S3 API
 MINIO_CONSOLE_PORT="${MINIO_CONSOLE_PORT:-9001}" # host port for web console
 MINIO_ROOT_USER="${MINIO_ROOT_USER:-examplepass}"
 MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-examplepass}"
