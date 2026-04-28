@@ -8,7 +8,7 @@ export PLUGGABLE_DB=true
 export PLUGGABLE_S3=true
 export PLUGGABLE_GW=false
 
-"${SCRIPT_DIR}/install_base.sh"
+"${SCRIPT_DIR}/install_base.sh" "$@"
 
 if [[ ${PLUGGABLE_DB} == true ]]; then
   "${SCRIPT_DIR}/db.sh"
