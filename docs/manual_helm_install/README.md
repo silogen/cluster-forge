@@ -60,7 +60,9 @@ These components are essential for AIWB operation and cannot be substituted:
 | **AMD GPU Operator** | GPU detection, device plugin, and metrics | `amd-gpu-operator` |
 | **cert-manager** | TLS certificate management | `cert-manager` |
 | **Kyverno** | Policy engine for workspace PVC auto-creation | `kyverno` |
+| **KEDA** | Event-driven autoscaling for inference workloads | `keda` |
 | **Gateway API CRDs** | Standard Kubernetes ingress abstraction | cluster-wide |
+| **cluster-auth shim** | In-memory API key group stub (standalone mode, replaces OpenBao-backed cluster-auth) | `cluster-auth` |
 
 ### Pluggable Components
 
@@ -68,11 +70,11 @@ These components can be replaced with your own implementations:
 
 | Component | Reference Implementation | Pluggable? | Instructions |
 |-----------|-------------------------|-----------------|--------------|
-| **Database** | CloudNativePG PostgreSQL clusters | ✅ Yes - Any PostgreSQL 14+ | [db.md](pluggable/components/db.md) |
-| **Gateway Controller** | kgateway (Gateway API) | ✅ Yes - Any Gateway API controller | [gateway.md](pluggable/components/gateway.md) |
-| **Object Storage** | MinIO | ✅ Yes - Any S3-compatible storage | [s3.md](pluggable/components/s3.md) |
-| **StorageClasses** | local-path (rancher.io) | ✅ Yes - Any CSI provisioner | [storage_classes.md](pluggable/components/storage_classes.md) |
-| **Secrets Management** | Direct Kubernetes Secrets | ✅ Yes - ExternalSecrets, Vault, etc. | [secrets.md](pluggable/secrets/secrets.md) |
+| **Database** | CloudNativePG PostgreSQL clusters | ✅ Yes - Any PostgreSQL 14+ | [db.md](components/db.md) |
+| **Gateway Controller** | kgateway (Gateway API) | ✅ Yes - Any Gateway API controller | [gateway.md](components/gateway.md) |
+| **Object Storage** | MinIO | ✅ Yes - Any S3-compatible storage | [s3.md](components/s3.md) |
+| **StorageClasses** | local-path (rancher.io) | ✅ Yes - Any CSI provisioner | [storage_classes.md](components/storage_classes.md) |
+| **Secrets Management** | Direct Kubernetes Secrets | ✅ Yes - ExternalSecrets, Vault, etc. | [secrets.md](secrets/secrets.md) |
 | **LoadBalancer** | MetalLB | ✅ Yes - Cloud LB, HAProxy, etc. | — |
 
 ---
@@ -87,78 +89,104 @@ AIWB deployment consists of three phases that must be completed in order:
 
 **Components to deploy:**
 
-1. **cert-manager** (v1.18.2 or later)
-   - Required for webhook TLS certificates
-   - Must be fully ready before deploying other components
-   - Namespace: `cert-manager`
-
-2. **CloudNativePG Operator** (v0.26.0 or later) *[Pluggable]*
+1. **CloudNativePG Operator** (v0.26.0 or later) *[Pluggable]*
    - PostgreSQL database operator
    - Required only if using the reference PostgreSQL implementation
    - Namespace: `cnpg-system`
 
-3. **Kyverno** (v3.5.1 or later)
+2. **Kyverno** (v3.5.1 or later)
    - Policy engine for automatic workspace PVC creation
-   - Install base policies and storage policies
+   - Install base policies and storage-local-path policies
    - Namespace: `kyverno`
 
-4. **Gateway API CRDs** (v1.3.0 or later)
-   - Standard for ingress routing
-   - Required even if using your own Gateway controller
-
-5. **Gateway Controller** *[Pluggable]*
-   - Reference: kgateway v2.1.0
-   - Alternative: Any Gateway API-compliant controller (Envoy Gateway, Istio, Kong, etc.)
-   - Namespace: `kgateway-system` (or your controller's namespace)
-
-6. **LoadBalancer Implementation** *[Pluggable]*
-   - Reference: MetalLB v0.15.2
-   - Alternative: Cloud provider LoadBalancer, HAProxy LB, etc.
-   - Namespace: `metallb-system` (or your LB's namespace)
-
-7. **StorageClasses** *[Pluggable]*
+3. **StorageClasses** *[Pluggable]*
    - Required classes: `multinode`, `mlstorage`
    - Reference: local-path provisioner (rancher.io)
    - Alternative: Any CSI driver (Longhorn, Ceph, EFS, etc.)
+   - See [storage_classes.md](components/storage_classes.md)
 
-8. **OpenTelemetry Operator** (v0.93.1 or later)
-   - Optional: Only if using AIWB observability features
+4. **Prometheus Operator CRDs** (v23.0.0 or later)
+   - Required by monitoring components before they start
+   - Namespace: `prometheus-system`
+
+5. **cert-manager** (v1.18.2 or later)
+   - Required for webhook TLS certificates (KServe, kgateway)
+   - Must be fully ready before deploying other components
+   - Namespace: `cert-manager`
+
+6. **OpenTelemetry Operator** (v0.93.1 or later)
+   - Required for metrics collection pipeline
    - Namespace: `opentelemetry-system`
 
-9. **AMD GPU Operator** (v1.4.1)
-   - Installs NFD (node detection), KMM (kernel module management), device plugin, and metrics exporter
-   - Nodes with AMD GPUs are automatically labelled and `amd.com/gpu` resources are registered
-   - Namespace: `amd-gpu-operator`
-   - See [gpu_operator.md](components/gpu_operator.md) for optional configuration
+7. **MetalLB** (v0.15.2) *[Pluggable]*
+   - LoadBalancer implementation for bare-metal or VM clusters
+   - Alternative: Cloud provider LoadBalancer, HAProxy LB, etc.
+   - Namespace: `metallb-system`
+
+8. **OTEL LGTM Stack** (v1.0.7)
+   - Full observability stack: Prometheus, Grafana, Loki, Tempo, Mimir
+   - Depends on: OpenTelemetry Operator, Prometheus CRDs
+   - Namespace: `otel-lgtm-stack`
+
+9. **KEDA** (v2.18.1)
+   - Event-driven autoscaling; required by KServe for inference workload scaling
+   - Depends on: cert-manager, OpenTelemetry Operator
+   - Namespace: `keda`
+
+10. **Kedify OTEL Scaler** (v0.0.6)
+    - KEDA extension that provides OpenTelemetry metrics as a scaling source
+    - Namespace: `keda`
+
+11. **Gateway API CRDs** (v1.3.0 or later)
+    - Standard for ingress routing
+    - Required even if using your own Gateway controller
+
+12. **Gateway Controller** *[Pluggable]*
+    - Reference: kgateway v2.1.0
+    - Alternative: Any Gateway API-compliant controller (Envoy Gateway, Istio, Kong, etc.)
+    - Namespace: `kgateway-system` (or your controller's namespace)
+    - See [gateway.md](components/gateway.md)
+
+13. **KServe** (v0.16.0 or later)
+    - Model serving infrastructure; deploy in RawDeployment mode (no Knative required)
+    - Depends on: cert-manager, KEDA
+    - Namespace: `kserve-system`
+
+14. **AMD GPU Operator** (v1.4.1)
+    - Installs NFD (node detection), KMM (kernel module management), device plugin, and metrics exporter
+    - Nodes with AMD GPUs are automatically labelled and `amd.com/gpu` resources are registered
+    - Namespace: `amd-gpu-operator`
+    - See [gpu_operator.md](components/gpu_operator.md) for optional configuration
 
 ### Phase 2: Data Layer
 
-**Purpose:** Set up databases, object storage, and secrets
+**Purpose:** Set up namespaces, secrets, databases, and object storage
 
 **Components to deploy:**
 
 1. **Namespaces**
-   - Create required namespaces: `aiwb`, `keycloak`, `workbench`, `minio-tenant-default`
+   - Create required namespaces: `aiwb`, `keycloak`, `workbench`, `minio-tenant-default`, `cluster-auth`, and others
 
 2. **Secrets** *[Pluggable]*
    - Create all required secrets (see [Secrets Reference](#secrets-management))
    - Can use direct Kubernetes Secrets, ExternalSecrets, or Vault
 
-3. **PostgreSQL Databases** *[Pluggable]*
+3. **cluster-auth shim**
+   - Deploy the in-memory cluster-auth stub before AIWB; requires `cluster-auth` namespace and `cluster-auth-admin-token` secret in the `aiwb` namespace
+   - See the [Known Workarounds](#known-workarounds) section for context
+
+4. **PostgreSQL Databases** *[Pluggable]*
    - **AIWB Database:** PostgreSQL 14+ with database `aiwb`
    - **Keycloak Database:** PostgreSQL 14+ with database `keycloak`
    - Reference: CloudNativePG clusters in `aiwb` and `keycloak` namespaces
    - Alternative: External managed PostgreSQL service
+   - See [db.md](components/db.md)
 
-4. **Object Storage** *[Pluggable]*
+5. **Object Storage** *[Pluggable]*
    - Required buckets: `default-bucket`, `models`, `datasets`
    - Reference: MinIO operator + tenant in `minio-tenant-default`
    - Alternative: AWS S3, Azure Blob, GCS, or any S3-compatible service
-
-5. **KServe** (v0.16.0 or later)
-   - Model serving infrastructure
-   - Deploy in RawDeployment mode (no Knative required)
-   - Namespace: `kserve-system`
+   - See [s3.md](components/s3.md)
 
 ### Phase 3: Application Layer
 
@@ -182,10 +210,11 @@ AIWB deployment consists of three phases that must be completed in order:
    - Deploy AIMClusterModelSource for model discovery
    - Default: v0.11.0 models from Docker Hub
 
-4. **AIWB Application** (v1.0.3 or later)
+4. **AIWB Application** (v1.0.31)
    - Core workbench application (UI + API)
    - Namespace: `aiwb`
-   - **Dependencies:** All components from Phase 1 & 2
+   - **Dependencies:** All components from Phase 1 & 2, cluster-auth shim running in `cluster-auth`
+   - Note: v1.0.31 is the current patched chart (based on upstream v1.0.3); see [Known Workarounds](#known-workarounds)
 
 ---
 
@@ -197,7 +226,7 @@ AIWB deployment consists of three phases that must be completed in order:
 
 **To use your own PostgreSQL-compatible DB:**
 
-See [db.md](pluggable/components/db.md) for configuration instructions.
+See [db.md](components/db.md) for configuration instructions.
 
 ---
 

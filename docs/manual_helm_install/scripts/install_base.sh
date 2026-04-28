@@ -350,6 +350,21 @@ kubectl create namespace kgateway-system --dry-run=client -o yaml | kubectl appl
 helm template kgateway-crds ${SOURCES_DIR}/kgateway-crds/v2.1.0-main --namespace kgateway-system | kubectl apply --server-side -f -
 helm template kgateway ${SOURCES_DIR}/kgateway/v2.1.0-main --namespace kgateway-system --set service.type=LoadBalancer | kubectl apply --server-side -f -
 
+# Patch: kgateway v2.1.0-main ClusterRole is missing tokenreviews, which the xDS server
+# requires to validate JWT tokens from Envoy proxy. Without it, Envoy cannot connect to
+# the xDS control plane and the gateway serves no routes.
+kubectl patch clusterrole kgateway-kgateway-system --type=json -p='[
+  {
+    "op": "add",
+    "path": "/rules/-",
+    "value": {
+      "apiGroups": ["authentication.k8s.io"],
+      "resources": ["tokenreviews"],
+      "verbs": ["create"]
+    }
+  }
+]'
+
 # Wait for kgateway to be ready
 echo "⏳ Waiting for kgateway to be ready..."
 kubectl wait --for=condition=available --timeout=120s deployment/kgateway -n kgateway-system
@@ -444,6 +459,13 @@ helm template kserve ${SOURCES_DIR}/kserve/v0.16.0 \
   --namespace kserve-system \
   --set kserve.controller.deploymentMode=RawDeployment \
   | kubectl apply -f - 2>&1 | grep -v "unchanged" | head -20
+
+# Patch: kserve default cpuLimit of "1" causes InferenceService validation failures when
+# the AIM engine profile sets requests.cpu > 1 (e.g. 4 for throughput-optimised templates).
+# Setting cpuLimit to "" removes the default cap; cpuRequest remains as a scheduling hint.
+kubectl patch configmap inferenceservice-config -n kserve-system --type=merge -p \
+  '{"data":{"inferenceService":"{\"resource\":{\"cpuLimit\":\"\",\"cpuRequest\":\"1\",\"memoryLimit\":\"2Gi\",\"memoryRequest\":\"2Gi\"}}"}}'
+
 echo "✅ KServe is ready"
 echo ""
 
