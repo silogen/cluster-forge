@@ -18,6 +18,6 @@ if [[ ${PLUGGABLE_S3} == true ]]; then
   "${SCRIPT_DIR}/s3.sh"
 fi
 
-if [[ ${PLUGGABLE_S3} == true ]]; then
+if [[ ${PLUGGABLE_GW} == true ]]; then
   "${SCRIPT_DIR}/gateway.sh"
 fi
