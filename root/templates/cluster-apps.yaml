@@ -22,12 +22,23 @@ spec:
     {{- else }}
     path: sources/{{ .path }}
     {{- end }}
-    {{- if or .valuesFile .valuesObject .helmParameters }}
+    {{- if or .valuesFile .valuesFiles .valuesObject .helmParameters }}
     helm:
-      {{- if .valuesFile }}
+      {{- if or .valuesFile .valuesFiles }}
       valueFiles:
+      {{- end }}
+      {{- if .valuesFile }}
         - {{ .valuesFile }}
       {{- end }}
+      {{- if .valuesFiles }}
+      {{- if kindIs "slice" .valuesFiles }}
+      {{- range .valuesFiles }}
+        - {{.}}
+        {{- end}}
+       {{- else}}
+        - {{.valuesFiles}}
+       {{- end}}
+      {{- end}}  
       {{- if .valuesObject }}
       values: |
       {{ .valuesObject | toYaml | nindent 8 }}
