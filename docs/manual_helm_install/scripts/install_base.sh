@@ -856,6 +856,13 @@ else
   # BUCKET_STORAGE_HOST" for why this workaround is currently needed.
   echo "  📦 Creating in-cluster redirect Service for external MinIO..."
   echo "     target: ${MINIO_HOST_IP}:${MINIO_PORT}"
+  # Remove any pre-existing minio Service / Endpoints first. If a previous
+  # install ran in PLUGGABLE_S3=false mode, the MinIO Operator created a
+  # selector-backed Service named "minio" — applying a selectorless Service
+  # on top of it produces server-side-apply conflicts. The delete is a no-op
+  # on fresh clusters thanks to --ignore-not-found.
+  kubectl delete service minio   -n minio-tenant-default --ignore-not-found
+  kubectl delete endpoints minio -n minio-tenant-default --ignore-not-found
   kubectl apply -f - <<EOF
 apiVersion: v1
 kind: Service
