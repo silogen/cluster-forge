@@ -1,9 +1,11 @@
 #!/bin/bash
 
 # Sets up an external MinIO instance as a Docker container.
-# Run this BEFORE scripts/s3.sh to prepare the external object storage.
+# Run this BEFORE scripts/pluggable.sh to prepare the external object storage.
 #
-# After this script completes, run scripts/s3.sh with the printed environment variables.
+# After this script completes, run scripts/pluggable.sh with PLUGGABLE_S3=true
+# and the printed environment variables. Then optionally run scripts/s3.sh for
+# post-install verification.
 
 set -euo pipefail
 
@@ -140,13 +142,14 @@ echo "  From Kubernetes pods, use:  host.docker.internal:${MINIO_API_PORT}"
 echo "  (Supported on Rancher Desktop and Docker Desktop.)"
 echo "  On Minikube/Kind, use the host IP instead of host.docker.internal."
 echo ""
-echo "  Run scripts/s3.sh with:"
+echo "  Run scripts/pluggable.sh with:"
 echo ""
+echo "    PLUGGABLE_S3=true \\"
 echo "    MINIO_HOST=host.docker.internal \\"
 echo "    MINIO_PORT=${MINIO_API_PORT} \\"
 echo "    MINIO_ACCESS_KEY=${MINIO_ROOT_USER} \\"
 echo "    MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD} \\"
-echo "    ./pluggable/scripts/s3.sh"
+echo "    ./scripts/pluggable.sh <DOMAIN>"
 echo ""
 echo "  To stop the container:"
 echo "    docker stop ${CONTAINER_NAME}"
