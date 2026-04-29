@@ -12,7 +12,9 @@ global:
 
 apps:
   aim-engine:
-    path: aim-engine/0.2.2
+    repoURL: oci://ghcr.io/silogen/aim-engine-chart
+    repoVersion: "0.2.2"
+    path: "."
     namespace: aim-system
     valuesFile: values.yaml
     syncWave: 0
@@ -37,7 +39,9 @@ apps:
     syncWave: 0
     valuesFile: values.yaml
   aiwb:
-    path: aiwb/1.0.3
+    repoURL: oci://ghcr.io/silogen/aiwb-chart
+    repoVersion: "1.1.2"
+    path: "."
     namespace: aiwb
     valuesFile: values.yaml
     helmParameters:
@@ -329,8 +333,10 @@ apps:
     syncWave: -20
     valuesFile: values.yaml
   kaiwo:
+    repoURL: oci://ghcr.io/silogen/kaiwo-operator-chart
+    repoVersion: "v0.2.0-rc12"
+    path: "."
     namespace: kaiwo-system
-    path: kaiwo/v0.2.0-rc12
     syncWave: -10
     valuesFiles:
       - "values.yaml"

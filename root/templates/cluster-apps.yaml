@@ -4,6 +4,7 @@
 {{- $name := . }}
 {{- $scope := (index $.Values.apps .) | required (printf "Values for app %s are missing!" $name) }}
 {{- with $scope }}
+{{- $useMultiSource := and .repoURL .valuesFiles }}
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -14,11 +15,64 @@ metadata:
     argocd.argoproj.io/sync-wave: "{{ .syncWave }}"
 spec:
   project: default
+  {{- if $useMultiSource }}
+  sources:
+    # Primary source: OCI/external chart
+    - repoURL: {{ .repoURL }}
+      {{- if hasPrefix "oci://" .repoURL }}
+      {{- if eq .path "." }}
+      chart: {{ trimPrefix "oci://" .repoURL | base }}
+      {{- else }}
+      chart: {{ .path }}
+      {{- end }}
+      {{- else }}
+      path: {{ .path }}
+      {{- end }}
+      targetRevision: {{ .repoVersion | default $clusterForgeTargetRevision }}
+      helm:
+        {{- if .valuesFiles }}
+        valueFiles:
+        {{- if kindIs "slice" .valuesFiles }}
+        {{- range $idx, $file := .valuesFiles }}
+        {{- if hasPrefix "../" $file }}
+          - $values/sources/{{ $name }}/{{ trimPrefix "../" $file }}
+        {{- else }}
+          - {{ $file }}
+        {{- end }}
+        {{- end }}
+        {{- else }}
+        {{- if hasPrefix "../" .valuesFiles }}
+          - $values/sources/{{ $name }}/{{ trimPrefix "../" .valuesFiles }}
+        {{- else }}
+          - {{ .valuesFiles }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- if .valuesObject }}
+        values: |
+        {{ .valuesObject | toYaml | nindent 10 }}
+        {{- end }}
+        {{- if .helmParameters }}
+        parameters:
+        {{- range $parameter := .helmParameters }}
+          - name: {{ include "common.tplvalues.render" ( dict "value" $parameter.name "context" $) | quote }}
+            value: {{ include "common.tplvalues.render" ( dict "value" $parameter.value "context" $) | quote }}
+        {{- end }}
+        {{- end }}
+    # Secondary source: cluster-forge repo for values files
+    - repoURL: {{ $clusterForgeRepoUrl }}
+      targetRevision: {{ $clusterForgeTargetRevision }}
+      ref: values
+  {{- else }}
   source:
     repoURL: {{ .repoURL | default $clusterForgeRepoUrl }}
     targetRevision: {{ .repoVersion | default $clusterForgeTargetRevision }}
     {{- if .repoURL }}
+    {{- if hasPrefix "oci://" .repoURL }}
+    chart: {{ base .path }}
+    {{- else }}
     path: {{ .path }}
+    {{- end }}
     {{- else }}
     path: sources/{{ .path }}
     {{- end }}
@@ -33,12 +87,12 @@ spec:
       {{- if .valuesFiles }}
       {{- if kindIs "slice" .valuesFiles }}
       {{- range .valuesFiles }}
-        - {{.}}
-        {{- end}}
-       {{- else}}
-        - {{.valuesFiles}}
-       {{- end}}
-      {{- end}}  
+        - {{ . }}
+      {{- end }}
+      {{- else }}
+        - {{ .valuesFiles }}
+      {{- end }}
+      {{- end }}
       {{- if .valuesObject }}
       values: |
       {{ .valuesObject | toYaml | nindent 8 }}
@@ -54,6 +108,7 @@ spec:
     {{- with .directory }}
     directory: {{ . | toYaml | nindent 6 }}
     {{- end }}
+  {{- end }}
 {{- with .ignoreDifferences }}
   ignoreDifferences: {{ . | toYaml | nindent 2 }}
 {{- end }}
