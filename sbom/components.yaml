@@ -130,11 +130,11 @@ components:
     license: MIT License
     licenseUrl: https://github.com/go-gitea/gitea/blob/main/LICENSE
   kaiwo:
-    path: kaiwo/v0.2.0-rc11
+    path: kaiwo/v0.2.0-rc12
     valuesFiles:
       - values.yaml
       - ../values.yaml
-    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc11/install.yaml
+    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc12/install.yaml
     projectUrl: https://github.com/silogen/kaiwo/
     license: MIT License
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
