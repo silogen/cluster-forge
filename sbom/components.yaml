@@ -11,12 +11,14 @@ components:
     license: MIT License
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
   aim-engine:
-    path: aim-engine/0.2.2
+    repoURL: oci://ghcr.io/silogen/aim-engine-chart
+    repoVersion: "0.2.2"
+    path: "."
     valuesFile: values.yaml
-    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine
-    projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine
+    sourceUrl: https://github.com/silogen/aim-engine/releases/tag/v0.2.2
+    projectUrl: https://github.com/silogen/aim-engine
     license: Apache License 2.0
-    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
+    licenseUrl: https://github.com/silogen/aim-engine/blob/main/LICENSE
   aim-engine-crds:
     path: aim-engine-crds/0.2.2
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine-crds
@@ -52,12 +54,14 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   aiwb:
-    path: aiwb/1.0.3
+    repoURL: oci://ghcr.io/silogen/aiwb-chart
+    repoVersion: "1.1.2"
+    path: "."
     valuesFile: values.yaml
-    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb
-    projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb
+    sourceUrl: https://github.com/silogen/aiwb/releases/tag/v1.1.2
+    projectUrl: https://github.com/silogen/aiwb
     license: Apache License 2.0
-    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
+    licenseUrl: https://github.com/silogen/aiwb/blob/main/LICENSE
   aiwb-infra-cnpg:
     path: eai-infra/aiwb-cnpg/0.1.0
     valuesFile: values.yaml
@@ -130,11 +134,13 @@ components:
     license: MIT License
     licenseUrl: https://github.com/go-gitea/gitea/blob/main/LICENSE
   kaiwo:
-    path: kaiwo/v0.2.0-rc12
+    repoURL: oci://ghcr.io/silogen/kaiwo-operator-chart
+    repoVersion: "v0.2.0-rc12"
+    path: "."
     valuesFiles:
       - values.yaml
       - ../values.yaml
-    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc12/install.yaml
+    sourceUrl: https://github.com/silogen/kaiwo/releases/tag/v0.2.0-rc12
     projectUrl: https://github.com/silogen/kaiwo/
     license: MIT License
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
