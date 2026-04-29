@@ -1,1 +1,29 @@
 domain: # to be filled by cluster-forge app
+
+# Optional override for KC_HOSTNAME; if empty, derived from domain
+hostname: ""
+
+# In-cluster CNPG PostgreSQL cluster (set enabled=false to use an external DB)
+cnpg:
+  enabled: true
+  instances: 1
+  storage:
+    storageClassName: "default"
+
+# PostgreSQL connection used by Keycloak. Defaults match the in-cluster
+# CNPG service when cnpg.enabled=true. When cnpg.enabled=false, override
+# these values to point at your external PostgreSQL.
+postgresql:
+  host: "keycloak-cnpg-rw.keycloak.svc.cluster.local"
+  port: 5432
+  database: "keycloak"
+  username: "keycloak"
+  userSecretName: "keycloak-cnpg-user"
+
+# Render ExternalSecret/ClusterSecretStore resources (requires external-secrets
+# operator). Set false to provide credentials as plain Kubernetes Secrets.
+externalSecrets:
+  enabled: true
+
+# Name of the storage class to use for Keycloak. If not set, a storage class named 'default' will be used.
+#storageClassName: default

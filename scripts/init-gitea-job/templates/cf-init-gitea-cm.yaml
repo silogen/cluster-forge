@@ -11,7 +11,41 @@ data:
     DOMAIN={{ .Values.domain }}
     GITEA_URL="${GITEA_URL:-http://gitea-http.cf-gitea.svc:3000}"
     GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-silogen-admin}"
+    # Set up OpenBao environment for secret retrieval
+    echo "Retrieving OpenBao token..."
+    export BAO_TOKEN=$(kubectl get secret openbao-keys -n cf-openbao -o jsonpath='{.data.root_token}' | base64 -d)
+    if [ -z "$BAO_TOKEN" ]; then
+      echo "ERROR: Failed to retrieve OpenBao token"
+      exit 1
+    fi
+    echo "OpenBao token retrieved successfully"
     
+    export BAO_ADDR="http://openbao-internal.cf-openbao.svc:8200"
+    echo "BAO_ADDR set to: $BAO_ADDR"
+    
+    # Wait for OpenBao to be ready
+    echo "Waiting for OpenBao service to be ready..."
+    for i in {1..30}; do
+      if curl -s --max-time 5 "${BAO_ADDR}/v1/sys/health" >/dev/null 2>&1; then
+        echo "OpenBao service is ready"
+        break
+      fi
+      if [ $i -eq 30 ]; then
+        echo "ERROR: OpenBao service not ready after 30 attempts"
+        exit 1
+      fi
+      echo "Waiting for OpenBao... attempt $i/30"
+      sleep 2
+    done
+    
+    echo "Retrieving devuser password from OpenBao..."
+    GITEA_DEVUSER_PASSWORD="$(bao kv get -field=value secrets/gitea-devuser-secret)"
+    if [ -z "$GITEA_DEVUSER_PASSWORD" ]; then
+      echo "ERROR: Failed to retrieve devuser password from OpenBao"
+      exit 1
+    fi
+    echo "Devuser password retrieved successfully"
+
     echo "Waiting for Gitea service to be ready..."
     for i in {1..30}; do
       if curl -s --max-time 5 "${GITEA_URL}" >/dev/null 2>&1; then
@@ -115,17 +149,46 @@ data:
       }' || echo "Repository might already exist"
     
     echo "Step 4: Creating user 'devuser'..."
-    curl -X POST "${GITEA_URL}/api/v1/admin/users" \
+    
+    # Create user with proper JSON escaping
+    RESPONSE=$(curl -s -w "%{http_code}" -X POST "${GITEA_URL}/api/v1/admin/users" \
       -H "Authorization: token ${GITEA_TOKEN}" \
       -H "Content-Type: application/json" \
       -d '{
         "username": "devuser",
         "email": "devuser@'${DOMAIN}'",
-        "password": "password",
+        "password": "'"${GITEA_DEVUSER_PASSWORD}"'",
         "full_name": "Dev User",
         "must_change_password": false,
         "send_notify": false
-      }' || echo "User creation failed, might already exist or insufficient permissions"
+      }')
+    
+    HTTP_CODE=$(echo "$RESPONSE" | tail -c 4)
+    RESPONSE_BODY=$(echo "$RESPONSE" | head -c -4)
+    
+    if [ "$HTTP_CODE" -eq 201 ]; then
+      echo "User 'devuser' created successfully"
+    elif [ "$HTTP_CODE" -eq 422 ]; then
+      echo "User 'devuser' might already exist (HTTP 422)"
+    else
+      echo "User creation failed with HTTP $HTTP_CODE: $RESPONSE_BODY"
+    fi
+    
+    # Verify user exists
+    USER_CHECK=$(curl -s -H "Authorization: token ${GITEA_TOKEN}" \
+      "${GITEA_URL}/api/v1/users/devuser")
+    
+    # Test authentication (this will fail if password is wrong)
+    AUTH_TEST=$(curl -s -w "%{http_code}" -u "devuser:${GITEA_DEVUSER_PASSWORD}" \
+      "${GITEA_URL}/api/v1/user")
+    AUTH_HTTP_CODE=$(echo "$AUTH_TEST" | tail -c 4)
+    AUTH_RESPONSE=$(echo "$AUTH_TEST" | head -c -4)
+    
+    if [ "$AUTH_HTTP_CODE" -eq 200 ]; then
+      echo "SUCCESS: devuser authentication works"
+    else
+      echo "WARNING: devuser authentication failed (HTTP $AUTH_HTTP_CODE)"
+    fi
     
     echo "Step 5: Getting organization 'cluster-org' owners team id..."
     OWNERS_TEAM_ID=$(curl -s -H "Authorization: token ${GITEA_TOKEN}" -H "Content-Type: application/json" \
@@ -140,26 +203,14 @@ data:
     echo "Step 7: Creating values.yaml file with cluster-forge reference in cluster-values repo..."
     
     # Get the complete values file from the configmap created by bootstrap.sh
-    echo "DEBUG: Checking if initial-cf-values configmap exists..."
     if kubectl get configmap initial-cf-values -n cf-gitea >/dev/null 2>&1; then
-        echo "DEBUG: ConfigMap found, extracting data..."
         kubectl get configmap initial-cf-values -n cf-gitea -o jsonpath='{.data.initial-cf-values}' > /tmp/complete_values.yaml
-        
-        # Debug: Show what we got from the configmap
-        echo "DEBUG: Content of initial-cf-values configmap (first 20 lines):"
-        head -20 /tmp/complete_values.yaml
-        echo "DEBUG: File size: $(wc -l < /tmp/complete_values.yaml) lines"
         
         # Install yq if not present (lightweight approach)
         if ! command -v yq >/dev/null 2>&1; then
-            echo "DEBUG: Installing yq..."
             wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
             chmod +x /usr/local/bin/yq
         fi
-        
-        echo "DEBUG: Checking for enabledApps section:"
-        yq eval '.enabledApps' /tmp/complete_values.yaml || echo "DEBUG: No enabledApps found"
-        echo "DEBUG: EnabledApps count: $(yq eval '.enabledApps | length' /tmp/complete_values.yaml 2>/dev/null || echo 0)"
     else
         echo "ERROR: initial-cf-values configmap not found!"
         exit 1
@@ -184,10 +235,7 @@ data:
     
     # Get the complete app list from the merged values (which includes size-specific enabledApps)
     {{- if .Values.disabledApps }}
-    echo "DEBUG: Filtering out disabled apps: {{ .Values.disabledApps }}"
-    
     # Validate that disabled patterns match at least one real app
-    echo "DEBUG: Validating disabled app patterns..."
     IFS=',' read -ra PATTERNS <<< "{{ .Values.disabledApps }}"
     declare -A pattern_matched
     for pattern in "${PATTERNS[@]}"; do
@@ -212,17 +260,14 @@ data:
       done
       
       if [ "$disabled" = "true" ]; then
-        echo "DEBUG: Excluding disabled app: $app (matches pattern: $matched_pattern)"
         # Add as comment for documentation
         echo "  #- $app                    # Disabled by --disabled-apps" >> /tmp/values.yaml
       else
-        echo "DEBUG: Including enabled app: $app"
         echo "  - $app" >> /tmp/values.yaml
       fi
     done
     
     # Check if any patterns didn't match anything
-    echo "DEBUG: Checking for unmatched patterns..."
     unmatched_patterns=()
     for pattern in "${PATTERNS[@]}"; do
       # Re-check each pattern against all apps
@@ -255,10 +300,8 @@ data:
       exit 1
     fi
     {{- else }}
-    echo "DEBUG: No disabled apps specified, including all apps normally"
     # No disabled apps, include all enabledApps from merged values
     yq eval '.enabledApps[]' /tmp/complete_values.yaml | while IFS= read -r app; do
-      echo "DEBUG: Adding app: $app"
       echo "  - $app" >> /tmp/values.yaml
     done
     {{- end }}
@@ -313,9 +356,7 @@ data:
     
     sed -i "s/DOMAIN_PLACEHOLDER/${DOMAIN}/g" /tmp/values.yaml
     
-    # Debug: Show final values.yaml content
-    echo "DEBUG: Final values.yaml content:"
-    cat /tmp/values.yaml
+
     
     curl -X POST "${GITEA_URL}/api/v1/repos/cluster-org/cluster-values/contents/values.yaml" \
       -H "Authorization: token ${GITEA_TOKEN}" \
@@ -325,5 +366,7 @@ data:
         "content": "'$(base64 -w 0 < /tmp/values.yaml)'",
         "branch": "main"
       }' || echo "Failed to create values.yaml file"
+    
+
     
     echo "Setup completed successfully!"
