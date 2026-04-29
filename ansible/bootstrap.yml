@@ -1,0 +1,18 @@
+---
+# ClusterForge Bootstrap Playbook
+#
+# Usage:
+#   ansible-playbook bootstrap.yml -e domain=example.com
+#   ansible-playbook bootstrap.yml -e domain=example.com -e cluster_size=small
+#   ansible-playbook bootstrap.yml -e domain=example.com -e @vars/small-cluster.yml
+#   ansible-playbook bootstrap.yml -e domain=example.com --tags argocd,openbao
+#   ansible-playbook bootstrap.yml -e domain=example.com -e apps=keycloak
+#
+# See roles/cluster_forge_bootstrap/defaults/main.yml for all variables.
+
+- name: Bootstrap ClusterForge
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - cluster_forge_bootstrap

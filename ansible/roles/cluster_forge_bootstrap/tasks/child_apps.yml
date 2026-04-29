@@ -1,0 +1,87 @@
+---
+# Render specific cluster-forge child apps (app-of-apps entries)
+# Mirrors render_cluster_forge_child_apps() in bootstrap.sh
+#
+# Called when 'apps' variable contains names that are not bootstrap components.
+# Emits ArgoCD Application manifests via templates/cluster-apps.yaml for only
+# the requested apps, merging base + size-specific configuration.
+
+- name: Create temp file for filtered values
+  ansible.builtin.tempfile:
+    state: file
+    suffix: .cf-child-apps.yaml
+  register: _child_apps_tmp
+  tags: child_apps
+
+- name: Write filtered values skeleton
+  ansible.builtin.copy:
+    dest: "{{ _child_apps_tmp.path }}"
+    content: |
+      global:
+        domain: {{ domain }}
+      enabledApps: []
+      apps: {}
+  tags: child_apps
+
+# For each requested child app: add to enabledApps and copy its config from base + size values.
+# Disabled apps are already filtered out of _run_child_apps by main.yml.
+
+- name: Build filtered values for each child app
+  ansible.builtin.shell: |
+    app="{{ item }}"
+    tmp="{{ _child_apps_tmp.path }}"
+    base="{{ source_root }}/root/{{ values_file }}"
+    size="{{ size_values_file }}"
+
+    # Add to enabledApps
+    yq eval ".enabledApps += [\"${app}\"]" -i "${tmp}"
+
+    # Copy app config from base values if present
+    if yq eval ".apps | has(\"${app}\")" "${base}" 2>/dev/null | grep -q "true"; then
+      yq eval ".apps[\"${app}\"] = load(\"${base}\").apps[\"${app}\"]" -i "${tmp}"
+    fi
+
+    # Merge size-specific app config if present
+    if [ -n "${size}" ] && [ -f "${size}" ]; then
+      if yq eval ".apps | has(\"${app}\")" "${size}" 2>/dev/null | grep -q "true"; then
+        yq eval ".apps[\"${app}\"] = (.apps[\"${app}\"] // {}) * load(\"${size}\").apps[\"${app}\"]" -i "${tmp}"
+      fi
+    fi
+  loop: "{{ _run_child_apps }}"
+  changed_when: false
+  tags: child_apps
+
+- name: Apply cluster-forge child apps via helm template
+  ansible.builtin.shell: >-
+    helm template cluster-forge "{{ source_root }}/root"
+    --show-only templates/cluster-apps.yaml
+    --values "{{ _child_apps_tmp.path }}"
+    --set clusterForge.targetRevision={{ target_revision }}
+    --set externalValues.repoUrl={{ _gitea_values_repo_url }}
+    --set clusterForge.repoUrl={{ _gitea_cf_repo_url }}
+    --namespace argocd
+    --kube-version {{ kube_version }}
+    | kubectl apply -f -
+  changed_when: true
+  when: not template_only
+  tags: child_apps
+
+- name: Render child apps to stdout (template_only)
+  ansible.builtin.shell: >-
+    helm template cluster-forge "{{ source_root }}/root"
+    --show-only templates/cluster-apps.yaml
+    --values "{{ _child_apps_tmp.path }}"
+    --set clusterForge.targetRevision={{ target_revision }}
+    --set externalValues.repoUrl={{ _gitea_values_repo_url }}
+    --set clusterForge.repoUrl={{ _gitea_cf_repo_url }}
+    --namespace argocd
+    --kube-version {{ kube_version }}
+  changed_when: false
+  when: template_only
+  tags: child_apps
+
+- name: Clean up child apps temp file
+  ansible.builtin.file:
+    path: "{{ _child_apps_tmp.path }}"
+    state: absent
+  tags: child_apps

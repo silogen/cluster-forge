@@ -1,0 +1,176 @@
+---
+# Orchestrator — mirrors bootstrap.sh main()
+
+# --- Dependency check ---
+
+- name: Check required dependencies
+  ansible.builtin.command: "which {{ item }}"
+  loop:
+    - kubectl
+    - helm
+    - yq
+    - openssl
+  changed_when: false
+  when: not skip_dependency_check
+  tags: always
+
+# --- Validate inputs ---
+
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - domain | length > 0
+      - cluster_size in ['small', 'medium', 'large']
+    fail_msg: >-
+      domain is required and cluster_size must be one of: small, medium, large.
+      Got: domain='{{ domain }}', cluster_size='{{ cluster_size }}'
+  tags: always
+
+- name: Check base values file exists
+  ansible.builtin.stat:
+    path: "{{ source_root }}/root/{{ values_file }}"
+  register: _base_values_stat
+  tags: always
+
+- name: Fail if base values file missing
+  ansible.builtin.fail:
+    msg: "Values file not found: {{ source_root }}/root/{{ values_file }}"
+  when: not _base_values_stat.stat.exists
+  tags: always
+
+# --- Resolve size-specific values file ---
+
+- name: Check size-specific values file
+  ansible.builtin.stat:
+    path: "{{ source_root }}/root/values_{{ cluster_size }}.yaml"
+  register: _size_values_stat
+  tags: always
+
+- name: Set size_values_file when it exists
+  ansible.builtin.set_fact:
+    size_values_file: "{{ source_root }}/root/values_{{ cluster_size }}.yaml"
+  when: _size_values_stat.stat.exists
+  tags: always
+
+- name: Set size_values_file to empty when missing
+  ansible.builtin.set_fact:
+    size_values_file: ""
+  when: not _size_values_stat.stat.exists
+  tags: always
+
+- name: Warn when size-specific values file missing
+  ansible.builtin.debug:
+    msg: "WARNING: Size-specific values file not found: values_{{ cluster_size }}.yaml. Proceeding with base values only."
+  when: not _size_values_stat.stat.exists
+  tags: always
+
+# --- Expand aiwb_only into disabled_apps ---
+
+- name: Expand aiwb_only into disabled_apps
+  ansible.builtin.set_fact:
+    disabled_apps: >-
+      {{ 'airm,airm-infra-cnpg,airm-infra-external-secrets,airm-infra-rabbitmq,kaiwo*,rabbitmq'
+         + (',' + disabled_apps if disabled_apps | length > 0 else '') }}
+  when: aiwb_only | bool
+  tags: always
+
+# --- Print summary ---
+
+- name: Display bootstrap configuration
+  ansible.builtin.debug:
+    msg:
+      - "=== ClusterForge Bootstrap ==="
+      - "Domain:          {{ domain }}"
+      - "Cluster size:    {{ cluster_size }}"
+      - "Target revision: {{ target_revision }}"
+      - "Values file:     {{ values_file }}"
+      - "Size values:     {{ size_values_file | default('(none)') }}"
+      - "Apps filter:     {{ apps | default('(all)') }}"
+      - "Disabled apps:   {{ disabled_apps | default('(none)') }}"
+      - "Template only:   {{ template_only }}"
+  when: not template_only
+  tags: always
+
+# --- Determine which apps to run ---
+# Mirrors bootstrap.sh main() routing logic.
+# Bootstrap components: namespaces, argocd, openbao, gitea, cluster-forge
+# Everything else is treated as a cluster-forge child app.
+
+- name: Split apps into bootstrap components and child apps
+  ansible.builtin.set_fact:
+    _bootstrap_component_names:
+      - namespaces
+      - argocd
+      - openbao
+      - gitea
+      - cluster-forge
+    _apps_list: "{{ apps.split(',') | map('trim') | select() | list if apps | length > 0 else [] }}"
+  tags: always
+
+- name: Compute effective apps list (remove disabled)
+  ansible.builtin.set_fact:
+    _effective_apps: >-
+      {{ _apps_list | reject('match', _disabled_pattern) | list
+         if disabled_apps | length > 0
+         else _apps_list }}
+  vars:
+    # Build an alternation pattern from the comma-separated disabled_apps globs.
+    # Ansible's 'match' filter uses Python fnmatch semantics — same as bash case.
+    _disabled_pattern: "{{ '(' + disabled_apps.split(',') | map('trim') | join('|') + ')' if disabled_apps | length > 0 else '^$' }}"
+  tags: always
+
+- name: Classify effective apps
+  ansible.builtin.set_fact:
+    _run_bootstrap_components: "{{ _effective_apps | intersect(_bootstrap_component_names) }}"
+    _run_child_apps: "{{ _effective_apps | difference(_bootstrap_component_names) }}"
+    _run_all: "{{ _effective_apps | length == 0 and _apps_list | length == 0 }}"
+  tags: always
+
+# Helper booleans used in include_tasks when conditions
+- name: Set routing booleans
+  ansible.builtin.set_fact:
+    _do_namespaces: "{{ _run_all or 'namespaces' in _run_bootstrap_components }}"
+    _do_argocd: "{{ _run_all or 'argocd' in _run_bootstrap_components }}"
+    _do_openbao: "{{ _run_all or 'openbao' in _run_bootstrap_components }}"
+    _do_gitea: "{{ (_run_all or 'gitea' in _run_bootstrap_components) and cluster_size != 'small' }}"
+    _do_cluster_forge: "{{ _run_all or 'cluster-forge' in _run_bootstrap_components }}"
+    _do_child_apps: "{{ _run_child_apps | length > 0 }}"
+  tags: always
+
+# --- Execute bootstrap steps ---
+
+- name: Create namespaces
+  ansible.builtin.include_tasks: namespaces.yml
+  when: _do_namespaces | bool
+  tags:
+    - namespaces
+
+- name: Bootstrap ArgoCD
+  ansible.builtin.include_tasks: argocd.yml
+  when: _do_argocd | bool
+  tags:
+    - argocd
+
+- name: Bootstrap OpenBao
+  ansible.builtin.include_tasks: openbao.yml
+  when: _do_openbao | bool
+  tags:
+    - openbao
+
+- name: Bootstrap Gitea
+  ansible.builtin.include_tasks: gitea.yml
+  when: _do_gitea | bool
+  tags:
+    - gitea
+
+- name: Apply cluster-forge parent Application
+  ansible.builtin.include_tasks: cluster_forge_app.yml
+  when: _do_cluster_forge | bool
+  tags:
+    - cluster_forge
+
+- name: Render cluster-forge child apps
+  ansible.builtin.include_tasks: child_apps.yml
+  when: _do_child_apps | bool
+  tags:
+    - child_apps

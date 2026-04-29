@@ -1,0 +1,14 @@
+---
+# Small cluster configuration for droplet-129.212.190.107
+# Domain: 129.212.190.107.nip.io
+# Cluster size: small
+# Using branch 'refactor-bootstrap-to-ansible' for testing (has values_small.yaml)
+
+cluster_domain: "129.212.190.107.nip.io"
+cluster_size: "small"
+cluster_forge_repo: "https://github.com/silogen/cluster-forge.git"
+cluster_forge_target_revision: "refactor-bootstrap-to-ansible"
+kube_version: "1.33"
+
+# Clean up clone after bootstrap
+cleanup_clone: true

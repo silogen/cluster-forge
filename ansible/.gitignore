@@ -1,0 +1,5 @@
+*.log
+*.retry
+collections/
+vars/local-*.yml
+.cf-*-bootstrap/

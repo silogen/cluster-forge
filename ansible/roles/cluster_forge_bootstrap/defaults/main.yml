@@ -1,0 +1,53 @@
+---
+# Mirrors bootstrap.sh variable initializations.
+
+latest_release: "v2.0.4"
+
+# Required
+domain: ""
+
+# Git revision ArgoCD syncs from (tag, branch, or commit hash)
+target_revision: "{{ latest_release }}"
+
+# Cluster sizing: small | medium | large
+cluster_size: "medium"
+
+# Upstream cluster-forge repo (used for small clusters and as clone source)
+cluster_forge_repo: "https://github.com/silogen/cluster-forge.git"
+
+# Path to the root values file, relative to source_root/root/
+values_file: "values.yaml"
+
+# Kubernetes version for helm --kube-version flag
+kube_version: "1.33"
+
+# Timeout for rollout waits
+default_timeout: "5m"
+
+# Comma-separated list of apps to deploy (empty = all bootstrap components)
+# Bootstrap components: namespaces, argocd, openbao, gitea, cluster-forge
+# Or any cluster-forge child app name from values.yaml
+apps: ""
+
+# Comma-separated glob patterns of apps to exclude (supports * and ? wildcards)
+disabled_apps: ""
+
+# Deploy only AIWB components; implicitly disables airm,airm-*,kaiwo,kaiwo-*,rabbitmq
+aiwb_only: false
+
+# Custom AIRM image repository for gitea-init job
+airm_image_repository: ""
+
+# When true, output YAML to stdout instead of applying to cluster
+template_only: false
+
+# Skip dependency checking
+skip_dependency_check: false
+
+# Root of the cluster-forge source tree.
+# Default assumes running from ansible/ directory inside the repo.
+source_root: "{{ playbook_dir }}/.."
+
+# Internal Gitea URLs used for medium/large clusters
+_gitea_cf_repo_url: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"
+_gitea_values_repo_url: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"

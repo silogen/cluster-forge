@@ -1,0 +1,64 @@
+---
+# Create the cluster-forge ArgoCD parent Application
+# Mirrors apply_cluster_forge_parent_app() in bootstrap.sh
+
+# Small cluster: single-source mode (no Gitea, reads chart + values from GitHub directly)
+# Medium/large: dual-source mode (chart from GitHub/Gitea, values from Gitea cluster-values repo)
+
+- name: Set cluster-forge Application repo config (small)
+  ansible.builtin.set_fact:
+    _cf_repo_url: "{{ cluster_forge_repo }}"
+    _cf_external_values_enabled: "false"
+    _cf_values_file: "{{ values_file }}"
+  when: cluster_size == 'small'
+  tags: cluster_forge
+
+- name: Set cluster-forge Application repo config (medium/large)
+  ansible.builtin.set_fact:
+    _cf_repo_url: "{{ _gitea_cf_repo_url }}"
+    _cf_external_values_enabled: "true"
+    _cf_values_file: "{{ values_file }}"
+  when: cluster_size != 'small'
+  tags: cluster_forge
+
+- name: Build helm args for cluster-forge parent Application
+  ansible.builtin.set_fact:
+    _cf_helm_args: >-
+      cluster-forge "{{ source_root }}/root"
+      --show-only templates/cluster-forge.yaml
+      --values "{{ source_root }}/root/{{ values_file }}"
+      {% if size_values_file | length > 0 %}--values "{{ size_values_file }}"{% endif %}
+      --set global.clusterSize=values_{{ cluster_size }}.yaml
+      --set global.domain={{ domain }}
+      --set clusterForge.targetRevision={{ target_revision }}
+      --set clusterForge.repoUrl={{ _cf_repo_url }}
+      --set externalValues.enabled={{ _cf_external_values_enabled }}
+      --set bootstrap.renderSelfReference=true
+      {% if cluster_size != 'small' %}--set externalValues.repoUrl={{ _gitea_values_repo_url }}{% endif %}
+      {% if cluster_size == 'small' %}--set clusterForge.valuesFile={{ _cf_values_file }}{% endif %}
+      --namespace argocd
+      --kube-version {{ kube_version }}
+  tags: cluster_forge
+
+- name: Apply cluster-forge parent Application
+  ansible.builtin.shell: >-
+    helm template {{ _cf_helm_args }} | kubectl apply -f -
+  changed_when: true
+  when: not template_only
+  tags: cluster_forge
+
+- name: Render cluster-forge parent Application to stdout (template_only)
+  ansible.builtin.shell: >-
+    helm template {{ _cf_helm_args }}
+  changed_when: false
+  when: template_only
+  tags: cluster_forge
+
+- name: Log cluster-forge Application creation
+  ansible.builtin.debug:
+    msg:
+      - "=== ClusterForge parent Application created ==="
+      - "Target revision: {{ target_revision }}"
+      - "Repo URL:        {{ _cf_repo_url }}"
+      - "External values: {{ _cf_external_values_enabled }}"
+  tags: cluster_forge

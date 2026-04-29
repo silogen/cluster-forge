@@ -1,0 +1,14 @@
+---
+# Droplet cluster configuration
+# Domain: 134.199.206.84.nip.io
+# Cluster size: medium
+# Using branch 'refactor-bootstrap-to-ansible' for testing
+
+cluster_domain: "134.199.206.84.nip.io"
+cluster_size: "medium"
+cluster_forge_repo: "https://github.com/silogen/cluster-forge.git"
+cluster_forge_target_revision: "refactor-bootstrap-to-ansible"
+kube_version: "1.33"
+
+# Clean up clone after bootstrap
+cleanup_clone: true
