@@ -1,0 +1,9 @@
+---
+# Small cluster configuration.
+# No Gitea — ArgoCD reads directly from GitHub at the given target_revision.
+# Usage: ansible-playbook bootstrap.yml -e @vars/small-cluster.yml -e domain=<your-domain>
+
+cluster_size: "small"
+
+# Point to GitHub directly (no internal Gitea for small clusters)
+cluster_forge_repo: "https://github.com/silogen/cluster-forge.git"

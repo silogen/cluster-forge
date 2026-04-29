@@ -1,0 +1,12 @@
+---
+# Development / local testing configuration.
+# Uses a local repo path and a branch target revision.
+
+cluster_size: "small"
+target_revision: "main"
+
+# When testing from inside the repo, source_root defaults correctly to playbook_dir/..
+# Override if running from a different location:
+# source_root: "/path/to/cluster-forge"
+
+skip_dependency_check: false

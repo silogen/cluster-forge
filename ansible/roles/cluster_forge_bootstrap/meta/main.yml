@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  role_name: cluster_forge_bootstrap
+  description: Bootstrap a ClusterForge cluster (ArgoCD + OpenBao + Gitea + parent Application)
+  min_ansible_version: "2.14"
+
+dependencies: []

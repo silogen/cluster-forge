@@ -1,0 +1,45 @@
+---
+# Example variables for cluster_forge_bootstrap role.
+# Copy this file and customize, then pass with: -e @vars/my-cluster.yml
+
+# REQUIRED: Cluster domain
+domain: "example.com"
+
+# Git revision for ArgoCD to sync from (tag, branch, or commit hash)
+target_revision: "v2.0.4"
+
+# Cluster sizing: small | medium | large
+cluster_size: "medium"
+
+# Upstream cluster-forge repository
+cluster_forge_repo: "https://github.com/silogen/cluster-forge.git"
+
+# Base values file (relative to root/)
+values_file: "values.yaml"
+
+# Kubernetes version for helm --kube-version
+kube_version: "1.33"
+
+# Rollout wait timeout
+default_timeout: "5m"
+
+# Comma-separated app filter. Empty = full bootstrap sequence.
+# Bootstrap components: namespaces, argocd, openbao, gitea, cluster-forge
+# Or any child app name from values.yaml (e.g. keycloak, airm, kaiwo)
+apps: ""
+
+# Comma-separated glob patterns of apps to exclude
+# Supports * and ? wildcards, e.g. "airm,airm-infra-*,kaiwo*"
+disabled_apps: ""
+
+# Deploy only AIWB components (implicitly disables airm,airm-*,kaiwo,kaiwo-*,rabbitmq)
+aiwb_only: false
+
+# Custom AIRM image repository (e.g. ghcr.io/myorg)
+airm_image_repository: ""
+
+# Output YAML to stdout instead of applying to cluster
+template_only: false
+
+# Skip dependency checking
+skip_dependency_check: false

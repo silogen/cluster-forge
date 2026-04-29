@@ -1,0 +1,18 @@
+---
+# Create required namespaces (idempotent via --dry-run=client | apply)
+
+- name: Create core namespaces
+  ansible.builtin.shell: >-
+    kubectl create ns {{ item }} --dry-run=client -o yaml | kubectl apply -f -
+  loop:
+    - argocd
+    - cf-openbao
+  changed_when: true
+  tags: namespaces
+
+- name: Create cf-gitea namespace (medium/large only)
+  ansible.builtin.shell: >-
+    kubectl create ns cf-gitea --dry-run=client -o yaml | kubectl apply -f -
+  when: cluster_size != 'small'
+  changed_when: true
+  tags: namespaces
