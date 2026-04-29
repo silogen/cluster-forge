@@ -380,22 +380,25 @@ kubectl apply -f ${SOURCES_DIR}/gateway-api/v1.3.0/experimental-install.yaml --s
 # Install kgateway as the Gateway API implementation
 kubectl create namespace kgateway-system --dry-run=client -o yaml | kubectl apply -f -
 helm template kgateway-crds ${SOURCES_DIR}/kgateway-crds/v2.1.0-main --namespace kgateway-system | kubectl apply --server-side -f -
-helm template kgateway ${SOURCES_DIR}/kgateway/v2.1.0-main --namespace kgateway-system --set service.type=LoadBalancer | kubectl apply --server-side -f -
+helm template kgateway ${SOURCES_DIR}/kgateway/v2.1.0-main --namespace kgateway-system --set service.type=LoadBalancer | kubectl apply --server-side --force-conflicts -f -
 
 # Patch: kgateway v2.1.0-main ClusterRole is missing tokenreviews, which the xDS server
 # requires to validate JWT tokens from Envoy proxy. Without it, Envoy cannot connect to
 # the xDS control plane and the gateway serves no routes.
-kubectl patch clusterrole kgateway-kgateway-system --type=json -p='[
-  {
-    "op": "add",
-    "path": "/rules/-",
-    "value": {
-      "apiGroups": ["authentication.k8s.io"],
-      "resources": ["tokenreviews"],
-      "verbs": ["create"]
+if ! kubectl get clusterrole kgateway-kgateway-system -o json \
+    | jq -e '.rules[] | select(.resources | index("tokenreviews")) | select(.apiGroups | index("authentication.k8s.io")) | select(.verbs | index("create"))' >/dev/null; then
+  kubectl patch clusterrole kgateway-kgateway-system --type=json -p='[
+    {
+      "op": "add",
+      "path": "/rules/-",
+      "value": {
+        "apiGroups": ["authentication.k8s.io"],
+        "resources": ["tokenreviews"],
+        "verbs": ["create"]
+      }
     }
-  }
-]'
+  ]'
+fi
 
 # Wait for kgateway to be ready
 echo "⏳ Waiting for kgateway to be ready..."
