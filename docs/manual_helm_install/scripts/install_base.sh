@@ -40,6 +40,13 @@ AIWB_DB_PASSWORD="${AIWB_DB_PASSWORD:-examplepassword}"
 KEYCLOAK_DB_NAME="${KEYCLOAK_DB_NAME:-keycloak}"
 KEYCLOAK_DB_USER="${KEYCLOAK_DB_USER:-keycloak}"
 KEYCLOAK_DB_PASSWORD="${KEYCLOAK_DB_PASSWORD:-examplepassword}"
+# CNPG superuser credentials — used only in PLUGGABLE_DB=false mode to populate
+# the aiwb-cnpg-superuser / keycloak-cnpg-superuser Secrets that the CNPG
+# Cluster spec references. Unused by application pods; default to placeholder.
+AIWB_CNPG_SUPERUSER_USER="${AIWB_CNPG_SUPERUSER_USER:-placeholder}"
+AIWB_CNPG_SUPERUSER_PASSWORD="${AIWB_CNPG_SUPERUSER_PASSWORD:-placeholder}"
+KEYCLOAK_CNPG_SUPERUSER_USER="${KEYCLOAK_CNPG_SUPERUSER_USER:-placeholder}"
+KEYCLOAK_CNPG_SUPERUSER_PASSWORD="${KEYCLOAK_CNPG_SUPERUSER_PASSWORD:-placeholder}"
 # Secret names used in pluggable mode (chart defaults are aiwb-cnpg-user /
 # keycloak-cnpg-user; we use db-suffixed names to make the source obvious).
 AIWB_DB_SECRET_NAME="aiwb-db-user"
@@ -608,10 +615,32 @@ echo "  📦 Installing AIWB secrets..."
 kubectl apply -f "${SCRIPT_DIR}/../secrets/secrets-aiwb.yaml"
 
 # CNPG-related secrets: only needed when in-cluster Postgres (CNPG) is installed.
-# In PLUGGABLE_DB=true mode the env-based block below creates the user secret
-# pointing to the external Postgres host instead.
+# Driven by AIWB_DB_USER/PASSWORD and KEYCLOAK_DB_USER/PASSWORD (plus the
+# *_CNPG_SUPERUSER_* vars) so the username and password the CNPG cluster
+# bootstraps match what AIWB / Keycloak read at startup. In PLUGGABLE_DB=true
+# mode the env-based block below creates the *-db-user secrets pointing to the
+# external Postgres host instead.
 if [[ "${PLUGGABLE_DB}" != true ]]; then
-  kubectl apply -f "${SCRIPT_DIR}/../secrets/secrets-aiwb-cnpg.yaml"
+  echo "  📦 Creating CNPG credential secrets..."
+  kubectl create secret generic aiwb-cnpg-superuser -n aiwb \
+    --from-literal=username="${AIWB_CNPG_SUPERUSER_USER}" \
+    --from-literal=password="${AIWB_CNPG_SUPERUSER_PASSWORD}" \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+  kubectl create secret generic aiwb-cnpg-user -n aiwb \
+    --from-literal=username="${AIWB_DB_USER}" \
+    --from-literal=password="${AIWB_DB_PASSWORD}" \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+  kubectl create secret generic keycloak-cnpg-superuser -n keycloak \
+    --from-literal=username="${KEYCLOAK_CNPG_SUPERUSER_USER}" \
+    --from-literal=password="${KEYCLOAK_CNPG_SUPERUSER_PASSWORD}" \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+  kubectl create secret generic keycloak-cnpg-user -n keycloak \
+    --from-literal=username="${KEYCLOAK_DB_USER}" \
+    --from-literal=password="${KEYCLOAK_DB_PASSWORD}" \
+    --dry-run=client -o yaml | kubectl apply -f -
 fi
 
 # MinIO-related secrets: only needed when in-cluster MinIO Tenant is installed.
@@ -736,7 +765,7 @@ if [[ "${PLUGGABLE_DB}" != true ]]; then
   helm template aiwb-infra-cnpg ${SOURCES_DIR}/eai-infra/aiwb-cnpg/0.1.0 \
     -f ${SOURCES_DIR}/eai-infra/aiwb-cnpg/0.1.0/values.yaml \
     --set instances=${CNPG_INSTANCES} \
-    --set username=aiwb_user \
+    --set username=${AIWB_DB_USER} \
     --set storage.storageClass=${DEFAULT_STORAGE_CLASS_NAME} \
     --set walStorage.storageClass=${DEFAULT_STORAGE_CLASS_NAME} \
     --namespace aiwb | kubectl apply --server-side -f -
@@ -764,7 +793,7 @@ KEYCLOAK_PLUGGABLE_DB_ARGS=""
 if [[ ${PLUGGABLE_DB} == true ]]; then
   echo "  📦 Installing Keycloak with pluggable database (host: ${POSTGRES_HOST}:${POSTGRES_PORT}, database: ${KEYCLOAK_DB_NAME})"
   KEYCLOAK_CNPG_ENABLED=false
-  KEYCLOAK_PLUGGABLE_DB_ARGS="--set postgresql.host=${POSTGRES_HOST} --set postgresql.port=${POSTGRES_PORT} --set postgresql.database=${KEYCLOAK_DB_NAME} --set postgresql.username=${KEYCLOAK_DB_USER} --set postgresql.userSecretName=${KEYCLOAK_DB_SECRET_NAME}"
+  KEYCLOAK_PLUGGABLE_DB_ARGS="--set postgresql.host=${POSTGRES_HOST} --set postgresql.port=${POSTGRES_PORT} --set postgresql.database=${KEYCLOAK_DB_NAME} --set postgresql.userSecretName=${KEYCLOAK_DB_SECRET_NAME}"
 else
   echo "  📦 Installing Keycloak with PostgreSQL cluster (${CNPG_INSTANCES} instance(s))..."
   KEYCLOAK_CNPG_ENABLED=true
@@ -777,6 +806,7 @@ helm template keycloak ${SOURCES_DIR}/keycloak-old \
   --set cnpg.storage.storageClassName=${DEFAULT_STORAGE_CLASS_NAME} \
   --set domain="$DOMAIN" \
   --set hostname="${KC_HOSTNAME}" \
+  --set postgresql.username=${KEYCLOAK_DB_USER} \
   --set 'extraEnvVars[0].name=JAVA_OPTS_APPEND' \
   --set 'extraEnvVars[0].value=-XX:MaxRAMPercentage=65.0 -XX:InitialRAMPercentage=50.0 -XX:MaxMetaspaceSize=512m -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true' \
   ${KEYCLOAK_PLUGGABLE_DB_ARGS} \
@@ -939,7 +969,7 @@ fi
 
 AIWB_PLUGGABLE_DB_ARGS=""
 if [[ "${PLUGGABLE_DB}" == true ]]; then
-  AIWB_PLUGGABLE_DB_ARGS="--set postgresql.host=${POSTGRES_HOST} --set postgresql.port=${POSTGRES_PORT} --set postgresql.database=${AIWB_DB_NAME} --set postgresql.username=${AIWB_DB_USER} --set postgresql.userSecretName=${AIWB_DB_SECRET_NAME}"
+  AIWB_PLUGGABLE_DB_ARGS="--set postgresql.host=${POSTGRES_HOST} --set postgresql.port=${POSTGRES_PORT} --set postgresql.database=${AIWB_DB_NAME} --set postgresql.userSecretName=${AIWB_DB_SECRET_NAME}"
 fi
 
 echo "🚀 Installing AIWB application..."
@@ -951,6 +981,7 @@ helm template aiwb ${SOURCES_DIR}/aiwb/1.0.31 \
   --set keycloak.url="${KC_URL}" \
   --set frontend.env.NEXTAUTH_URL="${AIWB_UI_URL}" \
   --set frontend.env.KEYCLOAK_ISSUER="${KC_URL}/realms/airm" \
+  --set postgresql.username=${AIWB_DB_USER} \
   ${AIWB_PLUGGABLE_S3_ARGS} \
   ${AIWB_PLUGGABLE_DB_ARGS} \
   | kubectl apply --server-side -f -
