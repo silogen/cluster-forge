@@ -58,6 +58,10 @@ MINIO_PORT="${MINIO_PORT:-9999}"
 # Override with MINIO_HOST_IP=<ip> for other engines (kind, minikube, etc.).
 MINIO_HOST_IP="${MINIO_HOST_IP:-192.168.127.254}"
 MINIO_BUCKET="${MINIO_BUCKET:-default-bucket}"
+# Credentials for the external MinIO. Defaults match s3_minio_container.sh so a
+# stock dev workflow works out of the box; override for any non-dev deployment.
+MINIO_ACCESS_KEY="${MINIO_ACCESS_KEY:-examplepass}"
+MINIO_SECRET_KEY="${MINIO_SECRET_KEY:-examplepass}"
 METALLB_IP_RANGE="${METALLB_IP_RANGE:-192.168.127.240-192.168.127.250}"
 
 # Derive protocol-aware URL bases from DOMAIN.
