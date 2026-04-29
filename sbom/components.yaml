@@ -246,12 +246,7 @@ components:
     projectUrl: https://github.com/openbao/openbao
     license: Mozilla Public License 2.0
     licenseUrl: https://github.com/openbao/openbao/blob/main/LICENSE
-  openbao-init:
-    path: ../scripts/init-openbao-job
-    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/scripts/init-openbao-job
-    projectUrl: https://github.com/silogen/cluster-forge/
-    license: Apache License 2.0
-    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
+
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
     sourceUrl: https://open-telemetry.github.io/opentelemetry-helm-charts
