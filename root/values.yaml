@@ -330,7 +330,7 @@ apps:
     valuesFile: values.yaml
   kaiwo:
     namespace: kaiwo-system
-    path: kaiwo/v0.2.0-rc11
+    path: kaiwo/v0.2.0-rc12
     syncWave: -10
     valuesFiles:
       - "values.yaml"
