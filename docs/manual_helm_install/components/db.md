@@ -68,9 +68,11 @@ PostgreSQL must accept remote connections from the cluster — set
 - Skips installing the cnpg-operator
 - Skips the CNPG `Cluster` CRs in the AIWB and Keycloak charts (renders the
   charts with `cnpg.enabled=false`)
-- Skips applying `secrets/secrets-aiwb-cnpg.yaml` (the placeholder CNPG
-  superuser/user Secrets are not created)
-- Creates the user Secrets that AIWB and Keycloak read at startup, from
+- Skips creating the CNPG superuser / user Secrets (`aiwb-cnpg-superuser`,
+  `aiwb-cnpg-user`, `keycloak-cnpg-superuser`, `keycloak-cnpg-user`) — none
+  of them are needed when the in-cluster CNPG cluster is not running
+- Creates the user Secrets that AIWB and Keycloak read at startup
+  (`${AIWB_DB_SECRET_NAME}`, `${KEYCLOAK_DB_SECRET_NAME}`) from
   `${AIWB_DB_USER}` / `${AIWB_DB_PASSWORD}` and `${KEYCLOAK_DB_USER}` /
   `${KEYCLOAK_DB_PASSWORD}`
 - Renders the AIWB and Keycloak charts with `--set postgresql.host`,

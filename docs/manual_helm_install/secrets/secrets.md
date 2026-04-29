@@ -4,7 +4,7 @@
 
 - [Secret Sources](#secret-sources)
   - [secrets-aiwb.yaml](#secrets-aiwbyaml)
-  - [secrets-aiwb-cnpg.yaml](#secrets-aiwb-cnpgyaml)
+  - [Inline CNPG credential secrets](#inline-cnpg-credential-secrets)
   - [secrets-aiwb-minio.yaml](#secrets-aiwb-minioyaml)
   - [secrets-override-hardcoded.yaml](#secrets-override-hardcodedyaml)
   - [secrets-aiwb-standalone.yaml](#secrets-aiwb-standaloneyaml)
@@ -25,8 +25,8 @@ Having an external secrets management system is a best practice, but for out-of-
 ### secrets-aiwb.yaml
 This manifest contains the application-level secrets for the AI Workbench deployment that are always required regardless of pluggable mode. All values use `placeholder` by default and should be replaced with secure credentials for production.
 
-### secrets-aiwb-cnpg.yaml
-CNPG-specific Postgres credentials (superuser + application user) for the in-cluster CloudNativePG Clusters serving AIWB and Keycloak. `install_base.sh` only applies this file when `PLUGGABLE_DB=false`. In `PLUGGABLE_DB=true` mode the script instead creates env-based user secrets (`AIWB_DB_SECRET_NAME`, `KEYCLOAK_DB_SECRET_NAME`) populated from `AIWB_DB_USER` / `AIWB_DB_PASSWORD` and `KEYCLOAK_DB_USER` / `KEYCLOAK_DB_PASSWORD`.
+### Inline CNPG credential secrets
+CNPG-specific Postgres credentials (superuser + application user) for the in-cluster CloudNativePG Clusters serving AIWB and Keycloak. Created inline by `install_base.sh` when `PLUGGABLE_DB=false`, populated from `AIWB_DB_USER` / `AIWB_DB_PASSWORD`, `KEYCLOAK_DB_USER` / `KEYCLOAK_DB_PASSWORD`, and the `*_CNPG_SUPERUSER_*` env vars (which default to `placeholder`). In `PLUGGABLE_DB=true` mode the script instead creates env-based user secrets (`AIWB_DB_SECRET_NAME`, `KEYCLOAK_DB_SECRET_NAME`) pointing at the external Postgres host.
 
 ### secrets-aiwb-minio.yaml
 MinIO-related secrets: `minio-credentials` in the `aiwb` and `workbench` namespaces, plus `default-user` for the in-cluster MinIO Tenant. `install_base.sh` only applies this file when `PLUGGABLE_S3=false`. In `PLUGGABLE_S3=true` mode the script instead creates `minio-credentials` in `aiwb` and `workbench` from `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY`, and `default-user` is not needed (no in-cluster Tenant is installed).
@@ -49,10 +49,10 @@ All required secrets for AIWB deployment, organized by namespace:
 PostgreSQL superuser credentials for AIWB database cluster.
 
 **Keys:**
-- `username` — PostgreSQL admin username (default: `placeholder`)
-- `password` — PostgreSQL admin password (default: `placeholder`)
+- `username` — PostgreSQL admin username (from `${AIWB_CNPG_SUPERUSER_USER}`, default: `placeholder`)
+- `password` — PostgreSQL admin password (from `${AIWB_CNPG_SUPERUSER_PASSWORD}`, default: `placeholder`)
 
-**Source:** secrets-aiwb-cnpg.yaml (applied only when `PLUGGABLE_DB=false`)
+**Source:** Created inline by `install_base.sh` (applied only when `PLUGGABLE_DB=false`)
 
 ---
 
@@ -60,11 +60,11 @@ PostgreSQL superuser credentials for AIWB database cluster.
 PostgreSQL application user credentials for AIWB database.
 
 **Keys:**
-- `username` — PostgreSQL username (**hardcoded:** `aiwb_user`)
-- `password` — PostgreSQL password (default: `placeholder`)
+- `username` — PostgreSQL username (from `${AIWB_DB_USER}`, default: `placeholder`)
+- `password` — PostgreSQL password (from `${AIWB_DB_PASSWORD}`, default: `placeholder`)
 
-**Source:** secrets-aiwb-cnpg.yaml, secrets-override-hardcoded.yaml (applied only when `PLUGGABLE_DB=false`)  
-**Note:** Username is hardcoded in AIWB Helm chart values.yaml. In `PLUGGABLE_DB=true` mode, replaced by env-based `${AIWB_DB_SECRET_NAME}` Secret.
+**Source:** Created inline by `install_base.sh` (applied only when `PLUGGABLE_DB=false`)  
+**Note:** In `PLUGGABLE_DB=true` mode, replaced by env-based `${AIWB_DB_SECRET_NAME}` Secret pointing at the external Postgres host.
 
 ---
 
@@ -119,10 +119,10 @@ S3/MinIO access credentials for AIWB application.
 PostgreSQL superuser credentials for Keycloak database cluster.
 
 **Keys:**
-- `username` — PostgreSQL admin username (default: `placeholder`)
-- `password` — PostgreSQL admin password (default: `placeholder`)
+- `username` — PostgreSQL admin username (from `${KEYCLOAK_CNPG_SUPERUSER_USER}`, default: `placeholder`)
+- `password` — PostgreSQL admin password (from `${KEYCLOAK_CNPG_SUPERUSER_PASSWORD}`, default: `placeholder`)
 
-**Source:** secrets-aiwb-cnpg.yaml (applied only when `PLUGGABLE_DB=false`)
+**Source:** Created inline by `install_base.sh` (applied only when `PLUGGABLE_DB=false`)
 
 ---
 
@@ -130,11 +130,11 @@ PostgreSQL superuser credentials for Keycloak database cluster.
 PostgreSQL application user credentials for Keycloak database.
 
 **Keys:**
-- `username` — PostgreSQL username (**hardcoded:** `keycloak`)
-- `password` — PostgreSQL password (default: `placeholder`)
+- `username` — PostgreSQL username (from `${KEYCLOAK_DB_USER}`, default: `placeholder`)
+- `password` — PostgreSQL password (from `${KEYCLOAK_DB_PASSWORD}`, default: `placeholder`)
 
-**Source:** secrets-aiwb-cnpg.yaml, secrets-override-hardcoded.yaml (applied only when `PLUGGABLE_DB=false`)  
-**Note:** Username is hardcoded in Keycloak Helm chart database configuration. In `PLUGGABLE_DB=true` mode, replaced by env-based `${KEYCLOAK_DB_SECRET_NAME}` Secret.
+**Source:** Created inline by `install_base.sh` (applied only when `PLUGGABLE_DB=false`)  
+**Note:** In `PLUGGABLE_DB=true` mode, replaced by env-based `${KEYCLOAK_DB_SECRET_NAME}` Secret pointing at the external Postgres host.
 
 ---
 
@@ -213,12 +213,10 @@ MetalLB memberlist encryption key.
 
 ### Hardcoded Values Reference
 
-The following values are **hardcoded** in Helm charts and cannot be changed without modifying the charts:
+The following value is **hardcoded** in component configuration and cannot be changed without modifying it:
 
 | Secret | Namespace | Key | Hardcoded Value | Reason |
 |--------|-----------|-----|-----------------|--------|
-| `keycloak-cnpg-user` | keycloak | `username` | `keycloak` | Keycloak chart database config |
-| `aiwb-cnpg-user` | aiwb | `username` | `aiwb_user` | AIWB chart values.yaml line 173 |
 | `default-user` | minio-tenant-default | `API_ACCESS_KEY` | `api-default-user` | OpenBao secret definitions |
 
-These values are pre-configured in `secrets-override-hardcoded.yaml` and will override any values set in `secrets-aiwb.yaml`.
+This value is pre-configured in `secrets-override-hardcoded.yaml`.
