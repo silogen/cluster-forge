@@ -45,14 +45,23 @@ KEYCLOAK_DB_PASSWORD="${KEYCLOAK_DB_PASSWORD:-examplepassword}"
 AIWB_DB_SECRET_NAME="aiwb-db-user"
 KEYCLOAK_DB_SECRET_NAME="keycloak-db-user"
 
-# External MinIO config — used only when PLUGGABLE_S3=true to override the
-# AIWB chart's MinIO endpoint. The in-cluster redirect Service that backs the
-# in-cluster MinIO URL is set up separately by scripts/s3.sh.
+# External MinIO config — used only when PLUGGABLE_S3=true. AIWB is pointed
+# at the external endpoint via --set minio.url / minio.bucket below, and an
+# in-cluster redirect Service is created so that consumers that hardcode the
+# in-cluster MinIO URL (e.g. aim-performance's BUCKET_STORAGE_HOST) reach the
+# external storage transparently.
 MINIO_HOST="${MINIO_HOST:-host.docker.internal}"
 # Host port external MinIO publishes its S3 API on. Default 9999 matches the
 # minio-byo container layout used in this dev workflow (container :9000 → host :9999).
 MINIO_PORT="${MINIO_PORT:-9999}"
+# IP that backs the redirect Endpoints. Defaults to the Rancher Desktop host IP.
+# Override with MINIO_HOST_IP=<ip> for other engines (kind, minikube, etc.).
+MINIO_HOST_IP="${MINIO_HOST_IP:-192.168.127.254}"
 MINIO_BUCKET="${MINIO_BUCKET:-default-bucket}"
+# Credentials for the external MinIO. Defaults match s3_minio_container.sh so a
+# stock dev workflow works out of the box; override for any non-dev deployment.
+MINIO_ACCESS_KEY="${MINIO_ACCESS_KEY:-examplepass}"
+MINIO_SECRET_KEY="${MINIO_SECRET_KEY:-examplepass}"
 METALLB_IP_RANGE="${METALLB_IP_RANGE:-192.168.127.240-192.168.127.250}"
 
 # Derive protocol-aware URL bases from DOMAIN.
@@ -371,22 +380,25 @@ kubectl apply -f ${SOURCES_DIR}/gateway-api/v1.3.0/experimental-install.yaml --s
 # Install kgateway as the Gateway API implementation
 kubectl create namespace kgateway-system --dry-run=client -o yaml | kubectl apply -f -
 helm template kgateway-crds ${SOURCES_DIR}/kgateway-crds/v2.1.0-main --namespace kgateway-system | kubectl apply --server-side -f -
-helm template kgateway ${SOURCES_DIR}/kgateway/v2.1.0-main --namespace kgateway-system --set service.type=LoadBalancer | kubectl apply --server-side -f -
+helm template kgateway ${SOURCES_DIR}/kgateway/v2.1.0-main --namespace kgateway-system --set service.type=LoadBalancer | kubectl apply --server-side --force-conflicts -f -
 
 # Patch: kgateway v2.1.0-main ClusterRole is missing tokenreviews, which the xDS server
 # requires to validate JWT tokens from Envoy proxy. Without it, Envoy cannot connect to
 # the xDS control plane and the gateway serves no routes.
-kubectl patch clusterrole kgateway-kgateway-system --type=json -p='[
-  {
-    "op": "add",
-    "path": "/rules/-",
-    "value": {
-      "apiGroups": ["authentication.k8s.io"],
-      "resources": ["tokenreviews"],
-      "verbs": ["create"]
+if ! kubectl get clusterrole kgateway-kgateway-system -o json \
+    | jq -e '.rules[] | select(.resources | index("tokenreviews")) | select(.apiGroups | index("authentication.k8s.io")) | select(.verbs | index("create"))' >/dev/null; then
+  kubectl patch clusterrole kgateway-kgateway-system --type=json -p='[
+    {
+      "op": "add",
+      "path": "/rules/-",
+      "value": {
+        "apiGroups": ["authentication.k8s.io"],
+        "resources": ["tokenreviews"],
+        "verbs": ["create"]
+      }
     }
-  }
-]'
+  ]'
+fi
 
 # Wait for kgateway to be ready
 echo "⏳ Waiting for kgateway to be ready..."
@@ -592,8 +604,22 @@ done
 
 # Install AIWB secrets from local file
 echo "  📦 Installing AIWB secrets..."
-# Apply AIWB standalone secrets (all placeholder credentials)
+# Apply AIWB standalone secrets (always required, regardless of pluggable mode)
 kubectl apply -f "${SCRIPT_DIR}/../secrets/secrets-aiwb.yaml"
+
+# CNPG-related secrets: only needed when in-cluster Postgres (CNPG) is installed.
+# In PLUGGABLE_DB=true mode the env-based block below creates the user secret
+# pointing to the external Postgres host instead.
+if [[ "${PLUGGABLE_DB}" != true ]]; then
+  kubectl apply -f "${SCRIPT_DIR}/../secrets/secrets-aiwb-cnpg.yaml"
+fi
+
+# MinIO-related secrets: only needed when in-cluster MinIO Tenant is installed.
+# In PLUGGABLE_S3=true mode the env-based block below creates minio-credentials
+# in aiwb and workbench namespaces from MINIO_ACCESS_KEY / MINIO_SECRET_KEY.
+if [[ "${PLUGGABLE_S3}" != true ]]; then
+  kubectl apply -f "${SCRIPT_DIR}/../secrets/secrets-aiwb-minio.yaml"
+fi
 
 # Apply secrets with hardcoded values (overrides secrets-aiwb.yaml where needed)
 kubectl apply -f "${SCRIPT_DIR}/../secrets/secrets-override-hardcoded.yaml"
@@ -616,6 +642,19 @@ if [[ "${PLUGGABLE_DB}" == true ]]; then
     --from-literal=password="${KEYCLOAK_DB_PASSWORD}" \
     --dry-run=client -o yaml | kubectl apply -f -
   echo "  ✅ Pluggable database credentials secrets created"
+fi
+
+# Pluggable S3: create minio-credentials secrets that AIWB and workbench pods
+# read at startup, populated from MINIO_ACCESS_KEY / MINIO_SECRET_KEY env vars.
+if [[ "${PLUGGABLE_S3}" == true ]]; then
+  echo "  📦 Creating pluggable S3 credentials secrets..."
+  for ns in aiwb workbench; do
+    kubectl create secret generic minio-credentials -n "${ns}" \
+      --from-literal=minio-access-key="${MINIO_ACCESS_KEY}" \
+      --from-literal=minio-secret-key="${MINIO_SECRET_KEY}" \
+      --dry-run=client -o yaml | kubectl apply -f -
+  done
+  echo "  ✅ Pluggable S3 credentials secrets created"
 fi
 
 # ============================================================================
@@ -813,9 +852,53 @@ if [[ "${PLUGGABLE_S3}" != true ]]; then
   echo ""
 else
   echo "PLUGGABLE_S3=true => Skipping in-cluster MinIO Operator, Tenant and configuration."
-  echo "Run scripts/s3.sh after this script completes — it creates the in-cluster"
-  echo "redirect Service that forwards the in-cluster MinIO URL to ${MINIO_HOST}:${MINIO_PORT}"
-  echo "and patches the AIWB credentials."
+  echo ""
+
+  # Redirect Service: forwards http://minio.minio-tenant-default.svc.cluster.local:80
+  # to ${MINIO_HOST_IP}:${MINIO_PORT} so consumers that hardcode the in-cluster
+  # MinIO URL (e.g. aim-performance via BUCKET_STORAGE_HOST) reach the external
+  # storage transparently. AIWB itself talks to the external endpoint directly
+  # via --set minio.url below and does not depend on this redirect.
+  # See docs/manual_helm_install/EXTERNAL_FIXES.md "aim-performance hardcoded
+  # BUCKET_STORAGE_HOST" for why this workaround is currently needed.
+  echo "  📦 Creating in-cluster redirect Service for external MinIO..."
+  echo "     target: ${MINIO_HOST_IP}:${MINIO_PORT}"
+  # Remove any pre-existing minio Service / Endpoints first. If a previous
+  # install ran in PLUGGABLE_S3=false mode, the MinIO Operator created a
+  # selector-backed Service named "minio" — applying a selectorless Service
+  # on top of it produces server-side-apply conflicts. The delete is a no-op
+  # on fresh clusters thanks to --ignore-not-found.
+  kubectl delete service minio   -n minio-tenant-default --ignore-not-found
+  kubectl delete endpoints minio -n minio-tenant-default --ignore-not-found
+  kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: minio-tenant-default
+spec:
+  ports:
+  - name: http-minio
+    port: 80
+    targetPort: ${MINIO_PORT}
+    protocol: TCP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: minio
+  namespace: minio-tenant-default
+subsets:
+- addresses:
+  - ip: ${MINIO_HOST_IP}
+  ports:
+  - name: http-minio
+    port: ${MINIO_PORT}
+    protocol: TCP
+EOF
+  echo "  ✅ Redirect Service ready"
+  echo ""
+  echo "Run scripts/s3.sh after this script completes for post-install verification."
   echo ""
 fi
 

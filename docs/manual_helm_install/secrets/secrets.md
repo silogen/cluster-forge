@@ -4,6 +4,8 @@
 
 - [Secret Sources](#secret-sources)
   - [secrets-aiwb.yaml](#secrets-aiwbyaml)
+  - [secrets-aiwb-cnpg.yaml](#secrets-aiwb-cnpgyaml)
+  - [secrets-aiwb-minio.yaml](#secrets-aiwb-minioyaml)
   - [secrets-override-hardcoded.yaml](#secrets-override-hardcodedyaml)
   - [secrets-aiwb-standalone.yaml](#secrets-aiwb-standaloneyaml)
 - [Complete Secret Reference](#complete-secret-reference)
@@ -21,7 +23,13 @@ Having an external secrets management system is a best practice, but for out-of-
 ## Secret Sources
 
 ### secrets-aiwb.yaml
-This manifest contains the base secrets for the AI Workbench deployment. It includes the necessary credentials and configurations required for the AI Workbench to function properly. All values use `placeholder` by default and should be replaced with secure credentials for production.
+This manifest contains the application-level secrets for the AI Workbench deployment that are always required regardless of pluggable mode. All values use `placeholder` by default and should be replaced with secure credentials for production.
+
+### secrets-aiwb-cnpg.yaml
+CNPG-specific Postgres credentials (superuser + application user) for the in-cluster CloudNativePG Clusters serving AIWB and Keycloak. `install_base.sh` only applies this file when `PLUGGABLE_DB=false`. In `PLUGGABLE_DB=true` mode the script instead creates env-based user secrets (`AIWB_DB_SECRET_NAME`, `KEYCLOAK_DB_SECRET_NAME`) populated from `AIWB_DB_USER` / `AIWB_DB_PASSWORD` and `KEYCLOAK_DB_USER` / `KEYCLOAK_DB_PASSWORD`.
+
+### secrets-aiwb-minio.yaml
+MinIO-related secrets: `minio-credentials` in the `aiwb` and `workbench` namespaces, plus `default-user` for the in-cluster MinIO Tenant. `install_base.sh` only applies this file when `PLUGGABLE_S3=false`. In `PLUGGABLE_S3=true` mode the script instead creates `minio-credentials` in `aiwb` and `workbench` from `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY`, and `default-user` is not needed (no in-cluster Tenant is installed).
 
 ### secrets-override-hardcoded.yaml
 This manifest contains secrets with values that CANNOT be `placeholder` due to hardcoded expectations in Helm charts or other components. These override corresponding secrets from `secrets-aiwb.yaml`.
@@ -44,7 +52,7 @@ PostgreSQL superuser credentials for AIWB database cluster.
 - `username` — PostgreSQL admin username (default: `placeholder`)
 - `password` — PostgreSQL admin password (default: `placeholder`)
 
-**Source:** secrets-aiwb.yaml
+**Source:** secrets-aiwb-cnpg.yaml (applied only when `PLUGGABLE_DB=false`)
 
 ---
 
@@ -55,8 +63,8 @@ PostgreSQL application user credentials for AIWB database.
 - `username` — PostgreSQL username (**hardcoded:** `aiwb_user`)
 - `password` — PostgreSQL password (default: `placeholder`)
 
-**Source:** secrets-aiwb.yaml, secrets-override-hardcoded.yaml  
-**Note:** Username is hardcoded in AIWB Helm chart values.yaml
+**Source:** secrets-aiwb-cnpg.yaml, secrets-override-hardcoded.yaml (applied only when `PLUGGABLE_DB=false`)  
+**Note:** Username is hardcoded in AIWB Helm chart values.yaml. In `PLUGGABLE_DB=true` mode, replaced by env-based `${AIWB_DB_SECRET_NAME}` Secret.
 
 ---
 
@@ -100,8 +108,8 @@ S3/MinIO access credentials for AIWB application.
 - `minio-access-key` — S3 access key ID (default: `placeholder`)
 - `minio-secret-key` — S3 secret access key (default: `placeholder`)
 
-**Source:** secrets-aiwb.yaml  
-**Note:** Must match MinIO tenant root credentials or external S3 credentials
+**Source:** secrets-aiwb-minio.yaml (applied only when `PLUGGABLE_S3=false`)  
+**Note:** Must match MinIO tenant root credentials. In `PLUGGABLE_S3=true` mode, `install_base.sh` creates this Secret from `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` env vars instead.
 
 ---
 
@@ -114,7 +122,7 @@ PostgreSQL superuser credentials for Keycloak database cluster.
 - `username` — PostgreSQL admin username (default: `placeholder`)
 - `password` — PostgreSQL admin password (default: `placeholder`)
 
-**Source:** secrets-aiwb.yaml
+**Source:** secrets-aiwb-cnpg.yaml (applied only when `PLUGGABLE_DB=false`)
 
 ---
 
@@ -125,8 +133,8 @@ PostgreSQL application user credentials for Keycloak database.
 - `username` — PostgreSQL username (**hardcoded:** `keycloak`)
 - `password` — PostgreSQL password (default: `placeholder`)
 
-**Source:** secrets-aiwb.yaml, secrets-override-hardcoded.yaml  
-**Note:** Username is hardcoded in Keycloak Helm chart database configuration
+**Source:** secrets-aiwb-cnpg.yaml, secrets-override-hardcoded.yaml (applied only when `PLUGGABLE_DB=false`)  
+**Note:** Username is hardcoded in Keycloak Helm chart database configuration. In `PLUGGABLE_DB=true` mode, replaced by env-based `${KEYCLOAK_DB_SECRET_NAME}` Secret.
 
 ---
 
@@ -169,8 +177,8 @@ S3/MinIO access credentials for workspace pods.
 - `minio-access-key` — S3 access key ID (default: `placeholder`)
 - `minio-secret-key` — S3 secret access key (default: `placeholder`)
 
-**Source:** secrets-aiwb.yaml, secrets-aiwb-standalone.yaml  
-**Note:** Workspace pods use this to access object storage
+**Source:** secrets-aiwb-minio.yaml, secrets-aiwb-standalone.yaml (applied only when `PLUGGABLE_S3=false`)  
+**Note:** Workspace pods use this to access object storage. In `PLUGGABLE_S3=true` mode, `install_base.sh` creates this Secret from `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` env vars instead.
 
 ---
 
@@ -185,8 +193,8 @@ MinIO tenant user credentials.
 - `CONSOLE_ACCESS_KEY` — MinIO console access key (default: `placeholder`)
 - `CONSOLE_SECRET_KEY` — MinIO console secret key (default: `placeholder`)
 
-**Source:** secrets-aiwb.yaml, secrets-override-hardcoded.yaml  
-**Note:** API_ACCESS_KEY is hardcoded in OpenBao secret definitions
+**Source:** secrets-aiwb-minio.yaml, secrets-override-hardcoded.yaml (applied only when `PLUGGABLE_S3=false`)  
+**Note:** API_ACCESS_KEY is hardcoded in OpenBao secret definitions. Not needed in `PLUGGABLE_S3=true` mode (no in-cluster MinIO Tenant is installed).
 
 ---
 
