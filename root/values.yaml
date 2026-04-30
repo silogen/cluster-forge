@@ -9,17 +9,23 @@ externalValues:
 global:
   clusterSize:    # injected via scripts/bootstrap.sh
   domain:         # injected via scripts/bootstrap.sh
+ociRegistry: "registry-1.docker.io/amdenterpriseai"
+ociURI: "oci://${{ .Values.ociRegistry }}"
 
 apps:
   aim-engine:
-    repoURL: oci://ghcr.io/silogen/aim-engine-chart
-    repoVersion: "0.2.2"
+    repoURL: "${{ .Values.ociURI }}/aim-engine-chart"
+    # sha maps to version 0.2.2
+    repoVersion: "@sha256:0e793ed829c04b06d450815b010e4d8a2202bb4edfb59a3f4a23f21fe826fd6c"
     path: "."
     namespace: aim-system
     valuesFile: values.yaml
     syncWave: 0
   aim-engine-crds:
-    path: aim-engine-crds/0.2.2
+    repoURL: "${{ .Values.ociURI }}/aim-engine-crds-chart"
+    # sha maps to version 0.2.2
+    repoVersion: "@sha256:bf869e36b8083aadebbf3dc470cd360494ffe0c2e395ec24be27545c675896d2"
+    path: "."
     namespace: aim-system
     syncWave: 0
   aim-cluster-model-source:
@@ -39,9 +45,7 @@ apps:
     syncWave: 0
     valuesFile: values.yaml
   aiwb:
-    repoURL: oci://ghcr.io/silogen/aiwb-chart
-    repoVersion: "1.1.2"
-    path: "."
+    path: "aiwb/1.0.3"
     namespace: aiwb
     valuesFile: values.yaml
     helmParameters:
@@ -333,9 +337,7 @@ apps:
     syncWave: -20
     valuesFile: values.yaml
   kaiwo:
-    repoURL: oci://ghcr.io/silogen/kaiwo-operator-chart
-    repoVersion: "v0.2.0-rc12"
-    path: "."
+    path: "kaiwo/v0.2.0-rc13"
     namespace: kaiwo-system
     syncWave: -10
     valuesFiles:
