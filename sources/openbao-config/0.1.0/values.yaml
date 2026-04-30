@@ -1,1 +1,8 @@
 domain: # to be filled by cluster-forge app
+
+minio:
+  # Seed values for MinIO access keys stored in OpenBao. Override at install
+  # time (`--set minio.apiAccessKey=...`) when integrating with an
+  # externally-provisioned MinIO whose existing keys differ from these defaults.
+  apiAccessKey: api-default-user
+  consoleAccessKey: default-user

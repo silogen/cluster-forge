@@ -40,6 +40,13 @@ AIWB_DB_PASSWORD="${AIWB_DB_PASSWORD:-examplepassword}"
 KEYCLOAK_DB_NAME="${KEYCLOAK_DB_NAME:-keycloak}"
 KEYCLOAK_DB_USER="${KEYCLOAK_DB_USER:-keycloak}"
 KEYCLOAK_DB_PASSWORD="${KEYCLOAK_DB_PASSWORD:-examplepassword}"
+# CNPG superuser credentials — used only in PLUGGABLE_DB=false mode to populate
+# the aiwb-cnpg-superuser / keycloak-cnpg-superuser Secrets that the CNPG
+# Cluster spec references. Unused by application pods; default to placeholder.
+AIWB_CNPG_SUPERUSER_USER="${AIWB_CNPG_SUPERUSER_USER:-placeholder}"
+AIWB_CNPG_SUPERUSER_PASSWORD="${AIWB_CNPG_SUPERUSER_PASSWORD:-placeholder}"
+KEYCLOAK_CNPG_SUPERUSER_USER="${KEYCLOAK_CNPG_SUPERUSER_USER:-placeholder}"
+KEYCLOAK_CNPG_SUPERUSER_PASSWORD="${KEYCLOAK_CNPG_SUPERUSER_PASSWORD:-placeholder}"
 # Secret names used in pluggable mode (chart defaults are aiwb-cnpg-user /
 # keycloak-cnpg-user; we use db-suffixed names to make the source obvious).
 AIWB_DB_SECRET_NAME="aiwb-db-user"
@@ -58,10 +65,18 @@ MINIO_PORT="${MINIO_PORT:-9999}"
 # Override with MINIO_HOST_IP=<ip> for other engines (kind, minikube, etc.).
 MINIO_HOST_IP="${MINIO_HOST_IP:-192.168.127.254}"
 MINIO_BUCKET="${MINIO_BUCKET:-default-bucket}"
-# Credentials for the external MinIO. Defaults match s3_minio_container.sh so a
-# stock dev workflow works out of the box; override for any non-dev deployment.
-MINIO_ACCESS_KEY="${MINIO_ACCESS_KEY:-examplepass}"
-MINIO_SECRET_KEY="${MINIO_SECRET_KEY:-examplepass}"
+# MinIO credentials. In PLUGGABLE_S3=false mode these populate the in-cluster
+# MinIO Tenant `default-user` Secret AND the `minio-credentials` Secret that
+# AIWB / workbench pods authenticate with — the API_* values must match on
+# both sides. In PLUGGABLE_S3=true mode the API_* values are written into
+# `minio-credentials` so AIWB can talk to the external MinIO; the CONSOLE_*
+# values are unused in that mode (no in-cluster Tenant). Defaults are
+# placeholders — replace for any non-dev deployment. The `s3_minio_container.sh`
+# helper prints the matching values for its own dev container workflow.
+MINIO_API_ACCESS_KEY="${MINIO_API_ACCESS_KEY:-placeholder}"
+MINIO_API_SECRET_KEY="${MINIO_API_SECRET_KEY:-placeholder}"
+MINIO_CONSOLE_ACCESS_KEY="${MINIO_CONSOLE_ACCESS_KEY:-placeholder}"
+MINIO_CONSOLE_SECRET_KEY="${MINIO_CONSOLE_SECRET_KEY:-placeholder}"
 METALLB_IP_RANGE="${METALLB_IP_RANGE:-192.168.127.240-192.168.127.250}"
 
 # Derive protocol-aware URL bases from DOMAIN.
@@ -608,21 +623,55 @@ echo "  📦 Installing AIWB secrets..."
 kubectl apply -f "${SCRIPT_DIR}/../secrets/secrets-aiwb.yaml"
 
 # CNPG-related secrets: only needed when in-cluster Postgres (CNPG) is installed.
-# In PLUGGABLE_DB=true mode the env-based block below creates the user secret
-# pointing to the external Postgres host instead.
+# Driven by AIWB_DB_USER/PASSWORD and KEYCLOAK_DB_USER/PASSWORD (plus the
+# *_CNPG_SUPERUSER_* vars) so the username and password the CNPG cluster
+# bootstraps match what AIWB / Keycloak read at startup. In PLUGGABLE_DB=true
+# mode the env-based block below creates the *-db-user secrets pointing to the
+# external Postgres host instead.
 if [[ "${PLUGGABLE_DB}" != true ]]; then
-  kubectl apply -f "${SCRIPT_DIR}/../secrets/secrets-aiwb-cnpg.yaml"
+  echo "  📦 Creating CNPG credential secrets..."
+  kubectl create secret generic aiwb-cnpg-superuser -n aiwb \
+    --from-literal=username="${AIWB_CNPG_SUPERUSER_USER}" \
+    --from-literal=password="${AIWB_CNPG_SUPERUSER_PASSWORD}" \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+  kubectl create secret generic aiwb-cnpg-user -n aiwb \
+    --from-literal=username="${AIWB_DB_USER}" \
+    --from-literal=password="${AIWB_DB_PASSWORD}" \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+  kubectl create secret generic keycloak-cnpg-superuser -n keycloak \
+    --from-literal=username="${KEYCLOAK_CNPG_SUPERUSER_USER}" \
+    --from-literal=password="${KEYCLOAK_CNPG_SUPERUSER_PASSWORD}" \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+  kubectl create secret generic keycloak-cnpg-user -n keycloak \
+    --from-literal=username="${KEYCLOAK_DB_USER}" \
+    --from-literal=password="${KEYCLOAK_DB_PASSWORD}" \
+    --dry-run=client -o yaml | kubectl apply -f -
 fi
 
 # MinIO-related secrets: only needed when in-cluster MinIO Tenant is installed.
-# In PLUGGABLE_S3=true mode the env-based block below creates minio-credentials
-# in aiwb and workbench namespaces from MINIO_ACCESS_KEY / MINIO_SECRET_KEY.
+# Driven by MINIO_API_*/MINIO_CONSOLE_* env vars so the in-cluster Tenant
+# bootstraps with the same API credentials AIWB / workbench pods read from
+# `minio-credentials`. In PLUGGABLE_S3=true mode the env-based block below
+# creates only `minio-credentials` (no in-cluster Tenant to bootstrap).
 if [[ "${PLUGGABLE_S3}" != true ]]; then
-  kubectl apply -f "${SCRIPT_DIR}/../secrets/secrets-aiwb-minio.yaml"
-fi
+  echo "  📦 Creating MinIO credential secrets..."
+  for ns in aiwb workbench; do
+    kubectl create secret generic minio-credentials -n "${ns}" \
+      --from-literal=minio-access-key="${MINIO_API_ACCESS_KEY}" \
+      --from-literal=minio-secret-key="${MINIO_API_SECRET_KEY}" \
+      --dry-run=client -o yaml | kubectl apply -f -
+  done
 
-# Apply secrets with hardcoded values (overrides secrets-aiwb.yaml where needed)
-kubectl apply -f "${SCRIPT_DIR}/../secrets/secrets-override-hardcoded.yaml"
+  kubectl create secret generic default-user -n minio-tenant-default \
+    --from-literal=API_ACCESS_KEY="${MINIO_API_ACCESS_KEY}" \
+    --from-literal=API_SECRET_KEY="${MINIO_API_SECRET_KEY}" \
+    --from-literal=CONSOLE_ACCESS_KEY="${MINIO_CONSOLE_ACCESS_KEY}" \
+    --from-literal=CONSOLE_SECRET_KEY="${MINIO_CONSOLE_SECRET_KEY}" \
+    --dry-run=client -o yaml | kubectl apply -f -
+fi
 
 # Apply AIWB standalone mode specific secrets
 kubectl apply -f "${SCRIPT_DIR}/../secrets/secrets-aiwb-standalone.yaml"
@@ -645,13 +694,14 @@ if [[ "${PLUGGABLE_DB}" == true ]]; then
 fi
 
 # Pluggable S3: create minio-credentials secrets that AIWB and workbench pods
-# read at startup, populated from MINIO_ACCESS_KEY / MINIO_SECRET_KEY env vars.
+# read at startup, populated from MINIO_API_ACCESS_KEY / MINIO_API_SECRET_KEY
+# env vars so AIWB authenticates against the external MinIO.
 if [[ "${PLUGGABLE_S3}" == true ]]; then
   echo "  📦 Creating pluggable S3 credentials secrets..."
   for ns in aiwb workbench; do
     kubectl create secret generic minio-credentials -n "${ns}" \
-      --from-literal=minio-access-key="${MINIO_ACCESS_KEY}" \
-      --from-literal=minio-secret-key="${MINIO_SECRET_KEY}" \
+      --from-literal=minio-access-key="${MINIO_API_ACCESS_KEY}" \
+      --from-literal=minio-secret-key="${MINIO_API_SECRET_KEY}" \
       --dry-run=client -o yaml | kubectl apply -f -
   done
   echo "  ✅ Pluggable S3 credentials secrets created"
@@ -736,7 +786,7 @@ if [[ "${PLUGGABLE_DB}" != true ]]; then
   helm template aiwb-infra-cnpg ${SOURCES_DIR}/eai-infra/aiwb-cnpg/0.1.0 \
     -f ${SOURCES_DIR}/eai-infra/aiwb-cnpg/0.1.0/values.yaml \
     --set instances=${CNPG_INSTANCES} \
-    --set username=aiwb_user \
+    --set username=${AIWB_DB_USER} \
     --set storage.storageClass=${DEFAULT_STORAGE_CLASS_NAME} \
     --set walStorage.storageClass=${DEFAULT_STORAGE_CLASS_NAME} \
     --namespace aiwb | kubectl apply --server-side -f -
@@ -764,7 +814,7 @@ KEYCLOAK_PLUGGABLE_DB_ARGS=""
 if [[ ${PLUGGABLE_DB} == true ]]; then
   echo "  📦 Installing Keycloak with pluggable database (host: ${POSTGRES_HOST}:${POSTGRES_PORT}, database: ${KEYCLOAK_DB_NAME})"
   KEYCLOAK_CNPG_ENABLED=false
-  KEYCLOAK_PLUGGABLE_DB_ARGS="--set postgresql.host=${POSTGRES_HOST} --set postgresql.port=${POSTGRES_PORT} --set postgresql.database=${KEYCLOAK_DB_NAME} --set postgresql.username=${KEYCLOAK_DB_USER} --set postgresql.userSecretName=${KEYCLOAK_DB_SECRET_NAME}"
+  KEYCLOAK_PLUGGABLE_DB_ARGS="--set postgresql.host=${POSTGRES_HOST} --set postgresql.port=${POSTGRES_PORT} --set postgresql.database=${KEYCLOAK_DB_NAME} --set postgresql.userSecretName=${KEYCLOAK_DB_SECRET_NAME}"
 else
   echo "  📦 Installing Keycloak with PostgreSQL cluster (${CNPG_INSTANCES} instance(s))..."
   KEYCLOAK_CNPG_ENABLED=true
@@ -777,6 +827,7 @@ helm template keycloak ${SOURCES_DIR}/keycloak-old \
   --set cnpg.storage.storageClassName=${DEFAULT_STORAGE_CLASS_NAME} \
   --set domain="$DOMAIN" \
   --set hostname="${KC_HOSTNAME}" \
+  --set postgresql.username=${KEYCLOAK_DB_USER} \
   --set 'extraEnvVars[0].name=JAVA_OPTS_APPEND' \
   --set 'extraEnvVars[0].value=-XX:MaxRAMPercentage=65.0 -XX:InitialRAMPercentage=50.0 -XX:MaxMetaspaceSize=512m -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true' \
   ${KEYCLOAK_PLUGGABLE_DB_ARGS} \
@@ -939,7 +990,7 @@ fi
 
 AIWB_PLUGGABLE_DB_ARGS=""
 if [[ "${PLUGGABLE_DB}" == true ]]; then
-  AIWB_PLUGGABLE_DB_ARGS="--set postgresql.host=${POSTGRES_HOST} --set postgresql.port=${POSTGRES_PORT} --set postgresql.database=${AIWB_DB_NAME} --set postgresql.username=${AIWB_DB_USER} --set postgresql.userSecretName=${AIWB_DB_SECRET_NAME}"
+  AIWB_PLUGGABLE_DB_ARGS="--set postgresql.host=${POSTGRES_HOST} --set postgresql.port=${POSTGRES_PORT} --set postgresql.database=${AIWB_DB_NAME} --set postgresql.userSecretName=${AIWB_DB_SECRET_NAME}"
 fi
 
 echo "🚀 Installing AIWB application..."
@@ -951,6 +1002,7 @@ helm template aiwb ${SOURCES_DIR}/aiwb/1.0.31 \
   --set keycloak.url="${KC_URL}" \
   --set frontend.env.NEXTAUTH_URL="${AIWB_UI_URL}" \
   --set frontend.env.KEYCLOAK_ISSUER="${KC_URL}/realms/airm" \
+  --set postgresql.username=${AIWB_DB_USER} \
   ${AIWB_PLUGGABLE_S3_ARGS} \
   ${AIWB_PLUGGABLE_DB_ARGS} \
   | kubectl apply --server-side -f -
