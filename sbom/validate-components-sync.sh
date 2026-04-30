@@ -112,7 +112,11 @@ while IFS= read -r app; do
     done
     
     component_path=$(yq eval ".components.\"$app\".path" "$COMPONENTS_FILE" 2>/dev/null || echo "null")
-    
+
+    # Normalize empty string and null for comparison
+    [[ -z "$values_path" || "$values_path" == "null" ]] && values_path="null"
+    [[ -z "$component_path" || "$component_path" == "null" ]] && component_path="null"
+
     if [[ "$values_path" != "$component_path" ]]; then
         path_mismatches+=("$app: cluster-configs='$values_path' vs components.yaml='$component_path'")
         echo "❌ Path mismatch for '$app': cluster-configs='$values_path' vs components.yaml='$component_path'"
