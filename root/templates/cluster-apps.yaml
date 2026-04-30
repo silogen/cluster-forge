@@ -1,9 +1,14 @@
 {{- $clusterForgeRepoUrl := .Values.clusterForge.repoUrl }}
 {{- $clusterForgeTargetRevision := .Values.clusterForge.targetRevision }}
+{{- $root := . }}
 {{- range .Values.enabledApps }}
 {{- $name := . }}
 {{- $scope := (index $.Values.apps .) | required (printf "Values for app %s are missing!" $name) }}
 {{- with $scope }}
+{{- $renderedRepoURL := "" }}
+{{- if .repoURL }}
+{{- $renderedRepoURL = tpl .repoURL $root }}
+{{- end }}
 {{- $useMultiSource := and .repoURL .valuesFiles }}
 ---
 apiVersion: argoproj.io/v1alpha1
@@ -18,17 +23,17 @@ spec:
   {{- if $useMultiSource }}
   sources:
     # Primary source: OCI/external chart
-    - repoURL: {{ .repoURL }}
-      {{- if hasPrefix "oci://" .repoURL }}
+    - repoURL: {{ $renderedRepoURL }}
+      {{- if hasPrefix "oci://" $renderedRepoURL }}
       {{- if eq .path "." }}
-      chart: {{ trimPrefix "oci://" .repoURL | base }}
+      chart: {{ trimPrefix "oci://" $renderedRepoURL | base }}
       {{- else }}
       chart: {{ .path }}
       {{- end }}
       {{- else }}
       path: {{ .path }}
       {{- end }}
-      targetRevision: {{ .repoVersion | default $clusterForgeTargetRevision }}
+      targetRevision: {{ .repoVersion | default $clusterForgeTargetRevision | quote }}
       helm:
         {{- if .valuesFiles }}
         valueFiles:
@@ -61,14 +66,14 @@ spec:
         {{- end }}
     # Secondary source: cluster-forge repo for values files
     - repoURL: {{ $clusterForgeRepoUrl }}
-      targetRevision: {{ $clusterForgeTargetRevision }}
+      targetRevision: {{ $clusterForgeTargetRevision | quote }}
       ref: values
   {{- else }}
   source:
-    repoURL: {{ .repoURL | default $clusterForgeRepoUrl }}
-    targetRevision: {{ .repoVersion | default $clusterForgeTargetRevision }}
+    repoURL: {{ $renderedRepoURL | default $clusterForgeRepoUrl }}
+    targetRevision: {{ .repoVersion | default $clusterForgeTargetRevision | quote }}
     {{- if .repoURL }}
-    {{- if hasPrefix "oci://" .repoURL }}
+    {{- if hasPrefix "oci://" $renderedRepoURL }}
     chart: {{ base .path }}
     {{- else }}
     path: {{ .path }}

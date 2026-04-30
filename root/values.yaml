@@ -10,11 +10,10 @@ global:
   clusterSize:    # injected via scripts/bootstrap.sh
   domain:         # injected via scripts/bootstrap.sh
 ociRegistry: "registry-1.docker.io/amdenterpriseai"
-ociURI: "oci://${{ .Values.ociRegistry }}"
 
 apps:
   aim-engine:
-    repoURL: "${{ .Values.ociURI }}/aim-engine-chart"
+    repoURL: "oci://{{ .Values.ociRegistry }}/aim-engine-chart"
     # sha maps to version 0.2.2
     repoVersion: "@sha256:0e793ed829c04b06d450815b010e4d8a2202bb4edfb59a3f4a23f21fe826fd6c"
     path: "."
@@ -22,7 +21,7 @@ apps:
     valuesFile: values.yaml
     syncWave: 0
   aim-engine-crds:
-    repoURL: "${{ .Values.ociURI }}/aim-engine-crds-chart"
+    repoURL: "oci://{{ .Values.ociRegistry }}/aim-engine-crds-chart"
     # sha maps to version 0.2.2
     repoVersion: "@sha256:bf869e36b8083aadebbf3dc470cd360494ffe0c2e395ec24be27545c675896d2"
     path: "."
@@ -36,6 +35,7 @@ apps:
     helmParameters:
       - name: airm-api.airm.appDomain
         value: "{{ .Values.global.domain }}"
+    ignoreDifferences:
       - group: kyverno.io
         jqPathExpressions:
           - ".spec.rules"
