@@ -341,9 +341,6 @@ apps:
     repoVersion: "v0.2.1"
     namespace: kaiwo-system
     syncWave: -10
-    valuesFiles:
-      - "values.yaml"
-      - "../values.yaml" 
   kaiwo-config:
     ignoreDifferences:
       - group: external-secrets.io
