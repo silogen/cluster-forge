@@ -290,6 +290,41 @@ data:
                 "properties": [
                   { "id": "unit", "value": "s" }
                 ]
+              },
+              {
+                "matcher": { "id": "byName", "options": "GPU Detected" },
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "options": {
+                          "0": { "text": "No" },
+                          "1": { "text": "Yes" }
+                        },
+                        "type": "value"
+                      },
+                      {
+                        "options": {
+                          "match": "null",
+                          "result": { "text": "No" }
+                        },
+                        "type": "special"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        { "color": "red", "value": null },
+                        { "color": "green", "value": 1 }
+                      ]
+                    }
+                  },
+                  { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "gradient" } }
+                ]
               }
             ]
           },
@@ -315,7 +350,8 @@ data:
                   "Value #status": "Node Status",
                   "Value #cpu": "CPU Usage %",
                   "Value #mem": "Memory Usage %",
-                  "Value #reboot": "Since Reboot"
+                  "Value #reboot": "Since Reboot",
+                  "Value #gpu": "GPU Detected"
                 },
                 "indexByName": {
                   "hostname": 0,
@@ -323,7 +359,8 @@ data:
                   "Value #status": 2,
                   "Value #cpu": 3,
                   "Value #mem": 4,
-                  "Value #reboot": 5
+                  "Value #reboot": 5,
+                  "Value #gpu": 6
                 }
               }
             }
@@ -368,8 +405,124 @@ data:
               "instant": true,
               "legendFormat": "",
               "refId": "reboot"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "max by (hostname) ((label_replace((kube_node_status_capacity{resource=~\".*gpu.*\"} > 0), \"hostname\", \"$1\", \"node\", \"(.*)\")) or on(hostname) (label_replace(node_uname_info{instance=~\"$instance\"}, \"hostname\", \"$1\", \"nodename\", \"(.*)\") * 0))",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "gpu"
             }
           ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Per-node CPU usage (1 - idle). Same expression as the **Node Health Details** table column, plotted over time.",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "axisPlacement": "auto",
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "scaleDistribution": { "type": "linear" },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": { "group": "A", "mode": "none" },
+                "thresholdsStyle": { "mode": "off" }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": null }]
+              },
+              "unit": "percent",
+              "min": 0,
+              "max": 100
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+          "id": 7,
+          "options": {
+            "legend": {
+              "calcs": ["mean", "max", "lastNotNull"],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "100 - (avg by (hostname) (rate(node_cpu_seconds_total{mode=\"idle\",instance=~\"$instance\"}[5m]) * on(instance) group_left(hostname) label_replace(node_uname_info{instance=~\"$instance\"}, \"hostname\", \"$1\", \"nodename\", \"(.*)\")) * 100)",
+              "legendFormat": "{{hostname}}",
+              "refId": "A"
+            }
+          ],
+          "title": "CPU Usage % by Node",
+          "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Per-node memory usage (1 - MemAvailable / MemTotal). Same expression as the **Node Health Details** table column, plotted over time.",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "axisPlacement": "auto",
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "scaleDistribution": { "type": "linear" },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": { "group": "A", "mode": "none" },
+                "thresholdsStyle": { "mode": "off" }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": null }]
+              },
+              "unit": "percent",
+              "min": 0,
+              "max": 100
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+          "id": 8,
+          "options": {
+            "legend": {
+              "calcs": ["mean", "max", "lastNotNull"],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "100 * (1 - avg by (hostname) ((node_memory_MemAvailable_bytes{instance=~\"$instance\"} * on(instance) group_left(hostname) label_replace(node_uname_info{instance=~\"$instance\"}, \"hostname\", \"$1\", \"nodename\", \"(.*)\")) / (node_memory_MemTotal_bytes{instance=~\"$instance\"} * on(instance) group_left(hostname) label_replace(node_uname_info{instance=~\"$instance\"}, \"hostname\", \"$1\", \"nodename\", \"(.*)\"))))",
+              "legendFormat": "{{hostname}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Memory Usage % by Node",
+          "type": "timeseries"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -396,7 +549,7 @@ data:
               }
             ]
           },
-          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 16 },
+          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 24 },
           "id": 4,
           "options": {
             "cellHeight": "sm",
@@ -430,100 +583,6 @@ data:
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
               "expr": "max by (namespace, pod, phase) (((time() - kube_pod_created) * on(namespace, pod) group_left(phase) max by (namespace, pod, phase) (kube_pod_status_phase{phase=~\"Pending|Running|Failed|Unknown\"} == 1)) * on(namespace, pod) group_left() (max by (namespace, pod) (kube_pod_container_status_waiting_reason{reason=~\"CrashLoopBackOff|ImagePullBackOff|ErrImagePull|CreateContainerConfigError|CreateContainerError\"} == 1) or max by (namespace, pod) (kube_pod_container_status_terminated_reason{reason=~\"Error|OOMKilled|ContainerCannotRun\"} == 1) or max by (namespace, pod) (kube_pod_status_phase{phase=~\"Pending|Failed|Unknown\"} == 1) or max by (namespace, pod) (kube_pod_status_ready{condition=\"true\"} == 0)))",
-              "format": "table",
-              "instant": true,
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ]
-        },
-        {
-          "datasource": { "type": "loki", "uid": "loki" },
-          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 26 },
-          "id": 5,
-          "options": {
-            "dedupStrategy": "none",
-            "enableLogDetails": true,
-            "prettifyLogMessage": true,
-            "showCommonLabels": false,
-            "showLabels": true,
-            "sortOrder": "Descending",
-            "wrapLogMessage": true
-          },
-          "targets": [
-            {
-              "datasource": { "type": "loki", "uid": "loki" },
-              "expr": "{pod=~\".*kube-apiserver.*\"} |~ \"(?i)error\"",
-              "queryType": "range",
-              "refId": "A"
-            }
-          ],
-          "title": "kube-apiserver ERROR Logs (pod + node)",
-          "type": "logs"
-        },
-        {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "fieldConfig": {
-            "defaults": {
-              "color": { "mode": "thresholds" },
-              "custom": {
-                "align": "left",
-                "cellOptions": { "type": "auto" },
-                "inspect": false
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  { "color": "red", "value": null },
-                  { "color": "yellow", "value": 14 },
-                  { "color": "green", "value": 30 }
-                ]
-              },
-              "decimals": 1
-            },
-            "overrides": [
-              {
-                "matcher": { "id": "byName", "options": "Days Until Expiry" },
-                "properties": [
-                  { "id": "unit", "value": "d" },
-                  { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "gradient" } }
-                ]
-              }
-            ]
-          },
-          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 36 },
-          "id": 6,
-          "options": {
-            "cellHeight": "sm",
-            "footer": { "show": false },
-            "showHeader": true,
-            "sortBy": [{ "desc": false, "displayName": "Days Until Expiry" }]
-          },
-          "title": "TLS Certificate Expiry (cert-manager)",
-          "type": "table",
-          "transformations": [
-            {
-              "id": "organize",
-              "options": {
-                "excludeByName": { "Time": true, "__name__": true, "instance": true, "job": true },
-                "renameByName": {
-                  "namespace": "Namespace",
-                  "name": "Certificate",
-                  "Value": "Days Until Expiry"
-                },
-                "indexByName": {
-                  "namespace": 0,
-                  "name": 1,
-                  "Value": 2
-                }
-              }
-            }
-          ],
-          "targets": [
-            {
-              "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "max by (namespace, name) ((certmanager_certificate_expiration_timestamp_seconds - time()) / 86400)",
               "format": "table",
               "instant": true,
               "legendFormat": "",
