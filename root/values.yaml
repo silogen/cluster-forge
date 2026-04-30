@@ -9,21 +9,21 @@ externalValues:
 global:
   clusterSize:    # injected via scripts/bootstrap.sh
   domain:         # injected via scripts/bootstrap.sh
-ociRegistry: "registry-1.docker.io/amdenterpriseai"
+ociRegistry:
+  dockerHub: "registry-1.docker.io/amdenterpriseai"
+  ghcr: "ghcr.io/silogen"
 
 apps:
   aim-engine:
-    repoURL: "oci://{{ .Values.ociRegistry }}/aim-engine-chart"
-    # sha maps to version 0.2.2
-    repoVersion: "@sha256:0e793ed829c04b06d450815b010e4d8a2202bb4edfb59a3f4a23f21fe826fd6c"
+    repoURL: "oci://{{ .Values.ociRegistry.dockerHub }}/aim-engine-chart"
+    repoVersion: "v0.2.2"
     path: "."
     namespace: aim-system
     valuesFile: values.yaml
     syncWave: 0
   aim-engine-crds:
-    repoURL: "oci://{{ .Values.ociRegistry }}/aim-engine-crds-chart"
-    # sha maps to version 0.2.2
-    repoVersion: "@sha256:bf869e36b8083aadebbf3dc470cd360494ffe0c2e395ec24be27545c675896d2"
+    repoURL: "oci://{{ .Values.ociRegistry.dockerHub }}/aim-engine-crds-chart"
+    repoVersion: "v0.2.2"
     path: "."
     namespace: aim-system
     syncWave: 0
@@ -337,7 +337,8 @@ apps:
     syncWave: -20
     valuesFile: values.yaml
   kaiwo:
-    path: "kaiwo/v0.2.0-rc13"
+    repoURL: "oci://{{ .Values.ociRegistry.ghcr }}/kaiwo-operator-chart"
+    repoVersion: "v0.2.1"
     namespace: kaiwo-system
     syncWave: -10
     valuesFiles:
@@ -359,8 +360,9 @@ apps:
     path: kaiwo-config
     syncWave: 0
   kaiwo-crds:
+    repoURL: "oci://{{ .Values.ociRegistry.ghcr }}/kaiwo-crds-chart"
+    repoVersion: "v0.2.1"
     namespace: kaiwo-system
-    path: kaiwo-crds/v0.2.0-rc11
     syncWave: -20
   keda:
     namespace: keda
