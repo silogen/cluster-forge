@@ -11,16 +11,14 @@ components:
     license: MIT License
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
   aim-engine:
-    repoURL: oci://ghcr.io/silogen/aim-engine-chart
-    repoVersion: "0.2.2"
-    path: "."
+    path: .
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/aim-engine/releases/tag/v0.2.2
     projectUrl: https://github.com/silogen/aim-engine
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/aim-engine/blob/main/LICENSE
   aim-engine-crds:
-    path: aim-engine-crds/0.2.2
+    path: .
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine-crds
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine-crds
     license: Apache License 2.0
@@ -54,9 +52,7 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   aiwb:
-    repoURL: oci://ghcr.io/silogen/aiwb-chart
-    repoVersion: "1.1.2"
-    path: "."
+    path: aiwb/1.0.3
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/aiwb/releases/tag/v1.1.2
     projectUrl: https://github.com/silogen/aiwb
@@ -134,9 +130,7 @@ components:
     license: MIT License
     licenseUrl: https://github.com/go-gitea/gitea/blob/main/LICENSE
   kaiwo:
-    repoURL: oci://ghcr.io/silogen/kaiwo-operator-chart
-    repoVersion: "v0.2.0-rc12"
-    path: "."
+    path: kaiwo/v0.2.0-rc13
     valuesFiles:
       - values.yaml
       - ../values.yaml
@@ -252,7 +246,6 @@ components:
     projectUrl: https://github.com/openbao/openbao
     license: Mozilla Public License 2.0
     licenseUrl: https://github.com/openbao/openbao/blob/main/LICENSE
-
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
     sourceUrl: https://open-telemetry.github.io/opentelemetry-helm-charts
