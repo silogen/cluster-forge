@@ -1,0 +1,203 @@
+disabledApps:
+  - amd-gpu-operator
+  - minio-operator
+  - minio-tenant
+  - minio-tenant-config
+
+enabledApps:
+  - gitea
+  - gitea-config
+  - argocd
+  - argocd-config
+  - amd-gpu-operator-config
+  - aim-cluster-model-source
+  - airm
+  - appwrapper
+  - cert-manager
+  - cluster-auth
+  - cluster-auth-config
+  - cnpg-operator
+  - external-secrets
+  - external-secrets-config
+  - kaiwo
+  - kaiwo-config
+  - kaiwo-crds
+  - keda
+  - kedify-otel
+  - keycloak
+  - kserve
+  - kserve-crds
+  - kueue
+  - kueue-config
+  - kuberay-operator
+  - kyverno
+  - kyverno-policies-base
+  - kyverno-policies-storage-local-path
+  - openbao
+  - openbao-config
+  - opentelemetry-operator
+  - otel-lgtm-stack
+  - prometheus-crds
+  - rabbitmq
+
+apps:
+
+  gitea:
+    helmParameters:
+      - name: persistence.storageClass
+        value: direct
+
+  # Modular Kyverno policy applications (only the storage-local-path addition)
+  kyverno-policies-storage-local-path:
+    namespace: kyverno
+    path: kyverno-policies/storage-local-path
+    syncWave: -20
+    ignoreDifferences:
+      - group: kyverno.io
+        kind: ClusterPolicy
+        jsonPointers:
+          - /spec/rules/*/skipBackgroundRequests
+          - /spec/rules/*/validate/allowExistingViolations
+  argocd:
+    valuesObject:
+      applicationSet:
+        replicas: 1
+      controller:
+        replicas: 1
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
+          requests:
+            cpu: "500m" 
+            memory: "1Gi"
+      redis-ha:
+        enabled: false
+        redis:
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+      repoServer:
+        replicas: 1
+        resources:
+          limits:
+            cpu: "500m" 
+            memory: "1Gi"
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+      server:
+        replicas: 1
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+          requests:
+            cpu: "125m"
+            memory: "256Mi"
+  grafana:
+    valuesObject:
+      persistence:
+        accessModes:
+          - ReadWriteOnce
+        enabled: true
+        size: 5Gi
+        storageClassName: direct
+      replicas: 1
+      resources:
+        limits:
+          cpu: "1000m"
+          memory: "2Gi"
+        requests:
+          cpu: "250m"
+          memory: "512Mi"
+  keycloak:
+    valuesObject:
+      # Increase memory resources for Keycloak to prevent OOMKilled during initialization
+      # Medium preset provides 1536Mi memory limit vs small preset's 768Mi
+      resourcesPreset: "medium"
+  minio-tenant:
+    valuesObject:
+      tenant:
+        buckets:
+          - name: default-bucket
+            objectLock: true
+          - name: models
+            objectLock: true
+          - name: datasets
+            objectLock: false
+        pools:
+          - name: pool-0
+            servers: 1
+            size: 2Ti
+            storageClassName: direct
+            volumesPerServer: 2
+        resources:
+          limits:
+            cpu: "4000m"
+            memory: "8Gi"
+          requests:
+            cpu: "1000m"
+            memory: "2Gi"
+  openbao:
+    valuesObject:
+      server:
+        dataStorage:
+          size: 5Gi
+          storageClass: direct
+        ha:
+          enabled: false
+          raft:
+            enabled: false
+          replicas: 1
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+  opentelemetry-operator:
+    valuesObject:
+      manager:
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+  otel-lgtm-stack:
+    valuesObject:
+      collectors:
+        resources:
+          metrics:
+            cpu: '1'
+            limits:
+              memory: 4Gi
+      services:
+        nodeExporter:
+          metrics: 9101
+  prometheus:
+    valuesObject:
+      prometheus:
+        prometheusSpec:
+          resources:
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+          retention: 15d
+          retentionSize: 20GB
+          storageSpec:
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 25Gi
+                storageClassName: direct
