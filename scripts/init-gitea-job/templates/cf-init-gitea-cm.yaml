@@ -315,6 +315,9 @@ data:
     cat >> /tmp/values.yaml << 'EOF'
       aiwb:
         helmParameters:
+          # APP-DOMAIN (preserve from root/values.yaml)
+          - name: appDomain
+            value: {{ .Values.domain | quote }}
           # STANDALONE-MODE
           - name: standAloneMode
             value: "true"
