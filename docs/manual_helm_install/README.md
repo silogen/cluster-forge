@@ -2,6 +2,12 @@
 
 This guide explains how to deploy AI Workbench on a Kubernetes cluster, including the base required components and optional pluggable components that can be substituted with your own implementations.
 
+> **Full platform (AIRM + AIWB)**: This guide covers **standalone AIWB** deployments.
+> For the full AMD Enterprise AI Suite — including AI Resource Manager (AIRM) for
+> multi-tenant resource management, cluster coordination, and GPU resource allocation —
+> see the [Helm Installation Guide](https://github.com/amd-enterprise-ai/amd-eai-suite/blob/main/helm/INSTALL.md)
+> in the core repository.
+
 ## Quick Start
 
 To deploy AIWB with all reference components:
@@ -41,6 +47,7 @@ The `DOMAIN` parameter is required and determines:
   - [Secrets Management](#secrets-management)
 - [Known Workarounds](#known-workarounds)
 - [Component Reference](#component-reference)
+- [Validation](#validation)
 
 ---
 
@@ -273,9 +280,9 @@ See [secrets.md](secrets/secrets.md) for the complete list of required secrets a
 
 ## Known Workarounds
 
-The standalone Helm install path diverges from the production deployment in two
-places. Both are intentional simplifications for single-node / dev clusters and
-are not suitable for production.
+The standalone Helm install path diverges from the production deployment in a
+few places. These are intentional simplifications for single-node / dev clusters
+and are not suitable for production.
 
 ### cluster-auth shim
 
@@ -291,6 +298,15 @@ a ConfigMap.
 State is held in process memory and is **lost on pod restart** — any API key
 groups created through AIWB disappear when the pod restarts. Suitable for
 demos and development; not for production.
+
+### Keycloak `devuser@localhost` email
+
+The default Keycloak realm creates a dev user with the email `devuser@localhost`.
+This works for standalone AIWB but may cause issues if you later layer AIRM on
+top, because AIRM's API validates emails with a pattern that historically
+required a fully qualified domain (e.g. `user@example.com`). If you plan to
+integrate with AIRM, either use a fully qualified email for the dev user
+(e.g. `devuser@test.local`) or ensure the AIRM version supports bare hostnames.
 
 ### AIWB chart v1.0.31 (forked from v1.0.3)
 
@@ -354,8 +370,41 @@ Complete list of components and their versions:
 |-----------|---------|-----------|----------|-------|
 | AMD GPU Operator | v1.4.1 | `amd-gpu-operator` | ✅ Yes (GPU nodes) | Includes NFD, KMM, device plugin, metrics exporter. See [gpu_operator.md](components/gpu_operator.md) |
 
+### Full Platform (AIRM + AIWB)
+
+These components are **not required** for standalone AIWB but are needed if you
+want the full AMD Enterprise AI Suite with multi-tenant resource management.
+See the [core repo Helm Installation Guide](https://github.com/amd-enterprise-ai/amd-eai-suite/blob/main/helm/INSTALL.md)
+for complete instructions.
+
+| Component | Purpose | Namespace | Notes |
+|-----------|---------|-----------|-------|
+| AIRM API + UI | Multi-tenant resource management, authentication, GPU resource allocation | `airm` | Deployed via the `airm` umbrella Helm chart |
+| AIRM Agent | Cluster agent for AIRM ↔ Kubernetes coordination | `airm` | Communicates with AIRM API via RabbitMQ |
+| RabbitMQ Cluster Operator | Manages RabbitMQ clusters for AIRM API ↔ Agent messaging | `rabbitmq-system` | Not needed for standalone AIWB |
+| AIRM PostgreSQL | Database for AIRM | `airm` | Via CNPG or external PostgreSQL |
+| AIRM RabbitMQ | Message broker for AIRM | `airm` | Via RabbitMQ Cluster Operator |
+
 ### Optional
 
 | Component | Version | Namespace | Required | Purpose |
 |-----------|---------|-----------|----------|---------|
 | OpenTelemetry Operator | v0.93.1 | `opentelemetry-system` | ❌ No | Observability instrumentation |
+
+---
+
+## Validation
+
+After installation, verify that all components are running:
+
+```bash
+kubectl get pods -n aiwb
+kubectl get pods -n keycloak
+kubectl get pods -n aim-system
+kubectl get pods -n kserve-system
+```
+
+For comprehensive validation using Robot Framework E2E tests, see the
+[E2E test suites](https://github.com/amd-enterprise-ai/amd-eai-suite/tree/main/testing)
+in the core repository. The test suites cover AIWB API and UI functionality
+and can be run against any deployment.
