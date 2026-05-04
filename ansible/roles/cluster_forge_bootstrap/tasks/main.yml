@@ -1,6 +1,13 @@
 ---
 # Orchestrator — mirrors bootstrap.sh main()
 
+# --- Debug: show active kube context ---
+
+- name: Show active KUBECONFIG and kubectl context
+  ansible.builtin.shell: "echo KUBECONFIG=$KUBECONFIG && kubectl config current-context"
+  changed_when: false
+  tags: always
+
 # --- Dependency check ---
 
 - name: Check required dependencies

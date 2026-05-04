@@ -14,5 +14,6 @@
   hosts: localhost
   connection: local
   gather_facts: true
+  environment: "{{ {'KUBECONFIG': ansible_env.KUBECONFIG} if 'KUBECONFIG' in ansible_env else {} }}"
   roles:
     - cluster_forge_bootstrap
