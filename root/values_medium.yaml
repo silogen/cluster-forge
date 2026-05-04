@@ -1,5 +1,8 @@
 # Medium & Small clusters add local-path storage policy for RWX→RWO conversion
 
+global:
+  clusterSize: values_medium.yaml
+
 enabledApps:
   - aim-cluster-model-source
   - aim-engine

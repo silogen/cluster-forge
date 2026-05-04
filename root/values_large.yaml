@@ -1,3 +1,6 @@
+global:
+  clusterSize: values_large.yaml
+
 enabledApps:
   - aim-cluster-model-source
   - aim-engine
