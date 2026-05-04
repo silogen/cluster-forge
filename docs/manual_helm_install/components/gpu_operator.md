@@ -129,6 +129,27 @@ kubectl apply -f my-deviceconfig.yaml
 
 The operator reconciles new DeviceConfig resources within seconds.
 
+## Optional: Configure custom GPU metrics labels
+
+When integrating with AIRM (AI Resource Manager), the Device Metrics Exporter
+needs custom labels so that GPU metrics can be associated with clusters,
+projects, and workloads. This is done via a ConfigMap named `gpu-config` in
+the `kube-amd-gpu` namespace.
+
+A reference configuration is available at
+[`sources/amd-gpu-operator-config/ConfigMap_amd-gpu-metrics-exporter-config.yaml`](../../../sources/amd-gpu-operator-config/ConfigMap_amd-gpu-metrics-exporter-config.yaml).
+
+Key fields in the ConfigMap:
+
+| Field | Purpose |
+|-------|---------|
+| `ExtraPodLabels.WORKLOAD_ID` | Maps `airm.silogen.ai/workload-id` pod label into GPU metrics for per-workload attribution |
+| `ExtraPodLabels.PROJECT_ID` | Maps `airm.silogen.ai/project-id` pod label for project-level rollup |
+| `CustomLabels.KUBE_CLUSTER_NAME` | Must match the cluster name registered in AIRM. Primary identifier for correlating GPU metrics with the correct cluster |
+
+See the [core repo INSTALL.md](https://github.com/amd-enterprise-ai/amd-eai-suite/blob/main/helm/INSTALL.md#amd-device-metrics-exporter-configuration)
+for the full ConfigMap template and detailed setup instructions.
+
 ## Optional: Enable Prometheus metrics scraping
 
 The metrics exporter runs on every GPU node and listens on port 5000 by default. To configure Prometheus to scrape it automatically via a ServiceMonitor (requires Prometheus Operator CRDs to be installed):
