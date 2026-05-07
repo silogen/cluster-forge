@@ -533,14 +533,19 @@ bootstrap_openbao() {
   if [ "$TEMPLATE_ONLY" = false ]; then
     kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
     
-    # Create initial secrets config for init job (separate from ArgoCD-managed version)
+    # Create initial secrets config for init job (separate from ArgoCD-managed version).
+    # Render via `helm template` so chart values (domain, minio.*) substitute
+    # correctly; the trailing sed renames the resource so the init-time copy
+    # does not collide with the ArgoCD-managed version of the same chart.
     log_info "Creating initial OpenBao secrets configuration..."
-    cat ${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-manager-cm.yaml | \
+    helm template --release-name openbao-init ${SOURCE_ROOT}/sources/openbao-config/0.1.0 \
+      --set domain="${DOMAIN}" \
+      --show-only templates/openbao-secret-manager-cm.yaml | \
       sed "s|name: openbao-secret-manager-scripts|name: openbao-secret-manager-scripts-init|g" | kubectl apply -f -
-    
-    # Create initial secrets config for init job (separate from ArgoCD-managed version)  
-    cat ${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml | \
-      sed "s|{{ .Values.domain }}|${DOMAIN}|g" | \
+
+    helm template --release-name openbao-init ${SOURCE_ROOT}/sources/openbao-config/0.1.0 \
+      --set domain="${DOMAIN}" \
+      --show-only templates/openbao-secret-definitions.yaml | \
       sed "s|name: openbao-secrets-config|name: openbao-secrets-init-config|g" | kubectl apply -f -
     
     # Pass OpenBao configuration to init script
