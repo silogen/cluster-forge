@@ -247,7 +247,7 @@ apps:
       installCRDs: true
   cluster-auth:
     namespace: cluster-auth
-    path: cluster-auth/0.5.0
+    path: cluster-auth/0.5.9
     syncWave: -25
     valuesFile: values.yaml
   cluster-auth-config:
