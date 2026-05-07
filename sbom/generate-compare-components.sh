@@ -15,6 +15,26 @@ LARGE_VALUES_FILE="../root/values_large.yaml"
 OUTPUT_FILE="./components.yaml"
 TEMP_FILE="./components.yaml.tmp"
 
+# Function to resolve template variables in URLs
+resolve_template_vars() {
+    local url="$1"
+    local config_file="$2"
+
+    # Extract and resolve ociRegistry.ghcr
+    if [[ "$url" =~ \{\{\ \.Values\.ociRegistry\.ghcr\ \}\} ]]; then
+        local ghcr_value=$(yq eval '.ociRegistry.ghcr // ""' "$config_file" 2>/dev/null || echo "")
+        url="${url//\{\{ .Values.ociRegistry.ghcr \}\}/$ghcr_value}"
+    fi
+
+    # Extract and resolve ociRegistry.dockerHub
+    if [[ "$url" =~ \{\{\ \.Values\.ociRegistry\.dockerHub\ \}\} ]]; then
+        local dockerhub_value=$(yq eval '.ociRegistry.dockerHub // ""' "$config_file" 2>/dev/null || echo "")
+        url="${url//\{\{ .Values.ociRegistry.dockerHub \}\}/$dockerhub_value}"
+    fi
+
+    echo "$url"
+}
+
 echo "⚙️ Generating/Updating components.yaml from enabledApps across all cluster sizes..."
 
 # Self-validation: Check enabledApps consistency before processing (fail-fast)
@@ -198,25 +218,41 @@ EOF
 for app in $app_names; do
     echo "  $app:" >> "$TEMP_FILE"
 
-    # Get path, valuesFile, and valuesFiles from any cluster configuration file
+    # Get path, valuesFile, valuesFiles, and repoURL from any cluster configuration file
     path=""
     values_file="null"
     values_files="null"
+    repo_url="null"
+    repo_version="null"
 
     # Try to find the app definition in any of the cluster configuration files
     for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
         if [[ -f "$config_file" ]]; then
             app_path=$(yq eval ".apps.\"$app\".path // \"null\"" "$config_file" 2>/dev/null || echo "null")
-            if [[ "$app_path" != "null" ]]; then
+            # Also check if app exists by looking for any field (repoURL, namespace, etc.)
+            app_exists=$(yq eval ".apps.\"$app\" // \"null\"" "$config_file" 2>/dev/null || echo "null")
+            if [[ "$app_exists" != "null" ]]; then
                 path="$app_path"
                 values_file=$(yq eval ".apps.\"$app\".valuesFile // \"null\"" "$config_file")
                 values_files=$(yq eval ".apps.\"$app\".valuesFiles // \"null\"" "$config_file")
+                repo_url=$(yq eval ".apps.\"$app\".repoURL // \"null\"" "$config_file")
+                repo_version=$(yq eval ".apps.\"$app\".repoVersion // \"null\"" "$config_file")
                 break
             fi
         fi
     done
 
-    echo "    path: $path" >> "$TEMP_FILE"
+    # Write path (handle empty/null values consistently)
+    if [[ -z "$path" || "$path" == "null" ]]; then
+        echo "    path: null" >> "$TEMP_FILE"
+    else
+        echo "    path: $path" >> "$TEMP_FILE"
+    fi
+
+    # Write repoVersion for OCI charts
+    if [[ "$repo_version" != "null" ]]; then
+        echo "    repoVersion: $repo_version" >> "$TEMP_FILE"
+    fi
 
     # Write valuesFiles if it exists (takes precedence over valuesFile)
     if [[ "$values_files" != "null" ]]; then
@@ -229,15 +265,25 @@ for app in $app_names; do
         echo "    valuesFile: $values_file" >> "$TEMP_FILE"
     fi
     
-    # Preserve existing sourceUrl, projectUrl, license, and licenseUrl if they exist, otherwise add empty ones
+    # Determine sourceUrl: Use OCI repoURL if available, otherwise preserve existing
+    if [[ "$repo_url" != "null" && "$repo_url" =~ ^oci:// ]]; then
+        # For OCI charts, use the repoURL as sourceUrl (resolve template variables)
+        source_url=$(resolve_template_vars "$repo_url" "$config_file")
+    elif [[ -f "$OUTPUT_FILE" ]]; then
+        # Preserve existing sourceUrl for non-OCI charts
+        source_url=$(yq eval ".components.\"$app\".sourceUrl // \"\"" "$OUTPUT_FILE" 2>/dev/null || echo "")
+    else
+        source_url=""
+    fi
+
+    # Preserve existing projectUrl, license, and licenseUrl if they exist, otherwise add empty ones
     if [[ -f "$OUTPUT_FILE" ]]; then
-        existing_source_url=$(yq eval ".components.\"$app\".sourceUrl // \"\"" "$OUTPUT_FILE" 2>/dev/null || echo "")
         existing_project_url=$(yq eval ".components.\"$app\".projectUrl // \"\"" "$OUTPUT_FILE" 2>/dev/null || echo "")
         existing_license=$(yq eval ".components.\"$app\".license // \"\"" "$OUTPUT_FILE" 2>/dev/null || echo "")
         existing_license_url=$(yq eval ".components.\"$app\".licenseUrl // \"\"" "$OUTPUT_FILE" 2>/dev/null || echo "")
-        
-        if [[ -n "$existing_source_url" ]]; then
-            echo "    sourceUrl: $existing_source_url" >> "$TEMP_FILE"
+
+        if [[ -n "$source_url" ]]; then
+            echo "    sourceUrl: $source_url" >> "$TEMP_FILE"
         else
             echo "    sourceUrl:" >> "$TEMP_FILE"
         fi

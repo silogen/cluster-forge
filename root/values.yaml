@@ -9,15 +9,22 @@ externalValues:
 global:
   clusterSize:    # injected via scripts/bootstrap.sh
   domain:         # injected via scripts/bootstrap.sh
+ociRegistry:
+  dockerHub: "registry-1.docker.io/amdenterpriseai"
+  ghcr: "ghcr.io/silogen"
 
 apps:
   aim-engine:
-    path: aim-engine/0.2.2
+    repoURL: "oci://{{ .Values.ociRegistry.dockerHub }}/aim-engine-chart"
+    repoVersion: "v0.2.2"
+    path: "."
     namespace: aim-system
     valuesFile: values.yaml
     syncWave: 0
   aim-engine-crds:
-    path: aim-engine-crds/0.2.2
+    repoURL: "oci://{{ .Values.ociRegistry.dockerHub }}/aim-engine-crds-chart"
+    repoVersion: "v0.2.2"
+    path: "."
     namespace: aim-system
     syncWave: 0
   aim-cluster-model-source:
@@ -28,6 +35,7 @@ apps:
     helmParameters:
       - name: airm-api.airm.appDomain
         value: "{{ .Values.global.domain }}"
+    ignoreDifferences:
       - group: kyverno.io
         jqPathExpressions:
           - ".spec.rules"
@@ -37,7 +45,7 @@ apps:
     syncWave: 0
     valuesFile: values.yaml
   aiwb:
-    path: aiwb/1.0.3
+    path: "aiwb/1.0.3"
     namespace: aiwb
     valuesFile: values.yaml
     helmParameters:
@@ -329,12 +337,10 @@ apps:
     syncWave: -20
     valuesFile: values.yaml
   kaiwo:
+    repoURL: "oci://{{ .Values.ociRegistry.ghcr }}/kaiwo-operator-chart"
+    repoVersion: "v0.2.1"
     namespace: kaiwo-system
-    path: kaiwo/v0.2.0-rc12
     syncWave: -10
-    valuesFiles:
-      - "values.yaml"
-      - "../values.yaml" 
   kaiwo-config:
     ignoreDifferences:
       - group: external-secrets.io
@@ -351,8 +357,9 @@ apps:
     path: kaiwo-config
     syncWave: 0
   kaiwo-crds:
+    repoURL: "oci://{{ .Values.ociRegistry.ghcr }}/kaiwo-crds-chart"
+    repoVersion: "v0.2.1"
     namespace: kaiwo-system
-    path: kaiwo-crds/v0.2.0-rc11
     syncWave: -20
   keda:
     namespace: keda
