@@ -97,7 +97,7 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/cert-manager/cert-manager/blob/master/LICENSE
   cluster-auth:
-    path: cluster-auth/0.5.0
+    path: cluster-auth/0.5.9
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/cluster-auth
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/cluster-auth
@@ -246,7 +246,6 @@ components:
     projectUrl: https://github.com/openbao/openbao
     license: Mozilla Public License 2.0
     licenseUrl: https://github.com/openbao/openbao/blob/main/LICENSE
-
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
     sourceUrl: https://open-telemetry.github.io/opentelemetry-helm-charts
