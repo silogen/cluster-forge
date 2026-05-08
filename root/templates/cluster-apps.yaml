@@ -74,11 +74,7 @@ spec:
     targetRevision: {{ .repoVersion | default $clusterForgeTargetRevision | quote }}
     {{- if .repoURL }}
     {{- if hasPrefix "oci://" $renderedRepoURL }}
-    {{- if or (eq .path ".") (not .path) }}
-    chart: {{ trimPrefix "oci://" $renderedRepoURL | base }}
-    {{- else }}
-    chart: {{ .path }}
-    {{- end }}
+    path: {{ .path | default "." }}
     {{- else }}
     path: {{ .path }}
     {{- end }}
