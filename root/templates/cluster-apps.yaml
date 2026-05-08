@@ -85,22 +85,11 @@ spec:
     {{- else }}
     path: sources/{{ .path }}
     {{- end }}
-    {{- if or .valuesFile .valuesFiles .valuesObject .helmParameters }}
+    {{- if or .valuesFile .valuesObject .helmParameters }}
     helm:
-      {{- if or .valuesFile .valuesFiles }}
-      valueFiles:
-      {{- end }}
       {{- if .valuesFile }}
+      valueFiles:
         - {{ .valuesFile }}
-      {{- end }}
-      {{- if .valuesFiles }}
-      {{- if kindIs "slice" .valuesFiles }}
-      {{- range .valuesFiles }}
-        - {{ . }}
-      {{- end }}
-      {{- else }}
-        - {{ .valuesFiles }}
-      {{- end }}
       {{- end }}
       {{- if .valuesObject }}
       values: |

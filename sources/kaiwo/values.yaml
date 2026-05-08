@@ -1,3 +1,0 @@
-gpuPreemption:
-  enabled: true
-  metricsEndpoint: "http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:9090/federate?match[]=gpu_gfx_activity"

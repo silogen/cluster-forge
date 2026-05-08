@@ -112,54 +112,27 @@ while IFS= read -r app; do
     done
     
     component_path=$(yq eval ".components.\"$app\".path" "$COMPONENTS_FILE" 2>/dev/null || echo "null")
-
-    # Normalize empty string and null for comparison
-    [[ -z "$values_path" || "$values_path" == "null" ]] && values_path="null"
-    [[ -z "$component_path" || "$component_path" == "null" ]] && component_path="null"
-
+    
     if [[ "$values_path" != "$component_path" ]]; then
         path_mismatches+=("$app: cluster-configs='$values_path' vs components.yaml='$component_path'")
         echo "❌ Path mismatch for '$app': cluster-configs='$values_path' vs components.yaml='$component_path'"
     fi
     
-    # Check valuesFile/valuesFiles consistency
+    # Check valuesFile consistency
     values_file_values="null"
-    values_files_values="null"
-    config_file_source=""
     for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
         if [[ -f "$config_file" ]]; then
             app_path_check=$(yq eval ".apps.\"$app\".path // \"null\"" "$config_file" 2>/dev/null || echo "null")
             if [[ "$app_path_check" != "null" ]]; then
                 values_file_values=$(yq eval ".apps.\"$app\".valuesFile // \"null\"" "$config_file" 2>/dev/null || echo "null")
-                values_files_values=$(yq eval ".apps.\"$app\".valuesFiles // \"null\"" "$config_file" 2>/dev/null || echo "null")
-                config_file_source="$config_file"
                 break
             fi
         fi
     done
-
+    
     values_file_components=$(yq eval ".components.\"$app\".valuesFile // \"null\"" "$COMPONENTS_FILE" 2>/dev/null || echo "null")
-    values_files_components=$(yq eval ".components.\"$app\".valuesFiles // \"null\"" "$COMPONENTS_FILE" 2>/dev/null || echo "null")
-
-    # Compare - prefer valuesFiles if present, otherwise fall back to valuesFile
-    if [[ "$values_files_values" != "null" ]] || [[ "$values_files_components" != "null" ]]; then
-        # At least one side uses valuesFiles (array) - compare as JSON to normalize formatting
-        if [[ "$values_files_values" != "null" ]] && [[ "$values_files_components" != "null" ]]; then
-            # Both have valuesFiles - convert to JSON for comparison
-            values_files_values_json=$(yq eval ".apps.\"$app\".valuesFiles" "$config_file_source" -o=json 2>/dev/null || echo "null")
-            values_files_components_json=$(yq eval ".components.\"$app\".valuesFiles" "$COMPONENTS_FILE" -o=json 2>/dev/null || echo "null")
-
-            if [[ "$values_files_values_json" != "$values_files_components_json" ]]; then
-                path_mismatches+=("$app valuesFiles: cluster-configs='$values_files_values_json' vs components.yaml='$values_files_components_json'")
-                echo "❌ ValuesFiles mismatch for '$app': cluster-configs='$values_files_values_json' vs components.yaml='$values_files_components_json'"
-            fi
-        else
-            # Only one side has valuesFiles - they don't match
-            path_mismatches+=("$app valuesFiles: cluster-configs='$values_files_values' vs components.yaml='$values_files_components'")
-            echo "❌ ValuesFiles mismatch for '$app': cluster-configs='$values_files_values' vs components.yaml='$values_files_components'"
-        fi
-    elif [[ "$values_file_values" != "$values_file_components" ]]; then
-        # Both sides use valuesFile (singular)
+    
+    if [[ "$values_file_values" != "$values_file_components" ]]; then
         path_mismatches+=("$app valuesFile: cluster-configs='$values_file_values' vs components.yaml='$values_file_components'")
         echo "❌ ValuesFile mismatch for '$app': cluster-configs='$values_file_values' vs components.yaml='$values_file_components'"
     fi

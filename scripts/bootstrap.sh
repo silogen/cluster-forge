@@ -822,22 +822,18 @@ render_actual_helm_manifests() {
     echo "{}" > "${temp_dir}/size_values.yaml"
   fi
 
-  # Get additional valuesFiles if specified
-  # Use yq to output as JSON array, then iterate to avoid bash array syntax issues
+  # Get additional valuesFile if specified
   local helm_value_args=()
-  local values_files_json
-  values_files_json=$(yq eval -o=json ".apps.\"$app_name\".valuesFiles // []" "${SOURCE_ROOT}/root/${VALUES_FILE}" 2>/dev/null || echo "[]")
+  local values_file
+  values_file=$(yq eval ".apps.\"$app_name\".valuesFile // \"null\"" "${SOURCE_ROOT}/root/${VALUES_FILE}" 2>/dev/null || echo "null")
 
-  # Read each value file from the JSON array
-  while IFS= read -r value_file; do
-    if [ -n "$value_file" ] && [ "$value_file" != "null" ]; then
-      # Resolve the path relative to the chart directory
-      local resolved_path="${chart_path}/${value_file}"
-      if [ -f "$resolved_path" ]; then
-        helm_value_args+=("-f" "$resolved_path")
-      fi
+  if [ -n "$values_file" ] && [ "$values_file" != "null" ]; then
+    # Resolve the path relative to the chart directory
+    local resolved_path="${chart_path}/${values_file}"
+    if [ -f "$resolved_path" ]; then
+      helm_value_args+=("-f" "$resolved_path")
     fi
-  done < <(echo "$values_files_json" | yq eval '.[]' - 2>/dev/null || true)
+  fi
 
   # Determine namespace
   local namespace=$(yq eval ".apps.\"$app_name\".namespace // \"default\"" "${SOURCE_ROOT}/root/${VALUES_FILE}")
