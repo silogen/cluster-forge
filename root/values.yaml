@@ -16,7 +16,7 @@ ociRegistry:
 apps:
   aim-engine:
     repoURL: "oci://{{ .Values.ociRegistry.dockerHub }}/aim-engine-chart"
-    repoVersion: "v0.2.2"
+    repoVersion: "0.2.2"
     path: "."
     namespace: aim-system
     valuesFile: values.yaml
