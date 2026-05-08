@@ -23,7 +23,7 @@ apps:
     syncWave: 0
   aim-engine-crds:
     repoURL: "oci://{{ .Values.ociRegistry.dockerHub }}/aim-engine-crds-chart"
-    repoVersion: "v0.2.2"
+    repoVersion: "0.2.2"
     path: "."
     namespace: aim-system
     syncWave: 0
