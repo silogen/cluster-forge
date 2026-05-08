@@ -103,16 +103,22 @@ while IFS= read -r app; do
     values_path=""
     for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
         if [[ -f "$config_file" ]]; then
-            app_path=$(yq eval ".apps.\"$app\".path // \"null\"" "$config_file" 2>/dev/null || echo "null")
-            if [[ "$app_path" != "null" ]]; then
+            # Check if app exists by looking for any field (path, repoURL, namespace, etc.)
+            app_exists=$(yq eval ".apps.\"$app\" // \"null\"" "$config_file" 2>/dev/null || echo "null")
+            if [[ "$app_exists" != "null" ]]; then
+                app_path=$(yq eval ".apps.\"$app\".path // \"null\"" "$config_file" 2>/dev/null || echo "null")
                 values_path="$app_path"
                 break
             fi
         fi
     done
-    
+
     component_path=$(yq eval ".components.\"$app\".path" "$COMPONENTS_FILE" 2>/dev/null || echo "null")
-    
+
+    # Normalize empty string and null for comparison
+    [[ -z "$values_path" || "$values_path" == "null" ]] && values_path="null"
+    [[ -z "$component_path" || "$component_path" == "null" ]] && component_path="null"
+
     if [[ "$values_path" != "$component_path" ]]; then
         path_mismatches+=("$app: cluster-configs='$values_path' vs components.yaml='$component_path'")
         echo "❌ Path mismatch for '$app': cluster-configs='$values_path' vs components.yaml='$component_path'"
@@ -122,8 +128,9 @@ while IFS= read -r app; do
     values_file_values="null"
     for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
         if [[ -f "$config_file" ]]; then
-            app_path_check=$(yq eval ".apps.\"$app\".path // \"null\"" "$config_file" 2>/dev/null || echo "null")
-            if [[ "$app_path_check" != "null" ]]; then
+            # Check if app exists by looking for any field (not just path)
+            app_exists=$(yq eval ".apps.\"$app\" // \"null\"" "$config_file" 2>/dev/null || echo "null")
+            if [[ "$app_exists" != "null" ]]; then
                 values_file_values=$(yq eval ".apps.\"$app\".valuesFile // \"null\"" "$config_file" 2>/dev/null || echo "null")
                 break
             fi
