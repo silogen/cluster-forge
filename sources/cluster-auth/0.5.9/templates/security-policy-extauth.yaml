@@ -16,7 +16,9 @@ spec:
   extAuth:
     grpc:
       backendRefs:
-        - name: {{ include "cluster-auth.fullname" . }}
+        - group: ''
+          kind: Service
+          name: {{ include "cluster-auth.fullname" . }}
           namespace: {{ .Values.namespace.name }}
           port: {{ .Values.service.grpc.port }}
           weight: 1
