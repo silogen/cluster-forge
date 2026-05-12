@@ -12,7 +12,7 @@ components:
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
   aim-engine:
     path: .
-    repoVersion: v0.2.2
+    repoVersion: 0.2.2
     valuesFile: values.yaml
     sourceUrl: oci://registry-1.docker.io/amdenterpriseai/aim-engine-chart
     projectUrl: https://github.com/silogen/aim-engine
@@ -20,7 +20,7 @@ components:
     licenseUrl: https://github.com/silogen/aim-engine/blob/main/LICENSE
   aim-engine-crds:
     path: .
-    repoVersion: v0.2.2
+    repoVersion: 0.2.2
     sourceUrl: oci://registry-1.docker.io/amdenterpriseai/aim-engine-crds-chart
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine-crds
     license: Apache License 2.0
@@ -114,8 +114,7 @@ components:
     licenseUrl: https://github.com/cloudnative-pg/cloudnative-pg/blob/main/LICENSE
   envoy-gateway:
     path: envoy-gateway/v1.7.1
-    valuesFile: values.yaml
-    sourceUrl: oci://docker.io/envoyproxy/gateway-helm 
+    sourceUrl: oci://docker.io/envoyproxy/gateway-helm
     projectUrl: https://github.com/envoyproxy/gateway
     license: Apache License 2.0
     licenseUrl: https://github.com/envoyproxy/gateway
