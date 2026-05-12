@@ -1,0 +1,14 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: v2
+name: aim-gateway
+description: Envoy AI Gateway routing and token metering for AIM Engine inference services
+
+type: application
+
+version: 0.1.0
+
+appVersion: "0.1.0"

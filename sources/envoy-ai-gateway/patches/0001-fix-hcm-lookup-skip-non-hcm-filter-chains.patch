@@ -1,0 +1,26 @@
+diff --git a/internal/extensionserver/header_to_metadata.go b/internal/extensionserver/header_to_metadata.go
+index 93d5fe9..e658b54 100644
+--- a/internal/extensionserver/header_to_metadata.go
++++ b/internal/extensionserver/header_to_metadata.go
+@@ -40,7 +40,7 @@ func (s *Server) insertRequestHeaderToMetadataFilter(listener *listenerv3.Listen
+ 	for _, currChain := range filterChains {
+ 		httpConManager, hcmIndex, err := findHCM(currChain)
+ 		if err != nil {
+-			return err
++			continue // skip non-HCM filter chains (e.g. TLS passthrough, EmptyCluster default reject)
+ 		}
+ 		if filterIndex, filter := findHeaderToMetadataFilter(httpConManager.HttpFilters); filter != nil {
+ 			typedConfig := filter.GetTypedConfig()
+diff --git a/internal/extensionserver/post_translate_modify.go b/internal/extensionserver/post_translate_modify.go
+index 953ad75..b423425 100644
+--- a/internal/extensionserver/post_translate_modify.go
++++ b/internal/extensionserver/post_translate_modify.go
+@@ -624,7 +624,7 @@ func (s *Server) insertRouterLevelAIGatewayExtProc(listener *listenerv3.Listener
+ 	for _, currChain := range filterChains {
+ 		httpConManager, hcmIndex, err := findHCM(currChain)
+ 		if err != nil {
+-			return fmt.Errorf("failed to find HCM in filter chain: %w", err)
++			continue // skip non-HCM filter chains (e.g. TLS passthrough, EmptyCluster default reject)
+ 		}
+ 		// Check if the extproc filter is already present.
+ 		if !shouldAIGatewayExtProcBeInserted(httpConManager.HttpFilters) {

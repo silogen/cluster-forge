@@ -1,0 +1,42 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+# AIGatewayRoute wires the AI Gateway to the Envoy Gateway and enables per-request
+# token cost tracking. The controller generates an HTTPRoute from this resource that
+# intercepts /v1/chat/completions traffic and routes it to the matching AIM backend.
+---
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIGatewayRoute
+metadata:
+  name: aim-inference-route
+  namespace: {{ .Release.Namespace }}
+spec:
+  parentRefs:
+    - name: {{ .Values.gateway.name }}
+      namespace: {{ .Values.gateway.namespace }}
+  # Capture token counts from the inference response body into Envoy dynamic metadata.
+  # These values feed into BackendTrafficPolicy rate limiting and Prometheus metrics.
+  llmRequestCosts:
+    - metadataKey: llm_input_token
+      type: InputToken
+    - metadataKey: llm_output_token
+      type: OutputToken
+    - metadataKey: llm_total_token
+      type: TotalToken
+  rules:
+    {{- range .Values.backends }}
+    - matches:
+        - headers:
+            - type: Exact
+              # x-ai-eg-model is set by the AI Gateway filter after extracting the
+              # model name from the request body — used for model-based routing.
+              name: x-ai-eg-model
+              value: {{ .modelName | quote }}
+      backendRefs:
+        - name: {{ .name }}
+    {{- end }}
+    # Default rule: route to the first backend if no model header matches.
+    # Prevents unmatched requests from returning 404 during development.
+    - backendRefs:
+        - name: {{ (index .Values.backends 0).name }}

@@ -1,0 +1,18 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+gateway:
+  name: https
+  namespace: envoy-gateway-system
+
+# List of AIM Engine inference service backends to expose through the AI Gateway.
+# Each entry creates an Envoy Gateway Backend + AIServiceBackend pair.
+backends:
+  - name: qwen3-0-6b-cpu
+    # Kubernetes service name backing the AIMService
+    serviceName: wb-aim-d760c43c-9e4156bd-predictor
+    serviceNamespace: workbench
+    servicePort: 80
+    # Model name as it appears in the inference request body (request.model field)
+    modelName: "Qwen/Qwen3-0.6B"

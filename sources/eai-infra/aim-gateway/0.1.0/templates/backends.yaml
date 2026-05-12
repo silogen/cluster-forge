@@ -1,0 +1,33 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+# Envoy Gateway Backend + AIServiceBackend pair for each AIM Engine inference service.
+# The Backend resource is required by the AIServiceBackend CRD — direct k8s Service
+# references are not yet supported (envoyproxy/ai-gateway#902).
+{{- range .Values.backends }}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  endpoints:
+    - fqdn:
+        hostname: {{ .serviceName }}.{{ .serviceNamespace }}.svc.cluster.local
+        port: {{ .servicePort }}
+---
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIServiceBackend
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  schema:
+    name: OpenAI
+  backendRef:
+    group: gateway.envoyproxy.io
+    kind: Backend
+    name: {{ .name }}
+{{- end }}
