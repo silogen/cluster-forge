@@ -1,3 +1,9 @@
+clusterForge:
+  repoUrl: "https://github.com/silogen/cluster-forge.git"
+
+externalValues:
+  enabled: false
+
 global:
   clusterSize: values_small.yaml
 
