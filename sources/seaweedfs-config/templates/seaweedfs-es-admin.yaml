@@ -13,7 +13,7 @@ spec:
   target:
     name: seaweedfs-admin-secret
   data:
-    - secretKey: password
+    - secretKey: admin-password 
       remoteRef:
         key: secrets/data/minio-root-password
         property: value
