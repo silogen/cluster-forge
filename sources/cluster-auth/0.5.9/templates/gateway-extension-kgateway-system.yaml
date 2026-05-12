@@ -1,0 +1,15 @@
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: GatewayExtension
+metadata:
+  name: {{ include "cluster-auth.fullname" . }}-extauth
+  namespace: kgateway-system
+  labels:
+    {{- include "cluster-auth.labels" . | nindent 4 }}
+spec:
+  type: ExtAuth
+  extAuth:
+    grpcService:
+      backendRef:
+        name: {{ include "cluster-auth.fullname" . }}
+        namespace: {{ .Values.namespace.name }}
+        port: {{ .Values.service.grpc.port }}
