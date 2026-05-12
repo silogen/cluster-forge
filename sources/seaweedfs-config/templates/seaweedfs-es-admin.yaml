@@ -1,8 +1,8 @@
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: default-minio-tenant-env-configuration-spec
-  namespace: minio-tenant-default
+  name: seaweed-admin-es-secret
+  namespace: seaweedfs-instance
   annotations:
     argocd.argoproj.io/hook: PreSync
 spec:
