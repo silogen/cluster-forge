@@ -142,7 +142,7 @@ keycloak:
 
 # MinIO configuration
 minio:
-  url: minioUrl: http://filer-s3.seaweedfs-instance.svc.cluster.local:80
+  url: http://filer-s3.seaweedfs-instance.svc.cluster.local:80
   bucket: "default-bucket"
   credentialsSecretName: "minio-credentials"
   accessKeyKey: "minio-access-key"
