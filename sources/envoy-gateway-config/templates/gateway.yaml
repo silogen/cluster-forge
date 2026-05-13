@@ -3,6 +3,10 @@ kind: Gateway
 metadata:
   name: https
   namespace: envoy-gateway-system
+  annotations:
+    # Links to the GatewayConfig that enables globalLLMRequestCosts for token metadata.
+    # The GatewayConfig is deployed by the aim-gateway chart.
+    aigateway.envoyproxy.io/gateway-config: aim-gateway-global-costs
 spec:
   gatewayClassName: envoy-gateway
   infrastructure:
