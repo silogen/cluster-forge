@@ -91,9 +91,9 @@ spec:
   stopDelay: 300
   storage:
     size: 50Gi
-    storageClass: default
+    storageClass: {{ default "default" .Values.storageClass }}
   superuserSecret:
     name: keycloak-cnpg-superuser
   walStorage:
     size: 50Gi
-    storageClass: default
+    storageClass: {{ default "default" .Values.storageClass }}

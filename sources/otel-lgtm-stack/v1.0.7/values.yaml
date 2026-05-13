@@ -11,11 +11,12 @@ namespace: otel-lgtm-stack
 # LGTM Stack storage configuration
 lgtm:
   storage:
+    storageClass: default
     # Tempo storage for traces
     tempo: 50Gi
-    # Loki storage for logs  
+    # Loki storage for logs
     loki: 50Gi
-    # Grafana storage for dashboards/config  
+    # Grafana storage for dashboards/config
     grafana: 10Gi
     # Mimir/Prometheus storage for metrics
     mimir: 50Gi
