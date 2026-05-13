@@ -1,0 +1,124 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+# OTel DaemonSet collector that reads Envoy proxy access logs from the host and emits
+# aim_gateway_inference_requests_total{model="..."} to Prometheus/Mimir.
+# Token values (llm_input/output/total_token) are also present in Loki via the
+# cluster-wide otel-collector-logs — query with sum_over_time(...|unwrap llm_total_token[5m]).
+{{- if .Values.otelCollector.enabled }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aim-gateway-otel-collector
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aim-gateway-otel-collector
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "namespaces", "nodes"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: aim-gateway-otel-collector
+subjects:
+  - kind: ServiceAccount
+    name: aim-gateway-otel-collector
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: aim-gateway-otel-collector
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: aim-gateway
+  namespace: {{ .Release.Namespace }}
+spec:
+  mode: daemonset
+  serviceAccount: aim-gateway-otel-collector
+  volumeMounts:
+    - name: varlogpods
+      mountPath: /var/log/pods
+      readOnly: true
+  volumes:
+    - name: varlogpods
+      hostPath:
+        path: /var/log/pods
+  config:
+    receivers:
+      filelog:
+        # Envoy proxy data-plane pods — named envoy-{gateway-namespace}-{gateway-name}-{hash}
+        include:
+          - /var/log/pods/envoy-gateway-system_envoy-*/**/*.log
+        operators:
+          # Detect container runtime log format
+          - type: router
+            id: detect-format
+            routes:
+              - expr: 'body matches "^\\{"'
+                output: parse-docker
+            default: parse-cri
+          # Docker: {"log":"...", "stream":"stdout", "time":"..."}
+          - type: json_parser
+            id: parse-docker
+            timestamp:
+              parse_from: attributes.time
+              layout: "%Y-%m-%dT%H:%M:%SZ"
+            output: parse-log-body
+          # CRI-O / containerd: timestamp stream flags log-json
+          - type: regex_parser
+            id: parse-cri
+            regex: '^(?P<time>[^ ^Z]+Z) (?P<stream>stdout|stderr) (?P<flags>[^ ]*) (?P<log>.*)$'
+            timestamp:
+              parse_from: attributes.time
+              layout: "%Y-%m-%dT%H:%M:%SZ"
+            output: parse-log-body
+          # Parse the inner log field (Envoy JSON access log)
+          - type: json_parser
+            id: parse-log-body
+            parse_from: attributes.log
+            if: 'attributes["log"] != nil'
+            on_error: drop
+            output: filter-non-inference
+          # Drop records without token data — Envoy outputs "-" for absent dynamic metadata
+          - type: filter
+            id: filter-non-inference
+            expr: 'attributes["llm_total_token"] == nil or attributes["llm_total_token"] == "" or attributes["llm_total_token"] == "-"'
+
+    processors:
+      batch: {}
+
+    connectors:
+      count:
+        logs:
+          aim_gateway_inference_requests_total:
+            description: Count of inference requests through the AI Gateway by model
+            attributes:
+              - key: model
+                default_value: unknown
+
+    exporters:
+      otlp:
+        endpoint: {{ .Values.otelCollector.otlpEndpoint }}
+        tls:
+          insecure: true
+
+    service:
+      pipelines:
+        logs/envoy-access:
+          receivers: [filelog]
+          processors: [batch]
+          exporters: [count]
+        metrics/inference-requests:
+          receivers: [count]
+          processors: [batch]
+          exporters: [otlp]
+{{- end }}

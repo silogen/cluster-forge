@@ -17,3 +17,10 @@ gateway:
 #       servicePort: 80
 #       modelName: "org/model-name"
 backends: []
+
+# OTel collector DaemonSet that reads Envoy access logs and emits
+# aim_gateway_inference_requests_total{model="..."} to Prometheus/Mimir.
+# Requires the opentelemetry-operator to be running in the cluster.
+otelCollector:
+  enabled: true
+  otlpEndpoint: lgtm-stack.otel-lgtm-stack.svc.cluster.local:4317
