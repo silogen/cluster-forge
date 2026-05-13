@@ -5,6 +5,8 @@
 # AIGatewayRoute wires the AI Gateway to the Envoy Gateway and enables per-request
 # token cost tracking. The controller generates an HTTPRoute from this resource that
 # intercepts /v1/chat/completions traffic and routes it to the matching AIM backend.
+# Skipped when no backends are configured.
+{{- if .Values.backends }}
 ---
 apiVersion: aigateway.envoyproxy.io/v1beta1
 kind: AIGatewayRoute
@@ -40,3 +42,4 @@ spec:
     # Prevents unmatched requests from returning 404 during development.
     - backendRefs:
         - name: {{ (index .Values.backends 0).name }}
+{{- end }}

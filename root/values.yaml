@@ -548,6 +548,11 @@ apps:
     namespace: envoy-ai-gateway-system
     path: envoy-ai-gateway/v0.6.0
     syncWave: -5
+  aim-gateway:
+    namespace: envoy-ai-gateway-system
+    path: eai-infra/aim-gateway/0.1.0
+    syncWave: 5
+    valuesFile: values.yaml
   kserve:
     namespace: kserve-system
     path: kserve/v0.16.0

@@ -8,11 +8,12 @@ gateway:
 
 # List of AIM Engine inference service backends to expose through the AI Gateway.
 # Each entry creates an Envoy Gateway Backend + AIServiceBackend pair.
-backends:
-  - name: qwen3-0-6b-cpu
-    # Kubernetes service name backing the AIMService
-    serviceName: wb-aim-d760c43c-9e4156bd-predictor
-    serviceNamespace: workbench
-    servicePort: 80
-    # Model name as it appears in the inference request body (request.model field)
-    modelName: "Qwen/Qwen3-0.6B"
+# Override this per cluster in the cluster-values repo.
+# Example:
+#   backends:
+#     - name: my-model
+#       serviceName: wb-aim-xxxx-predictor
+#       serviceNamespace: workbench
+#       servicePort: 80
+#       modelName: "org/model-name"
+backends: []
