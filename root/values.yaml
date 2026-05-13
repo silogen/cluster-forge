@@ -532,6 +532,30 @@ apps:
     syncWave: -30
     valuesObject:
       kubernetesClusterDomain: cluster.local
+      config:
+        envoyGateway:
+          extensionApis:
+            # Required for AI Gateway Backend CRD references to be accepted.
+            enableBackend: true
+          # Registers the AI Gateway controller as an xDS extension server.
+          # Without this, Envoy Gateway does not inject the ext_proc HTTP filter
+          # into the listener, so token metadata fields stay null in access logs.
+          extensionManager:
+            resources:
+              - group: aigateway.envoyproxy.io
+                version: v1beta1
+                kind: AIGatewayRoute
+              - group: aigateway.envoyproxy.io
+                version: v1beta1
+                kind: AIServiceBackend
+            service:
+              host: ai-gateway-controller.envoy-ai-gateway-system.svc.cluster.local
+              port: 1063
+              tls:
+                certificateRef:
+                  kind: Secret
+                  name: self-signed-cert-for-mutating-webhook
+                  namespace: envoy-ai-gateway-system
   envoy-gateway-config:
     helmParameters:
       - name: domain
