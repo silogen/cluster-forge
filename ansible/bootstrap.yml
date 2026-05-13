@@ -14,6 +14,7 @@
   hosts: localhost
   connection: local
   gather_facts: true
-  environment: "{{ {'KUBECONFIG': ansible_env.KUBECONFIG} if 'KUBECONFIG' in ansible_env else {} }}"
+  environment:
+    KUBECONFIG: "/mnt/c/Users/madillon/.kube/config"
   roles:
     - cluster_forge_bootstrap
