@@ -160,9 +160,7 @@ apps:
   keycloak:
     syncWave: 5
     valuesObject:
-      # Increase memory resources for Keycloak to prevent OOMKilled during initialization
-      # Medium preset provides 1536Mi memory limit vs small preset's 768Mi
-      resourcesPreset: "medium"
+      resourcesPreset: "small"
       cnpg:
         storage:
           storageClass: local-path
@@ -283,7 +281,7 @@ apps:
             memory: "1Gi"
             cpu: "500m"
           limits:
-            memory: "8Gi"
+            memory: "5Gi"
       collectors:
         resources:
           metrics:
@@ -291,7 +289,7 @@ apps:
               memory: "512Mi"
               cpu: "250m"
             limits:
-              memory: "8Gi"
+              memory: "2Gi"
           logs:
             requests:
               memory: "200Mi"
