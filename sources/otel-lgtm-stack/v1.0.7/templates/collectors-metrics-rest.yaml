@@ -133,9 +133,11 @@ spec:
                 - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_component]
                   action: keep
                   regex: proxy
-                - source_labels: [__meta_kubernetes_pod_ip]
-                  regex: (.+)
-                  replacement: $1:1064
+                - source_labels: [__meta_kubernetes_pod_container_port_name]
+                  action: keep
+                  regex: aigw-admin
+                - source_labels: [__meta_kubernetes_pod_ip, __meta_kubernetes_pod_container_port_number]
+                  separator: ":"
                   target_label: __address__
                 - source_labels: [__meta_kubernetes_pod_name]
                   target_label: pod
