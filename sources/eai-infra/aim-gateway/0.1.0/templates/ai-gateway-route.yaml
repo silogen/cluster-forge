@@ -37,9 +37,18 @@ spec:
               value: {{ .modelName | quote }}
       backendRefs:
         - name: {{ .name }}
+          headerMutation:
+            set:
+              # Injected so the extproc can label gen_ai_* metrics with aim_service_id.
+              - name: x-aim-service-id
+                value: {{ .name }}
     {{- end }}
     # Default rule: route to the first backend if no model header matches.
     # Prevents unmatched requests from returning 404 during development.
     - backendRefs:
         - name: {{ (index .Values.backends 0).name }}
+          headerMutation:
+            set:
+              - name: x-aim-service-id
+                value: {{ (index .Values.backends 0).name }}
 {{- end }}

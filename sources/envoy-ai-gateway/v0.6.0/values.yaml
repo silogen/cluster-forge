@@ -73,7 +73,9 @@ controller:
   # Comma-separated key-value pairs for mapping HTTP request headers to Otel attributes shared across metrics, spans, and access logs.
   # Format: "header1:attribute1,header2:attribute2"
   # Example: "x-tenant-id:tenant.id"
-  requestHeaderAttributes: ""
+  # x-api-key-id is injected by the SecurityPolicy apiKeyAuth (matched Secret data key = client ID).
+  # x-aim-service-id is injected by headerMutation on each AIGatewayRoute backendRef.
+  requestHeaderAttributes: "x-api-key-id:api_key_id,x-aim-service-id:aim_service_id"
 
   # Comma-separated key-value pairs for mapping HTTP request headers to otel span attributes.
   # Format: "header1:attribute1,header2:attribute2"
@@ -85,7 +87,7 @@ controller:
   # Comma-separated key-value pairs for mapping HTTP request headers to Otel metric attributes.
   # Format: "header1:label1,header2:label2"
   # Example: "x-tenant-id:tenant.id,x-tenant-id:tenant.id"
-  metricsRequestHeaderAttributes: ""
+  metricsRequestHeaderAttributes: "x-api-key-id:api_key_id,x-aim-service-id:aim_service_id"
 
   # Comma-separated key-value pairs for mapping HTTP request headers to access log attributes.
   # Format: "header1:attribute1,header2:attribute2"

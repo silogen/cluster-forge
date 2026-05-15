@@ -31,3 +31,15 @@ apiKeyAuth:
   enabled: false
   secretName: aim-gateway-api-keys
   forwardClientIDHeader: x-api-key-id
+
+# Per-API-key token quota enforcement via Envoy AI Gateway QuotaPolicy.
+# Quotas are counted in tokens (input + output) per time window.
+# shadowMode: true observes without enforcing — safe for initial rollout.
+# Override limits and enable per cluster in cluster-values.
+quotaPolicy:
+  enabled: false
+  shadowMode: true
+  perKeyTokenLimit: 1000000   # tokens per window per API key
+  perKeyDuration: 1h
+  globalTokenLimit: 10000000  # tokens per window across all keys (safety net)
+  globalDuration: 1h
