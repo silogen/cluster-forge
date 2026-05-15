@@ -43,3 +43,7 @@ quotaPolicy:
   perKeyDuration: 1h
   globalTokenLimit: 10000000  # tokens per window across all keys (safety net)
   globalDuration: 1h
+  # globalEnforced: when false (default), defaultBucket is omitted so the global
+  # safety-net limit does not enforce while per-key rules are still in shadowMode.
+  # Set to true only after tuning limits and disabling shadowMode.
+  globalEnforced: false

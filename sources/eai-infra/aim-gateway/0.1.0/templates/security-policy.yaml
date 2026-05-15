@@ -10,6 +10,14 @@
 # rather than the Gateway, to avoid conflicting with the cluster-wide
 # cluster-auth ExtAuth SecurityPolicy which targets the Gateway level.
 # Skipped when no backends are configured or apiKeyAuth is disabled.
+#
+# BOOTSTRAP: The Secret named by apiKeyAuth.secretName must exist in this
+# namespace before auth can function. It is not created by this chart.
+# Each entry: data key = api_key_id (client identifier), value = raw Bearer token.
+# Create it manually or provision via ExternalSecret from OpenBao.
+# Example:
+#   kubectl create secret generic aim-gateway-api-keys \
+#     --from-literal=<api_key_id>=<raw_token> -n <namespace>
 {{- if and .Values.backends .Values.apiKeyAuth.enabled }}
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1

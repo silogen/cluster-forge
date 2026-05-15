@@ -29,9 +29,11 @@ spec:
       quota:
         mode: Exclusive
         costExpression: "input_tokens + output_tokens"
+        {{- if $.Values.quotaPolicy.globalEnforced }}
         defaultBucket:
           limit: {{ $.Values.quotaPolicy.globalTokenLimit }}
           duration: {{ $.Values.quotaPolicy.globalDuration | quote }}
+        {{- end }}
         bucketRules:
           - clientSelectors:
               - headers:
