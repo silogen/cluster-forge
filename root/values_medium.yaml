@@ -68,7 +68,7 @@ apps:
   kyverno-policies-storage-local-path:
     namespace: kyverno
     path: kyverno-policies/storage-local-path
-    syncWave: -20
+    syncWave: -25
     ignoreDifferences:
       - group: kyverno.io
         kind: ClusterPolicy
