@@ -196,7 +196,6 @@ spec:
               # --preserve: Preserve filesystem attributes (metadata)
               $MC mirror minio-source/"$SOURCE_BUCKET" seaweed-target/"$TARGET_BUCKET" \
                 --overwrite \
-                --remove \
                 --preserve
               
               MIRROR_EXIT_CODE=$?
