@@ -54,6 +54,10 @@ enabledApps:
   - rabbitmq
 
 apps:
+  aim-gateway:
+    valuesObject:
+      apiKeyAuth:
+        enabled: true
   argocd:
     valuesObject:
       applicationSet:

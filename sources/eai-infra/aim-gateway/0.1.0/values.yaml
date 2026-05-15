@@ -21,3 +21,13 @@ backends: []
 # Metrics are scraped from the ai-gateway-extproc sidecar (port 1064/metrics)
 # by otel-collector-metrics-rest in the otel-lgtm-stack namespace. No chart-local
 # collector is needed.
+
+# API key authentication via Envoy Gateway SecurityPolicy.
+# When enabled, inference requests must include a valid Bearer token.
+# Secret format: each key in .data is the client ID (api_key_id),
+# each value is the raw API key string (no "Bearer" prefix).
+# Override secretName and enabled per cluster in cluster-values.
+apiKeyAuth:
+  enabled: false
+  secretName: aim-gateway-api-keys
+  forwardClientIDHeader: x-api-key-id
