@@ -157,6 +157,13 @@ clusterAuth:
 prometheus:
   url: "http://lgtm-stack.otel-lgtm-stack.svc.cluster.local:9090"
 
+# Gateway API key Secret configuration (synced by AIWB on API key create/delete)
+# Secret format: each data key is the API key name (= api_key_id in metrics),
+# each value is the raw Bearer token validated by the SecurityPolicy.
+gatewayApiKeys:
+  secretName: aim-gateway-api-keys
+  secretNamespace: envoy-ai-gateway-system
+
 # AIM Configuration
 # A cluster-scoped AIMClusterRuntimeConfig is always created by this chart.
 # Named "default" so the AIM operator applies it automatically to all AIMServices,
