@@ -62,9 +62,6 @@ kind: GatewayConfig
 metadata:
   name: aim-gateway-global-costs
   namespace: {{ .Values.gateway.namespace }}
-  annotations:
-    # Force re-reconciliation when this resource changes. Increment to trigger.
-    touched: "1778683432"
 spec:
   # globalLLMRequestCosts applies to all routes regardless of aigw_route_name.
   # Required for K8s Service backends (non-InferencePool), where the ext_proc

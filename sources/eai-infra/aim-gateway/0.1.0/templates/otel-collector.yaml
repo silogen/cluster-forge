@@ -1,3 +1,0 @@
-# Metrics are scraped from the ai-gateway-extproc sidecar (port 1064/metrics)
-# by the cluster-wide otel-collector-metrics-rest in the otel-lgtm-stack namespace.
-# No per-chart collector is needed here.
