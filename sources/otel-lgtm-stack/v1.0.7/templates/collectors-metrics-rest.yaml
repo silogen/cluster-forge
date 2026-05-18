@@ -84,19 +84,19 @@ spec:
               scheme: http
               static_configs:
                 - targets:
-                    - minio.minio-tenant-default.svc.cluster.local
+                    - filer-s3.seaweedfs-instance.svc.cluster.local
             - job_name: minio-bucket-metrics
               metrics_path: /minio/v2/metrics/bucket
               scheme: http
               static_configs:
                 - targets:
-                    - minio.minio-tenant-default.svc.cluster.local
+                    - filer-s3.seaweedfs-instance.svc.cluster.local
             - job_name: minio-resource-metrics
               metrics_path: /minio/v2/metrics/resource
               scheme: http
               static_configs:
                 - targets:
-                    - minio.minio-tenant-default.svc.cluster.local
+                    - filer-s3.seaweedfs-instance.svc.cluster.local
             - job_name: argocd-controller
               metrics_path: /metrics
               scheme: http
