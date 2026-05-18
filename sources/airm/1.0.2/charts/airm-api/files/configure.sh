@@ -211,7 +211,7 @@ EOF
             "type": "S3",
             "scope": "Organization",
             "spec": {
-                "bucket_url": "http://minio.minio-tenant-default.svc.cluster.local:80",
+                "bucket_url": "http://filer-s3.seaweedfs-instance.svc.cluster.local:80",
                 "access_key_name": "minio-access-key",
                 "secret_key_name": "minio-secret-key"
             }
