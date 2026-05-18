@@ -4,9 +4,9 @@ metadata:
   name: preserve-url-encoding
   namespace: envoy-gateway-system
 spec:
-  targetRef:
-    group: gateway.networking.k8s.io
-    kind: Gateway
-    name: https
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: https
   path:
-    escapedSlashesAction: UnescapeAndForward
+    escapedSlashesAction: KeepUnchanged
