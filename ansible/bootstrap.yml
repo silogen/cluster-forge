@@ -15,6 +15,6 @@
   connection: local
   gather_facts: true
   environment:
-    KUBECONFIG: "/mnt/c/Users/madillon/.kube/config"
+    KUBECONFIG: "{{ kubeconfig | default('/mnt/c/Users/madillon/.kube/config') }}"
   roles:
     - cluster_forge_bootstrap
