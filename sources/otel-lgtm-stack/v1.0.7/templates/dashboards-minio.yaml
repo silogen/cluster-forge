@@ -567,7 +567,7 @@ data:
                   "options": {
                     "mode": "exclude",
                     "names": [
-                      "{__name__=\"minio_bucket_usage_total_bytes\", bucket=\"default-bucket\", instance=\"minio.minio-tenant-default.svc.cluster.local:80\", job=\"minio-bucket-metrics\", server=\"127.0.0.1:9000\", service_instance_id=\"minio.minio-tenant-default.svc.cluster.local:80\", service_name=\"minio-bucket-metrics\"}"
+                      "{__name__=\"minio_bucket_usage_total_bytes\", bucket=\"default-bucket\", instance=\"filer-s3.seaweedfs-instance.svc.cluster.local:80\", job=\"minio-bucket-metrics\", server=\"127.0.0.1:9000\", service_instance_id=\"filer-s3.seaweedfs-instance.svc.cluster.local:80\", service_name=\"minio-bucket-metrics\"}"
                     ],
                     "prefix": "All except:",
                     "readOnly": true
