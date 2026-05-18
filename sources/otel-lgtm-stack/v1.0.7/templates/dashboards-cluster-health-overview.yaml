@@ -462,12 +462,12 @@ data:
             "targets": [
               {
                 "datasource": { "type": "prometheus", "uid": "prometheus" },
-                "expr": "100 - (avg by (hostname) (rate(node_cpu_seconds_total{mode=\"idle\",instance=~\"$instance\"}[5m]) * on(instance) group_left(hostname) label_replace(node_uname_info{instance=~\"$instance\"}, \"hostname\", \"$1\", \"nodename\", \"(.*)\")) * 100)",
-                "legendFormat": "{{hostname}}",
-                "refId": "A"
-              }
-            ],
-            "title": "CPU Usage % by Node",
+              "expr": "100 - (avg by (hostname) (rate(node_cpu_seconds_total{mode=\"idle\",instance=~\"$instance\"}[5m]) * on(instance) group_left(hostname) label_replace(node_uname_info{instance=~\"$instance\"}, \"hostname\", \"$1\", \"nodename\", \"(.*)\")) * 100)",
+              "legendFormat": "{{ "{{" }}hostname{{ "}}" }}",
+              "refId": "A"
+            }
+          ],
+          "title": "CPU Usage % by Node",
             "type": "timeseries"
           },
           {
@@ -516,12 +516,12 @@ data:
             "targets": [
               {
                 "datasource": { "type": "prometheus", "uid": "prometheus" },
-                "expr": "100 * (1 - avg by (hostname) ((node_memory_MemAvailable_bytes{instance=~\"$instance\"} * on(instance) group_left(hostname) label_replace(node_uname_info{instance=~\"$instance\"}, \"hostname\", \"$1\", \"nodename\", \"(.*)\")) / (node_memory_MemTotal_bytes{instance=~\"$instance\"} * on(instance) group_left(hostname) label_replace(node_uname_info{instance=~\"$instance\"}, \"hostname\", \"$1\", \"nodename\", \"(.*)\"))))",
-                "legendFormat": "{{hostname}}",
-                "refId": "A"
-              }
-            ],
-            "title": "Memory Usage % by Node",
+              "expr": "100 * (1 - avg by (hostname) ((node_memory_MemAvailable_bytes{instance=~\"$instance\"} * on(instance) group_left(hostname) label_replace(node_uname_info{instance=~\"$instance\"}, \"hostname\", \"$1\", \"nodename\", \"(.*)\")) / (node_memory_MemTotal_bytes{instance=~\"$instance\"} * on(instance) group_left(hostname) label_replace(node_uname_info{instance=~\"$instance\"}, \"hostname\", \"$1\", \"nodename\", \"(.*)\"))))",
+              "legendFormat": "{{ "{{" }}hostname{{ "}}" }}",
+              "refId": "A"
+            }
+          ],
+          "title": "Memory Usage % by Node",
             "type": "timeseries"
           },
           {
@@ -657,9 +657,9 @@ data:
             "targets": [
               {
                 "datasource": { "type": "prometheus", "uid": "prometheus" },
-                "expr": "gpu_gfx_activity",
-                "legendFormat": "{{node}} / {{gpu_uuid}}",
-                "refId": "A"
+              "expr": "gpu_gfx_activity",
+              "legendFormat": "{{ "{{" }}node{{ "}}" }} / {{ "{{" }}gpu_uuid{{ "}}" }}",
+              "refId": "A"
               }
             ],
             "title": "GPU Utilization % by GPU",
