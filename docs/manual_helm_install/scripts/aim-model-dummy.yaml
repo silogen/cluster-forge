@@ -1,0 +1,24 @@
+# AIM Dummy Model for local testing
+# This creates an AIMClusterModel that will appear in the AIWB Models catalog
+# Uses the silogen/aim-dummy base image with tiny-gpt2 for CPU-only testing
+
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterModel
+metadata:
+  name: silogen-aim-dummy-cpu-only
+  labels:
+    aim.eai.amd.com/origin: manual
+    aim.eai.amd.com/cpu-only: "true"
+  annotations:
+    aim.eai.amd.com/source-registry: ghcr.io
+    aim.eai.amd.com/source-repository: silogen/aim-dummy
+    aim.eai.amd.com/source-tag: "0.1.10"
+spec:
+  image: ghcr.io/silogen/aim-dummy:0.1.10
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi

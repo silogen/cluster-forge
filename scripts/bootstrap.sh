@@ -533,14 +533,19 @@ bootstrap_openbao() {
   if [ "$TEMPLATE_ONLY" = false ]; then
     kubectl wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 -n cf-openbao --timeout=100s
     
-    # Create initial secrets config for init job (separate from ArgoCD-managed version)
+    # Create initial secrets config for init job (separate from ArgoCD-managed version).
+    # Render via `helm template` so chart values (domain, minio.*) substitute
+    # correctly; the trailing sed renames the resource so the init-time copy
+    # does not collide with the ArgoCD-managed version of the same chart.
     log_info "Creating initial OpenBao secrets configuration..."
-    cat ${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-manager-cm.yaml | \
+    helm template --release-name openbao-init ${SOURCE_ROOT}/sources/openbao-config/0.1.0 \
+      --set domain="${DOMAIN}" \
+      --show-only templates/openbao-secret-manager-cm.yaml | \
       sed "s|name: openbao-secret-manager-scripts|name: openbao-secret-manager-scripts-init|g" | kubectl apply -f -
-    
-    # Create initial secrets config for init job (separate from ArgoCD-managed version)  
-    cat ${SOURCE_ROOT}/sources/openbao-config/0.1.0/templates/openbao-secret-definitions.yaml | \
-      sed "s|{{ .Values.domain }}|${DOMAIN}|g" | \
+
+    helm template --release-name openbao-init ${SOURCE_ROOT}/sources/openbao-config/0.1.0 \
+      --set domain="${DOMAIN}" \
+      --show-only templates/openbao-secret-definitions.yaml | \
       sed "s|name: openbao-secrets-config|name: openbao-secrets-init-config|g" | kubectl apply -f -
     
     # Pass OpenBao configuration to init script
@@ -779,6 +784,75 @@ EOF
   rm -rf "${TEMP_DIR}"
 }
 
+# Render the actual manifests from a Helm chart referenced by an ArgoCD app
+render_actual_helm_manifests() {
+  local app_name="$1"
+
+  # Get the app configuration from values.yaml
+  local app_path=$(yq eval ".apps.\"$app_name\".path" "${SOURCE_ROOT}/root/${VALUES_FILE}")
+
+  if [ "$app_path" = "null" ] || [ -z "$app_path" ]; then
+    log_info "  WARNING: No path found for app: $app_name"
+    return
+  fi
+
+  # Construct the full chart path (matching ArgoCD template which adds "sources/" prefix)
+  local chart_path="${SOURCE_ROOT}/sources/${app_path}"
+
+  if [ ! -d "$chart_path" ]; then
+    log_info "  WARNING: Chart path does not exist: $chart_path"
+    return
+  fi
+
+  # Create temp directory for values files
+  local temp_dir=$(mktemp -d -t cf-render.XXXXXX) || { log_info "ERROR: Cannot create temp directory"; exit 1; }
+  CLEANUP_DIRS+=("${temp_dir}")
+
+  # Extract values from the base values file
+  yq eval ".apps.\"$app_name\".valuesObject // {}" "${SOURCE_ROOT}/root/${VALUES_FILE}" > "${temp_dir}/base_values.yaml"
+
+  # Extract and merge size-specific values if they exist
+  if [ -n "${SIZE_VALUES_FILE}" ] && [ -f "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" ]; then
+    if yq eval ".apps | has(\"$app_name\")" "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" 2>/dev/null | grep -q "true"; then
+      yq eval ".apps.\"$app_name\".valuesObject // {}" "${SOURCE_ROOT}/root/${SIZE_VALUES_FILE}" > "${temp_dir}/size_values.yaml"
+    else
+      echo "{}" > "${temp_dir}/size_values.yaml"
+    fi
+  else
+    echo "{}" > "${temp_dir}/size_values.yaml"
+  fi
+
+  # Get additional valuesFile if specified
+  local helm_value_args=()
+  local values_file
+  values_file=$(yq eval ".apps.\"$app_name\".valuesFile // \"null\"" "${SOURCE_ROOT}/root/${VALUES_FILE}" 2>/dev/null || echo "null")
+
+  if [ -n "$values_file" ] && [ "$values_file" != "null" ]; then
+    # Resolve the path relative to the chart directory
+    local resolved_path="${chart_path}/${values_file}"
+    if [ -f "$resolved_path" ]; then
+      helm_value_args+=("-f" "$resolved_path")
+    fi
+  fi
+
+  # Determine namespace
+  local namespace=$(yq eval ".apps.\"$app_name\".namespace // \"default\"" "${SOURCE_ROOT}/root/${VALUES_FILE}")
+
+  # Render the actual Helm chart
+  helm template "$app_name" "$chart_path" \
+    "${helm_value_args[@]}" \
+    -f "${temp_dir}/base_values.yaml" \
+    -f "${temp_dir}/size_values.yaml" \
+    --namespace "$namespace" \
+    --kube-version "${KUBE_VERSION}" 2>&1 || {
+      log_info "  ERROR: Failed to render chart for $app_name"
+      rm -rf "${temp_dir}"
+      return 1
+    }
+
+  rm -rf "${temp_dir}"
+}
+
 # Render specific cluster-forge child apps (for --apps filtering)
 render_cluster_forge_child_apps() {
   
@@ -815,16 +889,27 @@ EOF
     fi
   done
   
-  # Render only the cluster-apps template with filtered values
-  helm template cluster-forge "${SOURCE_ROOT}/root" \
-      --show-only templates/cluster-apps.yaml \
-      --values "$temp_values" \
-      --set clusterForge.targetRevision="${TARGET_REVISION}" \
-      --set externalValues.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git" \
-      --set clusterForge.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git" \
-      --namespace argocd \
-      --kube-version "${KUBE_VERSION}" | apply_or_template -f -
-  
+  # In template mode, render actual manifests instead of ArgoCD Application
+  if [ "$TEMPLATE_ONLY" = true ]; then
+    local IFS=','
+    for app in $APPS; do
+      if is_disabled_app "$app"; then
+        continue
+      fi
+      render_actual_helm_manifests "$app"
+    done
+  else
+    # Render only the cluster-apps template with filtered values
+    helm template cluster-forge "${SOURCE_ROOT}/root" \
+        --show-only templates/cluster-apps.yaml \
+        --values "$temp_values" \
+        --set clusterForge.targetRevision="${TARGET_REVISION}" \
+        --set externalValues.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git" \
+        --set clusterForge.repoUrl="http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git" \
+        --namespace argocd \
+        --kube-version "${KUBE_VERSION}" | apply_or_template -f -
+  fi
+
   # Clean up
   rm -f "$temp_values"
 }

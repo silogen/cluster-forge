@@ -24,27 +24,27 @@ spec:
             - --import-realm
           env:
             - name: KC_HOSTNAME
-              value: https://kc.{{ .Values.domain }}
+              value: {{ .Values.hostname | default (printf "https://kc.%s" .Values.domain) }}
             - name: KC_DB
               value: postgres
             - name: KC_DB_URL_HOST
-              value: keycloak-cnpg-rw.keycloak.svc.cluster.local
+              value: {{ .Values.postgresql.host }}
             - name: KC_DB_URL_PORT
-              value: "5432"
+              value: {{ .Values.postgresql.port | quote }}
             - name: KC_DB_URL_DATABASE
-              value: keycloak
+              value: {{ .Values.postgresql.database }}
             - name: KC_DB_SCHEMA
               value: public
             - name: KC_DB_USERNAME
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: keycloak-cnpg-user
+                  name: {{ .Values.postgresql.userSecretName }}
             - name: KC_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: keycloak-cnpg-user
+                  name: {{ .Values.postgresql.userSecretName }}
             - name: KC_BOOTSTRAP_ADMIN_USERNAME
               value: silogen-admin
             - name: KC_BOOTSTRAP_ADMIN_PASSWORD
@@ -87,7 +87,7 @@ spec:
             - -c
             - |
               cd /opt/scripts
-              zip -r /opt/keycloak/providers/SilogenExtensionPackage.jar .
+              zip -r -y /opt/keycloak/providers/SilogenExtensionPackage.jar . -x "*/dev/*" "*/sys/*" "*/proc/*"
           image: ghcr.io/silogen/keycloak-init:0.1
           name: init-auth-extensions
           volumeMounts:

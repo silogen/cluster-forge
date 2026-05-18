@@ -1,0 +1,20 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "cluster-auth.fullname" . }}-restart-kgateway
+  namespace: {{ .Values.namespace.name }}
+spec:
+  template:
+    spec:
+      serviceAccountName: {{ include "cluster-auth.fullname" . }}-restart-kgateway-sa
+      containers:
+        - name: restart
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              kubectl wait deployment {{ include "cluster-auth.fullname" . }} -n {{ .Values.namespace.name }} --for=condition=Available=True --timeout=180s
+              kubectl rollout restart deployment kgateway -n kgateway-system
+      restartPolicy: Never
