@@ -42,6 +42,13 @@ spec:
   stopDelay: 300
   storage:
     {{- toYaml .Values.storage | nindent 4 }}
+  managed:
+    roles:
+      - name: {{ .Values.username }}
+        ensure: present
+        login: true
+        passwordSecret:
+          name: "{{ .Values.userSecretName }}"
   superuserSecret:
     name: {{ .Values.superuserSecretName }}
   walStorage:
