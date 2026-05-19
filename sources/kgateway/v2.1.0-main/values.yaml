@@ -41,6 +41,9 @@ tolerations: []
 # -- Set affinity rules for pod scheduling, such as 'nodeAffinity:'.
 affinity: {}
 
+# -- Set priority class name for pod scheduling priority.
+priorityClassName: ""
+
 # -- Configure the kgateway control plane deployment.
 controller:
   # -- Set the number of controller pod replicas.
