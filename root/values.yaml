@@ -807,8 +807,6 @@ apps:
             requests:
               cpu: 500m
               memory: 1Gi
-      dashboards:
-        enabled: true
       kubeStateMetrics:
         enabled: true
       lgtm:
