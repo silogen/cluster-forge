@@ -250,39 +250,6 @@ spec:
     spec:
       serviceAccountName: grafana-sidecar
       automountServiceAccountToken: true
-      {{- if and .Values.dashboards.enabled .Values.dashboards.github.enabled (gt (len .Values.dashboards.github.urls) 0) }}
-      initContainers:
-        - name: grafana-github-dashboards
-          image: {{ .Values.dashboards.github.image | quote }}
-          imagePullPolicy: IfNotPresent
-          command:
-            - /bin/sh
-            - -ec
-          args:
-            - |
-              set -eu
-              target_dir="/tmp/dashboards/{{ .Values.dashboards.github.folder }}"
-              mkdir -p "$target_dir"
-              i=1
-              {{- range $url := .Values.dashboards.github.urls }}
-              if curl -fsSL {{ $url | quote }} -o "$target_dir/dashboard-$i.json"; then
-                echo "Downloaded dashboard $i"
-              else
-                echo "WARN: failed to download dashboard $i from {{ $url }}"
-              fi
-              i=$((i+1))
-              {{- end }}
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-              - ALL
-            seccompProfile:
-              type: RuntimeDefault
-          volumeMounts:
-            - name: sc-dashboard-volume
-              mountPath: /tmp/dashboards
-      {{- end }}
       containers:
         - name: grafana-sc-dashboard
           image: "quay.io/kiwigrid/k8s-sidecar:1.27.4"
@@ -299,15 +266,9 @@ spec:
             - name: FOLDER_ANNOTATION
               value: "grafana_folder"
             - name: REQ_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: grafana-admin-credentials
-                  key: username
+              value: admin
             - name: REQ_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: grafana-admin-credentials
-                  key: password
+              value: admin
             - name: REQ_URL
               value: http://localhost:3000/api/admin/provisioning/dashboards/reload
             - name: REQ_METHOD
@@ -324,21 +285,6 @@ spec:
               mountPath: "/tmp/dashboards"
         - name: lgtm
           image: ghcr.io/silogen/docker-otel-lgtm:v1.0.7
-          env:
-            - name: GF_AUTH_ANONYMOUS_ENABLED
-              value: "false"
-            - name: GF_AUTH_BASIC_ENABLED
-              value: "true"
-            - name: GF_SECURITY_ADMIN_USER
-              valueFrom:
-                secretKeyRef:
-                  name: grafana-admin-credentials
-                  key: username
-            - name: GF_SECURITY_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: grafana-admin-credentials
-                  key: password
           ports:
             - containerPort: 3000
             - containerPort: 4317
