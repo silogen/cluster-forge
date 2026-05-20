@@ -50,17 +50,13 @@
       changed_when: false
 
 - name: Create initial-cf-values ConfigMap
-  kubernetes.core.k8s:
-    state: present
-    definition:
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: initial-cf-values
-        namespace: cf-gitea
-      data:
-        initial-cf-values: "{{ lookup('file', gitea_temp_dir.path + '/complete_values.yaml') }}"
+  ansible.builtin.shell: |
+    kubectl create configmap initial-cf-values \
+      --from-file=initial-cf-values={{ gitea_temp_dir.path }}/complete_values.yaml \
+      --namespace cf-gitea \
+      --dry-run=client -o yaml | kubectl apply -f -
   when: not template_only
+  changed_when: true
 
 - name: Generate Gitea admin password
   ansible.builtin.shell: openssl rand -hex 16
@@ -70,19 +66,15 @@
   no_log: true
 
 - name: Create Gitea admin credentials secret
-  kubernetes.core.k8s:
-    state: present
-    definition:
-      apiVersion: v1
-      kind: Secret
-      metadata:
-        name: gitea-admin-credentials
-        namespace: cf-gitea
-      stringData:
-        username: silogen-admin
-        password: "{{ gitea_admin_password.stdout }}"
+  ansible.builtin.shell: |
+    kubectl create secret generic gitea-admin-credentials \
+      --from-literal=username=silogen-admin \
+      --from-literal=password={{ gitea_admin_password.stdout | quote }} \
+      --namespace cf-gitea \
+      --dry-run=client -o yaml | kubectl apply -f -
   when: not template_only
   no_log: true
+  changed_when: true
 
 - name: Extract Gitea values from base values file
   ansible.builtin.shell: |

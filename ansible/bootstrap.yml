@@ -140,17 +140,12 @@
         bootstrap_namespaces: "{{ ['argocd', 'cf-openbao'] if cluster_size == 'small' else namespaces }}"
 
     - name: Create namespaces
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: v1
-          kind: Namespace
-          metadata:
-            name: "{{ item }}"
+      ansible.builtin.shell: kubectl create namespace {{ item }} --dry-run=client -o yaml | kubectl apply -f -
       loop: "{{ bootstrap_namespaces }}"
-      when: 
+      when:
         - not template_only
         - enabled_apps | length == 0 or 'namespaces' in enabled_apps
+      changed_when: true
 
     - name: Bootstrap ArgoCD
       ansible.builtin.include_tasks: tasks/bootstrap_argocd.yml
