@@ -544,9 +544,6 @@ apps:
           registry: "ghcr.io"
           repository: silogen/kgateway-v2.1.0-main-websocket
           tag: "0.0.1"
-      nodeSelector:
-        cluster-bloom/first-node: "true"
-      priorityClassName: "system-cluster-critical"
   kgateway-config:
     helmParameters:
       - name: domain

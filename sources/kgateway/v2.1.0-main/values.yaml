@@ -32,17 +32,11 @@ securityContext: {}
 # -- Configure resource requests and limits for the container, such as 'limits.cpu: 100m' or 'requests.memory: 128Mi'.
 resources: {}
 
-# -- Set node selector labels for pod scheduling, such as 'kubernetes.io/arch: amd64'.
-nodeSelector: {}
-
 # -- Set tolerations for pod scheduling, such as 'key: "nvidia.com/gpu"'.
 tolerations: []
 
 # -- Set affinity rules for pod scheduling, such as 'nodeAffinity:'.
 affinity: {}
-
-# -- Set priority class name for pod scheduling priority.
-priorityClassName: ""
 
 # -- Configure the kgateway control plane deployment.
 controller:
