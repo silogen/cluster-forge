@@ -9,8 +9,3 @@ spec:
     podTemplate:
       nodeSelector:
         cluster-bloom/first-node: "true"
-    deploymentOverlay:
-      spec:
-        template:
-          spec:
-            priorityClassName: "system-cluster-critical"
