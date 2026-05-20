@@ -548,6 +548,10 @@ apps:
               - group: aigateway.envoyproxy.io
                 version: v1beta1
                 kind: AIServiceBackend
+            backendResources:
+              - group: inference.networking.k8s.io
+                version: v1
+                kind: InferencePool
             service:
               host: ai-gateway-controller.envoy-ai-gateway-system.svc.cluster.local
               port: 1063
