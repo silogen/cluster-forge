@@ -160,9 +160,12 @@ prometheus:
 # Gateway API key Secret configuration (synced by AIWB on API key create/delete)
 # Secret format: each data key is the API key name (= api_key_id in metrics),
 # each value is the raw Bearer token validated by the SecurityPolicy.
+# Secret lives in the project namespace alongside the SecurityPolicy that references it.
 gatewayApiKeys:
   secretName: aim-gateway-api-keys
-  secretNamespace: envoy-ai-gateway-system
+  # Must match the namespace where AIM SecurityPolicies are created.
+  # Envoy Gateway requires credentialRefs to be in the same namespace as the SecurityPolicy.
+  secretNamespace: workbench
 
 # AIM Configuration
 # A cluster-scoped AIMClusterRuntimeConfig is always created by this chart.
