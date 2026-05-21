@@ -10,6 +10,11 @@ spec:
   - group: gateway.envoyproxy.io
     kind: SecurityPolicy
     namespace: envoy-gateway-system
+  {{- range .Values.additionalSecurityPolicyNamespaces }}
+  - group: gateway.envoyproxy.io
+    kind: SecurityPolicy
+    namespace: {{ . }}
+  {{- end }}
   to:
   - group: ""
     kind: Service

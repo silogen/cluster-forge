@@ -246,6 +246,9 @@ apps:
     path: cluster-auth/0.5.0
     syncWave: -25
     valuesFile: values.yaml
+    valuesObject:
+      additionalSecurityPolicyNamespaces:
+        - workbench
   cluster-auth-config:
     ignoreDifferences:
       - group: external-secrets.io
@@ -552,6 +555,11 @@ apps:
               - group: inference.networking.k8s.io
                 version: v1
                 kind: InferencePool
+            hooks:
+              xdsTranslator:
+                post:
+                  - Cluster
+                  - Translation
             service:
               host: ai-gateway-controller.envoy-ai-gateway-system.svc.cluster.local
               port: 1063

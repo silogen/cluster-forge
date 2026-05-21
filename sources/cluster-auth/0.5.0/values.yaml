@@ -13,6 +13,10 @@ namespace:
   name: cluster-auth
   create: true
 
+# Additional namespaces whose SecurityPolicies are allowed to reference the cluster-auth service.
+# Needed when per-AIM SecurityPolicies are created in workload namespaces (e.g., workbench).
+additionalSecurityPolicyNamespaces: []
+
 existingSecret: "cluster-auth-secrets"
 
 service:
