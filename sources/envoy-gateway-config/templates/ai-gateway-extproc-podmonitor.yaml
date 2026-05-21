@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: ai-gateway-extproc
+  namespace: envoy-gateway-system
+spec:
+  selector:
+    matchLabels:
+      gateway.envoyproxy.io/owning-gateway-name: https
+      gateway.envoyproxy.io/owning-gateway-namespace: envoy-gateway-system
+  podMetricsEndpoints:
+  - port: aigw-admin
+    path: /metrics
+    interval: 30s
