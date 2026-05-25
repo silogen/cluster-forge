@@ -10,7 +10,7 @@ global:
   clusterSize:    # injected via scripts/bootstrap.sh
   domain:         # injected via scripts/bootstrap.sh
 ociRegistry:
-  dockerHub: "registry-1.docker.io/silogenai"
+  dockerHub: "registry-1.docker.io/amdenterpriseai"
   ghcr: "ghcr.io/silogen"
 
 apps:
