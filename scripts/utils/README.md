@@ -20,7 +20,7 @@ This directory contains utility scripts for backup and restore operations, as we
 - `export_rabbitmq.sh` - Export RabbitMQ configuration and data
 - `import_databases.sh` - Import database backups
 - `import_rabbitmq.sh` - Import RabbitMQ configuration and data
-- `mirror_minio.sh` - Mirror MinIO storage
+- `mirror-minio-to-seaweedfs-job.yaml` - Kubernetes job to migrate data from MinIO to SeaweedFS
 - `upgrade_v2.sh` - Upgrade script for cluster-forge migration v1.8.0 to v2.0.x
 
 ## Upgrade Script

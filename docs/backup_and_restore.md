@@ -10,7 +10,7 @@
 This document covers backup and restore procedures for:
   1. [Database Backup & Restore (AMD Resource Manager & Keycloak)](#1-cnpg-cloudnative-postgres-backup--restore)
   2. [RabbitMQ Backup & Restore](#2-rabbitmq-backup--restore)
-  3. [MinIO Backup & Restore (Bucket replication and one-off filesystem backup)](#3-minio-backup--restore)
+  3. [SeaweedFS Backup & Restore (S3-compatible object storage - bucket replication and one-off filesystem backup)](#3-seaweedfs-backup--restore)
   4. [Longhorn Backup & Restore](#4-longhorn-backup--restore)
 
 **Note:** Each detailed command file includes specific prerequisites for that backup type.
@@ -74,11 +74,11 @@ For a backup & restore example (not officially supported), see: [`backup_restore
 
 ---
 
-## 3. MinIO Backup & Restore
+## 3. SeaweedFS Backup & Restore
 
 ### Overview
 
-MinIO supports two backup strategies:
+SeaweedFS S3-compatible storage supports two backup strategies:
 
 #### Two-Way Replication (Bucket Replication)
 **Note:** Bucket replication and site replication are mutually exclusive.
@@ -95,13 +95,13 @@ MinIO supports two backup strategies:
 2. Create a timestamped backup directory
 3. Use `mc mirror` to copy all bucket contents to the backup location
 4. Provide verification commands to compare file counts
-5. Provide restore commands to mirror files back to MinIO
+5. Provide restore commands to mirror files back to SeaweedFS
 
 **Benefits:** Point-in-time snapshots stored on separate storage
 
 ### Detailed Commands
 
-For a backup & restore example (not officially supported), see:: [`backup_restore_minio.md`](examples/backup_restore_minio.md)
+For a backup & restore example (not officially supported), see: [`backup_restore_seaweedfs.md`](examples/backup_restore_seaweedfs.md)
 
 ---
 
