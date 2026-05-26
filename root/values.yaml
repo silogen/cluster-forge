@@ -34,7 +34,7 @@ apps:
   airm:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "1.1.9"
-    chart: "dev-airm-chart"
+    chart: "airm-chart"
     namespace: airm
     syncWave: 0
     valuesFile: values.yaml
@@ -49,7 +49,7 @@ apps:
   aiwb:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "1.1.9"
-    chart: "dev-aiwb-chart"
+    chart: "aiwb-chart"
     namespace: aiwb
     valuesFile: values.yaml
     syncWave: 0
@@ -58,16 +58,16 @@ apps:
         value: "{{ .Values.global.domain }}"
       - name: backend.image.repository
   airm-infra-cnpg:
-    repoURL: "{{ .Values.ociRegistry.dockerHub }}/dev-airm-cnpg-chart"
+    repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "1.1.9"
-    chart: "dev-airm-cnpg-chart"
+    chart: "airm-cnpg-chart"
     namespace: airm
     syncWave: -10
     valuesFile: values.yaml
   airm-infra-external-secrets:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "1.1.9"
-    chart: "dev-airm-external-secrets-chart"
+    chart: "airm-external-secrets-chart"
     namespace: airm
     syncWave: -20
     valuesFile: values.yaml
@@ -79,23 +79,23 @@ apps:
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
   airm-infra-rabbitmq:
-    repoURL: "{{ .Values.ociRegistry.dockerHub }}/dev-airm-rabbitmq-chart"
+    repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "1.1.9"
-    chart: "dev-airm-rabbitmq-chart"
+    chart: "airm-rabbitmq-chart"
     namespace: airm
     syncWave: -5
     valuesFile: values.yaml
   aiwb-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "1.1.9"
-    chart: "dev-aiwb-cnpg-chart"
+    chart: "aiwb-cnpg-chart"
     namespace: aiwb
     syncWave: -10
     valuesFile: values.yaml
   aiwb-infra-external-secrets:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "1.1.9"
-    chart: "dev-aiwb-external-secrets-chart"
+    chart: "aiwb-external-secrets-chart"
     namespace: aiwb
     syncWave: -20
     valuesFile: values.yaml
