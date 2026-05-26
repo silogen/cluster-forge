@@ -5,13 +5,13 @@
 - [Secret Sources](#secret-sources)
   - [secrets-aiwb.yaml](#secrets-aiwbyaml)
   - [Inline CNPG credential secrets](#inline-cnpg-credential-secrets)
-  - [Inline MinIO credential secrets](#inline-minio-credential-secrets)
+  - [Inline S3 credential secrets](#inline-s3-credential-secrets)
   - [secrets-aiwb-standalone.yaml](#secrets-aiwb-standaloneyaml)
 - [Complete Secret Reference](#complete-secret-reference)
   - [Namespace: aiwb](#namespace-aiwb)
   - [Namespace: keycloak](#namespace-keycloak)
   - [Namespace: workbench](#namespace-workbench)
-  - [Namespace: minio-tenant-default](#namespace-minio-tenant-default)
+  - [Namespace: seaweedfs-instance](#namespace-seaweedfs-instance)
   - [Namespace: metallb-system](#namespace-metallb-system)
 
 ---
@@ -26,11 +26,15 @@ This manifest contains the application-level secrets for the AI Workbench deploy
 ### Inline CNPG credential secrets
 CNPG-specific Postgres credentials (superuser + application user) for the in-cluster CloudNativePG Clusters serving AIWB and Keycloak. Created inline by `install_base.sh` when `PLUGGABLE_DB=false`, populated from `AIWB_DB_USER` / `AIWB_DB_PASSWORD`, `KEYCLOAK_DB_USER` / `KEYCLOAK_DB_PASSWORD`, and the `*_CNPG_SUPERUSER_*` env vars (which default to `placeholder`). In `PLUGGABLE_DB=true` mode the script instead creates env-based user secrets (`AIWB_DB_SECRET_NAME`, `KEYCLOAK_DB_SECRET_NAME`) pointing at the external Postgres host.
 
-### Inline MinIO credential secrets
-MinIO-related secrets created inline by `install_base.sh` from `MINIO_API_ACCESS_KEY` / `MINIO_API_SECRET_KEY` / `MINIO_CONSOLE_ACCESS_KEY` / `MINIO_CONSOLE_SECRET_KEY` env vars (all default to `placeholder`). In `PLUGGABLE_S3=false` mode the script creates `minio-credentials` in the `aiwb` and `workbench` namespaces (using the API pair) plus `default-user` in `minio-tenant-default` (using both pairs) so the in-cluster MinIO Tenant bootstraps with credentials matching what AIWB / workbench pods read at startup. In `PLUGGABLE_S3=true` mode only `minio-credentials` is created in `aiwb` and `workbench` (no in-cluster Tenant to bootstrap; the CONSOLE pair is unused).
+### Inline S3 credential secrets
+S3-related secrets created inline by `install_base.sh` from `MINIO_API_ACCESS_KEY` / `MINIO_API_SECRET_KEY` / `MINIO_CONSOLE_ACCESS_KEY` / `MINIO_CONSOLE_SECRET_KEY` env vars (all default to `placeholder`). 
+
+**Note:** Secret names still use "minio" for backward compatibility with AIWB/workbench, even though the backend is now SeaweedFS.
+
+In `PLUGGABLE_S3=false` mode the script creates `minio-credentials` in the `aiwb` and `workbench` namespaces (using the API pair) plus `seaweedfs-s3-config` in `seaweedfs-instance` (using both pairs in JSON format) so the in-cluster SeaweedFS instance bootstraps with credentials matching what AIWB / workbench pods read at startup. In `PLUGGABLE_S3=true` mode only `minio-credentials` is created in `aiwb` and `workbench` (no in-cluster instance to bootstrap; the CONSOLE pair is unused).
 
 ### secrets-aiwb-standalone.yaml
-This manifest contains additional secrets specific to standalone deployment mode. Required for MetalLB memberlist encryption and workspace MinIO access.
+This manifest contains additional secrets specific to standalone deployment mode. Required for MetalLB memberlist encryption and workspace S3 storage access.
 
 ---
 
@@ -97,14 +101,14 @@ Admin token for cluster-auth service API calls.
 ---
 
 #### 6. `minio-credentials`
-S3/MinIO access credentials for AIWB application.
+S3 access credentials for AIWB application.
 
 **Keys:**
 - `minio-access-key` — S3 access key ID (from `${MINIO_API_ACCESS_KEY}`, default: `placeholder`)
 - `minio-secret-key` — S3 secret access key (from `${MINIO_API_SECRET_KEY}`, default: `placeholder`)
 
 **Source:** Created inline by `install_base.sh`  
-**Note:** Must match MinIO tenant root credentials — same env vars feed the `default-user` Secret in `PLUGGABLE_S3=false` mode, and the external MinIO must be configured with matching keys in `PLUGGABLE_S3=true` mode.
+**Note:** Secret name is "minio-credentials" for backward compatibility, but works with SeaweedFS S3 API. Must match S3 storage credentials — same env vars feed the `seaweedfs-s3-config` Secret in `PLUGGABLE_S3=false` mode, and the external S3 must be configured with matching keys in `PLUGGABLE_S3=true` mode.
 
 ---
 
@@ -156,7 +160,7 @@ Keycloak `airm` realm configuration secrets.
 - `GITEA_CLIENT_SECRET` — Gitea OIDC client secret (default: `placeholder`)
 - `K8S_CLIENT_SECRET` — Kubernetes API OIDC client secret (default: `placeholder`)
 - `KEYCLOAK_INITIAL_DEVUSER_PASSWORD` — Initial dev user password (default: `placeholder`)
-- `MINIO_CLIENT_SECRET` — MinIO OIDC client secret (default: `placeholder`)
+- `MINIO_CLIENT_SECRET` — S3 storage OIDC client secret (default: `placeholder`)
 
 **Source:** secrets-aiwb.yaml  
 **Note:** Used by Keycloak realm import init container
@@ -166,30 +170,27 @@ Keycloak `airm` realm configuration secrets.
 ### Namespace: `workbench`
 
 #### 11. `minio-credentials`
-S3/MinIO access credentials for workspace pods.
+S3 access credentials for workspace pods.
 
 **Keys:**
 - `minio-access-key` — S3 access key ID (from `${MINIO_API_ACCESS_KEY}`, default: `placeholder`)
 - `minio-secret-key` — S3 secret access key (from `${MINIO_API_SECRET_KEY}`, default: `placeholder`)
 
 **Source:** Created inline by `install_base.sh`  
-**Note:** Workspace pods use this to access object storage; same env vars feed AIWB's `minio-credentials` so both authenticate against the same MinIO user.
+**Note:** Workspace pods use this to access object storage; same env vars feed AIWB's `minio-credentials` so both authenticate against the same S3 user. Secret name is "minio-credentials" for backward compatibility.
 
 ---
 
-### Namespace: `minio-tenant-default`
+### Namespace: `seaweedfs-instance`
 
-#### 12. `default-user`
-MinIO tenant user credentials.
+#### 12. `seaweedfs-s3-config`
+SeaweedFS S3 API configuration and credentials.
 
 **Keys:**
-- `API_ACCESS_KEY` — MinIO API access key (from `${MINIO_API_ACCESS_KEY}`, default: `placeholder`)
-- `API_SECRET_KEY` — MinIO API secret key (from `${MINIO_API_SECRET_KEY}`, default: `placeholder`)
-- `CONSOLE_ACCESS_KEY` — MinIO console access key (from `${MINIO_CONSOLE_ACCESS_KEY}`, default: `placeholder`)
-- `CONSOLE_SECRET_KEY` — MinIO console secret key (from `${MINIO_CONSOLE_SECRET_KEY}`, default: `placeholder`)
+- `s3.json` — JSON configuration containing S3 identities and credentials (ApiUser and Console)
 
 **Source:** Created inline by `install_base.sh` (applied only when `PLUGGABLE_S3=false`)  
-**Note:** Bootstraps the in-cluster MinIO Tenant. The API_* values must match `minio-credentials` in the `aiwb` and `workbench` namespaces (driven by the same env vars). Not needed in `PLUGGABLE_S3=true` mode (no in-cluster MinIO Tenant is installed).
+**Note:** Bootstraps the in-cluster SeaweedFS instance. The ApiUser credentials must match `minio-credentials` in the `aiwb` and `workbench` namespaces (driven by the same env vars). Not needed in `PLUGGABLE_S3=true` mode (no in-cluster instance is installed). In full cluster-forge deployments, this secret is created by an ExternalSecret from OpenBao paths that still reference "minio-*" for backward compatibility.
 
 ---
 
