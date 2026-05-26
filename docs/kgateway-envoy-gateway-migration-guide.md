@@ -76,8 +76,8 @@ First, update the cluster configuration file in Gitea.
 **Navigate to Gitea:**
 1. Open your browser and go to `https://gitea.<your-domain>`
 2. Login with your credentials
-3. Navigate to the `cluster-org/cluster-forge` repository
-4. Open the file: `cluster-values.yaml`
+3. Navigate to the `cluster-org/cluster-values` repository
+4. Open the file: `values.yaml`
 5. Click the **"Edit"** button (pencil icon)
 
 **Make the following changes:**
