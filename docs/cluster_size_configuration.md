@@ -40,7 +40,7 @@ cluster-forge/
 
 **Application Configuration**:
 - **ArgoCD**: Single replica, 2 CPU / 2Gi RAM limits
-- **MinIO Tenant**: 2Ti storage, single server
+- **SeaweedFS**: 2Ti volume storage, single volume server
 - **OpenBao**: Single instance (no HA), 5Gi storage
 - **Storage Policies**: Includes `kyverno-policies-storage-local-path` for RWX→RWO conversion
 - **Storage Classes**: Mix of local-path and direct storage classes
@@ -61,7 +61,7 @@ cluster-forge/
 
 **Application Configuration**:
 - **ArgoCD**: Single replica, 1 CPU / 2Gi RAM limits
-- **MinIO Tenant**: 2Ti storage, single server
+- **SeaweedFS**: 2Ti volume storage, single volume server
 - **OpenBao**: Single instance (no HA), 5Gi storage
 - **Storage Policies**: Includes `kyverno-policies-storage-local-path` for RWX→RWO conversion
 - **Storage Classes**: Direct storage class consistently
@@ -82,7 +82,7 @@ cluster-forge/
 
 **Application Configuration**:
 - **ArgoCD**: Single replica, production-ready resources
-- **MinIO Tenant**: 500Gi storage, single server (external HA S3 recommended)
+- **SeaweedFS**: 500Gi volume storage, single volume server (external HA S3 recommended)
 - **OpenBao**: 3 replicas with Raft HA consensus
 - **Storage Policies**: No local-path policies (assumes distributed storage)
 - **OTEL LGTM Stack**: 50Gi storage per component (Tempo, Loki, Mimir), 10Gi Grafana
@@ -149,13 +149,13 @@ Later values override earlier ones, allowing size files to contain only the diff
 | KEDA | Base config | Base config | Base config | Event-driven autoscaling |
 | KServe | Base config | Base config | Base config | ML model serving |
 | Kyverno | Base policies | Base + storage-local-path | Base policies only | Policy engine |
-### MinIO Tenant Scaling
+### SeaweedFS Scaling
 
-| Size | Servers | Storage | Buckets | Notes |
-|------|---------|---------|---------|-------|
-| Small | 1 | 2Ti | default-bucket, models | Single server, local-path storage |
-| Medium | 1 | 2Ti | default-bucket, models | Single server, direct storage |
-| Large | 1 | 500Gi | default-bucket, models | Single server, external HA S3 recommended |
+| Size | Volume Servers | Storage | Buckets | Notes |
+|------|----------------|---------|---------|-------|
+| Small | 1 | 2Ti | default-bucket, models, datasets | Single volume server, local-path storage |
+| Medium | 1 | 2Ti | default-bucket, models, datasets | Single volume server, direct storage |
+| Large | 1 | 500Gi | default-bucket, models, datasets | Single volume server, external HA S3 recommended |
 
 ### OpenBao Scaling
 
