@@ -155,22 +155,19 @@ Now sync the ArgoCD application with the new configuration.
 **Update the cluster-forge application:**
 1. Click on the **"cluster-forge"** application
    - You should see it's **"OutOfSync"** - this is expected after the Gitea changes
-2. Click **"APP DETAILS"** button (top right)
-3. Click **"EDIT"** button
-4. Find the **"Source"** section
-5. Locate: **"Source 1: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"**
-6. Click the **"Edit"** button (pencil icon) for this source
+2. Click **"DETAILS"** button (top left)
+3. Find the **"Sources"** section and click
+4. Locate: **"Source 1: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"**
+5. Open and click the **"Edit"** button (pencil icon) for this source
 
 **Update Target Revision:**
 1. Find the **"TARGET REVISION"** field (currently showing `v2.0.5`)
 2. Change to: `v2.0.6`
 3. Click **"SAVE"** button
-4. Click **"SAVE"** again on the main APP DETAILS dialog
+ 
+**Refresh the application:**
+1. Click **"REFRESH"** button (in the top toolbar)
 
-**Sync the application:**
-1. Click **"SYNC"** button (in the top toolbar)
-2. Review the sync options (default settings are fine)
-3. Click **"SYNCHRONIZE"** button
 ### Step 3: Monitor App Transition (5-10 minutes)
 
 Watch ArgoCD as it automatically manages the application lifecycle:
@@ -185,7 +182,7 @@ Watch ArgoCD as it automatically manages the application lifecycle:
 - `envoy-gateway`
 - `envoy-gateway-config`
 
-**Wait for:** All new apps to reach **"Healthy"** and **"Synced"** status.
+The envoy-gateway-config app shows **Progressing** because kgateway pod and service still alive.
 
 ### Step 4: Clean Up Old Resources (3-5 minutes)
 
@@ -197,8 +194,13 @@ kubectl delete namespace kgateway-system
 
 # Delete kgateway CRDs
 kubectl delete crd gateways.gateway.kgateway.dev --ignore-not-found
-kubectl delete crd gatewayextensions.gateway.kgateway.dev --ignore-not-found  
+kubectl delete crd gatewayextensions.gateway.kgateway.dev --ignore-not-found
 kubectl delete crd trafficpolicies.gateway.kgateway.dev --ignore-not-found
+kubectl delete crd backendconfigpolicies.gateway.kgateway.dev --ignore-not-found
+kubectl delete crd backends.gateway.kgateway.dev --ignore-not-found
+kubectl delete crd directresponses.gateway.kgateway.dev --ignore-not-found
+kubectl delete crd gatewayparameters.gateway.kgateway.dev --ignore-not-found
+kubectl delete crd httplistenerpolicies.gateway.kgateway.dev --ignore-not-found
 
 # Verify LoadBalancer IP is now assigned to envoy-gateway
 kubectl get svc -n envoy-gateway-system -o wide
@@ -206,37 +208,15 @@ kubectl get svc -n envoy-gateway-system -o wide
 
 **Expected:** The envoy-gateway LoadBalancer service should now have an external IP.
 
-## Validation
 
-Verify the migration was successful:
-
-### 1. Check envoy-gateway Status
-```bash
-# Verify envoy-gateway is running
-kubectl get pods -n envoy-gateway-system
-
-# Check gateway resource
-kubectl get gateway https -n envoy-gateway-system
-
-# Verify LoadBalancer service has IP
-kubectl get svc envoy-gateway -n envoy-gateway-system
-```
-
-### 2. Test Application Access
-```bash
-# Test key applications are accessible
-curl -k https://gitea.<your-domain>
-curl -k https://argocd.<your-domain>
-```
-
-### 3. Validation Checklist
+### Validation Checklist
 
 - [ ] `envoy-gateway-system` namespace exists
 - [ ] `cluster-tls` secret exists in `envoy-gateway-system`
 - [ ] First node has `cluster-bloom/first-node=true` label
 - [ ] envoy-gateway pods are running and healthy
 - [ ] `https` gateway resource is ready
-- [ ] envoy-gateway LoadBalancer service has external IP
+- [ ] `envoy-envoy-gateway-system-https-hash` gateway LoadBalancer service has external IP
 - [ ] Gitea is accessible via https
 - [ ] ArgoCD is accessible via https
 - [ ] All cluster applications are functional
