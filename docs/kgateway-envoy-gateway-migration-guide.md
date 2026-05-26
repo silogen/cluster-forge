@@ -65,26 +65,112 @@ kubectl logs -f job/envoy-gateway-migration -n envoy-gateway-system
 ```
 
 ⚠️ **If the job fails, see [Troubleshooting](#troubleshooting) section before proceeding.**
+### Step 2: Update Cluster Configuration (7 minutes)
 
-### Step 2: Update Cluster-Forge in ArgoCD (2 minutes)
+This step involves updating both Gitea and ArgoCD to complete the migration.
 
-1. **Open ArgoCD UI:** Navigate to `https://argocd.<your-domain>`
+#### 2.1 Update cluster-values.yaml in Gitea (3-4 minutes)
 
-2. **Login** with your admin credentials
+First, update the cluster configuration file in Gitea.
 
-3. **Navigate to cluster-forge app:** Click on `cluster-forge` application
+**Navigate to Gitea:**
+1. Open your browser and go to `https://gitea.<your-domain>`
+2. Login with your credentials
+3. Navigate to the `cluster-org/cluster-forge` repository
+4. Open the file: `cluster-values.yaml`
+5. Click the **"Edit"** button (pencil icon)
 
-4. **Edit Source:** 
-   - Click **"Sources"** tab
-   - Find **"Source 1: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"**
-   - Click **"Edit"** button
+**Make the following changes:**
 
-5. **Update Version:**
-   - Change **TARGET REVISION** from `v2.0.5` to `v2.0.6`
-   - Click **"Save"**
+**Change 1: Update targetRevision**
 
-6. **Sync Application:** Click **"Sync"** button
+Find:
+```yaml
+targetRevision: v2.0.5
+```
 
+Change to:
+```yaml
+targetRevision: v2.0.6
+```
+
+**Change 2: Update enabledApps list**
+
+In the `enabledApps:` section:
+
+**Comment out** these apps (add `#` at the beginning):
+```yaml
+enabledApps:
+  # - gateway-api           # ← Comment out
+  # - kgateway              # ← Comment out
+  # - kgateway-config       # ← Comment out
+  # - kgateway-crds         # ← Comment out
+```
+
+**Add** these new apps:
+```yaml
+enabledApps:
+  - envoy-gateway          # ← Add this
+  - envoy-gateway-config   # ← Add this
+```
+
+**Complete example:**
+```yaml
+targetRevision: v2.0.6
+
+enabledApps:
+  # Old gateway apps (commented out for migration)
+  # - gateway-api
+  # - kgateway
+  # - kgateway-config
+  # - kgateway-crds
+
+  # New gateway apps
+  - envoy-gateway
+  - envoy-gateway-config
+
+  # Other apps (unchanged)
+  - cert-manager
+  - cert-manager-config
+  - metallb
+  - metallb-config
+  # ... rest of your enabled apps
+```
+
+**Commit the changes:**
+1. Scroll to the bottom of the edit page
+2. Add commit message: `feat: migrate from kgateway to envoy-gateway v2.0.6`
+3. Click **"Commit Changes"**
+
+> **  Important:** After committing, the cluster-forge ArgoCD application will show as "OutOfSync" or "Degraded". This is expected and will be fixed in the next step.
+
+#### 2.2 Update cluster-forge App in ArgoCD (2-3 minutes)
+
+Now sync the ArgoCD application with the new configuration.
+
+**Navigate to ArgoCD:**
+1. Open your browser and go to `https://argocd.<your-domain>`
+2. Login with your admin credentials
+
+**Update the cluster-forge application:**
+1. Click on the **"cluster-forge"** application
+   - You should see it's **"OutOfSync"** - this is expected after the Gitea changes
+2. Click **"APP DETAILS"** button (top right)
+3. Click **"EDIT"** button
+4. Find the **"Source"** section
+5. Locate: **"Source 1: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git"**
+6. Click the **"Edit"** button (pencil icon) for this source
+
+**Update Target Revision:**
+1. Find the **"TARGET REVISION"** field (currently showing `v2.0.5`)
+2. Change to: `v2.0.6`
+3. Click **"SAVE"** button
+4. Click **"SAVE"** again on the main APP DETAILS dialog
+
+**Sync the application:**
+1. Click **"SYNC"** button (in the top toolbar)
+2. Review the sync options (default settings are fine)
+3. Click **"SYNCHRONIZE"** button
 ### Step 3: Monitor App Transition (5-10 minutes)
 
 Watch ArgoCD as it automatically manages the application lifecycle:
