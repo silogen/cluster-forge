@@ -121,4 +121,4 @@ data:
 kind: ConfigMap
 metadata:
   name: gpu-config
-  namespace: kube-amd-gpu
+  namespace: {{ .Values.namespace }}

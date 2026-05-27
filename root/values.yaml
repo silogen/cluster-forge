@@ -117,6 +117,8 @@ apps:
     namespace: kube-amd-gpu
     path: amd-gpu-operator-config
     syncWave: 0
+    valuesObject:
+      namespace: kube-amd-gpu
   appwrapper:
     namespace: appwrapper-system
     path: appwrapper/v1.1.2
