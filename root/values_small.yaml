@@ -39,9 +39,6 @@ enabledApps:
   - kyverno-policies-base               # applicable to all cluster sizes
   - kyverno-policies-storage-local-path # small & medium cluster sizes only
   - metallb
-  - minio-operator
-  - minio-tenant
-  - minio-tenant-config
   - seaweedfs-crds
   - seaweedfs-operator
   - seaweedfs-config  
@@ -121,29 +118,6 @@ apps:
       - group: kyverno.io
         kind: ClusterPolicy
     wave: 26  # Deploy after base policies
-  minio-tenant:
-    valuesObject:
-      tenant:
-        buckets:
-          - name: default-bucket
-            objectLock: true
-          - name: models
-            objectLock: true
-          - name: datasets
-            objectLock: false
-        pools:
-          - name: pool-0
-            servers: 1
-            size: 2Ti
-            storageClassName: local-path
-            volumesPerServer: 2
-        resources:
-          limits:
-            cpu: "4000m"
-            memory: "8Gi"
-          requests:
-            cpu: "1000m"
-            memory: "2Gi"
 
   seaweedfs-config:
     valuesObject:
