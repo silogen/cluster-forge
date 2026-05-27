@@ -686,58 +686,7 @@ apps:
     path: seaweedfs-config
     namespace: seaweedfs-instance
     valuesFile: values.yaml
-    syncWave: 0  
-  minio-operator:
-    namespace: minio-operator
-    path: minio-operator/7.1.1
-    syncWave: -10
-    valuesFile: values.yaml
-  minio-tenant:
-    namespace: minio-tenant-default
-    path: minio-tenant/7.1.1
     syncWave: 0
-    valuesObject:
-      tenant:
-        buckets:
-          - name: default-bucket
-            objectLock: true
-          - name: models
-            objectLock: true
-        certificate:
-          externalCaCertSecret:
-            - name: cluster-tls
-              type: kubernetes.io/secret/v1
-          requestAutoCert: false
-        configSecret:
-          existingSecret: true
-          name: default-minio-tenant-env-configuration
-        env:
-          - name: MINIO_PROMETHEUS_AUTH_TYPE
-            value: "public"
-        name: default-minio-tenant
-        pools:
-          - name: pool-0
-            servers: 1
-            size: 250Gi # Reduced from 500Gi for workstation
-            storageClassName: direct
-            volumesPerServer: 1
-        users:
-          - name: default-user
-  minio-tenant-config:
-    helmParameters:
-      - name: domain
-        value: "{{ .Values.global.domain }}"
-    ignoreDifferences:
-      - group: external-secrets.io
-        jqPathExpressions:
-          - ".spec.data[].remoteRef.conversionStrategy"
-          - ".spec.data[].remoteRef.decodingStrategy"
-          - ".spec.data[].remoteRef.metadataPolicy"
-        kind: ExternalSecret
-    namespace: minio-tenant-default
-    path: minio-tenant-config
-    syncWave: 0
-    valuesFile: values.yaml
   openbao:
     ignoreDifferences:
       - group: "apps"
