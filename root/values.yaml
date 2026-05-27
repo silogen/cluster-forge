@@ -56,7 +56,6 @@ apps:
     helmParameters:
       - name: appDomain
         value: "{{ .Values.global.domain }}"
-      - name: backend.image.repository
   airm-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "1.1.9"
