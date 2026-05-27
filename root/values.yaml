@@ -128,6 +128,30 @@ apps:
       configs:
         cm:
           create: true
+          resource.customizations.health.external-secrets.io_ExternalSecret: |
+            hs = {}
+            if obj.status ~= nil and obj.status.conditions ~= nil then
+              for _, c in ipairs(obj.status.conditions) do
+                if c.type == "Ready" then
+                  if c.reason == "SecretSynced" then
+                    hs.status = "Healthy"
+                    hs.message = c.message
+                    return hs
+                  elseif c.reason == "SecretSyncedError" or c.reason == "SecretDeleted" then
+                    hs.status = "Degraded"
+                    hs.message = c.message
+                    return hs
+                  else
+                    hs.status = "Progressing"
+                    hs.message = c.message
+                    return hs
+                  end
+                end
+              end
+            end
+            hs.status = "Progressing"
+            hs.message = "Waiting for ExternalSecret to sync"
+            return hs
           resource.customizations.health.apps_StatefulSet: |
             -- Custom health check for OpenBao StatefulSet
             -- Uses standard StatefulSet readiness for now - openbao-init job handles actual initialization
