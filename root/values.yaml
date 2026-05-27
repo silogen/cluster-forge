@@ -15,15 +15,15 @@ ociRegistry:
 
 apps:
   aim-engine:
-    repoURL: "{{ .Values.ociRegistry.ghcr }}"
-    repoVersion: "0.2.3"
+    repoURL: "{{ .Values.ociRegistry.dockerHub }}"
+    repoVersion: "0.2.4"
     chart: "aim-engine-chart"
     namespace: aim-system
     valuesFile: values.yaml
     syncWave: 0
   aim-engine-crds:
-    repoURL: "{{ .Values.ociRegistry.ghcr }}"
-    repoVersion: "0.2.3"
+    repoURL: "{{ .Values.ociRegistry.dockerHub }}"
+    repoVersion: "0.2.4"
     chart: "aim-engine-crds-chart"
     namespace: aim-system
     syncWave: 0
