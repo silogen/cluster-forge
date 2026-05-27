@@ -220,12 +220,6 @@ spec:
         - name: AIWB_METADATA_PREFIX
           value: {{ .Values.metadataPrefix.aiwb | quote }}
 
-        # Gateway API key Secret sync configuration
-        - name: GATEWAY_API_KEYS_SECRET_NAME
-          value: {{ .Values.gatewayApiKeys.secretName | quote }}
-        - name: GATEWAY_API_KEYS_SECRET_NAMESPACE
-          value: {{ .Values.gatewayApiKeys.secretNamespace | quote }}
-
         livenessProbe:
           httpGet:
             path: /v1/health
