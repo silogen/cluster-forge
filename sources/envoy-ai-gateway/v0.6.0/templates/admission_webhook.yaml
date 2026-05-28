@@ -3,6 +3,35 @@
 # The full text of the Apache license is available in the LICENSE file at
 # the root of the repo.
 
+{{/* Compute all cert data once up-front so both the MutatingWebhookConfiguration and
+     the Secret use the same CA. In the cert-manager path all variables stay empty;
+     cert-manager's cainjector injects the CA into the webhook via the annotation.
+     In the self-signed path we reuse existing data from the secret on upgrades, or
+     generate a fresh CA + cert on first install. */}}
+{{- $caCrt := "" }}
+{{- $tlsCrt := "" }}
+{{- $tlsKey := "" }}
+{{- if not .Values.controller.mutatingWebhook.certManager.enable }}
+  {{- $existing := lookup "v1" "Secret" .Release.Namespace .Values.controller.mutatingWebhook.tlsCertSecretName }}
+  {{- if $existing }}
+    {{- $caCrt = index $existing.data .Values.controller.mutatingWebhook.caBundleName }}
+    {{- $tlsCrt = index $existing.data .Values.controller.mutatingWebhook.tlsCertName }}
+    {{- $tlsKey = index $existing.data .Values.controller.mutatingWebhook.tlsKeyName }}
+  {{- else }}
+    {{- $serviceName := include "ai-gateway-helm.controller.fullname" . }}
+    {{- $ca := genCA (printf "%s-ca" $serviceName) 3650 }}
+    {{- $dnsNames := list
+          $serviceName
+          (printf "%s.%s" $serviceName .Release.Namespace)
+          (printf "%s.%s.svc" $serviceName .Release.Namespace)
+          (printf "%s.%s.svc.cluster.local" $serviceName .Release.Namespace)
+    -}}
+    {{- $cert := genSignedCert (printf "%s.%s.svc" $serviceName .Release.Namespace) nil $dnsNames 365 $ca }}
+    {{- $caCrt = $ca.Cert | b64enc }}
+    {{- $tlsCrt = $cert.Cert | b64enc }}
+    {{- $tlsKey = $cert.Key | b64enc }}
+  {{- end }}
+{{- end }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -14,6 +43,9 @@ metadata:
 webhooks:
   - name:  {{ include "ai-gateway-helm.controller.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
     clientConfig:
+      {{- if $caCrt }}
+      caBundle: {{ $caCrt }}
+      {{- end }}
       service:
         name:  {{ include "ai-gateway-helm.controller.fullname" . }}
         namespace: {{ .Release.Namespace }}
@@ -61,29 +93,6 @@ spec:
   selfSigned: {}
 ---
 {{- else }}
-{{- $caCrt := "" }}
-{{- $tlsCrt := "" }}
-{{- $tlsKey := "" }}
-{{/* Check fi the secret exists to avoid regenerating the certificate on upgrades */}}
-{{- $existing := lookup "v1" "Secret" .Release.Namespace .Values.controller.mutatingWebhook.tlsCertSecretName }}
-{{- if $existing }}
-  {{- $caCrt = index $existing.data .Values.controller.mutatingWebhook.caBundleName }}
-  {{- $tlsCrt = index $existing.data .Values.controller.mutatingWebhook.tlsCertName }}
-  {{- $tlsKey = index $existing.data .Values.controller.mutatingWebhook.tlsKeyName }}
-{{- else }}
-  {{- $serviceName := include "ai-gateway-helm.controller.fullname" . }}
-  {{- $ca := genCA (printf "%s-ca" $serviceName) 3650 }}
-  {{- $dnsNames := list
-        $serviceName
-        (printf "%s.%s" $serviceName .Release.Namespace)
-        (printf "%s.%s.svc" $serviceName .Release.Namespace)
-        (printf "%s.%s.svc.cluster.local" $serviceName .Release.Namespace)
-  -}}
-  {{- $cert := genSignedCert (printf "%s.%s.svc" $serviceName .Release.Namespace) nil $dnsNames 365 $ca }}
-  {{- $caCrt = $ca.Cert | b64enc }}
-  {{- $tlsCrt = $cert.Cert | b64enc }}
-  {{- $tlsKey = $cert.Key | b64enc }}
-{{- end }}
 apiVersion: v1
 kind: Secret
 metadata:
