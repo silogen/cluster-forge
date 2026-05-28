@@ -1,0 +1,37 @@
+# CoreDNS Configuration for Wildcard Domain Routing
+# Copied from kgateway-config with service reference update
+# Makes *.domain resolve to envoy-gateway service
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: rke2-coredns
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    servers:
+      - zones:
+        - zone: .
+        port: 53
+        plugins:
+        - name: errors
+        - name: health
+          configBlock: |-
+            lameduck 10s
+        - name: ready
+        - name: rewrite
+          parameters: continue name regex .*\.{{ .Values.domain }} https.envoy-gateway-system.svc.cluster.local answer auto
+        - name: kubernetes
+          parameters: cluster.local cluster.local in-addr.arpa ip6.arpa
+          configBlock: |-
+            pods insecure
+            fallthrough in-addr.arpa ip6.arpa
+            ttl 30
+        - name: prometheus
+          parameters: 0.0.0.0:9153
+        - name: forward
+          parameters: . /etc/resolv.conf
+        - name: cache
+          parameters: "30"
+        - name: loop
+        - name: reload
+        - name: loadbalance

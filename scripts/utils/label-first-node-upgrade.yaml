@@ -1,0 +1,223 @@
+---
+# First Node Labeling Job for kgateway Upgrade
+# 
+# This is a standalone upgrade tool for existing cluster-bloom deployments
+# that need to support the new kgateway node placement feature.
+#
+# Usage: 
+#   1. Ensure MetalLB is deployed: kubectl get ipaddresspool cluster-bloom-ip-pool -n metallb-system
+#   2. Apply this job: kubectl apply -f label-first-node-upgrade.yaml
+#   3. Monitor progress: kubectl logs -f job/label-first-node-upgrade
+#   4. Clean up: kubectl delete -f label-first-node-upgrade.yaml
+#   5. Proceed with cluster-forge upgrade
+#
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: label-first-node-sa
+  namespace: default
+  labels:
+    app: cluster-bloom-upgrade
+    component: node-labeling
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: label-first-node-role
+  labels:
+    app: cluster-bloom-upgrade
+    component: node-labeling
+rules:
+# Read access to nodes and their labels/annotations
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list"]
+# Write access to node labels
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["patch", "update"]
+# Read access to MetalLB IPAddressPools
+- apiGroups: ["metallb.io"]
+  resources: ["ipaddresspools"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: label-first-node-binding
+  labels:
+    app: cluster-bloom-upgrade
+    component: node-labeling
+subjects:
+- kind: ServiceAccount
+  name: label-first-node-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: label-first-node-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: label-first-node-upgrade
+  namespace: default
+  labels:
+    app: cluster-bloom-upgrade
+    component: node-labeling
+  annotations:
+    description: "One-time upgrade job to label first node for kgateway placement"
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 300  # Auto-cleanup after 5 minutes
+  template:
+    metadata:
+      labels:
+        app: cluster-bloom-upgrade
+        component: node-labeling
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: label-first-node-sa
+      containers:
+      - name: label-node-discoverer
+        image: bitnami/kubectl:latest
+        command: ["/bin/bash"]
+        args:
+        - -c
+        - |
+          set -e
+          
+          # Colors for output
+          RED='\033[0;31m'
+          GREEN='\033[0;32m'
+          YELLOW='\033[1;33m'
+          BLUE='\033[0;34m'
+          NC='\033[0m'
+          
+          print_success() { echo -e "${GREEN}✅ $1${NC}"; }
+          print_error() { echo -e "${RED}❌ $1${NC}"; }
+          print_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
+          print_info() { echo -e "${BLUE}🔍 $1${NC}"; }
+          print_target() { echo -e "${BLUE}🎯 $1${NC}"; }
+          
+          echo -e "${BLUE}🔧 First Node Labeling Job for kgateway Upgrade${NC}"
+          echo -e "${BLUE}================================================${NC}"
+          echo
+          
+          # 1. Check if MetalLB IPAddressPool exists
+          print_info "Checking for MetalLB IPAddressPool..."
+          if ! kubectl get ipaddresspool cluster-bloom-ip-pool -n metallb-system >/dev/null 2>&1; then
+            print_error "MetalLB IPAddressPool 'cluster-bloom-ip-pool' not found"
+            print_info "Ensure cluster-forge has deployed MetalLB before running this job"
+            print_info "Check with: kubectl get ipaddresspool -n metallb-system"
+            exit 1
+          fi
+          print_success "MetalLB IPAddressPool found"
+          
+          # 2. Extract IP address from MetalLB pool
+          print_info "Extracting IP address from MetalLB pool..."
+          METALLB_IP=$(kubectl get ipaddresspool cluster-bloom-ip-pool -n metallb-system -o jsonpath='{.spec.addresses[0]}' | cut -d'/' -f1)
+          
+          if [ -z "$METALLB_IP" ]; then
+            print_error "Could not extract IP from MetalLB IPAddressPool"
+            print_info "Check pool configuration: kubectl describe ipaddresspool cluster-bloom-ip-pool -n metallb-system"
+            exit 1
+          fi
+          print_success "Found MetalLB IP: $METALLB_IP"
+          
+          # 3. Find node with matching IP in annotations
+          print_info "Searching for node with IP $METALLB_IP..."
+          
+          # Get all nodes and their annotations, search for matching IP
+          TARGET_NODE=""
+          while read -r node_name annotations; do
+            if echo "$annotations" | grep -q "\"alpha.kubernetes.io/provided-node-ip\":\"$METALLB_IP\"" || \
+               echo "$annotations" | grep -q "\"etcd.rke2.cattle.io/node-address\":\"$METALLB_IP\"" || \
+               echo "$annotations" | grep -q "\"rke2.cattle.io/node-external-ip\":\"$METALLB_IP\""; then
+              TARGET_NODE="$node_name"
+              break
+            fi
+          done < <(kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.metadata.annotations}{"\n"}{end}')
+          
+          # 4. Validate we found a node
+          if [ -z "$TARGET_NODE" ]; then
+            print_error "No node found with IP $METALLB_IP in node annotations"
+            print_warning "Checked annotations:"
+            print_warning "  - alpha.kubernetes.io/provided-node-ip"
+            print_warning "  - etcd.rke2.cattle.io/node-address"
+            print_warning "  - rke2.cattle.io/node-external-ip"
+            echo
+            print_info "Available nodes and their IPs:"
+            kubectl get nodes -o custom-columns="NAME:.metadata.name,EXTERNAL-IP:.status.addresses[?(@.type==\"ExternalIP\")].address,INTERNAL-IP:.status.addresses[?(@.type==\"InternalIP\")].address" 2>/dev/null || kubectl get nodes -o wide
+            echo
+            print_info "Debug: Node annotations containing IP addresses:"
+            kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.metadata.annotations}{"\n"}{end}' | grep -E '(provided-node-ip|node-address|node-external-ip)' || echo "No matching annotations found"
+            exit 1
+          fi
+          
+          print_target "Target node identified: $TARGET_NODE"
+          
+          # 5. Check if label already exists
+          EXISTING_LABEL=$(kubectl get node "$TARGET_NODE" -o jsonpath='{.metadata.labels.cluster-bloom/first-node}' 2>/dev/null || echo "")
+          
+          if [ "$EXISTING_LABEL" = "true" ]; then
+            print_success "Node $TARGET_NODE already has cluster-bloom/first-node=true label"
+            print_info "No action needed. Label is already correctly applied."
+            print_info "Current cluster-bloom labels on $TARGET_NODE:"
+            kubectl get node "$TARGET_NODE" --show-labels | grep -o 'cluster-bloom/[^,]*' | head -5 || echo "No cluster-bloom labels found"
+            echo
+            print_target "Next steps:"
+            print_info "1. Proceed with cluster-forge upgrade"
+            print_info "2. Verify kgateway pods schedule on this node"
+            exit 0
+          elif [ -n "$EXISTING_LABEL" ]; then
+            print_warning "Node $TARGET_NODE has cluster-bloom/first-node=$EXISTING_LABEL (will be updated to 'true')"
+          fi
+          
+          # 6. Apply the label
+          print_info "Applying label cluster-bloom/first-node=true to node $TARGET_NODE..."
+          if kubectl label node "$TARGET_NODE" cluster-bloom/first-node=true --overwrite >/dev/null 2>&1; then
+            print_success "Label applied successfully"
+          else
+            print_error "Failed to apply label to node $TARGET_NODE"
+            print_info "Check permissions: kubectl auth can-i patch nodes"
+            exit 1
+          fi
+          
+          # 7. Verify the label was applied
+          print_info "Verifying label application..."
+          APPLIED_LABEL=$(kubectl get node "$TARGET_NODE" -o jsonpath='{.metadata.labels.cluster-bloom/first-node}' 2>/dev/null || echo "")
+          
+          if [ "$APPLIED_LABEL" = "true" ]; then
+            echo
+            print_success "SUCCESS! Label cluster-bloom/first-node=true applied to node $TARGET_NODE"
+            echo
+            print_info "Label verification:"
+            kubectl get node "$TARGET_NODE" --show-labels | grep 'cluster-bloom/first-node=true' && echo "  ✅ Label confirmed"
+            echo
+            print_target "Next steps:"
+            print_info "1. Proceed with cluster-forge upgrade to deploy kgateway with node targeting"
+            print_info "2. Verify kgateway pods schedule on the labeled node:"
+            print_info "   kubectl get pods -n envoy-gateway-system -o wide"
+            print_info "3. Check that LoadBalancer services get IPs from MetalLB:"
+            print_info "   kubectl get svc -A --field-selector spec.type=LoadBalancer"
+            echo
+            print_success "Upgrade preparation complete!"
+            print_info "This job will auto-delete in 5 minutes."
+          else
+            print_error "FAILED! Label was not applied correctly"
+            print_error "Expected: cluster-bloom/first-node=true"
+            print_error "Actual: cluster-bloom/first-node=$APPLIED_LABEL"
+            exit 1
+          fi
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+      tolerations:
+      # Allow scheduling on any node regardless of taints
+      - operator: Exists

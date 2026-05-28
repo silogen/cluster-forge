@@ -20,7 +20,8 @@ enabledApps:
   - cnpg-operator
   - external-secrets
   - external-secrets-config
-  - gateway-api
+  - envoy-gateway
+  - envoy-gateway-config
   - gitea
   - gitea-config
   - kaiwo
@@ -29,9 +30,6 @@ enabledApps:
   - keda
   - kedify-otel
   - keycloak
-  - kgateway
-  - kgateway-config
-  - kgateway-crds
   - kserve
   - kserve-crds
   - kueue
