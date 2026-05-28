@@ -50,7 +50,7 @@ apps:
         kind: ClusterPolicy
   aiwb:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "1.1.9"
+    repoVersion: "2.0.0-rc.1"
     chart: "aiwb-chart"
     namespace: aiwb
     valuesFile: values.yaml
@@ -58,8 +58,6 @@ apps:
     helmParameters:
       - name: appDomain
         value: "{{ .Values.global.domain }}"
-      - name: kgateway.namespace
-        value: envoy-gateway-system
     syncWave: 0
   airm-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
