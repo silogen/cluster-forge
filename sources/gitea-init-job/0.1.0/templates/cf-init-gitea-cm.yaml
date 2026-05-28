@@ -1,0 +1,372 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitea-init-scripts
+  namespace: cf-gitea
+data:
+  init-gitea.sh: |
+    #!/bin/bash
+
+    set -e
+    DOMAIN={{ .Values.domain }}
+    GITEA_URL="${GITEA_URL:-http://gitea-http.cf-gitea.svc:3000}"
+    GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-silogen-admin}"
+    # Set up OpenBao environment for secret retrieval
+    echo "Retrieving OpenBao token..."
+    export BAO_TOKEN=$(kubectl get secret openbao-keys -n cf-openbao -o jsonpath='{.data.root_token}' | base64 -d)
+    if [ -z "$BAO_TOKEN" ]; then
+      echo "ERROR: Failed to retrieve OpenBao token"
+      exit 1
+    fi
+    echo "OpenBao token retrieved successfully"
+
+    export BAO_ADDR="http://openbao-internal.cf-openbao.svc:8200"
+    echo "BAO_ADDR set to: $BAO_ADDR"
+
+    # Wait for OpenBao to be ready
+    echo "Waiting for OpenBao service to be ready..."
+    for i in {1..30}; do
+      if curl -s --max-time 5 "${BAO_ADDR}/v1/sys/health" >/dev/null 2>&1; then
+        echo "OpenBao service is ready"
+        break
+      fi
+      if [ $i -eq 30 ]; then
+        echo "ERROR: OpenBao service not ready after 30 attempts"
+        exit 1
+      fi
+      echo "Waiting for OpenBao... attempt $i/30"
+      sleep 2
+    done
+
+    echo "Retrieving devuser password from OpenBao..."
+    GITEA_DEVUSER_PASSWORD="$(bao kv get -field=value secrets/gitea-devuser-secret)"
+    if [ -z "$GITEA_DEVUSER_PASSWORD" ]; then
+      echo "ERROR: Failed to retrieve devuser password from OpenBao"
+      exit 1
+    fi
+    echo "Devuser password retrieved successfully"
+
+    echo "Waiting for Gitea service to be ready..."
+    for i in {1..30}; do
+      if curl -s --max-time 5 "${GITEA_URL}" >/dev/null 2>&1; then
+        echo "Gitea service is ready and responding"
+        break
+      fi
+      if [ $i -eq 30 ]; then
+        echo "ERROR: Gitea service not ready after 30 attempts"
+        exit 1
+      fi
+      echo "Waiting for Gitea to be ready... attempt $i/30"
+      sleep 2
+    done
+
+    echo "Step 0: Create admin access token"
+    GITEA_TOKEN=$(kubectl -n cf-gitea exec deploy/gitea -c gitea -- \
+      gitea admin user generate-access-token --raw --username "$GITEA_ADMIN_USER" --token-name "api-token-$(date +%s)" --scopes all
+    )
+    kubectl create secret generic gitea-admin-token --from-literal=token="${GITEA_TOKEN}" --namespace=cf-gitea --dry-run=client -o yaml | kubectl apply -f -
+
+    echo "Step 1: Creating organization 'cluster-org'..."
+    curl -X POST "${GITEA_URL}/api/v1/orgs" \
+      -H "Authorization: token ${GITEA_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "username": "cluster-org",
+        "full_name": "Cluster Organization",
+        "description": "Organization for cluster management repositories",
+        "visibility": "public"
+      }' || echo "Failed to create organization, might already exist"
+
+    echo "Step 2: Creating repository 'cluster-forge' as mirror..."
+    if curl -s -f -H "Authorization: token ${GITEA_TOKEN}" "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" >/dev/null 2>&1; then
+      echo "Repository 'cluster-forge' already exists"
+    else
+        MAX_ATTEMPTS=5
+        ATTEMPT=1
+        SUCCESS=false
+
+        while [ $ATTEMPT -le $MAX_ATTEMPTS ] && [ "$SUCCESS" = false ]; do
+            echo "Migration attempt $ATTEMPT/$MAX_ATTEMPTS..."
+
+            HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/migration_response.json -X POST "${GITEA_URL}/api/v1/repos/migrate" \
+              -H "Authorization: token ${GITEA_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "clone_addr": "https://github.com/silogen/cluster-forge.git",
+                "repo_name": "cluster-forge",
+                "repo_owner": "cluster-org",
+                "service": "git",
+                "mirror": true,
+                "mirror_interval": "15m",
+                "private": false
+              }')
+
+            case $HTTP_CODE in
+                201)
+                    echo "Repository migration completed successfully"
+                    SUCCESS=true
+                    ;;
+                *)
+                    echo "Attempt $ATTEMPT failed with HTTP $HTTP_CODE, retrying..."
+                    echo "Cleaning up failed repository..."
+                    sleep 1
+                    curl -s -X DELETE "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" \
+                      -H "Authorization: token ${GITEA_TOKEN}" >/dev/null 2>&1
+                    echo "Failed repository deleted..."
+                    ;;
+            esac
+
+            if [ "$SUCCESS" = false ] && [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+                sleep 5
+            fi
+
+            ATTEMPT=$((ATTEMPT + 1))
+        done
+
+        if [ "$SUCCESS" = false ]; then
+            echo "ERROR: Failed to create mirror repository after $MAX_ATTEMPTS attempts"
+            exit 1
+        fi
+    fi
+
+    # set mirror default branch (--dev mode)
+    if [ "{{ .Values.targetRevision }}" != "main" ]; then
+      curl -X PATCH "${GITEA_URL}/api/v1/repos/cluster-org/cluster-forge" \
+      -H "Authorization: token ${GITEA_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{"default_branch": "{{ .Values.targetRevision }}"}'
+    fi
+
+    echo "Step 3: Creating repository 'cluster-values'..."
+    curl -X POST "${GITEA_URL}/api/v1/orgs/cluster-org/repos" \
+      -H "Authorization: token ${GITEA_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "cluster-values",
+        "description": "Cluster configuration values repository",
+        "private": false,
+        "auto_init": true
+      }' || echo "Repository might already exist"
+
+    echo "Step 4: Creating user 'devuser'..."
+
+    # Create user with proper JSON escaping
+    RESPONSE=$(curl -s -w "%{http_code}" -X POST "${GITEA_URL}/api/v1/admin/users" \
+      -H "Authorization: token ${GITEA_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "username": "devuser",
+        "email": "devuser@'${DOMAIN}'",
+        "password": "'"${GITEA_DEVUSER_PASSWORD}"'",
+        "full_name": "Dev User",
+        "must_change_password": false,
+        "send_notify": false
+      }')
+
+    HTTP_CODE=$(echo "$RESPONSE" | tail -c 4)
+    RESPONSE_BODY=$(echo "$RESPONSE" | head -c -4)
+
+    if [ "$HTTP_CODE" -eq 201 ]; then
+      echo "User 'devuser' created successfully"
+    elif [ "$HTTP_CODE" -eq 422 ]; then
+      echo "User 'devuser' might already exist (HTTP 422)"
+    else
+      echo "User creation failed with HTTP $HTTP_CODE: $RESPONSE_BODY"
+    fi
+
+    # Verify user exists
+    USER_CHECK=$(curl -s -H "Authorization: token ${GITEA_TOKEN}" \
+      "${GITEA_URL}/api/v1/users/devuser")
+
+    # Test authentication (this will fail if password is wrong)
+    AUTH_TEST=$(curl -s -w "%{http_code}" -u "devuser:${GITEA_DEVUSER_PASSWORD}" \
+      "${GITEA_URL}/api/v1/user")
+    AUTH_HTTP_CODE=$(echo "$AUTH_TEST" | tail -c 4)
+    AUTH_RESPONSE=$(echo "$AUTH_TEST" | head -c -4)
+
+    if [ "$AUTH_HTTP_CODE" -eq 200 ]; then
+      echo "SUCCESS: devuser authentication works"
+    else
+      echo "WARNING: devuser authentication failed (HTTP $AUTH_HTTP_CODE)"
+    fi
+
+    echo "Step 5: Getting organization 'cluster-org' owners team id..."
+    OWNERS_TEAM_ID=$(curl -s -H "Authorization: token ${GITEA_TOKEN}" -H "Content-Type: application/json" \
+      "${GITEA_URL}/api/v1/orgs/cluster-org/teams" | \
+      jq -r '.[] | select(.name == "Owners") | .id')
+
+    echo "Step 6: Adding user 'devuser' to organization 'cluster-org' owners..."
+    curl -X PUT "${GITEA_URL}/api/v1/teams/${OWNERS_TEAM_ID}/members/devuser" \
+      -H "Authorization: token ${GITEA_TOKEN}" \
+      -H "Content-Type: application/json" || echo "Failed to add user to organization"
+
+    echo "Step 7: Creating values.yaml file with cluster-forge reference in cluster-values repo..."
+
+    # Get the complete values file from the configmap created by bootstrap.sh
+    if kubectl get configmap initial-cf-values -n cf-gitea >/dev/null 2>&1; then
+        kubectl get configmap initial-cf-values -n cf-gitea -o jsonpath='{.data.initial-cf-values}' > /tmp/complete_values.yaml
+
+        # Install yq if not present (lightweight approach)
+        if ! command -v yq >/dev/null 2>&1; then
+            wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+            chmod +x /usr/local/bin/yq
+        fi
+    else
+        echo "ERROR: initial-cf-values configmap not found!"
+        exit 1
+    fi
+
+    # Extract enabledApps and create enabledApps section with disabled apps commented out
+    cat > /tmp/values.yaml << 'EOF'
+    clusterForge:
+      repoURL: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-forge.git
+      path: root
+      targetRevision:  {{ .Values.targetRevision }}
+
+    # clusterSize is set by bootstrap script via --CLUSTER_SIZE=values_<size>.yaml (defaults to medium)
+    global:
+      clusterSize: {{ .Values.clusterSize }}
+      domain: DOMAIN_PLACEHOLDER
+
+    # Applications enabled for this cluster
+    # This overrides the enabledApps from size-specific values to exclude disabled apps
+    enabledApps:
+    EOF
+
+    # Get the complete app list from the merged values (which includes size-specific enabledApps)
+    {{- if .Values.disabledApps }}
+    # Validate that disabled patterns match at least one real app
+    IFS=',' read -ra PATTERNS <<< "{{ .Values.disabledApps }}"
+    declare -A pattern_matched
+    for pattern in "${PATTERNS[@]}"; do
+      pattern_matched["$pattern"]=false
+    done
+
+    # Process enabledApps with disabled apps filtered out completely
+    yq eval '.enabledApps[]' /tmp/complete_values.yaml | while IFS= read -r app; do
+      # Check if app matches any disabled pattern (supports wildcards)
+      disabled=false
+      matched_pattern=""
+      for pattern in "${PATTERNS[@]}"; do
+        # Use case statement for wildcard matching
+        case "$app" in
+          $pattern)
+            disabled=true
+            matched_pattern="$pattern"
+            pattern_matched["$pattern"]=true
+            break
+            ;;
+        esac
+      done
+
+      if [ "$disabled" = "true" ]; then
+        # Add as comment for documentation
+        echo "  #- $app                    # Disabled by --disabled-apps" >> /tmp/values.yaml
+      else
+        echo "  - $app" >> /tmp/values.yaml
+      fi
+    done
+
+    # Check if any patterns didn't match anything
+    unmatched_patterns=()
+    for pattern in "${PATTERNS[@]}"; do
+      # Re-check each pattern against all apps
+      pattern_found=false
+      while IFS= read -r app; do
+        case "$app" in
+          $pattern)
+            pattern_found=true
+            break
+            ;;
+        esac
+      done < <(yq eval '.enabledApps[]' /tmp/complete_values.yaml)
+
+      if [ "$pattern_found" = "false" ]; then
+        unmatched_patterns+=("$pattern")
+      fi
+    done
+
+    # Fail if any patterns didn't match
+    if [ ${#unmatched_patterns[@]} -gt 0 ]; then
+      echo "ERROR: The following disabled app patterns did not match any applications:"
+      for pattern in "${unmatched_patterns[@]}"; do
+        echo "  - $pattern"
+      done
+      echo ""
+      echo "Available applications:"
+      yq eval '.enabledApps[]' /tmp/complete_values.yaml | sed 's/^/  - /'
+      echo ""
+      echo "Please check your --disabled-apps parameter for typos."
+      exit 1
+    fi
+    {{- else }}
+    # No disabled apps, include all enabledApps from merged values
+    yq eval '.enabledApps[]' /tmp/complete_values.yaml | while IFS= read -r app; do
+      echo "  - $app" >> /tmp/values.yaml
+    done
+    {{- end }}
+
+    # if either aiwbOnly or airmImageRepository is set, we need to add the app top-level key
+    {{- if or .Values.aiwbOnly .Values.airmImageRepository }}
+    echo "apps:" >> /tmp/values.yaml
+    {{- end }}
+
+    {{- if .Values.aiwbOnly }}
+    cat >> /tmp/values.yaml << 'EOF'
+      aiwb:
+        helmParameters:
+          # STANDALONE-MODE
+          - name: standAloneMode
+            value: "true"
+      aiwb-infra-external-secrets:
+        helmParameters:
+          # STANDALONE-MODE
+          - name: standAloneMode
+            value: "true"
+    EOF
+    {{- end }}
+
+    {{- if .Values.airmImageRepository }}
+    cat >> /tmp/values.yaml << 'EOF'
+      airm:
+        helmParameters:
+          # APP-DOMAIN
+          - name: airm-api.airm.appDomain
+            value: {{ .Values.domain | quote }}
+          # BACKEND (airm-api)
+          - name: airm-api.airm.backend.image.repository
+            value: "{{ .Values.airmImageRepository }}/airm-api"
+          - name: airm-api.airm.backend.imagePullSecrets[0].name
+            value: regcred
+          # FRONTEND (airm-ui)
+          - name: airm-api.airm.frontend.image.repository
+            value: "{{ .Values.airmImageRepository }}/airm-ui"
+          - name: airm-api.airm.frontend.imagePullSecrets[0].name
+            value: regcred
+          # DISPATCHER (airm-dispatcher)
+          - name: airm-dispatcher.airm.dispatcher.image.repository
+            value: "{{ .Values.airmImageRepository }}/airm-dispatcher"
+          - name: airm-dispatcher.airm.dispatcher.imagePullSecrets[0].name
+            value: regcred
+          # AGENT (airm-agent)
+          - name: agent.airm.imagePullSecrets[0].name
+            value: regcred
+    EOF
+    {{- end }}
+
+    sed -i "s/DOMAIN_PLACEHOLDER/${DOMAIN}/g" /tmp/values.yaml
+
+
+
+    curl -X POST "${GITEA_URL}/api/v1/repos/cluster-org/cluster-values/contents/values.yaml" \
+      -H "Authorization: token ${GITEA_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "message": "Initialize cluster values configuration",
+        "content": "'$(base64 -w 0 < /tmp/values.yaml)'",
+        "branch": "main"
+      }' || echo "Failed to create values.yaml file"
+
+
+
+    echo "Setup completed successfully!"
