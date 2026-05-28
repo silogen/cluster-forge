@@ -11,64 +11,71 @@ components:
     license: MIT License
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
   aim-engine:
-    path: .
-    repoVersion: 0.2.2
+    path: null
+    repoVersion: 0.2.4
     valuesFile: values.yaml
     sourceUrl: oci://registry-1.docker.io/amdenterpriseai/aim-engine-chart
     projectUrl: https://github.com/silogen/aim-engine
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/aim-engine/blob/main/LICENSE
   aim-engine-crds:
-    path: .
-    repoVersion: 0.2.2
+    path: null
+    repoVersion: 0.2.4
     sourceUrl: oci://registry-1.docker.io/amdenterpriseai/aim-engine-crds-chart
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine-crds
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   airm:
-    path: airm/1.0.2
+    path: null
+    repoVersion: 1.1.9
     valuesFile: values.yaml
-    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm
+    sourceUrl: oci://registry-1.docker.io/amdenterpriseai/airm-chart
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/airm
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   airm-infra-cnpg:
-    path: eai-infra/airm-cnpg/0.1.0
+    path: null
+    repoVersion: 1.1.9
     valuesFile: values.yaml
-    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/eai-infra/airm-cnpg
+    sourceUrl: oci://registry-1.docker.io/amdenterpriseai/airm-cnpg-chart
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/eai-infra/airm-cnpg
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   airm-infra-external-secrets:
-    path: eai-infra/airm-external-secrets/0.1.0
+    path: null
+    repoVersion: 1.1.9
     valuesFile: values.yaml
-    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/eai-infra/airm-external-secrets
+    sourceUrl: oci://registry-1.docker.io/amdenterpriseai/airm-external-secrets-chart
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/eai-infra/airm-external-secrets
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   airm-infra-rabbitmq:
-    path: eai-infra/airm-rabbitmq/0.1.0
+    path: null
+    repoVersion: 1.1.9
     valuesFile: values.yaml
-    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/eai-infra/airm-rabbitmq
+    sourceUrl: oci://registry-1.docker.io/amdenterpriseai/airm-rabbitmq-chart
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/eai-infra/airm-rabbitmq
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   aiwb:
-    path: aiwb/1.0.3
+    path: null
+    repoVersion: 1.1.9
     valuesFile: values.yaml
-    sourceUrl: https://github.com/silogen/aiwb/releases/tag/v1.1.2
+    sourceUrl: oci://registry-1.docker.io/amdenterpriseai/aiwb-chart
     projectUrl: https://github.com/silogen/aiwb
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/aiwb/blob/main/LICENSE
   aiwb-infra-cnpg:
-    path: eai-infra/aiwb-cnpg/0.1.0
+    path: null
+    repoVersion: 1.1.9
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-cnpg
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-cnpg
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   aiwb-infra-external-secrets:
-    path: eai-infra/aiwb-external-secrets/0.1.2
+    path: null
+    repoVersion: 1.1.9
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-external-secrets
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-external-secrets

@@ -72,7 +72,9 @@ spec:
   source:
     repoURL: {{ $renderedRepoURL | default $clusterForgeRepoUrl }}
     targetRevision: {{ .repoVersion | default $clusterForgeTargetRevision | quote }}
-    {{- if .repoURL }}
+    {{- if .chart }}
+    chart: {{ .chart }}
+    {{- else if .repoURL }}
     {{- if hasPrefix "oci://" $renderedRepoURL }}
     path: {{ .path | default "." }}
     {{- else }}
