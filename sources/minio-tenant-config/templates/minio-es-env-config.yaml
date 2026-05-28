@@ -1,3 +1,4 @@
+{{- if .Values.externalSecrets.enabled }}
 ---
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
@@ -42,3 +43,4 @@ spec:
       remoteRef:
         key: secrets/data/cluster-domain
         property: value
+{{- end }}

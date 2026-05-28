@@ -11,15 +11,17 @@ components:
     license: MIT License
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
   aim-engine:
-    path: aim-engine/0.2.2
+    path: .
+    repoVersion: 0.2.2
     valuesFile: values.yaml
-    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine
-    projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine
+    sourceUrl: oci://registry-1.docker.io/amdenterpriseai/aim-engine-chart
+    projectUrl: https://github.com/silogen/aim-engine
     license: Apache License 2.0
-    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
+    licenseUrl: https://github.com/silogen/aim-engine/blob/main/LICENSE
   aim-engine-crds:
-    path: aim-engine-crds/0.2.2
-    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine-crds
+    path: .
+    repoVersion: 0.2.2
+    sourceUrl: oci://registry-1.docker.io/amdenterpriseai/aim-engine-crds-chart
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine-crds
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
@@ -54,10 +56,10 @@ components:
   aiwb:
     path: aiwb/1.0.3
     valuesFile: values.yaml
-    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb
-    projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb
+    sourceUrl: https://github.com/silogen/aiwb/releases/tag/v1.1.2
+    projectUrl: https://github.com/silogen/aiwb
     license: Apache License 2.0
-    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
+    licenseUrl: https://github.com/silogen/aiwb/blob/main/LICENSE
   aiwb-infra-cnpg:
     path: eai-infra/aiwb-cnpg/0.1.0
     valuesFile: values.yaml
@@ -97,7 +99,7 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/cert-manager/cert-manager/blob/master/LICENSE
   cluster-auth:
-    path: cluster-auth/0.5.0
+    path: cluster-auth/0.5.9
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/cluster-auth
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/cluster-auth
@@ -110,6 +112,12 @@ components:
     projectUrl: https://github.com/cloudnative-pg/cloudnative-pg
     license: Apache License 2.0
     licenseUrl: https://github.com/cloudnative-pg/cloudnative-pg/blob/main/LICENSE
+  envoy-gateway:
+    path: envoy-gateway/v1.7.1
+    sourceUrl: oci://docker.io/envoyproxy/gateway-helm
+    projectUrl: https://github.com/envoyproxy/gateway
+    license: Apache License 2.0
+    licenseUrl: https://github.com/envoyproxy/gateway
   external-secrets:
     path: external-secrets/0.15.1
     valuesFile: values.yaml
@@ -117,12 +125,6 @@ components:
     projectUrl: https://github.com/external-secrets/external-secrets
     license: Apache License 2.0
     licenseUrl: https://github.com/external-secrets/external-secrets/blob/main/LICENSE
-  gateway-api:
-    path: gateway-api/v1.3.0
-    sourceUrl: https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml
-    projectUrl: https://github.com/kubernetes-sigs/gateway-api
-    license: Apache License 2.0
-    licenseUrl: https://github.com/kubernetes-sigs/gateway-api/blob/main/LICENSE
   gitea:
     path: gitea/12.3.0
     sourceUrl: https://dl.gitea.com/charts/
@@ -130,15 +132,16 @@ components:
     license: MIT License
     licenseUrl: https://github.com/go-gitea/gitea/blob/main/LICENSE
   kaiwo:
-    path: kaiwo/v0.2.0-rc11
-    valuesFile: values.yaml
-    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc11/install.yaml
+    path: null
+    repoVersion: v0.2.1
+    sourceUrl: oci://ghcr.io/silogen/kaiwo-operator-chart
     projectUrl: https://github.com/silogen/kaiwo/
     license: MIT License
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
   kaiwo-crds:
-    path: kaiwo-crds/v0.2.0-rc11
-    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc11/crds.yaml
+    path: null
+    repoVersion: v0.2.1
+    sourceUrl: oci://ghcr.io/silogen/kaiwo-crds-chart
     projectUrl: https://github.com/silogen/kaiwo/
     license: MIT License
     licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
@@ -161,19 +164,6 @@ components:
     projectUrl: https://github.com/keycloak/keycloak
     license: Apache License 2.0
     licenseUrl: https://github.com/keycloak/keycloak/blob/main/LICENSE.txt
-  kgateway:
-    path: kgateway/v2.1.0-main
-    sourceUrl: oci://cr.kgateway.dev/kgateway-dev/charts/kgateway
-    projectUrl: https://github.com/kgateway-dev/kgateway
-    license: Apache License 2.0
-    licenseUrl: https://github.com/kgateway-dev/kgateway/blob/main/LICENSE
-  kgateway-crds:
-    path: kgateway-crds/v2.1.0-main
-    valuesFile: values.yaml
-    sourceUrl: oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds
-    projectUrl: https://github.com/kgateway-dev/kgateway
-    license: Apache License 2.0
-    licenseUrl: https://github.com/kgateway-dev/kgateway/blob/main/LICENSE
   kserve:
     path: kserve/v0.16.0
     sourceUrl: oci://ghcr.io/kserve/charts/kserve
@@ -244,12 +234,6 @@ components:
     projectUrl: https://github.com/openbao/openbao
     license: Mozilla Public License 2.0
     licenseUrl: https://github.com/openbao/openbao/blob/main/LICENSE
-  openbao-init:
-    path: ../scripts/init-openbao-job
-    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/scripts/init-openbao-job
-    projectUrl: https://github.com/silogen/cluster-forge/
-    license: Apache License 2.0
-    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
     sourceUrl: https://open-telemetry.github.io/opentelemetry-helm-charts
@@ -275,4 +259,3 @@ components:
     projectUrl: https://github.com/rabbitmq/cluster-operator/
     license: Mozilla Public License 2.0
     licenseUrl: https://github.com/rabbitmq/cluster-operator/blob/main/LICENSE.txt
-  

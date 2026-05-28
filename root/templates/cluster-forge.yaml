@@ -16,7 +16,9 @@ spec:
     helm:
       valueFiles:
         - {{ .Values.externalValues.path }}
+        {{- if .Values.global.clusterSize }}
         - {{ .Values.global.clusterSize }}
+        {{- end }}
         - $cluster-values/values.yaml
   - repoURL: {{ .Values.externalValues.repoUrl }}
     targetRevision: {{ .Values.externalValues.targetRevision }}
@@ -30,7 +32,9 @@ spec:
     helm:
       valueFiles:
         - {{ .Values.clusterForge.valuesFile }}
+        {{- if .Values.global.clusterSize }}
         - {{ .Values.global.clusterSize }}
+        {{- end }}
 {{- end }}
   destination:
     server: https://kubernetes.default.svc
