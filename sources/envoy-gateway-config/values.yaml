@@ -1,1 +1,6 @@
 domain: # to be filled by cluster-forge app
+
+# Port configuration for Gateway listeners
+ports:
+  https: 443           # HTTPS listener with TLS termination
+  k8sPassthrough: 443  # K8s passthrough listener
