@@ -1,12 +1,20 @@
-# EnvoyProxy configuration for access logging
-# Replaces kgateway HTTPListenerPolicy_access-logs.yaml functionality
-# Referenced by Gateway to enable per-gateway access logging
+# EnvoyProxy configuration for access logging and pod placement
+# Replaces kgateway HTTPListenerPolicy_access-logs.yaml functionality  
+# Referenced by Gateway to enable per-gateway access logging and ensure data plane pods land on first node
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
   name: access-logging-config
   namespace: envoy-gateway-system
 spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyDeployment:
+        pod:
+          nodeSelector:
+            cluster-bloom/first-node: "true"
+          priorityClassName: "system-cluster-critical"
   telemetry:
     accessLog:
       settings:

@@ -19,7 +19,9 @@ spec:
     grpc:
       # Backend reference to cluster-auth service (exact match to current config)
       backendRefs:
-        - name: cluster-auth
+        - group: ''
+          kind: Service
+          name: cluster-auth
           namespace: cluster-auth
           port: 50051
           weight: 1

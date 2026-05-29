@@ -15,16 +15,16 @@ ociRegistry:
 
 apps:
   aim-engine:
-    repoURL: "oci://{{ .Values.ociRegistry.dockerHub }}/aim-engine-chart"
-    repoVersion: "0.2.2"
-    path: "."
+    repoURL: "{{ .Values.ociRegistry.dockerHub }}"
+    repoVersion: "0.2.4"
+    chart: "aim-engine-chart"
     namespace: aim-system
     valuesFile: values.yaml
     syncWave: 0
   aim-engine-crds:
-    repoURL: "oci://{{ .Values.ociRegistry.dockerHub }}/aim-engine-crds-chart"
-    repoVersion: "0.2.2"
-    path: "."
+    repoURL: "{{ .Values.ociRegistry.dockerHub }}"
+    repoVersion: "0.2.4"
+    chart: "aim-engine-crds-chart"
     namespace: aim-system
     syncWave: 0
   aim-cluster-model-source:
@@ -32,6 +32,12 @@ apps:
     path: aim-cluster-model-source
     syncWave: -20
   airm:
+    repoURL: "{{ .Values.ociRegistry.dockerHub }}"
+    repoVersion: "1.1.9"
+    chart: "airm-chart"
+    namespace: airm
+    syncWave: 0
+    valuesFile: values.yaml
     helmParameters:
       - name: airm-api.airm.appDomain
         value: "{{ .Values.global.domain }}"
@@ -42,27 +48,28 @@ apps:
         jqPathExpressions:
           - ".spec.rules"
         kind: ClusterPolicy
-    namespace: airm
-    path: airm/1.0.2
-    syncWave: 0
-    valuesFile: values.yaml
   aiwb:
-    path: "aiwb/1.0.3"
+    repoURL: "{{ .Values.ociRegistry.dockerHub }}"
+    repoVersion: "2.0.0-rc.1"
+    chart: "aiwb-chart"
     namespace: aiwb
     valuesFile: values.yaml
+    syncWave: 0
     helmParameters:
       - name: appDomain
         value: "{{ .Values.global.domain }}"
-      - name: kgateway.namespace
-        value: envoy-gateway-system
     syncWave: 0
   airm-infra-cnpg:
-    path: eai-infra/airm-cnpg/0.1.0
+    repoURL: "{{ .Values.ociRegistry.dockerHub }}"
+    repoVersion: "1.1.9"
+    chart: "airm-cnpg-chart"
     namespace: airm
     syncWave: -10
     valuesFile: values.yaml
   airm-infra-external-secrets:
-    path: eai-infra/airm-external-secrets/0.1.0
+    repoURL: "{{ .Values.ociRegistry.dockerHub }}"
+    repoVersion: "1.1.9"
+    chart: "airm-external-secrets-chart"
     namespace: airm
     syncWave: -20
     valuesFile: values.yaml
@@ -74,17 +81,23 @@ apps:
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
   airm-infra-rabbitmq:
-    path: eai-infra/airm-rabbitmq/0.1.0
+    repoURL: "{{ .Values.ociRegistry.dockerHub }}"
+    repoVersion: "1.1.9"
+    chart: "airm-rabbitmq-chart"
     namespace: airm
     syncWave: -5
     valuesFile: values.yaml
   aiwb-infra-cnpg:
-    path: eai-infra/aiwb-cnpg/0.1.0
+    repoURL: "{{ .Values.ociRegistry.dockerHub }}"
+    repoVersion: "1.1.9"
+    chart: "aiwb-cnpg-chart"
     namespace: aiwb
     syncWave: -10
     valuesFile: values.yaml
   aiwb-infra-external-secrets:
-    path: eai-infra/aiwb-external-secrets/0.1.2
+    repoURL: "{{ .Values.ociRegistry.dockerHub }}"
+    repoVersion: "1.1.9"
+    chart: "aiwb-external-secrets-chart"
     namespace: aiwb
     syncWave: -20
     valuesFile: values.yaml
@@ -107,6 +120,8 @@ apps:
     namespace: kube-amd-gpu
     path: amd-gpu-operator-config
     syncWave: 0
+    valuesObject:
+      namespace: kube-amd-gpu
   appwrapper:
     namespace: appwrapper-system
     path: appwrapper/v1.1.2
@@ -132,6 +147,30 @@ apps:
       configs:
         cm:
           create: true
+          resource.customizations.health.external-secrets.io_ExternalSecret: |
+            hs = {}
+            if obj.status ~= nil and obj.status.conditions ~= nil then
+              for _, c in ipairs(obj.status.conditions) do
+                if c.type == "Ready" then
+                  if c.reason == "SecretSynced" then
+                    hs.status = "Healthy"
+                    hs.message = c.message
+                    return hs
+                  elseif c.reason == "SecretSyncedError" or c.reason == "SecretDeleted" then
+                    hs.status = "Degraded"
+                    hs.message = c.message
+                    return hs
+                  else
+                    hs.status = "Progressing"
+                    hs.message = c.message
+                    return hs
+                  end
+                end
+              end
+            end
+            hs.status = "Progressing"
+            hs.message = "Waiting for ExternalSecret to sync"
+            return hs
           resource.customizations.health.apps_StatefulSet: |
             -- Custom health check for OpenBao StatefulSet
             -- Uses standard StatefulSet readiness for now - openbao-init job handles actual initialization
@@ -341,8 +380,9 @@ apps:
     syncWave: -20
     valuesFile: values.yaml
   kaiwo:
-    repoURL: "oci://{{ .Values.ociRegistry.ghcr }}/kaiwo-operator-chart"
+    repoURL: "{{ .Values.ociRegistry.ghcr }}"
     repoVersion: "v0.2.1"
+    chart: "kaiwo-operator-chart"
     namespace: kaiwo-system
     syncWave: -10
   kaiwo-config:
@@ -361,8 +401,9 @@ apps:
     path: kaiwo-config
     syncWave: 0
   kaiwo-crds:
-    repoURL: "oci://{{ .Values.ociRegistry.ghcr }}/kaiwo-crds-chart"
+    repoURL: "{{ .Values.ociRegistry.ghcr }}"
     repoVersion: "v0.2.1"
+    chart: "kaiwo-crds-chart"
     namespace: kaiwo-system
     syncWave: -20
   keda:
@@ -832,8 +873,6 @@ apps:
             requests:
               cpu: 500m
               memory: 1Gi
-      dashboards:
-        enabled: true
       kubeStateMetrics:
         enabled: true
       lgtm:
