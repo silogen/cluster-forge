@@ -601,10 +601,6 @@ apps:
               - group: aigateway.envoyproxy.io
                 version: v1beta1
                 kind: AIServiceBackend
-            backendResources:
-              - group: inference.networking.k8s.io
-                version: v1
-                kind: InferencePool
             hooks:
               xdsTranslator:
                 post:
