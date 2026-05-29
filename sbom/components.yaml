@@ -121,16 +121,16 @@ components:
     licenseUrl: https://github.com/cloudnative-pg/cloudnative-pg/blob/main/LICENSE
   envoy-ai-gateway:
     path: envoy-ai-gateway/v0.6.0
-    sourceUrl:
-    projectUrl:
-    license:
-    licenseUrl:
+    sourceUrl: https://github.com/envoyproxy/ai-gateway
+    projectUrl: https://github.com/envoyproxy/ai-gateway
+    license: Apache License 2.0
+    licenseUrl: https://github.com/envoyproxy/ai-gateway/blob/main/LICENSE
   envoy-ai-gateway-crds:
     path: envoy-ai-gateway-crds/v0.6.0
-    sourceUrl:
-    projectUrl:
-    license:
-    licenseUrl:
+    sourceUrl: https://github.com/envoyproxy/ai-gateway
+    projectUrl: https://github.com/envoyproxy/ai-gateway
+    license: Apache License 2.0
+    licenseUrl: https://github.com/envoyproxy/ai-gateway/blob/main/LICENSE
   envoy-gateway:
     path: envoy-gateway/v1.7.1
     sourceUrl: oci://docker.io/envoyproxy/gateway-helm
