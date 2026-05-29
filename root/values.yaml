@@ -293,6 +293,9 @@ apps:
     path: cluster-auth/0.5.9
     syncWave: -25
     valuesFile: values.yaml
+    valuesObject:
+      additionalSecurityPolicyNamespaces:
+        - workbench
   cluster-auth-config:
     ignoreDifferences:
       - group: external-secrets.io
@@ -582,6 +585,35 @@ apps:
     syncWave: -30
     valuesObject:
       kubernetesClusterDomain: cluster.local
+      config:
+        envoyGateway:
+          extensionApis:
+            # Required for AI Gateway Backend CRD references to be accepted.
+            enableBackend: true
+          # Registers the AI Gateway controller as an xDS extension server.
+          # Without this, Envoy Gateway does not inject the ext_proc HTTP filter
+          # into the listener, so token metadata fields stay null in access logs.
+          extensionManager:
+            resources:
+              - group: aigateway.envoyproxy.io
+                version: v1beta1
+                kind: AIGatewayRoute
+              - group: aigateway.envoyproxy.io
+                version: v1beta1
+                kind: AIServiceBackend
+            hooks:
+              xdsTranslator:
+                post:
+                  - Cluster
+                  - Translation
+            service:
+              host: ai-gateway-controller.envoy-ai-gateway-system.svc.cluster.local
+              port: 1063
+              tls:
+                certificateRef:
+                  kind: Secret
+                  name: self-signed-cert-for-mutating-webhook
+                  namespace: envoy-ai-gateway-system
   envoy-gateway-config:
     helmParameters:
       - name: domain
@@ -590,6 +622,20 @@ apps:
     path: envoy-gateway-config
     syncWave: -15
     valuesFile: values.yaml
+  envoy-ai-gateway-crds:
+    namespace: envoy-ai-gateway-system
+    path: envoy-ai-gateway-crds/v0.6.0
+    syncWave: -10
+  envoy-ai-gateway:
+    namespace: envoy-ai-gateway-system
+    path: envoy-ai-gateway/v0.6.0
+    syncWave: -5
+    valuesObject:
+      controller:
+        mcp:
+          sessionEncryption:
+            # Must be overridden per deployment with a secure random string.
+            seed: "cluster-forge-default-seed-override-in-production"
   kserve:
     namespace: kserve-system
     path: kserve/v0.16.0

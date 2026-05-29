@@ -121,6 +121,31 @@ spec:
               static_configs:
                 - targets:
                     - longhorn-backend.longhorn.svc.cluster.local:9500
+            - job_name: envoy-ai-gateway-extproc
+              scrape_interval: 30s
+              metrics_path: /metrics
+              kubernetes_sd_configs:
+                - role: pod
+                  namespaces:
+                    names:
+                      - envoy-gateway-system
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_component]
+                  action: keep
+                  regex: proxy
+                - source_labels: [__meta_kubernetes_pod_container_port_name]
+                  action: keep
+                  regex: aigw-admin
+                - source_labels: [__meta_kubernetes_pod_ip, __meta_kubernetes_pod_container_port_number]
+                  separator: ":"
+                  target_label: __address__
+                - source_labels: [__meta_kubernetes_pod_name]
+                  target_label: pod
+                - source_labels: [__meta_kubernetes_pod_namespace]
+                  target_label: namespace
+              metric_relabel_configs:
+                - regex: "otel_scope_name|otel_scope_schema_url|otel_scope_version"
+                  action: labeldrop
     service:
       pipelines:
         metrics:

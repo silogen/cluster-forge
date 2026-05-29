@@ -37,6 +37,11 @@ spec:
               authority: "%REQ(:AUTHORITY)%"
               backendHost: "%UPSTREAM_HOST%"
               backendCluster: "%UPSTREAM_CLUSTER%"
+              # AI Gateway token tracking — populated by ext-proc for inference requests, "-" otherwise.
+              model: "%REQ(x-ai-eg-model)%"
+              llm_input_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_input_token)%"
+              llm_output_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_output_token)%"
+              llm_total_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_total_token)%"
           sinks:
             - type: File
               file:

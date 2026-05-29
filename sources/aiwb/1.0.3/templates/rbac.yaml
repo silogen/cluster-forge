@@ -92,6 +92,34 @@ rules:
   resources: ["inferenceservices"]
   verbs: ["get", "list"]
 
+# Envoy Gateway resources (for per-AIM dynamic routing and API key auth)
+- apiGroups: ["gateway.envoyproxy.io"]
+  resources: ["backends", "securitypolicies"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+- apiGroups: ["aigateway.envoyproxy.io"]
+  resources: ["aiservicebackends", "aigatewayroutes"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+
+# InferencePool + InferenceObjective (for EPP-based replica-aware routing)
+- apiGroups: ["inference.networking.k8s.io"]
+  resources: ["inferencepools"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+- apiGroups: ["inference.networking.x-k8s.io"]
+  resources: ["inferenceobjectives"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+# EPP Role grants watch on x-k8s.io/inferencepools too — AIWB must hold it to be able to grant it
+- apiGroups: ["inference.networking.x-k8s.io"]
+  resources: ["inferencepools"]
+  verbs: ["get", "list", "watch"]
+
+# ServiceAccount + RBAC (for per-AIM EPP identity and permissions)
+- apiGroups: [""]
+  resources: ["serviceaccounts"]
+  verbs: ["get", "list", "create", "update", "patch", "delete", "deletecollection"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "rolebindings"]
+  verbs: ["get", "list", "create", "update", "patch", "delete", "deletecollection"]
+
 # PVC access (read-only)
 - apiGroups: [""]
   resources: ["persistentvolumeclaims"]
