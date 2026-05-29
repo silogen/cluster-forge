@@ -121,4 +121,4 @@ data:
 kind: ConfigMap
 metadata:
   name: gpu-config
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
