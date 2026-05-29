@@ -59,7 +59,7 @@ components:
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   aiwb:
     path: null
-    repoVersion: 1.1.9
+    repoVersion: 2.0.0-rc.1
     valuesFile: values.yaml
     sourceUrl: oci://registry-1.docker.io/amdenterpriseai/aiwb-chart
     projectUrl: https://github.com/silogen/aiwb
@@ -119,6 +119,18 @@ components:
     projectUrl: https://github.com/cloudnative-pg/cloudnative-pg
     license: Apache License 2.0
     licenseUrl: https://github.com/cloudnative-pg/cloudnative-pg/blob/main/LICENSE
+  envoy-ai-gateway:
+    path: envoy-ai-gateway/v0.6.0
+    sourceUrl:
+    projectUrl:
+    license:
+    licenseUrl:
+  envoy-ai-gateway-crds:
+    path: envoy-ai-gateway-crds/v0.6.0
+    sourceUrl:
+    projectUrl:
+    license:
+    licenseUrl:
   envoy-gateway:
     path: envoy-gateway/v1.7.1
     sourceUrl: oci://docker.io/envoyproxy/gateway-helm
