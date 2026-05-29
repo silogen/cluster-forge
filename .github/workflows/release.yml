@@ -1,4 +1,6 @@
-name: Release Pipeline
+name: Release
+
+# Manual release creation, packaging, and SBOM upload. See README.md in this directory.
 
 on:
   workflow_dispatch:

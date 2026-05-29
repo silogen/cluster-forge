@@ -87,7 +87,9 @@ The new modular validation system ensures data consistency:
 
 ## CI/CD Integration
 
-The GitHub workflow `.github/workflows/pr-component-validation.yaml` now includes:
+PR validation runs in `.github/workflows/pull-request-component-validation.yml`. See `.github/workflows/README.md` for the full workflow map.
+
+The workflow includes:
 1. **EnabledApps validation** (prevents mismatched configurations)
 2. **Component generation** (ensures SBOM reflects enabled apps)
 3. **Metadata validation** (ensures completeness)

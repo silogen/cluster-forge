@@ -1,4 +1,6 @@
-name: PR Component Validation
+name: Pull Request Component Validation
+
+# Path-filtered SBOM/component sync gate for PRs. See README.md in this directory.
 
 on:
   workflow_dispatch:

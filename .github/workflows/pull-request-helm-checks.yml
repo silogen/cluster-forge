@@ -1,4 +1,6 @@
-name: Helm chart checks
+name: Pull Request Helm Checks
+
+# Validates root and Kyverno Helm charts on every PR. See README.md in this directory.
 
 on:
   pull_request:
@@ -236,7 +238,7 @@ jobs:
             chart_path="./$chart"
             if ! echo "$EXPECTED_CHARTS" | grep -q "$chart_path"; then
               echo "❌ ERROR: Policy chart '$chart' is not included in CI matrix"
-              echo "   Add '$chart_path' to the matrix in .github/workflows/helm-chart-checks.yaml"
+              echo "   Add '$chart_path' to the matrix in .github/workflows/pull-request-helm-checks.yml"
               VALIDATION_FAILED=true
             fi
           done
