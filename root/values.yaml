@@ -593,6 +593,12 @@ apps:
     namespace: envoy-ai-gateway-system
     path: envoy-ai-gateway/v0.6.0
     syncWave: -5
+    valuesObject:
+      controller:
+        mcp:
+          sessionEncryption:
+            # Must be overridden per deployment with a secure random string.
+            seed: "cluster-forge-default-seed-override-in-production"
   kserve:
     namespace: kserve-system
     path: kserve/v0.16.0
