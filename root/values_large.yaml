@@ -24,6 +24,7 @@ enabledApps:
   - envoy-gateway
   - envoy-gateway-config
   - envoy-ai-gateway-crds
+  - envoy-ai-gateway
   - gitea
   - gitea-config
   - kaiwo

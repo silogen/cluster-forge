@@ -1,0 +1,20 @@
+# Copyright Envoy AI Gateway Authors
+# SPDX-License-Identifier: Apache-2.0
+# The full text of the Apache license is available in the LICENSE file at
+# the root of the repo.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-gateway-helm.controller.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ai-gateway-helm.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.controller.service.type }}
+  {{- with .Values.controller.service.ports }}
+  ports:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    {{- include "ai-gateway-helm.controller.selectorLabels" . | nindent 4 }}

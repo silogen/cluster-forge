@@ -557,6 +557,15 @@ apps:
     namespace: envoy-ai-gateway-system
     path: envoy-ai-gateway-crds/v0.6.0
     syncWave: -10
+  envoy-ai-gateway:
+    namespace: envoy-ai-gateway-system
+    path: envoy-ai-gateway/v0.6.0
+    syncWave: -5
+    valuesObject:
+      controller:
+        mcp:
+          sessionEncryption:
+            seed: "cluster-forge-default-seed-override-in-production"
   kserve:
     namespace: kserve-system
     path: kserve/v0.16.0

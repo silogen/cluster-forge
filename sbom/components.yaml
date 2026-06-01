@@ -125,6 +125,12 @@ components:
     projectUrl: https://github.com/external-secrets/external-secrets
     license: Apache License 2.0
     licenseUrl: https://github.com/external-secrets/external-secrets/blob/main/LICENSE
+  envoy-ai-gateway:
+    path: envoy-ai-gateway/v0.6.0
+    sourceUrl: https://github.com/envoyproxy/ai-gateway
+    projectUrl: https://github.com/envoyproxy/ai-gateway
+    license: Apache License 2.0
+    licenseUrl: https://github.com/envoyproxy/ai-gateway/blob/main/LICENSE
   envoy-ai-gateway-crds:
     path: envoy-ai-gateway-crds/v0.6.0
     sourceUrl: https://github.com/envoyproxy/ai-gateway
