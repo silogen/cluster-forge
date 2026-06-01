@@ -545,6 +545,30 @@ apps:
     syncWave: -30
     valuesObject:
       kubernetesClusterDomain: cluster.local
+      config:
+        envoyGateway:
+          extensionApis:
+            enableBackend: true
+          extensionManager:
+            resources:
+              - group: aigateway.envoyproxy.io
+                version: v1beta1
+                kind: AIGatewayRoute
+              - group: aigateway.envoyproxy.io
+                version: v1beta1
+                kind: AIServiceBackend
+            backendResources:
+              - group: inference.networking.k8s.io
+                version: v1
+                kind: InferencePool
+            hooks:
+              xdsTranslator:
+                post:
+                  - Cluster
+                  - Translation
+            service:
+              host: ai-gateway-controller.envoy-ai-gateway-system.svc.cluster.local
+              port: 1063
   envoy-gateway-config:
     helmParameters:
       - name: domain
