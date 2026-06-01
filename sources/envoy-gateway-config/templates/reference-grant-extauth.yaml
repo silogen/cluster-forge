@@ -1,0 +1,14 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: cluster-auth-extauth-grant
+  namespace: cluster-auth
+spec:
+  from:
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: envoy-gateway-system
+  to:
+    - group: ""
+      kind: Service
+      name: cluster-auth

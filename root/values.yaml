@@ -579,6 +579,10 @@ apps:
         requests:
           cpu: "250m"
           memory: "512Mi"
+  inference-extension-crds:
+    namespace: default
+    path: inference-extension-crds/v1.5.0
+    syncWave: -35
   envoy-gateway:
     namespace: envoy-gateway-system
     path: envoy-gateway/v1.7.1
@@ -601,6 +605,10 @@ apps:
               - group: aigateway.envoyproxy.io
                 version: v1beta1
                 kind: AIServiceBackend
+            backendResources:
+              - group: inference.networking.k8s.io
+                version: v1
+                kind: InferencePool
             hooks:
               xdsTranslator:
                 post:

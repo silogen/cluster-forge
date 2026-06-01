@@ -1,0 +1,19 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: cluster-auth-extauth-policy
+  namespace: envoy-gateway-system
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: https
+  extAuth:
+    grpc:
+      backendRefs:
+        - group: ''
+          kind: Service
+          name: cluster-auth
+          namespace: cluster-auth
+          port: 50051
+          weight: 1
