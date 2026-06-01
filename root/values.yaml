@@ -535,6 +535,10 @@ apps:
         requests:
           cpu: "250m"
           memory: "512Mi"
+  inference-extension-crds:
+    namespace: default
+    path: inference-extension-crds/v1.5.0
+    syncWave: -35
   envoy-gateway:
     namespace: envoy-gateway-system
     path: envoy-gateway/v1.7.1
@@ -549,6 +553,10 @@ apps:
     path: envoy-gateway-config
     syncWave: -15
     valuesFile: values.yaml
+  envoy-ai-gateway-crds:
+    namespace: envoy-ai-gateway-system
+    path: envoy-ai-gateway-crds/v0.6.0
+    syncWave: -10
   kserve:
     namespace: kserve-system
     path: kserve/v0.16.0

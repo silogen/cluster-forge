@@ -1,0 +1,14 @@
+apiVersion: v2
+appVersion: v1.5.0
+description: CRDs for Gateway API Inference Extension (InferencePool)
+home: https://gateway-api-inference-extension.sigs.k8s.io/
+keywords:
+- gateway-api
+- inference
+- inference-extension
+- inferencepool
+name: inference-extension-crds
+sources:
+- https://github.com/kubernetes-sigs/gateway-api-inference-extension
+type: application
+version: v1.5.0
