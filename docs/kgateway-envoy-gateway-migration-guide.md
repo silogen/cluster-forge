@@ -202,12 +202,39 @@ kubectl delete crd directresponses.gateway.kgateway.dev --ignore-not-found
 kubectl delete crd gatewayparameters.gateway.kgateway.dev --ignore-not-found
 kubectl delete crd httplistenerpolicies.gateway.kgateway.dev --ignore-not-found
 
+# Apply gateway-api crds to make sure
+cd cluster-forge/sources/envoy-gateway/v1.7.1/crds
+kubectl apply --server-side -f gatewayapi-crds.yaml
+
 # Verify LoadBalancer IP is now assigned to envoy-gateway
 kubectl get svc -n envoy-gateway-system -o wide
 ```
 
 **Expected:** The envoy-gateway LoadBalancer service should now have an external IP.
 
+### Step 5: Update httproute for longhorn(large size only)
+Create longhorn-httproute.yaml. Copy, paste and apply below.
+```
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: longhorn
+  namespace: longhorn
+spec:
+  parentRefs:
+    - name: https
+      namespace: envoy-gateway-system
+  rules:
+    - backendRefs:
+        - name: longhorn-frontend
+          port: 80
+      matches:
+        - headers:
+          - type: RegularExpression
+            name: Host
+            value: "longhorn\\..*"
+```
+kubectl apply -f longhorn-httproute.yaml
 
 ### Validation Checklist
 
