@@ -212,6 +212,29 @@ kubectl get svc -n envoy-gateway-system -o wide
 
 **Expected:** The envoy-gateway LoadBalancer service should now have an external IP.
 
+### Step 5: Update httproute for longhorn(large size only)
+Create longhorn-httproute.yaml. Copy, paste and apply below.
+```
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: longhorn
+  namespace: longhorn
+spec:
+  parentRefs:
+    - name: https
+      namespace: envoy-gateway-system
+  rules:
+    - backendRefs:
+        - name: longhorn-frontend
+          port: 80
+      matches:
+        - headers:
+          - type: RegularExpression
+            name: Host
+            value: "longhorn\\..*"
+```
+kubectl apply -f longhorn-httproute.yaml
 
 ### Validation Checklist
 
