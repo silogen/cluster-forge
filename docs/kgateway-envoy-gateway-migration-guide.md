@@ -202,6 +202,10 @@ kubectl delete crd directresponses.gateway.kgateway.dev --ignore-not-found
 kubectl delete crd gatewayparameters.gateway.kgateway.dev --ignore-not-found
 kubectl delete crd httplistenerpolicies.gateway.kgateway.dev --ignore-not-found
 
+# Apply gateway-api crds to make sure
+cd cluster-forge/sources/envoy-gateway/v1.7.1/crds
+kubectl apply --server-side -f gatewayapi-crds.yaml
+
 # Verify LoadBalancer IP is now assigned to envoy-gateway
 kubectl get svc -n envoy-gateway-system -o wide
 ```
