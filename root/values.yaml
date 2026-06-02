@@ -563,9 +563,19 @@ apps:
                 kind: InferencePool
             hooks:
               xdsTranslator:
+                translation:
+                  listener:
+                    includeAll: true
+                  route:
+                    includeAll: true
+                  cluster:
+                    includeAll: true
+                  secret:
+                    includeAll: true
                 post:
-                  - Cluster
                   - Translation
+                  - Cluster
+                  - Route
             service:
               host: ai-gateway-controller.envoy-ai-gateway-system.svc.cluster.local
               port: 1063
