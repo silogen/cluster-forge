@@ -2,6 +2,7 @@ externalValues:
   enabled: false
 clusterForge:
   valuesFile: values.yaml
+  repoUrl: "https://github.com/silogen/cluster-forge.git"
 
 
 enabledApps:
