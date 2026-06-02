@@ -19,6 +19,8 @@ spec:
             lameduck 10s
         - name: ready
         - name: rewrite
+          parameters: stop name exact gateway.{{ .Values.domain }} ai-gateway.envoy-gateway-system.svc.cluster.local
+        - name: rewrite
           parameters: continue name regex .*\.{{ .Values.domain }} https.envoy-gateway-system.svc.cluster.local answer auto
         - name: kubernetes
           parameters: cluster.local cluster.local in-addr.arpa ip6.arpa
