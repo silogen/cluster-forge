@@ -1,8 +1,12 @@
+# Shared listener: apps via HTTPRoute, AI via AIGatewayRoute on the same :443 Gateway.
+# Do not use mergeGateways — Envoy AI Gateway does not support it (envoyproxy/ai-gateway#1638).
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: https
   namespace: envoy-gateway-system
+  annotations:
+    aigateway.envoyproxy.io/gateway-config: ai-extproc
 spec:
   gatewayClassName: envoy-gateway
   infrastructure:
@@ -24,6 +28,7 @@ spec:
             kind: Secret
             name: cluster-tls
         mode: Terminate
+{{- if .Values.k8sApiPassthrough.enabled }}
     - allowedRoutes:
         kinds:
           - group: gateway.networking.k8s.io
@@ -32,7 +37,8 @@ spec:
           from: All
       hostname: "k8s.{{ .Values.domain }}"
       name: k8s-passthrough
-      port: 443
+      port: 6443
       protocol: TLS
       tls:
         mode: Passthrough
+{{- end }}

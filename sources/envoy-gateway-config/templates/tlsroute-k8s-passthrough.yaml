@@ -1,7 +1,6 @@
-# TLS Passthrough Route for Kubernetes API Access
-# Copied from kgateway-config with namespace update
-# Allows direct TLS access to Kubernetes API via k8s.domain
----
+{{- if .Values.k8sApiPassthrough.enabled }}
+# TLS passthrough to kubernetes API on Gateway :6443 (k8s.domain).
+# Requires node-ip != MetalLB VIP — see k8sApiPassthrough in values.yaml.
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
 metadata:
@@ -15,6 +14,7 @@ spec:
     kind: Gateway
     name: https
     namespace: envoy-gateway-system
+    sectionName: k8s-passthrough
   rules:
   - backendRefs:
     - group: ""
@@ -22,3 +22,4 @@ spec:
       name: kubernetes
       port: 443
       weight: 1
+{{- end }}

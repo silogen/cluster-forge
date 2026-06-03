@@ -582,6 +582,40 @@ apps:
     syncWave: -30
     valuesObject:
       kubernetesClusterDomain: cluster.local
+      config:
+        envoyGateway:
+          extensionApis:
+            enableBackend: true
+          extensionManager:
+            resources:
+              - group: aigateway.envoyproxy.io
+                version: v1beta1
+                kind: AIGatewayRoute
+              - group: aigateway.envoyproxy.io
+                version: v1beta1
+                kind: AIServiceBackend
+            backendResources:
+              - group: inference.networking.k8s.io
+                version: v1
+                kind: InferencePool
+            hooks:
+              xdsTranslator:
+                translation:
+                  listener:
+                    includeAll: true
+                  route:
+                    includeAll: true
+                  cluster:
+                    includeAll: true
+                  secret:
+                    includeAll: true
+                post:
+                  - Translation
+                  - Cluster
+                  - Route
+            service:
+              host: ai-gateway-controller.envoy-ai-gateway-system.svc.cluster.local
+              port: 1063
   envoy-gateway-config:
     helmParameters:
       - name: domain
@@ -590,6 +624,23 @@ apps:
     path: envoy-gateway-config
     syncWave: -15
     valuesFile: values.yaml
+  envoy-ai-gateway-crds:
+    namespace: envoy-ai-gateway-system
+    path: envoy-ai-gateway-crds/v0.6.0
+    syncWave: -10
+  envoy-ai-gateway:
+    namespace: envoy-ai-gateway-system
+    path: envoy-ai-gateway/v0.6.0
+    syncWave: -5
+    valuesObject:
+      controller:
+        mcp:
+          sessionEncryption:
+            seed: "cluster-forge-default-seed-override-in-production"
+  inference-extension-crds:
+    namespace: envoy-ai-gateway-system
+    path: inference-extension-crds/v1.5.0
+    syncWave: -10
   kserve:
     namespace: kserve-system
     path: kserve/v0.16.0

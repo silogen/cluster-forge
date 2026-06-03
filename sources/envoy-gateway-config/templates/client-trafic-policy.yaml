@@ -1,7 +1,7 @@
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: ClientTrafficPolicy
 metadata:
-  name: preserve-url-encoding
+  name: shared-gateway-traffic
   namespace: envoy-gateway-system
 spec:
   targetRefs:
@@ -10,3 +10,5 @@ spec:
       name: https
   path:
     escapedSlashesAction: KeepUnchanged
+  connection:
+    bufferLimit: 50Mi

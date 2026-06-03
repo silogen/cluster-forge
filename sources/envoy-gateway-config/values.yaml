@@ -1,1 +1,11 @@
 domain: # to be filled by cluster-forge app
+
+# Stable ClusterIP DNS name for in-cluster *.domain resolution (CoreDNS rewrite).
+# Does not replace Envoy Gateway auto-generated LoadBalancer from MetalLB.
+gatewayDnsService:
+  enabled: true
+
+# TLS passthrough to kubernetes API via Gateway. Disabled by default on cluster-bloom
+# where node-ip equals the MetalLB pool IP — a :6443 listener hijacks pod→apiserver traffic.
+k8sApiPassthrough:
+  enabled: false

@@ -1,3 +1,6 @@
+{{- if .Values.gatewayDnsService.enabled }}
+# Stable ClusterIP for CoreDNS *.domain rewrite — not a LoadBalancer front door.
+# External traffic uses Envoy Gateway auto-generated LoadBalancer (MetalLB).
 apiVersion: v1
 kind: Service
 metadata:
@@ -16,3 +19,4 @@ spec:
     protocol: TCP
     targetPort: 10443
   type: ClusterIP
+{{- end }}

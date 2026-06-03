@@ -1,6 +1,5 @@
-# EnvoyProxy configuration for access logging and pod placement
-# Replaces kgateway HTTPListenerPolicy_access-logs.yaml functionality  
-# Referenced by Gateway to enable per-gateway access logging and ensure data plane pods land on first node
+# EnvoyProxy configuration for access logging and pod placement.
+# Referenced by Gateway via infrastructure.parametersRef.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
@@ -37,6 +36,10 @@ spec:
               authority: "%REQ(:AUTHORITY)%"
               backendHost: "%UPSTREAM_HOST%"
               backendCluster: "%UPSTREAM_CLUSTER%"
+              model: "%REQ(x-ai-eg-model)%"
+              llm_input_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_input_token)%"
+              llm_output_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_output_token)%"
+              llm_total_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_total_token)%"
           sinks:
             - type: File
               file:

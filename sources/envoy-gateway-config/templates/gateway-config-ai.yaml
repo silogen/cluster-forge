@@ -1,0 +1,12 @@
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: GatewayConfig
+metadata:
+  name: ai-extproc
+  namespace: envoy-gateway-system
+spec:
+  extProc:
+    kubernetes:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
