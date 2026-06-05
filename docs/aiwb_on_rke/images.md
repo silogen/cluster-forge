@@ -1,0 +1,61 @@
+# Container Images Used in AIWB on RKE2
+
+Images present on the node after a full `install_base.sh` deployment (excludes Rancher system images).
+
+| Image | Tag | Size |
+|-------|-----|------|
+| `docker.io/amdenterpriseai/aim-engine` | `v0.2.2` | 50.2MB |
+| `docker.io/amdenterpriseai/aiwb-api` | `1.0.3` | 612MB |
+| `docker.io/amdenterpriseai/aiwb-ui` | `1.0.3` | 90.2MB |
+| `docker.io/curlimages/curl` | `8.8.0` | 10.5MB |
+| `docker.io/envoyproxy/envoy` | `distroless-v1.37.1` | 37.7MB |
+| `docker.io/envoyproxy/gateway` | `v1.7.1` | 73.1MB |
+| `docker.io/hashicorp/vault-k8s` | `1.4.2` | 35.2MB |
+| `docker.io/kserve/kserve-controller` | `v0.16.0` | 44.7MB |
+| `docker.io/library/busybox` | `1.35` | 2.16MB |
+| `docker.io/library/busybox` | `latest` | 2.24MB |
+| `docker.io/library/postgres` | `17-alpine` | 111MB |
+| `docker.io/library/python` | `3.11-slim` | 45.5MB |
+| `docker.io/liquibase/liquibase` | `4.31` | 448MB |
+| `docker.io/minio/mc` | `latest` | 29.8MB |
+| `docker.io/otel/opentelemetry-collector-k8s` | `0.114.0` | 36.6MB |
+| `docker.io/rocm/gpu-operator` | `v1.4.1` | 128MB |
+| `docker.io/rocm/kernel-module-management-operator` | `v1.4.1` | 33.7MB |
+| `docker.io/rocm/kernel-module-management-webhook-server` | `v1.4.1` | 32.2MB |
+| `ghcr.io/cloudnative-pg/cloudnative-pg` | `1.27.0` | 36.8MB |
+| `ghcr.io/cloudnative-pg/postgresql` | `17` | 254MB |
+| `ghcr.io/cloudnative-pg/postgresql` | `17.2` | 225MB |
+| `ghcr.io/kedacore/keda` | `2.18.1` | 91.1MB |
+| `ghcr.io/kedacore/keda-admission-webhooks` | `2.18.1` | 29.7MB |
+| `ghcr.io/kedacore/keda-metrics-apiserver` | `2.18.1` | 65.3MB |
+| `ghcr.io/kedify/otel-add-on` | `v0.0.6` | 34.7MB |
+| `ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib` | `0.113.0` | 74.2MB |
+| `ghcr.io/open-telemetry/opentelemetry-operator/opentelemetry-operator` | `0.131.0` | 27.5MB |
+| `ghcr.io/silogen/cluster-tool` | `latest` | 287MB |
+| `ghcr.io/silogen/docker-otel-lgtm` | `v1.0.7` | 557MB |
+| `ghcr.io/silogen/keycloak-init` | `0.1` | 3.76MB |
+| `oci.external-secrets.io/external-secrets/external-secrets` | `v0.19.2` | 89.1MB |
+| `quay.io/brancz/kube-rbac-proxy` | `v0.18.0` | 31.1MB |
+| `quay.io/brancz/kube-rbac-proxy` | `v0.19.1` | 33.3MB |
+| `quay.io/jetstack/cert-manager-cainjector` | `v1.18.2` | 16MB |
+| `quay.io/jetstack/cert-manager-controller` | `v1.18.2` | 21.9MB |
+| `quay.io/jetstack/cert-manager-startupapicheck` | `v1.18.2` | 14.5MB |
+| `quay.io/jetstack/cert-manager-webhook` | `v1.18.2` | 18.9MB |
+| `quay.io/keycloak/keycloak` | `26.0.0` | 238MB |
+| `quay.io/kiwigrid/k8s-sidecar` | `1.27.4` | 24.2MB |
+| `quay.io/metallb/controller` | `v0.15.2` | 31.7MB |
+| `quay.io/metallb/speaker` | `v0.15.2` | 59.8MB |
+| `quay.io/minio/minio` | `RELEASE.2025-04-08T15-41-24Z` | 63.9MB |
+| `quay.io/minio/operator` | `v7.1.1` | 24.9MB |
+| `quay.io/minio/operator-sidecar` | `v7.0.1` | 22MB |
+| `quay.io/openbao/openbao` | `2.4.1` | 78.4MB |
+| `quay.io/prometheus/node-exporter` | `v1.9.0` | 12.9MB |
+| `quay.io/superq/chrony-exporter` | `v0.12.1` | 10.7MB |
+| `reg.kyverno.io/kyverno/background-controller` | `v1.15.1` | 41.5MB |
+| `reg.kyverno.io/kyverno/cleanup-controller` | `v1.15.1` | 38.6MB |
+| `reg.kyverno.io/kyverno/kyverno` | `v1.15.1` | 42.2MB |
+| `reg.kyverno.io/kyverno/kyverno-cli` | `v1.15.1` | 93.2MB |
+| `reg.kyverno.io/kyverno/kyvernopre` | `v1.15.1` | 37.8MB |
+| `reg.kyverno.io/kyverno/reports-controller` | `v1.15.1` | 41.1MB |
+| `registry.k8s.io/kube-state-metrics/kube-state-metrics` | `v2.15.0` | 15.3MB |
+| `registry.k8s.io/nfd/node-feature-discovery` | `v0.16.1` | 68.5MB |
