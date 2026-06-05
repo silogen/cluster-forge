@@ -19,10 +19,12 @@ sudo cat /root/.kube/config
 
 3. Deploy apps
 
-Consider the following details in advance:
-HOST_IP_PRIVATE
-HOST_IP_PUBLIC
-HOST_JUMP_SERVER
+Consider to replace values for the following in advance scripts<br>
+
+**HOST_IP_PRIVATE**<br>
+**HOST_IP_PUBLIC**<br>
+**HOST_JUMP_SERVER**<br>
+
 
 3.1 Create SSH tunnel
 
