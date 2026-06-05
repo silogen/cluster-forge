@@ -6,7 +6,7 @@ metadata:
 spec:
   parentRefs:
     - name: https
-      namespace: kgateway-system
+      namespace: envoy-gateway-system
   rules:
     - backendRefs:
         - name: admin
