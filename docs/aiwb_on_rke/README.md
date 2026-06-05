@@ -1,8 +1,6 @@
-*************
-* TEST AIWB
-*************
+# AIWB STACK DEPLOYMENT
 
-1. Create a vanilla RKE rancher with:
+1. Create a vanilla RKE rancher running on the host
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/test-aiwb/docs/aiwb_on_rke/create_rke.sh | sudo bash
@@ -13,6 +11,7 @@ curl -fsSL https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/te
 2. Get kubeconfig
 
 ```bash
+# bash
 sudo cat /root/.kube/config
 ```
 
@@ -21,17 +20,20 @@ sudo cat /root/.kube/config
 3. Deploy apps
 
 Consider the following details in advance:
-HOST_IP_PRIVATE=
-HOST_IP_PUBLIC=
+HOST_IP_PRIVATE
+HOST_IP_PUBLIC
+HOST_JUMP_SERVER
 
 3.1 Create SSH tunnel
 
 ```powershell
-ssh -o "ProxyCommand ssh -i C:\Users\irodrigu\.ssh\oci-clusters -W %h:%p ubuntu@129.153.146.116" ` -i C:\Users\irodrigu\.ssh\oci-clusters ` -L 18445:localhost:6443 ` ubuntu@10.0.255.107
+# powershell
+ssh -o "ProxyCommand ssh -i C:\Users\irodrigu\.ssh\oci-clusters -W %h:%p ubuntu@HOST_JUMP_SERVER" ` -i MY-PRIVATE-KEY ` -L 18445:localhost:6443 ` ubuntu@HOST_IP_PRIVATE
 ```
 
 ```bash
-ssh -J ubuntu@129.153.146.116 -L 18445:10.0.255.107:6443 -p 22 ubuntu@10.0.255.107
+# bash
+ssh -J ubuntu@HOST_JUMP_SERVER -L 18445:HOST_IP_PRIVATE:6443 -p 22 ubuntu@HOST_IP_PRIVATE
 ```
 
 
@@ -51,6 +53,7 @@ Then use this block in kubeconfig taking form step 2 and replace the cluster blo
 4. Finally deploy the AIWB stack
 
 ```bash
+# bash
 # Prepare minimal variables
 export KUBECONFIG=(PATH-TO-KUBECONFIG-FROM-STEP-2)
 export CLUSTER_FORGE_DIR=".tmp/cf"
@@ -62,6 +65,7 @@ curl -fsSL https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/te
 ```
 
 ```powershell
+# powershell
 # Prepare minimal variables
 $env:KUBECONFIG = "<PATH-TO-KUBECONFIG>"
 $env:CLUSTER_FORGE_DIR = ".tmp/cf"
