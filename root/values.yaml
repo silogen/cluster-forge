@@ -602,7 +602,14 @@ apps:
               xdsTranslator:
                 translation:
                   listener:
-                    includeAll: true
+                    # Only hand the AI extension listeners generated for its own
+                    # resources (AIGatewayRoute/AIServiceBackend/InferencePool), not
+                    # every listener. With includeAll:true the extension also received
+                    # the L4 tls-passthrough listener and tried to insert its HTTP
+                    # request-header-metadata filter into a TCP filter chain with no
+                    # HTTPConnectionManager, failing xDS translation for the whole
+                    # GatewayClass and leaving the passthrough data plane stuck in init.
+                    includeAll: false
                   route:
                     includeAll: true
                   cluster:
