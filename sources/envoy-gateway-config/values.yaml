@@ -1,15 +1,10 @@
 domain: # to be filled by cluster-forge app
 
-# TEMPORARY (EAI-5821 debug): the tls-passthrough gateway does not come up as a LoadBalancer,
-# so the external front door is inverted — the apps gateway owns the external LoadBalancer (VIP)
-# and the tls-passthrough gateway is demoted to ClusterIP. This sacrifices k8s.<domain>
-# passthrough but keeps app/UI ingress working. Switch both serviceType values back
-# (appsGateway -> ClusterIP, tlsPassthroughGateway -> LoadBalancer) once the tls-passthrough
-# gateway works as the LoadBalancer.
-
 # Apps gateway (`https`): terminates TLS (cluster-tls) and serves HTTPRoute / AIGatewayRoute.
+# ClusterIP — not the external front door; the tls-passthrough gateway fronts it and
+# TLS-passes-through by SNI.
 appsGateway:
-  serviceType: LoadBalancer  # normally ClusterIP (fronted by the tls-passthrough gateway)
+  serviceType: ClusterIP
 
 # Stable ClusterIP `https` selecting the apps-gateway data plane. Used both by CoreDNS
 # (*.domain rewrite) and as the passthrough backend for the tls-passthrough gateway, so it
@@ -23,7 +18,7 @@ gatewayDnsService:
 # pod->apiserver traffic on cluster-bloom where node-ip equals the MetalLB pool IP.
 tlsPassthroughGateway:
   enabled: true
-  serviceType: ClusterIP  # normally LoadBalancer; ClusterIP while debugging (apps gateway is the front door)
+  serviceType: LoadBalancer  # external front door: owns the MetalLB VIP on :443
   # Pin the external VIP here if the MetalLB pool holds more than one address; otherwise
   # MetalLB auto-assigns from the pool. Only applies when serviceType is LoadBalancer.
   loadBalancerIP: ""
