@@ -19,7 +19,7 @@ sudo cat /root/.kube/config
 
 ---
 
-3. Deploy apps
+3. Setup ssh tunnel (Optional)
 
 Consider to replace values for the following in advance scripts<br>
 
@@ -81,7 +81,9 @@ $script = (Invoke-WebRequest -UseBasicParsing "https://raw.githubusercontent.com
 $script | bash -s -- $PUBLIC_IP_DOMAIN
 ```
 
-6. Expected output
+---
+
+5. Expected output
 
 ```bash
 ✅ AIWB application is ready
