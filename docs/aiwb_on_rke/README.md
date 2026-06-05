@@ -1,5 +1,7 @@
 # AIWB STACK DEPLOYMENT
 
+Here are the details needed to decploy an AIWB stack only considering that end user is able to get access to a GPU host using Ubuntu 22.04,24.04 and AMDGPU driver already installed.
+
 1. Create a vanilla RKE rancher running on the host
 
 ```bash
