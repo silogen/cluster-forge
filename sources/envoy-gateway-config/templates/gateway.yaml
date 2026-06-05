@@ -1,4 +1,6 @@
-# Shared listener: apps via HTTPRoute, AI via AIGatewayRoute on the same :443 Gateway.
+# Apps gateway: terminates TLS and serves apps via HTTPRoute and AI via AIGatewayRoute.
+# Exposed as ClusterIP (see appsGateway.serviceType); the tls-passthrough gateway is the
+# external front door and TLS-passes-through to this gateway by SNI.
 # Do not use mergeGateways — Envoy AI Gateway does not support it (envoyproxy/ai-gateway#1638).
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -28,17 +30,3 @@ spec:
             kind: Secret
             name: cluster-tls
         mode: Terminate
-{{- if .Values.k8sApiPassthrough.enabled }}
-    - allowedRoutes:
-        kinds:
-          - group: gateway.networking.k8s.io
-            kind: TLSRoute
-        namespaces:
-          from: All
-      hostname: "k8s.{{ .Values.domain }}"
-      name: k8s-passthrough
-      port: 6443
-      protocol: TLS
-      tls:
-        mode: Passthrough
-{{- end }}

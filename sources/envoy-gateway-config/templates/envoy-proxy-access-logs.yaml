@@ -9,6 +9,10 @@ spec:
   provider:
     type: Kubernetes
     kubernetes:
+      envoyService:
+        # ClusterIP: the apps gateway sits behind the tls-passthrough gateway and
+        # no longer owns the external LoadBalancer / VIP.
+        type: {{ .Values.appsGateway.serviceType }}
       envoyDeployment:
         pod:
           nodeSelector:

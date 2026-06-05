@@ -1,0 +1,22 @@
+{{- if .Values.tlsPassthroughGateway.enabled }}
+# EnvoyProxy for the tls-passthrough gateway: external LoadBalancer (VIP) + first-node placement.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: tls-passthrough-proxy-config
+  namespace: envoy-gateway-system
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        type: LoadBalancer
+        {{- with .Values.tlsPassthroughGateway.loadBalancerIP }}
+        loadBalancerIP: {{ . | quote }}
+        {{- end }}
+      envoyDeployment:
+        pod:
+          nodeSelector:
+            cluster-bloom/first-node: "true"
+          priorityClassName: "system-cluster-critical"
+{{- end }}

@@ -1,0 +1,24 @@
+{{- if .Values.tlsPassthroughGateway.enabled }}
+# SNI k8s.<domain> -> kubernetes API service (TLS passthrough via the tls-passthrough gateway).
+# In the `default` namespace alongside the `kubernetes` service, so no ReferenceGrant is needed.
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: tls-passthrough-k8s-api
+  namespace: default
+spec:
+  hostnames:
+    - k8s.{{ .Values.domain }}
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: tls-passthrough
+      namespace: envoy-gateway-system
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: kubernetes
+          port: 443
+          weight: 1
+{{- end }}

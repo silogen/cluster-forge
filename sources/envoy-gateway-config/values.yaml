@@ -1,11 +1,23 @@
 domain: # to be filled by cluster-forge app
 
-# Stable ClusterIP DNS name for in-cluster *.domain resolution (CoreDNS rewrite).
-# Does not replace Envoy Gateway auto-generated LoadBalancer from MetalLB.
+# Apps gateway (`https`): terminates TLS (cluster-tls) and serves HTTPRoute / AIGatewayRoute.
+# No longer owns the external LoadBalancer — exposed as ClusterIP and fronted by the
+# tls-passthrough gateway below.
+appsGateway:
+  serviceType: ClusterIP
+
+# Stable ClusterIP `https` selecting the apps-gateway data plane. Used both by CoreDNS
+# (*.domain rewrite) and as the passthrough backend for the tls-passthrough gateway, so it
+# must stay enabled while tlsPassthroughGateway is on.
 gatewayDnsService:
   enabled: true
 
-# TLS passthrough to kubernetes API via Gateway. Disabled by default on cluster-bloom
-# where node-ip equals the MetalLB pool IP — a :6443 listener hijacks pod→apiserver traffic.
-k8sApiPassthrough:
-  enabled: false
+# tls-passthrough gateway: owns the external MetalLB LoadBalancer on :443 and does SNI-based
+# TLS passthrough — k8s.<domain> -> kube API service, everything else -> apps gateway.
+# Listening on :443 (not :6443) avoids hijacking pod->apiserver traffic on cluster-bloom
+# where node-ip equals the MetalLB pool IP.
+tlsPassthroughGateway:
+  enabled: true
+  # Pin the external VIP here if the MetalLB pool holds more than one address; otherwise
+  # MetalLB auto-assigns from the pool.
+  loadBalancerIP: ""
