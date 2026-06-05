@@ -110,6 +110,20 @@ git clone --depth 1 --branch "${CLUSTER_FORGE_BRANCH}" --single-branch \
 echo "✅ Sources downloaded to ${SOURCES_DIR}"
 
 # ============================================================================
+# POST-CLONE PATCHES
+# Apply fixes to cloned sources that have not yet been merged upstream.
+# ============================================================================
+
+# Fix: SecurityPolicy extAuth.failOpen must be true for standalone installs.
+# Without this, Envoy returns HTTP 500 on every request because it cannot reach
+# the gRPC ext-auth service on port 50051 (cluster-auth shim is REST on 8081).
+EXTAUTH_TPL="${SOURCES_DIR}/envoy-gateway-config/templates/security-policy-extauth.yaml"
+if ! grep -q "failOpen" "${EXTAUTH_TPL}" 2>/dev/null; then
+  sed -i 's/  extAuth:/  extAuth:\n    failOpen: true/' "${EXTAUTH_TPL}"
+  echo "✅ Patched envoy-gateway-config SecurityPolicy: failOpen=true"
+fi
+
+# ============================================================================
 # LOCAL-PATH PROVISIONER & DEFAULT STORAGE CLASS
 # ============================================================================
 # RKE2 ships with rancher.io/local-path provisioner built-in, but may not have
@@ -622,7 +636,6 @@ echo "📦 Applying Envoy Gateway configuration (domain: ${DOMAIN})..."
 helm template envoy-gateway-config ${SOURCES_DIR}/envoy-gateway-config \
   --namespace envoy-gateway-system \
   --set domain=${DOMAIN} \
-  --set extAuth.failOpen=true \
   | kubectl apply -f -
 
 echo "✅ Envoy Gateway installed and configured"
