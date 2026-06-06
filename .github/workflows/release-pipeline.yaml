@@ -15,7 +15,7 @@ jobs:
       new_version: ${{ steps.semver.outputs.next }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -42,34 +42,13 @@ jobs:
           fi
           echo "next=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Validate LATEST_RELEASE matches release version
-        env:
-          VERSION: ${{ steps.semver.outputs.next }}
-        run: |
-          # Extract LATEST_RELEASE from bootstrap.sh
-          LATEST_RELEASE=$(grep '^LATEST_RELEASE=' scripts/bootstrap.sh | cut -d'"' -f2 | sed 's/^v//')
-          
-          # Extract base version (before -rc or -alpha, etc.)
-          RELEASE_BASE=$(echo "$VERSION" | sed 's/^v//' | sed 's/-rc[0-9]*$//' | sed 's/-alpha[0-9]*$//' | sed 's/-beta[0-9]*$//')
-          LATEST_BASE=$(echo "$LATEST_RELEASE" | sed 's/-rc[0-9]*$//' | sed 's/-alpha[0-9]*$//' | sed 's/-beta[0-9]*$//')
-          
-          echo "Release version: $VERSION (base: $RELEASE_BASE)"
-          echo "LATEST_RELEASE in bootstrap.sh: $LATEST_RELEASE (base: $LATEST_BASE)"
-          
-          if [[ "$RELEASE_BASE" != "$LATEST_BASE" ]]; then
-            echo "::warning::LATEST_RELEASE base version ($LATEST_BASE) in scripts/bootstrap.sh does not match release version base ($RELEASE_BASE)"
-            echo "::warning::Consider updating LATEST_RELEASE in scripts/bootstrap.sh to match the release being created"
-          else
-            echo "✓ LATEST_RELEASE base version matches release version base"
-          fi
-
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.semver.outputs.next }}
         run: |
           # Prepare release artifact
-          tar -zcvf "release-enterprise-ai-${VERSION}.tar.gz" --transform 's,^,cluster-forge/,' root/ scripts/ sources
+          tar -zcvf "release-enterprise-ai-${VERSION}.tar.gz" --transform 's,^,cluster-forge/,' root/ sources
           
           # Create release
           gh release create "$VERSION" "release-enterprise-ai-${VERSION}.tar.gz#ClusterForge Enterprise AI Package" \
