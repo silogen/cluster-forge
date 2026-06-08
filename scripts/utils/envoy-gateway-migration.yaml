@@ -179,7 +179,7 @@ spec:
       # Phase 2: Node Labeling (Main Container)
       containers:
       - name: node-labeling
-        image: bitnami/kubectl:latest
+        image: soldevelo/kubectl:latest
         command: ["/bin/bash"]
         args:
         - -c

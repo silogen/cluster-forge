@@ -81,7 +81,7 @@ spec:
       serviceAccountName: label-first-node-sa
       containers:
       - name: label-node-discoverer
-        image: bitnami/kubectl:latest
+        image: soldevelo/kubectl:latest
         command: ["/bin/bash"]
         args:
         - -c

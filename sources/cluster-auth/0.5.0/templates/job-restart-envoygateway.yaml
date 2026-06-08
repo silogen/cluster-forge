@@ -10,7 +10,7 @@ spec:
       serviceAccountName: {{ include "cluster-auth.fullname" . }}-restart-envoygateway-sa
       containers:
         - name: restart
-          image: bitnami/kubectl:latest
+          image: soldevelo/kubectl:latest
           command:
             - /bin/sh
             - -c
