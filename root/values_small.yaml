@@ -1,3 +1,10 @@
+externalValues:
+  enabled: false
+clusterForge:
+  valuesFile: values.yaml
+  repoUrl: "https://github.com/silogen/cluster-forge.git"
+
+
 enabledApps:
   - aim-cluster-model-source
   - aim-engine
@@ -98,7 +105,7 @@ apps:
           - ReadWriteOnce
         enabled: true
         size: 5Gi
-        storageClassName: local-path
+        storageClassName: direct
       replicas: 1
       resources:
         limits:
@@ -132,7 +139,7 @@ apps:
           - name: pool-0
             servers: 1
             size: 2Ti
-            storageClassName: local-path
+            storageClassName: direct
             volumesPerServer: 2
         resources:
           limits:
@@ -146,7 +153,7 @@ apps:
       server:
         dataStorage:
           size: 5Gi
-          storageClass: local-path
+          storageClass: direct
         ha:
           enabled: false
           raft:
@@ -180,4 +187,4 @@ apps:
                 resources:
                   requests:
                     storage: 25Gi
-                storageClassName: local-path
+                storageClassName: direct
