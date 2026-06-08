@@ -587,6 +587,13 @@ apps:
           extensionApis:
             enableBackend: true
           extensionManager:
+            # Tolerate the AI extension erroring on the tls-passthrough gateway's L4
+            # listener (it tries to splice an HTTP filter into a TCP chain with no
+            # HTTPConnectionManager). With mergeGateways:false each gateway is its own
+            # translation pass, so the https proxy still gets the EPP ext_proc filter
+            # while the passthrough proxy keeps its original (correct) xDS instead of
+            # failing translation and getting stuck in init.
+            failOpen: true
             resources:
               - group: aigateway.envoyproxy.io
                 version: v1beta1
@@ -602,14 +609,13 @@ apps:
               xdsTranslator:
                 translation:
                   listener:
-                    # Only hand the AI extension listeners generated for its own
-                    # resources (AIGatewayRoute/AIServiceBackend/InferencePool), not
-                    # every listener. With includeAll:true the extension also received
-                    # the L4 tls-passthrough listener and tried to insert its HTTP
-                    # request-header-metadata filter into a TCP filter chain with no
-                    # HTTPConnectionManager, failing xDS translation for the whole
-                    # GatewayClass and leaving the passthrough data plane stuck in init.
-                    includeAll: false
+                    # Hand the AI extension every listener so the EPP ext_proc filter
+                    # gets injected into the shared https :443 listener (owned by the
+                    # Gateway, not by AIGatewayRoute) — required for InferencePool routes,
+                    # which otherwise 503 because nothing sets x-gateway-destination-endpoint.
+                    # The L4 tls-passthrough listener also reaches the extension and errors,
+                    # but failOpen:true (above) keeps that proxy's xDS intact.
+                    includeAll: true
                   route:
                     includeAll: true
                   cluster:
