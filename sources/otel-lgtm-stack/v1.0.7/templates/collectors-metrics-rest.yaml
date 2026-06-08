@@ -121,6 +121,25 @@ spec:
               static_configs:
                 - targets:
                     - longhorn-backend.longhorn.svc.cluster.local:9500
+            - job_name: ai-gateway-extproc
+              scrape_interval: 30s
+              kubernetes_sd_configs:
+                - role: pod
+                  namespaces:
+                    names:
+                      - envoy-gateway-system
+              metrics_path: /metrics
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+                  regex: envoy
+                  action: keep
+                - source_labels: [__meta_kubernetes_pod_label_gateway_envoyproxy_io_owning_gateway_name]
+                  regex: https
+                  action: keep
+                - source_labels: [__meta_kubernetes_pod_ip]
+                  regex: (.+)
+                  replacement: $1:1064
+                  target_label: __address__
     service:
       pipelines:
         metrics:
