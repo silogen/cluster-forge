@@ -1,0 +1,16 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterModelSource
+metadata:
+  name: amd-aim-instinct-0.12.0
+spec:
+  filters:
+    - image: amdenterpriseai/aim-google-gemma-3-1b-it:0.12.0
+    - image: amdenterpriseai/aim-minimaxai-minimax-m2-5:0.12.0
+    - image: amdenterpriseai/aim-zai-org-glm-4-7:0.12.0
+  maxModels: 100
+  registry: docker.io
+  syncInterval: 1h
