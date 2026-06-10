@@ -1,0 +1,8 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v2
+name: aim-cluster-model-source
+version: 0.1.0
+description: AIMClusterModelSource catalog with GPU-family profile selection
