@@ -74,6 +74,7 @@ jobs:
           # Create release
           gh release create "$VERSION" "release-enterprise-ai-${VERSION}.tar.gz#ClusterForge Enterprise AI Package" \
             --title="ClusterForge Release $VERSION" \
+            --target ${{ github.sha }} \
             --generate-notes \
             --prerelease || true # Ignore if release already exists
 
@@ -84,8 +85,9 @@ jobs:
       VERSION: ${{ needs.release.outputs.new_version }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
+          ref: ${{ github.sha }}
           token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
 
       - name: Install yq
