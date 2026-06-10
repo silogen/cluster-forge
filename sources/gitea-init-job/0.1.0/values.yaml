@@ -18,3 +18,7 @@ disabledApps: null
 
 # Whether to deploy only AIWB components (injected by bootstrap script when --aiwb-only is used)
 aiwbOnly: false
+
+# Comma-separated AIM hardware families to install (injected by bootstrap script when AIM_HARDWARE_FAMILY is set)
+# Empty/null = install all (legacy). Example: "epyc,instinct"
+aimHardwareFamily: null
