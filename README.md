@@ -189,6 +189,7 @@ Comprehensive documentation is available in the `/docs` folder:
 | **Policy System** | [Kyverno Modular Design](docs/kyverno_modular_design.md) |
 | **Storage Policies** | [Kyverno Access Mode Policy](docs/kyverno_access_mode_policy.md) |
 | **Operations** | [Backup and Restore](docs/backup_and_restore.md) |
+| **CI/CD** | [Workflow Documentation](.github/workflows/README.md) |
 
 Additional documentation:
 - **SBOM**: See `/sbom` folder for software bill of materials generation and validation
