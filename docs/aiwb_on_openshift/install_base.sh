@@ -211,6 +211,17 @@ fi
 # effect once the SA is created.
 SCC_FILE="${CLUSTER_FORGE_DIR}/docs/aiwb_on_openshift/scc.yaml"
 echo "📦 Applying custom SecurityContextConstraints..."
+# WORKAROUND: the sources clone above uses ${CLUSTER_FORGE_BRANCH} (default
+# "main"), but scc.yaml currently only lives on the test-aiwb branch. If it is
+# missing from the clone, copy it in from the test-aiwb branch so the apply
+# works regardless of which branch was cloned. (Remove once scc.yaml is merged.)
+if [ ! -f "${SCC_FILE}" ]; then
+  echo "ℹ️  scc.yaml not in cloned branch '${CLUSTER_FORGE_BRANCH}'; fetching from test-aiwb..."
+  mkdir -p "$(dirname "${SCC_FILE}")"
+  retry curl -fsSL \
+    https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/test-aiwb/docs/aiwb_on_openshift/scc.yaml \
+    -o "${SCC_FILE}"
+fi
 retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f "${SCC_FILE}"
 echo "✅ Custom SCCs applied"
 
