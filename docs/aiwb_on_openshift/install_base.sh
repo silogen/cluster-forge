@@ -217,8 +217,15 @@ fi
 echo "📦 Installing Kyverno..."
 kubectl create namespace kyverno --dry-run=client -o yaml | kubectl apply -f -
 grant_anyuid_scc kyverno
-# Disable webhooksCleanup to prevent pre-delete hooks from running during helm template | kubectl apply
-helm template kyverno ${SOURCES_DIR}/kyverno/3.5.1 --namespace kyverno --set webhooksCleanup.enabled=false | kubectl apply --server-side -f -
+# Disable webhooksCleanup to prevent pre-delete hooks from running during helm template | kubectl apply.
+# Raise reports-controller memory: on OpenShift it watches every cluster resource
+# (granted via the cluster-reader binding below), and the default 128Mi limit
+# gets OOMKilled, leaving the deployment unavailable.
+helm template kyverno ${SOURCES_DIR}/kyverno/3.5.1 --namespace kyverno \
+  --set webhooksCleanup.enabled=false \
+  --set reportsController.resources.limits.memory=1Gi \
+  --set reportsController.resources.requests.memory=256Mi \
+  | kubectl apply --server-side -f -
 
 # Grant kyverno-reports-controller extra RBAC needed on OpenShift BEFORE waiting.
 # Kyverno's reports-controller discovers and watches every API resource in the
