@@ -231,16 +231,17 @@ retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f "${SCC_FIL
 echo "✅ Custom SCCs applied"
 
 # ============================================================================
-# TEMP SKIP MODE — remove when done iterating on the OpenTelemetry step
+# TEMP SKIP MODE — remove when done iterating
 # ============================================================================
-# When SKIP_UNTIL_OTEL=true, jump straight from the SCC apply above to the
-# OpenTelemetry Operator step, skipping every component in between (local-path,
-# CNPG, Kyverno, Kyverno policies, Prometheus CRDs, cert-manager). Intended for
-# fast iteration on an already-partially-installed cluster where those
-# components already exist. Set SKIP_UNTIL_OTEL=false to run them.
-SKIP_UNTIL_OTEL="${SKIP_UNTIL_OTEL:-true}"
-if [ "${SKIP_UNTIL_OTEL}" = "true" ]; then
-  echo "⏭️  SKIP MODE ON: skipping all steps between SCC apply and OpenTelemetry Operator"
+# When SKIP_UNTIL_EXTERNAL_SECRETS=true, jump straight from the SCC apply above
+# to the External Secrets Operator step, skipping every component in between
+# (local-path, CNPG, Kyverno, Kyverno policies, Prometheus CRDs, cert-manager,
+# OpenTelemetry Operator/MetalLB). Intended for fast iteration on an
+# already-partially-installed cluster where those components already exist.
+# Set SKIP_UNTIL_EXTERNAL_SECRETS=false to run them.
+SKIP_UNTIL_EXTERNAL_SECRETS="${SKIP_UNTIL_EXTERNAL_SECRETS:-true}"
+if [ "${SKIP_UNTIL_EXTERNAL_SECRETS}" = "true" ]; then
+  echo "⏭️  SKIP MODE ON: skipping all steps between SCC apply and External Secrets Operator"
 else
 
 # ============================================================================
@@ -465,8 +466,6 @@ done
 echo "✅ cert-manager is ready"
 echo ""
 
-fi  # end TEMP SKIP MODE guard (SKIP_UNTIL_OTEL)
-
 # ============================================================================
 # OPENTELEMETRY OPERATOR & METALLB (parallel install)
 # ============================================================================
@@ -488,6 +487,8 @@ kwait --for=condition=available --timeout=120s deployment/opentelemetry-operator
 
 echo "✅ OpenTelemetry Operator and MetalLB are ready"
 echo ""
+
+fi  # end TEMP SKIP MODE guard (SKIP_UNTIL_EXTERNAL_SECRETS)
 
 # ============================================================================
 # EXTERNAL SECRETS OPERATOR
