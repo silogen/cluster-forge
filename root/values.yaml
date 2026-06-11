@@ -693,7 +693,7 @@ apps:
   seaweedfs-crds:
     path: seaweedfs-crds/0.1.13
     namespace: seaweedfs-operator
-    syncWave: -1
+    syncWave: -20
   seaweedfs-operator:
     path: seaweedfs-operator/0.1.13
     namespace: seaweedfs-operator
@@ -717,7 +717,7 @@ apps:
     path: seaweedfs-config
     namespace: seaweedfs-instance
     valuesFile: values.yaml
-    syncWave: 0
+    syncWave: -10
   openbao:
     ignoreDifferences:
       - group: "apps"
