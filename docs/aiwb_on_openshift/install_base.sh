@@ -220,21 +220,14 @@ grant_anyuid_scc kyverno
 # Disable webhooksCleanup to prevent pre-delete hooks from running during helm template | kubectl apply
 helm template kyverno ${SOURCES_DIR}/kyverno/3.5.1 --namespace kyverno --set webhooksCleanup.enabled=false | kubectl apply --server-side -f -
 
-# Wait for Kyverno to be ready
-echo "⏳ Waiting for Kyverno to be ready..."
-kubectl wait --for=condition=available --timeout=120s deployment/kyverno-admission-controller -n kyverno
-kubectl wait --for=condition=available --timeout=120s deployment/kyverno-background-controller -n kyverno
-kubectl wait --for=condition=available --timeout=120s deployment/kyverno-cleanup-controller -n kyverno
-kubectl wait --for=condition=available --timeout=120s deployment/kyverno-reports-controller -n kyverno
-echo "✅ Kyverno is ready"
-
-# Grant kyverno-reports-controller extra RBAC needed on OpenShift.
+# Grant kyverno-reports-controller extra RBAC needed on OpenShift BEFORE waiting.
 # Kyverno's reports-controller discovers and watches every API resource in the
 # cluster. On OpenShift this includes many platform-specific resources
 # (MachineConfigPool, MachineConfiguration, MachineConfigNode, etc.) that the
 # default Kyverno ClusterRole does not cover, causing a crash loop.
 # Binding the OpenShift built-in cluster-reader ClusterRole gives read access
 # to all resources in one shot without granting write permissions.
+# This must be applied before the wait so the pod can start cleanly.
 echo "📦 Applying OpenShift RBAC patch for kyverno-reports-controller..."
 kubectl apply -f - <<'EOF'
 apiVersion: rbac.authorization.k8s.io/v1
@@ -251,6 +244,14 @@ subjects:
   namespace: kyverno
 EOF
 echo "✅ OpenShift RBAC patch applied"
+
+# Wait for Kyverno to be ready
+echo "⏳ Waiting for Kyverno to be ready..."
+kubectl wait --for=condition=available --timeout=120s deployment/kyverno-admission-controller -n kyverno
+kubectl wait --for=condition=available --timeout=120s deployment/kyverno-background-controller -n kyverno
+kubectl wait --for=condition=available --timeout=120s deployment/kyverno-cleanup-controller -n kyverno
+kubectl wait --for=condition=available --timeout=120s deployment/kyverno-reports-controller -n kyverno
+echo "✅ Kyverno is ready"
 echo ""
 
 # ============================================================================
