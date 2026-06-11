@@ -695,6 +695,11 @@ apps:
     namespace: seaweedfs-operator
     syncWave: -1
   seaweedfs-operator:
+    helmParameters:
+      - name: domain
+        value: "{{ .Values.global.domain }}"
+      - name: webhook.enabled
+        value: "false"
     path: seaweedfs-operator/0.1.13
     namespace: seaweedfs-operator
     valuesFile: values.yaml
