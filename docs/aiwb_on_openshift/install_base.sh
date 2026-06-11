@@ -528,18 +528,26 @@ echo ""
 # the envoy-specific CRDs. We install all of them early so those HTTPRoutes apply
 # cleanly. Idempotent — installed via --server-side so the later controller install
 # co-owns them without conflict.
-echo "📦 Installing Gateway API CRDs (early)..."
-retry kubectl apply --server-side --force-conflicts --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/envoy-gateway/v1.7.1/crds/gatewayapi-crds.yaml
-retry kubectl apply --server-side --force-conflicts --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/envoy-gateway/v1.7.1/crds/generated/
+# SKIP_GATEWAY_API_CRDS: on OpenShift the Gateway API CRDs are provided by the
+# platform, so installing them here is unnecessary and just re-triggers stale
+# managedFields conflicts. Default to skipping; set SKIP_GATEWAY_API_CRDS=false
+# to install them (e.g. on a cluster that does not ship Gateway API).
+if [ "${SKIP_GATEWAY_API_CRDS:-true}" = "true" ]; then
+  echo "⏭️  Skipping Gateway API CRDs install (not needed on OpenShift)"
+else
+  echo "📦 Installing Gateway API CRDs (early)..."
+  retry kubectl apply --server-side --force-conflicts --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/envoy-gateway/v1.7.1/crds/gatewayapi-crds.yaml
+  retry kubectl apply --server-side --force-conflicts --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/envoy-gateway/v1.7.1/crds/generated/
 
-echo "⏳ Waiting for Gateway API HTTPRoute CRD to be established..."
-kwait --for=condition=established --timeout=60s \
-  crd/httproutes.gateway.networking.k8s.io \
-  crd/gateways.gateway.networking.k8s.io
+  echo "⏳ Waiting for Gateway API HTTPRoute CRD to be established..."
+  kwait --for=condition=established --timeout=60s \
+    crd/httproutes.gateway.networking.k8s.io \
+    crd/gateways.gateway.networking.k8s.io
 
-# Bust kubectl discovery cache so the newly installed Gateway API kinds are visible
-rm -rf "${HOME}/.kube/cache/discovery"
-echo "✅ Gateway API CRDs installed"
+  # Bust kubectl discovery cache so the newly installed Gateway API kinds are visible
+  rm -rf "${HOME}/.kube/cache/discovery"
+  echo "✅ Gateway API CRDs installed"
+fi
 echo ""
 
 # ============================================================================
