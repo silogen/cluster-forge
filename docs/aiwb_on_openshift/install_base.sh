@@ -229,31 +229,22 @@ kubectl wait --for=condition=available --timeout=120s deployment/kyverno-reports
 echo "✅ Kyverno is ready"
 
 # Grant kyverno-reports-controller extra RBAC needed on OpenShift.
-# On OpenShift, Kyverno's reports-controller tries to watch all cluster resources
-# including CRDs and OpenShift-specific resources (e.g. MachineConfigPool) that
-# the default Kyverno ClusterRole does not cover, causing a crash loop.
+# Kyverno's reports-controller discovers and watches every API resource in the
+# cluster. On OpenShift this includes many platform-specific resources
+# (MachineConfigPool, MachineConfiguration, MachineConfigNode, etc.) that the
+# default Kyverno ClusterRole does not cover, causing a crash loop.
+# Binding the OpenShift built-in cluster-reader ClusterRole gives read access
+# to all resources in one shot without granting write permissions.
 echo "📦 Applying OpenShift RBAC patch for kyverno-reports-controller..."
 kubectl apply -f - <<'EOF'
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kyverno-reports-controller-openshift
-rules:
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["machineconfiguration.openshift.io"]
-  resources: ["machineconfigpools"]
-  verbs: ["get", "list", "watch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: kyverno-reports-controller-openshift
+  name: kyverno-reports-controller-cluster-reader
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kyverno-reports-controller-openshift
+  name: cluster-reader
 subjects:
 - kind: ServiceAccount
   name: kyverno-reports-controller
