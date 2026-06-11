@@ -368,12 +368,7 @@ echo ""
 echo "📦 Installing OpenTelemetry Operator..."
 kubectl create namespace opentelemetry-system --dry-run=client -o yaml | kubectl apply -f -
 grant_anyuid_scc opentelemetry-system
-# --force-conflicts: the OpenTelemetry CRDs/RBAC may carry stale managedFields
-# ownership stamps from controllers that previously managed them (e.g. a
-# now-removed ArgoCD, plus openshift-controller). Deleting those controllers does
-# not strip the stamps, so a plain server-side apply fails with field conflicts.
-# Forcing conflicts transfers ownership of those fields to this install.
-helm template opentelemetry-operator ${SOURCES_DIR}/opentelemetry-operator/0.93.1 --namespace opentelemetry-system --include-crds | kubectl apply --server-side --force-conflicts -f -
+helm template opentelemetry-operator ${SOURCES_DIR}/opentelemetry-operator/0.93.1 --namespace opentelemetry-system --include-crds | kubectl apply --server-side -f -
 
 echo "⏭️  Skipping MetalLB installation (OpenShift provides its own load balancer/routing)"
 
