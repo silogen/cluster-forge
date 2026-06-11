@@ -221,11 +221,16 @@ grant_anyuid_scc kyverno
 # Raise reports-controller memory: on OpenShift it watches every cluster resource
 # (granted via the cluster-reader binding below), and the default 128Mi limit
 # gets OOMKilled, leaving the deployment unavailable.
+# --request-timeout=300s: the kyverno clusterpolicies.kyverno.io / policies.kyverno.io
+# CRDs have very large schemas. On a busy/slow API server the server-side-apply
+# patch of these CRDs can exceed the default request timeout, returning
+# "the server was unable to return a response in the time allotted". Allowing up
+# to 5 minutes per request gives the API server time to finish the merge.
 helm template kyverno ${SOURCES_DIR}/kyverno/3.5.1 --namespace kyverno \
   --set webhooksCleanup.enabled=false \
   --set reportsController.resources.limits.memory=1Gi \
   --set reportsController.resources.requests.memory=256Mi \
-  | kubectl apply --server-side -f -
+  | kubectl apply --server-side --request-timeout=300s -f -
 
 # Grant kyverno-reports-controller extra RBAC needed on OpenShift BEFORE waiting.
 # Kyverno's reports-controller discovers and watches every API resource in the
