@@ -72,11 +72,16 @@ retry() {
 # ssa_apply [extra kubectl args...] : server-side apply from stdin with a long
 # request timeout and retries. Captures stdin so each retry re-feeds the same
 # manifests (a plain `| kubectl apply` cannot be retried once stdin is consumed).
+# --force-conflicts: many objects on this cluster still carry stale managedFields
+# ownership from a removed ArgoCD (managers argocd-application-controller /
+# argocd-controller) and from openshift-controller. Without forcing, server-side
+# apply fails with "Apply failed with N conflicts". Since ArgoCD is gone, we are
+# the legitimate manager and take ownership of those orphaned fields.
 ssa_apply() {
   local manifests n=1 rc=0
   manifests="$(cat)"
   while true; do
-    if printf '%s' "${manifests}" | kubectl apply --server-side --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" "$@" -f -; then
+    if printf '%s' "${manifests}" | kubectl apply --server-side --force-conflicts --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" "$@" -f -; then
       return 0
     fi
     rc=$?
@@ -523,8 +528,8 @@ echo ""
 # cleanly. Idempotent — installed via --server-side so the later controller install
 # co-owns them without conflict.
 echo "📦 Installing Gateway API CRDs (early)..."
-retry kubectl apply --server-side --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/envoy-gateway/v1.7.1/crds/gatewayapi-crds.yaml
-retry kubectl apply --server-side --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/envoy-gateway/v1.7.1/crds/generated/
+retry kubectl apply --server-side --force-conflicts --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/envoy-gateway/v1.7.1/crds/gatewayapi-crds.yaml
+retry kubectl apply --server-side --force-conflicts --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/envoy-gateway/v1.7.1/crds/generated/
 
 echo "⏳ Waiting for Gateway API HTTPRoute CRD to be established..."
 kwait --for=condition=established --timeout=60s \
@@ -547,7 +552,7 @@ grant_anyuid_scc cf-openbao
 
 helm template openbao ${SOURCES_DIR}/openbao/0.18.2 \
   --namespace cf-openbao \
-  | ssa_apply --force-conflicts
+  | ssa_apply
 
 echo "⏳ Waiting for OpenBao pod to be Running (init job will initialize and unseal it)..."
 until kubectl get pod openbao-0 -n cf-openbao -o jsonpath='{.status.phase}' 2>/dev/null | grep -q "Running"; do
@@ -821,9 +826,9 @@ else
   # before any pods start, otherwise they crash-loop on missing nodefeatures/nodefeaturegroups.
   # We use kubectl apply rather than helm's CRD handling because helm install with CRDs
   # is not idempotent across re-runs without a pre-existing release.
-  retry kubectl apply --server-side --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/crds/
-  retry kubectl apply --server-side --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/charts/node-feature-discovery/crds/
-  retry kubectl apply --server-side --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/charts/kmm/crds/
+  retry kubectl apply --server-side --force-conflicts --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/crds/
+  retry kubectl apply --server-side --force-conflicts --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/charts/node-feature-discovery/crds/
+  retry kubectl apply --server-side --force-conflicts --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/charts/kmm/crds/
 
   echo "⏳ Waiting for AMD GPU Operator CRDs to be established..."
   kwait --for=condition=established --timeout=60s \
