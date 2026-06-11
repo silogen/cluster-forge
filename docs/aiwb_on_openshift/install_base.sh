@@ -25,7 +25,7 @@ else
   fi
   echo "ℹ️  Auto-detected DOMAIN from OpenShift ingress config: ${DOMAIN}"
 fi
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")" && pwd)"
 
 # Grant anyuid SCC to all service accounts in a namespace.
 # Upstream Helm charts often run as root or fixed UIDs; OpenShift's
@@ -284,13 +284,19 @@ echo ""
 # PROMETHEUS CRDs
 # ============================================================================
 # syncWave: -50
-# Prometheus Operator CRDs required by monitoring components
-echo "📦 Installing Prometheus Operator CRDs..."
-kubectl create namespace prometheus-system --dry-run=client -o yaml | kubectl apply -f -
-grant_anyuid_scc prometheus-system
-helm template prometheus-crds ${SOURCES_DIR}/prometheus-operator-crds/23.0.0 --namespace prometheus-system | kubectl apply --server-side -f -
+# Prometheus Operator CRDs required by monitoring components.
+# On OpenShift, the cluster-version-operator already manages these CRDs
+# (alertmanagers.monitoring.coreos.com etc.), so we skip if they are present.
+if kubectl get crd alertmanagers.monitoring.coreos.com &>/dev/null; then
+  echo "ℹ️  Prometheus Operator CRDs already present (managed by cluster) — skipping install"
+else
+  echo "📦 Installing Prometheus Operator CRDs..."
+  kubectl create namespace prometheus-system --dry-run=client -o yaml | kubectl apply -f -
+  grant_anyuid_scc prometheus-system
+  helm template prometheus-crds ${SOURCES_DIR}/prometheus-operator-crds/23.0.0 --namespace prometheus-system | kubectl apply --server-side -f -
+fi
 
-echo "✅ Prometheus CRDs installed"
+echo "✅ Prometheus CRDs ready"
 echo ""
 
 # ============================================================================
