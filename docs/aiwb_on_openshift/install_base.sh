@@ -39,6 +39,63 @@ grant_anyuid_scc() {
   echo "🔐 Granted anyuid SCC to system:serviceaccounts:${namespace}"
 }
 
+# ============================================================================
+# RESILIENCE HELPERS (for busy / slow API servers)
+# ============================================================================
+# On heavily-loaded clusters the API server intermittently returns
+# "the server was unable to return a response in the time allotted" or TLS
+# handshake timeouts. With `set -e` a single such blip aborts the whole install.
+# These helpers give the API server more time per request (--request-timeout)
+# and retry transient failures with a backoff instead of aborting.
+RETRY_MAX="${RETRY_MAX:-6}"
+RETRY_DELAY="${RETRY_DELAY:-15}"
+KUBECTL_REQUEST_TIMEOUT="${KUBECTL_REQUEST_TIMEOUT:-300s}"
+
+# retry <command...> : run a command, retrying on failure with a fixed backoff.
+retry() {
+  local n=1 rc=0
+  while true; do
+    if "$@"; then
+      return 0
+    fi
+    rc=$?
+    if (( n >= RETRY_MAX )); then
+      echo "❌ command failed after ${RETRY_MAX} attempts (rc=${rc}): $*" >&2
+      return "${rc}"
+    fi
+    echo "⚠️  attempt ${n}/${RETRY_MAX} failed (rc=${rc}); retrying in ${RETRY_DELAY}s..." >&2
+    sleep "${RETRY_DELAY}"
+    ((n++))
+  done
+}
+
+# ssa_apply [extra kubectl args...] : server-side apply from stdin with a long
+# request timeout and retries. Captures stdin so each retry re-feeds the same
+# manifests (a plain `| kubectl apply` cannot be retried once stdin is consumed).
+ssa_apply() {
+  local manifests n=1 rc=0
+  manifests="$(cat)"
+  while true; do
+    if printf '%s' "${manifests}" | kubectl apply --server-side --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" "$@" -f -; then
+      return 0
+    fi
+    rc=$?
+    if (( n >= RETRY_MAX )); then
+      echo "❌ server-side apply failed after ${RETRY_MAX} attempts (rc=${rc})" >&2
+      return "${rc}"
+    fi
+    echo "⚠️  apply attempt ${n}/${RETRY_MAX} failed (rc=${rc}); retrying in ${RETRY_DELAY}s..." >&2
+    sleep "${RETRY_DELAY}"
+    ((n++))
+  done
+}
+
+# kwait <kubectl wait args...> : kubectl wait with retries (the API server can
+# time out the watch request itself on a busy cluster, independent of readiness).
+kwait() {
+  retry kubectl wait --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" "$@"
+}
+
 PLUGGABLE_DB=${PLUGGABLE_DB:-false}
 PLUGGABLE_S3=${PLUGGABLE_S3:-false}
 
@@ -157,7 +214,7 @@ else
   echo "📦 Installing local-path provisioner..."
   kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/master/deploy/local-path-storage.yaml
   echo "⏳ Waiting for local-path provisioner to be ready..."
-  kubectl wait --for=condition=available --timeout=120s deployment/local-path-provisioner -n local-path-storage
+  kwait --for=condition=available --timeout=120s deployment/local-path-provisioner -n local-path-storage
   echo "✅ local-path provisioner is ready"
 fi
 
@@ -199,10 +256,10 @@ if [[ ${PLUGGABLE_DB} != true ]]; then
   echo "📦 Installing CloudNativePG operator..."
   kubectl create namespace cnpg-system --dry-run=client -o yaml | kubectl apply -f -
   grant_anyuid_scc cnpg-system
-  helm template cnpg-operator ${SOURCES_DIR}/cnpg-operator/0.26.0 --namespace cnpg-system | kubectl apply --server-side -f -
+  helm template cnpg-operator ${SOURCES_DIR}/cnpg-operator/0.26.0 --namespace cnpg-system | ssa_apply
 
   echo "⏳ Waiting for CNPG operator to be ready..."
-  kubectl wait --for=condition=available --timeout=120s deployment/cnpg-operator-cloudnative-pg -n cnpg-system
+  kwait --for=condition=available --timeout=120s deployment/cnpg-operator-cloudnative-pg -n cnpg-system
   echo "✅ CloudNativePG is ready"
   echo ""
 else
@@ -230,7 +287,7 @@ helm template kyverno ${SOURCES_DIR}/kyverno/3.5.1 --namespace kyverno \
   --set webhooksCleanup.enabled=false \
   --set reportsController.resources.limits.memory=1Gi \
   --set reportsController.resources.requests.memory=256Mi \
-  | kubectl apply --server-side --request-timeout=300s -f -
+  | ssa_apply
 
 # Grant kyverno-reports-controller extra RBAC needed on OpenShift BEFORE waiting.
 # Kyverno's reports-controller discovers and watches every API resource in the
@@ -259,10 +316,10 @@ echo "✅ OpenShift RBAC patch applied"
 
 # Wait for Kyverno to be ready
 echo "⏳ Waiting for Kyverno to be ready..."
-kubectl wait --for=condition=available --timeout=120s deployment/kyverno-admission-controller -n kyverno
-kubectl wait --for=condition=available --timeout=120s deployment/kyverno-background-controller -n kyverno
-kubectl wait --for=condition=available --timeout=120s deployment/kyverno-cleanup-controller -n kyverno
-kubectl wait --for=condition=available --timeout=120s deployment/kyverno-reports-controller -n kyverno
+kwait --for=condition=available --timeout=120s deployment/kyverno-admission-controller -n kyverno
+kwait --for=condition=available --timeout=120s deployment/kyverno-background-controller -n kyverno
+kwait --for=condition=available --timeout=120s deployment/kyverno-cleanup-controller -n kyverno
+kwait --for=condition=available --timeout=120s deployment/kyverno-reports-controller -n kyverno
 echo "✅ Kyverno is ready"
 echo ""
 
@@ -272,10 +329,10 @@ echo ""
 # syncWave: -30
 # Install Kyverno policies for base security and storage management
 echo "📦 Installing Kyverno base policies..."
-helm template kyverno-policies-base ${SOURCES_DIR}/kyverno-policies/base --namespace kyverno | kubectl apply --server-side -f -
+helm template kyverno-policies-base ${SOURCES_DIR}/kyverno-policies/base --namespace kyverno | ssa_apply
 
 echo "📦 Installing Kyverno storage-local-path policies..."
-helm template kyverno-policies-storage ${SOURCES_DIR}/kyverno-policies/storage-local-path --namespace kyverno | kubectl apply --server-side -f -
+helm template kyverno-policies-storage ${SOURCES_DIR}/kyverno-policies/storage-local-path --namespace kyverno | ssa_apply
 
 echo "✅ Kyverno policies installed"
 echo ""
@@ -330,7 +387,7 @@ else
   echo "📦 Installing Prometheus Operator CRDs..."
   kubectl create namespace prometheus-system --dry-run=client -o yaml | kubectl apply -f -
   grant_anyuid_scc prometheus-system
-  helm template prometheus-crds ${SOURCES_DIR}/prometheus-operator-crds/23.0.0 --namespace prometheus-system | kubectl apply --server-side -f -
+  helm template prometheus-crds ${SOURCES_DIR}/prometheus-operator-crds/23.0.0 --namespace prometheus-system | ssa_apply
 fi
 
 echo "✅ Prometheus CRDs ready"
@@ -344,11 +401,11 @@ echo ""
 echo "📦 Installing cert-manager..."
 kubectl create namespace cert-manager --dry-run=client -o yaml | kubectl apply -f -
 grant_anyuid_scc cert-manager
-helm template cert-manager ${SOURCES_DIR}/cert-manager/v1.18.2 --namespace cert-manager --set crds.enabled=true | kubectl apply --server-side -f -
+helm template cert-manager ${SOURCES_DIR}/cert-manager/v1.18.2 --namespace cert-manager --set crds.enabled=true | ssa_apply
 
 # Wait for cert-manager to be ready (required for webhooks)
 echo "⏳ Waiting for cert-manager deployments to be ready..."
-kubectl wait --for=condition=available --timeout=120s \
+kwait --for=condition=available --timeout=120s \
   deployment/cert-manager-webhook \
   deployment/cert-manager \
   deployment/cert-manager-cainjector \
@@ -373,7 +430,7 @@ echo ""
 echo "📦 Installing OpenTelemetry Operator..."
 kubectl create namespace opentelemetry-system --dry-run=client -o yaml | kubectl apply -f -
 grant_anyuid_scc opentelemetry-system
-helm template opentelemetry-operator ${SOURCES_DIR}/opentelemetry-operator/0.93.1 --namespace opentelemetry-system --include-crds | kubectl apply --server-side -f -
+helm template opentelemetry-operator ${SOURCES_DIR}/opentelemetry-operator/0.93.1 --namespace opentelemetry-system --include-crds | ssa_apply
 
 echo "⏭️  Skipping MetalLB installation (OpenShift provides its own load balancer/routing)"
 
@@ -381,7 +438,7 @@ echo "⏳ Waiting for OpenTelemetry Operator to be ready..."
 until kubectl get deployment opentelemetry-operator -n opentelemetry-system >/dev/null 2>&1; do
   sleep 1
 done
-kubectl wait --for=condition=available --timeout=120s deployment/opentelemetry-operator -n opentelemetry-system
+kwait --for=condition=available --timeout=120s deployment/opentelemetry-operator -n opentelemetry-system
 
 echo "✅ OpenTelemetry Operator and MetalLB are ready"
 echo ""
@@ -396,14 +453,14 @@ kubectl create namespace external-secrets --dry-run=client -o yaml | kubectl app
 grant_anyuid_scc external-secrets
 helm template external-secrets ${SOURCES_DIR}/external-secrets/0.19.2 \
   --namespace external-secrets \
-  | kubectl apply --server-side -f -
+  | ssa_apply
 
 echo "⏳ Waiting for External Secrets Operator to be ready..."
-kubectl wait --for=condition=available --timeout=120s deployment/external-secrets -n external-secrets
-kubectl wait --for=condition=available --timeout=120s deployment/external-secrets-webhook -n external-secrets
+kwait --for=condition=available --timeout=120s deployment/external-secrets -n external-secrets
+kwait --for=condition=available --timeout=120s deployment/external-secrets-webhook -n external-secrets
 
 echo "⏳ Waiting for External Secrets CRDs to be established..."
-kubectl wait --for=condition=established --timeout=60s \
+kwait --for=condition=established --timeout=60s \
   crd/externalsecrets.external-secrets.io \
   crd/secretstores.external-secrets.io \
   crd/clustersecretstores.external-secrets.io
@@ -425,11 +482,11 @@ echo ""
 # cleanly. Idempotent — installed via --server-side so the later controller install
 # co-owns them without conflict.
 echo "📦 Installing Gateway API CRDs (early)..."
-kubectl apply --server-side -f ${SOURCES_DIR}/envoy-gateway/v1.7.1/crds/gatewayapi-crds.yaml
-kubectl apply --server-side -f ${SOURCES_DIR}/envoy-gateway/v1.7.1/crds/generated/
+retry kubectl apply --server-side --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/envoy-gateway/v1.7.1/crds/gatewayapi-crds.yaml
+retry kubectl apply --server-side --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/envoy-gateway/v1.7.1/crds/generated/
 
 echo "⏳ Waiting for Gateway API HTTPRoute CRD to be established..."
-kubectl wait --for=condition=established --timeout=60s \
+kwait --for=condition=established --timeout=60s \
   crd/httproutes.gateway.networking.k8s.io \
   crd/gateways.gateway.networking.k8s.io
 
@@ -449,7 +506,7 @@ grant_anyuid_scc cf-openbao
 
 helm template openbao ${SOURCES_DIR}/openbao/0.18.2 \
   --namespace cf-openbao \
-  | kubectl apply --server-side --force-conflicts -f -
+  | ssa_apply --force-conflicts
 
 echo "⏳ Waiting for OpenBao pod to be Running (init job will initialize and unseal it)..."
 until kubectl get pod openbao-0 -n cf-openbao -o jsonpath='{.status.phase}' 2>/dev/null | grep -q "Running"; do
@@ -492,7 +549,7 @@ helm template openbao-init-job ${SOURCES_DIR}/openbao-init-job/0.1.0 \
   | kubectl apply -f -
 
 echo "⏳ Waiting for OpenBao init job to complete (up to 5 min)..."
-kubectl wait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
+kwait --for=condition=complete --timeout=300s job/openbao-init-job -n cf-openbao
 
 # Apply ClusterSecretStore so ExternalSecrets can pull from OpenBao.
 # The repo manifests target external-secrets.io/v1beta1, but the pinned ESO
@@ -545,7 +602,7 @@ helm template otel-lgtm-stack ${SOURCES_DIR}/otel-lgtm-stack/v1.0.7 \
   --set lgtm.storage.tempo=50Gi \
   --set lgtm.storage.extra=50Gi \
   | sed 's#external-secrets.io/v1beta1#external-secrets.io/v1#g' \
-  | kubectl apply --server-side -f -
+  | ssa_apply
 
 # Wait for main LGTM components
 echo "⏳ Waiting for LGTM stack to be ready..."
@@ -564,19 +621,19 @@ echo ""
 echo "📦 Installing KEDA..."
 kubectl create namespace keda --dry-run=client -o yaml | kubectl apply -f -
 grant_anyuid_scc keda
-helm template keda ${SOURCES_DIR}/keda/2.18.1 --namespace keda | kubectl apply --server-side -f -
+helm template keda ${SOURCES_DIR}/keda/2.18.1 --namespace keda | ssa_apply
 
 # Wait for KEDA operator to be ready
 echo "⏳ Waiting for KEDA operator to be ready..."
-kubectl wait --for=condition=available --timeout=120s deployment/keda-operator -n keda
+kwait --for=condition=available --timeout=120s deployment/keda-operator -n keda
 
 # Wait for KEDA metrics server to be ready
 echo "⏳ Waiting for KEDA metrics server to be ready..."
-kubectl wait --for=condition=available --timeout=120s deployment/keda-operator-metrics-apiserver -n keda
+kwait --for=condition=available --timeout=120s deployment/keda-operator-metrics-apiserver -n keda
 
 # Wait for KEDA admission webhooks to be ready
 echo "⏳ Waiting for KEDA admission webhooks to be ready..."
-kubectl wait --for=condition=available --timeout=120s deployment/keda-admission-webhooks -n keda
+kwait --for=condition=available --timeout=120s deployment/keda-admission-webhooks -n keda
 
 echo "✅ KEDA is ready"
 echo ""
@@ -591,7 +648,7 @@ echo "📦 Installing Kedify OTEL Scaler..."
 helm template kedify-otel ${SOURCES_DIR}/kedify-otel/v0.0.6 \
   --namespace keda \
   --set validatingAdmissionPolicy.enabled=false \
-  | kubectl apply --server-side -f -
+  | ssa_apply
 
 # Wait for Kedify OTEL scaler to be ready
 echo "⏳ Waiting for Kedify OTEL scaler to be ready..."
@@ -644,7 +701,7 @@ else
   echo "📦 Installing KServe CRDs..."
   kubectl create namespace kserve-system --dry-run=client -o yaml | kubectl apply -f -
   grant_anyuid_scc kserve-system
-  helm template kserve-crds ${SOURCES_DIR}/kserve-crds/v0.16.0 --namespace kserve-system | kubectl apply --server-side -f -
+  helm template kserve-crds ${SOURCES_DIR}/kserve-crds/v0.16.0 --namespace kserve-system | ssa_apply
 
   echo "📦 Installing KServe operator..."
   # IMPORTANT: cert-manager Certificate resources don't work well with --server-side
@@ -658,11 +715,11 @@ else
 
   # Wait for certificate to be ready
   echo "⏳ Waiting for KServe webhook certificate to be ready..."
-  kubectl wait --for=condition=ready --timeout=60s certificate/serving-cert -n kserve-system
+  kwait --for=condition=ready --timeout=60s certificate/serving-cert -n kserve-system
 
   # Wait for KServe webhook to be ready
   echo "⏳ Waiting for KServe controller to be ready..."
-  kubectl wait --for=condition=available --timeout=120s deployment/kserve-controller-manager -n kserve-system
+  kwait --for=condition=available --timeout=120s deployment/kserve-controller-manager -n kserve-system
 
   echo "Applying KServe again to ensure all resources are created (some may fail on first apply due to webhook not being ready)..."
   helm template kserve ${SOURCES_DIR}/kserve/v0.16.0 \
@@ -723,12 +780,12 @@ else
   # before any pods start, otherwise they crash-loop on missing nodefeatures/nodefeaturegroups.
   # We use kubectl apply rather than helm's CRD handling because helm install with CRDs
   # is not idempotent across re-runs without a pre-existing release.
-  kubectl apply --server-side -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/crds/
-  kubectl apply --server-side -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/charts/node-feature-discovery/crds/
-  kubectl apply --server-side -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/charts/kmm/crds/
+  retry kubectl apply --server-side --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/crds/
+  retry kubectl apply --server-side --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/charts/node-feature-discovery/crds/
+  retry kubectl apply --server-side --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/charts/kmm/crds/
 
   echo "⏳ Waiting for AMD GPU Operator CRDs to be established..."
-  kubectl wait --for=condition=established --timeout=60s \
+  kwait --for=condition=established --timeout=60s \
     crd/nodefeatures.nfd.k8s-sigs.io \
     crd/deviceconfigs.amd.com \
     crd/modules.kmm.sigs.x-k8s.io
@@ -754,10 +811,10 @@ else
     --set crds.defaultCR.install=true \
     --skip-crds \
     --no-hooks \
-    | kubectl apply --server-side -n amd-gpu-operator -f -
+    | ssa_apply -n amd-gpu-operator
 
   echo "⏳ Waiting for AMD GPU Operator controller to be ready..."
-  kubectl wait --for=condition=available --timeout=180s \
+  kwait --for=condition=available --timeout=180s \
     deployment/amd-gpu-operator-gpu-operator-charts-controller-manager -n amd-gpu-operator
   echo "✅ AMD GPU Operator is ready"
 fi
@@ -787,7 +844,7 @@ else
     helm template amd-gpu-operator-config ${SOURCES_DIR}/amd-gpu-operator-config \
       --namespace "${AMD_GPU_NS}" \
       --set namespace="${AMD_GPU_NS}" \
-      | kubectl apply --server-side -n "${AMD_GPU_NS}" -f -
+      | ssa_apply -n "${AMD_GPU_NS}"
     echo "✅ AMD GPU Operator config applied"
   fi
 fi
@@ -802,7 +859,7 @@ echo ""
 echo "📦 Installing AIM Engine CRDs..."
 kubectl create namespace aim-system --dry-run=client -o yaml | kubectl apply -f -
 grant_anyuid_scc aim-system
-kubectl apply -f ${SOURCES_DIR}/aim-engine-crds/0.2.2/crds.yaml --namespace aim-system --recursive
+retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/aim-engine-crds/0.2.2/crds.yaml --namespace aim-system --recursive
 
 # Stage 2: Install AIM Engine operator
 echo "📦 Installing AIM Engine operator..."
@@ -813,7 +870,7 @@ helm template aim-engine ${SOURCES_DIR}/aim-engine/0.2.2 \
   --namespace aim-system \
   --set clusterRuntimeConfig.enable=true \
   --set clusterRuntimeConfig.spec.routing.enabled=false \
-  | kubectl apply --server-side -f -
+  | ssa_apply
 
 # Stage 3: Install AIMClusterModelSource for model auto-discovery
 echo "📦 Installing AIM Cluster Model Source (v0.11.0)..."
@@ -1008,7 +1065,7 @@ kubectl create secret generic cluster-auth-admin-token \
   --dry-run=client -o yaml | kubectl apply -f -
 
 echo "⏳ Waiting for cluster-auth shim to be ready..."
-kubectl wait --for=condition=available --timeout=60s deployment/cluster-auth -n cluster-auth
+kwait --for=condition=available --timeout=60s deployment/cluster-auth -n cluster-auth
 echo "✅ cluster-auth shim is ready"
 echo ""
 
@@ -1024,7 +1081,7 @@ if [[ "${PLUGGABLE_DB}" != true ]]; then
     --set username=${AIWB_DB_USER} \
     --set storage.storageClass=${DEFAULT_STORAGE_CLASS_NAME} \
     --set walStorage.storageClass=${DEFAULT_STORAGE_CLASS_NAME} \
-    --namespace aiwb | kubectl apply --server-side -f -
+    --namespace aiwb | ssa_apply
 
   echo "⏳ Waiting for AIWB database cluster to be ready..."
   sleep 2
@@ -1066,7 +1123,7 @@ helm template keycloak ${SOURCES_DIR}/keycloak-old \
   --set 'extraEnvVars[0].name=JAVA_OPTS_APPEND' \
   --set 'extraEnvVars[0].value=-XX:MaxRAMPercentage=65.0 -XX:InitialRAMPercentage=50.0 -XX:MaxMetaspaceSize=512m -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true' \
   ${KEYCLOAK_PLUGGABLE_DB_ARGS} \
-  --namespace keycloak | kubectl apply --server-side -f -
+  --namespace keycloak | ssa_apply
 
 echo "  ✅ Keycloak installation triggered (PostgreSQL + deployment starting)"
 echo ""
@@ -1084,7 +1141,7 @@ if [[ "${PLUGGABLE_S3}" != true ]]; then
   helm template minio-operator ${SOURCES_DIR}/minio-operator/7.1.1 \
     --namespace minio-operator \
     --set operator.replicaCount=1 \
-    | kubectl apply --server-side -f -
+    | ssa_apply
 
   # Wait for MinIO operator to be ready
   echo "⏳ Waiting for MinIO operator to be ready..."
@@ -1121,7 +1178,7 @@ if [[ "${PLUGGABLE_S3}" != true ]]; then
     --set tenant.configSecret.existingSecret=true \
     --set tenant.configSecret.name=default-minio-tenant-env-configuration \
     --set tenant.certificate.requestAutoCert=false \
-    | kubectl apply --server-side -n minio-tenant-default -f -
+    | ssa_apply -n minio-tenant-default
 
   # Wait for MinIO tenant to be ready
   echo "⏳ Waiting for MinIO tenant to be ready..."
@@ -1135,7 +1192,7 @@ if [[ "${PLUGGABLE_S3}" != true ]]; then
     --namespace minio-tenant-default \
     --set externalSecrets.enabled=false \
     --set domain=${DOMAIN} \
-    | kubectl apply --server-side -f -
+    | ssa_apply
   echo "✅ MinIO configuration applied"
   echo ""
 else
@@ -1250,7 +1307,7 @@ helm template aiwb ${SOURCES_DIR}/aiwb/1.0.31 \
   --set kgateway.namespace=envoy-gateway-system \
   ${AIWB_PLUGGABLE_S3_ARGS} \
   ${AIWB_PLUGGABLE_DB_ARGS} \
-  | kubectl apply --server-side -f -
+  | ssa_apply
 
 # Wait for AIWB to be ready
 echo "⏳ Waiting for AIWB to be ready..."
