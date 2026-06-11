@@ -1,0 +1,902 @@
+
+# ---
+# apiVersion: security.openshift.io/v1
+# kind: SecurityContextConstraints
+# metadata:
+#   name: cf-argocd-scc
+# priority: 100
+# allowPrivilegedContainer: false
+# allowPrivilegeEscalation: false
+# allowHostDirVolumePlugin: false
+# allowHostIPC: false
+# allowHostNetwork: false
+# allowHostPID: false
+# allowHostPorts: false
+
+# # Allow the exact capabilities used by the init container
+# allowedCapabilities:
+#   - SETUID
+#   - SETGID
+#   - CHOWN
+#   - DAC_OVERRIDE
+#   - FOWNER
+#   - FSETID
+# requiredDropCapabilities:
+#   - ALL
+
+# # Allow root (UID 0) and other explicit users
+# runAsUser:
+#   type: RunAsAny
+# fsGroup:
+#   type: RunAsAny
+# supplementalGroups:
+#   type: RunAsAny
+
+# # SELinux and seccomp relaxed
+# seLinuxContext:
+#   type: RunAsAny
+# seccompProfiles:
+#   - '*'
+
+# readOnlyRootFilesystem: false
+
+# # Allow all common volume types
+# volumes:
+#   - configMap
+#   - downwardAPI
+#   - emptyDir
+#   - persistentVolumeClaim
+#   - projected
+#   - secret
+#   - ephemeral
+
+# # Bind the SCC to the service account in your namespace
+# users:
+#   - system:serviceaccount:argocd:default
+#   - system:serviceaccount:argocd:argocd-redis
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-openbao-scc
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities: []
+defaultAddCapabilities: []
+requiredDropCapabilities:
+  - ALL
+readOnlyRootFilesystem: false
+# Allow pod-defined UID/GID values
+runAsUser:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+# Required for restricted policy compatibility
+seccompProfiles:
+  - '*'
+users:
+  - system:serviceaccount:cf-openbao:openbao
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - ephemeral
+
+# ---
+# apiVersion: security.openshift.io/v1
+# kind: SecurityContextConstraints
+# metadata:
+#   name: cf-gitea-scc
+# priority: 100
+# allowHostDirVolumePlugin: false
+# allowHostIPC: false
+# allowHostNetwork: false
+# allowHostPID: false
+# allowHostPorts: false
+# allowPrivilegeEscalation: false
+# allowPrivilegedContainer: false
+# readOnlyRootFilesystem: false
+
+
+# # Allow limited capabilities that initContainers need
+# allowedCapabilities:
+#   - SETUID
+#   - SETGID
+#   - CHOWN
+#   - DAC_OVERRIDE
+#   - FOWNER
+#   - FSETID
+# # requiredDropCapabilities:
+# #   - ALL
+
+# # Allow either UID 1000 or OpenShift-assigned ranges
+# runAsUser:
+#   type: RunAsAny
+# fsGroup:
+#   type: RunAsAny
+# supplementalGroups:
+#   type: RunAsAny
+
+# # SELinux flexible
+# seLinuxContext:
+#   type: RunAsAny
+
+# # Allow all seccomp profiles
+# seccompProfiles:
+#   - '*'
+
+# # Bind to the Gitea service account
+# users:
+#   - system:serviceaccount:cf-gitea:default
+#   - system:serviceaccount:keycloak:gitea-oauth-config-sa
+
+# # Common volumes
+# volumes:
+#   - configMap
+#   - downwardAPI
+#   - emptyDir
+#   - persistentVolumeClaim
+#   - projected
+#   - secret
+#   - ephemeral
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-otel-lgtm-stack-scc
+priority: 100
+allowPrivilegedContainer: true
+allowPrivilegeEscalation: true
+allowHostDirVolumePlugin: true
+allowHostIPC: true
+allowHostNetwork: true
+allowHostPID: true
+allowHostPorts: true
+
+# Allow the exact capabilities used by the init container
+allowedCapabilities:
+  - SETUID
+  - SETGID
+  - CHOWN
+  - DAC_OVERRIDE
+  - FOWNER
+  - FSETID
+requiredDropCapabilities:
+  - ALL
+
+# Allow root (UID 0) and other explicit users
+runAsUser:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+
+# SELinux and seccomp relaxed
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+  - '*'
+
+readOnlyRootFilesystem: false
+
+# Allow all common volume types
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - ephemeral
+  - hostPath 
+
+# Bind the SCC to the service account in your namespace
+users:
+  - system:serviceaccount:otel-lgtm-stack:my-kube-state-metrics
+  - system:serviceaccount:otel-lgtm-stack:nodeexporter-prometheus-node-exporter
+  - system:serviceaccount:otel-lgtm-stack:default
+  - system:serviceaccount:otel-lgtm-stack:otel-collector
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-opentelemetry-operator-scc
+priority: 100
+allowPrivilegedContainer: false
+allowPrivilegeEscalation: false
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+
+# Allow the exact capabilities used by the init container
+allowedCapabilities:
+  - SETUID
+  - SETGID
+  - CHOWN
+  - DAC_OVERRIDE
+  - FOWNER
+  - FSETID
+requiredDropCapabilities:
+  - ALL
+
+# Allow root (UID 0) and other explicit users
+runAsUser:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+
+# SELinux and seccomp relaxed
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+  - '*'
+
+readOnlyRootFilesystem: false
+
+# Allow all common volume types
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - ephemeral
+
+# Bind the SCC to the service account in your namespace.
+# NOTE: install_base.sh deploys the operator into the `opentelemetry-system`
+# namespace (not the chart's upstream default `opentelemetry-operator-system`).
+# The operator pod sets seccompProfile: RuntimeDefault, which the `anyuid` SCC
+# cannot admit, so this SCC (seccompProfiles: '*') must target the real SA.
+users:
+  - system:serviceaccount:opentelemetry-system:opentelemetry-operator
+
+---
+# CloudNative PostgreSQL (CNPG) Security Context Constraints
+# Allows CNPG operator and PostgreSQL instances to run with proper permissions
+# Tested and working configuration for IBM Block CSI storage
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-cnpg-operator-scc
+# Must beat the upstream `cnpg-chmod-bypass-scc` (priority 200); otherwise
+# that SCC wins admission and, because it is RunAsAny everywhere, admits
+# the pod with no injected fsGroup. The kubelet then does not chgrp the
+# IBM Block PVC mount, leaving it root-owned, and initdb fails with
+# "could not create directory /var/lib/postgresql/data/pgdata: Permission denied".
+priority: 201
+allowPrivilegedContainer: false
+allowPrivilegeEscalation: false
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+readOnlyRootFilesystem: false
+allowedCapabilities:
+  - SETUID
+  - SETGID
+  - CHOWN
+  - DAC_OVERRIDE
+  - FOWNER
+  - FSETID
+requiredDropCapabilities:
+  - ALL
+# Inherit UID/GID from each target namespace's annotations
+# (openshift.io/sa.scc.uid-range and .supplemental-groups) instead of
+# hardcoding a single value. That way the SCC keeps working after a
+# namespace is recreated and gets a new OpenShift-allocated range.
+# The injected fsGroup is what triggers the kubelet to chgrp the PVC
+# mount, giving the postgres process write access to create pgdata/.
+runAsUser:
+  type: MustRunAsRange
+fsGroup:
+  type: MustRunAs
+seLinuxContext:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+seccompProfiles:
+  - '*'
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+users:
+  - system:serviceaccount:airm:airm-infra-cnpg-cnpg
+  - system:serviceaccount:aiwb:aiwb-infra-cnpg-cnpg
+  - system:serviceaccount:keycloak:keycloak-cnpg
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-cnpg-controller-scc
+  annotations:
+    description: "Dedicated SCC for CNPG operator pod that needs to run as UID 10001"
+    target-pod: "cnpg-operator-cloudnative-pg"
+    target-namespace: "cnpg-system"
+    created-for: "CNPG operator pod SCC conflict resolution"
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities:
+  - SETUID
+  - SETGID
+  - CHOWN
+  - DAC_OVERRIDE
+  - FOWNER
+  - FSETID
+defaultAddCapabilities: null
+requiredDropCapabilities:
+  - ALL
+fsGroup:
+  type: MustRunAs
+  ranges:
+    - min: 10001
+      max: 10001
+runAsUser:
+  type: MustRunAs
+  uid: 10001
+seLinuxContext:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+seccompProfiles:
+  - runtime/default
+priority: 101
+readOnlyRootFilesystem: false
+userNamespaceLevel: AllowHostLevel
+users:
+  - system:serviceaccount:cnpg-system:cnpg-operator-cloudnative-pg
+groups: []
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - hostPath
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-kedify-otel-add-on-scc
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities: null
+defaultAddCapabilities: null
+fsGroup:
+  type: RunAsAny
+readOnlyRootFilesystem: false
+requiredDropCapabilities: null
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: MustRunAs
+supplementalGroups:
+  type: RunAsAny
+users:
+  - system:serviceaccount:keda:kedify-otel-otel-add-on
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - secret
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-kaiwo-controller-manager-scc
+  # Higher priority so this SCC is tried before others that would reject the pod.
+priority: 20
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities: null
+defaultAddCapabilities: null
+fsGroup:
+  type: RunAsAny
+readOnlyRootFilesystem: false
+requiredDropCapabilities: null
+runAsUser:
+  type: RunAsAny
+# Allow seccomp so pod annotations seccomp.security.alpha.kubernetes.io/* are accepted.
+seccompProfiles:
+  - runtime/default
+seLinuxContext:
+  type: MustRunAs
+supplementalGroups:
+  type: RunAsAny
+users:
+  - system:serviceaccount:kaiwo-system:kaiwo-controller-manager
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - secret
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-rabbitmq-scc
+priority: 100
+allowPrivilegedContainer: false
+allowPrivilegeEscalation: false
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+readOnlyRootFilesystem: false
+# Required capabilities for RabbitMQ
+allowedCapabilities:
+  - SETUID
+  - SETGID
+  - CHOWN
+  - DAC_OVERRIDE
+  - FOWNER
+  - FSETID
+requiredDropCapabilities:
+  - ALL
+# CRITICAL: Allow RabbitMQ to run as any user/group
+runAsUser:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+# Flexible contexts
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+  - '*'
+# Required volume types for RabbitMQ
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - ephemeral
+  - ephemeral
+# CRITICAL: Service account binding
+users:
+  - system:serviceaccount:airm:airm-rabbitmq-server          # Original service account
+  - system:serviceaccount:airm:airm-infra-rabbitmq-rabbitmq-server  # StatefulSet service account
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-airm-api-scc
+priority: 100
+allowPrivilegedContainer: false
+allowPrivilegeEscalation: false
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+
+# Allow limited capabilities that initContainers need
+allowedCapabilities:
+  - SETUID
+  - SETGID
+  - CHOWN
+  - DAC_OVERRIDE
+  - FOWNER
+  - FSETID
+requiredDropCapabilities:
+  - ALL
+
+# Allow both 0 (root) and 1000 if needed
+runAsUser:
+  type: RunAsAny
+
+fsGroup:
+  type: RunAsAny
+
+supplementalGroups:
+  type: RunAsAny
+
+seLinuxContext:
+  type: RunAsAny
+
+# Allow all seccomp profiles
+seccompProfiles:
+  - '*'
+
+readOnlyRootFilesystem: false
+
+# Link the SCC to your namespace and service account
+users:
+  - system:serviceaccount:airm:default
+  - system:serviceaccount:airm:airm-configure-sa
+
+# Common volume types used by deployments
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - ephemeral
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-airm-ui-scc
+priority: 100
+allowPrivilegedContainer: false
+allowPrivilegeEscalation: false
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+
+# Allow the exact capabilities used by the init container
+allowedCapabilities:
+  - SETUID
+  - SETGID
+  - CHOWN
+  - DAC_OVERRIDE
+  - FOWNER
+  - FSETID
+requiredDropCapabilities:
+  - ALL
+
+# Allow root (UID 0) and other explicit users
+runAsUser:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+
+# SELinux and seccomp relaxed
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+  - '*'
+
+readOnlyRootFilesystem: false
+
+# Allow all common volume types
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - ephemeral
+
+# Bind the SCC to the service account in your namespace
+users:
+  - system:serviceaccount:airm:default
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-airm-dispatcher-scc
+priority: 100
+allowPrivilegedContainer: false
+allowPrivilegeEscalation: true
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowedCapabilities:
+  - SETUID
+  - SETGID
+  - CHOWN
+  - DAC_OVERRIDE
+  - FOWNER
+  - FSETID
+# IMPORTANT: do not require dropping ALL at SCC level,
+# otherwise added capabilities are denied.
+requiredDropCapabilities: []
+runAsUser:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+  - '*'
+readOnlyRootFilesystem: false
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - ephemeral
+users:
+  - system:serviceaccount:airm:airm-dispatcher-sa
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-airm-configure-scc
+priority: 100
+allowPrivilegedContainer: false
+allowPrivilegeEscalation: false
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+
+# Allow the exact capabilities used by the init container
+allowedCapabilities:
+  - SETUID
+  - SETGID
+  - CHOWN
+  - DAC_OVERRIDE
+  - FOWNER
+  - FSETID
+requiredDropCapabilities:
+  - ALL
+
+# Allow root (UID 0) and other explicit users
+runAsUser:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+
+# SELinux and seccomp relaxed
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+  - '*'
+
+readOnlyRootFilesystem: false
+
+# Allow all common volume types
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - ephemeral
+
+# Bind the SCC to the service account in your namespace
+users:
+  - system:serviceaccount:airm:airm-configure-sa
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-airm-workloads
+priority: 20
+allowPrivilegedContainer: false
+allowPrivilegeEscalation: true
+readOnlyRootFilesystem: false
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+seccompProfiles:
+  - runtime/default
+# Do NOT force drop ALL here.
+requiredDropCapabilities: []
+# Explicitly allow and default-add capabilities needed by apt user switching.
+allowedCapabilities:
+  - SETUID
+  - SETGID
+defaultAddCapabilities:
+  - SETUID
+  - SETGID
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - ephemeral
+  - persistentVolumeClaim
+  - projected
+  - secret
+users:
+  - system:serviceaccount:demo:default
+  # - system:serviceaccount:demo-2:default
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-airm-agent-scc
+priority: 100
+allowPrivilegedContainer: false
+allowPrivilegeEscalation: false
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+
+# Allow limited capabilities that the agent might need
+allowedCapabilities:
+  - SETUID
+  - SETGID
+  - CHOWN
+  - DAC_OVERRIDE
+  - FOWNER
+  - FSETID
+requiredDropCapabilities:
+  - ALL
+
+# CRITICAL: Allow the agent to run as UID 1000 or any user
+runAsUser:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+
+# Flexible SELinux context
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+  - '*'
+
+readOnlyRootFilesystem: false
+
+# Standard volume types
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - ephemeral
+
+# CRITICAL: Bind to the airm-agent service account
+users:
+  - system:serviceaccount:airm:default
+  - system:serviceaccount:airm:airm-agent-sa
+  - system:serviceaccount:airm:airm-agent-webhook-sa
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-external-secrets-scc
+priority: 20
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities: []
+defaultAddCapabilities: []
+requiredDropCapabilities:
+  - ALL
+readOnlyRootFilesystem: false
+runAsUser:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+  - runtime/default
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - ephemeral
+users:
+  - system:serviceaccount:external-secrets:external-secrets
+  - system:serviceaccount:external-secrets:external-secrets-webhook
+  - system:serviceaccount:external-secrets:external-secrets-cert-controller
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-aiwb-scc
+priority: 20
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities: []
+defaultAddCapabilities: []
+requiredDropCapabilities:
+  - ALL
+readOnlyRootFilesystem: false
+runAsUser:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+  - runtime/default
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - ephemeral
+users:
+  - system:serviceaccount:aiwb:default
+  - system:serviceaccount:aiwb:aiwb-api
+  - system:serviceaccount:aiwb:aiwb

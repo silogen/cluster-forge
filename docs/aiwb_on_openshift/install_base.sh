@@ -200,6 +200,21 @@ if ! grep -q "failOpen" "${EXTAUTH_TPL}" 2>/dev/null; then
 fi
 
 # ============================================================================
+# CUSTOM SECURITY CONTEXT CONSTRAINTS (OpenShift)
+# ============================================================================
+# Some components ship pods that the generic `anyuid` SCC cannot admit — e.g.
+# the OpenTelemetry operator sets seccompProfile: RuntimeDefault, which `anyuid`
+# (empty seccompProfiles) rejects, so its Deployment never produces a pod
+# (ReplicaFailure: FailedCreate). Apply the project's custom SCCs up front so
+# they exist before any workload pod is scheduled. SCC `users` entries may point
+# at service accounts that do not exist yet — that is fine; the binding takes
+# effect once the SA is created.
+SCC_FILE="${CLUSTER_FORGE_DIR}/docs/aiwb_on_openshift/scc.yaml"
+echo "📦 Applying custom SecurityContextConstraints..."
+retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f "${SCC_FILE}"
+echo "✅ Custom SCCs applied"
+
+# ============================================================================
 # LOCAL-PATH PROVISIONER & DEFAULT STORAGE CLASS
 # ============================================================================
 # RKE2 ships with rancher.io/local-path provisioner built-in, but may not have
