@@ -27,17 +27,9 @@ else
 fi
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")" && pwd)"
 
-# Grant anyuid SCC to all service accounts in a namespace.
-# Upstream Helm charts often run as root or fixed UIDs; OpenShift's
-# restricted-v2 SCC blocks these. Required on all OpenShift clusters.
-grant_anyuid_scc() {
-  local namespace="$1"
-  kubectl create clusterrolebinding "anyuid-scc-${namespace}" \
-    --clusterrole=system:openshift:scc:anyuid \
-    --group="system:serviceaccounts:${namespace}" \
-    --dry-run=client -o yaml | kubectl apply -f -
-  echo "🔐 Granted anyuid SCC to system:serviceaccounts:${namespace}"
-}
+# NOTE: anyuid SCC grants are no longer applied per-namespace here. They are
+# consolidated as declarative ClusterRoleBinding manifests in extra/scc.yaml,
+# applied up front (see "Applying custom SecurityContextConstraints" below).
 
 # ============================================================================
 # RESILIENCE HELPERS (for busy / slow API servers)
@@ -286,7 +278,6 @@ echo ""
 if [[ ${PLUGGABLE_DB} != true ]]; then
   echo "📦 Installing CloudNativePG operator..."
   kubectl create namespace cnpg-system --dry-run=client -o yaml | kubectl apply -f -
-  grant_anyuid_scc cnpg-system
   helm template cnpg-operator ${SOURCES_DIR}/cnpg-operator/0.26.0 --namespace cnpg-system | ssa_apply
 
   echo "⏳ Waiting for CNPG operator to be ready..."
@@ -304,7 +295,6 @@ fi
 # Install Kyverno for policy management (required for storage policies)
 echo "📦 Installing Kyverno..."
 kubectl create namespace kyverno --dry-run=client -o yaml | kubectl apply -f -
-grant_anyuid_scc kyverno
 # Disable webhooksCleanup to prevent pre-delete hooks from running during helm template | kubectl apply.
 # Raise reports-controller memory: on OpenShift it watches every cluster resource
 # (granted via the cluster-reader binding below), and the default 128Mi limit
@@ -372,48 +362,10 @@ echo ""
 # EXTRA OPENSHIFT KYVERNO POLICIES
 # ============================================================================
 # generate-scc-on-namespaces: auto-generates a per-project OpenShift SCC for any
-# Namespace labelled airm.silogen.ai/project-id. The Kyverno background-controller
-# performs the generate, so it needs RBAC to manage SecurityContextConstraints —
-# the default Kyverno ClusterRole does not grant that, so add it here first. The
-# admission-controller SA also needs list/get on SCCs, otherwise the policy
-# validation webhook rejects the ClusterPolicy at apply time.
+# Namespace labelled airm.silogen.ai/project-id. The RBAC that lets Kyverno
+# manage SecurityContextConstraints (the kyverno-scc-generator ClusterRole and
+# binding) is applied earlier from extra/scc.yaml, so by now it already exists.
 echo "📦 Installing extra OpenShift Kyverno policies..."
-retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f - <<'EOF'
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kyverno-scc-generator
-rules:
-  - apiGroups:
-      - security.openshift.io
-    resources:
-      - securitycontextconstraints
-    verbs:
-      - create
-      - update
-      - patch
-      - delete
-      - get
-      - list
-      - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: kyverno-scc-generator-binding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno-scc-generator
-subjects:
-  - kind: ServiceAccount
-    name: kyverno-background-controller
-    namespace: kyverno
-  - kind: ServiceAccount
-    name: kyverno-admission-controller
-    namespace: kyverno
-EOF
-
 KYVERNO_SCC_POLICY_FILE="${CLUSTER_FORGE_DIR}/docs/aiwb_on_openshift/extra/kyverno-scc-for-ns.yaml"
 # WORKAROUND: kyverno-scc-for-ns.yaml currently only lives on the test-aiwb branch
 # (same as scc.yaml/routes.yaml). Fetch it from test-aiwb if missing from the clone.
@@ -477,7 +429,6 @@ if kubectl get crd alertmanagers.monitoring.coreos.com &>/dev/null; then
 else
   echo "📦 Installing Prometheus Operator CRDs..."
   kubectl create namespace prometheus-system --dry-run=client -o yaml | kubectl apply -f -
-  grant_anyuid_scc prometheus-system
   helm template prometheus-crds ${SOURCES_DIR}/prometheus-operator-crds/23.0.0 --namespace prometheus-system | ssa_apply
 fi
 
@@ -491,7 +442,6 @@ echo ""
 # Required by OpenTelemetry Operator and KServe for webhook certificates
 echo "📦 Installing cert-manager..."
 kubectl create namespace cert-manager --dry-run=client -o yaml | kubectl apply -f -
-grant_anyuid_scc cert-manager
 helm template cert-manager ${SOURCES_DIR}/cert-manager/v1.18.2 --namespace cert-manager --set crds.enabled=true | ssa_apply
 
 # Wait for cert-manager to be ready (required for webhooks)
@@ -520,7 +470,6 @@ echo ""
 
 echo "📦 Installing OpenTelemetry Operator..."
 kubectl create namespace opentelemetry-system --dry-run=client -o yaml | kubectl apply -f -
-grant_anyuid_scc opentelemetry-system
 helm template opentelemetry-operator ${SOURCES_DIR}/opentelemetry-operator/0.93.1 --namespace opentelemetry-system --include-crds | ssa_apply
 
 echo "⏭️  Skipping MetalLB installation (OpenShift provides its own load balancer/routing)"
@@ -543,7 +492,6 @@ echo ""
 # other components that pull secrets from an external store.
 echo "📦 Installing External Secrets Operator..."
 kubectl create namespace external-secrets --dry-run=client -o yaml | kubectl apply -f -
-grant_anyuid_scc external-secrets
 helm template external-secrets ${SOURCES_DIR}/external-secrets/0.19.2 \
   --namespace external-secrets \
   | ssa_apply
@@ -603,7 +551,6 @@ echo ""
 # resources pointing at openbao-secret-store ClusterSecretStore.
 echo "📦 Installing OpenBao..."
 kubectl create namespace cf-openbao --dry-run=client -o yaml | kubectl apply -f -
-grant_anyuid_scc cf-openbao
 
 helm template openbao ${SOURCES_DIR}/openbao/0.18.2 \
   --namespace cf-openbao \
@@ -678,7 +625,6 @@ echo ""
 # Depends on: OpenTelemetry Operator, Prometheus CRDs, External Secrets Operator
 echo "📦 Installing OTEL LGTM Stack (Prometheus, Grafana, Loki, Tempo)..."
 kubectl create namespace otel-lgtm-stack --dry-run=client -o yaml | kubectl apply -f -
-grant_anyuid_scc otel-lgtm-stack
 
 # Use values from cluster-forge with medium-sized resource overrides.
 # services.nodeExporter.metrics=9101: the bundled prometheus-node-exporter runs
@@ -726,7 +672,6 @@ echo ""
 # Depends on: OpenTelemetry Operator (for metrics), cert-manager (for webhooks)
 echo "📦 Installing KEDA..."
 kubectl create namespace keda --dry-run=client -o yaml | kubectl apply -f -
-grant_anyuid_scc keda
 helm template keda ${SOURCES_DIR}/keda/2.18.1 --namespace keda | ssa_apply
 
 # Wait for KEDA operator to be ready
@@ -779,9 +724,7 @@ echo ""
 echo "⏭️  Skipping Envoy Gateway installation (OpenShift: using native routing)"
 # Still create the namespaces since other components reference them
 kubectl create namespace envoy-gateway-system --dry-run=client -o yaml | kubectl apply -f -
-grant_anyuid_scc envoy-gateway-system
 kubectl create namespace cluster-auth --dry-run=client -o yaml | kubectl apply -f -
-grant_anyuid_scc cluster-auth
 echo ""
 
 # ============================================================================
@@ -806,7 +749,6 @@ if kserve_running kserve-system || kserve_running redhat-ods-applications; then
 else
   echo "📦 Installing KServe CRDs..."
   kubectl create namespace kserve-system --dry-run=client -o yaml | kubectl apply -f -
-  grant_anyuid_scc kserve-system
   helm template kserve-crds ${SOURCES_DIR}/kserve-crds/v0.16.0 --namespace kserve-system | ssa_apply
 
   echo "📦 Installing KServe operator..."
@@ -874,7 +816,6 @@ echo ""
 # Nodes with AMD GPUs are automatically labelled via NFD and the device plugin
 # advertises amd.com/gpu resources so workloads can request them.
 kubectl create namespace amd-gpu-operator --dry-run=client -o yaml | kubectl apply -f -
-grant_anyuid_scc amd-gpu-operator
 
 if kubectl get crd deviceconfigs.amd.com >/dev/null 2>&1; then
   echo "ℹ️  AMD GPU Operator already installed (deviceconfigs.amd.com CRD present) — skipping"
@@ -970,7 +911,6 @@ echo ""
 # Stage 1: Install CRDs
 echo "📦 Installing AIM Engine CRDs..."
 kubectl create namespace aim-system --dry-run=client -o yaml | kubectl apply -f -
-grant_anyuid_scc aim-system
 retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/aim-engine-crds/0.2.2/crds.yaml --namespace aim-system --recursive
 
 # Stage 2: Install AIM Engine operator
@@ -1000,7 +940,6 @@ echo ""
 
 echo "📦 Installing AIWB infrastructure..."
 kubectl create namespace aiwb --dry-run=client -o yaml | kubectl apply -f -
-grant_anyuid_scc aiwb
 
 # Create namespaces needed for secrets which don't exist yet
 NAMESPACES=(
@@ -1018,7 +957,6 @@ NAMESPACES=(
 
 for ns in "${NAMESPACES[@]}"; do
   kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
-  grant_anyuid_scc "$ns"
 done
 
 # Install AIWB secrets from local file
@@ -1252,7 +1190,6 @@ if [[ "${PLUGGABLE_S3}" != true ]]; then
   # Install MinIO Operator
   echo "  📦 Installing MinIO Operator..."
   kubectl create namespace minio-operator --dry-run=client -o yaml | kubectl apply -f -
-  grant_anyuid_scc minio-operator
   helm template minio-operator ${SOURCES_DIR}/minio-operator/7.1.1 \
     --namespace minio-operator \
     --set operator.replicaCount=1 \
@@ -1267,7 +1204,6 @@ if [[ "${PLUGGABLE_S3}" != true ]]; then
   # Install MinIO Tenant
   echo "  📦 Installing MinIO Tenant (default-bucket)..."
   kubectl create namespace minio-tenant-default --dry-run=client -o yaml | kubectl apply -f -
-  grant_anyuid_scc minio-tenant-default
 
   # Create tenant configuration secret
   kubectl create secret generic default-minio-tenant-env-configuration \
