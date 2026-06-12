@@ -38,9 +38,6 @@ enabledApps:
   - kyverno
   - kyverno-policies-base
   - metallb
-  - minio-operator
-  - minio-tenant
-  - minio-tenant-config
   - openbao
   - openbao-config
   - opentelemetry-operator
@@ -49,15 +46,22 @@ enabledApps:
   - rabbitmq
   
 apps:
-  minio-tenant:
+  seaweedfs-config:
     valuesObject:
-      tenant:
-        pools:
-          - name: pool-0
-            servers: 1
-            size: 500Gi
-            storageClassName: direct
-            volumesPerServer: 1
+      seaweed:
+        storageClassName: mlstorage
+        master:
+          replicas: 3
+          volumeSizeLimitMB: 1024
+        volume:
+          replicas: 3
+          requests:
+            storage: 500Gi
+        filer:
+          replicas: 1
+          requests:
+            storage: 30Gi
+
   openbao:
     valuesObject:
       server:

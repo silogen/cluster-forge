@@ -690,57 +690,39 @@ apps:
     namespace: default
     path: metallb/v0.15.2
     syncWave: 10
-  minio-operator:
-    namespace: minio-operator
-    path: minio-operator/7.1.1
-    syncWave: -10
-    valuesFile: values.yaml
-  minio-tenant:
-    namespace: minio-tenant-default
-    path: minio-tenant/7.1.1
-    syncWave: 0
-    valuesObject:
-      tenant:
-        buckets:
-          - name: default-bucket
-            objectLock: true
-          - name: models
-            objectLock: true
-        certificate:
-          externalCaCertSecret:
-            - name: cluster-tls
-              type: kubernetes.io/secret/v1
-          requestAutoCert: false
-        configSecret:
-          existingSecret: true
-          name: default-minio-tenant-env-configuration
-        env:
-          - name: MINIO_PROMETHEUS_AUTH_TYPE
-            value: "public"
-        name: default-minio-tenant
-        pools:
-          - name: pool-0
-            servers: 1
-            size: 250Gi # Reduced from 500Gi for workstation
-            storageClassName: direct
-            volumesPerServer: 1
-        users:
-          - name: default-user
-  minio-tenant-config:
+  seaweedfs-crds:
+    path: seaweedfs-crds/0.1.13
+    namespace: seaweedfs-operator
+    syncWave: -1
+  seaweedfs-operator:
     helmParameters:
       - name: domain
         value: "{{ .Values.global.domain }}"
-    ignoreDifferences:
-      - group: external-secrets.io
-        jqPathExpressions:
-          - ".spec.data[].remoteRef.conversionStrategy"
-          - ".spec.data[].remoteRef.decodingStrategy"
-          - ".spec.data[].remoteRef.metadataPolicy"
-        kind: ExternalSecret
-    namespace: minio-tenant-default
-    path: minio-tenant-config
-    syncWave: 0
+      - name: webhook.enabled
+        value: "false"
+    path: seaweedfs-operator/0.1.13
+    namespace: seaweedfs-operator
     valuesFile: values.yaml
+    syncWave: 0
+  seaweedfs-config:
+    valuesObject:
+      seaweed:
+        storageClassName: mlstorage
+        master:
+          replicas: 1
+          volumeSizeLimitMB: 1024
+        volume:
+          replicas: 1
+          requests:
+            storage: 250Gi
+        filer:
+          replicas: 1
+          requests:
+            storage: 10Gi
+    path: seaweedfs-config
+    namespace: seaweedfs-instance
+    valuesFile: values.yaml
+    syncWave: 0
   openbao:
     ignoreDifferences:
       - group: "apps"

@@ -1,0 +1,62 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: seaweedfs-es-s3-config
+  namespace: seaweedfs-instance
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao-secret-store
+  refreshInterval: 5m
+  target:
+    name: seaweedfs-s3-config
+    template:
+      data:
+        s3.json: |
+          {
+            "identities": [
+              {
+                "name": "Console",
+                "actions": [
+                  "Admin"
+                ],
+                "credentials": [
+                  {
+                    "accessKey": "{{ "{{" }}.CONSOLE_ACCESS_KEY{{ "}}"}}",
+                    "secretKey": "{{ "{{" }}.CONSOLE_SECRET_KEY{{ "}}"}}"
+                  }
+                ]
+              },
+              {
+                "name": "ApiUser",
+                "actions": [
+                  "Admin"
+                ],
+                "credentials": [
+                  {
+                    "accessKey": "{{ "{{" }}.API_ACCESS_KEY{{ "}}"}}",
+                    "secretKey": "{{ "{{" }}.API_SECRET_KEY{{ "}}"}}"
+                  }
+                ]
+              }
+            ] 
+          }
+  data:
+    - secretKey: API_ACCESS_KEY
+      remoteRef:
+        key: secrets/data/minio-api-access-key
+        property: value
+    - secretKey: API_SECRET_KEY
+      remoteRef:
+        key: secrets/data/minio-api-secret-key
+        property: value
+    - secretKey: CONSOLE_ACCESS_KEY
+      remoteRef:
+        key: secrets/data/minio-console-access-key
+        property: value
+    - secretKey: CONSOLE_SECRET_KEY
+      remoteRef:
+        key: secrets/data/minio-console-secret-key
+        property: value

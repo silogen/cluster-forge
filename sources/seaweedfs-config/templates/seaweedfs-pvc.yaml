@@ -1,0 +1,14 @@
+{{- with .Values.seaweed }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-seaweed-s3-metadata
+  namespace: seaweedfs-instance
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .filer.requests.storage  }}
+  storageClassName: {{ .storageClassName }}
+  {{- end }}

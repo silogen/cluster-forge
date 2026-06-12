@@ -1,0 +1,19 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: seaweed-admin-es-secret
+  namespace: seaweedfs-instance
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao-secret-store
+  refreshInterval: 5m
+  target:
+    name: seaweedfs-admin-secret
+  data:
+    - secretKey: admin-password 
+      remoteRef:
+        key: secrets/data/minio-root-password
+        property: value

@@ -104,8 +104,8 @@ See [Values Inheritance Pattern](docs/values_inheritance_pattern.md) for detaile
 
 **Storage & Database:**
 - **CNPG Operator 0.26.0** - CloudNativePG PostgreSQL operator
-- **MinIO Operator 7.1.1** - S3-compatible object storage operator
-- **MinIO Tenant 7.1.1** - Tenant deployment with default-bucket and models buckets
+- **SeaweedFS Operator** - S3-compatible object storage operator
+- **SeaweedFS Config** - S3 storage deployment with default-bucket, models, and datasets buckets
 
 ### Layer 3: Observability
 - **Prometheus Operator CRDs 23.0.0** - Metrics infrastructure
@@ -147,7 +147,7 @@ Three cluster profiles with inheritance-based resource optimization:
 - Single replica deployments
 - Reduced resource limits (ArgoCD controller: 2 CPU, 4Gi RAM)
 - Adds kyverno-policies-storage-local-path for RWX→RWO PVC mutation
-- MinIO tenant: 250Gi storage
+- SeaweedFS volume storage: 250Gi
 - Suitable for: Local workstations, development environments
 
 **Medium Clusters** (5-20 users, team production):
@@ -162,7 +162,7 @@ Three cluster profiles with inheritance-based resource optimization:
 - Requires a minimum of 20 CPU cores
 - OpenBao HA: 3 replicas with Raft consensus
 - No local-path policies (assumes distributed storage)
-- MinIO tenant: 500Gi storage
+- SeaweedFS volume storage: 500Gi
 - Production-grade resource allocation
 - Suitable for: Production deployments, multi-tenant environments
 

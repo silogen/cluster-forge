@@ -22,8 +22,8 @@ helm template aiwb-infra-cnpg ... \
   --set walStorage.storageClass=${DEFAULT_STORAGE_CLASS_NAME} \
 ...
 
-# MinIO Tenant (pluggable / optional component
-helm template minio-tenant ... \
-  --set tenant.pools[0].storageClassName=${DEFAULT_STORAGE_CLASS_NAME} \
+# SeaweedFS (pluggable / optional component)
+helm template seaweedfs-config ... \
+  --set seaweed.storageClassName=${DEFAULT_STORAGE_CLASS_NAME} \
   ...
 ```

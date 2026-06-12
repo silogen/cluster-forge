@@ -61,7 +61,7 @@ Three cluster profiles with inheritance-based resource optimization:
 - Single replica deployments (ArgoCD, Redis, etc.)
 - Reduced resource limits (ArgoCD controller: 2 CPU, 2Gi RAM)
 - Adds kyverno-policies-storage-local-path for RWX→RWO PVC mutation
-- MinIO tenant: 2Ti storage, single server
+- SeaweedFS volume storage: 2Ti, single volume server
 - Mix of local-path and direct storage classes
 - Suitable for: Local workstations, development environments
 
@@ -69,14 +69,14 @@ Three cluster profiles with inheritance-based resource optimization:
 - Single replica with moderate resource allocation
 - Same storage policies as small (local-path support)
 - ArgoCD controller: 1 CPU, 2Gi RAM
-- MinIO tenant: 2Ti storage
+- SeaweedFS volume storage: 2Ti
 - Uses direct storage class consistently
 - Suitable for: Small teams, staging environments
 
 **Large Clusters** (10s-100s users, enterprise scale):
 - OpenBao HA: 3 replicas with Raft consensus
 - No local-path policies (assumes distributed storage like Longhorn)
-- MinIO tenant: 500Gi storage
+- SeaweedFS volume storage: 500Gi
 - Production-grade resource allocation
 - Uses direct storage class for all persistent volumes
 - Suitable for: Production deployments, multi-tenant environments
@@ -130,8 +130,8 @@ The cluster-forge Application uses multi-source feature when externalValues.enab
 
 *Storage & Database:*
 - CNPG Operator 0.26.0 - CloudNativePG PostgreSQL operator
-- MinIO Operator 7.1.1 - S3-compatible object storage operator
-- MinIO Tenant 7.1.1 - Tenant deployment with default-bucket and models buckets
+- SeaweedFS Operator - S3-compatible object storage operator
+- SeaweedFS Config - S3 storage deployment with default-bucket, models, and datasets buckets
 
 **Layer 3: Observability** (Sync Wave -5 to -2)
 - Prometheus Operator CRDs 23.0.0 - Metrics infrastructure
@@ -145,7 +145,8 @@ The cluster-forge Application uses multi-source feature when externalValues.enab
 - Keycloak (keycloak-old chart) - Enterprise IAM with AIRM realm
   - Custom extensions via init containers (SilogenExtensionPackage.jar)
   - Realm import with domain-group-authenticator
-  - Client secrets for: AIRM, K8s, MinIO, Gitea, ArgoCD
+  - Client secrets for: AIRM, K8s, S3 (SeaweedFS), Gitea, ArgoCD
+  - Note: S3 credentials in OpenBao still use "minio-*" paths for backward compatibility
 
 **Layer 5: AI/ML Compute Stack** (Sync Wave -3 to 0)
 
@@ -350,7 +351,7 @@ Each major component has -config variant:
 - argocd-config: OIDC integration, RBAC policies, ExternalSecrets
 - gitea-config: Keycloak OAuth, repository templates
 - openbao-config: Policy definitions, secret paths, initialization scripts
-- minio-tenant-config: Bucket policies, user credentials, gateway routes
+- seaweedfs-config: S3 configuration, user credentials, gateway routes, bucket initialization
 
 ### Secrets Management Architecture
 
@@ -413,7 +414,7 @@ scripts/utils/import_rabbitmq.sh    # Restore queues and exchanges
 
 **Object Storage:**
 ```bash
-scripts/utils/mirror_minio.sh       # MinIO bucket synchronization
+scripts/utils/mirror-minio-to-seaweedfs-job.yaml  # MinIO to SeaweedFS migration job
 ```
 
 ### Observability Stack
@@ -458,7 +459,7 @@ Kueue manages scheduling for:
 - KServe Standard deployment mode
 - InferenceService CRD for models
 - Auto-scaling with KEDA
-- S3 model storage via MinIO
+- S3 model storage via SeaweedFS
 
 **GPU Support:**
 - AMD GPU Operator for device plugin

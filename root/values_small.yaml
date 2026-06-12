@@ -46,9 +46,9 @@ enabledApps:
   - kyverno-policies-base               # applicable to all cluster sizes
   - kyverno-policies-storage-local-path # small & medium cluster sizes only
   - metallb
-  - minio-operator
-  - minio-tenant
-  - minio-tenant-config
+  - seaweedfs-crds
+  - seaweedfs-operator
+  - seaweedfs-config  
   - openbao
   - openbao-config
   - opentelemetry-operator
@@ -125,29 +125,23 @@ apps:
       - group: kyverno.io
         kind: ClusterPolicy
     wave: 26  # Deploy after base policies
-  minio-tenant:
+
+  seaweedfs-config:
     valuesObject:
-      tenant:
-        buckets:
-          - name: default-bucket
-            objectLock: true
-          - name: models
-            objectLock: true
-          - name: datasets
-            objectLock: false
-        pools:
-          - name: pool-0
-            servers: 1
-            size: 2Ti
-            storageClassName: direct
-            volumesPerServer: 2
-        resources:
-          limits:
-            cpu: "4000m"
-            memory: "8Gi"
+      seaweed:
+        storageClassName: mlstorage
+        master:
+          replicas: 1
+          volumeSizeLimitMB: 1024
+        volume:
+          replicas: 1
           requests:
-            cpu: "1000m"
-            memory: "2Gi"
+            storage: 250Gi
+        filer:
+          replicas: 1
+          requests:
+            storage: 10Gi
+
   openbao:
     valuesObject:
       server:

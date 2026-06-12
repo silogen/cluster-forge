@@ -19,11 +19,12 @@ keycloak:
   secretName: "aiwb-ui-keycloak-secret"
   userCredentialsSecretName: "aiwb-user-credentials"
 
-# MinIO configuration
+# S3-compatible object storage configuration
+# Note: Named "minio" for backward compatibility, but used with SeaweedFS
 minio:
-  credentialsSecretName: "minio-credentials"
-  accessKeyKey: "minio-access-key"
-  secretKeyKey: "minio-secret-key"
+  credentialsSecretName: "minio-credentials"  # Secret name kept for backward compatibility
+  accessKeyKey: "minio-access-key"             # Key name kept for backward compatibility
+  secretKeyKey: "minio-secret-key"             # Key name kept for backward compatibility
 
 # ClusterAuth configuration (for API key management)
 clusterAuth:

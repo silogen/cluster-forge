@@ -41,9 +41,9 @@ enabledApps:
   - kyverno-policies-base
   - kyverno-policies-storage-local-path
   - metallb
-  - minio-operator
-  - minio-tenant
-  - minio-tenant-config
+  - seaweedfs-crds
+  - seaweedfs-operator
+  - seaweedfs-config
   - openbao
   - openbao-config
   - opentelemetry-operator
@@ -123,32 +123,23 @@ apps:
       # Increase memory resources for Keycloak to prevent OOMKilled during initialization
       # Medium preset provides 1536Mi memory limit vs small preset's 768Mi
       resourcesPreset: "medium"
-  minio-operator:
+
+  seaweedfs-config:
     valuesObject:
-      operator:
-        replicaCount: 1
-  minio-tenant:
-    valuesObject:
-      tenant:
-        buckets:
-          - name: default-bucket
-            objectLock: true
-          - name: models
-            objectLock: true
-          - name: datasets
-            objectLock: false
-        pools:
-          - name: pool-0
-            servers: 1
-            size: 2Ti
-            storageClassName: direct
-            volumesPerServer: 2
-        resources:
-          limits:
-            memory: "8Gi"
+      seaweed:
+        storageClassName: mlstorage
+        master:
+          replicas: 1
+          volumeSizeLimitMB: 1024
+        volume:
+          replicas: 1
           requests:
-            cpu: "500m"
-            memory: "2Gi"
+            storage: 500Gi
+        filer:
+          replicas: 1
+          requests:
+            storage: 50Gi
+
   openbao:
     valuesObject:
       server:
@@ -367,12 +358,6 @@ apps:
         requests:
           cpu: "50m"
           memory: "256Mi"
-  minio-tenant-config:
-    valuesObject:
-      resources:
-        requests:
-          cpu: "25m"
-          memory: "128Mi"
   openbao-config:
     valuesObject:
       resources:

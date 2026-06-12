@@ -1,0 +1,4 @@
+sourceUrl: https://github.com/seaweedfs/seaweedfs-operator/tree/master/deploy/helm
+sourceRepoName: seaweedfs-operator
+sourceChartName: seaweedfs-operator-crds
+sourceVersion: 0.1.13

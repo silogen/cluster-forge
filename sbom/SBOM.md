@@ -38,8 +38,8 @@
 | 32 | kyverno-policies-base | [base](https://github.com/silogen/cluster-forge/tree/main/sources/kyverno-policies) | https://github.com/kyverno/kyverno | [Apache License 2.0](https://github.com/kyverno/kyverno/blob/main/LICENSE) |
 | 33 | kyverno-policies-storage-local-path | [storage-local-path](https://github.com/silogen/cluster-forge/tree/main/sources/kyverno-policies/storage-local-path) | https://github.com/silogen/cluster-forge/ | [Apache License 2.0](https://github.com/silogen/cluster-forge/blob/main/LICENSE) |
 | 34 | metallb | [0.15.2](https://raw.githubusercontent.com/metallb/metallb/v0.15.2/config/manifests/metallb-native.yaml) | https://github.com/metallb/metallb/ | [Apache License 2.0](https://github.com/metallb/metallb/blob/main/LICENSE) |
-| 35 | minio-operator | [7.1.1](https://operator.min.io) | https://github.com/minio/operator | [GNU Affero General Public License v3.0](https://github.com/minio/operator/blob/master/LICENSE) |
-| 36 | minio-tenant | [7.1.1](https://operator.min.io) | https://github.com/minio/operator | [GNU Affero General Public License v3.0](https://github.com/minio/operator/blob/master/LICENSE) |
+| 35 | seaweedfs-operator | [0.1.13](https://github.com/seaweedfs/seaweedfs-operator) | https://github.com/seaweedfs/seaweedfs | [Apache License 2.0](https://github.com/seaweedfs/seaweedfs/blob/master/LICENSE) |
+| 36 | seaweedfs-config | [0.1.0](https://github.com/silogen/cluster-forge/tree/main/sources/seaweedfs-config) | https://github.com/seaweedfs/seaweedfs | [Apache License 2.0](https://github.com/seaweedfs/seaweedfs/blob/master/LICENSE) |
 | 37 | openbao | [0.18.2](https://openbao.github.io/openbao-helm) | https://github.com/openbao/openbao | [Mozilla Public License 2.0](https://github.com/openbao/openbao/blob/main/LICENSE) |
 | 38 | opentelemetry-operator | [0.93.1](https://open-telemetry.github.io/opentelemetry-helm-charts) | https://github.com/open-telemetry/opentelemetry-operator | [Apache License 2.0](https://github.com/open-telemetry/opentelemetry-operator/blob/main/LICENSE) |
 | 39 | otel-lgtm-stack | [1.0.7](https://github.com/silogen/docker-otel-lgtm) | https://github.com/grafana/docker-otel-lgtm | [Apache License 2.0](https://github.com/grafana/docker-otel-lgtm/blob/main/LICENSE) |
@@ -66,7 +66,7 @@
 | 14 | kserve-crds | [0.16.0](oci://ghcr.io/kserve/charts/kserve-crd) | https://github.com/kserve/kserve | [Apache License 2.0](https://github.com/kserve/kserve/blob/master/LICENSE) |
 | 15 | kuberay-operator | [1.4.2](https://ray-project.github.io/kuberay-helm/) | https://github.com/ray-project/kuberay | [Apache License 2.0](https://github.com/ray-project/kuberay/blob/master/LICENSE) |
 | 16 | kyverno | [3.5.1](https://kyverno.github.io/kyverno/) | https://github.com/kyverno/kyverno | [Apache License 2.0](https://github.com/kyverno/kyverno/blob/main/LICENSE) |
-| 17 | minio-operator | [7.1.1](https://operator.min.io) | https://github.com/minio/operator | [GNU Affero General Public License v3.0](https://github.com/minio/operator/blob/master/LICENSE) |
+| 17 | seaweedfs-operator | [0.1.13](https://github.com/seaweedfs/seaweedfs-operator) | https://github.com/seaweedfs/seaweedfs | [Apache License 2.0](https://github.com/seaweedfs/seaweedfs/blob/master/LICENSE) |
 | 18 | prometheus-crds | [23.0.0](https://prometheus-community.github.io/helm-charts) | https://github.com/prometheus-community/helm-charts | [Apache License 2.0](https://github.com/prometheus-community/helm-charts/blob/main/LICENSE) |
 
 ## Kubernetes Manifests
@@ -91,7 +91,7 @@
 | 16 | kyverno-policies-base | [base](https://github.com/silogen/cluster-forge/tree/main/sources/kyverno-policies) | https://github.com/kyverno/kyverno | [Apache License 2.0](https://github.com/kyverno/kyverno/blob/main/LICENSE) |
 | 17 | kyverno-policies-storage-local-path | [storage-local-path](https://github.com/silogen/cluster-forge/tree/main/sources/kyverno-policies/storage-local-path) | https://github.com/silogen/cluster-forge/ | [Apache License 2.0](https://github.com/silogen/cluster-forge/blob/main/LICENSE) |
 | 18 | metallb | [0.15.2](https://raw.githubusercontent.com/metallb/metallb/v0.15.2/config/manifests/metallb-native.yaml) | https://github.com/metallb/metallb/ | [Apache License 2.0](https://github.com/metallb/metallb/blob/main/LICENSE) |
-| 19 | minio-tenant | [7.1.1](https://operator.min.io) | https://github.com/minio/operator | [GNU Affero General Public License v3.0](https://github.com/minio/operator/blob/master/LICENSE) |
+| 19 | seaweedfs-config | [0.1.0](https://github.com/silogen/cluster-forge/tree/main/sources/seaweedfs-config) | https://github.com/seaweedfs/seaweedfs | [Apache License 2.0](https://github.com/seaweedfs/seaweedfs/blob/master/LICENSE) |
 | 20 | openbao | [0.18.2](https://openbao.github.io/openbao-helm) | https://github.com/openbao/openbao | [Mozilla Public License 2.0](https://github.com/openbao/openbao/blob/main/LICENSE) |
 | 21 | opentelemetry-operator | [0.93.1](https://open-telemetry.github.io/opentelemetry-helm-charts) | https://github.com/open-telemetry/opentelemetry-operator | [Apache License 2.0](https://github.com/open-telemetry/opentelemetry-operator/blob/main/LICENSE) |
 | 22 | otel-lgtm-stack | [1.0.7](https://github.com/silogen/docker-otel-lgtm) | https://github.com/grafana/docker-otel-lgtm | [Apache License 2.0](https://github.com/grafana/docker-otel-lgtm/blob/main/LICENSE) |
