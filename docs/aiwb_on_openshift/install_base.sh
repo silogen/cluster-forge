@@ -1444,8 +1444,10 @@ if [ ! -f "${ROUTES_FILE}" ]; then
     https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/test-aiwb/docs/aiwb_on_openshift/routes.yaml \
     -o "${ROUTES_FILE}"
 fi
-retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f "${ROUTES_FILE}"
-echo "✅ OpenShift Routes applied"
+# Substitute the ${DOMAIN} placeholder in the Route host fields with the cluster's
+# apps domain before applying (sed is used instead of envsubst for portability).
+sed "s|\${DOMAIN}|${DOMAIN}|g" "${ROUTES_FILE}" | ssa_apply
+echo "✅ OpenShift Routes applied (domain: ${DOMAIN})"
 echo ""
 
 echo "💡 Verification commands:"
