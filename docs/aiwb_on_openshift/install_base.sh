@@ -680,7 +680,11 @@ echo "📦 Installing OTEL LGTM Stack (Prometheus, Grafana, Loki, Tempo)..."
 kubectl create namespace otel-lgtm-stack --dry-run=client -o yaml | kubectl apply -f -
 grant_anyuid_scc otel-lgtm-stack
 
-# Use values from cluster-forge with medium-sized resource overrides
+# Use values from cluster-forge with medium-sized resource overrides.
+# services.nodeExporter.metrics=9101: the bundled prometheus-node-exporter runs
+# with hostNetwork on port 9100, which collides with OpenShift's built-in
+# cluster-monitoring node-exporter (also hostNetwork:9100) on every node, leaving
+# all node-exporter pods Pending ("didn't have free ports"). Move ours to 9101.
 helm template otel-lgtm-stack ${SOURCES_DIR}/otel-lgtm-stack/v1.0.7 \
   --namespace otel-lgtm-stack \
   --set cluster.name="${DOMAIN}" \
@@ -694,6 +698,7 @@ helm template otel-lgtm-stack ${SOURCES_DIR}/otel-lgtm-stack/v1.0.7 \
   --set dashboards.enabled=true \
   --set kubeStateMetrics.enabled=true \
   --set nodeExporter.enabled=true \
+  --set services.nodeExporter.metrics=9101 \
   --set lgtm.resources.requests.cpu=1 \
   --set lgtm.resources.requests.memory=2Gi \
   --set lgtm.resources.limits.memory=8Gi \
