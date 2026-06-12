@@ -879,34 +879,35 @@ fi
 # ============================================================================
 # Applied after the operator is running (CRDs must exist).
 # Detect the namespace the GPU operator controller-manager is actually running in.
-# NOTE: `|| true` is required. When no deployment carries this label (e.g. the
-# AMD GPU operator was installed another way, like the OpenShift-certified
-# operator), the jsonpath `{.items[0]...}` errors with "array index out of
-# bounds" and kubectl exits non-zero. Under `set -euo pipefail` that would abort
-# the whole script before the `:-amd-gpu-operator` fallback below can apply.
-AMD_GPU_NS=$(kubectl get deployment -A \
-  -l app.kubernetes.io/name=gpu-operator-charts \
-  -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null || true)
+# Detect the namespace where the AMD GPU operator controller-manager runs,
+# regardless of how it was installed: the Helm chart names it
+# "amd-gpu-operator-gpu-operator-charts-controller-manager", while the
+# OpenShift-certified operator names it "amd-gpu-operator-controller-manager"
+# (in e.g. openshift-amd-gpu). Match both by name pattern. `|| true` keeps the
+# pipeline from aborting under `set -euo pipefail` when nothing matches.
+AMD_GPU_NS=$(kubectl get deploy -A \
+  -o jsonpath='{range .items[*]}{.metadata.namespace}{" "}{.metadata.name}{"\n"}{end}' 2>/dev/null \
+  | awk '/amd-gpu-operator.*controller-manager/ {print $1; exit}' || true)
 AMD_GPU_NS="${AMD_GPU_NS:-amd-gpu-operator}"
 echo "ℹ️  AMD GPU Operator namespace: ${AMD_GPU_NS}"
 
-# Guard: deviceconfigs.amd.com CRD must exist before we can query or create a
-# DeviceConfig CR. Without this check, kubectl get deviceconfig fails with an API
-# error (not just "not found") when the CRD is absent, which aborts the script.
+# We only care whether a DeviceConfig already exists ANYWHERE in the cluster
+# (regardless of name/namespace). If one exists, the operator is already
+# configured and we leave it alone. If none exists, create one in the namespace
+# where the GPU operator actually runs (AMD_GPU_NS detected above).
+# Guard first on the CRD: kubectl get against a missing CRD errors out (which
+# would abort the script), so check the CRD is present before querying.
 if ! kubectl get crd deviceconfigs.amd.com >/dev/null 2>&1; then
   echo "⚠️  deviceconfigs.amd.com CRD not found — skipping AMD GPU Operator config"
+elif [ -n "$(kubectl get deviceconfigs.amd.com -A -o name 2>/dev/null)" ]; then
+  echo "ℹ️  A DeviceConfig already exists in the cluster — skipping AMD GPU Operator config"
 else
-  # Skipped if the DeviceConfig CR already exists to avoid re-triggering the operator.
-  if kubectl get deviceconfig gpu-operator -n "${AMD_GPU_NS}" >/dev/null 2>&1; then
-    echo "ℹ️  AMD GPU Operator config already applied — skipping"
-  else
-    echo "📦 Applying AMD GPU Operator config..."
-    helm template amd-gpu-operator-config ${SOURCES_DIR}/amd-gpu-operator-config \
-      --namespace "${AMD_GPU_NS}" \
-      --set namespace="${AMD_GPU_NS}" \
-      | ssa_apply -n "${AMD_GPU_NS}"
-    echo "✅ AMD GPU Operator config applied"
-  fi
+  echo "📦 No DeviceConfig found — applying AMD GPU Operator config in namespace ${AMD_GPU_NS}..."
+  helm template amd-gpu-operator-config ${SOURCES_DIR}/amd-gpu-operator-config \
+    --namespace "${AMD_GPU_NS}" \
+    --set namespace="${AMD_GPU_NS}" \
+    | ssa_apply -n "${AMD_GPU_NS}"
+  echo "✅ AMD GPU Operator config applied"
 fi
 echo ""
 
