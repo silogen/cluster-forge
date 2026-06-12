@@ -1,4 +1,4 @@
-# AMD Enterprise AI Suite - Backup and Restore Procedures
+# AMD Enterprise AI reference stack - Backup and Restore Procedures
 
 ⚠️ Important Notes & Disclaimers
   - The AMD Resouce Manager is internally referenced as `airm`, hence the namespace and resource prefixes (understand that they are the same). 
