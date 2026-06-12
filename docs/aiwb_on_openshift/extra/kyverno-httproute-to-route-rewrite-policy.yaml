@@ -1,0 +1,70 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  # Distinct name from the non-rewrite policy so both can co-exist;
+  # otherwise `kubectl apply -f` of both files silently overwrites one.
+  name: generate-routes-from-httproutes-rewrite
+  annotations:
+    policies.kyverno.io/title: Generate Rewrite Routes from HTTPRoutes
+    policies.kyverno.io/category: Generation
+    policies.kyverno.io/subject: Route
+    policies.kyverno.io/description: >-
+      Generates an OpenShift Route with the haproxy
+      `rewrite-target: /` annotation when an AIRM-owned Gateway API
+      HTTPRoute has a `URLRewrite` filter — i.e. the source HTTPRoute
+      strips its long path prefix before forwarding to the backend, so
+      the OpenShift router must do the same. Mutually exclusive with
+      `generate-routes-from-httproutes` (which handles the no-rewrite
+      case) via opposite preconditions on the URLRewrite filter.
+spec:
+  rules:
+  - name: generate-route-rule
+    match:
+      any:
+      - resources:
+          kinds:
+          - HTTPRoute
+          selector:
+            matchExpressions:
+            - key: airm.silogen.ai/workload-id
+              operator: Exists
+    # Only fire when the source HTTPRoute requests a path rewrite.
+    # Mutually exclusive with `generate-routes-from-httproutes`.
+    preconditions:
+      all:
+      - key: "{{ length(request.object.spec.rules[].filters[?type=='URLRewrite'][]) }}"
+        operator: GreaterThanOrEquals
+        value: 1
+    generate:
+      # Keep generated Routes in sync with their source HTTPRoute, and let
+      # the background controller self-heal if Kyverno's admission webhook
+      # was unavailable when the HTTPRoute was created/updated.
+      synchronize: true
+      apiVersion: route.openshift.io/v1
+      kind: Route
+      name: "{{request.object.metadata.name}}"
+      namespace: "{{request.object.metadata.namespace}}"
+      data:
+        metadata:
+          name: "{{request.object.metadata.name}}"
+          namespace: "{{request.object.metadata.namespace}}"
+          annotations:
+            haproxy.router.openshift.io/rewrite-target: /
+        spec:
+          # Share the AIWB UI host so the workspace URL the AIWB app shows
+          # (aiwbui.<DOMAIN>/workbench/...) is the one actually served. Routes
+          # on the same host are matched by longest path prefix, so these
+          # /workbench/<...> paths win over the aiwb-ui route at "/".
+          host: aiwbui.<DOMAIN>
+          path: "{{request.object.spec.rules[0].matches[0].path.value}}"
+          to:
+            kind: Service
+            name: "{{request.object.spec.rules[0].backendRefs[0].name}}"
+            weight: 100
+          port:
+            targetPort: http
+          tls:
+            termination: edge
+            insecureEdgeTerminationPolicy: Redirect
+          wildcardPolicy: None

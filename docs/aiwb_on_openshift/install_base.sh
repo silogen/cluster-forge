@@ -93,6 +93,39 @@ kwait() {
   retry kubectl wait --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" "$@"
 }
 
+# detect_amd_gpu_ns : print the namespace where the AMD GPU operator
+# controller-manager runs (or will run), regardless of install method. The Helm
+# chart names it "amd-gpu-operator-gpu-operator-charts-controller-manager"
+# (namespace amd-gpu-operator), while the OpenShift OLM-certified operator names
+# it "amd-gpu-operator-controller-manager" (e.g. openshift-amd-gpu). The
+# namespace is therefore unpredictable; we look it up at runtime and fall back
+# to "amd-gpu-operator" (where this script installs the operator on a clean
+# cluster). The operator and its DeviceConfig MUST share this namespace, and the
+# otel collector's GPU scrape job must target it too.
+detect_amd_gpu_ns() {
+  local ns
+  ns=$(kubectl get deploy -A \
+    -o jsonpath='{range .items[*]}{.metadata.namespace}{" "}{.metadata.name}{"\n"}{end}' 2>/dev/null \
+    | awk '/amd-gpu-operator.*controller-manager/ {print $1; exit}' || true)
+  printf '%s' "${ns:-amd-gpu-operator}"
+}
+
+# ensure_extra_file <abs_path_under_docs/aiwb_on_openshift/extra> : make sure an
+# extra/ manifest exists locally, fetching it from the test-aiwb branch if the
+# cloned branch does not include it yet. (Same WORKAROUND used for scc.yaml,
+# routes.yaml, kyverno-scc-for-ns.yaml — remove once these are merged to main.)
+ensure_extra_file() {
+  local f="$1" base
+  base="$(basename "${f}")"
+  if [ ! -f "${f}" ]; then
+    echo "ℹ️  ${base} not in cloned branch '${CLUSTER_FORGE_BRANCH}'; fetching from test-aiwb..."
+    mkdir -p "$(dirname "${f}")"
+    retry curl -fsSL \
+      "https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/test-aiwb/docs/aiwb_on_openshift/extra/${base}" \
+      -o "${f}"
+  fi
+}
+
 PLUGGABLE_DB=${PLUGGABLE_DB:-false}
 PLUGGABLE_S3=${PLUGGABLE_S3:-false}
 
@@ -366,17 +399,42 @@ echo ""
 # manage SecurityContextConstraints (the kyverno-scc-generator ClusterRole and
 # binding) is applied earlier from extra/scc.yaml, so by now it already exists.
 echo "📦 Installing extra OpenShift Kyverno policies..."
-KYVERNO_SCC_POLICY_FILE="${CLUSTER_FORGE_DIR}/docs/aiwb_on_openshift/extra/kyverno-scc-for-ns.yaml"
-# WORKAROUND: kyverno-scc-for-ns.yaml currently only lives on the test-aiwb branch
-# (same as scc.yaml/routes.yaml). Fetch it from test-aiwb if missing from the clone.
-if [ ! -f "${KYVERNO_SCC_POLICY_FILE}" ]; then
-  echo "ℹ️  kyverno-scc-for-ns.yaml not in cloned branch '${CLUSTER_FORGE_BRANCH}'; fetching from test-aiwb..."
-  mkdir -p "$(dirname "${KYVERNO_SCC_POLICY_FILE}")"
-  retry curl -fsSL \
-    https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/test-aiwb/docs/aiwb_on_openshift/extra/kyverno-scc-for-ns.yaml \
-    -o "${KYVERNO_SCC_POLICY_FILE}"
-fi
+EXTRA_DIR="${CLUSTER_FORGE_DIR}/docs/aiwb_on_openshift/extra"
+KYVERNO_SCC_POLICY_FILE="${EXTRA_DIR}/kyverno-scc-for-ns.yaml"
+ensure_extra_file "${KYVERNO_SCC_POLICY_FILE}"
 ssa_apply < "${KYVERNO_SCC_POLICY_FILE}"
+
+# HTTPRoute -> OpenShift Route automation. AIWB exposes workspace apps via
+# Gateway API HTTPRoutes (labelled airm.silogen.ai/workload-id). On OpenShift
+# there is no Gateway controller serving them, so these Kyverno policies watch
+# those HTTPRoutes and generate a matching OpenShift Route automatically.
+#   1. RBAC first  — lets the Kyverno admission/background controllers manage
+#      Routes (incl. routes/custom-host, required to set spec.host).
+#   2. Policies    — the non-rewrite + rewrite variants. They hard-code the host
+#      as "workloads.<DOMAIN>", so substitute the real cluster domain on the fly
+#      (local apply-time patch; sources/extra files stay branch-default).
+echo "📦 Installing HTTPRoute->Route Kyverno policies..."
+# OpenShift's default route admission is "Strict": a Route in one namespace
+# cannot claim a hostname already owned by a Route in another namespace. The
+# policies below generate workspace Routes on the AIWB UI host (aiwbui.<DOMAIN>,
+# owned by the aiwb namespace) under distinct /workbench/<...> paths, but those
+# Routes live in the per-workspace namespaces (e.g. workbench). Without this they
+# are rejected with "HostAlreadyClaimed". InterNamespaceAllowed permits sharing a
+# host across namespaces (path-based), which is exactly what AIWB needs.
+echo "🔧 Allowing inter-namespace route host sharing (workspace Routes share the AIWB UI host)..."
+retry kubectl patch ingresscontroller default -n openshift-ingress-operator --type=merge \
+  -p '{"spec":{"routeAdmission":{"namespaceOwnership":"InterNamespaceAllowed"}}}'
+KYVERNO_ROUTE_RBAC_FILE="${EXTRA_DIR}/kyverno-route-permissions.yaml"
+KYVERNO_ROUTE_POLICY_FILE="${EXTRA_DIR}/kyverno-httproute-to-route-non-rewrite-policy.yaml"
+KYVERNO_ROUTE_REWRITE_POLICY_FILE="${EXTRA_DIR}/kyverno-httproute-to-route-rewrite-policy.yaml"
+ensure_extra_file "${KYVERNO_ROUTE_RBAC_FILE}"
+ensure_extra_file "${KYVERNO_ROUTE_POLICY_FILE}"
+ensure_extra_file "${KYVERNO_ROUTE_REWRITE_POLICY_FILE}"
+# RBAC must exist before the generate policies so Kyverno can create Routes.
+ssa_apply < "${KYVERNO_ROUTE_RBAC_FILE}"
+sed "s|<DOMAIN>|${DOMAIN}|g" "${KYVERNO_ROUTE_POLICY_FILE}" | ssa_apply
+sed "s|<DOMAIN>|${DOMAIN}|g" "${KYVERNO_ROUTE_REWRITE_POLICY_FILE}" | ssa_apply
+
 echo "✅ Extra OpenShift Kyverno policies installed"
 echo ""
 
@@ -626,6 +684,15 @@ echo ""
 echo "📦 Installing OTEL LGTM Stack (Prometheus, Grafana, Loki, Tempo)..."
 kubectl create namespace otel-lgtm-stack --dry-run=client -o yaml | kubectl apply -f -
 
+# The otel-collector-metrics-rest scrape config (in sources, kept pristine)
+# discovers the AMD GPU metrics exporter pods in the hard-coded upstream default
+# namespace "kube-amd-gpu". On this cluster the operator may run elsewhere (e.g.
+# openshift-amd-gpu), so that job would find zero targets and no GPU metrics
+# (gpu_gfx_activity, ...) would reach Prometheus. Detect the real namespace and
+# rewrite it on the fly below — a local, apply-time patch (sources stay default).
+AMD_GPU_NS="$(detect_amd_gpu_ns)"
+echo "ℹ️  AMD GPU Operator namespace (for otel GPU scrape job): ${AMD_GPU_NS}"
+
 # Use values from cluster-forge with medium-sized resource overrides.
 # services.nodeExporter.metrics=9101: the bundled prometheus-node-exporter runs
 # with hostNetwork on port 9100, which collides with OpenShift's built-in
@@ -654,6 +721,7 @@ helm template otel-lgtm-stack ${SOURCES_DIR}/otel-lgtm-stack/v1.0.7 \
   --set lgtm.storage.tempo=50Gi \
   --set lgtm.storage.extra=50Gi \
   | sed 's#external-secrets.io/v1beta1#external-secrets.io/v1#g' \
+  | sed "s#kube-amd-gpu#${AMD_GPU_NS}#g" \
   | ssa_apply
 
 # Wait for main LGTM components
@@ -869,18 +937,11 @@ fi
 # ============================================================================
 # AMD GPU OPERATOR CONFIG (DeviceConfig + metrics ConfigMap + RBAC)
 # ============================================================================
-# Applied after the operator is running (CRDs must exist).
-# Detect the namespace the GPU operator controller-manager is actually running in.
-# Detect the namespace where the AMD GPU operator controller-manager runs,
-# regardless of how it was installed: the Helm chart names it
-# "amd-gpu-operator-gpu-operator-charts-controller-manager", while the
-# OpenShift-certified operator names it "amd-gpu-operator-controller-manager"
-# (in e.g. openshift-amd-gpu). Match both by name pattern. `|| true` keeps the
-# pipeline from aborting under `set -euo pipefail` when nothing matches.
-AMD_GPU_NS=$(kubectl get deploy -A \
-  -o jsonpath='{range .items[*]}{.metadata.namespace}{" "}{.metadata.name}{"\n"}{end}' 2>/dev/null \
-  | awk '/amd-gpu-operator.*controller-manager/ {print $1; exit}' || true)
-AMD_GPU_NS="${AMD_GPU_NS:-amd-gpu-operator}"
+# Applied after the operator is running (CRDs must exist). The DeviceConfig MUST
+# be created in the same namespace as the operator (see detect_amd_gpu_ns). We
+# re-detect here because, on a clean cluster, the operator is installed by the
+# section above and its namespace is only certain now.
+AMD_GPU_NS="$(detect_amd_gpu_ns)"
 echo "ℹ️  AMD GPU Operator namespace: ${AMD_GPU_NS}"
 
 # We only care whether a DeviceConfig already exists ANYWHERE in the cluster
@@ -900,6 +961,54 @@ else
     --set namespace="${AMD_GPU_NS}" \
     | ssa_apply -n "${AMD_GPU_NS}"
   echo "✅ AMD GPU Operator config applied"
+fi
+echo ""
+
+# ============================================================================
+# AMD GPU NODE LABEL (NodeFeatureRule fallback)
+# ============================================================================
+# The AMD GPU operator's device-plugin / metrics-exporter / node-labeller
+# DaemonSets select on feature.node.kubernetes.io/amd-gpu=true. That label is
+# produced by an NFD rule shipped inside the operator's own
+# NodeFeatureDiscovery instance — but if another NodeFeatureDiscovery instance
+# (e.g. a generic "nfd-instance") owns the shared "nfd-worker" DaemonSet, the
+# operator's rule is shadowed and never runs. AMD GPU nodes then stay
+# unlabelled, the DaemonSets sit at DESIRED=0, and amd.com/gpu capacity is 0 —
+# GPU workloads remain Pending with "Insufficient amd.com/gpu".
+#
+# Guard against that: if AMD GPU hardware (PCI vendor 1002) is present but no
+# node carries the amd-gpu label, apply a standalone NodeFeatureRule. It is
+# processed by nfd-master directly (independent of which worker config is
+# active), so it labels the nodes regardless of the instance collision.
+if kubectl get crd nodefeaturerules.nfd.k8s-sigs.io >/dev/null 2>&1; then
+  AMD_HW_NODES=$(kubectl get nodes -l feature.node.kubernetes.io/pci-1002.present=true -o name 2>/dev/null | wc -l | tr -d ' ')
+  AMD_LABELLED_NODES=$(kubectl get nodes -l feature.node.kubernetes.io/amd-gpu=true -o name 2>/dev/null | wc -l | tr -d ' ')
+  if [ "${AMD_HW_NODES}" != "0" ] && [ "${AMD_LABELLED_NODES}" = "0" ]; then
+    echo "⚠️  AMD GPU hardware detected but no node has feature.node.kubernetes.io/amd-gpu=true"
+    echo "📦 Applying NodeFeatureRule to label AMD GPU nodes..."
+    NFR_FILE="${CLUSTER_FORGE_DIR}/docs/aiwb_on_openshift/extra/amd-gpu-nodefeaturerule.yaml"
+    # WORKAROUND: same as scc.yaml — the manifest currently only lives on the
+    # test-aiwb branch; fetch it if the cloned branch does not include it.
+    if [ ! -f "${NFR_FILE}" ]; then
+      echo "ℹ️  amd-gpu-nodefeaturerule.yaml not in cloned branch '${CLUSTER_FORGE_BRANCH}'; fetching from test-aiwb..."
+      mkdir -p "$(dirname "${NFR_FILE}")"
+      retry curl -fsSL \
+        https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/test-aiwb/docs/aiwb_on_openshift/extra/amd-gpu-nodefeaturerule.yaml \
+        -o "${NFR_FILE}"
+    fi
+    retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f "${NFR_FILE}"
+    echo "⏳ Waiting for nodes to receive the amd-gpu label..."
+    for i in $(seq 1 12); do
+      if [ "$(kubectl get nodes -l feature.node.kubernetes.io/amd-gpu=true -o name 2>/dev/null | wc -l | tr -d ' ')" != "0" ]; then
+        echo "✅ AMD GPU nodes labelled"
+        break
+      fi
+      echo "  attempt ${i}/12 - not yet labelled, retrying..."
+      sleep 5
+    done
+  else
+    echo "ℹ️  AMD GPU node labelling OK (hw nodes: ${AMD_HW_NODES}, labelled: ${AMD_LABELLED_NODES}) — skipping NodeFeatureRule"
+  fi
 fi
 echo ""
 
