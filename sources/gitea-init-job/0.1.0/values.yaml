@@ -31,6 +31,10 @@ gpuStackFamily: null
 # Example: "amd-gpu-operator/v1.4.1"
 gpuOperatorPath: null
 
+# GPU Operator config ArgoCD app path for the resolved family (injected by cluster-bloom).
+# Example: "amd-gpu-operator-config/v1.4.1"
+gpuOperatorConfigPath: null
+
 # DeviceConfig out-of-tree driver ROCm version for the resolved family (injected by cluster-bloom).
 # Example: "7.0"
 gpuDeviceConfigDriverVersion: null
