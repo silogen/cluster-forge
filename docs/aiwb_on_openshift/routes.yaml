@@ -64,3 +64,154 @@ spec:
   wildcardPolicy: None
   path: ''
   alternateBackends: []
+
+# Example of valid Route replacement for HTTPRoute
+# https://workspaces.apps.gpu4.fusion.isys.hpc.dc.uq.edu.au/55d8cdfb-b783-4c9e-896c-af36101d8f31/593eaf79-b3a4-46ac-8966-563678a656bb/204cca2a-bfe1-40b9-a2ac-fc689fa07dd0/
+# ---
+# apiVersion: route.openshift.io/v1
+# kind: Route
+# metadata:
+#   name: mw-dev-workspace-vscode-1773829460-204c # AIRM-SERVICE-NAME
+#   namespace: demo
+#   annotations:
+#     haproxy.router.openshift.io/rewrite-target: /
+# spec:
+#   host: workspaces.apps.gpu4.fusion.isys.hpc.dc.uq.edu.au
+#   path: /55d8cdfb-b783-4c9e-896c-af36101d8f31/593eaf79-b3a4-46ac-8966-563678a656bb/204cca2a-bfe1-40b9-a2ac-fc689fa07dd0 # AIRM-WORKLOAD-PATH
+#   to:
+#     kind: Service
+#     name: mw-dev-workspace-vscode-1773829460-204c # AIRM-SERVICE-NAME
+#     weight: 100
+#   port:
+#     targetPort: http
+#   tls:
+#     termination: edge
+#     insecureEdgeTerminationPolicy: Redirect
+#   wildcardPolicy: None
+
+
+# Example of valid Route replacement for HTTPRoute
+# https://workspaces.apps.gpu4.fusion.isys.hpc.dc.uq.edu.au/55d8cdfb-b783-4c9e-896c-af36101d8f31/593eaf79-b3a4-46ac-8966-563678a656bb/204cca2a-bfe1-40b9-a2ac-fc689fa07dd0/
+# ---
+# apiVersion: route.openshift.io/v1
+# kind: Route
+# metadata:
+#   name: mw-dev-workspace-vscode-1773829460-204c # AIRM-SERVICE-NAME
+#   namespace: demo
+#   annotations:
+#     haproxy.router.openshift.io/rewrite-target: /
+# spec:
+#   host: workspaces.apps.gpu4.fusion.isys.hpc.dc.uq.edu.au
+#   path: /55d8cdfb-b783-4c9e-896c-af36101d8f31/593eaf79-b3a4-46ac-8966-563678a656bb/204cca2a-bfe1-40b9-a2ac-fc689fa07dd0 # AIRM-WORKLOAD-PATH
+#   to:
+#     kind: Service
+#     name: mw-dev-workspace-vscode-1773829460-204c # AIRM-SERVICE-NAME
+#     weight: 100
+#   port:
+#     targetPort: http
+#   tls:
+#     termination: edge
+#     insecureEdgeTerminationPolicy: Redirect
+#   wildcardPolicy: None
+
+########################################################################################################################
+### Openshift TEST
+# 1. This is a generated route manifest for a vscode:
+
+# apiVersion: v1
+# items:
+# - apiVersion: gateway.networking.k8s.io/v1
+#   kind: HTTPRoute
+#   metadata:
+#     finalizers:
+#     - airm.silogen.ai/workloads-finalizer
+#     labels:
+#       airm.silogen.ai/workload-id: 9f343b3c-4986-4b1d-b063-5bd77dcc0baa
+#     name: wb-dev-workspace-vscode-1776934069-9f34
+#     namespace: demo
+#   spec:
+#     parentRefs:
+#     - group: gateway.networking.k8s.io
+#       kind: Gateway
+#       name: https
+#       namespace: kgateway-system
+#     rules:
+#     - backendRefs:
+#       - group: ""
+#         kind: Service
+#         name: wb-dev-workspace-vscode-1776934069-9f34
+#         port: 80
+#         weight: 1
+#       filters:
+#       - type: URLRewrite
+#         urlRewrite:
+#           path:
+#             replacePrefixMatch: /
+#             type: ReplacePrefixMatch
+#       matches:
+#       - path:
+#           type: PathPrefix
+#           value: /demo/devuser-apps-gpu4-fusion-isys-hpc-dc-uq-edu-au/9f343b3c-4986-4b1d-b063-5bd77dcc0baa
+# kind: List
+# metadata:
+#   resourceVersion: ""
+
+# # 2. This is the similar Route manifest :
+
+# ---
+# apiVersion: route.openshift.io/v1
+# kind: Route
+# metadata:
+#   name: wb-dev-workspace-vscode-1776934069-9f34 # AIRM-SERVICE-NAME
+#   namespace: demo # AIRM PROJECT NAMESPACE
+#   annotations:
+#     haproxy.router.openshift.io/rewrite-target: /
+# spec:
+#   host: workloads.apps.gpu4.fusion.isys.hpc.dc.uq.edu.au
+#   path: /demo/devuser-apps-gpu4-fusion-isys-hpc-dc-uq-edu-au/9f343b3c-4986-4b1d-b063-5bd77dcc0baa # AIRM-WORKLOAD-PATH
+#   to:
+#     kind: Service
+#     name: wb-dev-workspace-vscode-1776934069-9f34 # AIRM-SERVICE-NAME
+#     weight: 100
+#   port:
+#     targetPort: http
+#   tls:
+#     termination: edge
+#     insecureEdgeTerminationPolicy: Redirect
+#   wildcardPolicy: None
+
+
+# # 3. This works for jupyterlab
+# ---
+# apiVersion: route.openshift.io/v1
+# kind: Route
+# metadata:
+#   name: wb-dev-workspace-jupyterlab-1776942675-0472 # AIRM-SERVICE-NAME
+#   namespace: demo # AIRM PROJECT NAMESPACE
+#   # NOTE: This is intentionally commented, so not needed for jupyterlab
+#   # annotations:
+#   #   haproxy.router.openshift.io/rewrite-target: /
+#   # NOTE: This is intentionally commented, so not needed for jupyterlab
+# spec:
+#   host: workloads.apps.gpu4.fusion.isys.hpc.dc.uq.edu.au
+#   path: /demo/devuser-apps-gpu4-fusion-isys-hpc-dc-uq-edu-au/04724632-c44e-41c2-9dc6-bca724e9cd5d # AIRM-WORKLOAD-PATH
+#   to:
+#     kind: Service
+#     name: wb-dev-workspace-jupyterlab-1776942675-0472 # AIRM-SERVICE-NAME
+#     weight: 100
+#   port:
+#     targetPort: http
+#   tls:
+#     termination: edge
+#     insecureEdgeTerminationPolicy: Redirect
+#   wildcardPolicy: None
+
+
+# This works:
+# https://workspaces.apps.gpu4.fusion.isys.hpc.dc.uq.edu.au/demo/devuser-apps-gpu4-fusion-isys-hpc-dc-uq-edu-au/9f343b3c-4986-4b1d-b063-5bd77dcc0baa/?folder=/workload
+# https://workloads.apps.gpu4.fusion.isys.hpc.dc.uq.edu.au/demo/devuser-apps-gpu4-fusion-isys-hpc-dc-uq-edu-au/9f343b3c-4986-4b1d-b063-5bd77dcc0baa/?folder=/workload
+
+# This does not work:
+# https://workloads.apps.gpu4.fusion.isys.hpc.dc.uq.edu.au/demo/devuser-apps-gpu4-fusion-isys-hpc-dc-uq-edu-au/9f343b3c-4986-4b1d-b063-5bd77dcc0baa/?folder=/workload
+
+
