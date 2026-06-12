@@ -879,9 +879,14 @@ fi
 # ============================================================================
 # Applied after the operator is running (CRDs must exist).
 # Detect the namespace the GPU operator controller-manager is actually running in.
+# NOTE: `|| true` is required. When no deployment carries this label (e.g. the
+# AMD GPU operator was installed another way, like the OpenShift-certified
+# operator), the jsonpath `{.items[0]...}` errors with "array index out of
+# bounds" and kubectl exits non-zero. Under `set -euo pipefail` that would abort
+# the whole script before the `:-amd-gpu-operator` fallback below can apply.
 AMD_GPU_NS=$(kubectl get deployment -A \
   -l app.kubernetes.io/name=gpu-operator-charts \
-  -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null)
+  -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null || true)
 AMD_GPU_NS="${AMD_GPU_NS:-amd-gpu-operator}"
 echo "ℹ️  AMD GPU Operator namespace: ${AMD_GPU_NS}"
 
