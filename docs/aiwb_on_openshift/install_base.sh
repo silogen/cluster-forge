@@ -231,20 +231,6 @@ retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f "${SCC_FIL
 echo "✅ Custom SCCs applied"
 
 # ============================================================================
-# TEMP SKIP MODE — remove when done iterating
-# ============================================================================
-# When SKIP_UNTIL_EXTERNAL_SECRETS=true, jump straight from the SCC apply above
-# to the External Secrets Operator step, skipping every component in between
-# (local-path, CNPG, Kyverno, Kyverno policies, Prometheus CRDs, cert-manager,
-# OpenTelemetry Operator/MetalLB). Intended for fast iteration on an
-# already-partially-installed cluster where those components already exist.
-# Set SKIP_UNTIL_EXTERNAL_SECRETS=false to run them.
-SKIP_UNTIL_EXTERNAL_SECRETS="${SKIP_UNTIL_EXTERNAL_SECRETS:-true}"
-if [ "${SKIP_UNTIL_EXTERNAL_SECRETS}" = "true" ]; then
-  echo "⏭️  SKIP MODE ON: skipping all steps between SCC apply and External Secrets Operator"
-else
-
-# ============================================================================
 # LOCAL-PATH PROVISIONER & DEFAULT STORAGE CLASS
 # ============================================================================
 # RKE2 ships with rancher.io/local-path provisioner built-in, but may not have
@@ -1189,8 +1175,6 @@ echo "⏳ Waiting for cluster-auth shim to be ready..."
 kwait --for=condition=available --timeout=60s deployment/cluster-auth -n cluster-auth
 echo "✅ cluster-auth shim is ready"
 echo ""
-
-fi  # end TEMP SKIP MODE guard (SKIP_UNTIL_EXTERNAL_SECRETS)
 
 # ============================================================================
 # AIWB DATABASE CLUSTER
