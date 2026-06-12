@@ -115,7 +115,7 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
   amd-gpu-operator:
     namespace: kube-amd-gpu
-    path: amd-gpu-operator/v1.4.1
+    path: amd-gpu-operator/v1.5.1-beta.0
     syncWave: -10
     valuesObject:
       crds:
