@@ -488,7 +488,7 @@ kwait --for=condition=available --timeout=120s deployment/opentelemetry-operator
 echo "✅ OpenTelemetry Operator and MetalLB are ready"
 echo ""
 
-fi  # end TEMP SKIP MODE guard (SKIP_UNTIL_EXTERNAL_SECRETS)
+
 
 # ============================================================================
 # EXTERNAL SECRETS OPERATOR
@@ -813,6 +813,8 @@ fi
 
 echo "✅ KServe is ready"
 echo ""
+
+fi  # end TEMP SKIP MODE guard (SKIP_UNTIL_EXTERNAL_SECRETS)
 
 # ============================================================================
 # AMD GPU OPERATOR
