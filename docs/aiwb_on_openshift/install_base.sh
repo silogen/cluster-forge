@@ -814,8 +814,6 @@ fi
 echo "✅ KServe is ready"
 echo ""
 
-fi  # end TEMP SKIP MODE guard (SKIP_UNTIL_EXTERNAL_SECRETS)
-
 # ============================================================================
 # AMD GPU OPERATOR
 # ============================================================================
@@ -1131,6 +1129,8 @@ echo "⏳ Waiting for cluster-auth shim to be ready..."
 kwait --for=condition=available --timeout=60s deployment/cluster-auth -n cluster-auth
 echo "✅ cluster-auth shim is ready"
 echo ""
+
+fi  # end TEMP SKIP MODE guard (SKIP_UNTIL_EXTERNAL_SECRETS)
 
 # ============================================================================
 # AIWB DATABASE CLUSTER
