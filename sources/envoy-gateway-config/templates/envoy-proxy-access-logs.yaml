@@ -6,6 +6,10 @@ metadata:
   name: access-logging-config
   namespace: envoy-gateway-system
 spec:
+  filterOrder:
+    - name: envoy.filters.http.ext_proc
+      relativeTo: envoy.filters.http.ext_authz
+      position: Before
   provider:
     type: Kubernetes
     kubernetes:
