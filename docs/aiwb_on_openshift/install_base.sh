@@ -1148,7 +1148,10 @@ if [[ "${PLUGGABLE_DB}" != true ]]; then
 
   echo "⏳ Waiting for AIWB database cluster to be ready..."
   sleep 2
-  until kubectl get cluster -n aiwb -o jsonpath='{.items[0].status.phase}' 2>/dev/null | grep -q "Cluster in healthy state"; do
+  # Use the fully-qualified resource name: on OpenShift several CRDs register the
+  # short name "cluster" (IBM ISF, NooBaa, GPFS, CNPG), so `kubectl get cluster`
+  # resolves to the wrong group and never sees the CNPG cluster, hanging forever.
+  until kubectl get clusters.postgresql.cnpg.io -n aiwb -o jsonpath='{.items[0].status.phase}' 2>/dev/null | grep -q "Cluster in healthy state"; do
     echo "  Still waiting for AIWB PostgreSQL cluster..."
     sleep 5
   done
@@ -1318,7 +1321,8 @@ fi
 if [[ "${PLUGGABLE_DB}" != true ]]; then
   echo "⏳ Waiting for Keycloak database cluster to be ready..."
   sleep 5
-  until kubectl get cluster keycloak-cnpg -n keycloak -o jsonpath='{.status.phase}' 2>/dev/null | grep -q "Cluster in healthy state"; do
+  # Fully-qualified name to avoid the ambiguous "cluster" short name on OpenShift.
+  until kubectl get clusters.postgresql.cnpg.io keycloak-cnpg -n keycloak -o jsonpath='{.status.phase}' 2>/dev/null | grep -q "Cluster in healthy state"; do
     echo "  Still waiting for PostgreSQL cluster..."
     sleep 5
   done
@@ -1389,7 +1393,7 @@ echo "   kubectl get pods -n otel-lgtm-stack"
 echo "   kubectl get pods -n cnpg-system"
 # echo "   kubectl get pods -n rabbitmq-system"
 echo "   kubectl get pods -n amd-gpu-operator"
-echo "   kubectl get cluster --all-namespaces"
+echo "   kubectl get clusters.postgresql.cnpg.io --all-namespaces"
 echo ""
 if [ "$DOMAIN" = "localhost" ]; then
   GATEWAY_IP=$(kubectl get gateway https -n envoy-gateway-system -o jsonpath='{.status.addresses[0].value}' 2>/dev/null || echo "pending")
