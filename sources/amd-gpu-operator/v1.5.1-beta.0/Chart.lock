@@ -1,0 +1,12 @@
+dependencies:
+- name: node-feature-discovery
+  repository: https://kubernetes-sigs.github.io/node-feature-discovery/charts
+  version: 0.18.3
+- name: kmm
+  repository: file://./charts/kmm
+  version: v1.0.0
+- name: remediation-crds
+  repository: file://./charts/remediation-crds
+  version: v1.0.0
+digest: sha256:0806f6b6d7aa21be77bf1c91e720ae3238338a16f107df450a53b02ef940db1b
+generated: "2026-06-04T05:35:05.459721221Z"
