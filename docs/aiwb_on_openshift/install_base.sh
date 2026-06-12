@@ -383,6 +383,61 @@ echo "✅ Kyverno policies installed"
 echo ""
 
 # ============================================================================
+# EXTRA OPENSHIFT KYVERNO POLICIES
+# ============================================================================
+# generate-scc-on-namespaces: auto-generates a per-project OpenShift SCC for any
+# Namespace labelled airm.silogen.ai/project-id. The Kyverno background-controller
+# performs the generate, so it needs RBAC to manage SecurityContextConstraints —
+# the default Kyverno ClusterRole does not grant that, so add it here first.
+echo "📦 Installing extra OpenShift Kyverno policies..."
+retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f - <<'EOF'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno-scc-generator
+rules:
+  - apiGroups:
+      - security.openshift.io
+    resources:
+      - securitycontextconstraints
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kyverno-scc-generator-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno-scc-generator
+subjects:
+  - kind: ServiceAccount
+    name: kyverno-background-controller
+    namespace: kyverno
+EOF
+
+KYVERNO_SCC_POLICY_FILE="${CLUSTER_FORGE_DIR}/docs/aiwb_on_openshift/kyverno-scc-for-ns.yaml"
+# WORKAROUND: kyverno-scc-for-ns.yaml currently only lives on the test-aiwb branch
+# (same as scc.yaml/routes.yaml). Fetch it from test-aiwb if missing from the clone.
+if [ ! -f "${KYVERNO_SCC_POLICY_FILE}" ]; then
+  echo "ℹ️  kyverno-scc-for-ns.yaml not in cloned branch '${CLUSTER_FORGE_BRANCH}'; fetching from test-aiwb..."
+  mkdir -p "$(dirname "${KYVERNO_SCC_POLICY_FILE}")"
+  retry curl -fsSL \
+    https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/test-aiwb/docs/aiwb_on_openshift/kyverno-scc-for-ns.yaml \
+    -o "${KYVERNO_SCC_POLICY_FILE}"
+fi
+ssa_apply < "${KYVERNO_SCC_POLICY_FILE}"
+echo "✅ Extra OpenShift Kyverno policies installed"
+echo ""
+
+# ============================================================================
 # STORAGE CLASSES
 # ============================================================================
 # Create multinode and mlstorage StorageClasses for workspace PVCs.

@@ -1,0 +1,56 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-scc-on-namespaces
+spec:
+  rules:
+  - name: generate-scc-on-namespaces-rule
+    match:
+      any:
+      - resources:
+          kinds:
+            - Namespace
+          selector:
+            matchExpressions:
+              - key: airm.silogen.ai/project-id # Only airm business logics will be applied
+                operator: Exists
+    generate:
+      apiVersion: security.openshift.io/v1
+      kind: SecurityContextConstraints
+      name: "cf-{{request.object.metadata.name}}-scc"
+      synchronize: true
+      data:
+        metadata:
+          name: "cf-{{request.object.metadata.name}}-scc"
+        priority: 20
+        allowPrivilegedContainer: false
+        allowPrivilegeEscalation: true
+        readOnlyRootFilesystem: false
+        runAsUser:
+          type: RunAsAny
+        seLinuxContext:
+          type: RunAsAny
+        fsGroup:
+          type: RunAsAny
+        supplementalGroups:
+          type: RunAsAny
+        seccompProfiles:
+          - runtime/default
+        requiredDropCapabilities: []
+        allowedCapabilities:
+          - SETUID
+          - SETGID
+        defaultAddCapabilities:
+          - SETUID
+          - SETGID
+        volumes:
+          - configMap
+          - downwardAPI
+          - emptyDir
+          - ephemeral
+          - persistentVolumeClaim
+          - projected
+          - secret
+        users:
+          - "system:serviceaccount:{{request.object.metadata.name}}:default"
