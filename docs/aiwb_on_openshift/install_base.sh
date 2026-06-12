@@ -214,7 +214,7 @@ fi
 # they exist before any workload pod is scheduled. SCC `users` entries may point
 # at service accounts that do not exist yet — that is fine; the binding takes
 # effect once the SA is created.
-SCC_FILE="${CLUSTER_FORGE_DIR}/docs/aiwb_on_openshift/scc.yaml"
+SCC_FILE="${CLUSTER_FORGE_DIR}/docs/aiwb_on_openshift/extra/scc.yaml"
 echo "📦 Applying custom SecurityContextConstraints..."
 # WORKAROUND: the sources clone above uses ${CLUSTER_FORGE_BRANCH} (default
 # "main"), but scc.yaml currently only lives on the test-aiwb branch. If it is
@@ -224,7 +224,7 @@ if [ ! -f "${SCC_FILE}" ]; then
   echo "ℹ️  scc.yaml not in cloned branch '${CLUSTER_FORGE_BRANCH}'; fetching from test-aiwb..."
   mkdir -p "$(dirname "${SCC_FILE}")"
   retry curl -fsSL \
-    https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/test-aiwb/docs/aiwb_on_openshift/scc.yaml \
+    https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/test-aiwb/docs/aiwb_on_openshift/extra/scc.yaml \
     -o "${SCC_FILE}"
 fi
 retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f "${SCC_FILE}"
@@ -414,14 +414,14 @@ subjects:
     namespace: kyverno
 EOF
 
-KYVERNO_SCC_POLICY_FILE="${CLUSTER_FORGE_DIR}/docs/aiwb_on_openshift/kyverno-scc-for-ns.yaml"
+KYVERNO_SCC_POLICY_FILE="${CLUSTER_FORGE_DIR}/docs/aiwb_on_openshift/extra/kyverno-scc-for-ns.yaml"
 # WORKAROUND: kyverno-scc-for-ns.yaml currently only lives on the test-aiwb branch
 # (same as scc.yaml/routes.yaml). Fetch it from test-aiwb if missing from the clone.
 if [ ! -f "${KYVERNO_SCC_POLICY_FILE}" ]; then
   echo "ℹ️  kyverno-scc-for-ns.yaml not in cloned branch '${CLUSTER_FORGE_BRANCH}'; fetching from test-aiwb..."
   mkdir -p "$(dirname "${KYVERNO_SCC_POLICY_FILE}")"
   retry curl -fsSL \
-    https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/test-aiwb/docs/aiwb_on_openshift/kyverno-scc-for-ns.yaml \
+    https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/test-aiwb/docs/aiwb_on_openshift/extra/kyverno-scc-for-ns.yaml \
     -o "${KYVERNO_SCC_POLICY_FILE}"
 fi
 ssa_apply < "${KYVERNO_SCC_POLICY_FILE}"
@@ -1432,7 +1432,7 @@ echo ""
 # On OpenShift we use native Routes instead of Gateway API HTTPRoutes, so apply
 # them as the final step once all Services exist.
 # ============================================================================
-ROUTES_FILE="${CLUSTER_FORGE_DIR}/docs/aiwb_on_openshift/routes.yaml"
+ROUTES_FILE="${CLUSTER_FORGE_DIR}/docs/aiwb_on_openshift/extra/routes.yaml"
 echo "🌐 Applying OpenShift Routes..."
 # WORKAROUND: routes.yaml currently only lives on the test-aiwb branch (same as
 # scc.yaml). If it is missing from the clone, fetch it from test-aiwb so the
@@ -1441,7 +1441,7 @@ if [ ! -f "${ROUTES_FILE}" ]; then
   echo "ℹ️  routes.yaml not in cloned branch '${CLUSTER_FORGE_BRANCH}'; fetching from test-aiwb..."
   mkdir -p "$(dirname "${ROUTES_FILE}")"
   retry curl -fsSL \
-    https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/test-aiwb/docs/aiwb_on_openshift/routes.yaml \
+    https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/test-aiwb/docs/aiwb_on_openshift/extra/routes.yaml \
     -o "${ROUTES_FILE}"
 fi
 # Substitute the ${DOMAIN} placeholder in the Route host fields with the cluster's
