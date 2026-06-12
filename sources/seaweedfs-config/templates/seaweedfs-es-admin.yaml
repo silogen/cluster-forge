@@ -5,15 +5,17 @@ metadata:
   namespace: seaweedfs-instance
   annotations:
     argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "-1"
 spec:
   secretStoreRef:
     kind: ClusterSecretStore
     name: openbao-secret-store
-  refreshInterval: 5m
+  refreshInterval: 1m
   target:
     name: seaweedfs-admin-secret
   data:
     - secretKey: admin-password 
       remoteRef:
+        # Legacy OpenBao path name; backs SeaweedFS admin UI, not MinIO.
         key: secrets/data/minio-root-password
         property: value

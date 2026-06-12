@@ -52,17 +52,6 @@ enabledApps:
   - rabbitmq
 
 apps:
-  # Modular Kyverno policy applications (only the storage-local-path addition)
-  kyverno-policies-storage-local-path:
-    namespace: kyverno
-    path: kyverno-policies/storage-local-path
-    syncWave: -20
-    ignoreDifferences:
-      - group: kyverno.io
-        kind: ClusterPolicy
-        jsonPointers:
-          - /spec/rules/*/skipBackgroundRequests
-          - /spec/rules/*/validate/allowExistingViolations
   aiwb-infra-cnpg:
     valuesObject:
       instances: 1

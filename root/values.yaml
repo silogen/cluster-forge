@@ -686,6 +686,20 @@ apps:
     namespace: kyverno
     path: kyverno-policies/base
     syncWave: -20
+  # Used only when enabledApps includes this name (small/medium). Kyverno may
+  # default fields on ClusterPolicy; ignore to avoid perpetual OutOfSync.
+  kyverno-policies-storage-local-path:
+    namespace: kyverno
+    path: kyverno-policies/storage-local-path
+    syncWave: -20
+    ignoreDifferences:
+      - group: kyverno.io
+        kind: ClusterPolicy
+        jqPathExpressions:
+          # jsonPointers do not support wildcards; Kyverno sets these on rules.
+          - .spec.rules[].skipBackgroundRequests
+          - .spec.rules[].validate.allowExistingViolations
+          - .status
   metallb:
     namespace: default
     path: metallb/v0.15.2
@@ -722,7 +736,8 @@ apps:
     path: seaweedfs-config
     namespace: seaweedfs-instance
     valuesFile: values.yaml
-    syncWave: 0
+    # After seaweedfs-operator (0): CRD/webhook ready before Seaweed + ExternalSecrets.
+    syncWave: 10
   openbao:
     ignoreDifferences:
       - group: "apps"

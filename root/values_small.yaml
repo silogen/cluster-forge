@@ -114,18 +114,6 @@ apps:
         requests:
           cpu: "250m"
           memory: "512Mi"
-  kyverno-policies-storage-local-path:
-    ignoreDifferences: []
-    namespace: kyverno
-    path: kyverno-policies/storage-local-path
-    source: clusterForge
-    syncOptions:
-      - CreateNamespace=true
-    syncWave:
-      - group: kyverno.io
-        kind: ClusterPolicy
-    wave: 26  # Deploy after base policies
-
   seaweedfs-config:
     valuesObject:
       seaweed:

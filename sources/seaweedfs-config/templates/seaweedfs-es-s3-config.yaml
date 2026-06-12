@@ -4,12 +4,17 @@ metadata:
   name: seaweedfs-es-s3-config
   namespace: seaweedfs-instance
   annotations:
+    # PreSync + sync-wave: ensure OpenBao-backed Secret exists (and Argo marks this
+    # resource Healthy per ExternalSecret health rules) before the Seaweed CR syncs.
     argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "-2"
 spec:
   secretStoreRef:
     kind: ClusterSecretStore
     name: openbao-secret-store
-  refreshInterval: 5m
+  # Shorter interval so the filer picks up OpenBao updates soon after the secret
+  # manager reconciles static keys (default openbao cron is every 5m).
+  refreshInterval: 1m
   target:
     name: seaweedfs-s3-config
     template:
@@ -43,6 +48,7 @@ spec:
               }
             ] 
           }
+  # OpenBao paths use legacy "minio-*" keys (shared with AIRM / Keycloak); values feed SeaweedFS only.
   data:
     - secretKey: API_ACCESS_KEY
       remoteRef:
