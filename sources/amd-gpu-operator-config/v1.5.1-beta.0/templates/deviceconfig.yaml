@@ -9,13 +9,13 @@ spec:
     image: rocm/device-config-manager:v1.5.1-beta.0
     imagePullPolicy: IfNotPresent
     imageRegistrySecret:
-      name: dockerhub-amdpsdo-regcred
+      name: {{ .Values.imageRegistrySecret.name }}
   devicePlugin:
     devicePluginImage: rocm/k8s-device-plugin:latest
     enableDevicePlugin: true
     enableNodeLabeller: true
     imageRegistrySecret:
-      name: dockerhub-amdpsdo-regcred
+      name: {{ .Values.imageRegistrySecret.name }}
     kubeletSocketPath: /var/lib/kubelet/device-plugins
     nodeLabellerImage: rocm/k8s-device-plugin:labeller-latest
     nodeLabellerImagePullPolicy: Always
@@ -33,7 +33,7 @@ spec:
     image: docker.io/rocm/device-metrics-exporter:v1.5.1-beta.0
     imagePullPolicy: IfNotPresent
     imageRegistrySecret:
-      name: dockerhub-amdpsdo-regcred
+      name: {{ .Values.imageRegistrySecret.name }}
     nodePort: 32500
     podAnnotations: {}
     podResourceAPISocketPath: /var/lib/kubelet/pod-resources
@@ -54,7 +54,7 @@ spec:
     image: docker.io/rocm/test-runner:v1.5.1-beta.0
     imagePullPolicy: IfNotPresent
     imageRegistrySecret:
-      name: dockerhub-amdpsdo-regcred
+      name: {{ .Values.imageRegistrySecret.name }}
     logsLocation:
       hostPath: /var/log/amd-test-runner
       mountPath: /var/log/amd-test-runner
