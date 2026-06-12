@@ -3,7 +3,7 @@
 This guide explains how to deploy AI Workbench on a Kubernetes cluster, including the base required components and optional pluggable components that can be substituted with your own implementations.
 
 > **Full platform (AIRM + AIWB)**: This guide covers **standalone AIWB** deployments.
-> For the full AMD Enterprise AI Suite — including AI Resource Manager (AIRM) for
+> For the full AMD Enterprise AI reference steack — including AI Resource Manager (AIRM) for
 > multi-tenant resource management, cluster coordination, and GPU resource allocation —
 > see the [Helm Installation Guide](https://github.com/amd-enterprise-ai/amd-eai-suite/blob/main/helm/INSTALL.md)
 > in the core repository.
@@ -373,7 +373,7 @@ Complete list of components and their versions:
 ### Full Platform (AIRM + AIWB)
 
 These components are **not required** for standalone AIWB but are needed if you
-want the full AMD Enterprise AI Suite with multi-tenant resource management.
+want the full AMD Enterprise AI reference stack with multi-tenant resource management.
 See the [core repo Helm Installation Guide](https://github.com/amd-enterprise-ai/amd-eai-suite/blob/main/helm/INSTALL.md)
 for complete instructions.
 

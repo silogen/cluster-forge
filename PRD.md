@@ -1,11 +1,11 @@
 # Cluster-Forge Product Requirements Document (PRD)
 
-## Note for Users who wish to install the full AMD Enterprise AI Suite
-A note has been placed at the top of the README.md file in this repository to clarify most users may be looking to install the full AMD Enterprise Suite, not just using this repo. Specifically a link is provided to the official Enterprise on-premise installation [here](https://enterprise-ai.docs.amd.com/en/latest/platform-infrastructure/on-premises-installation.html)
+## Note for Users who wish to install the full AMD Enterprise AI reference Stack
+A note has been placed at the top of the README.md file in this repository to clarify most users may be looking to install the full AMD Enterprise reference stack, not just using this repo. Specifically a link is provided to the official Enterprise on-premise installation [here](https://enterprise-ai.docs.amd.com/en/latest/platform-infrastructure/on-premises-installation.html)
 
 ## Executive Summary
 
-**Cluster-Forge** is a Kubernetes platform automation tool that bundles third-party, community, and in-house components into a single, GitOps-managed stack deployable in Kubernetes clusters. It automates the deployment of a complete AI/ML compute platform built on AMD Enterprise AI Suite components, delivering consistent, production-ready clusters with all essential services pre-configured and integrated.
+**Cluster-Forge** is a Kubernetes platform automation tool that bundles third-party, community, and in-house components into a single, GitOps-managed stack deployable in Kubernetes clusters. It automates the deployment of a complete AI/ML compute platform built on AMD Enterprise AI reference stack components, delivering consistent, production-ready clusters with all essential services pre-configured and integrated.
 
 The platform uses ArgoCD's app-of-apps pattern with a sophisticated bootstrap process that establishes GitOps infrastructure (ArgoCD, Gitea, OpenBao) before deploying the complete application stack.
 
