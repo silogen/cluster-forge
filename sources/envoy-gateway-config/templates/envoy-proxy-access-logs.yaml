@@ -8,8 +8,7 @@ metadata:
 spec:
   filterOrder:
     - name: envoy.filters.http.ext_proc
-      relativeTo: envoy.filters.http.ext_authz
-      position: Before
+      before: envoy.filters.http.ext_authz
   provider:
     type: Kubernetes
     kubernetes:
