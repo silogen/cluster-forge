@@ -1526,3 +1526,14 @@ if [[ "$PLUGGABLE_DB" == true ]]; then
   echo "Ensure the databases and roles exist on your PostgreSQL server"
   echo "(see components/db.md for setup instructions)."
 fi
+
+# ============================================================================
+# CLEANUP
+# ============================================================================
+# Reaching this point means the script completed successfully (set -e aborts on
+# any earlier failure). Remove the cloned cluster-forge sources to free space.
+# The :? guard ensures we never run rm -rf on an empty/unset path.
+echo ""
+echo "🧹 Cleaning up cluster-forge sources at ${CLUSTER_FORGE_DIR}..."
+rm -rf "${CLUSTER_FORGE_DIR:?CLUSTER_FORGE_DIR is unset}"
+echo "✅ Cleanup complete"
