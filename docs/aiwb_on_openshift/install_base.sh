@@ -1383,6 +1383,27 @@ kubectl wait --for=condition=available --timeout=300s deployment -l app.kubernet
 echo "✅ AIWB application is ready"
 echo ""
 
+# ============================================================================
+# OpenShift Routes — expose AIWB UI/API and Keycloak via the cluster router.
+# On OpenShift we use native Routes instead of Gateway API HTTPRoutes, so apply
+# them as the final step once all Services exist.
+# ============================================================================
+ROUTES_FILE="${CLUSTER_FORGE_DIR}/docs/aiwb_on_openshift/routes.yaml"
+echo "🌐 Applying OpenShift Routes..."
+# WORKAROUND: routes.yaml currently only lives on the test-aiwb branch (same as
+# scc.yaml). If it is missing from the clone, fetch it from test-aiwb so the
+# apply works regardless of which branch was cloned. (Remove once merged.)
+if [ ! -f "${ROUTES_FILE}" ]; then
+  echo "ℹ️  routes.yaml not in cloned branch '${CLUSTER_FORGE_BRANCH}'; fetching from test-aiwb..."
+  mkdir -p "$(dirname "${ROUTES_FILE}")"
+  retry curl -fsSL \
+    https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/test-aiwb/docs/aiwb_on_openshift/routes.yaml \
+    -o "${ROUTES_FILE}"
+fi
+retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f "${ROUTES_FILE}"
+echo "✅ OpenShift Routes applied"
+echo ""
+
 echo "💡 Verification commands:"
 echo "   kubectl get pods -n keycloak"
 echo "   kubectl get pods -n aiwb"
@@ -1394,6 +1415,8 @@ echo "   kubectl get pods -n cnpg-system"
 # echo "   kubectl get pods -n rabbitmq-system"
 echo "   kubectl get pods -n amd-gpu-operator"
 echo "   kubectl get clusters.postgresql.cnpg.io --all-namespaces"
+echo "   kubectl get routes -n aiwb"
+echo "   kubectl get routes -n keycloak"
 echo ""
 if [ "$DOMAIN" = "localhost" ]; then
   GATEWAY_IP=$(kubectl get gateway https -n envoy-gateway-system -o jsonpath='{.status.addresses[0].value}' 2>/dev/null || echo "pending")
