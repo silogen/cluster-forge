@@ -388,7 +388,9 @@ echo ""
 # generate-scc-on-namespaces: auto-generates a per-project OpenShift SCC for any
 # Namespace labelled airm.silogen.ai/project-id. The Kyverno background-controller
 # performs the generate, so it needs RBAC to manage SecurityContextConstraints —
-# the default Kyverno ClusterRole does not grant that, so add it here first.
+# the default Kyverno ClusterRole does not grant that, so add it here first. The
+# admission-controller SA also needs list/get on SCCs, otherwise the policy
+# validation webhook rejects the ClusterPolicy at apply time.
 echo "📦 Installing extra OpenShift Kyverno policies..."
 retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f - <<'EOF'
 apiVersion: rbac.authorization.k8s.io/v1
@@ -420,6 +422,9 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kyverno-background-controller
+    namespace: kyverno
+  - kind: ServiceAccount
+    name: kyverno-admission-controller
     namespace: kyverno
 EOF
 
