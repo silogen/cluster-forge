@@ -40,11 +40,11 @@ metadata:
   name: amd-aim-cpu-0.12.0-rc1
 spec:
   filters:
-    - image: silogen/aim-cpu-qwen-qwen3-0-6b:0.12.0-rc1
+    - image: silogenai/aim-cpu-qwen-qwen3-0-6b:0.12.0-rc1
   imagePullSecrets:
-    - name: ghcr-regcred
+    - name: dockerhub-regcred
   maxModels: 100
-  registry: ghcr.io
+  registry: docker.io
   syncInterval: 1h
 {{- end }}
 {{- if has "radeon" $families }}
@@ -55,14 +55,14 @@ metadata:
   name: amd-aim-radeon-0.12.0-rc1
 spec:
   filters:
-    - image: silogen/aim-radeon-meta-llama-llama-3-1-8b-instruct:0.12.0-rc1
-    - image: silogen/aim-radeon-openai-gpt-oss-20b:0.12.0-rc1
-    - image: silogen/aim-radeon-qwen-qwen3-5-9b:0.12.0-rc1
-    - image: silogen/aim-radeon-qwen-qwen3-vl-8b-instruct:0.12.0-rc1
-    - image: silogen/aim-radeon-zai-org-glm-4-7-flash:0.12.0-rc1
+    - image: silogenai/aim-radeon-google-gemma-3n-e4b-it:0.12.0-rc3
+    - image: silogenai/aim-radeon-meta-llama-llama-3-1-8b-instruct:0.12.0-rc10
+    - image: silogenai/aim-radeon-qwen-qwen3-5-9b:0.12.0-rc13
+    - image: silogenai/aim-radeon-qwen-qwen3-vl-8b-instruct:0.12.0-rc11
+    - image: silogenai/aim-radeon-zai-org-glm-4-7-flash:0.12.0-rc12
   imagePullSecrets:
-    - name: ghcr-regcred
+    - name: dockerhub-regcred
   maxModels: 100
-  registry: ghcr.io
+  registry: docker.io
   syncInterval: 1h
 {{- end }}
