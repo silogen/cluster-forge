@@ -16,8 +16,8 @@ driverVersion: ""
 # (configManager, devicePlugin, metricsExporter, testRunner). The v1.5.1-beta.0
 # images are pulled from a private registry, so this secret must exist in the
 # operator namespace.
-imageRegistrySecret:
-  name: default-registry-credentials
+#imageRegistrySecret:
+#  name: default-registry-credentials
 
 # Per-family DeviceConfig defaults, used when driverVersion is not set.
 # TODO(EAI-5906): replace the radeon ROCm driver version with the real
