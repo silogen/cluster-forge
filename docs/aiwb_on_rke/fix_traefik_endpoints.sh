@@ -11,10 +11,18 @@
 # each rule's matches with a plain "PathPrefix: /" (dropping the unsupported header
 # and regex-path matches). Existing backendRefs/timeouts are preserved.
 #
-# Run on the cluster (root kubeconfig):  sudo bash fix_traefik_endpoints.sh
+# Run on the cluster (root kubeconfig):  sudo bash fix_traefik_endpoints.sh <DOMAIN>
 set -euo pipefail
 
-DOMAIN="${DOMAIN:-aiwb-test.silogen.ai}"
+# Require DOMAIN as the first argument (no default).
+if [ -z "${1:-}" ]; then
+  echo "❌ Error: DOMAIN parameter is required" >&2
+  echo "" >&2
+  echo "Usage: $0 <DOMAIN>" >&2
+  echo "Example: $0 aiwb-test.silogen.ai" >&2
+  exit 1
+fi
+DOMAIN="$1"
 PP='[{"path":{"type":"PathPrefix","value":"/"}}]'   # the only match we keep
 
 echo "🔧 aiwb-ui-route (host aiwbui, 1 rule)"
