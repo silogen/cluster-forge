@@ -803,7 +803,7 @@ echo ""
 # and the AMD GPU device plugin/metrics exporter.
 # Nodes with AMD GPUs are automatically labelled via NFD and the device plugin
 # advertises amd.com/gpu resources so workloads can request them.
-kubectl create namespace amd-gpu-operator --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace kube-amd-gpu --dry-run=client -o yaml | kubectl apply -f -
 
 if kubectl get crd deviceconfigs.amd.com >/dev/null 2>&1; then
   echo "ℹ️  AMD GPU Operator already installed (deviceconfigs.amd.com CRD present) — skipping"
@@ -842,15 +842,15 @@ else
   # Without this, the post-delete hook job "delete-custom-resource-definitions" runs as a
   # regular job and deletes all NFD/KMM CRDs immediately after they are created.
   helm template amd-gpu-operator ${SOURCES_DIR}/amd-gpu-operator/v1.4.1 \
-    --namespace amd-gpu-operator \
+    --namespace kube-amd-gpu \
     --set crds.defaultCR.install=true \
     --skip-crds \
     --no-hooks \
-    | kubectl apply --server-side -n amd-gpu-operator -f -
+    | kubectl apply --server-side -n kube-amd-gpu -f -
 
   echo "⏳ Waiting for AMD GPU Operator controller to be ready..."
   kubectl wait --for=condition=available --timeout=180s \
-    deployment/amd-gpu-operator-gpu-operator-charts-controller-manager -n amd-gpu-operator
+    deployment/amd-gpu-operator-gpu-operator-charts-controller-manager -n kube-amd-gpu
   echo "✅ AMD GPU Operator is ready"
 fi
 
@@ -862,7 +862,7 @@ fi
 AMD_GPU_NS=$(kubectl get deployment -A \
   -l app.kubernetes.io/name=gpu-operator-charts \
   -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null)
-AMD_GPU_NS="${AMD_GPU_NS:-amd-gpu-operator}"
+AMD_GPU_NS="${AMD_GPU_NS:-kube-amd-gpu}"
 echo "ℹ️  AMD GPU Operator namespace: ${AMD_GPU_NS}"
 
 # Skipped if the DeviceConfig CR already exists to avoid re-triggering the operator.
@@ -1363,7 +1363,7 @@ echo "   kubectl get pods -n otel-lgtm-stack"
 # echo "   kubectl get pods -n kueue-system"
 echo "   kubectl get pods -n cnpg-system"
 # echo "   kubectl get pods -n rabbitmq-system"
-echo "   kubectl get pods -n amd-gpu-operator"
+echo "   kubectl get pods -n kube-amd-gpu"
 echo "   kubectl get cluster --all-namespaces"
 echo ""
 if [ "$DOMAIN" = "localhost" ]; then
