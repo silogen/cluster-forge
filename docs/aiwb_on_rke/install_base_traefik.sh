@@ -647,7 +647,7 @@ EOF
 # it). Otherwise (absent, or our own in the 'traefik' namespace) we (re)apply so that
 # re-runs converge to a gateway-enabled install — server-side apply is idempotent.
 EXISTING_TRAEFIK_NS=$(kubectl get deployment -A -l app.kubernetes.io/name=traefik \
-  -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null)
+  -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null || true)
 if [ -n "${EXISTING_TRAEFIK_NS}" ] && [ "${EXISTING_TRAEFIK_NS}" != "traefik" ]; then
   echo "ℹ️  Traefik already installed in namespace '${EXISTING_TRAEFIK_NS}' (not 'traefik') — skipping to avoid clobbering it."
   echo "⚠️  Ensure that Traefik has the Kubernetes Gateway provider enabled (providers.kubernetesGateway.enabled=true),"
@@ -897,7 +897,7 @@ fi
 # Detect the namespace the GPU operator controller-manager is actually running in.
 AMD_GPU_NS=$(kubectl get deployment -A \
   -l app.kubernetes.io/name=gpu-operator-charts \
-  -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null)
+  -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null || true)
 AMD_GPU_NS="${AMD_GPU_NS:-kube-amd-gpu}"
 echo "ℹ️  AMD GPU Operator namespace: ${AMD_GPU_NS}"
 
