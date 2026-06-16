@@ -1,0 +1,4 @@
+apiVersion: v2
+name: amd-gpu-operator-config
+description: A Helm chart with config for the AMD GPU Operator
+version: 0.1.0

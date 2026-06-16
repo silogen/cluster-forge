@@ -123,8 +123,14 @@ apps:
           install: false
   amd-gpu-operator-config:
     namespace: kube-amd-gpu
-    path: amd-gpu-operator-config
+    path: amd-gpu-operator-config/v1.4.1
     syncWave: 0
+    valuesObject:
+      # GPU stack family driving the DeviceConfig ROCm pins (radeon | instinct).
+      # Empty = instinct (current default). cluster-bloom injects the selected
+      # family + resolved driver version at deploy time.
+      gpuStackFamily: ""
+      driverVersion: ""
   appwrapper:
     namespace: appwrapper-system
     path: appwrapper/v1.1.2

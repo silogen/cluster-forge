@@ -153,6 +153,16 @@ When ArgoCD renders applications with multi-source:
    not a string, so no comma parsing is involved. The base `root/values.yaml`
    default is an empty list, which selects the legacy (install-all) branch.
 
+   GPU stack family (ROCm + GPU Operator) is injected the same way, driven by
+   cluster-bloom's `GPU_STACK_FAMILY`. Two child-app keys are set:
+   `apps.amd-gpu-operator.path` selects the GPU Operator chart version, and
+   `apps.amd-gpu-operator-config.valuesObject.gpuStackFamily` /
+   `.driverVersion` drive the DeviceConfig out-of-tree ROCm driver version (see
+   `sources/amd-gpu-operator-config`). Empty values resolve to the instinct
+   defaults, so existing installs are unchanged. Note the GPU Operator version
+   is the app-level `path` field (a sibling of `valuesObject`), not a Helm
+   value, so it is set directly rather than inside `valuesObject`.
+
 ## Developer Workflow
 
 ### Local Configuration Management (Local Mode)

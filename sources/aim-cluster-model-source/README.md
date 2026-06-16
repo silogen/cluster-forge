@@ -32,14 +32,13 @@ hardwareFamilies:
 |---|---|---|---|
 | `instinct` | `amd-aim-instinct-0.12.0` | docker.io | works today |
 | `epyc` | `amd-aim-epyc-0.11.0` | docker.io | works today |
-| `cpu` | `amd-aim-cpu-0.12.0-rc1` | ghcr.io | placeholder, image pull fails until a docker.io release exists |
-| `radeon` | `amd-aim-radeon-0.12.0-rc1` | ghcr.io | placeholder, image pull fails until a docker.io release exists |
+| `cpu` | `amd-aim-cpu-0.12.0-rc1` | docker.io | `silogenai/*` RC images; optional `dockerhub-regcred` if pulls are private |
+| `radeon` | `amd-aim-radeon-0.12.0-rc1` | docker.io | `silogenai/aim-radeon-*` RC tags; optional `dockerhub-regcred` if pulls are private |
 
 `instinct` and `radeon` are GPU families; `cpu` and `epyc` are CPU inference
-targets. `cpu` and `radeon` are only available as `-rc1` on `ghcr.io` and
-require the `ghcr-regcred` pull secret, which this cluster does not provision.
-They are pinned as placeholders, their pull will fail until the team publishes a
-docker.io version.
+targets. `cpu` and `radeon` use Docker Hub (`docker.io`) under the `silogenai`
+org. When the registry requires auth, the chart references `dockerhub-regcred`
+in those namespaces; omit or replace that secret if images are public.
 
 ## Installing
 

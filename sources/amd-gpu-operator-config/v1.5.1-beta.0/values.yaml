@@ -1,0 +1,29 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+# GPU stack family driving the DeviceConfig ROCm pins (radeon | instinct).
+# Empty resolves to instinct (the current default). cluster-bloom injects this
+# at deploy time from GPU_STACK_FAMILY.
+gpuStackFamily: ""
+
+# DeviceConfig out-of-tree driver ROCm version. When set, it overrides the
+# per-family default below. cluster-bloom passes the family-resolved version
+# here so the GPU Operator DeviceConfig matches the host ROCm train.
+driverVersion: ""
+
+# Name of the image pull secret used for the DeviceConfig component images
+# (configManager, devicePlugin, metricsExporter, testRunner). The v1.5.1-beta.0
+# images are pulled from a private registry, so this secret must exist in the
+# operator namespace.
+#imageRegistrySecret:
+#  name: default-registry-credentials
+
+# Per-family DeviceConfig defaults, used when driverVersion is not set.
+# TODO(EAI-5906): replace the radeon ROCm driver version with the real
+# ROCm 7.13 tech-preview value once published.
+profiles:
+  instinct:
+    driverVersion: "7.0"
+  radeon:
+    driverVersion: "7.13"
