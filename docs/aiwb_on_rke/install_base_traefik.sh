@@ -96,19 +96,55 @@ else
   AIWB_UI_URL="https://aiwbui.${DOMAIN}"
 fi
 
-# Download cluster-forge sources from GitHub — always clones fresh to ensure
-# sources match the repo and are not affected by any local changes.
+# Obtain cluster-forge sources fresh so they match the repo and are not affected
+# by any local changes. Two modes:
+#   - Release mode (CLUSTER_FORGE_RELEASE set): download the published release
+#     tarball asset and extract it. Reproducible and pinned.
+#   - Branch mode (default): shallow git clone of CLUSTER_FORGE_BRANCH.
 CLUSTER_FORGE_DIR="${CLUSTER_FORGE_DIR:-/tmp/cluster-forge}"
 CLUSTER_FORGE_BRANCH="${CLUSTER_FORGE_BRANCH:-main}"
+# Pin to a published release, e.g. CLUSTER_FORGE_RELEASE=v2.1.3 downloads asset
+#   release-${CLUSTER_FORGE_RELEASE_FLAVOR}-${CLUSTER_FORGE_RELEASE}.tar.gz
+# from https://github.com/silogen/cluster-forge/releases/download/<tag>/<asset>.
+CLUSTER_FORGE_RELEASE="${CLUSTER_FORGE_RELEASE:-}"
+CLUSTER_FORGE_RELEASE_FLAVOR="${CLUSTER_FORGE_RELEASE_FLAVOR:-enterprise-ai}"
+# The release tarball ships sources/ but NOT docs/manual_helm_install/, so those
+# few files are fetched from a branch ref (defaults to the script's branch).
+CLUSTER_FORGE_MANUAL_REF="${CLUSTER_FORGE_MANUAL_REF:-${CLUSTER_FORGE_BRANCH}}"
+
 SOURCES_DIR="${CLUSTER_FORGE_DIR}/sources"
-# Secrets and the cluster-auth shim live under docs/manual_helm_install in the
-# cloned repo (not next to this script), so reference them from the fresh clone.
+# Secrets and the cluster-auth shim live under docs/manual_helm_install.
 MANUAL_HELM_DIR="${CLUSTER_FORGE_DIR}/docs/manual_helm_install"
 
-echo "📥 Cloning cluster-forge sources from GitHub (branch: ${CLUSTER_FORGE_BRANCH})..."
 rm -rf "${CLUSTER_FORGE_DIR}"
-git clone --depth 1 --branch "${CLUSTER_FORGE_BRANCH}" --single-branch \
-  https://github.com/silogen/cluster-forge.git "${CLUSTER_FORGE_DIR}"
+mkdir -p "${CLUSTER_FORGE_DIR}"
+
+if [ -n "${CLUSTER_FORGE_RELEASE}" ]; then
+  RELEASE_ASSET="release-${CLUSTER_FORGE_RELEASE_FLAVOR}-${CLUSTER_FORGE_RELEASE}.tar.gz"
+  RELEASE_URL="https://github.com/silogen/cluster-forge/releases/download/${CLUSTER_FORGE_RELEASE}/${RELEASE_ASSET}"
+  echo "📥 Downloading cluster-forge release ${CLUSTER_FORGE_RELEASE} (${RELEASE_ASSET})..."
+  # The tarball extracts under a top-level cluster-forge/ dir; strip it so paths
+  # land directly under ${CLUSTER_FORGE_DIR} (e.g. ${CLUSTER_FORGE_DIR}/sources/).
+  curl -fsSL "${RELEASE_URL}" | tar -xz --strip-components=1 -C "${CLUSTER_FORGE_DIR}"
+
+  if [ ! -d "${SOURCES_DIR}" ]; then
+    echo "❌ Release ${CLUSTER_FORGE_RELEASE} did not contain a sources/ directory (asset: ${RELEASE_ASSET})"
+    exit 1
+  fi
+
+  # The release omits docs/manual_helm_install; fetch the three files used here
+  # directly from a branch ref so the script stays self-sufficient.
+  echo "📥 Fetching manual_helm_install files from ref ${CLUSTER_FORGE_MANUAL_REF}..."
+  RAW_BASE="https://raw.githubusercontent.com/silogen/cluster-forge/${CLUSTER_FORGE_MANUAL_REF}/docs/manual_helm_install"
+  mkdir -p "${MANUAL_HELM_DIR}/secrets" "${MANUAL_HELM_DIR}/scripts"
+  curl -fsSL "${RAW_BASE}/secrets/secrets-aiwb.yaml"            -o "${MANUAL_HELM_DIR}/secrets/secrets-aiwb.yaml"
+  curl -fsSL "${RAW_BASE}/secrets/secrets-aiwb-standalone.yaml" -o "${MANUAL_HELM_DIR}/secrets/secrets-aiwb-standalone.yaml"
+  curl -fsSL "${RAW_BASE}/scripts/cluster-auth-shim.py"         -o "${MANUAL_HELM_DIR}/scripts/cluster-auth-shim.py"
+else
+  echo "📥 Cloning cluster-forge sources from GitHub (branch: ${CLUSTER_FORGE_BRANCH})..."
+  git clone --depth 1 --branch "${CLUSTER_FORGE_BRANCH}" --single-branch \
+    https://github.com/silogen/cluster-forge.git "${CLUSTER_FORGE_DIR}"
+fi
 echo "✅ Sources downloaded to ${SOURCES_DIR}"
 
 # (No post-clone patches needed for the Traefik variant)
@@ -834,10 +870,16 @@ if kubectl get deviceconfig gpu-operator -n "${AMD_GPU_NS}" >/dev/null 2>&1; the
   echo "ℹ️  AMD GPU Operator config already applied — skipping"
 else
   echo "📦 Applying AMD GPU Operator config..."
-  helm template amd-gpu-operator-config ${SOURCES_DIR}/amd-gpu-operator-config \
-    --namespace "${AMD_GPU_NS}" \
-    --set namespace="${AMD_GPU_NS}" \
-    | kubectl apply --server-side -n "${AMD_GPU_NS}" -f -
+  # Branch checkouts ship this as a Helm chart; release tarballs ship it as
+  # pre-rendered manifests (no Chart.yaml). Handle both.
+  if [ -f "${SOURCES_DIR}/amd-gpu-operator-config/Chart.yaml" ]; then
+    helm template amd-gpu-operator-config ${SOURCES_DIR}/amd-gpu-operator-config \
+      --namespace "${AMD_GPU_NS}" \
+      --set namespace="${AMD_GPU_NS}" \
+      | kubectl apply --server-side -n "${AMD_GPU_NS}" -f -
+  else
+    kubectl apply --server-side -n "${AMD_GPU_NS}" -f "${SOURCES_DIR}/amd-gpu-operator-config/"
+  fi
   echo "✅ AMD GPU Operator config applied"
 fi
 echo ""
