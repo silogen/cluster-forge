@@ -878,7 +878,14 @@ else
       --set namespace="${AMD_GPU_NS}" \
       | kubectl apply --server-side -n "${AMD_GPU_NS}" -f -
   else
-    kubectl apply --server-side -n "${AMD_GPU_NS}" -f "${SOURCES_DIR}/amd-gpu-operator-config/"
+    # Release ships pre-rendered manifests (no chart) with a baked-in
+    # `namespace: kube-amd-gpu`. Retarget it to the operator's actual namespace
+    # so the config is co-located with the operator (mirrors --set namespace
+    # in the chart path above), then apply each manifest.
+    for f in "${SOURCES_DIR}"/amd-gpu-operator-config/*.yaml; do
+      sed "s/namespace: kube-amd-gpu/namespace: ${AMD_GPU_NS}/g" "$f" \
+        | kubectl apply --server-side -n "${AMD_GPU_NS}" -f -
+    done
   fi
   echo "✅ AMD GPU Operator config applied"
 fi
