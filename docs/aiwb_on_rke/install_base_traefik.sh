@@ -18,7 +18,9 @@ if [ -z "${1:-}" ]; then
 fi
 
 DOMAIN="$1"
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+# BASH_SOURCE[0] is unset when the script is piped via stdin (curl | bash), which
+# trips `set -u`. Fall back to $0 and never abort under `set -e` (SCRIPT_DIR is unused).
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")" 2>/dev/null && pwd || true)"
 
 PLUGGABLE_DB=${PLUGGABLE_DB:-false}
 PLUGGABLE_S3=${PLUGGABLE_S3:-false}
