@@ -373,9 +373,12 @@ echo ""
 # ============================================================================
 # Several components (openbao-config, otel-lgtm-stack) render HTTPRoute resources
 # (gateway.networking.k8s.io/v1) that fail to apply unless the Gateway API CRDs
-# already exist. Install the standard upstream Gateway API CRDs early.
-echo "📦 Installing Gateway API CRDs (early)..."
-kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml
+# already exist. We install the EXPERIMENTAL channel (a superset of standard) because
+# Traefik's Gateway provider watches TLSRoute, TCPRoute and BackendTLSPolicy — which
+# are NOT in the standard channel. Without them, Traefik's informers fail to sync and
+# the GatewayClass/Gateway stay Pending (PROGRAMMED=Unknown), so no route ever attaches.
+echo "📦 Installing Gateway API CRDs (early, experimental channel)..."
+kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/experimental-install.yaml
 
 echo "⏳ Waiting for Gateway API HTTPRoute CRD to be established..."
 kubectl wait --for=condition=established --timeout=60s \
@@ -657,8 +660,12 @@ else
   # providers.kubernetesGateway.enabled=true: make Traefik the Gateway API controller.
   # gateway.enabled=false / gatewayClass.enabled=false: don't let the chart create its
   # own Gateway/GatewayClass (we manage the GatewayClass above and the Gateway below).
+  # --include-crds renders the chart's own CRDs (Middleware, IngressRoute, TLSOption,
+  # etc.); helm template skips crds/ by default, which otherwise leaves Traefik
+  # crash-looping informer watches for its own resources.
   helm template traefik traefik/traefik \
     --namespace traefik \
+    --include-crds \
     --set providers.kubernetesGateway.enabled=true \
     --set gateway.enabled=false \
     --set gatewayClass.enabled=false \
