@@ -23,16 +23,23 @@ if [ -z "${1:-}" ]; then
 fi
 DOMAIN="$1"
 PP='[{"path":{"type":"PathPrefix","value":"/"}}]'   # the only match we keep
+# All routes must attach to the 'https' Gateway in envoy-gateway-system. Some
+# component charts (esp. when sources come from the main branch) point parentRef
+# at a different Gateway/namespace (e.g. kgateway-system), so the route never
+# attaches and 404s. Repoint parentRefs wholesale to the known-good Gateway.
+PR='[{"group":"gateway.networking.k8s.io","kind":"Gateway","name":"https","namespace":"envoy-gateway-system"}]'
 
 echo "🔧 aiwb-ui-route (host aiwbui, 1 rule)"
 kubectl patch httproute aiwb-ui-route -n aiwb --type=json -p="[
   {\"op\":\"add\",\"path\":\"/spec/hostnames\",\"value\":[\"aiwbui.${DOMAIN}\"]},
+  {\"op\":\"replace\",\"path\":\"/spec/parentRefs\",\"value\":${PR}},
   {\"op\":\"replace\",\"path\":\"/spec/rules/0/matches\",\"value\":${PP}}
 ]"
 
 echo "🔧 aiwb-api-route (host aiwbapi, 3 rules)"
 kubectl patch httproute aiwb-api-route -n aiwb --type=json -p="[
   {\"op\":\"add\",\"path\":\"/spec/hostnames\",\"value\":[\"aiwbapi.${DOMAIN}\"]},
+  {\"op\":\"replace\",\"path\":\"/spec/parentRefs\",\"value\":${PR}},
   {\"op\":\"replace\",\"path\":\"/spec/rules/0/matches\",\"value\":${PP}},
   {\"op\":\"replace\",\"path\":\"/spec/rules/1/matches\",\"value\":${PP}},
   {\"op\":\"replace\",\"path\":\"/spec/rules/2/matches\",\"value\":${PP}}
@@ -41,6 +48,7 @@ kubectl patch httproute aiwb-api-route -n aiwb --type=json -p="[
 echo "🔧 keycloak-route (host kc, 1 rule)"
 kubectl patch httproute keycloak-route -n keycloak --type=json -p="[
   {\"op\":\"add\",\"path\":\"/spec/hostnames\",\"value\":[\"kc.${DOMAIN}\"]},
+  {\"op\":\"replace\",\"path\":\"/spec/parentRefs\",\"value\":${PR}},
   {\"op\":\"replace\",\"path\":\"/spec/rules/0/matches\",\"value\":${PP}}
 ]"
 
@@ -50,6 +58,7 @@ echo "🔧 openbao (host openbao, 1 rule)"
 # A wrong backendRef makes Traefik return an empty 500.
 kubectl patch httproute openbao -n cf-openbao --type=json -p="[
   {\"op\":\"add\",\"path\":\"/spec/hostnames\",\"value\":[\"openbao.${DOMAIN}\"]},
+  {\"op\":\"replace\",\"path\":\"/spec/parentRefs\",\"value\":${PR}},
   {\"op\":\"replace\",\"path\":\"/spec/rules/0/matches\",\"value\":${PP}},
   {\"op\":\"replace\",\"path\":\"/spec/rules/0/backendRefs/0/name\",\"value\":\"openbao\"},
   {\"op\":\"replace\",\"path\":\"/spec/rules/0/backendRefs/0/port\",\"value\":8200}
@@ -58,12 +67,14 @@ kubectl patch httproute openbao -n cf-openbao --type=json -p="[
 echo "🔧 minio (host minio, 1 rule)"
 kubectl patch httproute minio -n minio-tenant-default --type=json -p="[
   {\"op\":\"add\",\"path\":\"/spec/hostnames\",\"value\":[\"minio.${DOMAIN}\"]},
+  {\"op\":\"replace\",\"path\":\"/spec/parentRefs\",\"value\":${PR}},
   {\"op\":\"replace\",\"path\":\"/spec/rules/0/matches\",\"value\":${PP}}
 ]"
 
 echo "🔧 grafana-route (host grafana, 1 rule)"
 kubectl patch httproute grafana-route -n otel-lgtm-stack --type=json -p="[
   {\"op\":\"add\",\"path\":\"/spec/hostnames\",\"value\":[\"grafana.${DOMAIN}\"]},
+  {\"op\":\"replace\",\"path\":\"/spec/parentRefs\",\"value\":${PR}},
   {\"op\":\"replace\",\"path\":\"/spec/rules/0/matches\",\"value\":${PP}}
 ]"
 
