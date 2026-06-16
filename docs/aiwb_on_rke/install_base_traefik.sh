@@ -254,7 +254,7 @@ echo ""
 # Required by OpenTelemetry Operator and KServe for webhook certificates
 echo "📦 Installing cert-manager..."
 kubectl create namespace cert-manager --dry-run=client -o yaml | kubectl apply -f -
-helm template cert-manager ${SOURCES_DIR}/cert-manager/v1.18.2 --namespace cert-manager --set crds.enabled=true | kubectl apply --server-side -f -
+helm template cert-manager ${SOURCES_DIR}/cert-manager/v1.18.2 --namespace cert-manager --set crds.enabled=true | kubectl apply --server-side --force-conflicts -f -
 
 # Wait for cert-manager to be ready (required for webhooks)
 echo "⏳ Waiting for cert-manager deployments to be ready..."
@@ -496,6 +496,26 @@ echo ""
 # Provides OpenTelemetry metrics integration for KEDA
 # Depends on: KEDA
 echo "📦 Installing Kedify OTEL Scaler..."
+
+# Patch: the kedify-otel values.schema.json references the opentelemetry-collector
+# subchart schema via a remote $ref (raw.githubusercontent.com). Helm fetches that
+# URL during `helm template`, which fails on hosts without website access
+# ("context deadline exceeded"). The subchart schema is already bundled locally,
+# so strip the remote $ref to force local-only validation. Idempotent.
+KEDIFY_SCHEMA="${SOURCES_DIR}/kedify-otel/v0.0.6/values.schema.json"
+if grep -q 'raw.githubusercontent.com' "${KEDIFY_SCHEMA}" 2>/dev/null; then
+  python3 - "${KEDIFY_SCHEMA}" <<'PY'
+import json, sys
+path = sys.argv[1]
+with open(path) as f:
+    data = json.load(f)
+data.get("properties", {}).get("opentelemetry-collector", {}).pop("$ref", None)
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+PY
+  echo '✅ Patched kedify-otel schema: removed remote $ref (offline-safe)'
+fi
+
 helm template kedify-otel ${SOURCES_DIR}/kedify-otel/v0.0.6 \
   --namespace keda \
   --set validatingAdmissionPolicy.enabled=false \
@@ -555,35 +575,67 @@ echo ""
 # ============================================================================
 # TRAEFIK (Gateway API implementation — replaces Envoy Gateway)
 # ============================================================================
-# Traefik v3 is used as the Gateway API controller. The GatewayClass and Gateway
-# are created in the `envoy-gateway-system` namespace so that all existing
-# HTTPRoutes (which reference gateway name=https, namespace=envoy-gateway-system)
-# work without modification.
-echo "📦 Installing Traefik..."
-kubectl create namespace traefik --dry-run=client -o yaml | kubectl apply -f -
+# Traefik v3 is used as the Gateway API controller. It is installed with the
+# chart's DEFAULT values (no custom overrides) to stay consistent with other
+# environments that already run a default Traefik. The existing HTTPRoutes still
+# reference name=https, namespace=envoy-gateway-system; reconciling them with the
+# Traefik-managed Gateway is handled by the patch step later in this script.
+# Namespaces needed regardless of whether Traefik is already installed:
+# envoy-gateway-system holds the Gateway + cluster-tls Secret, cluster-auth holds the shim.
 kubectl create namespace envoy-gateway-system --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace cluster-auth --dry-run=client -o yaml | kubectl apply -f -
 
-helm repo add traefik https://traefik.github.io/charts 2>/dev/null || true
-helm repo update traefik
+# Install Traefik with the chart's DEFAULT values, and ONLY if it isn't already
+# installed. Detection uses the standard chart label across all namespaces so we
+# don't clobber a Traefik another user may have already deployed (possibly in a
+# different namespace) with default values. HTTPRoute/Gateway wiring is patched
+# later in the script.
+if kubectl get deployment -A -l app.kubernetes.io/name=traefik -o name 2>/dev/null | grep -q .; then
+  EXISTING_TRAEFIK_NS=$(kubectl get deployment -A -l app.kubernetes.io/name=traefik \
+    -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null)
+  echo "ℹ️  Traefik already installed (namespace: ${EXISTING_TRAEFIK_NS}) — skipping Traefik install."
+else
+  echo "📦 Installing Traefik (default chart values)..."
+  kubectl create namespace traefik --dry-run=client -o yaml | kubectl apply -f -
 
-helm template traefik traefik/traefik \
-  --namespace traefik \
-  --set providers.kubernetesGateway.enabled=true \
-  --set gateway.enabled=true \
-  --set service.type=LoadBalancer \
-  --set ports.websecure.port=443 \
-  --set ports.websecure.expose.default=true \
-  | kubectl apply --server-side -n traefik -f -
+  helm repo add traefik https://traefik.github.io/charts 2>/dev/null || true
+  helm repo update traefik
 
-echo "⏳ Waiting for Traefik to be ready..."
-kubectl wait --for=condition=available --timeout=180s deployment/traefik -n traefik
-echo "✅ Traefik installed"
+  helm template traefik traefik/traefik \
+    --namespace traefik \
+    | kubectl apply --server-side -n traefik -f -
 
-# Create a self-signed TLS certificate for *.${DOMAIN} in envoy-gateway-system.
+  echo "⏳ Waiting for Traefik to be ready..."
+  kubectl wait --for=condition=available --timeout=180s deployment/traefik -n traefik
+  echo "✅ Traefik installed"
+fi
+
+# Pre-load a real TLS certificate for *.${DOMAIN} from local files if present.
+# Place the cert chain and key in the directory you run this script from
+# (defaults: ./fullchain.pem and ./privkey.pem; override with TLS_CERT_FILE / TLS_KEY_FILE).
+# Creating the cluster-tls Secret here makes the self-signed block below skip itself,
+# so the Gateway terminates TLS with the provided (e.g. Let's Encrypt) certificate.
+TLS_CERT_FILE="${TLS_CERT_FILE:-fullchain.pem}"
+TLS_KEY_FILE="${TLS_KEY_FILE:-privkey.pem}"
+if [ -f "${TLS_CERT_FILE}" ] && [ -f "${TLS_KEY_FILE}" ]; then
+  echo "📦 Found ${TLS_CERT_FILE} and ${TLS_KEY_FILE} — creating cluster-tls Secret from provided certificate..."
+  kubectl create secret tls cluster-tls \
+    -n envoy-gateway-system \
+    --cert="${TLS_CERT_FILE}" \
+    --key="${TLS_KEY_FILE}" \
+    --dry-run=client -o yaml | kubectl apply -f -
+  echo "✅ cluster-tls Secret created from provided certificate"
+fi
+
+# Create a self-signed TLS certificate for *.${DOMAIN} in envoy-gateway-system,
+# unless the "cluster-tls" Secret was already pre-created (e.g. a real Let's Encrypt cert
+# passed in before this script ran — see docs for the pre-provisioning flow).
 # The Gateway listener references the Secret "cluster-tls" in that namespace.
-echo "📦 Creating self-signed TLS certificate for *.${DOMAIN}..."
-kubectl apply -f - <<EOF
+if kubectl get secret cluster-tls -n envoy-gateway-system &>/dev/null; then
+  echo "✅ cluster-tls Secret already exists — skipping self-signed certificate creation."
+else
+  echo "📦 Creating self-signed TLS certificate for *.${DOMAIN}..."
+  kubectl apply -f - <<EOF
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -606,8 +658,9 @@ spec:
     kind: ClusterIssuer
 EOF
 
-echo "⏳ Waiting for cluster-tls certificate to be issued..."
-kubectl wait --for=condition=ready --timeout=60s certificate/cluster-tls -n envoy-gateway-system
+  echo "⏳ Waiting for cluster-tls certificate to be issued..."
+  kubectl wait --for=condition=ready --timeout=60s certificate/cluster-tls -n envoy-gateway-system
+fi
 
 # Create the Gateway in envoy-gateway-system so all existing HTTPRoutes
 # (parentRef: name=https, namespace=envoy-gateway-system) are satisfied.
