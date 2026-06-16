@@ -288,8 +288,8 @@ apps:
    # Admin password
    kubectl -n keycloak get secret keycloak-credentials -o jsonpath="{.data.KEYCLOAK_INITIAL_ADMIN_PASSWORD}" | base64 -d
    
-   # Dev user password
-   kubectl -n keycloak get secret airm-devuser-credentials -o jsonpath="{.data.KEYCLOAK_INITIAL_DEVUSER_PASSWORD}" | base64 -d
+   # Dev user password (chart path `keycloak-old` uses ExternalSecret `airm-realm-credentials`)
+   kubectl -n keycloak get secret airm-realm-credentials -o jsonpath="{.data.KEYCLOAK_INITIAL_DEVUSER_PASSWORD}" | base64 -d
    ```
 
 ## Troubleshooting
