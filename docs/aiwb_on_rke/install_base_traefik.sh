@@ -373,12 +373,14 @@ echo ""
 # ============================================================================
 # Several components (openbao-config, otel-lgtm-stack) render HTTPRoute resources
 # (gateway.networking.k8s.io/v1) that fail to apply unless the Gateway API CRDs
-# already exist. We install the EXPERIMENTAL channel (a superset of standard) because
-# Traefik's Gateway provider watches TLSRoute, TCPRoute and BackendTLSPolicy — which
-# are NOT in the standard channel. Without them, Traefik's informers fail to sync and
-# the GatewayClass/Gateway stay Pending (PROGRAMMED=Unknown), so no route ever attaches.
-echo "📦 Installing Gateway API CRDs (early, experimental channel)..."
-kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/experimental-install.yaml
+# already exist. The version MUST match what Traefik supports: Traefik v3.7 targets
+# Gateway API v1.5.1 and watches TLSRoute/BackendTLSPolicy at their v1 versions, plus
+# TCPRoute from the experimental channel. Older CRDs (e.g. v1.2.1, serving
+# v1alpha2/v1alpha3) make Traefik's informers fail with "could not find the requested
+# resource", leaving the GatewayClass/Gateway Pending so no route ever attaches.
+# We install the experimental channel (superset of standard) so TCPRoute is present too.
+echo "📦 Installing Gateway API CRDs (early, experimental channel v1.5.1)..."
+kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/experimental-install.yaml
 
 echo "⏳ Waiting for Gateway API HTTPRoute CRD to be established..."
 kubectl wait --for=condition=established --timeout=60s \
