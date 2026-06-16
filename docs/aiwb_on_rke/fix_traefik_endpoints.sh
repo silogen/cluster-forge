@@ -19,7 +19,6 @@ if [ -z "${1:-}" ]; then
   echo "❌ Error: DOMAIN parameter is required" >&2
   echo "" >&2
   echo "Usage: $0 <DOMAIN>" >&2
-  echo "Example: $0 aiwb-test.silogen.ai" >&2
   exit 1
 fi
 DOMAIN="$1"
