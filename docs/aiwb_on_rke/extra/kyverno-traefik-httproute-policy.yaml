@@ -1,0 +1,92 @@
+---
+# Kyverno policy: make dynamically-created workload HTTPRoutes work with Traefik.
+#
+# Context (RKE + Traefik Gateway API):
+#   AIWB/airm creates an HTTPRoute per workload (e.g. a Jupyter workspace) at
+#   runtime, labelled airm.silogen.ai/workload-id. As generated, those routes do
+#   NOT attach/route on Traefik for the same reasons the static routes didn't
+#   (see fix_traefik_endpoints.sh):
+#     1. parentRefs point at the kgateway Gateway, not Traefik's 'https' Gateway.
+#     2. They use a Host RegularExpression header match, which Traefik's Gateway
+#        API implementation does not support (route is Accepted but 404s).
+#     3. They have no spec.hostnames (the supported way to route by host).
+#
+# Unlike OpenShift (where we GENERATE a Route from the HTTPRoute), here the
+# HTTPRoute is already the right kind — we just MUTATE it in place so Traefik
+# can serve it:
+#     1. Repoint parentRefs  -> https / envoy-gateway-system.
+#     2. Set spec.hostnames  -> aiwbui.<DOMAIN> (workbench is served as
+#        aiwbui.<DOMAIN>/workbench/<user>/<id>, same host as the UI; Traefik
+#        matches the longer /workbench/... path prefix over the UI route at "/").
+#     3. Rewrite each rule's matches to a plain PathPrefix using the route's own
+#        path value, dropping the unsupported Host RegularExpression header match.
+#
+# >>> Set DOMAIN here (replace aiwb-test.silogen.ai if your domain differs). <<<
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: traefik-fix-workload-httproutes
+  annotations:
+    policies.kyverno.io/title: Fix workload HTTPRoutes for Traefik
+    policies.kyverno.io/category: Gateway API
+    policies.kyverno.io/subject: HTTPRoute
+    policies.kyverno.io/description: >-
+      Mutates dynamically-created HTTPRoutes (label airm.silogen.ai/workload-id)
+      so they attach to and route on the Traefik 'https' Gateway: repoints
+      parentRefs to https/envoy-gateway-system, sets spec.hostnames to the shared
+      aiwbui.<DOMAIN> host, and replaces the unsupported Host RegularExpression
+      match with a PathPrefix match derived from the route's own path.
+spec:
+  admission: true
+  background: true
+  emitWarning: false
+  rules:
+    # ------------------------------------------------------------------
+    # Rule 1: repoint parentRefs + set the shared UI hostname.
+    # ------------------------------------------------------------------
+    - name: bind-to-traefik-gateway-and-host
+      match:
+        any:
+          - resources:
+              kinds:
+                - HTTPRoute
+              selector:
+                matchExpressions:
+                  - key: airm.silogen.ai/workload-id
+                    operator: Exists
+      mutate:
+        patchStrategicMerge:
+          spec:
+            parentRefs:
+              - group: gateway.networking.k8s.io
+                kind: Gateway
+                name: https
+                namespace: envoy-gateway-system
+            hostnames:
+              - aiwbui.aiwb-test.silogen.ai
+    # ------------------------------------------------------------------
+    # Rule 2: rewrite every rule's matches to a supported PathPrefix,
+    # preserving the route's own path and dropping the Host header match.
+    # ------------------------------------------------------------------
+    - name: normalize-matches-to-pathprefix
+      match:
+        any:
+          - resources:
+              kinds:
+                - HTTPRoute
+              selector:
+                matchExpressions:
+                  - key: airm.silogen.ai/workload-id
+                    operator: Exists
+      mutate:
+        foreach:
+          - list: "request.object.spec.rules"
+            # element.matches[0].path.value is the workload's own path
+            # (e.g. /workbench/<user>/<id>). Fall back to "/" if absent.
+            patchesJson6902: |-
+              - op: replace
+                path: /spec/rules/{{elementIndex}}/matches
+                value:
+                  - path:
+                      type: PathPrefix
+                      value: "{{ element.matches[0].path.value || '/' }}"

@@ -1,0 +1,57 @@
+---
+# Kyverno doesn't ship RBAC for custom resources like Gateway API HTTPRoutes.
+# These aggregated ClusterRoles grant each Kyverno controller what it needs so
+# the traefik-fix-workload-httproutes mutate policy works at admission AND in
+# background (for already-existing routes), and so policy reports are generated.
+#
+# Apply alongside kyverno-traefik-httproute-policy.yaml.
+
+---
+# Admission controller: needs to read HTTPRoutes when evaluating/admitting them.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:additional:admission-controller:httproutes
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    rbac.kyverno.io/aggregate-to-admission-controller: "true"
+rules:
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes"]
+    verbs: ["get", "list", "watch"]
+
+---
+# Background controller: needs to read AND mutate existing HTTPRoutes so routes
+# created before the policy (or before the webhook was reachable) get fixed.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:additional:background-controller:httproutes
+  labels:
+    app.kubernetes.io/component: background-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    rbac.kyverno.io/aggregate-to-background-controller: "true"
+rules:
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+
+---
+# Reports controller: needs to read HTTPRoutes to produce policy reports
+# (this is the controller the apply-time warning was about).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:additional:reports-controller:httproutes
+  labels:
+    app.kubernetes.io/component: reports-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    rbac.kyverno.io/aggregate-to-reports-controller: "true"
+rules:
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes"]
+    verbs: ["get", "list", "watch"]

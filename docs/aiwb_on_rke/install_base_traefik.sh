@@ -768,6 +768,118 @@ echo "✅ Traefik Gateway installed and configured"
 echo ""
 
 # ============================================================================
+# KYVERNO: auto-fix dynamically-created workload HTTPRoutes for Traefik
+# ============================================================================
+# AIWB/airm creates an HTTPRoute per workload (e.g. a Jupyter workspace) at
+# runtime, labelled airm.silogen.ai/workload-id. As generated, those routes
+# don't work on Traefik (parentRefs point at the kgateway Gateway, they use an
+# unsupported Host RegularExpression match, and have no spec.hostnames). This
+# Kyverno policy mutates each such HTTPRoute so Traefik can serve it:
+#   - parentRefs   -> https / envoy-gateway-system
+#   - hostnames    -> aiwbui.${DOMAIN} (shared UI host; longer /workbench/<id>
+#                     path prefix wins over the UI route at "/")
+#   - matches      -> a plain PathPrefix built from the route's own path
+# Kyverno ships no RBAC for the HTTPRoute custom resource, so we also grant each
+# controller (admission/background/reports) access via aggregated ClusterRoles.
+echo "📦 Granting Kyverno RBAC for HTTPRoutes..."
+kubectl apply -f - <<'EOF'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:additional:admission-controller:httproutes
+  labels:
+    rbac.kyverno.io/aggregate-to-admission-controller: "true"
+rules:
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:additional:background-controller:httproutes
+  labels:
+    rbac.kyverno.io/aggregate-to-background-controller: "true"
+rules:
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:additional:reports-controller:httproutes
+  labels:
+    rbac.kyverno.io/aggregate-to-reports-controller: "true"
+rules:
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes"]
+    verbs: ["get", "list", "watch"]
+EOF
+
+echo "📦 Installing Kyverno policy to fix workload HTTPRoutes for Traefik..."
+# NOTE: unquoted heredoc so ${DOMAIN} expands; Kyverno's {{ ... }} expressions
+# contain no '$' so they pass through to the API server untouched.
+kubectl apply -f - <<EOF
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: traefik-fix-workload-httproutes
+  annotations:
+    policies.kyverno.io/title: Fix workload HTTPRoutes for Traefik
+    policies.kyverno.io/category: Gateway API
+    policies.kyverno.io/subject: HTTPRoute
+spec:
+  admission: true
+  background: true
+  emitWarning: false
+  rules:
+    - name: bind-to-traefik-gateway-and-host
+      match:
+        any:
+          - resources:
+              kinds:
+                - HTTPRoute
+              selector:
+                matchExpressions:
+                  - key: airm.silogen.ai/workload-id
+                    operator: Exists
+      mutate:
+        patchStrategicMerge:
+          spec:
+            parentRefs:
+              - group: gateway.networking.k8s.io
+                kind: Gateway
+                name: https
+                namespace: envoy-gateway-system
+            hostnames:
+              - aiwbui.${DOMAIN}
+    - name: normalize-matches-to-pathprefix
+      match:
+        any:
+          - resources:
+              kinds:
+                - HTTPRoute
+              selector:
+                matchExpressions:
+                  - key: airm.silogen.ai/workload-id
+                    operator: Exists
+      mutate:
+        foreach:
+          - list: "request.object.spec.rules"
+            patchesJson6902: |-
+              - op: replace
+                path: /spec/rules/{{elementIndex}}/matches
+                value:
+                  - path:
+                      type: PathPrefix
+                      value: "{{ element.matches[0].path.value || '/' }}"
+EOF
+
+echo "✅ Kyverno workload-HTTPRoute fix policy installed"
+echo ""
+
+# ============================================================================
 # KSERVE
 # ============================================================================
 # syncWave: -30 (crds), 0 (operator)
