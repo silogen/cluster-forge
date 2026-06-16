@@ -7,12 +7,11 @@ externalValues:
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
   targetRevision: main
 global:
-  clusterSize:    # injected via scripts/bootstrap.sh
-  domain:         # injected via scripts/bootstrap.sh
+  clusterSize: # injected via scripts/bootstrap.sh
+  domain: # injected via scripts/bootstrap.sh
 ociRegistry:
   dockerHub: "registry-1.docker.io/amdenterpriseai"
   ghcr: "ghcr.io/silogen"
-
 apps:
   aim-engine:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
@@ -55,7 +54,7 @@ apps:
         kind: ClusterPolicy
   aiwb:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0-rc.1"
+    repoVersion: "1.1.9"
     chart: "aiwb-chart"
     namespace: aiwb
     valuesFile: values.yaml
@@ -327,7 +326,6 @@ apps:
     namespace: external-secrets
     path: external-secrets-config
     syncWave: -10
-
   gitea:
     helmParameters:
       - name: clusterDomain
@@ -457,11 +455,7 @@ apps:
       extraEnvVars:
         - name: JAVA_OPTS_APPEND
           value: >-
-            -XX:MaxRAMPercentage=65.0
-            -XX:InitialRAMPercentage=50.0
-            -XX:MaxMetaspaceSize=512m
-            -XX:+ExitOnOutOfMemoryError
-            -Djava.awt.headless=true
+            -XX:MaxRAMPercentage=65.0 -XX:InitialRAMPercentage=50.0 -XX:MaxMetaspaceSize=512m -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true
       extraStartupArgs: "--cache=ispn --features=scripts,admin-fine-grained-authz,token-exchange --import-realm"
       extraVolumeMounts:
         - mountPath: /opt/keycloak/providers
@@ -793,7 +787,6 @@ apps:
     path: openbao-config/0.1.0
     syncWave: -60
     valuesFile: values.yaml
-
   opentelemetry-operator:
     namespace: opentelemetry-operator-system
     path: opentelemetry-operator/0.93.1
@@ -866,3 +859,81 @@ apps:
     namespace: rabbitmq-system
     path: rabbitmq/v2.15.0
     syncWave: -10
+  gateway-api:
+    namespace: default
+    path: gateway-api/v1.3.0
+    syncWave: -50
+  kgateway:
+    namespace: kgateway-system
+    path: kgateway/v2.1.0-main
+    syncWave: -20
+    valuesObject:
+      controller:
+        image:
+          registry: "ghcr.io"
+          repository: silogen/kgateway-v2.1.0-main-websocket
+          tag: "0.0.1"
+  kgateway-config:
+    helmParameters:
+      - name: domain
+        value: "{{ .Values.global.domain }}"
+    namespace: kgateway-system
+    path: kgateway-config
+    syncWave: -15
+    valuesFile: values.yaml
+  kgateway-crds:
+    namespace: kgateway-system
+    path: kgateway-crds/v2.1.0-main
+    syncWave: -30
+    valuesFile: values.yaml
+  minio-operator:
+    namespace: minio-operator
+    path: minio-operator/7.1.1
+    syncWave: -10
+    valuesFile: values.yaml
+  minio-tenant:
+    namespace: minio-tenant-default
+    path: minio-tenant/7.1.1
+    syncWave: 0
+    valuesObject:
+      tenant:
+        buckets:
+          - name: default-bucket
+            objectLock: true
+          - name: models
+            objectLock: true
+        certificate:
+          externalCaCertSecret:
+            - name: cluster-tls
+              type: kubernetes.io/secret/v1
+          requestAutoCert: false
+        configSecret:
+          existingSecret: true
+          name: default-minio-tenant-env-configuration
+        env:
+          - name: MINIO_PROMETHEUS_AUTH_TYPE
+            value: "public"
+        name: default-minio-tenant
+        pools:
+          - name: pool-0
+            servers: 1
+            size: 250Gi # Reduced from 500Gi for workstation
+            storageClassName: direct
+            volumesPerServer: 1
+        users:
+          - name: default-user
+  minio-tenant-config:
+    helmParameters:
+      - name: domain
+        value: "{{ .Values.global.domain }}"
+    ignoreDifferences:
+      - group: external-secrets.io
+        jqPathExpressions:
+          - ".spec.data[].remoteRef.conversionStrategy"
+          - ".spec.data[].remoteRef.decodingStrategy"
+          - ".spec.data[].remoteRef.metadataPolicy"
+        kind: ExternalSecret
+    namespace: minio-tenant-default
+    path: minio-tenant-config
+    syncWave: 0
+    valuesFile: values.yaml

@@ -3,8 +3,6 @@ externalValues:
 clusterForge:
   valuesFile: values.yaml
   repoUrl: "https://github.com/silogen/cluster-forge.git"
-
-
 enabledApps:
   - aim-cluster-model-source
   - aim-engine
@@ -27,8 +25,6 @@ enabledApps:
   - cnpg-operator
   - external-secrets
   - external-secrets-config
-  - envoy-gateway
-  - envoy-gateway-config
   - gitea
   - gitea-config
   - kaiwo
@@ -43,19 +39,22 @@ enabledApps:
   - kueue
   - kueue-config
   - kyverno
-  - kyverno-policies-base               # applicable to all cluster sizes
+  - kyverno-policies-base # applicable to all cluster sizes
   - kyverno-policies-storage-local-path # small & medium cluster sizes only
   - metallb
-  - seaweedfs-crds
-  - seaweedfs-operator
-  - seaweedfs-config  
   - openbao
   - openbao-config
   - opentelemetry-operator
   - otel-lgtm-stack
   - prometheus-crds
   - rabbitmq
-
+  - gateway-api
+  - kgateway
+  - kgateway-config
+  - kgateway-crds
+  - minio-operator
+  - minio-tenant
+  - minio-tenant-config
 apps:
   argocd:
     valuesObject:
@@ -68,7 +67,7 @@ apps:
             cpu: "2000m"
             memory: "4Gi"
           requests:
-            cpu: "500m" 
+            cpu: "500m"
             memory: "1Gi"
       redis-ha:
         enabled: false
@@ -84,7 +83,7 @@ apps:
         replicas: 1
         resources:
           limits:
-            cpu: "1000m" 
+            cpu: "1000m"
             memory: "2Gi"
           requests:
             cpu: "250m"
@@ -129,7 +128,6 @@ apps:
           replicas: 1
           requests:
             storage: 10Gi
-
   openbao:
     valuesObject:
       server:

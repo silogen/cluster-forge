@@ -20,8 +20,6 @@ enabledApps:
   - cnpg-operator
   - external-secrets
   - external-secrets-config
-  - envoy-gateway
-  - envoy-gateway-config
   - gitea
   - gitea-config
   - kaiwo
@@ -44,7 +42,13 @@ enabledApps:
   - otel-lgtm-stack
   - prometheus-crds
   - rabbitmq
-  
+  - gateway-api
+  - kgateway
+  - kgateway-config
+  - kgateway-crds
+  - minio-operator
+  - minio-tenant
+  - minio-tenant-config
 apps:
   seaweedfs-config:
     valuesObject:
@@ -61,7 +65,6 @@ apps:
           replicas: 1
           requests:
             storage: 30Gi
-
   openbao:
     valuesObject:
       server:
