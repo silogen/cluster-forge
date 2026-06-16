@@ -732,6 +732,12 @@ fi
 
 # Create the Gateway in envoy-gateway-system so all existing HTTPRoutes
 # (parentRef: name=https, namespace=envoy-gateway-system) are satisfied.
+# NOTE: the listener port MUST match a Traefik entryPoint port. Traefik's default
+# 'websecure' entryPoint listens on container port 8443 (the LoadBalancer Service maps
+# external 443 -> websecure/8443). If we used port 443 here, Traefik reports
+# "no matching entryPoint for port 443" (PortUnavailable) and the listener never
+# programs, so no route attaches. External clients still use 443; only the in-cluster
+# listener/entryPoint port is 8443.
 echo "📦 Creating Gateway (domain: ${DOMAIN})..."
 kubectl apply -f - <<EOF
 apiVersion: gateway.networking.k8s.io/v1
@@ -744,7 +750,7 @@ spec:
   listeners:
   - name: https
     hostname: "*.${DOMAIN}"
-    port: 443
+    port: 8443
     protocol: HTTPS
     allowedRoutes:
       namespaces:
