@@ -614,38 +614,59 @@ echo ""
 # TRAEFIK (Gateway API implementation — replaces Envoy Gateway)
 # ============================================================================
 # Traefik v3 is used as the Gateway API controller. It is installed with the
-# chart's DEFAULT values (no custom overrides) to stay consistent with other
-# environments that already run a default Traefik. The existing HTTPRoutes still
-# reference name=https, namespace=envoy-gateway-system; reconciling them with the
-# Traefik-managed Gateway is handled by the patch step later in this script.
+# chart's default values EXCEPT for the Kubernetes Gateway API provider, which
+# must be explicitly enabled (it is OFF by default in the chart). Without it,
+# Traefik never reconciles the Gateway/HTTPRoutes and the 'https' Gateway stays
+# PROGRAMMED=Unknown, so no ingress works.
 # Namespaces needed regardless of whether Traefik is already installed:
 # envoy-gateway-system holds the Gateway + cluster-tls Secret, cluster-auth holds the shim.
 kubectl create namespace envoy-gateway-system --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace cluster-auth --dry-run=client -o yaml | kubectl apply -f -
 
-# Install Traefik with the chart's DEFAULT values, and ONLY if it isn't already
-# installed. Detection uses the standard chart label across all namespaces so we
-# don't clobber a Traefik another user may have already deployed (possibly in a
-# different namespace) with default values. HTTPRoute/Gateway wiring is patched
-# later in the script.
-if kubectl get deployment -A -l app.kubernetes.io/name=traefik -o name 2>/dev/null | grep -q .; then
-  EXISTING_TRAEFIK_NS=$(kubectl get deployment -A -l app.kubernetes.io/name=traefik \
-    -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null)
-  echo "ℹ️  Traefik already installed (namespace: ${EXISTING_TRAEFIK_NS}) — skipping Traefik install."
+# The 'https' Gateway sets gatewayClassName: traefik, so a GatewayClass named
+# 'traefik' (Traefik's controllerName) must exist. We manage it ourselves
+# (idempotent) rather than relying on the chart, so it's present even when the
+# Traefik install is skipped. Traefik watches every GatewayClass with its
+# controllerName, so this is all that's needed to bind the Gateway.
+kubectl apply -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: traefik
+spec:
+  controllerName: traefik.io/gateway-controller
+EOF
+
+# Install/update Traefik with the Gateway API provider ENABLED. We only SKIP when a
+# Traefik owned by someone else exists in a DIFFERENT namespace (to avoid clobbering
+# it). Otherwise (absent, or our own in the 'traefik' namespace) we (re)apply so that
+# re-runs converge to a gateway-enabled install — server-side apply is idempotent.
+EXISTING_TRAEFIK_NS=$(kubectl get deployment -A -l app.kubernetes.io/name=traefik \
+  -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null)
+if [ -n "${EXISTING_TRAEFIK_NS}" ] && [ "${EXISTING_TRAEFIK_NS}" != "traefik" ]; then
+  echo "ℹ️  Traefik already installed in namespace '${EXISTING_TRAEFIK_NS}' (not 'traefik') — skipping to avoid clobbering it."
+  echo "⚠️  Ensure that Traefik has the Kubernetes Gateway provider enabled (providers.kubernetesGateway.enabled=true),"
+  echo "    otherwise the 'https' Gateway will not be programmed and ingress will not work."
 else
-  echo "📦 Installing Traefik (default chart values)..."
+  echo "📦 Installing/updating Traefik (Gateway API provider enabled)..."
   kubectl create namespace traefik --dry-run=client -o yaml | kubectl apply -f -
 
   helm repo add traefik https://traefik.github.io/charts 2>/dev/null || true
   helm repo update traefik
 
+  # providers.kubernetesGateway.enabled=true: make Traefik the Gateway API controller.
+  # gateway.enabled=false / gatewayClass.enabled=false: don't let the chart create its
+  # own Gateway/GatewayClass (we manage the GatewayClass above and the Gateway below).
   helm template traefik traefik/traefik \
     --namespace traefik \
+    --set providers.kubernetesGateway.enabled=true \
+    --set gateway.enabled=false \
+    --set gatewayClass.enabled=false \
     | kubectl apply --server-side -n traefik -f -
 
   echo "⏳ Waiting for Traefik to be ready..."
-  kubectl wait --for=condition=available --timeout=180s deployment/traefik -n traefik
-  echo "✅ Traefik installed"
+  kubectl rollout status deployment/traefik -n traefik --timeout=180s
+  echo "✅ Traefik installed/updated with Gateway API provider enabled"
 fi
 
 # Pre-load a real TLS certificate for *.${DOMAIN} from local files if present.
