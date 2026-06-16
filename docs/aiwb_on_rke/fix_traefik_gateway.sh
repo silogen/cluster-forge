@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
 #
 # Live fix for: Traefik Gateway provider stuck Pending (GatewayClass/Gateway
-# PROGRAMMED=Unknown, HTTPRoutes never attach -> 404).
+# PROGRAMMED=Unknown/NotValid, HTTPRoutes never attach -> 404 / hang).
 #
-# Cause: Traefik's Gateway provider watches TLSRoute/TCPRoute/BackendTLSPolicy,
-# which are NOT in the Gateway API "standard" channel. Their absence makes
-# Traefik's informers fail to sync. Installing the "experimental" channel
-# (a superset of standard) and restarting Traefik fixes it.
+# Two root causes, both fixed here:
+#  1) CRD VERSION: Traefik v3.7 supports Gateway API v1.5.1 and watches
+#     TLSRoute/BackendTLSPolicy at their v1 versions. Older CRDs (e.g. v1.2.1,
+#     serving v1alpha2/v1alpha3) make Traefik's informers fail ("could not find
+#     the requested resource") and the GatewayClass stays Pending. Install the
+#     experimental channel (superset of standard; also provides TCPRoute).
+#  2) LISTENER PORT: Traefik maps Gateway listeners to entryPoints by port. The
+#     default 'websecure' entryPoint is 8443 (the Service maps external 443->8443);
+#     a listener on 443 fails with PortUnavailable. Patch the listener to 8443.
+#     External access stays on 443 via the Service.
 #
 # Run on the cluster (root kubeconfig):  sudo bash fix_traefik_gateway.sh
 set -euo pipefail
 
-# Traefik v3.7 supports Gateway API v1.5.1 and watches TLSRoute/BackendTLSPolicy at
-# their v1 versions; older CRDs (e.g. v1.2.1, which serve v1alpha2/v1alpha3) cause
-# "could not find the requested resource" and leave the GatewayClass Pending.
 GW_API_VERSION="${GW_API_VERSION:-v1.5.1}"
 TRAEFIK_NS="${TRAEFIK_NS:-traefik}"
 GATEWAY_NS="${GATEWAY_NS:-envoy-gateway-system}"
+GATEWAY_NAME="${GATEWAY_NAME:-https}"
+LISTENER_PORT="${LISTENER_PORT:-8443}"
 
 echo "📦 Installing Gateway API CRDs (experimental channel ${GW_API_VERSION})..."
 kubectl apply --server-side --force-conflicts \
@@ -27,6 +32,10 @@ kubectl wait --for=condition=established --timeout=60s \
   crd/tlsroutes.gateway.networking.k8s.io \
   crd/tcproutes.gateway.networking.k8s.io \
   crd/backendtlspolicies.gateway.networking.k8s.io
+
+echo "🔧 Ensuring Gateway '${GATEWAY_NAME}' listener[0] uses port ${LISTENER_PORT} (matches Traefik websecure entryPoint)..."
+kubectl patch gateway "${GATEWAY_NAME}" -n "${GATEWAY_NS}" --type=json \
+  -p="[{\"op\":\"replace\",\"path\":\"/spec/listeners/0/port\",\"value\":${LISTENER_PORT}}]"
 
 echo "🔄 Restarting Traefik so its informers re-sync..."
 kubectl -n "${TRAEFIK_NS}" rollout restart deploy traefik
