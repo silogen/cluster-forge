@@ -146,6 +146,13 @@ When ArgoCD renders applications with multi-source:
 3. **External overrides** from `cluster-values/values.yaml`
 4. **Runtime parameters** (domain, targetRevision) injected by bootstrap
 
+   AIM hardware-family selection is injected separately: cluster-bloom writes the
+   selected families as a YAML list into
+   `apps.aim-cluster-model-source.valuesObject.hardwareFamilies` (see
+   `sources/aim-cluster-model-source`). The value travels as a structured list,
+   not a string, so no comma parsing is involved. The base `root/values.yaml`
+   default is an empty list, which selects the legacy (install-all) branch.
+
 ## Developer Workflow
 
 ### Local Configuration Management (Local Mode)

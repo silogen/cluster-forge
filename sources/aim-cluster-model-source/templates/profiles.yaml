@@ -1,0 +1,68 @@
+{{- $families := include "aim.hardwareFamilies" . | fromJsonArray }}
+{{- if has "instinct" $families }}
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterModelSource
+metadata:
+  name: amd-aim-instinct-0.12.0
+spec:
+  filters:
+    - image: amdenterpriseai/aim-google-gemma-3-1b-it:0.12.0
+    - image: amdenterpriseai/aim-minimaxai-minimax-m2-5:0.12.0
+    - image: amdenterpriseai/aim-zai-org-glm-4-7:0.12.0
+  maxModels: 100
+  registry: docker.io
+  syncInterval: 1h
+{{- end }}
+{{- if has "epyc" $families }}
+---
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterModelSource
+metadata:
+  name: amd-aim-epyc-0.11.0
+spec:
+  filters:
+    - image: amdenterpriseai/aim-epyc-meta-llama-llama-3-1-8b-instruct:0.11.0-preview
+    - image: amdenterpriseai/aim-epyc-meta-llama-llama-3-2-1b-instruct:0.11.0-preview
+    - image: amdenterpriseai/aim-epyc-meta-llama-llama-3-2-3b-instruct:0.11.0-preview
+  maxModels: 100
+  registry: docker.io
+  syncInterval: 1h
+{{- end }}
+{{- if has "cpu" $families }}
+---
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterModelSource
+metadata:
+  name: amd-aim-cpu-0.12.0-rc1
+spec:
+  filters:
+    - image: silogen/aim-cpu-qwen-qwen3-0-6b:0.12.0-rc1
+  imagePullSecrets:
+    - name: ghcr-regcred
+  maxModels: 100
+  registry: ghcr.io
+  syncInterval: 1h
+{{- end }}
+{{- if has "radeon" $families }}
+---
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterModelSource
+metadata:
+  name: amd-aim-radeon-0.12.0-rc1
+spec:
+  filters:
+    - image: silogen/aim-radeon-meta-llama-llama-3-1-8b-instruct:0.12.0-rc1
+    - image: silogen/aim-radeon-openai-gpt-oss-20b:0.12.0-rc1
+    - image: silogen/aim-radeon-qwen-qwen3-5-9b:0.12.0-rc1
+    - image: silogen/aim-radeon-qwen-qwen3-vl-8b-instruct:0.12.0-rc1
+    - image: silogen/aim-radeon-zai-org-glm-4-7-flash:0.12.0-rc1
+  imagePullSecrets:
+    - name: ghcr-regcred
+  maxModels: 100
+  registry: ghcr.io
+  syncInterval: 1h
+{{- end }}
