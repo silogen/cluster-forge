@@ -24,8 +24,6 @@ spec:
     rack: "rack1"
     dataCenter: "dc1"
   filer:
-    ingress:
-      enabled: false
     replicas: {{ .filer.replicas }}
     volumes:
       - name: s3-metadata
@@ -34,15 +32,15 @@ spec:
     volumeMounts:
       - mountPath: /data/
         name: s3-metadata
-    s3:
-      ingress:
-        enabled: false
-      enabled: true
-      configSecret:
-        name: seaweedfs-s3-config
-        key: s3.json
     config: |
       [leveldb2]
       enabled = true
       dir = "/data/filerldb2"
+  s3Ingress:
+    enabled: false
+  s3:
+    enabled: true
+    configSecret:
+      name: seaweedfs-s3-config
+      key: s3.json
 {{- end}}
