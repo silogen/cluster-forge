@@ -38,6 +38,9 @@ enabledApps:
   - kyverno
   - kyverno-policies-base
   - metallb
+  - seaweedfs-crds
+  - seaweedfs-operator
+  - seaweedfs-config
   - openbao
   - openbao-config
   - opentelemetry-operator
