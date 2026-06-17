@@ -133,9 +133,6 @@ spec:
                 - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
                   regex: envoy
                   action: keep
-                - source_labels: [__meta_kubernetes_pod_label_gateway_envoyproxy_io_owning_gateway_name]
-                  regex: https
-                  action: keep
                 - source_labels: [__meta_kubernetes_pod_ip]
                   regex: (.+)
                   replacement: $1:1064
