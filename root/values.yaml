@@ -740,6 +740,7 @@ apps:
         jqPathExpressions:
           - .spec.parentRefs
           - .spec.rules[].backendRefs
+          - .spec.rules[].matches[].path
           - .status
     valuesObject:
       seaweed:
