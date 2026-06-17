@@ -137,6 +137,8 @@ spec:
                   regex: (.+)
                   replacement: $1:1064
                   target_label: __address__
+                - source_labels: [__meta_kubernetes_pod_name]
+                  target_label: pod
     service:
       pipelines:
         metrics:
