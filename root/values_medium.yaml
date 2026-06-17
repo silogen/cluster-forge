@@ -41,7 +41,6 @@ enabledApps:
   - kyverno-policies-base
   - kyverno-policies-storage-local-path
   - metallb
-  - seaweedfs-crds
   - seaweedfs-operator
   - seaweedfs-config
   - openbao

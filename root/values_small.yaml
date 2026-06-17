@@ -46,7 +46,6 @@ enabledApps:
   - kyverno-policies-base               # applicable to all cluster sizes
   - kyverno-policies-storage-local-path # small & medium cluster sizes only
   - metallb
-  - seaweedfs-crds
   - seaweedfs-operator
   - seaweedfs-config  
   - openbao

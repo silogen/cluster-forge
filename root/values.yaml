@@ -715,10 +715,6 @@ apps:
     namespace: default
     path: metallb/v0.15.2
     syncWave: 10
-  seaweedfs-crds:
-    path: seaweedfs-crds/0.1.29
-    namespace: seaweedfs-operator
-    syncWave: -1
   seaweedfs-operator:
     helmParameters:
       - name: domain
