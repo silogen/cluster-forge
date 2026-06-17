@@ -733,6 +733,14 @@ apps:
     ignoreDifferences:
       - group: networking.k8s.io
         kind: Ingress
+        jqPathExpressions:
+          - .status
+      - group: gateway.networking.k8s.io
+        kind: HTTPRoute
+        jqPathExpressions:
+          - .spec.parentRefs
+          - .spec.rules[].backendRefs
+          - .status
     valuesObject:
       seaweed:
         storageClassName: mlstorage
