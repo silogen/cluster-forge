@@ -1,0 +1,41 @@
+{{- if .Values.aiGateway.enabled }}
+# Dedicated AI gateway: serves AIGatewayRoute (model inference) on its OWN Envoy data plane,
+# isolated from the `https` apps gateway. An Endpoint Picker (EPP) ext_proc failure or
+# InferencePool churn here can no longer 500 the apps routes (Gitea / AIWB / ArgoCD) — they
+# live on a separate Envoy (EAI-6805).
+# Reached on the single :443 VIP: the apps gateway TLS-passes-through the AI hostname (by SNI)
+# to this gateway, which TERMINATES its own TLS (cluster-tls) — end-to-end encrypted, and a
+# one-line switch to its own LoadBalancer IP later for full isolation. Carries the ai-extproc
+# annotation + its own EnvoyProxy (ClusterIP, lua-before-ext_authz) so the AI auth chain runs
+# here. AI routes land here once ai-gateway-discovery targets this gateway
+# (GATEWAY_NAME=ai-gateway, in silogen/core).
+# Do not use mergeGateways — Envoy AI Gateway does not support it (envoyproxy/ai-gateway#1638).
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ai-gateway
+  namespace: envoy-gateway-system
+  annotations:
+    aigateway.envoyproxy.io/gateway-config: ai-extproc
+spec:
+  gatewayClassName: envoy-gateway
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: ai-gateway-proxy-config
+  listeners:
+    - allowedRoutes:
+        namespaces:
+          from: All
+      hostname: "*.{{ .Values.domain }}"
+      name: https
+      port: 443
+      protocol: HTTPS
+      tls:
+        certificateRefs:
+          - group: ''
+            kind: Secret
+            name: cluster-tls
+        mode: Terminate
+{{- end }}

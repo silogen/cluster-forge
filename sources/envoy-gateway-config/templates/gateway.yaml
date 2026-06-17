@@ -1,14 +1,15 @@
-# Apps gateway: terminates TLS and serves apps via HTTPRoute and AI via AIGatewayRoute.
-# Exposed as ClusterIP (see appsGateway.serviceType); the tls-passthrough gateway is the
-# external front door and TLS-passes-through to this gateway by SNI.
+# Apps gateway: the external LoadBalancer front door (see appsGateway.serviceType).
+# Terminates TLS (cluster-tls) and serves apps via HTTPRoute. Owns the k8s.<domain> TLS-
+# passthrough listener (kube API) on the same :443 VIP by SNI, and — when aiGateway is on —
+# an ai-passthrough listener that passes the AI hostname straight through to the dedicated
+# `ai-gateway` (which terminates its own TLS). No separate passthrough gateway needed; this
+# gateway carries no AI extProc annotation (all AI handling lives on `ai-gateway`).
 # Do not use mergeGateways — Envoy AI Gateway does not support it (envoyproxy/ai-gateway#1638).
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: https
   namespace: envoy-gateway-system
-  annotations:
-    aigateway.envoyproxy.io/gateway-config: ai-extproc
 spec:
   gatewayClassName: envoy-gateway
   infrastructure:
@@ -30,3 +31,35 @@ spec:
             kind: Secret
             name: cluster-tls
         mode: Terminate
+    # k8s.<domain> -> kube API, raw TLS passthrough (the API server terminates TLS itself).
+    # SNI longest-match beats the *.<domain> terminate listener. On :443 only, never :6443,
+    # so it cannot hijack pod->apiserver traffic on cluster-bloom.
+    - allowedRoutes:
+        kinds:
+          - group: gateway.networking.k8s.io
+            kind: TLSRoute
+        namespaces:
+          from: All
+      hostname: "k8s.{{ .Values.domain }}"
+      name: k8s-passthrough
+      port: 443
+      protocol: TLS
+      tls:
+        mode: Passthrough
+{{- if and .Values.aiGateway.enabled .Values.aiGateway.routeHostname }}
+    # <ai-host> -> ai-gateway, raw TLS passthrough so ai-gateway terminates its own TLS and
+    # runs the full AI auth chain (model-header -> ext_authz) + EPP on its isolated data plane.
+    # More-specific SNI beats *.<domain>. Mirrors the k8s-passthrough pattern.
+    - allowedRoutes:
+        kinds:
+          - group: gateway.networking.k8s.io
+            kind: TLSRoute
+        namespaces:
+          from: All
+      hostname: "{{ .Values.aiGateway.routeHostname }}"
+      name: ai-passthrough
+      port: 443
+      protocol: TLS
+      tls:
+        mode: Passthrough
+{{- end }}

@@ -8,6 +8,11 @@ spec:
     - group: gateway.networking.k8s.io
       kind: Gateway
       name: https
+{{- if .Values.aiGateway.enabled }}
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: ai-gateway
+{{- end }}
   path:
     escapedSlashesAction: KeepUnchanged
   connection:

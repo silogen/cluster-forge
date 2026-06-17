@@ -1,9 +1,12 @@
-# EnvoyProxy configuration for access logging and pod placement.
-# Referenced by Gateway via infrastructure.parametersRef.
+{{- if .Values.aiGateway.enabled }}
+# EnvoyProxy for the ai-gateway: ClusterIP (it sits behind the apps gateway, which forwards
+# the AI hostname to it) + the same lua-before-ext_authz filterOrder the apps gateway uses,
+# so set-model-header-from-body runs before cluster-auth and per-model group enforcement
+# works (EAI-6805). Same first-node placement + AI access-log telemetry.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
-  name: access-logging-config
+  name: ai-gateway-proxy-config
   namespace: envoy-gateway-system
 spec:
   filterOrder:
@@ -13,9 +16,7 @@ spec:
     type: Kubernetes
     kubernetes:
       envoyService:
-        # LoadBalancer: the apps gateway is the external front door and owns the VIP on :443
-        # (HTTPS terminate + k8s TLS-passthrough listeners).
-        type: {{ .Values.appsGateway.serviceType }}
+        type: ClusterIP
       envoyDeployment:
         pod:
           nodeSelector:
@@ -53,3 +54,4 @@ spec:
             - type: File
               file:
                 path: /dev/stdout
+{{- end }}

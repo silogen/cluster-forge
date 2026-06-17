@@ -1,24 +1,26 @@
 domain: # to be filled by cluster-forge app
 
-# Apps gateway (`https`): terminates TLS (cluster-tls) and serves HTTPRoute / AIGatewayRoute.
-# ClusterIP — not the external front door; the tls-passthrough gateway fronts it and
-# TLS-passes-through by SNI.
+# Apps gateway (`https`): the external LoadBalancer front door. Terminates TLS (cluster-tls)
+# for apps, owns the k8s.<domain> TLS-passthrough (kube API) and the ai-passthrough listeners
+# on the same :443 VIP by SNI. No separate tls-passthrough gateway.
 appsGateway:
-  serviceType: ClusterIP
+  serviceType: LoadBalancer
 
-# Stable ClusterIP `https` selecting the apps-gateway data plane. Used both by CoreDNS
-# (*.domain rewrite) and as the passthrough backend for the tls-passthrough gateway, so it
-# must stay enabled while tlsPassthroughGateway is on.
+# Stable ClusterIP `https` selecting the apps-gateway data plane, used by CoreDNS for the
+# *.domain rewrite (in-cluster resolution).
 gatewayDnsService:
   enabled: true
 
-# tls-passthrough gateway: when serviceType is LoadBalancer it owns the external MetalLB
-# LoadBalancer on :443 and does SNI-based TLS passthrough — k8s.<domain> -> kube API service,
-# everything else -> apps gateway. Listening on :443 (not :6443) avoids hijacking
-# pod->apiserver traffic on cluster-bloom where node-ip equals the MetalLB pool IP.
-tlsPassthroughGateway:
-  enabled: true
-  serviceType: LoadBalancer  # external front door: owns the MetalLB VIP on :443
-  # Pin the external VIP here if the MetalLB pool holds more than one address; otherwise
-  # MetalLB auto-assigns from the pool. Only applies when serviceType is LoadBalancer.
-  loadBalancerIP: ""
+# Dedicated AI gateway (`ai-gateway`): a separate Envoy (ClusterIP) for AIGatewayRoute traffic,
+# isolating inference/EPP failures from the apps gateway (EAI-6805). The apps gateway TLS-
+# passes-through routeHostname to it by SNI and ai-gateway terminates its own TLS. AI routes
+# land here once ai-gateway-discovery targets it (GATEWAY_NAME=ai-gateway, in silogen/core).
+aiGateway:
+  enabled: false
+  # SNI host the apps gateway passes through to ai-gateway. MUST equal the discovery
+  # controller's controller.gateway.routeHostname (AIRouteHostname), e.g. gateway.<domain>.
+  # Required when enabled — the ai-passthrough listener/route only render when set.
+  routeHostname: ""
+  # Stable ClusterIP `ai-gateway` (CoreDNS target / passthrough backend).
+  dnsService:
+    enabled: true

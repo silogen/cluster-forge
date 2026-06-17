@@ -1,15 +1,15 @@
-# Lua filter that sets x-ai-eg-model from the request body before ext_authz runs.
+{{- if .Values.aiGateway.enabled }}
+# Lua filter that sets x-ai-eg-model from the request body before ext_authz runs, on the
+# ai-gateway (where all AI traffic terminates and is authorized).
 #
-# The AI Gateway's ext_proc reads the body and sets x-ai-eg-model, but it is
-# inserted via xdsTranslator post-hooks which run after filterOrder is applied.
-# This means ext_authz (cluster-auth) runs without x-ai-eg-model set, causing
-# it to fall through to a catch-all route with no auth annotations and allow
-# the request regardless of which model is targeted (EAI-6805).
+# The AI Gateway's ext_proc reads the body and sets x-ai-eg-model, but it is inserted via
+# xdsTranslator post-hooks which run after filterOrder is applied. So ext_authz (cluster-auth)
+# would run without x-ai-eg-model and fall through to a catch-all route with no auth
+# annotations, allowing the request regardless of which model is targeted (EAI-6805).
 #
-# This Lua filter runs early in the chain (ordered before ext_authz via
-# EnvoyProxy.spec.filterOrder), reads the model field from the JSON body, and
-# sets x-ai-eg-model so cluster-auth can match the correct per-model HTTPRoute
-# and enforce the cluster-auth/allowed-group annotation.
+# This Lua filter runs early (ordered before ext_authz via the ai-gateway EnvoyProxy
+# filterOrder), reads the model field from the JSON body, and sets x-ai-eg-model so
+# cluster-auth can match the correct per-model route and enforce cluster-auth/allowed-group.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyExtensionPolicy
 metadata:
@@ -19,7 +19,7 @@ spec:
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
-      name: https
+      name: ai-gateway
   lua:
     - type: Inline
       inline: |
@@ -33,3 +33,4 @@ spec:
             request_handle:headers():replace("x-ai-eg-model", model)
           end
         end
+{{- end }}
