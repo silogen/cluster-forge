@@ -16,7 +16,7 @@ spec:
           from: All
       hostname: "*.{{ .Values.domain }}"
       name: https
-      port: 443
+      port: {{ .Values.ports.https }}
       protocol: HTTPS
       tls:
         certificateRefs:
@@ -32,7 +32,7 @@ spec:
           from: All
       hostname: "k8s.{{ .Values.domain }}"
       name: k8s-passthrough
-      port: 443
+      port: {{ .Values.ports.k8sPassthrough }}
       protocol: TLS
       tls:
         mode: Passthrough
