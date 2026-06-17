@@ -731,7 +731,10 @@ apps:
     syncWave: 0
   seaweedfs-config:
     ignoreDifferences:
-      - kind: Ingress
+      - group: networking.k8s.io
+        kind: Ingress
+        jqPathExpressions:
+          - .status
     valuesObject:
       seaweed:
         storageClassName: mlstorage
