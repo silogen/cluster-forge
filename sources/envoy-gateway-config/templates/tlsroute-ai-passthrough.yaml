@@ -1,0 +1,26 @@
+{{- if and .Values.aiGateway.enabled .Values.aiGateway.routeHostname }}
+# SNI <ai-host> -> ai-gateway (TLS passthrough via the apps gateway's ai-passthrough listener).
+# ai-gateway terminates its own TLS and runs the AI auth chain + EPP. Same namespace as the
+# apps gateway and the ai-gateway service, so no ReferenceGrant is needed.
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: ai-gateway-passthrough
+  namespace: envoy-gateway-system
+spec:
+  hostnames:
+    - "{{ .Values.aiGateway.routeHostname }}"
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: https
+      namespace: envoy-gateway-system
+      sectionName: ai-passthrough
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: ai-gateway
+          port: 443
+          weight: 1
+{{- end }}

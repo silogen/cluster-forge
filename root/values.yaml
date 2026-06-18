@@ -591,6 +591,53 @@ apps:
     syncWave: -30
     valuesObject:
       kubernetesClusterDomain: cluster.local
+      config:
+        envoyGateway:
+          extensionApis:
+            enableBackend: true
+          extensionManager:
+            # Tolerate the AI extension erroring on the tls-passthrough gateway's L4
+            # listener (it tries to splice an HTTP filter into a TCP chain with no
+            # HTTPConnectionManager). With mergeGateways:false each gateway is its own
+            # translation pass, so the https proxy still gets the EPP ext_proc filter
+            # while the passthrough proxy keeps its original (correct) xDS instead of
+            # failing translation and getting stuck in init.
+            failOpen: true
+            resources:
+              - group: aigateway.envoyproxy.io
+                version: v1beta1
+                kind: AIGatewayRoute
+              - group: aigateway.envoyproxy.io
+                version: v1beta1
+                kind: AIServiceBackend
+            backendResources:
+              - group: inference.networking.k8s.io
+                version: v1
+                kind: InferencePool
+            hooks:
+              xdsTranslator:
+                translation:
+                  listener:
+                    # Hand the AI extension every listener so the EPP ext_proc filter
+                    # gets injected into the shared https :443 listener (owned by the
+                    # Gateway, not by AIGatewayRoute) — required for InferencePool routes,
+                    # which otherwise 503 because nothing sets x-gateway-destination-endpoint.
+                    # The L4 tls-passthrough listener also reaches the extension and errors,
+                    # but failOpen:true (above) keeps that proxy's xDS intact.
+                    includeAll: true
+                  route:
+                    includeAll: true
+                  cluster:
+                    includeAll: true
+                  secret:
+                    includeAll: true
+                post:
+                  - Translation
+                  - Cluster
+                  - Route
+            service:
+              host: ai-gateway-controller.envoy-ai-gateway-system.svc.cluster.local
+              port: 1063
   envoy-gateway-config:
     helmParameters:
       - name: domain
@@ -599,6 +646,23 @@ apps:
     path: envoy-gateway-config
     syncWave: -15
     valuesFile: values.yaml
+  envoy-ai-gateway-crds:
+    namespace: envoy-ai-gateway-system
+    path: envoy-ai-gateway-crds/v0.6.0
+    syncWave: -10
+  envoy-ai-gateway:
+    namespace: envoy-ai-gateway-system
+    path: envoy-ai-gateway/v0.6.0
+    syncWave: -5
+    valuesObject:
+      controller:
+        mcp:
+          sessionEncryption:
+            seed: "cluster-forge-default-seed-override-in-production"
+  inference-extension-crds:
+    namespace: envoy-ai-gateway-system
+    path: inference-extension-crds/v1.5.0
+    syncWave: -10
   kserve:
     namespace: kserve-system
     path: kserve/v0.16.0

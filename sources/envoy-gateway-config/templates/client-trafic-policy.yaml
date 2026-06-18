@@ -1,12 +1,19 @@
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: ClientTrafficPolicy
 metadata:
-  name: preserve-url-encoding
+  name: shared-gateway-traffic
   namespace: envoy-gateway-system
 spec:
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
       name: https
+{{- if .Values.aiGateway.enabled }}
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: ai-gateway
+{{- end }}
   path:
     escapedSlashesAction: KeepUnchanged
+  connection:
+    bufferLimit: 50Mi
