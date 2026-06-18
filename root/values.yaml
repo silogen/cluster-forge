@@ -16,14 +16,16 @@ ociRegistry:
 apps:
   ai-gateway-discovery:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "0.2.4"
+    repoVersion: "2.0.0" # (override in int-test to run RC)
     chart: "ai-gateway-discovery-chart"
     namespace: ai-gateway-system
     valuesFile: values.yaml
     syncWave: 0
     helmParameters:
       - name: controller.gateway.routeHostname
-        value: "{{ .Values.global.domain }}"
+        value: "gateway.{{ .Values.global.domain }}"
+      - name: controller.gateway.name
+        value: ai-gateway
   aim-engine:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "0.2.4"
