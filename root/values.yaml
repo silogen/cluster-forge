@@ -654,6 +654,8 @@ apps:
     helmParameters:
       - name: domain
         value: "{{ .Values.global.domain }}"
+      - name: aiGateway.enabled
+        value: "true"  
     namespace: envoy-gateway-system
     path: envoy-gateway-config
     syncWave: -15
