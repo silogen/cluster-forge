@@ -1,4 +1,5 @@
-# Lua filter that sets x-ai-eg-model from the request body before ext_authz runs.
+# Lua filter that sets x-ai-eg-model and x-ai-eg-backend from the request body
+# before ext_authz runs.
 #
 # The AI Gateway's ext_proc reads the body and sets x-ai-eg-model, but it is
 # inserted via xdsTranslator post-hooks which run after filterOrder is applied.
@@ -7,9 +8,18 @@
 # the request regardless of which model is targeted (EAI-6805).
 #
 # This Lua filter runs early in the chain (ordered before ext_authz via
-# EnvoyProxy.spec.filterOrder), reads the model field from the JSON body, and
-# sets x-ai-eg-model so cluster-auth can match the correct per-model HTTPRoute
-# and enforce the cluster-auth/allowed-group annotation.
+# EnvoyProxy.spec.filterOrder), reads fields from the JSON body, and sets:
+#
+# - x-ai-eg-model: always, from the "model" field. Required so cluster-auth
+#   matches the correct per-model HTTPRoute and enforces the
+#   cluster-auth/allowed-group annotation.
+#
+# - x-ai-eg-backend: when "backend" is present, from the AIM service UUID.
+#   AIWB-aware clients include "backend": "<aim-uuid>" to select a specific
+#   AIM deployment precisely. The AIGatewayRoute places x-ai-eg-backend rules
+#   before x-ai-eg-model rules, so this header takes precedence for routing
+#   and eliminates non-deterministic 403s when two projects deploy the same
+#   model name.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyExtensionPolicy
 metadata:
@@ -28,8 +38,13 @@ spec:
           if body == nil then
             return
           end
-          local model = tostring(body):match('"model"%s*:%s*"([^"]+)"')
+          local body_str = tostring(body)
+          local model = body_str:match('"model"%s*:%s*"([^"]+)"')
           if model ~= nil then
             request_handle:headers():replace("x-ai-eg-model", model)
+          end
+          local backend = body_str:match('"backend"%s*:%s*"([^"]+)"')
+          if backend ~= nil then
+            request_handle:headers():replace("x-ai-eg-backend", backend)
           end
         end
