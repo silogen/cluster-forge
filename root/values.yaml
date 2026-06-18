@@ -23,7 +23,7 @@ apps:
     syncWave: 0
     helmParameters:
       - name: controller.gateway.routeHostname
-        value: "gateway.{{ .Values.global.domain }}"
+        value: "ai.{{ .Values.global.domain }}"
       - name: controller.gateway.name
         value: ai-gateway
   aim-engine:
