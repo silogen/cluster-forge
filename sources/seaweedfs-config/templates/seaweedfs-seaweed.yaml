@@ -36,10 +36,9 @@ spec:
       [leveldb2]
       enabled = true
       dir = "/data/filerldb2"
-  s3Ingress:
-    enabled: false
   s3:
-    enabled: true
+    ingress:
+      enabled: false
     configSecret:
       name: seaweedfs-s3-config
       key: s3.json
