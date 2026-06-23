@@ -1,15 +1,26 @@
 {{- if .Values.aiGateway.enabled }}
-# Lua filter that sets x-ai-eg-model from the request body before ext_authz runs, on the
-# ai-gateway (where all AI traffic terminates and is authorized).
+# Lua filter that extracts routing headers from the request body before ext_authz runs,
+# on the ai-gateway (where all AI traffic terminates and is authorized).
 #
-# The AI Gateway's ext_proc reads the body and sets x-ai-eg-model, but it is inserted via
-# xdsTranslator post-hooks which run after filterOrder is applied. So ext_authz (cluster-auth)
-# would run without x-ai-eg-model and fall through to a catch-all route with no auth
-# annotations, allowing the request regardless of which model is targeted (EAI-6805).
+# Background: The AI Gateway's ext_proc sets x-ai-eg-model, but it is inserted via
+# xdsTranslator post-hooks which run after filterOrder is applied. ext_authz (cluster-auth)
+# therefore runs without x-ai-eg-model and falls through to a catch-all route with no auth
+# annotations, bypassing per-model authorization (EAI-6805).
 #
-# This Lua filter runs early (ordered before ext_authz via the ai-gateway EnvoyProxy
-# filterOrder), reads the model field from the JSON body, and sets x-ai-eg-model so
-# cluster-auth can match the correct per-model route and enforce cluster-auth/allowed-group.
+# This Lua filter runs early in the chain (ordered before ext_authz via the ai-gateway
+# EnvoyProxy filterOrder) and handles two cases:
+#
+# 1. "backend" field present (AIWB-aware clients): extracts the AIM service UUID and sets
+#    x-ai-eg-backend. The AIGatewayRoute UUID rule takes precedence over the model-name
+#    fallback rule via Envoy first-match semantics, routing to the exact AIM deployment.
+#    x-ai-eg-model is intentionally NOT set in this case — setting it would allow an older
+#    AIM's model-name rule to fire first across routes, sending the request to the wrong
+#    AIM and misattributing metrics (EAI-7012).
+#
+# 2. "backend" field absent (standard OpenAI-compatible clients): extracts the model name
+#    and sets x-ai-eg-model so cluster-auth can match the correct per-model HTTPRoute and
+#    enforce cluster-auth/allowed-group. Routing is non-deterministic when the same model
+#    is deployed across multiple projects.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyExtensionPolicy
 metadata:
@@ -28,7 +39,16 @@ spec:
           if body == nil then
             return
           end
-          local model = tostring(body):match('"model"%s*:%s*"([^"]+)"')
+          local body_str = tostring(body)
+          local backend = body_str:match('"backend"%s*:%s*"([^"]+)"')
+          if backend ~= nil then
+            request_handle:headers():replace("x-ai-eg-backend", backend)
+            return
+          end
+          if request_handle:headers():get("x-ai-eg-backend") ~= nil then
+            return
+          end
+          local model = body_str:match('"model"%s*:%s*"([^"]+)"')
           if model ~= nil then
             request_handle:headers():replace("x-ai-eg-model", model)
           end
