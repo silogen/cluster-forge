@@ -54,11 +54,4 @@ spec:
             request_handle:headers():replace("x-ai-eg-model", model)
           end
         end
-    - type: Inline
-      inline: |
-        function envoy_on_request(request_handle)
-          if request_handle:headers():get("x-ai-eg-backend") ~= nil then
-            request_handle:headers():remove("x-ai-eg-model")
-          end
-        end
 {{- end }}
