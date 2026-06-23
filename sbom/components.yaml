@@ -4,6 +4,14 @@
 # Apps with "config" suffix are excluded from this SBOM
 
 components:
+  ai-gateway-discovery:
+    path: null
+    repoVersion: 2.0.0
+    valuesFile: values.yaml
+    sourceUrl: oci://registry-1.docker.io/amdenterpriseai/ai-gateway-discovery-chart
+    projectUrl: https://github.com/amd-enterprise-ai/amd-eai-apps/tree/main/helm/ai-gateway-discovery
+    license: Apache License 2.0
+    licenseUrl:  https://github.com/silogen/cluster-forge/blob/main/LICENSE
   aim-cluster-model-source:
     path: aim-cluster-model-source
     sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc11/crds.yaml

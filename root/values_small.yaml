@@ -6,6 +6,7 @@ clusterForge:
 
 
 enabledApps:
+  - ai-gateway-discovery
   - aim-cluster-model-source
   - aim-engine
   - aim-engine-crds

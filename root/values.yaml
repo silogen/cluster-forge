@@ -14,6 +14,18 @@ ociRegistry:
   ghcr: "ghcr.io/silogen"
 
 apps:
+  ai-gateway-discovery:
+    repoURL: "{{ .Values.ociRegistry.dockerHub }}"
+    repoVersion: "2.0.0"
+    chart: "ai-gateway-discovery-chart"
+    namespace: ai-gateway-system
+    valuesFile: values.yaml
+    syncWave: 0
+    helmParameters:
+      - name: controller.gateway.routeHostname
+        value: "ai.{{ .Values.global.domain }}"
+      - name: controller.gateway.name
+        value: ai-gateway
   aim-engine:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "0.2.4"
@@ -642,6 +654,8 @@ apps:
     helmParameters:
       - name: domain
         value: "{{ .Values.global.domain }}"
+      - name: aiGateway.enabled
+        value: "true"  
     namespace: envoy-gateway-system
     path: envoy-gateway-config
     syncWave: -15
