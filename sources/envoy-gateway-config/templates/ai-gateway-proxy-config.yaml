@@ -13,7 +13,7 @@ spec:
   filterOrder:
     - name: envoy.filters.http.lua/envoyextensionpolicy/envoy-gateway-system/set-model-header-from-body/lua/0
       before: envoy.filters.http.ext_authz
-    - name: envoy.filters.http.lua/envoyextensionpolicy/envoy-gateway-system/clear-model-header-for-routing/lua/0
+    - name: envoy.filters.http.lua/envoyextensionpolicy/envoy-gateway-system/set-model-header-from-body/lua/1
       before: envoy.filters.http.router
   provider:
     type: Kubernetes
