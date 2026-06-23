@@ -8,7 +8,8 @@
   - The backup and restore process is **not guaranteed to be backwards compatible between two arbitrary versions.**
 <hr>
 This document covers backup and restore procedures for:
-  1. [Database Backup & Restore (AMD Resource Manager & Keycloak)](#1-cnpg-cloudnative-postgres-backup--restore)
+
+  1. [Database Backup & Restore (AMD Resource Manager & Keycloak)](#1-cnpg-cloudnative-postgres--backup--restore)
   2. [RabbitMQ Backup & Restore](#2-rabbitmq-backup--restore)
   3. [SeaweedFS Backup & Restore (S3-compatible object storage - bucket replication and one-off filesystem backup)](#3-seaweedfs-backup--restore)
   4. [Longhorn Backup & Restore](#4-longhorn-backup--restore)
