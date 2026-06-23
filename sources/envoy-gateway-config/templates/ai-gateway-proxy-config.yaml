@@ -1,8 +1,9 @@
 {{- if .Values.aiGateway.enabled }}
 # EnvoyProxy for the ai-gateway: ClusterIP (it sits behind the apps gateway, which forwards
-# the AI hostname to it) + the same lua-before-ext_authz filterOrder the apps gateway uses,
-# so set-model-header-from-body runs before cluster-auth and per-model group enforcement
-# works (EAI-6805). Same first-node placement + AI access-log telemetry.
+# the AI hostname to it). filterOrder places set-model-header-from-body before ext_authz
+# so per-model group enforcement works, and clear-model-header-for-routing before the router
+# so EPP ext_proc header re-additions don't override UUID-based backend routing.
+# Same first-node placement + AI access-log telemetry.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
@@ -10,8 +11,10 @@ metadata:
   namespace: envoy-gateway-system
 spec:
   filterOrder:
-    - name: envoy.filters.http.lua
+    - name: envoy.filters.http.lua/envoyextensionpolicy/envoy-gateway-system/set-model-header-from-body/lua/0
       before: envoy.filters.http.ext_authz
+    - name: envoy.filters.http.lua/envoyextensionpolicy/envoy-gateway-system/clear-model-header-for-routing/lua/0
+      before: envoy.filters.http.router
   provider:
     type: Kubernetes
     kubernetes:
