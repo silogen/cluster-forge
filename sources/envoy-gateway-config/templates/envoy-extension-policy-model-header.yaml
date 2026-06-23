@@ -11,11 +11,10 @@
 # EnvoyProxy filterOrder) and handles two cases:
 #
 # 1. "backend" field present (AIWB-aware clients): extracts the AIM service UUID and sets
-#    x-ai-eg-backend. The AIGatewayRoute UUID rule takes precedence over the model-name
-#    fallback rule via Envoy first-match semantics, routing to the exact AIM deployment.
-#    x-ai-eg-model is intentionally NOT set in this case — setting it would allow an older
-#    AIM's model-name rule to fire first across routes, sending the request to the wrong
-#    AIM and misattributing metrics (EAI-7012).
+#    x-ai-eg-backend. Also removes x-ai-eg-model if already set — the AI Gateway ext_proc
+#    runs before this filter and sets x-ai-eg-model unconditionally. Without removing it,
+#    an older AIM's model-name rule fires first across routes (Envoy cross-route first-match),
+#    routing to the wrong AIM and misattributing metrics (EAI-7012).
 #
 # 2. "backend" field absent (standard OpenAI-compatible clients): extracts the model name
 #    and sets x-ai-eg-model so cluster-auth can match the correct per-model HTTPRoute and
@@ -43,9 +42,11 @@ spec:
           local backend = body_str:match('"backend"%s*:%s*"([^"]+)"')
           if backend ~= nil then
             request_handle:headers():replace("x-ai-eg-backend", backend)
+            request_handle:headers():remove("x-ai-eg-model")
             return
           end
           if request_handle:headers():get("x-ai-eg-backend") ~= nil then
+            request_handle:headers():remove("x-ai-eg-model")
             return
           end
           local model = body_str:match('"model"%s*:%s*"([^"]+)"')
