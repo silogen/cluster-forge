@@ -1,14 +1,17 @@
 {{- if .Values.aiGateway.enabled }}
-# Lua filter that extracts routing headers from the request body before ext_authz runs,
-# on the ai-gateway (where all AI traffic terminates and is authorized).
+# Lua filter that extracts routing and logging headers from the request body before
+# ext_authz runs, on the ai-gateway (where all AI traffic terminates and is authorized).
+#
+# x-ai-eg-model-log is always set from the body's "model" field (when present) so the
+# access log can attribute requests to a model regardless of routing path.
 #
 # When "backend" (AIM UUID) is present in the body or already set as a request header,
-# only x-ai-eg-backend is set and the filter returns early. x-ai-eg-model is intentionally
-# NOT set in this case so that model-name fallback rules in other HTTPRoutes cannot match —
-# the UUID rule wins by specificity over catch-all rules without any cross-route ordering
-# dependency (EAI-7043).
+# only x-ai-eg-backend is set for routing and the filter returns early. x-ai-eg-model is
+# intentionally NOT set in this case so that model-name fallback rules in other HTTPRoutes
+# cannot match — the UUID rule wins by specificity over catch-all rules without any
+# cross-route ordering dependency (EAI-7043).
 #
-# When "backend" is absent, x-ai-eg-model is set from the body for standard
+# When "backend" is absent, x-ai-eg-model is also set from the body for standard
 # OpenAI-compatible clients so cluster-auth can match the correct per-model route and
 # enforce cluster-auth/allowed-group (EAI-6805).
 apiVersion: gateway.envoyproxy.io/v1alpha1
@@ -31,17 +34,21 @@ spec:
           end
           local body_str = tostring(body)
           local backend = body_str:match('"backend"%s*:%s*"([^"]+)"')
+          local model = body_str:match('"model"%s*:%s*"([^"]+)"')
           if backend ~= nil then
             request_handle:headers():replace("x-ai-eg-backend", backend)
+            if model ~= nil then
+              request_handle:headers():replace("x-ai-eg-model-log", model)
+            end
             return
           end
           local existing_backend = request_handle:headers():get("x-ai-eg-backend")
           if existing_backend ~= nil and existing_backend ~= "" then
             return
           end
-          local model = body_str:match('"model"%s*:%s*"([^"]+)"')
           if model ~= nil then
             request_handle:headers():replace("x-ai-eg-model", model)
+            request_handle:headers():replace("x-ai-eg-model-log", model)
           end
         end
 {{- end }}
