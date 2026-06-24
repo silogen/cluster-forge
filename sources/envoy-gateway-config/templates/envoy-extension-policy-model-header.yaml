@@ -1,15 +1,16 @@
 {{- if .Values.aiGateway.enabled }}
-# Lua filter that sets x-ai-eg-model from the request body before ext_authz runs, on the
-# ai-gateway (where all AI traffic terminates and is authorized).
+# Lua filter that extracts routing headers from the request body before ext_authz runs,
+# on the ai-gateway (where all AI traffic terminates and is authorized).
 #
-# The AI Gateway's ext_proc reads the body and sets x-ai-eg-model, but it is inserted via
-# xdsTranslator post-hooks which run after filterOrder is applied. So ext_authz (cluster-auth)
-# would run without x-ai-eg-model and fall through to a catch-all route with no auth
-# annotations, allowing the request regardless of which model is targeted (EAI-6805).
+# When "backend" (AIM UUID) is present in the body or already set as a request header,
+# only x-ai-eg-backend is set and the filter returns early. x-ai-eg-model is intentionally
+# NOT set in this case so that model-name fallback rules in other HTTPRoutes cannot match —
+# the UUID rule wins by specificity over catch-all rules without any cross-route ordering
+# dependency (EAI-7043).
 #
-# This Lua filter runs early (ordered before ext_authz via the ai-gateway EnvoyProxy
-# filterOrder), reads the model field from the JSON body, and sets x-ai-eg-model so
-# cluster-auth can match the correct per-model route and enforce cluster-auth/allowed-group.
+# When "backend" is absent, x-ai-eg-model is set from the body for standard
+# OpenAI-compatible clients so cluster-auth can match the correct per-model route and
+# enforce cluster-auth/allowed-group (EAI-6805).
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyExtensionPolicy
 metadata:
@@ -28,7 +29,17 @@ spec:
           if body == nil then
             return
           end
-          local model = tostring(body):match('"model"%s*:%s*"([^"]+)"')
+          local body_str = tostring(body)
+          local backend = body_str:match('"backend"%s*:%s*"([^"]+)"')
+          if backend ~= nil then
+            request_handle:headers():replace("x-ai-eg-backend", backend)
+            return
+          end
+          local existing_backend = request_handle:headers():get("x-ai-eg-backend")
+          if existing_backend ~= nil and existing_backend ~= "" then
+            return
+          end
+          local model = body_str:match('"model"%s*:%s*"([^"]+)"')
           if model ~= nil then
             request_handle:headers():replace("x-ai-eg-model", model)
           end
