@@ -812,6 +812,17 @@ apps:
     valuesFile: values.yaml
     syncWave: 0
   seaweedfs-config:
+    ignoreDifferences:
+      - group: gateway.networking.k8s.io
+        kind: HTTPRoute
+        jqPathExpressions:
+          # Gateway API / Envoy Gateway populate optional defaults after apply.
+          - .spec.parentRefs[].group
+          - .spec.parentRefs[].kind
+          - .spec.rules[].backendRefs[].group
+          - .spec.rules[].backendRefs[].kind
+          - .spec.rules[].backendRefs[].weight
+          - .spec.rules[].matches[].path
     valuesObject:
       seaweed:
         storageClassName: mlstorage
