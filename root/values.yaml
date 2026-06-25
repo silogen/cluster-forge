@@ -71,7 +71,7 @@ apps:
         kind: ClusterPolicy
   aiwb:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0-rc.6"
+    repoVersion: "2.0.0-rc.7"
     chart: "aiwb-chart"
     namespace: aiwb
     valuesFile: values.yaml
@@ -110,14 +110,14 @@ apps:
     valuesFile: values.yaml
   aiwb-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0-rc.6"
+    repoVersion: "2.0.0-rc.7"
     chart: "aiwb-cnpg-chart"
     namespace: aiwb
     syncWave: -10
     valuesFile: values.yaml
   aiwb-infra-external-secrets:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0-rc.6"
+    repoVersion: "2.0.0-rc.7"
     chart: "aiwb-external-secrets-chart"
     namespace: aiwb
     syncWave: -20
