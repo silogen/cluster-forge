@@ -22,6 +22,11 @@ jobs:
 
       - name: Calculate Next Version
         id: calculate_version
+        # Skip auto-calculation when a version is supplied manually. semver-action
+        # errors with noNewCommitBehavior when there are no commits between HEAD and
+        # the latest tag (e.g. re-releasing an existing tag), which must not block an
+        # explicit version_override.
+        if: ${{ github.event.inputs.version_override == '' }}
         uses: ietf-tools/semver-action@v1
         with:
           branch: ${{ github.ref_name }}
@@ -71,8 +76,10 @@ jobs:
           # Prepare release artifact
           tar -zcvf "release-enterprise-ai-${VERSION}.tar.gz" --transform 's,^,cluster-forge/,' root/ scripts/ sources
           
-          # Create release
+          # Create release. Pin the tag to the dispatched commit so a brand-new tag
+          # is created on the workflow's ref rather than the default branch HEAD.
           gh release create "$VERSION" "release-enterprise-ai-${VERSION}.tar.gz#ClusterForge Enterprise AI Package" \
+            --target "${{ github.sha }}" \
             --title="ClusterForge Release $VERSION" \
             --generate-notes \
             --prerelease || true # Ignore if release already exists
