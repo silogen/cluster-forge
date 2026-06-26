@@ -15,7 +15,7 @@ jobs:
       new_version: ${{ steps.semver.outputs.next }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -74,6 +74,7 @@ jobs:
           # Create release
           gh release create "$VERSION" "release-enterprise-ai-${VERSION}.tar.gz#ClusterForge Enterprise AI Package" \
             --title="ClusterForge Release $VERSION" \
+            --target ${{ github.sha }} \
             --generate-notes \
             --prerelease || true # Ignore if release already exists
 
@@ -86,6 +87,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+          ref: ${{ github.sha }}
           token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
 
       - name: Install yq
