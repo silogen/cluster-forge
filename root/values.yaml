@@ -16,7 +16,7 @@ ociRegistry:
 apps:
   ai-gateway-discovery:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0-rc6"
+    repoVersion: "2.0.0-rc8"
     chart: "ai-gateway-discovery-chart"
     namespace: ai-gateway-system
     valuesFile: values.yaml
@@ -54,7 +54,7 @@ apps:
       hardwareFamilies: []
   airm:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0-rc.6"
+    repoVersion: "2.0.0-rc.8"
     chart: "airm-chart"
     namespace: airm
     syncWave: 0
@@ -71,7 +71,7 @@ apps:
         kind: ClusterPolicy
   aiwb:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0-rc.7"
+    repoVersion: "2.0.0-rc.8"
     chart: "aiwb-chart"
     namespace: aiwb
     valuesFile: values.yaml
@@ -82,14 +82,14 @@ apps:
     syncWave: 0
   airm-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0-rc.6"
+    repoVersion: "2.0.0-rc.8"
     chart: "airm-cnpg-chart"
     namespace: airm
     syncWave: -10
     valuesFile: values.yaml
   airm-infra-external-secrets:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0-rc.6"
+    repoVersion: "2.0.0-rc.8"
     chart: "airm-external-secrets-chart"
     namespace: airm
     syncWave: -20
@@ -103,21 +103,21 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
   airm-infra-rabbitmq:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0-rc.6"
+    repoVersion: "2.0.0-rc.8"
     chart: "airm-rabbitmq-chart"
     namespace: airm
     syncWave: -5
     valuesFile: values.yaml
   aiwb-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0-rc.7"
+    repoVersion: "2.0.0-rc.8"
     chart: "aiwb-cnpg-chart"
     namespace: aiwb
     syncWave: -10
     valuesFile: values.yaml
   aiwb-infra-external-secrets:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0-rc.7"
+    repoVersion: "2.0.0-rc.8"
     chart: "aiwb-external-secrets-chart"
     namespace: aiwb
     syncWave: -20
