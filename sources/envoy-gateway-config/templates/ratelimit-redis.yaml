@@ -1,0 +1,71 @@
+{{- if .Values.rateLimit.enabled }}
+# SPIKE (rate-limiting PoC): single ephemeral Redis backing Envoy Gateway's global
+# rate-limit service. NO persistence, NO HA — counters live in memory and reset if the
+# pod restarts. That is acceptable for the PoC (RL-1); the HA/persistence posture is an
+# explicit decision for RL-2 before this is relied upon.
+#
+# The EnvoyGateway control-plane config (root/values.yaml -> config.envoyGateway.rateLimit
+# .backend.redis.url) points at the Service below by DNS:
+#   ratelimit-redis.envoy-gateway-system.svc.cluster.local:6379
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ratelimit-redis
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: ratelimit-redis
+    app.kubernetes.io/part-of: envoy-gateway
+    app.kubernetes.io/component: rate-limit-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ratelimit-redis
+  template:
+    metadata:
+      labels:
+        app: ratelimit-redis
+    spec:
+      containers:
+        - name: redis
+          image: {{ .Values.rateLimit.redis.image | quote }}
+          imagePullPolicy: IfNotPresent
+          args: ["--save", "", "--appendonly", "no"]  # disable persistence (ephemeral PoC)
+          ports:
+            - name: redis
+              containerPort: 6379
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          readinessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ratelimit-redis
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: ratelimit-redis
+    app.kubernetes.io/part-of: envoy-gateway
+    app.kubernetes.io/component: rate-limit-backend
+spec:
+  selector:
+    app: ratelimit-redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+{{- end }}

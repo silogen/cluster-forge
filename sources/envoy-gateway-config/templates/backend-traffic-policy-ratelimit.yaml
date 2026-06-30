@@ -1,0 +1,52 @@
+{{- if and .Values.rateLimit.enabled .Values.rateLimit.policy.enabled .Values.rateLimit.policy.apiKeyId }}
+# SPIKE (rate-limiting PoC): per-API-key global rate limit proving native enforcement.
+# Two rules, both scoped to a single key via the x-api-key-id header (injected by
+# cluster-auth ext_authz):
+#   1. request-count    — N requests per window
+#   2. token-budget      — M generation (output) tokens per window, charged from the
+#                          AI gateway's dynamic metadata io.envoy.ai_gateway:llm_output_token
+#                          (emitted by AIGatewayRoute.spec.llmRequestCosts in ai-gateway-discovery).
+#
+# Renders only when rateLimit.policy.apiKeyId is set, so deploying the branch with defaults
+# enforces nothing. Targets the ai-gateway Gateway by default; ext_authz must run before the
+# rate-limit filter or x-api-key-id is absent at limiting time — verify before relying on it.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: ratelimit-spike
+  namespace: {{ .Release.Namespace }}
+spec:
+  targetRefs:
+    - group: {{ .Values.rateLimit.policy.targetRef.group | quote }}
+      kind: {{ .Values.rateLimit.policy.targetRef.kind | quote }}
+      name: {{ .Values.rateLimit.policy.targetRef.name | quote }}
+  rateLimit:
+    type: Global
+    global:
+      rules:
+        # Rule 1 — request count per key
+        - clientSelectors:
+            - headers:
+                - name: x-api-key-id
+                  value: {{ .Values.rateLimit.policy.apiKeyId | quote }}
+          limit:
+            requests: {{ .Values.rateLimit.policy.requests.limit }}
+            unit: {{ .Values.rateLimit.policy.requests.unit }}
+        # Rule 2 — generation-token budget per key (cost charged from response metadata)
+        - clientSelectors:
+            - headers:
+                - name: x-api-key-id
+                  value: {{ .Values.rateLimit.policy.apiKeyId | quote }}
+          limit:
+            requests: {{ .Values.rateLimit.policy.tokens.limit }}
+            unit: {{ .Values.rateLimit.policy.tokens.unit }}
+          cost:
+            request:
+              from: Number
+              number: 0   # the request itself costs 0 budget; only output tokens are charged
+            response:
+              from: Metadata
+              metadata:
+                namespace: io.envoy.ai_gateway
+                key: llm_output_token
+{{- end }}
