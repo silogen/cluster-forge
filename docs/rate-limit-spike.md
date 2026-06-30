@@ -3,6 +3,47 @@
 Proves native, per-API-key request + generation-token enforcement on the AI gateway using
 Envoy Gateway global/cost-based rate limiting backed by Redis. No proxy or upstream code.
 
+## Results — GO (executed 2026-06-30 on app-dev, EG v1.7.1)
+
+Per-API-key request **and** generation-token enforcement work end-to-end with zero code in
+the auth/proxy path. The engine is essentially turnkey; what's left is the product layer.
+
+**Evidence.** With a 5 req/min + 100 output-token/min policy keyed on a real key's
+`x-api-key-id`, six back-to-back `Hello` calls produced:
+
+```
+200(55 tok) → 200(49 tok) → 429 → 429 → 429 → 200
+```
+
+- 55+49 = 104 output tokens spent the 100-token budget → requests 3–5 got **429**.
+- Access log on `ai-gateway` showed `response_code=429, response_flags=RL` (Envoy rate-limited).
+- Redis held two fixed-window buckets keyed per rule: request-count `=5`, token-count `=104`
+  for the burst minute; a fresh bucket for the next minute (which let request 6 through).
+- A 429 firing at all **confirms ext_authz runs before the rate-limit filter** — `x-api-key-id`
+  was present at limiting time, so the documented ordering risk is a non-issue.
+
+**Identifier — per-API-key works out of the box.** `x-api-key-id` is the OpenBao token
+DisplayName, which AIWB mints as `token-<namespace>-<apikeyname>` (unique constraint on
+`(display_name, namespace)`; namespaces globally unique). So the value is **globally unique
+per API key** — the policy selector gives true per-key granularity with no cluster-auth change
+and without keying on anything sensitive (the bearer token never touches the limit key).
+
+**Deploy safety (observed).** Deploying the branch was inert: no policy renders by default,
+and EG **auto-activated the rate-limit backend on the ConfigMap change without a controller
+restart** (controller pod untouched). Inference stayed 200 throughout. Removing the test BTP
+(applied via `kubectl`, not git) returned instantly to normal.
+
+**Carry-forward findings (for RL-2…RL-7):**
+1. **Fixed windows, not sliding** — counters reset on wall-clock boundaries; bursty at edges.
+   Informs which windows RL-3 offers.
+2. **Token overshoot-by-one** — the budget is charged *after* the response, so the request that
+   crosses the line completes and the *next* one is blocked.
+3. **Bare 429** — no informative body/headers today (`response_flags=RL` only) → RL-6 shaping.
+4. **Fail-open only** — v1.7.1's `BackendTrafficPolicy` has no `failClosed` field, so a
+   Redis/ratelimit outage cannot block model traffic. Accept, or revisit if a hard cap is needed.
+
+The steps below are the original runbook, kept for reproducibility.
+
 ## What this branch changes
 
 | Change | File |
@@ -44,7 +85,9 @@ $K get envoyproxy ai-gateway-proxy-config -o yaml | grep -A6 filterOrder
 ## Step 3 — plug in a real key and enforce
 
 Once we have a real API key on app-dev and the model it can reach, set its `x-api-key-id`
-(= the key's username) and flip the policy on. Two options:
+(the OpenBao DisplayName AIWB mints as `token-<namespace>-<apikeyname>` — globally unique per
+key; harvest the exact value from the `ai-gateway` access log field `api_key_id`) and flip the
+policy on. Two options:
 
 **A. Via GitOps (clean):** set in `cluster-values` and redeploy —
 `rateLimit.policy.enabled=true`, `rateLimit.policy.apiKeyId=<id>`, optionally tune
