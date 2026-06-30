@@ -24,3 +24,33 @@ aiGateway:
   # Stable ClusterIP `ai-gateway` (CoreDNS target / passthrough backend).
   dnsService:
     enabled: true
+
+# SPIKE (rate-limiting PoC, RL-1). Deploys an ephemeral Redis backing Envoy Gateway's
+# global rate-limit service and (optionally) a per-key BackendTrafficPolicy. The matching
+# EnvoyGateway control-plane switch lives in root/values.yaml
+# (config.envoyGateway.rateLimit.backend.redis.url -> ratelimit-redis Service below).
+rateLimit:
+  # Deploys ratelimit-redis (Deployment + Service). Required for any global rate limiting.
+  enabled: true
+  redis:
+    image: redis:7-alpine
+  # The actual per-key test policy. Left disabled by default so deploying the branch readies
+  # the infra without enforcing anything. Once we have a real API key on the cluster, set
+  # policy.enabled=true + policy.apiKeyId (and redeploy), OR kubectl-apply a filled copy of
+  # the rendered BackendTrafficPolicy directly for faster spike iteration.
+  policy:
+    enabled: false
+    # x-api-key-id value to limit (cluster-auth sets this = identity.Username for the key).
+    apiKeyId: ""
+    # What the policy attaches to. Default: the whole ai-gateway Gateway (simplest for the
+    # PoC); narrow to the per-service HTTPRoute later for true per-inference-service limits.
+    targetRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: ai-gateway
+    requests:
+      limit: 5
+      unit: Minute
+    tokens:
+      limit: 1000
+      unit: Minute

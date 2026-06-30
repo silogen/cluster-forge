@@ -607,6 +607,16 @@ apps:
         envoyGateway:
           extensionApis:
             enableBackend: true
+          # SPIKE (rate-limiting PoC): enable the global rate-limit service and point it at
+          # the in-cluster Redis deployed by the envoy-gateway-config chart (rateLimit.enabled).
+          # This is what makes BackendTrafficPolicy global/cost-based rules (per-key request +
+          # token-budget limits) actually enforce. Graduate to RL-2 (HA/persistence decision)
+          # before this leaves spike status.
+          rateLimit:
+            backend:
+              type: Redis
+              redis:
+                url: ratelimit-redis.envoy-gateway-system.svc.cluster.local:6379
           extensionManager:
             # Tolerate the AI extension erroring on the tls-passthrough gateway's L4
             # listener (it tries to splice an HTTP filter into a TCP chain with no
