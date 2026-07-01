@@ -35,7 +35,7 @@ apps:
     syncWave: 0
     helmParameters:
       - name: manager.artifactDownloaderImage
-        value: "docker.io/silogenai/aim-artifact-downloader:0.2.5-rc1"
+        value: "docker.io/silogenai/aim-artifact-downloader:v0.2.5-rc1"
       
   aim-engine-crds:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
