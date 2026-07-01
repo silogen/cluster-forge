@@ -183,6 +183,24 @@ spec:
   maxModels: 100
   registry: docker.io
   syncInterval: 1h
+---
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterModelSource
+metadata:
+  name: amd-aim-epyc-0.13.0
+spec:
+  filters:
+    - image: amdenterpriseai/aim-epyc-meta-llama-llama-3-1-8b-instruct:0.13.0
+    - image: amdenterpriseai/aim-epyc-unsloth-gpt-oss-20b-bf16:0.13.0
+    - image: amdenterpriseai/aim-epyc-qwen-qwen3-8b:0.13.0
+    - image: amdenterpriseai/aim-epyc-qwen-qwen3-30b-a3b:0.13.0
+    - image: amdenterpriseai/aim-epyc-qwen-qwen3-5-4b:0.13.0
+    - image: amdenterpriseai/aim-epyc-google-gemma-4-e4b-it:0.13.0
+    - image: amdenterpriseai/aim-epyc-qwen-qwen3-5-9b:0.13.0
+    - image: amdenterpriseai/aim-epyc-qwen-qwen3-6-35b-a3b:0.13.0
+  maxModels: 100
+  registry: docker.io
+  syncInterval: 1h
 {{- end }}
 {{- if has "cpu" $families }}
 ---
