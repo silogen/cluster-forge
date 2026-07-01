@@ -31,7 +31,7 @@ appDomain: "PUBLIC-IP"
 
 # kgateway configuration for HTTPRoute resources
 kgateway:
-  namespace: kgateway-system
+  namespace: envoy-gateway-system
   gatewayName: https
   api:
     servicePort: 8080
