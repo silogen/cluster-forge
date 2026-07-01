@@ -67,7 +67,7 @@ apps:
         kind: ClusterPolicy
   aiwb:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0-rc.1"
+    repoVersion: "1.1.9"
     chart: "aiwb-chart"
     namespace: aiwb
     valuesFile: values.yaml
