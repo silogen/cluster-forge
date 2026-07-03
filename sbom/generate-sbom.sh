@@ -74,8 +74,13 @@ for component in $component_names; do
     license=$(yq eval ".components.\"$component\".license // \"\"" "$COMPONENTS_FILE")
     license_url=$(yq eval ".components.\"$component\".licenseUrl // \"\"" "$COMPONENTS_FILE")
     
-    # Extract version from path
-    version=$(extract_version "$path")
+    # Get version from repoVersion first, fall back to path extraction
+    repo_version=$(yq eval ".components.\"$component\".repoVersion // \"\"" "$COMPONENTS_FILE")
+    if [[ -n "$repo_version" && "$repo_version" != "null" ]]; then
+        version="$repo_version"
+    else
+        version=$(extract_version "$path")
+    fi
     
     # Format version with sourceUrl link if available
     if [[ -n "$source_url" ]]; then
@@ -117,7 +122,13 @@ for component in $component_names; do
     # Check if it's a helm component
     category=$(categorize_component "$component")
     if [[ "$category" == "helm" ]]; then
-        version=$(extract_version "$path")
+        # Get version from repoVersion first, fall back to path extraction
+        repo_version=$(yq eval ".components.\"$component\".repoVersion // \"\"" "$COMPONENTS_FILE")
+        if [[ -n "$repo_version" && "$repo_version" != "null" ]]; then
+            version="$repo_version"
+        else
+            version=$(extract_version "$path")
+        fi
         
         # Format version with sourceUrl link if available
         if [[ -n "$source_url" ]]; then
@@ -159,7 +170,13 @@ for component in $component_names; do
     # Check if it's a manifest component
     category=$(categorize_component "$component")
     if [[ "$category" == "manifest" ]]; then
-        version=$(extract_version "$path")
+        # Get version from repoVersion first, fall back to path extraction
+        repo_version=$(yq eval ".components.\"$component\".repoVersion // \"\"" "$COMPONENTS_FILE")
+        if [[ -n "$repo_version" && "$repo_version" != "null" ]]; then
+            version="$repo_version"
+        else
+            version=$(extract_version "$path")
+        fi
         
         # Format version with sourceUrl link if available
         if [[ -n "$source_url" ]]; then
