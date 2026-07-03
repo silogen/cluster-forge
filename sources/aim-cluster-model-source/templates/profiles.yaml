@@ -151,18 +151,15 @@ metadata:
   name: amd-aim-instinct-0.13.0
 spec:
   filters:
-    # Batch A — vLLM 0.23 (EAI-6676), LoRA-enabled models only
-    # - image: silogenai/aim-instinct-base:0.13-rc10
-    - image: silogenai/aim-instinct-google-gemma-3-27b-it:0.13.0-rc13
-    - image: silogenai/aim-instinct-mistralai-mistral-small-24b-instruct-2501:0.13.0-rc2
-    - image: silogenai/aim-instinct-qwen-qwen3-32b:0.13.0-rc10
-    # Batch B — vLLM 0.21 (EAI-6047)
-    # - image: silogenai/aim-instinct-base:0.13-rc3
-    - image: silogenai/aim-instinct-google-gemma-4-26b-a4b-it:0.13.0-rc3
-    - image: silogenai/aim-instinct-google-gemma-4-31b-it:0.13.0-rc6
-    - image: silogenai/aim-instinct-google-medgemma-27b-it:0.13.0-rc6
-    - image: silogenai/aim-instinct-moonshotai-kimi-k2-6:0.13.0-rc6
-    - image: silogenai/aim-instinct-qwen-qwen3-6-35b-a3b:0.13.0-rc4
+    # Batch A — vLLM 0.23, built on aim-base:0.13.1 (LoRA-enabled)
+    # - image: amdenterpriseai/aim-base:0.13.1
+    - image: amdenterpriseai/aim-google-gemma-3-27b-it:0.13.0
+    - image: amdenterpriseai/aim-mistralai-mistral-small-24b-instruct-2501:0.13.0
+    - image: amdenterpriseai/aim-qwen-qwen3-32b:0.13.0
+    # Batch B — vLLM 0.21, built on aim-base:0.13.0
+    # - image: amdenterpriseai/aim-base:0.13.0
+    - image: amdenterpriseai/aim-google-gemma-4-31b-it:0.13.0-preview
+    - image: amdenterpriseai/aim-google-medgemma-27b-it:0.13.0
   maxModels: 100
   imagePullSecrets:
     - name: dockerhub-regcred
