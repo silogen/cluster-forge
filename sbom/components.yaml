@@ -11,9 +11,10 @@ components:
     sourceUrl: oci://registry-1.docker.io/amdenterpriseai/ai-gateway-discovery-chart
     projectUrl: https://github.com/amd-enterprise-ai/amd-eai-apps/tree/main/helm/ai-gateway-discovery
     license: Apache License 2.0
-    licenseUrl:  https://github.com/silogen/cluster-forge/blob/main/LICENSE
+    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   aim-cluster-model-source:
     path: aim-cluster-model-source
+    valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc11/crds.yaml
     projectUrl: https://github.com/silogen/kaiwo/
     license: MIT License
@@ -29,6 +30,7 @@ components:
   aim-engine-crds:
     path: null
     repoVersion: 0.2.4
+    valuesFile: values.yaml
     sourceUrl: oci://registry-1.docker.io/amdenterpriseai/aim-engine-crds-chart
     projectUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aim-engine-crds
     license: Apache License 2.0
@@ -91,6 +93,7 @@ components:
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   amd-gpu-operator:
     path: amd-gpu-operator/v1.4.1
+    valuesFile: values.yaml
     sourceUrl: https://rocm.github.io/gpu-operator
     projectUrl: https://github.com/ROCm/ROCm
     license: MIT License
@@ -103,12 +106,14 @@ components:
     licenseUrl: https://github.com/project-codeflare/appwrapper/blob/main/LICENSE
   argocd:
     path: argocd/8.3.5
+    valuesFile: values.yaml
     sourceUrl: https://argoproj.github.io/argo-helm
     projectUrl: https://github.com/argoproj/argo-cd
     license: Apache License 2.0
     licenseUrl: https://github.com/argoproj/argo-cd/blob/master/LICENSE
   cert-manager:
     path: cert-manager/v1.18.2
+    valuesFile: values.yaml
     sourceUrl: oci://quay.io/jetstack/charts/cert-manager
     projectUrl: https://github.com/cert-manager/cert-manager
     license: Apache License 2.0
@@ -129,18 +134,21 @@ components:
     licenseUrl: https://github.com/cloudnative-pg/cloudnative-pg/blob/main/LICENSE
   envoy-ai-gateway:
     path: envoy-ai-gateway/v0.6.0
+    valuesFile: values.yaml
     sourceUrl: oci://docker.io/envoyproxy/ai-gateway-helm
     projectUrl: https://github.com/envoyproxy/ai-gateway
     license: Apache License 2.0
     licenseUrl: https://github.com/envoyproxy/ai-gateway/blob/main/LICENSE
   envoy-ai-gateway-crds:
     path: envoy-ai-gateway-crds/v0.6.0
+    valuesFile: values.yaml
     sourceUrl: oci://docker.io/envoyproxy/ai-gateway-crds-helm
     projectUrl: https://github.com/envoyproxy/ai-gateway
     license: Apache License 2.0
     licenseUrl: https://github.com/envoyproxy/ai-gateway/blob/main/LICENSE
   envoy-gateway:
     path: envoy-gateway/v1.7.1
+    valuesFile: values.yaml
     sourceUrl: oci://docker.io/envoyproxy/gateway-helm
     projectUrl: https://github.com/envoyproxy/gateway
     license: Apache License 2.0
@@ -154,12 +162,14 @@ components:
     licenseUrl: https://github.com/external-secrets/external-secrets/blob/main/LICENSE
   gitea:
     path: gitea/12.3.0
+    valuesFile: values.yaml
     sourceUrl: https://dl.gitea.com/charts/
     projectUrl: https://github.com/go-gitea/gitea
     license: MIT License
     licenseUrl: https://github.com/go-gitea/gitea/blob/main/LICENSE
   inference-extension-crds:
     path: inference-extension-crds/v1.5.0
+    valuesFile: values.yaml
     sourceUrl: https://github.com/kubernetes-sigs/gateway-api-inference-extension
     projectUrl: https://github.com/kubernetes-sigs/gateway-api-inference-extension
     license: Apache License 2.0
@@ -167,6 +177,7 @@ components:
   kaiwo:
     path: null
     repoVersion: v0.2.1
+    valuesFile: values.yaml
     sourceUrl: oci://ghcr.io/silogen/kaiwo-operator-chart
     projectUrl: https://github.com/silogen/kaiwo/
     license: MIT License
@@ -174,6 +185,7 @@ components:
   kaiwo-crds:
     path: null
     repoVersion: v0.2.1
+    valuesFile: values.yaml
     sourceUrl: oci://ghcr.io/silogen/kaiwo-crds-chart
     projectUrl: https://github.com/silogen/kaiwo/
     license: MIT License
@@ -187,18 +199,21 @@ components:
     licenseUrl: https://github.com/kedacore/keda/blob/main/LICENSE
   kedify-otel:
     path: kedify-otel/v0.0.6
+    valuesFile: values.yaml
     sourceUrl: oci://ghcr.io/kedify/charts/otel-add-on
     projectUrl: https://github.com/kedify/otel-add-on
     license: Apache License 2.0
     licenseUrl: https://github.com/kedify/otel-add-on/blob/main/LICENSE
   keycloak:
     path: keycloak-old
+    valuesFile: values.yaml
     sourceUrl: https://codecentric.github.io/helm-charts
     projectUrl: https://github.com/keycloak/keycloak
     license: Apache License 2.0
     licenseUrl: https://github.com/keycloak/keycloak/blob/main/LICENSE.txt
   kserve:
     path: kserve/v0.16.0
+    valuesFile: values.yaml
     sourceUrl: oci://ghcr.io/kserve/charts/kserve
     projectUrl: https://github.com/kserve/kserve
     license: Apache License 2.0
@@ -219,6 +234,7 @@ components:
     licenseUrl: https://github.com/ray-project/kuberay/blob/master/LICENSE
   kueue:
     path: kueue/0.13.0
+    valuesFile: values.yaml
     sourceUrl: oci://registry.k8s.io/kueue/charts/kueue
     projectUrl: https://github.com/kubernetes-sigs/kueue
     license: Apache License 2.0
@@ -232,12 +248,14 @@ components:
     licenseUrl: https://github.com/kyverno/kyverno/blob/main/LICENSE
   kyverno-policies-base:
     path: kyverno-policies/base
+    valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/kyverno-policies
     projectUrl: https://github.com/kyverno/kyverno
     license: Apache License 2.0
     licenseUrl: https://github.com/kyverno/kyverno/blob/main/LICENSE
   kyverno-policies-storage-local-path:
     path: kyverno-policies/storage-local-path
+    valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/kyverno-policies/storage-local-path
     projectUrl: https://github.com/silogen/cluster-forge/
     license: Apache License 2.0
@@ -250,18 +268,21 @@ components:
     licenseUrl: https://github.com/metallb/metallb/blob/main/LICENSE
   openbao:
     path: openbao/0.18.2
+    valuesFile: values.yaml
     sourceUrl: https://openbao.github.io/openbao-helm
     projectUrl: https://github.com/openbao/openbao
     license: Mozilla Public License 2.0
     licenseUrl: https://github.com/openbao/openbao/blob/main/LICENSE
   opentelemetry-operator:
     path: opentelemetry-operator/0.93.1
+    valuesFile: values.yaml
     sourceUrl: https://open-telemetry.github.io/opentelemetry-helm-charts
     projectUrl: https://github.com/open-telemetry/opentelemetry-operator
     license: Apache License 2.0
     licenseUrl: https://github.com/open-telemetry/opentelemetry-operator/blob/main/LICENSE
   otel-lgtm-stack:
     path: otel-lgtm-stack/v1.0.7
+    valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/docker-otel-lgtm
     projectUrl: https://github.com/grafana/docker-otel-lgtm
     license: Apache License 2.0
