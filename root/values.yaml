@@ -28,7 +28,7 @@ apps:
         value: ai-gateway
   aim-engine:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "0.2.5-rc1"
+    repoVersion: "0.2.5-rc2"
     chart: "aim-engine-chart"
     namespace: aim-system
     valuesFile: values.yaml
@@ -39,7 +39,7 @@ apps:
       
   aim-engine-crds:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "0.2.5-rc1"
+    repoVersion: "0.2.5-rc2"
     chart: "aim-engine-crds-chart"
     namespace: aim-system
     syncWave: 0
@@ -71,7 +71,7 @@ apps:
         kind: ClusterPolicy
   aiwb:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0-rc.9"
+    repoVersion: "2.0.0-rc.11"
     chart: "aiwb-chart"
     namespace: aiwb
     valuesFile: values.yaml
