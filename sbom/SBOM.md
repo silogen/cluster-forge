@@ -116,18 +116,12 @@ No container images found in manifest files.
 
 | No | Image |
 |----|-------|
-| 1 | `{{ . }}` |
-| 2 | `{{ .Values.controller.manager.image.repository }}:{{ .Values.controller.manager.image.tag` |
-| 3 | `{{ .Values.controllerManager.manager.image.repository }}:{{ .Values.controllerManager.manager.image.tag` |
-| 4 | `{{ .Values.controllerManager.manager.image.repository }}:{{ .Values.controllerManager.manager.image.tag }}` |
-| 5 | `{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}` |
-| 6 | `{{ .Values.webhookServer.webhookServer.image.repository }}:{{ .Values.webhookServer.webhookServer.image.tag` |
-| 7 | `docker.io/myUserName/driverImage` |
-| 8 | `docker.io/rocm/device-config-manager:v1.4.1` |
-| 9 | `docker.io/rocm/device-metrics-exporter:v1.4.1` |
-| 10 | `docker.io/rocm/gpu-operator-utils:v1.4.0` |
-| 11 | `docker.io/rocm/test-runner:v1.4.1` |
-| 12 | `quay.io/brancz/kube-rbac-proxy:v0.18.1` |
+| 1 | `docker.io/myUserName/driverImage` |
+| 2 | `docker.io/rocm/device-config-manager:v1.4.1` |
+| 3 | `docker.io/rocm/device-metrics-exporter:v1.4.1` |
+| 4 | `docker.io/rocm/gpu-operator-utils:v1.4.0` |
+| 5 | `docker.io/rocm/test-runner:v1.4.1` |
+| 6 | `quay.io/brancz/kube-rbac-proxy:v0.18.1` |
 
 ## appwrapper images
 
@@ -139,42 +133,18 @@ No container images found in manifest files.
 
 | No | Image |
 |----|-------|
-| 1 | `{{ .Values.configmapTest.image.repository }}:{{ .Values.configmapTest.image.tag }}` |
-| 2 | `{{ .Values.dex.image.repository }}:{{ .Values.dex.image.tag }}` |
-| 3 | `{{ .Values.exporter.image }}:{{ .Values.exporter.tag }}` |
-| 4 | `{{ .Values.haproxy.image.repository }}:{{ .Values.haproxy.image.tag }}` |
-| 5 | `{{ .Values.image.repository }}:{{ .Values.image.tag }}` |
-| 6 | `{{ .Values.redis.exporter.image.repository }}:{{ .Values.redis.exporter.image.tag }}` |
-| 7 | `{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}` |
-| 8 | `{{ $.Values.server.extensions.image.repository }}:{{ $.Values.server.extensions.image.tag }}` |
-| 9 | `{{ default .Values.global.image.repository .Values.applicationSet.image.repository }}:{{ default (include "argo-cd.defaultTag" .) .Values.applicationSet.image.tag }}` |
-| 10 | `{{ default .Values.global.image.repository .Values.commitServer.image.repository }}:{{ default (include "argo-cd.defaultTag" .) .Values.commitServer.image.tag }}` |
-| 11 | `{{ default .Values.global.image.repository .Values.controller.image.repository }}:{{ default (include "argo-cd.defaultTag" .) .Values.controller.image.tag }}` |
-| 12 | `{{ default .Values.global.image.repository .Values.dex.initImage.repository }}:{{ default (include "argo-cd.defaultTag" .) .Values.dex.initImage.tag }}` |
-| 13 | `{{ default .Values.global.image.repository .Values.notifications.image.repository }}:{{ default (include "argo-cd.defaultTag" .) .Values.notifications.image.tag }}` |
-| 14 | `{{ default .Values.global.image.repository .Values.redisSecretInit.image.repository }}:{{ default (include "argo-cd.defaultTag" .) .Values.redisSecretInit.image.tag }}` |
-| 15 | `{{ default .Values.global.image.repository .Values.repoServer.image.repository }}:{{ default (include "argo-cd.defaultTag" .) .Values.repoServer.image.tag }}` |
-| 16 | `{{ default .Values.global.image.repository .Values.server.image.repository }}:{{ default (include "argo-cd.defaultTag" .) .Values.server.image.tag }}` |
-| 17 | `{{ template "redis.sysctl.image" . }}` |
-| 18 | `ghcr.io/oliver006/redis_exporter` |
-| 19 | `lgatica/openssh-client:latest` |
-| 20 | `quay.io/oliver006/redis_exporter` |
-| 21 | `s3cmd/s3cmd:latest` |
+| 1 | `ghcr.io/oliver006/redis_exporter` |
+| 2 | `lgatica/openssh-client:latest` |
+| 3 | `quay.io/oliver006/redis_exporter` |
+| 4 | `s3cmd/s3cmd:latest` |
 
 ## cert-manager images
 
-| No | Image |
-|----|-------|
-| 1 | `{{ template "image" (tuple .Values.cainjector.image $.Chart.AppVersion) }}` |
-| 2 | `{{ template "image" (tuple .Values.image $.Chart.AppVersion) }}` |
-| 3 | `{{ template "image" (tuple .Values.startupapicheck.image $.Chart.AppVersion) }}` |
-| 4 | `{{ template "image" (tuple .Values.webhook.image $.Chart.AppVersion) }}` |
+No container images found in manifest files.
 
 ## envoy-ai-gateway images
 
-| No | Image |
-|----|-------|
-| 1 | `{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag | default .Chart.AppVersion }}` |
+No container images found in manifest files.
 
 ## envoy-ai-gateway-crds images
 
@@ -184,48 +154,26 @@ No container images found in manifest files.
 
 | No | Image |
 |----|-------|
-| 1 | `{{ include "eg.image" . }}` |
-| 2 | `docker.io/envoyproxy/gateway:v1.7.1` |
-| 3 | `docker.io/envoyproxy/ratelimit:c8765e89` |
+| 1 | `docker.io/envoyproxy/gateway:v1.7.1` |
+| 2 | `docker.io/envoyproxy/ratelimit:c8765e89` |
 
 ## gitea images
 
 | No | Image |
 |----|-------|
-| 1 | `{{ .Values.test.image.name }}:{{ .Values.test.image.tag }}` |
-| 2 | `{{ include "gitea.image" . }}` |
-| 3 | `{{ include "postgresql-ha.metrics.image" . }}` |
-| 4 | `{{ include "postgresql-ha.pgpool.image" . }}` |
-| 5 | `{{ include "postgresql-ha.postgresql.image" . }}` |
-| 6 | `{{ include "postgresql-ha.volumePermissions.image" . }}` |
-| 7 | `{{ include "postgresql.v1.image" . }}` |
-| 8 | `{{ include "postgresql.v1.metrics.image" . }}` |
-| 9 | `{{ include "postgresql.v1.volumePermissions.image" . }}` |
-| 10 | `{{ include "valkey-cluster.image" . }}` |
-| 11 | `{{ include "valkey-cluster.volumePermissions.image" . }}` |
-| 12 | `{{ include "valkey.metrics.image" . }}` |
-| 13 | `{{ include "valkey.volumePermissions.image" . }}` |
-| 14 | `{{ template "postgresql-ha.volumePermissions.image" . }}` |
-| 15 | `{{ template "postgresql.v1.image" . }}` |
-| 16 | `{{ template "valkey-cluster.metrics.image" . }}` |
-| 17 | `{{ template "valkey-cluster.sysctl.image" . }}` |
-| 18 | `{{ template "valkey.image" . }}` |
-| 19 | `{{ template "valkey.kubectl.image" . }}` |
-| 20 | `{{ template "valkey.metrics.image" . }}` |
-| 21 | `{{ template "valkey.sentinel.image" . }}` |
-| 22 | `docker.io/bitnami/os-shell:12-debian-12-r51` |
-| 23 | `docker.io/bitnami/pgpool:4.6.3-debian-12-r0` |
-| 24 | `docker.io/bitnami/postgres-exporter:0.17.1-debian-12-r16` |
-| 25 | `docker.io/bitnami/postgresql-repmgr:17.6.0-debian-12-r2` |
-| 26 | `docker.io/bitnami/redis-exporter:1.76.0-debian-12-r0` |
-| 27 | `docker.io/bitnami/valkey-cluster:8.1.3-debian-12-r3` |
-| 28 | `docker.io/bitnamilegacy/kubectl:1.33.4-debian-12-r0` |
-| 29 | `docker.io/bitnamilegacy/os-shell:12-debian-12-r51` |
-| 30 | `docker.io/bitnamilegacy/postgres-exporter:0.17.1-debian-12-r16` |
-| 31 | `docker.io/bitnamilegacy/postgresql:17.6.0-debian-12-r4` |
-| 32 | `docker.io/bitnamilegacy/redis-exporter:1.76.0-debian-12-r0` |
-| 33 | `docker.io/bitnamilegacy/valkey-sentinel:8.1.3-debian-12-r3` |
-| 34 | `docker.io/bitnamilegacy/valkey:8.1.3-debian-12-r3` |
+| 1 | `docker.io/bitnami/os-shell:12-debian-12-r51` |
+| 2 | `docker.io/bitnami/pgpool:4.6.3-debian-12-r0` |
+| 3 | `docker.io/bitnami/postgres-exporter:0.17.1-debian-12-r16` |
+| 4 | `docker.io/bitnami/postgresql-repmgr:17.6.0-debian-12-r2` |
+| 5 | `docker.io/bitnami/redis-exporter:1.76.0-debian-12-r0` |
+| 6 | `docker.io/bitnami/valkey-cluster:8.1.3-debian-12-r3` |
+| 7 | `docker.io/bitnamilegacy/kubectl:1.33.4-debian-12-r0` |
+| 8 | `docker.io/bitnamilegacy/os-shell:12-debian-12-r51` |
+| 9 | `docker.io/bitnamilegacy/postgres-exporter:0.17.1-debian-12-r16` |
+| 10 | `docker.io/bitnamilegacy/postgresql:17.6.0-debian-12-r4` |
+| 11 | `docker.io/bitnamilegacy/redis-exporter:1.76.0-debian-12-r0` |
+| 12 | `docker.io/bitnamilegacy/valkey-sentinel:8.1.3-debian-12-r3` |
+| 13 | `docker.io/bitnamilegacy/valkey:8.1.3-debian-12-r3` |
 
 ## inference-extension-crds images
 
@@ -244,12 +192,10 @@ No container images found in manifest files.
 | No | Image |
 |----|-------|
 | 1 | `'busybox:latest'` |
-| 2 | `{{ .Values.global.image }}` |
-| 3 | `{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}` |
-| 4 | `busybox:latest` |
-| 5 | `ghcr.io/kedify/otel-add-on` |
-| 6 | `otel/opentelemetry-collector-k8s:0.114.0` |
-| 7 | `otel/opentelemetry-collector:0.114.0` |
+| 2 | `busybox:latest` |
+| 3 | `ghcr.io/kedify/otel-add-on` |
+| 4 | `otel/opentelemetry-collector-k8s:0.114.0` |
+| 5 | `otel/opentelemetry-collector:0.114.0` |
 
 ## keycloak images
 
@@ -262,47 +208,27 @@ No container images found in manifest files.
 
 | No | Image |
 |----|-------|
-| 1 | `{{ .Values.kserve.controller.image }}:{{ .Values.kserve.controller.tag }}` |
-| 2 | `{{ .Values.kserve.controller.rbacProxyImage }}` |
-| 3 | `{{ .Values.kserve.localmodel.agent.image }}:{{ .Values.kserve.localmodel.agent.tag }}` |
-| 4 | `{{ .Values.kserve.localmodel.controller.image }}:{{ .Values.kserve.localmodel.controller.tag }}` |
-| 5 | `{{ .Values.kserve.servingruntime.huggingfaceserver.image }}:{{ .Values.kserve.servingruntime.huggingfaceserver.tag }}` |
-| 6 | `{{ .Values.kserve.servingruntime.huggingfaceserver.image }}:{{ .Values.kserve.servingruntime.huggingfaceserver.tag }}-gpu` |
-| 7 | `{{ .Values.kserve.servingruntime.lgbserver.image }}:{{ .Values.kserve.servingruntime.lgbserver.tag }}` |
-| 8 | `{{ .Values.kserve.servingruntime.mlserver.image }}:{{ .Values.kserve.servingruntime.mlserver.tag }}` |
-| 9 | `{{ .Values.kserve.servingruntime.paddleserver.image }}:{{ .Values.kserve.servingruntime.paddleserver.tag }}` |
-| 10 | `{{ .Values.kserve.servingruntime.pmmlserver.image }}:{{ .Values.kserve.servingruntime.pmmlserver.tag }}` |
-| 11 | `{{ .Values.kserve.servingruntime.sklearnserver.image }}:{{ .Values.kserve.servingruntime.sklearnserver.tag }}` |
-| 12 | `{{ .Values.kserve.servingruntime.tensorflow.image }}:{{ .Values.kserve.servingruntime.tensorflow.tag }}` |
-| 13 | `{{ .Values.kserve.servingruntime.torchserve.image }}:{{ .Values.kserve.servingruntime.torchserve.tag }}` |
-| 14 | `{{ .Values.kserve.servingruntime.tritonserver.image }}:{{ .Values.kserve.servingruntime.tritonserver.tag }}` |
-| 15 | `{{ .Values.kserve.servingruntime.xgbserver.image }}:{{ .Values.kserve.servingruntime.xgbserver.tag }}` |
-| 16 | `{{ .Values.kserve.storage.image }}:{{ .Values.kserve.storage.tag }}` |
-| 17 | `docker.io/seldonio/mlserver` |
-| 18 | `kserve/agent` |
-| 19 | `kserve/art-explainer` |
-| 20 | `kserve/huggingfaceserver` |
-| 21 | `kserve/kserve-controller` |
-| 22 | `kserve/kserve-localmodel-controller` |
-| 23 | `kserve/kserve-localmodelnode-agent` |
-| 24 | `kserve/lgbserver` |
-| 25 | `kserve/paddleserver` |
-| 26 | `kserve/pmmlserver` |
-| 27 | `kserve/router` |
-| 28 | `kserve/sklearnserver` |
-| 29 | `kserve/storage-initializer` |
-| 30 | `kserve/xgbserver` |
-| 31 | `nvcr.io/nvidia/tritonserver` |
-| 32 | `pytorch/torchserve-kfs` |
-| 33 | `tensorflow/serving` |
+| 1 | `docker.io/seldonio/mlserver` |
+| 2 | `kserve/agent` |
+| 3 | `kserve/art-explainer` |
+| 4 | `kserve/huggingfaceserver` |
+| 5 | `kserve/kserve-controller` |
+| 6 | `kserve/kserve-localmodel-controller` |
+| 7 | `kserve/kserve-localmodelnode-agent` |
+| 8 | `kserve/lgbserver` |
+| 9 | `kserve/paddleserver` |
+| 10 | `kserve/pmmlserver` |
+| 11 | `kserve/router` |
+| 12 | `kserve/sklearnserver` |
+| 13 | `kserve/storage-initializer` |
+| 14 | `kserve/xgbserver` |
+| 15 | `nvcr.io/nvidia/tritonserver` |
+| 16 | `pytorch/torchserve-kfs` |
+| 17 | `tensorflow/serving` |
 
 ## kueue images
 
-| No | Image |
-|----|-------|
-| 1 | `'{{ .Values.kueueViz.backend.image.repository }}:{{ .Values.kueueViz.backend.image.tag | default .Chart.AppVersion }}'` |
-| 2 | `'{{ .Values.kueueViz.frontend.image.repository }}:{{ .Values.kueueViz.frontend.image.tag | default .Chart.AppVersion }}'` |
-| 3 | `{{ .Values.controllerManager.manager.image.repository }}:{{ .Values.controllerManager.manager.image.tag | default .Chart.AppVersion }}` |
+No container images found in manifest files.
 
 ## kyverno-policies-base images
 
@@ -325,34 +251,24 @@ No container images found in manifest files.
 
 ## openbao images
 
-| No | Image |
-|----|-------|
-| 1 | `{{ .Values.csi.agent.image.registry | default "docker.io" }}/{{ .Values.csi.agent.image.repository }}:{{ .Values.csi.agent.image.tag | default (trimPrefix "v" .Chart.AppVersion) }}` |
-| 2 | `{{ .Values.csi.image.registry | default "docker.io" }}/{{ .Values.csi.image.repository }}:{{ .Values.csi.image.tag }}` |
-| 3 | `{{ .Values.injector.image.registry | default "docker.io" }}/{{ .Values.injector.image.repository }}:{{ .Values.injector.image.tag }}` |
-| 4 | `{{ .Values.server.image.registry | default "docker.io" }}/{{ .Values.server.image.repository }}:{{ .Values.server.image.tag | default (trimPrefix "v" .Chart.AppVersion) }}` |
+No container images found in manifest files.
 
 ## opentelemetry-operator images
 
-| No | Image |
-|----|-------|
-| 1 | `{{ .Values.kubeRBACProxy.image.repository }}:{{ .Values.kubeRBACProxy.image.tag }}` |
-| 2 | `{{ .Values.testFramework.image.repository }}:{{ .Values.testFramework.image.tag }}` |
-| 3 | `{{ include "opentelemetry-operator.image" . | quote }}` |
+No container images found in manifest files.
 
 ## otel-lgtm-stack images
 
 | No | Image |
 |----|-------|
-| 1 | `{{ .Values.dashboards.github.image | quote }}` |
-| 2 | `curlimages/curl:8.8.0` |
-| 3 | `ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0` |
-| 4 | `ghcr.io/open-telemetry/opentelemetry-go-instrumentation/autoinstrumentation-go:v0.19.0-alpha` |
-| 5 | `ghcr.io/silogen/docker-otel-lgtm:v1.0.7` |
-| 6 | `quay.io/kiwigrid/k8s-sidecar:1.27.4` |
-| 7 | `quay.io/prometheus/node-exporter:v1.9.0` |
-| 8 | `quay.io/superq/chrony-exporter:v0.12.1` |
-| 9 | `registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.15.0` |
+| 1 | `curlimages/curl:8.8.0` |
+| 2 | `ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0` |
+| 3 | `ghcr.io/open-telemetry/opentelemetry-go-instrumentation/autoinstrumentation-go:v0.19.0-alpha` |
+| 4 | `ghcr.io/silogen/docker-otel-lgtm:v1.0.7` |
+| 5 | `quay.io/kiwigrid/k8s-sidecar:1.27.4` |
+| 6 | `quay.io/prometheus/node-exporter:v1.9.0` |
+| 7 | `quay.io/superq/chrony-exporter:v0.12.1` |
+| 8 | `registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.15.0` |
 
 ## rabbitmq images
 
