@@ -269,6 +269,13 @@ for app in $app_names; do
         is_helm_chart=true
     fi
     
+    # Add type field (helm or manifest)
+    if [[ "$is_helm_chart" == "true" ]]; then
+        echo "    type: helm" >> "$TEMP_FILE"
+    else
+        echo "    type: manifest" >> "$TEMP_FILE"
+    fi
+    
     # Write valuesFiles if it exists (takes precedence over valuesFile)
     if [[ "$values_files" != "null" ]]; then
         echo "    valuesFiles:" >> "$TEMP_FILE"
@@ -278,10 +285,9 @@ for app in $app_names; do
         done
     elif [[ "$values_file" != "null" ]]; then
         echo "    valuesFile: $values_file" >> "$TEMP_FILE"
-    elif [[ "$is_helm_chart" == "true" ]]; then
-        # Auto-add valuesFile for Helm charts without explicit valuesFile
-        echo "    valuesFile: values.yaml" >> "$TEMP_FILE"
     fi
+    # Note: Do NOT auto-add valuesFile - only copy if exists in root/values.yaml
+    # type field now handles Helm/Manifest classification
     
     # Determine sourceUrl: Use OCI repoURL if available, otherwise preserve existing
     if [[ "$repo_url" != "null" && "$repo_url" =~ ^oci:// ]]; then

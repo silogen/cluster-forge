@@ -42,14 +42,10 @@ extract_version() {
 categorize_component() {
     local component_name="$1"
     
-    # Check if component has valuesFile field - if yes, it's a Helm chart
-    local values_file=$(yq eval ".components.\"$component_name\".valuesFile // \"\"" "$COMPONENTS_FILE")
+    # Read type field from components.yaml (helm or manifest)
+    local component_type=$(yq eval ".components.\"$component_name\".type // \"manifest\"" "$COMPONENTS_FILE")
     
-    if [[ -n "$values_file" ]]; then
-        echo "helm"
-    else
-        echo "manifest"
-    fi
+    echo "$component_type"
 }
 
 # Function to generate component row (reduces code duplication)
