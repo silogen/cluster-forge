@@ -42,14 +42,50 @@ extract_version() {
 categorize_component() {
     local component_name="$1"
     
-    # Check if component has valuesFile field - if yes, it's a Helm chart
-    local values_file=$(yq eval ".components.\"$component_name\".valuesFile // \"\"" "$COMPONENTS_FILE")
+    # Read type field from components.yaml (helm or manifest)
+    local component_type=$(yq eval ".components.\"$component_name\".type // \"manifest\"" "$COMPONENTS_FILE")
     
-    if [[ -n "$values_file" ]]; then
-        echo "helm"
+    echo "$component_type"
+}
+
+# Function to generate component row (reduces code duplication)
+generate_component_row() {
+    local component="$1"
+    
+    # Read all component data
+    local path=$(yq eval ".components.\"$component\".path" "$COMPONENTS_FILE")
+    local project_url=$(yq eval ".components.\"$component\".projectUrl // \"\"" "$COMPONENTS_FILE")
+    local source_url=$(yq eval ".components.\"$component\".sourceUrl // \"\"" "$COMPONENTS_FILE")
+    local license=$(yq eval ".components.\"$component\".license // \"\"" "$COMPONENTS_FILE")
+    local license_url=$(yq eval ".components.\"$component\".licenseUrl // \"\"" "$COMPONENTS_FILE")
+    
+    # Get version from repoVersion first, fall back to path extraction
+    local repo_version=$(yq eval ".components.\"$component\".repoVersion // \"\"" "$COMPONENTS_FILE")
+    local version
+    if [[ -n "$repo_version" && "$repo_version" != "null" ]]; then
+        version="$repo_version"
     else
-        echo "manifest"
+        version=$(extract_version "$path")
     fi
+    
+    # Format version link
+    local version_link
+    if [[ -n "$source_url" ]]; then
+        version_link="[$version]($source_url)"
+    else
+        version_link="$version"
+    fi
+    
+    # Format license link
+    local license_link
+    if [[ -n "$license_url" ]]; then
+        license_link="[$license]($license_url)"
+    else
+        license_link="$license"
+    fi
+    
+    # Return pipe-separated values
+    echo "$component|$version_link|$project_url|$license_link"
 }
 
 # Get all component names using yq
@@ -68,31 +104,8 @@ EOF
 # Generate all components table
 counter=1
 for component in $component_names; do
-    path=$(yq eval ".components.\"$component\".path" "$COMPONENTS_FILE")
-    project_url=$(yq eval ".components.\"$component\".projectUrl // \"\"" "$COMPONENTS_FILE")
-    source_url=$(yq eval ".components.\"$component\".sourceUrl // \"\"" "$COMPONENTS_FILE")
-    license=$(yq eval ".components.\"$component\".license // \"\"" "$COMPONENTS_FILE")
-    license_url=$(yq eval ".components.\"$component\".licenseUrl // \"\"" "$COMPONENTS_FILE")
-    
-    # Extract version from path
-    version=$(extract_version "$path")
-    
-    # Format version with sourceUrl link if available
-    if [[ -n "$source_url" ]]; then
-        version_link="[$version]($source_url)"
-    else
-        version_link="$version"
-    fi
-    
-    # Format license with licenseUrl link if available
-    if [[ -n "$license_url" ]]; then
-        license_link="[$license]($license_url)"
-    else
-        license_link="$license"
-    fi
-    
-    # Add to all components table
-    echo "| $counter | $component | $version_link | $project_url | $license_link |" >> "$SBOM_FILE"
+    IFS='|' read -r name version_link project_url license_link <<< "$(generate_component_row "$component")"
+    echo "| $counter | $name | $version_link | $project_url | $license_link |" >> "$SBOM_FILE"
     ((counter++))
 done
 
@@ -108,32 +121,11 @@ EOF
 # Generate helm components table
 counter=1
 for component in $component_names; do
-    path=$(yq eval ".components.\"$component\".path" "$COMPONENTS_FILE")
-    project_url=$(yq eval ".components.\"$component\".projectUrl // \"\"" "$COMPONENTS_FILE")
-    source_url=$(yq eval ".components.\"$component\".sourceUrl // \"\"" "$COMPONENTS_FILE")
-    license=$(yq eval ".components.\"$component\".license // \"\"" "$COMPONENTS_FILE")
-    license_url=$(yq eval ".components.\"$component\".licenseUrl // \"\"" "$COMPONENTS_FILE")
-    
     # Check if it's a helm component
     category=$(categorize_component "$component")
     if [[ "$category" == "helm" ]]; then
-        version=$(extract_version "$path")
-        
-        # Format version with sourceUrl link if available
-        if [[ -n "$source_url" ]]; then
-            version_link="[$version]($source_url)"
-        else
-            version_link="$version"
-        fi
-        
-        # Format license with licenseUrl link if available
-        if [[ -n "$license_url" ]]; then
-            license_link="[$license]($license_url)"
-        else
-            license_link="$license"
-        fi
-        
-        echo "| $counter | $component | $version_link | $project_url | $license_link |" >> "$SBOM_FILE"
+        IFS='|' read -r name version_link project_url license_link <<< "$(generate_component_row "$component")"
+        echo "| $counter | $name | $version_link | $project_url | $license_link |" >> "$SBOM_FILE"
         ((counter++))
     fi
 done
@@ -150,32 +142,11 @@ EOF
 # Generate manifest components table
 counter=1
 for component in $component_names; do
-    path=$(yq eval ".components.\"$component\".path" "$COMPONENTS_FILE")
-    project_url=$(yq eval ".components.\"$component\".projectUrl // \"\"" "$COMPONENTS_FILE")
-    source_url=$(yq eval ".components.\"$component\".sourceUrl // \"\"" "$COMPONENTS_FILE")
-    license=$(yq eval ".components.\"$component\".license // \"\"" "$COMPONENTS_FILE")
-    license_url=$(yq eval ".components.\"$component\".licenseUrl // \"\"" "$COMPONENTS_FILE")
-    
     # Check if it's a manifest component
     category=$(categorize_component "$component")
     if [[ "$category" == "manifest" ]]; then
-        version=$(extract_version "$path")
-        
-        # Format version with sourceUrl link if available
-        if [[ -n "$source_url" ]]; then
-            version_link="[$version]($source_url)"
-        else
-            version_link="$version"
-        fi
-        
-        # Format license with licenseUrl link if available
-        if [[ -n "$license_url" ]]; then
-            license_link="[$license]($license_url)"
-        else
-            license_link="$license"
-        fi
-        
-        echo "| $counter | $component | $version_link | $project_url | $license_link |" >> "$SBOM_FILE"
+        IFS='|' read -r name version_link project_url license_link <<< "$(generate_component_row "$component")"
+        echo "| $counter | $name | $version_link | $project_url | $license_link |" >> "$SBOM_FILE"
         ((counter++))
     fi
 done
@@ -205,6 +176,7 @@ extract_images_for_component() {
                    sed 's/[[:space:]]*$//' | \
                    sed 's/^"//' | \
                    sed 's/"$//' | \
+                   grep -v '{{' | \
                    sort -u | \
                    grep -v '^$' || true)
     

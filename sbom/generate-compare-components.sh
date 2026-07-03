@@ -223,6 +223,7 @@ for app in $app_names; do
     values_file="null"
     values_files="null"
     repo_url="null"
+    chart="null"
     repo_version="null"
 
     # Try to find the app definition in any of the cluster configuration files
@@ -236,6 +237,7 @@ for app in $app_names; do
                 values_file=$(yq eval ".apps.\"$app\".valuesFile // \"null\"" "$config_file")
                 values_files=$(yq eval ".apps.\"$app\".valuesFiles // \"null\"" "$config_file")
                 repo_url=$(yq eval ".apps.\"$app\".repoURL // \"null\"" "$config_file")
+                chart=$(yq eval ".apps.\"$app\".chart // \"null\"" "$config_file")
                 repo_version=$(yq eval ".apps.\"$app\".repoVersion // \"null\"" "$config_file")
                 break
             fi
@@ -254,6 +256,26 @@ for app in $app_names; do
         echo "    repoVersion: $repo_version" >> "$TEMP_FILE"
     fi
 
+    # Determine if it's a Helm chart
+    is_helm_chart=false
+    
+    # Case 1: OCI/HTTP Helm chart (repoURL + chart both exist)
+    if [[ "$repo_url" != "null" && "$chart" != "null" ]]; then
+        is_helm_chart=true
+    fi
+    
+    # Case 2: Local Helm chart (Chart.yaml exists)
+    if [[ "$path" != "null" && -f "../sources/$path/Chart.yaml" ]]; then
+        is_helm_chart=true
+    fi
+    
+    # Add type field (helm or manifest)
+    if [[ "$is_helm_chart" == "true" ]]; then
+        echo "    type: helm" >> "$TEMP_FILE"
+    else
+        echo "    type: manifest" >> "$TEMP_FILE"
+    fi
+    
     # Write valuesFiles if it exists (takes precedence over valuesFile)
     if [[ "$values_files" != "null" ]]; then
         echo "    valuesFiles:" >> "$TEMP_FILE"
@@ -264,6 +286,8 @@ for app in $app_names; do
     elif [[ "$values_file" != "null" ]]; then
         echo "    valuesFile: $values_file" >> "$TEMP_FILE"
     fi
+    # Note: Do NOT auto-add valuesFile - only copy if exists in root/values.yaml
+    # type field now handles Helm/Manifest classification
     
     # Determine sourceUrl: Use OCI repoURL if available, otherwise preserve existing
     if [[ "$repo_url" != "null" && "$repo_url" =~ ^oci:// ]]; then
