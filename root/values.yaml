@@ -656,6 +656,8 @@ apps:
         value: "{{ .Values.global.domain }}"
       - name: aiGateway.enabled
         value: "true"  
+      - name: aiGateway.routeHostname
+        value: "ai.{{ .Values.global.domain }}"
     namespace: envoy-gateway-system
     path: envoy-gateway-config
     syncWave: -15
