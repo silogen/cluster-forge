@@ -375,9 +375,8 @@ apps:
     syncWave: -20
     valuesFile: values.yaml
   kaiwo:
-    repoURL: "{{ .Values.ociRegistry.ghcr }}"
-    repoVersion: "v0.2.1"
-    chart: "kaiwo-operator-chart"
+    path: kaiwo/v0.2.1-spread
+    repoVersion: feat-kaiwo-scheduler-spread
     namespace: kaiwo-system
     syncWave: -10
   kaiwo-config:
