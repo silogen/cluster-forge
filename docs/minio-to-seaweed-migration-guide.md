@@ -168,7 +168,7 @@ Cleanup complete.
 2. Open Buckets and choose "default-bucket"
 3. Verify that all the data has been mirrored 
 
-### Step 5: Add seaweedfs storage to AIRM (optional)
+### Step 3: Add seaweedfs storage to AIRM (optional)
 ***Navigate to AIRM UI***
 1. Open your browser and go to `https://airmui.<your-domain>`
 2. Find the value of the password called `USER_PASSWORD` in the secret called `airm-user-credentials` in the namespace `airm` 
@@ -180,10 +180,10 @@ Cleanup complete.
    - `Access Key Name`: `minio-access-key`
    - `Secret Key Name`: `minio-secret-key`
 
-### Step 6: Test uploading/downloading datasets from AIWB (optional)
+### Step 4: Test uploading/downloading datasets from AIWB (optional)
 Make sure you can download your datasets from AIWB and that you can upload new datasets. 
 
-### Step 4: Clean Up Old Minio Resources (3-5 minutes) (optional)
+### Step 5: Clean Up Old Minio Resources (3-5 minutes) (optional)
 Once you have verified that all the data is mirrored to Seaweed, you can safely remove the minio applications.
 
 *** Important: Make sure you removed the minio ArgoCD applications in Step 1. If you didn't, just go and remove the minio applications in your values.yaml file. The argocd application needs to be removed to allow deleting the resources. *** 
