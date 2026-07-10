@@ -75,7 +75,11 @@ apps:
     helmParameters:
       - name: appDomain
         value: "{{ .Values.global.domain }}"
-    syncWave: 0
+    ignoreDifferences:
+      - group: kyverno.io
+        kind: ClusterPolicy
+        jsonPointers:
+          - /spec/rules/*/skipBackgroundRequests
   airm-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "2.0.0"
