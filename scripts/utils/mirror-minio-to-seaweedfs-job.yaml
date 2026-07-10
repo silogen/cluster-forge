@@ -102,13 +102,17 @@ spec:
               echo "====================================="
               
               # Configuration
-              SOURCE_BUCKET="${SOURCE_BUCKET:-default-bucket}"
-              TARGET_BUCKET="${TARGET_BUCKET:-default-bucket}"
+              # SOURCE_BUCKET empty => auto-discover and mirror ALL buckets.
+              # Set it to a single bucket name to mirror just that one.
+              SOURCE_BUCKET="${SOURCE_BUCKET:-}"
               MINIO_NAMESPACE="${MINIO_NAMESPACE:-minio-tenant-default}"
               SEAWEEDFS_NAMESPACE="${SEAWEEDFS_NAMESPACE:-seaweedfs-instance}"
-              
-              echo "Source bucket: $SOURCE_BUCKET (MinIO)"
-              echo "Target bucket: $TARGET_BUCKET (SeaweedFS)"
+
+              if [ -n "$SOURCE_BUCKET" ]; then
+                echo "Mode: single bucket ($SOURCE_BUCKET)"
+              else
+                echo "Mode: ALL buckets (auto-discover)"
+              fi
               
               # Install MinIO Client
               echo ""
@@ -130,8 +134,8 @@ spec:
               # Test MinIO connection
               echo ""
               echo "Testing MinIO connection..."
-              if ! $MC ls minio-source/"$SOURCE_BUCKET" >/dev/null 2>&1; then
-                echo "ERROR: Cannot access MinIO bucket '$SOURCE_BUCKET'"
+              if ! $MC ls minio-source >/dev/null 2>&1; then
+                echo "ERROR: Cannot access MinIO"
                 kubectl patch svc minio -n "$MINIO_NAMESPACE" -p '{"spec":{"type":"ClusterIP"}}'
                 exit 1
               fi
@@ -171,48 +175,57 @@ spec:
                 sleep 2
               done
               
-              # Ensure target bucket exists
-              echo ""
-              echo "Ensuring target bucket exists..."
-              if ! $MC ls seaweed-target/"$TARGET_BUCKET" >/dev/null 2>&1; then
-                echo "Creating bucket '$TARGET_BUCKET' in SeaweedFS..."
-                $MC mb seaweed-target/"$TARGET_BUCKET"
+              # Determine which buckets to mirror
+              if [ -n "$SOURCE_BUCKET" ]; then
+                BUCKETS="$SOURCE_BUCKET"
               else
-                echo "Bucket '$TARGET_BUCKET' already exists"
+                echo ""
+                echo "Discovering buckets in MinIO..."
+                BUCKETS=$($MC ls --json minio-source | jq -r '.key' | sed 's#/$##')
               fi
-              
-              # Mirror buckets
-              echo ""
-              echo "====================================="
-              echo "Starting mirror operation..."
-              echo "====================================="
-              echo "Source: minio-source/$SOURCE_BUCKET"
-              echo "Target: seaweed-target/$TARGET_BUCKET"
-              echo ""
-              
-              # Mirror with options:
-              # --overwrite: Overwrite existing files
-              # --remove: Remove extraneous files on target
-              # --preserve: Preserve filesystem attributes (metadata)
-              $MC mirror minio-source/"$SOURCE_BUCKET" seaweed-target/"$TARGET_BUCKET" \
-                --overwrite \
-                --preserve
-              
-              MIRROR_EXIT_CODE=$?
-              
+
+              if [ -z "$BUCKETS" ]; then
+                echo "ERROR: No buckets found to mirror"
+                exit 1
+              fi
+              echo "Buckets to mirror:"
+              echo "$BUCKETS" | sed 's/^/  - /'
+
+              # Mirror each bucket to a same-named bucket in SeaweedFS
+              MIRROR_EXIT_CODE=0
+              for BUCKET in $BUCKETS; do
+                echo ""
+                echo "====================================="
+                echo "Mirroring bucket: $BUCKET"
+                echo "  minio-source/$BUCKET -> seaweed-target/$BUCKET"
+                echo "====================================="
+
+                # Ensure target bucket exists
+                if ! $MC ls seaweed-target/"$BUCKET" >/dev/null 2>&1; then
+                  echo "Creating bucket '$BUCKET' in SeaweedFS..."
+                  $MC mb seaweed-target/"$BUCKET"
+                fi
+
+                # Mirror with: --overwrite (replace changed files), --preserve (keep metadata)
+                if $MC mirror minio-source/"$BUCKET" seaweed-target/"$BUCKET" --overwrite --preserve; then
+                  echo "✓ $BUCKET mirrored"
+                else
+                  echo "✗ $BUCKET FAILED"
+                  MIRROR_EXIT_CODE=1
+                fi
+
+                echo "Target contents for $BUCKET:"
+                $MC ls seaweed-target/"$BUCKET"
+              done
+
               echo ""
               echo "====================================="
               if [ $MIRROR_EXIT_CODE -eq 0 ]; then
                 echo "✓ Mirror operation completed successfully!"
               else
-                echo "✗ Mirror operation failed with exit code $MIRROR_EXIT_CODE"
+                echo "✗ One or more buckets failed to mirror"
               fi
               echo "====================================="
-              
-              # Show summary
-              echo ""
-              echo "Target bucket contents:"
-              $MC ls seaweed-target/"$TARGET_BUCKET"
               
               echo "Cleaning up..."
 
@@ -225,10 +238,8 @@ spec:
               
               exit $MIRROR_EXIT_CODE
           env:
-            - name: SOURCE_BUCKET
-              value: "default-bucket"
-            - name: TARGET_BUCKET
-              value: "default-bucket"
+            # SOURCE_BUCKET intentionally unset => mirror ALL buckets automatically.
+            # To mirror only one bucket, add: - name: SOURCE_BUCKET / value: "<bucket>"
             - name: MINIO_NAMESPACE
               value: "minio-tenant-default"
             - name: SEAWEEDFS_NAMESPACE
