@@ -10,7 +10,7 @@ global:
   clusterSize:    # injected via scripts/bootstrap.sh
   domain:         # injected via scripts/bootstrap.sh
 ociRegistry:
-  dockerHub: "registry-1.docker.io/silogenai"
+  dockerHub: "registry-1.docker.io/amdenterpriseai"
   ghcr: "ghcr.io/silogen"
 
 apps:
@@ -33,9 +33,6 @@ apps:
     namespace: aim-system
     valuesFile: values.yaml
     syncWave: 0
-    helmParameters:
-      - name: manager.artifactDownloaderImage
-        value: "docker.io/silogenai/aim-artifact-downloader:v0.2.5"
   aim-engine-crds:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "0.2.5"
