@@ -9,6 +9,8 @@ externalValues:
 global:
   clusterSize:    # injected via scripts/bootstrap.sh
   domain:         # injected via scripts/bootstrap.sh
+localHelmValues:
+  enabled: false
 ociRegistry:
   dockerHub: "registry-1.docker.io/amdenterpriseai"
   ghcr: "ghcr.io/silogen"
