@@ -24,3 +24,8 @@ aiGateway:
   # Stable ClusterIP `ai-gateway` (CoreDNS target / passthrough backend).
   dnsService:
     enabled: true
+
+# Configure RKE2 CoreDNS for Wilcdcard Domain Routing by making *.domain resolve to
+# envoy-gateway service
+rkeCoreDNS:
+  enabled: true

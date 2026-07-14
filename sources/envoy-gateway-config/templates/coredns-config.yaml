@@ -1,3 +1,4 @@
+{{- if .Values.rkeCoreDNS.enabled }}
 # CoreDNS Configuration for Wildcard Domain Routing
 # Copied from kgateway-config with service reference update
 # Makes *.domain resolve to envoy-gateway service
@@ -35,3 +36,4 @@ spec:
         - name: loop
         - name: reload
         - name: loadbalance
+{{- end }}
