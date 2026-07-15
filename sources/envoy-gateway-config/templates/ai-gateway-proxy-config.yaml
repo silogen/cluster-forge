@@ -19,8 +19,10 @@ spec:
         type: ClusterIP
       envoyDeployment:
         pod:
+          {{- if .Values.aiGateway.nodeSelector }}
           nodeSelector:
-            cluster-bloom/first-node: "true"
+            {{- toYaml .Values.aiGateway.nodeSelector | nindent 12 }}
+          {{- end }}
           priorityClassName: "system-cluster-critical"
   telemetry:
     accessLog:
