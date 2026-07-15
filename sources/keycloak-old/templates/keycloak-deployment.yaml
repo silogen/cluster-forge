@@ -6,6 +6,9 @@ metadata:
     app: keycloak
   name: keycloak
   namespace: keycloak
+  annotations:
+    # After CNPG Cluster (wave 1) so JDBC connects once Postgres is up with bootstrap secrets.
+    argocd.argoproj.io/sync-wave: "5"
 spec:
   replicas: 1
   selector:

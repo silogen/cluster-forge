@@ -1,8 +1,8 @@
 # Cluster-Forge
 > [!IMPORTANT]
-> #### *Instructions for installing the AMD Enterprise AI Suite (for most users) are [here](https://enterprise-ai.docs.amd.com/en/latest/platform-infrastructure/on-premises-installation.html)*
+> #### *Instructions for installing the AMD Enterprise AI reference stack (for most users) are [here](https://enterprise-ai.docs.amd.com/en/latest/platform-infrastructure/on-premises-installation.html)*
 
-### A Kubernetes platform automation tool that deploys [AMD Enterprise AI Suite](https://enterprise-ai.docs.amd.com/en/latest/) with complete GitOps infrastructure.
+### A Kubernetes platform automation tool that deploys [AMD Enterprise AI reference stack](https://enterprise-ai.docs.amd.com/en/latest/) with complete GitOps infrastructure.
 
 
 
@@ -21,36 +21,11 @@ Using a bootstrap-first deployment model, Cluster-Forge establishes GitOps infra
 
 ## 🚀 Quick Start
 
-### Single-Command Deployment
-```bash
-./scripts/bootstrap.sh <domain> [--cluster-size=small|medium|large]
-```
+Cluster-Forge is deployed by [cluster-bloom](https://github.com/silogen/cluster-bloom), which bootstraps the GitOps foundation (ArgoCD, Gitea, OpenBao) and installs the stack via its `deploy_clusterforge` role. Deployment options (domain, cluster size, enabled/disabled apps, GPU stack family, image repositories) are supplied as cluster-bloom configuration and injected at deploy time.
 
-### Size-Aware Deployment Examples
-```bash
-# Small cluster (1-5 users, development/testing)
-./scripts/bootstrap.sh dev.example.com --cluster-size=small
+For end-to-end installation instructions, follow the official AMD Enterprise AI reference stack docs:
 
-# Medium cluster (5-20 users, team production) [DEFAULT]
-./scripts/bootstrap.sh team.example.com --cluster-size=medium
-
-# Large cluster (10s-100s users, enterprise scale)
-./scripts/bootstrap.sh prod.example.com --cluster-size=large
-
-# Deploy only specific components
-./scripts/bootstrap.sh dev.example.com --apps=argocd,gitea,cluster-forge
-
-# Deploy from specific branch/tag
-./scripts/bootstrap.sh prod.example.com --target-revision=v1.8.0
-
-# Install everything except AIRM and its infra dependencies
-./scripts/bootstrap.sh prod.example.com --disabled-apps=airm,airm-infra-*
-
-# Combine --apps and --disabled-apps (disabled takes priority)
-./scripts/bootstrap.sh dev.example.com --apps=airm,keycloak --disabled-apps=airm
-```
-
-For detailed deployment instructions, see the [Bootstrap Guide](docs/bootstrap_guide.md).
+**➡️ [On-Premises Installation Guide](https://enterprise-ai.docs.amd.com/en/latest/platform-infrastructure/on-premises-installation.html)**
 
 ## 📋 Architecture
 
@@ -96,16 +71,16 @@ See [Values Inheritance Pattern](docs/values_inheritance_pattern.md) for detaile
 ### Layer 2: Core Infrastructure
 
 **Networking & Security:**
-- **Gateway API v1.3.0** - Kubernetes standard ingress API
-- **KGateway v2.1.0-main** - Gateway API implementation with WebSocket support
+- **Envoy Gateway v1.7.1** - Gateway API implementation for ingress and routing
+- **Envoy AI Gateway v0.6.0** - AI/LLM-aware gateway with InferencePool routing
+- **Inference Extension CRDs v1.5.0** - Gateway API Inference Extension resources
 - **MetalLB v0.15.2** - Bare metal load balancer
 - **Cert-Manager v1.18.2** - Automated TLS certificate management
 - **Kyverno 3.5.1** - Policy engine with modular policy system
 
 **Storage & Database:**
 - **CNPG Operator 0.26.0** - CloudNativePG PostgreSQL operator
-- **MinIO Operator 7.1.1** - S3-compatible object storage operator
-- **MinIO Tenant 7.1.1** - Tenant deployment with default-bucket and models buckets
+- **SeaweedFS Operator** - S3-compatible object storage operator, with S3 storage deployment, default-bucket, models, and datasets buckets
 
 ### Layer 3: Observability
 - **Prometheus Operator CRDs 23.0.0** - Metrics infrastructure
@@ -113,8 +88,8 @@ See [Values Inheritance Pattern](docs/values_inheritance_pattern.md) for detaile
 - **OTEL-LGTM Stack v1.0.7** - Integrated observability (Loki, Grafana, Tempo, Mimir)
 
 ### Layer 4: Identity & Access
-- **Keycloak** (keycloak-old chart) - Enterprise IAM with AIRM realm
-- **Cluster-Auth 0.5.0** - Kubernetes RBAC integration
+- **Keycloak 26.0.0** - Enterprise IAM with AIRM realm
+- **Cluster-Auth 0.5.9** - Kubernetes RBAC integration
 
 ### Layer 5: AI/ML Compute Stack
 
@@ -127,13 +102,15 @@ See [Values Inheritance Pattern](docs/values_inheritance_pattern.md) for detaile
 
 **ML Serving & Inference:**
 - **KServe v0.16.0** - Model serving platform (Standard deployment mode)
+- **AIM Engine 0.2.5** - AMD Inference Microservice engine
 
 **Workflow & Messaging:**
-- **Kaiwo v0.2.0-rc11** - AI workload orchestration
+- **Kaiwo v0.2.1** - AI workload orchestration
 - **RabbitMQ v2.15.0** - Message broker for async processing
 
 ### Layer 6: AIRM Application
-- **AIRM 0.3.2** - AMD Resource Manager application suite
+- **AIRM 2.0.0** - AMD Resource Manager application suite
+- **AIWB 2.0.0** - AI Workbench application suite
 - **AIM Cluster Model Source** - Cluster resource models for AIRM
 - **Configurable Image Repositories** - Supports custom container registries via cluster-bloom `AIRM_IMAGE_REPOSITORY` parameter
 
@@ -147,7 +124,7 @@ Three cluster profiles with inheritance-based resource optimization:
 - Single replica deployments
 - Reduced resource limits (ArgoCD controller: 2 CPU, 4Gi RAM)
 - Adds kyverno-policies-storage-local-path for RWX→RWO PVC mutation
-- MinIO tenant: 250Gi storage
+- SeaweedFS volume storage: 250Gi
 - Suitable for: Local workstations, development environments
 
 **Medium Clusters** (5-20 users, team production):
@@ -162,7 +139,7 @@ Three cluster profiles with inheritance-based resource optimization:
 - Requires a minimum of 20 CPU cores
 - OpenBao HA: 3 replicas with Raft consensus
 - No local-path policies (assumes distributed storage)
-- MinIO tenant: 500Gi storage
+- SeaweedFS volume storage: 500Gi
 - Production-grade resource allocation
 - Suitable for: Production deployments, multi-tenant environments
 
@@ -175,7 +152,7 @@ Configuration follows a streamlined inheritance pattern:
 - **Size-specific**: Only override differences from base (DRY principle)
 - **Runtime**: Domain and cluster-specific parameters injected during bootstrap
 
-The bootstrap script uses YAML merge semantics where size-specific values override base values.yaml settings.
+Deployment uses YAML merge semantics where size-specific values override base values.yaml settings.
 
 ## 📚 Documentation
 
@@ -183,12 +160,13 @@ Comprehensive documentation is available in the `/docs` folder:
 
 | Topic | Documentation |
 |-------|---------------|
-| **Getting Started** | [Bootstrap Guide](docs/bootstrap_guide.md) |
+| **Getting Started** | [On-Premises Installation Guide](https://enterprise-ai.docs.amd.com/en/latest/platform-infrastructure/on-premises-installation.html) |
 | **Configuration** | [Cluster Size Configuration](docs/cluster_size_configuration.md) |
 | **Architecture** | [Values Inheritance Pattern](docs/values_inheritance_pattern.md) |
 | **Policy System** | [Kyverno Modular Design](docs/kyverno_modular_design.md) |
 | **Storage Policies** | [Kyverno Access Mode Policy](docs/kyverno_access_mode_policy.md) |
 | **Operations** | [Backup and Restore](docs/backup_and_restore.md) |
+| **CI/CD** | [Workflow Documentation](.github/workflows/README.md) |
 
 Additional documentation:
 - **SBOM**: See `/sbom` folder for software bill of materials generation and validation

@@ -3,7 +3,7 @@
 This guide explains how to deploy AI Workbench on a Kubernetes cluster, including the base required components and optional pluggable components that can be substituted with your own implementations.
 
 > **Full platform (AIRM + AIWB)**: This guide covers **standalone AIWB** deployments.
-> For the full AMD Enterprise AI Suite — including AI Resource Manager (AIRM) for
+> For the full AMD Enterprise AI reference steack — including AI Resource Manager (AIRM) for
 > multi-tenant resource management, cluster coordination, and GPU resource allocation —
 > see the [Helm Installation Guide](https://github.com/amd-enterprise-ai/amd-eai-suite/blob/main/helm/INSTALL.md)
 > in the core repository.
@@ -80,7 +80,7 @@ These components can be replaced with your own implementations:
 |-----------|-------------------------|-----------------|--------------|
 | **Database** | CloudNativePG PostgreSQL clusters | ✅ Yes - Any PostgreSQL 14+ | [db.md](components/db.md) |
 | **Gateway Controller** | kgateway (Gateway API) | ✅ Yes - Any Gateway API controller | [gateway.md](components/gateway.md) |
-| **Object Storage** | MinIO | ✅ Yes - Any S3-compatible storage | [s3.md](components/s3.md) |
+| **Object Storage** | SeaweedFS | ✅ Yes - Any S3-compatible storage | [s3.md](components/s3.md) |
 | **StorageClasses** | local-path (rancher.io) | ✅ Yes - Any CSI provisioner | [storage_classes.md](components/storage_classes.md) |
 | **Secrets Management** | Direct Kubernetes Secrets | ✅ Yes - ExternalSecrets, Vault, etc. | [secrets.md](secrets/secrets.md) |
 | **LoadBalancer** | MetalLB | ✅ Yes - Cloud LB, HAProxy, etc. | — |
@@ -173,7 +173,7 @@ AIWB deployment consists of three phases that must be completed in order:
 **Components to deploy:**
 
 1. **Namespaces**
-   - Create required namespaces: `aiwb`, `keycloak`, `workbench`, `minio-tenant-default`, `cluster-auth`, and others
+   - Create required namespaces: `aiwb`, `keycloak`, `workbench`, `seaweedfs-instance`, `cluster-auth`, and others
 
 2. **Secrets** *[Pluggable]*
    - Create all required secrets (see [Secrets Reference](#secrets-management))
@@ -192,8 +192,8 @@ AIWB deployment consists of three phases that must be completed in order:
 
 5. **Object Storage** *[Pluggable]*
    - Required buckets: `default-bucket`, `models`, `datasets`
-   - Reference: MinIO operator + tenant in `minio-tenant-default`
-   - Alternative: AWS S3, Azure Blob, GCS, or any S3-compatible service
+   - Reference: SeaweedFS operator + Seaweed custom resource in `seaweedfs-instance`
+   - Alternative: AWS S3, Azure Blob, GCS, MinIO, or any S3-compatible service
    - See [s3.md](components/s3.md)
 
 ### Phase 3: Application Layer
@@ -250,7 +250,7 @@ See [gateway.md](components/gateway.md) for configuration instructions.
 
 ### Object Storage (S3-compatible)
 
-**Reference Implementation:** MinIO operator with a tenant providing three buckets (`default-bucket`, `models`, `datasets`).
+**Reference Implementation:** SeaweedFS operator with a Seaweed custom resource providing three buckets (`default-bucket`, `models`, `datasets`).
 
 **To use your own S3-compatible storage:**
 
@@ -343,8 +343,8 @@ Complete list of components and their versions:
 
 | Component | Version | Namespace | Required | Alternative |
 |-----------|---------|-----------|----------|-------------|
-| MinIO Operator | v7.1.1 | `minio-operator` | ❌ No | AWS S3, Azure Blob, GCS |
-| MinIO Tenant | v7.1.1 | `minio-tenant-default` | ❌ No | External S3 service |
+| SeaweedFS Operator | latest | `seaweedfs-operator` | ❌ No | AWS S3, Azure Blob, GCS, MinIO |
+| SeaweedFS Config | latest | `seaweedfs-instance` | ❌ No | External S3 service |
 | PostgreSQL (AIWB) | 14+ via CNPG | `aiwb` | ✅ Yes* | External PostgreSQL |
 | PostgreSQL (Keycloak) | 14+ via CNPG | `keycloak` | ✅ Yes* | External PostgreSQL |
 
@@ -373,7 +373,7 @@ Complete list of components and their versions:
 ### Full Platform (AIRM + AIWB)
 
 These components are **not required** for standalone AIWB but are needed if you
-want the full AMD Enterprise AI Suite with multi-tenant resource management.
+want the full AMD Enterprise AI reference stack with multi-tenant resource management.
 See the [core repo Helm Installation Guide](https://github.com/amd-enterprise-ai/amd-eai-suite/blob/main/helm/INSTALL.md)
 for complete instructions.
 

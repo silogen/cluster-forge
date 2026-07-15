@@ -5,6 +5,9 @@ kind: Cluster
 metadata:
   name: keycloak-cnpg
   namespace: keycloak
+  annotations:
+    # After PreSync CNPG ExternalSecrets; before Keycloak Deployment (wave 5) so initdb uses final secrets.
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   affinity:
     enablePodAntiAffinity: true

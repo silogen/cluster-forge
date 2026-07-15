@@ -306,15 +306,49 @@ data:
     done
     {{- end }}
 
-    # if either aiwbOnly or airmImageRepository is set, we need to add the app top-level key
-    {{- if or .Values.aiwbOnly .Values.airmImageRepository }}
+    # if aiwbOnly, airmImageRepository, aimHardwareFamily, or any GPU stack
+    # selection is set, we need to add the app top-level key
+    {{- if or .Values.aiwbOnly .Values.airmImageRepository .Values.aimHardwareFamily .Values.gpuStackFamily .Values.gpuOperatorPath .Values.gpuOperatorConfigPath .Values.gpuDeviceConfigDriverVersion }}
     echo "apps:" >> /tmp/values.yaml
+    {{- end }}
+
+    {{- if .Values.aimHardwareFamily }}
+    echo "  aim-cluster-model-source:" >> /tmp/values.yaml
+    echo "    valuesObject:" >> /tmp/values.yaml
+    echo "      hardwareFamilies:" >> /tmp/values.yaml
+    {{- range (splitList "," .Values.aimHardwareFamily) }}
+    echo "        - {{ . | trim }}" >> /tmp/values.yaml
+    {{- end }}
+    {{- end }}
+
+    {{- if .Values.gpuOperatorPath }}
+    echo "  amd-gpu-operator:" >> /tmp/values.yaml
+    echo "    path: {{ .Values.gpuOperatorPath }}" >> /tmp/values.yaml
+    {{- end }}
+
+    {{- if or .Values.gpuStackFamily .Values.gpuOperatorConfigPath .Values.gpuDeviceConfigDriverVersion }}
+    echo "  amd-gpu-operator-config:" >> /tmp/values.yaml
+    {{- if .Values.gpuOperatorConfigPath }}
+    echo "    path: {{ .Values.gpuOperatorConfigPath }}" >> /tmp/values.yaml
+    {{- end }}
+    {{- if or .Values.gpuStackFamily .Values.gpuDeviceConfigDriverVersion }}
+    echo "    valuesObject:" >> /tmp/values.yaml
+    {{- if .Values.gpuStackFamily }}
+    echo "      gpuStackFamily: {{ .Values.gpuStackFamily }}" >> /tmp/values.yaml
+    {{- end }}
+    {{- if .Values.gpuDeviceConfigDriverVersion }}
+    echo "      driverVersion: \"{{ .Values.gpuDeviceConfigDriverVersion }}\"" >> /tmp/values.yaml
+    {{- end }}
+    {{- end }}
     {{- end }}
 
     {{- if .Values.aiwbOnly }}
     cat >> /tmp/values.yaml << 'EOF'
       aiwb:
         helmParameters:
+          # APP-DOMAIN
+          - name: appDomain
+            value: {{ .Values.domain | quote }}
           # STANDALONE-MODE
           - name: standAloneMode
             value: "true"

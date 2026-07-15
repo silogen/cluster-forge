@@ -1,10 +1,17 @@
 ---
+# CNPG bootstrap reads keycloak-cnpg-user (and superuser) Secrets at initdb time.
+# Run these ExternalSecrets as PreSync hooks so OpenBao-backed Secrets exist and are
+# Healthy before the Cluster resource applies (avoids password mismatch vs Keycloak).
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
   name: keycloak-cnpg-superuser-credentials
   namespace: keycloak
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "-3"
 spec:
+  refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
     name: openbao-secret-store
@@ -27,6 +34,9 @@ kind: ExternalSecret
 metadata:
   name: keycloak-cnpg-user-credentials
   namespace: keycloak
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "-2"
 spec:
   data:
     - remoteRef:
@@ -50,6 +60,9 @@ kind: Cluster
 metadata:
   name: keycloak-cnpg
   namespace: keycloak
+  annotations:
+    # After PreSync CNPG ExternalSecrets; before HTTPRoute/other wave-0 extras if any.
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   affinity:
     enablePodAntiAffinity: true

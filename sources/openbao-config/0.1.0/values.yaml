@@ -1,8 +1,15 @@
 domain: # to be filled by cluster-forge app
 
+# In-cluster object storage is SeaweedFS (filer S3). OpenBao KV paths remain
+# `secrets/minio-*` for backward compatibility. Static access key names below
+# are rendered into openbao-secret-definitions (override with --set minio.*).
 minio:
-  # Seed values for MinIO access keys stored in OpenBao. Override at install
-  # time (`--set minio.apiAccessKey=...`) when integrating with an
-  # externally-provisioned MinIO whose existing keys differ from these defaults.
   apiAccessKey: api-default-user
   consoleAccessKey: default-user
+
+# AIRM Keycloak admin client. clientId of the confidential Keycloak client AIRM
+# uses for admin-API calls (KEYCLOAK_ADMIN_CLIENT_ID). The default preserves the
+# legacy literal so existing clusters keep working; override per-cluster via
+# apps.openbao-config.valuesObject.airm.keycloakAdminClientId in cluster-values.
+airm:
+  keycloakAdminClientId: admin-client-id-value

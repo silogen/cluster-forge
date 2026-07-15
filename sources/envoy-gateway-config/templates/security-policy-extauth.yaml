@@ -7,11 +7,18 @@ metadata:
   name: cluster-auth-extauth-policy
   namespace: envoy-gateway-system  # Envoy Gateway namespace
 spec:
-  # Target the Gateway for global-like behavior (same as current TrafficPolicy)
+  # Target both gateways for global-like behavior: apps on `https`, AI on `ai-gateway`.
+  # The AI auth chain (set-model-header-from-body -> ext_authz) runs on `ai-gateway`, where
+  # AI traffic terminates after the apps gateway passes it through by SNI.
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
-      name: https  # Same Gateway name as current setup
+      name: https
+{{- if .Values.aiGateway.enabled }}
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: ai-gateway
+{{- end }}
 
   # External Authorization configuration (matches current kgateway GatewayExtension)
   extAuth:

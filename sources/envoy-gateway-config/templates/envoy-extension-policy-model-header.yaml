@@ -1,0 +1,37 @@
+{{- if .Values.aiGateway.enabled }}
+# Lua filter that extracts routing headers from the request body before ext_authz runs,
+# on the ai-gateway (where all AI traffic terminates and is authorized).
+#
+# Both x-ai-eg-backend and x-ai-eg-model are set from the request body so that the
+# 3-condition UUID rule (Host + x-ai-eg-backend + x-ai-eg-model) wins by specificity
+# over any catch-all rules in other HTTPRoutes, regardless of HTTPRoute creation order.
+# The model-name fallback rule has been removed — clients must supply a backend UUID.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyExtensionPolicy
+metadata:
+  name: set-model-header-from-body
+  namespace: envoy-gateway-system
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: ai-gateway
+  lua:
+    - type: Inline
+      inline: |
+        function envoy_on_request(request_handle)
+          local body = request_handle:body()
+          if body == nil then
+            return
+          end
+          local body_str = tostring(body)
+          local backend = body_str:match('"backend"%s*:%s*"([^"]+)"')
+          local model = body_str:match('"model"%s*:%s*"([^"]+)"')
+          if backend ~= nil then
+            request_handle:headers():replace("x-ai-eg-backend", backend)
+          end
+          if model ~= nil then
+            request_handle:headers():replace("x-ai-eg-model", model)
+          end
+        end
+{{- end }}

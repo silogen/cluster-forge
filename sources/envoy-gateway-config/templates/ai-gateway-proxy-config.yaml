@@ -1,0 +1,57 @@
+{{- if .Values.aiGateway.enabled }}
+# EnvoyProxy for the ai-gateway: ClusterIP (it sits behind the apps gateway, which forwards
+# the AI hostname to it) + the same lua-before-ext_authz filterOrder the apps gateway uses,
+# so set-model-header-from-body runs before cluster-auth and per-model group enforcement
+# works (EAI-6805). Same first-node placement + AI access-log telemetry.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: ai-gateway-proxy-config
+  namespace: envoy-gateway-system
+spec:
+  filterOrder:
+    - name: envoy.filters.http.lua
+      before: envoy.filters.http.ext_authz
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        type: ClusterIP
+      envoyDeployment:
+        pod:
+          nodeSelector:
+            cluster-bloom/first-node: "true"
+          priorityClassName: "system-cluster-critical"
+  telemetry:
+    accessLog:
+      settings:
+        - format:
+            type: JSON
+            json:
+              start_time: "%START_TIME%"
+              method: "%REQ(X-ENVOY-ORIGINAL-METHOD?:METHOD)%"
+              path: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"
+              protocol: "%PROTOCOL%"
+              response_code: "%RESPONSE_CODE%"
+              response_flags: "%RESPONSE_FLAGS%"
+              bytes_received: "%BYTES_RECEIVED%"
+              bytes_sent: "%BYTES_SENT%"
+              total_duration: "%DURATION%"
+              resp_backend_service_time: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"
+              req_x_forwarded_for: "%REQ(X-FORWARDED-FOR)%"
+              user_agent: "%REQ(USER-AGENT)%"
+              request_id: "%REQ(X-REQUEST-ID)%"
+              authority: "%REQ(:AUTHORITY)%"
+              backendHost: "%UPSTREAM_HOST%"
+              backendCluster: "%UPSTREAM_CLUSTER%"
+              model: "%REQ(x-ai-eg-model)%"
+              llm_input_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_input_token)%"
+              llm_output_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_output_token)%"
+              llm_total_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_total_token)%"
+              api_key_id: "%REQ(x-api-key-id)%"
+              aim_service_id: "%REQ(x-aim-service-id)%"
+          sinks:
+            - type: File
+              file:
+                path: /dev/stdout
+{{- end }}
