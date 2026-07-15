@@ -18,8 +18,10 @@ spec:
         type: {{ .Values.appsGateway.serviceType }}
       envoyDeployment:
         pod:
+          {{- if .Values.appsGateway.nodeSelector }}
           nodeSelector:
-            cluster-bloom/first-node: "true"
+            {{- toYaml .Values.appsGateway.nodeSelector | nindent 12 }}
+          {{- end }}
           priorityClassName: "system-cluster-critical"
   telemetry:
     accessLog:

@@ -5,6 +5,8 @@ domain: # to be filled by cluster-forge app
 # on the same :443 VIP by SNI. No separate tls-passthrough gateway.
 appsGateway:
   serviceType: LoadBalancer
+  nodeSelector:
+    cluster-bloom/first-node: "true"
 
 # Stable ClusterIP `https` selecting the apps-gateway data plane, used by CoreDNS for the
 # *.domain rewrite (in-cluster resolution).
@@ -24,6 +26,8 @@ aiGateway:
   # Stable ClusterIP `ai-gateway` (CoreDNS target / passthrough backend).
   dnsService:
     enabled: true
+  nodeSelector:
+    cluster-bloom/first-node: "true"
 
 # Configure RKE2 CoreDNS for Wilcdcard Domain Routing by making *.domain resolve to
 # envoy-gateway service
