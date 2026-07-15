@@ -7,6 +7,8 @@ appsGateway:
   serviceType: LoadBalancer
   nodeSelector:
     cluster-bloom/first-node: "true"
+  envoyServiceAnnotations:
+  envoyServicePatch:
 
 # Stable ClusterIP `https` selecting the apps-gateway data plane, used by CoreDNS for the
 # *.domain rewrite (in-cluster resolution).

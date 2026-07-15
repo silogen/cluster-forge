@@ -13,6 +13,14 @@ spec:
     type: Kubernetes
     kubernetes:
       envoyService:
+        {{- if .Values.appsGateway.envoyServiceAnnotations }}
+        annotations:
+          {{- toYaml .Values.appsGateway.envoyServiceAnnotations | nindent 10 }}
+        {{- end }}
+        {{- if .Values.appsGateway.envoyServicePatch }}
+        patch:
+          {{- toYaml .Values.appsGateway.envoyServicePatch | nindent 10 }}
+        {{- end }}
         # LoadBalancer: the apps gateway is the external front door and owns the VIP on :443
         # (HTTPS terminate + k8s TLS-passthrough listeners).
         type: {{ .Values.appsGateway.serviceType }}
