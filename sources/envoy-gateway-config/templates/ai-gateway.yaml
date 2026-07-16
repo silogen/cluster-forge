@@ -30,7 +30,7 @@ spec:
           from: All
       hostname: "*.{{ .Values.domain }}"
       name: https
-      port: {{ .Values.ports.aiGatewayHttps }}
+      port: {{ .Values.ports.gateway }}
       protocol: HTTPS
       tls:
         certificateRefs:
