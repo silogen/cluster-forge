@@ -21,6 +21,6 @@ spec:
         - group: ""
           kind: Service
           name: ai-gateway
-          port: 443
+          port: {{ .Values.ports.aiGatewayHttps }}
           weight: 1
 {{- end }}

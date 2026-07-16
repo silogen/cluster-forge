@@ -58,7 +58,7 @@ spec:
           from: All
       hostname: "{{ .Values.aiGateway.routeHostname }}"
       name: ai-passthrough
-      port: 443
+      port: {{ .Values.ports.aiPassthrough }}
       protocol: TLS
       tls:
         mode: Passthrough

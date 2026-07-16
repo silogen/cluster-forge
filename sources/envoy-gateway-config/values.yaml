@@ -4,6 +4,8 @@ domain: # to be filled by cluster-forge app
 ports:
   https: 443           # HTTPS listener with TLS termination
   k8sPassthrough: 443  # K8s passthrough listener
+  aiPassthrough: 443   # AI passthrough listener (MUST equal https for same VIP SNI routing)
+  aiGatewayHttps: 443  # AI gateway HTTPS listener port
 # Apps gateway (`https`): the external LoadBalancer front door. Terminates TLS (cluster-tls)
 # for apps, owns the k8s.<domain> TLS-passthrough (kube API) and the ai-passthrough listeners
 # on the same :443 VIP by SNI. No separate tls-passthrough gateway.

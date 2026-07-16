@@ -15,8 +15,8 @@ spec:
     gateway.envoyproxy.io/owning-gateway-name: ai-gateway
     gateway.envoyproxy.io/owning-gateway-namespace: envoy-gateway-system
   ports:
-  - name: https-443
-    port: 443
+  - name: https-{{ .Values.ports.aiGatewayHttps }}
+    port: {{ .Values.ports.aiGatewayHttps }}
     protocol: TCP
     targetPort: 10443
   type: ClusterIP
