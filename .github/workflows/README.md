@@ -36,7 +36,6 @@ This directory contains CI/CD workflows for cluster-forge.
 - Job `release`:
   - Checks out full history.
   - Computes next semantic version (`ietf-tools/semver-action`) unless overridden.
-  - Warns when `scripts/bootstrap.sh` `LATEST_RELEASE` base version does not match release base version.
   - Packages `root/`, `scripts/`, and `sources/` into `release-enterprise-ai-<version>.tar.gz`.
   - Creates a GitHub prerelease with generated notes.
 - Job `sbom` (depends on `release`):
@@ -49,4 +48,3 @@ This directory contains CI/CD workflows for cluster-forge.
 - PR workflows perform validation only and do not publish releases.
 - Use **Actions -> Release Pipeline -> Run workflow** to cut a release.
 - Set `version_override` when you need a specific tag.
-- Keep `LATEST_RELEASE` in `scripts/bootstrap.sh` aligned with the release stream to avoid warnings.
