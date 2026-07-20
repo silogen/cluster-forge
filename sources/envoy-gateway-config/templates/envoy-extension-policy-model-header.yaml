@@ -7,12 +7,11 @@
 # over any catch-all rules in other HTTPRoutes, regardless of HTTPRoute creation order.
 # The model-name fallback rule has been removed — clients must supply a backend UUID.
 #
-# x-aim-service-id is also set from the backend UUID for per-model metric attribution
-# (envoy-ai-gateway maps x-aim-service-id -> the aim_service_id metric label). cluster-auth
-# used to inject this header from the cluster-auth/aim-service-id route annotation; with
-# cluster-auth off ai-gateway (native apiKeyAuth cutover) nothing set it, so the per-model
-# usage graphs went empty. Keying on the workload-id UUID (same value as x-ai-eg-backend
-# and the aim-keys-<workload-id> Secret) keeps attribution working without cluster-auth.
+# Per-model metric attribution (the aim_service_id label) is handled by capturing the
+# client-sent x-ai-eg-backend header directly — see requestHeaderAttributes /
+# metricsRequestHeaderAttributes in the envoy-ai-gateway chart. It is NOT done here: a
+# Lua that reads the body sets headers after the ext_proc has already snapshotted request
+# headers, so it can't feed a request-header metric attribute.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyExtensionPolicy
 metadata:
@@ -36,7 +35,6 @@ spec:
           local model = body_str:match('"model"%s*:%s*"([^"]+)"')
           if backend ~= nil then
             request_handle:headers():replace("x-ai-eg-backend", backend)
-            request_handle:headers():replace("x-aim-service-id", backend)
           end
           if model ~= nil then
             request_handle:headers():replace("x-ai-eg-model", model)
