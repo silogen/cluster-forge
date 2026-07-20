@@ -49,7 +49,7 @@ spec:
               llm_output_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_output_token)%"
               llm_total_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_total_token)%"
               api_key_id: "%REQ(x-api-key-id)%"
-              aim_service_id: "%REQ(x-ai-eg-backend)%"
+              aim_service_id: "%REQ(x-aim-service-id)%"
           sinks:
             - type: File
               file:

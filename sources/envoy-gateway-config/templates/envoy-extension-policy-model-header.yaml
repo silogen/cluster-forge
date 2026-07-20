@@ -6,12 +6,6 @@
 # 3-condition UUID rule (Host + x-ai-eg-backend + x-ai-eg-model) wins by specificity
 # over any catch-all rules in other HTTPRoutes, regardless of HTTPRoute creation order.
 # The model-name fallback rule has been removed — clients must supply a backend UUID.
-#
-# Per-model metric attribution (the aim_service_id label) is handled by capturing the
-# client-sent x-ai-eg-backend header directly — see requestHeaderAttributes /
-# metricsRequestHeaderAttributes in the envoy-ai-gateway chart. It is NOT done here: a
-# Lua that reads the body sets headers after the ext_proc has already snapshotted request
-# headers, so it can't feed a request-header metric attribute.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyExtensionPolicy
 metadata:

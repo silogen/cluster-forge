@@ -74,13 +74,8 @@ controller:
   # Format: "header1:attribute1,header2:attribute2"
   # Example: "x-tenant-id:tenant.id"
   # x-api-key-id is injected by the SecurityPolicy apiKeyAuth (matched Secret data key = client ID).
-  # x-ai-eg-backend is the deployment/workload-id UUID the client sends for precise routing
-  # (== the AIMService id AIWB indexes on); captured as aim_service_id for per-model attribution.
-  # It must be a real request header (present at header phase) — the body->header Lua sets it
-  # too late for metric capture, so body-only callers are attributed to the key totals but not
-  # per-model. cluster-auth previously injected x-aim-service-id server-side via ext_authz; with
-  # cluster-auth off the ai-gateway we attribute by the client-sent x-ai-eg-backend instead.
-  requestHeaderAttributes: "x-api-key-id:api_key_id,x-ai-eg-backend:aim_service_id"
+  # x-aim-service-id is injected by headerMutation on each AIGatewayRoute backendRef.
+  requestHeaderAttributes: "x-api-key-id:api_key_id,x-aim-service-id:aim_service_id"
 
   # Comma-separated key-value pairs for mapping HTTP request headers to otel span attributes.
   # Format: "header1:attribute1,header2:attribute2"
@@ -92,7 +87,7 @@ controller:
   # Comma-separated key-value pairs for mapping HTTP request headers to Otel metric attributes.
   # Format: "header1:label1,header2:label2"
   # Example: "x-tenant-id:tenant.id,x-tenant-id:tenant.id"
-  metricsRequestHeaderAttributes: "x-api-key-id:api_key_id,x-ai-eg-backend:aim_service_id"
+  metricsRequestHeaderAttributes: "x-api-key-id:api_key_id,x-aim-service-id:aim_service_id"
 
   # Comma-separated key-value pairs for mapping HTTP request headers to access log attributes.
   # Format: "header1:attribute1,header2:attribute2"
