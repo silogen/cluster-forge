@@ -1,0 +1,66 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-routes-from-httproutes
+  annotations:
+    policies.kyverno.io/title: Generate Routes from HTTPRoutes
+    policies.kyverno.io/category: Generation
+    policies.kyverno.io/subject: Route
+    policies.kyverno.io/description: >-
+      This policy automatically generates OpenShift Routes when Gateway API 
+      HTTPRoutes with airm.silogen.ai/workload-id label are created.
+spec:
+  rules:
+  - name: generate-route-rule
+    match:
+      any:
+      - resources:
+          kinds:
+          - HTTPRoute
+          selector:
+            matchExpressions:
+            - key: airm.silogen.ai/workload-id
+              operator: Exists
+    # Skip HTTPRoutes that ask for a path rewrite — those are handled
+    # by `generate-routes-from-httproutes-rewrite`, which adds the
+    # haproxy `rewrite-target: /` annotation. Dispatching by the
+    # `URLRewrite` filter (an intrinsic property of the HTTPRoute)
+    # instead of by name keeps this generic for any workload type
+    # (mlflow, vscode, jupyter, ...).
+    preconditions:
+      all:
+      - key: "{{ length(request.object.spec.rules[].filters[?type=='URLRewrite'][]) }}"
+        operator: Equals
+        value: 0
+    generate:
+      # Keep generated Routes in sync with their source HTTPRoute, and let
+      # the background controller self-heal if Kyverno's admission webhook
+      # was unavailable when the HTTPRoute was created/updated.
+      synchronize: true
+      apiVersion: route.openshift.io/v1
+      kind: Route
+      name: "{{request.object.metadata.name}}"
+      namespace: "{{request.object.metadata.namespace}}"
+      data:
+        metadata:
+          name: "{{request.object.metadata.name}}"
+          namespace: "{{request.object.metadata.namespace}}"
+        spec:
+          # Mirror the source HTTPRoute's own hostname onto the generated Route
+          # (AIWB sets exactly one, e.g. workspaces.<DOMAIN>) so the Route serves
+          # the exact URL the AIWB app advertises. Do NOT hard-code a host here:
+          # hard-coding aiwbui.<DOMAIN> produced Routes on the wrong host and made
+          # the advertised workspace links 503.
+          host: "{{ request.object.spec.hostnames[0] }}"
+          path: "{{request.object.spec.rules[0].matches[0].path.value}}"
+          to:
+            kind: Service
+            name: "{{request.object.spec.rules[0].backendRefs[0].name}}"
+            weight: 100
+          port:
+            targetPort: http
+          tls:
+            termination: edge
+            insecureEdgeTerminationPolicy: Redirect
+          wildcardPolicy: None
