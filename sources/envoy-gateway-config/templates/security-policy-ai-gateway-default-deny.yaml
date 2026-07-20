@@ -1,0 +1,27 @@
+{{- if and .Values.aiGateway.enabled .Values.aiGateway.nativeAuth.enabled }}
+# Gateway-scoped default-deny backstop for the `ai-gateway` Gateway (EAI-7304 cutover).
+#
+# Only model routes ride ai-gateway, so a blanket deny is safe here (unlike the shared
+# `https` gateway, whose model-route deny is route-scoped and owned by aim-engine / EAI-7302).
+# Any request whose HTTPRoute has no per-model apiKeyAuth SecurityPolicy — a keyless/opted-out
+# model, or a header-less/unmatched request — is refused, instead of falling through
+# unauthenticated once cluster-auth ext_authz is removed from this Gateway
+# (see security-policy-extauth.yaml, which drops its ai-gateway targetRef under the same switch).
+#
+# Per-model apiKeyAuth SecurityPolicies from ai-gateway-discovery target individual HTTPRoutes;
+# a route-level SecurityPolicy overrides this gateway-level one for that route (Envoy Gateway
+# resolves by specificity, no merge), so keyed models authenticate and keyless ones hit deny.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: ai-gateway-default-deny
+  namespace: envoy-gateway-system  # must match the ai-gateway Gateway's namespace
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: ai-gateway
+  authorization:
+    # No rules → every request on ai-gateway not overridden by a route-level policy is denied.
+    defaultAction: Deny
+{{- end }}

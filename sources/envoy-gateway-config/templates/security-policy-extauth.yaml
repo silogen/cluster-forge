@@ -7,14 +7,16 @@ metadata:
   name: cluster-auth-extauth-policy
   namespace: envoy-gateway-system  # Envoy Gateway namespace
 spec:
-  # Target both gateways for global-like behavior: apps on `https`, AI on `ai-gateway`.
-  # The AI auth chain (set-model-header-from-body -> ext_authz) runs on `ai-gateway`, where
-  # AI traffic terminates after the apps gateway passes it through by SNI.
+  # Targets `https` always. Also targets `ai-gateway` UNTIL the native-auth cutover:
+  # when aiGateway.nativeAuth.enabled is true, ai-gateway is handed to the gateway-scoped
+  # default-deny SecurityPolicy (security-policy-ai-gateway-default-deny.yaml) and dropped
+  # here — two gateway-scoped SecurityPolicies cannot target the same Gateway, so the flip
+  # is atomic via that one values switch.
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
       name: https
-{{- if .Values.aiGateway.enabled }}
+{{- if and .Values.aiGateway.enabled (not .Values.aiGateway.nativeAuth.enabled) }}
     - group: gateway.networking.k8s.io
       kind: Gateway
       name: ai-gateway

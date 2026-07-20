@@ -27,3 +27,12 @@ aiGateway:
   # Stable ClusterIP `ai-gateway` (CoreDNS target / passthrough backend).
   dnsService:
     enabled: true
+  # Native per-model apiKeyAuth cutover for ai-gateway (EAI-7304). When true:
+  #   - ai-gateway is backstopped by a gateway-scoped default-deny SecurityPolicy, so any
+  #     model route without a per-model apiKeyAuth policy (from ai-gateway-discovery) is
+  #     refused instead of falling through unauthenticated, and
+  #   - cluster-auth ext_authz is removed from the ai-gateway Gateway (it stays on `https`).
+  # Requires enabled: true. Keep false until every model on ai-gateway is natively enforced
+  # (ai-gateway-discovery API_KEY_AUTH_ENABLED on); flipping it is the ai-gateway cutover.
+  nativeAuth:
+    enabled: false
