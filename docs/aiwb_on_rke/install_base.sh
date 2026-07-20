@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Install all needed comonents regardless of what pluggable options are used
+# Install all needed components regardless of what pluggable options are used
 
 set -euo pipefail
 
@@ -266,7 +266,7 @@ echo ""
 # Required by OpenTelemetry Operator and KServe for webhook certificates
 echo "📦 Installing cert-manager..."
 kubectl create namespace cert-manager --dry-run=client -o yaml | kubectl apply -f -
-helm template cert-manager ${SOURCES_DIR}/cert-manager/v1.18.2 --namespace cert-manager --set crds.enabled=true | kubectl apply --server-side -f -
+helm template cert-manager ${SOURCES_DIR}/cert-manager/v1.18.2 --namespace cert-manager --set crds.enabled=true | kubectl apply --server-side --force-conflicts -f -
 
 # Wait for cert-manager to be ready (required for webhooks)
 echo "⏳ Waiting for cert-manager deployments to be ready..."

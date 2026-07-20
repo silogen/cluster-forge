@@ -64,8 +64,11 @@ export CLUSTER_FORGE_DIR=".tmp/cf"
 mkdir -p $CLUSTER_FORGE_DIR
 export PUBLIC_IP_DOMAIN=$(curl -s ifconfig.me).nip.io
 
-# Deploy AIWB 
+# Deploy AIWB
 curl -fsSL https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/test-aiwb/docs/aiwb_on_rke/install_base.sh | sudo bash -s -- ${PUBLIC_IP_DOMAIN}
+
+# Deploy AIWB with Traefik
+curl -fsSL https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/test-aiwb/docs/aiwb_on_rke/install_base_traefik.sh | sudo bash -s -- ${PUBLIC_IP_DOMAIN}
 ```
 
 ```powershell
