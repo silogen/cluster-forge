@@ -1,0 +1,868 @@
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-openbao-scc
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities: []
+defaultAddCapabilities: []
+requiredDropCapabilities:
+  - ALL
+readOnlyRootFilesystem: false
+# Allow pod-defined UID/GID values
+runAsUser:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+# Required for restricted policy compatibility
+seccompProfiles:
+  - '*'
+users:
+  - system:serviceaccount:cf-openbao:openbao
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - ephemeral
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-otel-lgtm-stack-scc
+priority: 100
+allowPrivilegedContainer: true
+allowPrivilegeEscalation: true
+allowHostDirVolumePlugin: true
+allowHostIPC: true
+allowHostNetwork: true
+allowHostPID: true
+allowHostPorts: true
+
+# Allow the exact capabilities used by the init container
+allowedCapabilities:
+  - SETUID
+  - SETGID
+  - CHOWN
+  - DAC_OVERRIDE
+  - FOWNER
+  - FSETID
+requiredDropCapabilities:
+  - ALL
+
+# Allow root (UID 0) and other explicit users
+runAsUser:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+
+# SELinux and seccomp relaxed
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+  - '*'
+
+readOnlyRootFilesystem: false
+
+# Allow all common volume types
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - ephemeral
+  - hostPath 
+
+# Bind the SCC to the service account in your namespace
+users:
+  - system:serviceaccount:otel-lgtm-stack:my-kube-state-metrics
+  - system:serviceaccount:otel-lgtm-stack:nodeexporter-prometheus-node-exporter
+  - system:serviceaccount:otel-lgtm-stack:default
+  - system:serviceaccount:otel-lgtm-stack:otel-collector
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-opentelemetry-operator-scc
+priority: 100
+allowPrivilegedContainer: false
+allowPrivilegeEscalation: false
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+
+# Allow the exact capabilities used by the init container
+allowedCapabilities:
+  - SETUID
+  - SETGID
+  - CHOWN
+  - DAC_OVERRIDE
+  - FOWNER
+  - FSETID
+requiredDropCapabilities:
+  - ALL
+
+# Allow root (UID 0) and other explicit users
+runAsUser:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+
+# SELinux and seccomp relaxed
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+  - '*'
+
+readOnlyRootFilesystem: false
+
+# Allow all common volume types
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - ephemeral
+
+# Bind the SCC to the service account in your namespace.
+# NOTE: install_base.sh deploys the operator into the `opentelemetry-system`
+# namespace (not the chart's upstream default `opentelemetry-operator-system`).
+# The operator pod sets seccompProfile: RuntimeDefault, which the `anyuid` SCC
+# cannot admit, so this SCC (seccompProfiles: '*') must target the real SA.
+users:
+  - system:serviceaccount:opentelemetry-system:opentelemetry-operator
+
+---
+# CloudNative PostgreSQL (CNPG) Security Context Constraints
+# Allows CNPG operator and PostgreSQL instances to run with proper permissions
+# Tested and working configuration for IBM Block CSI storage
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-cnpg-operator-scc
+# Must beat the upstream `cnpg-chmod-bypass-scc` (priority 200); otherwise
+# that SCC wins admission and, because it is RunAsAny everywhere, admits
+# the pod with no injected fsGroup. The kubelet then does not chgrp the
+# IBM Block PVC mount, leaving it root-owned, and initdb fails with
+# "could not create directory /var/lib/postgresql/data/pgdata: Permission denied".
+priority: 201
+allowPrivilegedContainer: false
+allowPrivilegeEscalation: false
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+readOnlyRootFilesystem: false
+allowedCapabilities:
+  - SETUID
+  - SETGID
+  - CHOWN
+  - DAC_OVERRIDE
+  - FOWNER
+  - FSETID
+requiredDropCapabilities:
+  - ALL
+# Inherit UID/GID from each target namespace's annotations
+# (openshift.io/sa.scc.uid-range and .supplemental-groups) instead of
+# hardcoding a single value. That way the SCC keeps working after a
+# namespace is recreated and gets a new OpenShift-allocated range.
+# The injected fsGroup is what triggers the kubelet to chgrp the PVC
+# mount, giving the postgres process write access to create pgdata/.
+runAsUser:
+  type: MustRunAsRange
+fsGroup:
+  type: MustRunAs
+seLinuxContext:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+seccompProfiles:
+  - '*'
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+users:
+  - system:serviceaccount:aiwb:aiwb-infra-cnpg-cnpg
+  - system:serviceaccount:keycloak:keycloak-cnpg
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-cnpg-controller-scc
+  annotations:
+    description: "Dedicated SCC for CNPG operator pod that needs to run as UID 10001"
+    target-pod: "cnpg-operator-cloudnative-pg"
+    target-namespace: "cnpg-system"
+    created-for: "CNPG operator pod SCC conflict resolution"
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities:
+  - SETUID
+  - SETGID
+  - CHOWN
+  - DAC_OVERRIDE
+  - FOWNER
+  - FSETID
+defaultAddCapabilities: null
+requiredDropCapabilities:
+  - ALL
+fsGroup:
+  type: MustRunAs
+  ranges:
+    - min: 10001
+      max: 10001
+runAsUser:
+  type: MustRunAs
+  uid: 10001
+seLinuxContext:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+seccompProfiles:
+  - runtime/default
+priority: 101
+readOnlyRootFilesystem: false
+userNamespaceLevel: AllowHostLevel
+users:
+  - system:serviceaccount:cnpg-system:cnpg-operator-cloudnative-pg
+groups: []
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - hostPath
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-kedify-otel-add-on-scc
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities: null
+defaultAddCapabilities: null
+fsGroup:
+  type: RunAsAny
+readOnlyRootFilesystem: false
+requiredDropCapabilities: null
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: MustRunAs
+supplementalGroups:
+  type: RunAsAny
+users:
+  - system:serviceaccount:keda:kedify-otel-otel-add-on
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - secret
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-external-secrets-scc
+priority: 20
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities: []
+defaultAddCapabilities: []
+requiredDropCapabilities:
+  - ALL
+readOnlyRootFilesystem: false
+runAsUser:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+  - runtime/default
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - ephemeral
+users:
+  - system:serviceaccount:external-secrets:external-secrets
+  - system:serviceaccount:external-secrets:external-secrets-webhook
+  - system:serviceaccount:external-secrets:external-secrets-cert-controller
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-aiwb-scc
+priority: 20
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities: []
+defaultAddCapabilities: []
+requiredDropCapabilities:
+  - ALL
+readOnlyRootFilesystem: false
+runAsUser:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+  - runtime/default
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - ephemeral
+users:
+  - system:serviceaccount:aiwb:default
+  - system:serviceaccount:aiwb:aiwb
+
+---
+# Kaiwo operator (kaiwo-operator-chart) controller-manager.
+# The manager pod pins runAsUser/runAsGroup/fsGroup=65532 AND sets
+# seccompProfile: RuntimeDefault. restricted-v2 rejects it (65532 is outside the
+# namespace's allocated uid/gid range) and the built-in `anyuid` SCC cannot admit
+# it either, because anyuid does not permit a pod to set a seccomp profile. This
+# SCC mirrors cf-opentelemetry-operator-scc: RunAsAny uid/fsGroup + seccomp '*'.
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-kaiwo-scc
+priority: 100
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities: []
+defaultAddCapabilities: []
+requiredDropCapabilities:
+  - ALL
+readOnlyRootFilesystem: false
+runAsUser:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+  - '*'
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - ephemeral
+users:
+  - system:serviceaccount:kaiwo-system:kaiwo-kaiwo-operator-chart-controller-manager
+
+# ============================================================================
+# KYVERNO SCC-GENERATOR RBAC
+# ============================================================================
+# Lets the Kyverno controllers manage SecurityContextConstraints so the
+# generate-scc-on-namespaces ClusterPolicy (kyverno-scc-for-ns.yaml) can create
+# per-project SCCs. The background-controller performs the generate; the
+# admission-controller needs list/get or the policy validation webhook rejects
+# the ClusterPolicy at apply time. Safe to exist before Kyverno is installed.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno-scc-generator
+rules:
+  - apiGroups:
+      - security.openshift.io
+    resources:
+      - securitycontextconstraints
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kyverno-scc-generator-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno-scc-generator
+subjects:
+  - kind: ServiceAccount
+    name: kyverno-background-controller
+    namespace: kyverno
+  - kind: ServiceAccount
+    name: kyverno-admission-controller
+    namespace: kyverno
+
+# ============================================================================
+# ANYUID SCC GRANTS (per-namespace ClusterRoleBindings)
+# ============================================================================
+# Grant the built-in `anyuid` SCC to every service account in each component
+# namespace. Upstream Helm charts often run as root or fixed UIDs, which
+# OpenShift's restricted-v2 SCC blocks. These bind the virtual group
+# system:serviceaccounts:<ns>, so they take effect regardless of whether the
+# namespace or its service accounts exist yet (they can be applied up front).
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-aim-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:aim-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-aiwb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:aiwb
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-airm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:airm
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-amd-gpu-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:amd-gpu-operator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-cert-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:cert-manager
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-cf-openbao
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:cf-openbao
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-cluster-auth
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:cluster-auth
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-cnpg-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:cnpg-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-demo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:demo
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-envoy-gateway-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:envoy-gateway-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-external-secrets
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-keda
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:keda
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-keycloak
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:keycloak
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-kaiwo-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:kaiwo-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-kserve-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:kserve-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-kyverno
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-metallb-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:metallb-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-minio-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:minio-operator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-minio-tenant-default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:minio-tenant-default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-opentelemetry-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:opentelemetry-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-otel-lgtm-stack
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:otel-lgtm-stack
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-prometheus-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:prometheus-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-workbench
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:workbench
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-seaweedfs-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:seaweedfs-operator
+---
+# SeaweedFS operator finalizers permission (OpenShift-specific).
+# OpenShift enables the OwnerReferencesPermissionEnforcement admission plugin,
+# which requires update on the owner's /finalizers subresource before you can
+# create a child object with blockOwnerDeletion=true in its ownerReference. The
+# operator sets blockOwnerDeletion on the Services/StatefulSets it owns (owned by
+# the Seaweed CR), but its bundled manager role only grants seaweeds + seaweeds/
+# status — not seaweeds/finalizers. Without this the reconcile fails with
+# "cannot set blockOwnerDeletion ... you can't set finalizers on" and no
+# master/volume/filer pods are ever created.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: seaweedfs-operator-finalizers
+rules:
+  - apiGroups: ["seaweed.seaweedfs.com"]
+    resources: ["seaweeds/finalizers"]
+    verbs: ["get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: seaweedfs-operator-finalizers
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: seaweedfs-operator-finalizers
+subjects:
+  - kind: ServiceAccount
+    name: seaweedfs-operator
+    namespace: seaweedfs-operator
+---
+# Kaiwo operator: Kueue child-object ownership finalizers (OpenShift-specific).
+# The KaiwoQueueConfig controller generates Kueue LocalQueues owned by the generated
+# ClusterQueue (ctrl.SetControllerReference(clusterQueue, localQueue, ...)), which
+# stamps blockOwnerDeletion=true on the ownerReference. OpenShift's
+# OwnerReferencesPermissionEnforcement admission plugin then requires the operator's
+# ServiceAccount to have `update` on the OWNER's /finalizers subresource
+# (clusterqueues/finalizers). The chart's manager-role grants the kueue resources but
+# NOT their /finalizers subresources, so every LocalQueue create fails with:
+#   "cannot set blockOwnerDeletion if an ownerReference refers to a resource you
+#    can't set finalizers on".
+# Grant finalizers on the Kueue types the operator sets as owners. Must be a
+# ClusterRoleBinding: the plugin performs the authorization check in the CHILD's
+# namespace (e.g. a per-project namespace like "demo"), not in kaiwo-system.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kaiwo-kueue-finalizers
+rules:
+  - apiGroups: ["kueue.x-k8s.io"]
+    resources:
+      - clusterqueues/finalizers
+      - localqueues/finalizers
+      - resourceflavors/finalizers
+      - topologies/finalizers
+      - cohorts/finalizers
+      - admissionchecks/finalizers
+      - workloadpriorityclasses/finalizers
+      - workloads/finalizers
+    verbs: ["get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kaiwo-kueue-finalizers
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kaiwo-kueue-finalizers
+subjects:
+  - kind: ServiceAccount
+    name: kaiwo-kaiwo-operator-chart-controller-manager
+    namespace: kaiwo-system

@@ -5,6 +5,10 @@ metadata:
   name: gpu-operator
   # it is highly recommended to use the namespace where AMD GPU Operator is running
   namespace: {{ .Release.Namespace }}
+  annotations:
+    # Avoid a hard sync failure when the amd-gpu-operator has not yet registered
+    # the DeviceConfig CRD; ArgoCD retries this app until the CRD is established.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   driver:
     # set to ture for deploying out-of-tree driver with specified ROCm version 
