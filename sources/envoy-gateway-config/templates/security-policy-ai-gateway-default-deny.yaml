@@ -1,4 +1,4 @@
-{{- if and .Values.aiGateway.enabled .Values.aiGateway.nativeAuth.enabled }}
+{{- if .Values.aiGateway.enabled }}
 # Gateway-scoped default-deny backstop for the `ai-gateway` Gateway (EAI-7304 cutover).
 #
 # Only model routes ride ai-gateway, so a blanket deny is safe here (unlike the shared

@@ -7,20 +7,15 @@ metadata:
   name: cluster-auth-extauth-policy
   namespace: envoy-gateway-system  # Envoy Gateway namespace
 spec:
-  # Targets `https` always. Also targets `ai-gateway` UNTIL the native-auth cutover:
-  # when aiGateway.nativeAuth.enabled is true, ai-gateway is handed to the gateway-scoped
-  # default-deny SecurityPolicy (security-policy-ai-gateway-default-deny.yaml) and dropped
-  # here — two gateway-scoped SecurityPolicies cannot target the same Gateway, so the flip
-  # is atomic via that one values switch.
+  # cluster-auth ext_authz targets `https` only. ai-gateway is enforced natively by
+  # per-model apiKeyAuth policies (ai-gateway-discovery) plus the gateway-scoped
+  # default-deny backstop (security-policy-ai-gateway-default-deny.yaml) — two
+  # gateway-scoped SecurityPolicies cannot target the same Gateway, so ext_authz never
+  # targets ai-gateway.
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
       name: https
-{{- if and .Values.aiGateway.enabled (not .Values.aiGateway.nativeAuth.enabled) }}
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: ai-gateway
-{{- end }}
 
   # External Authorization configuration (matches current kgateway GatewayExtension)
   extAuth:
