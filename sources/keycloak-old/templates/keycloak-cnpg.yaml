@@ -25,9 +25,10 @@ spec:
   postgresql:
     parameters:
       auto_explain.log_min_duration: 10s
+      max_connections: "200"
       pg_stat_statements.max: "10000"
       pg_stat_statements.track: all
-      shared_buffers: 256MB
+      shared_buffers: 512MB
     pg_hba:
       - host all all 10.244.0.0/16 md5
   primaryUpdateStrategy: unsupervised

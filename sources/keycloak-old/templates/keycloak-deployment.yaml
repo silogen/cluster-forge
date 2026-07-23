@@ -58,6 +58,13 @@ spec:
               value: "false"
             - name: KC_PROXY_HEADERS
               value: xforwarded
+            - name: JAVA_OPTS_APPEND
+              value: >-
+                -XX:MaxRAMPercentage=65.0
+                -XX:InitialRAMPercentage=50.0
+                -XX:MaxMetaspaceSize=512m
+                -XX:+ExitOnOutOfMemoryError
+                -Djava.awt.headless=true
           image: quay.io/keycloak/keycloak:26.0.0
           name: keycloak
           ports:
@@ -71,11 +78,11 @@ spec:
               port: 8080
           resources:
             limits:
-              cpu: 500m
-              memory: 2Gi
+              cpu: "4"
+              memory: 3Gi
             requests:
-              cpu: 250m
-              memory: 512Mi
+              cpu: "1"
+              memory: 1536Mi
           volumeMounts:
             - mountPath: /opt/keycloak/providers
               name: keycloak-package-volume

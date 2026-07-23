@@ -6,6 +6,11 @@ metadata:
   namespace: kgateway-system
 spec:
   gatewayClassName: kgateway
+  infrastructure:
+    parametersRef:
+      group: gateway.kgateway.dev
+      kind: GatewayParameters
+      name: https-scale
   listeners:
     - allowedRoutes:
         namespaces:

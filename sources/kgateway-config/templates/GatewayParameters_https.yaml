@@ -1,0 +1,17 @@
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: GatewayParameters
+metadata:
+  name: https-scale
+  namespace: kgateway-system
+spec:
+  kube:
+    deployment:
+      replicas: 3
+    envoyContainer:
+      resources:
+        requests:
+          cpu: "1"
+          memory: 512Mi
+        limits:
+          cpu: "2"
+          memory: 1Gi

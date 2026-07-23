@@ -14,7 +14,7 @@ cnpg:
 # CNPG service when cnpg.enabled=true. When cnpg.enabled=false, override
 # these values to point at your external PostgreSQL.
 postgresql:
-  host: "keycloak-cnpg-rw.keycloak.svc.cluster.local"
+  host: "keycloak-cnpg-pooler-rw.keycloak.svc.cluster.local"
   port: 5432
   database: "keycloak"
   username: "keycloak"

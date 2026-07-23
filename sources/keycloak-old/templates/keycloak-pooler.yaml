@@ -1,0 +1,17 @@
+{{- if .Values.cnpg.enabled }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: keycloak-cnpg-pooler-rw
+  namespace: keycloak
+spec:
+  cluster:
+    name: keycloak-cnpg
+  instances: 2
+  type: rw
+  pgbouncer:
+    poolMode: transaction
+    parameters:
+      max_client_conn: "500"
+      default_pool_size: "50"
+{{- end }}
