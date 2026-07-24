@@ -901,7 +901,7 @@ apps:
       - name: cluster.name
         value: "{{ .Values.global.domain }}"
     namespace: otel-lgtm-stack
-    path: otel-lgtm-stack/v1.0.7
+    path: otel-lgtm-stack/v1.0.8
     syncWave: -20
     valuesObject:
       cluster:
