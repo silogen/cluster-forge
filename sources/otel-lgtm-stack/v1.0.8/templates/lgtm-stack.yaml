@@ -354,7 +354,7 @@ spec:
                   curl -f http://localhost:9090/-/ready &&
                   curl -f http://localhost:3100/ready &&
                   curl -f http://localhost:3000/api/health
-            initialDelaySeconds: 180
+            initialDelaySeconds: 60
             periodSeconds: 15
             timeoutSeconds: 10
             failureThreshold: 2
@@ -368,7 +368,7 @@ spec:
                   curl -f http://localhost:3100/ready &&
                   curl -f http://localhost:3000/api/health &&
                   /scripts/check-ps.sh
-            initialDelaySeconds: 180
+            initialDelaySeconds: 120
             periodSeconds: 30
             timeoutSeconds: 15
             failureThreshold: 3
