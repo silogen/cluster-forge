@@ -106,19 +106,14 @@ data:
         exit 1
     fi
 
-    # Define required processes
+    # Define required processes (only actual services, not wrapper scripts)
     REQUIRED_PROCESSES=(
-        "/bin/bash /otel-lgtm/run-all.sh"
-        "/bin/bash ./run-loki.sh"
-        "/bin/bash ./run-grafana.sh"
         "./bin/grafana server"
-        "/bin/bash ./run-otelcol.sh"
-        "/bin/bash ./run-prometheus.sh"
         "./otelcol-contrib/otelcol-contrib --feature-gates service.profilesSupport --config=file:./otelcol-config.yaml"
         "./loki/loki --config.file=./loki-config.yaml"
-        "/bin/bash ./run-tempo.sh"
-        "./prometheus/prometheus --web.enable-remote-write-receiver --web.enable-otlp-receiver --enable-feature=exemplar-storage --enable-feature=native-histograms --storage.tsdb.path=/data/prometheus --config.file=./prometheus.yaml"
-        "/data/grafana/plugins/grafana-llm-app/gpx_llm_linux_amd64"
+        "./prometheus/prometheus --web.enable-remote-write-receiver --web.enable-otlp-receiver --enable-feature=exemplar-storage --storage.tsdb.path=/data/prometheus --config.file=./prometheus.yaml"
+        "./tempo/tempo --config.file=./tempo-config.yaml"
+        "./pyroscope/pyroscope --config.file=./pyroscope-config.yaml"
     )
 
     # Check each process and build list of missing ones
