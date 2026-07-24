@@ -329,6 +329,7 @@ spec:
               mountPath: "/tmp/dashboards"
         - name: lgtm
           image: grafana/otel-lgtm:0.29.2
+          command: ["/bin/bash", "-c", "/otel-lgtm/run-all.sh && tail -f /dev/null"]
           env:
             - name: GF_AUTH_ANONYMOUS_ENABLED
               value: "false"
