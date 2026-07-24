@@ -102,6 +102,7 @@ lgtm:
         retention_enabled: true
         retention_delete_delay: 2h
         retention_delete_worker_count: 5  # TSDB: 1 file per day (~8 files for 7-day retention)
+        delete_request_store: filesystem  # Required by Loki v3.5.5+ when retention is enabled
 
     # Full otelcol-config.yaml. Edit to adjust the OpenTelemetry Collector
     # receivers / processors / exporters / pipelines.
