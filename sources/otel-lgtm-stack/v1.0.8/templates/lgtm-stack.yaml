@@ -323,8 +323,7 @@ spec:
             - name: sc-dashboard-volume
               mountPath: "/tmp/dashboards"
         - name: lgtm
-          image: grafana/otel-lgtm:0.29.2
-          command: ["/bin/bash", "-c", "/otel-lgtm/run-all.sh && tail -f /dev/null"]
+          image: ghcr.io/silogen/docker-otel-lgtm:v1.0.7 
           env:
             - name: GF_AUTH_ANONYMOUS_ENABLED
               value: "false"
@@ -369,7 +368,7 @@ spec:
                   curl -f http://localhost:3100/ready &&
                   curl -f http://localhost:3000/api/health &&
                   /scripts/check-ps.sh
-            initialDelaySeconds: 120
+            initialDelaySeconds: 180
             periodSeconds: 30
             timeoutSeconds: 15
             failureThreshold: 3
