@@ -328,7 +328,7 @@ spec:
             - name: sc-dashboard-volume
               mountPath: "/tmp/dashboards"
         - name: lgtm
-          image: ghcr.io/silogen/docker-otel-lgtm:v1.0.7
+          image: grafana/otel-lgtm:0.29.2
           env:
             - name: GF_AUTH_ANONYMOUS_ENABLED
               value: "false"
