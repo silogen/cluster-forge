@@ -1,0 +1,25 @@
+# ConfigMaps that override the LGTM image's embedded config files.
+# Each is mounted via subPath over /otel-lgtm/<file> in the lgtm container.
+# Guarded so an explicitly-blanked value renders nothing (falls back to the
+# image's built-in file).
+{{- if .Values.lgtm.configOverrides.lokiConfig }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lgtm-loki-config
+  namespace: {{ .Release.Namespace }}
+data:
+  loki-config.yaml: |-
+{{ .Values.lgtm.configOverrides.lokiConfig | indent 4 }}
+{{- end }}
+{{- if .Values.lgtm.configOverrides.otelcolConfig }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lgtm-otelcol-config
+  namespace: {{ .Release.Namespace }}
+data:
+  otelcol-config.yaml: |-
+{{ .Values.lgtm.configOverrides.otelcolConfig | indent 4 }}
+{{- end }}

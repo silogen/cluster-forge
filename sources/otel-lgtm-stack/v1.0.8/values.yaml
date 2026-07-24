@@ -1,0 +1,245 @@
+# OpenTelemetry LGTM Stack Configuration
+# Phase 1: Essential Infrastructure Parameters
+
+# Cluster identification
+cluster:
+  name: "cluster-name"  # Update this to your actual cluster name
+
+# Namespace configuration
+namespace: otel-lgtm-stack
+
+# LGTM Stack storage configuration
+lgtm:
+  storage:
+    # Tempo storage for traces
+    tempo: 50Gi
+    # Loki storage for logs  
+    loki: 50Gi
+    # Grafana storage for dashboards/config  
+    grafana: 10Gi
+    # Mimir/Prometheus storage for metrics
+    mimir: 50Gi
+    # Loki additional storage
+    extra: 50Gi
+
+  # Config file overrides for the LGTM image (ghcr.io/silogen/docker-otel-lgtm).
+  # These full-file contents are mounted (via subPath) over the image's embedded
+  # configs at /otel-lgtm/<file>, so you can adjust Loki / OpenTelemetry Collector
+  # without rebuilding the image. The defaults below match the image's built-in
+  # configs, so out-of-the-box behavior is unchanged.
+  #
+  # NOTE: editing these requires a pod restart to take effect (subPath mounts do
+  # not hot-reload). The Deployment carries a checksum annotation so a helm
+  # upgrade with changed content triggers a rollout automatically.
+  #
+  # NOTE: otelcol-config-export-http.yaml is intentionally NOT overridable here,
+  # because run-otelcol.sh appends to it at runtime and a read-only mount would
+  # break that. Use env vars OTEL_EXPORTER_OTLP_ENDPOINT / OTEL_EXPORTER_OTLP_HEADERS
+  # for OTLP export configuration instead.
+  configOverrides:
+    # Full loki-config.yaml. Edit e.g. limits_config.retention_period to change
+    # Loki log retention.
+    lokiConfig: |
+      auth_enabled: false
+
+      server:
+        http_listen_port: 3100
+
+      common:
+        instance_addr: 127.0.0.1
+        path_prefix: /data/loki
+        storage:
+          filesystem:
+            chunks_directory: /data/loki/chunks
+            rules_directory: /data/loki/rules
+        replication_factor: 1
+        ring:
+          kvstore:
+            store: inmemory
+
+      schema_config:
+        configs:
+          - from: 2020-10-24
+            store: tsdb
+            object_store: filesystem
+            schema: v13
+            index:
+              prefix: index_
+              period: 24h
+
+      ruler:
+        alertmanager_url: http://127.0.0.1:9093
+
+      pattern_ingester:
+        lifecycler:
+          min_ready_duration: 1s
+
+      ingester:
+        lifecycler:
+          min_ready_duration: 1s
+
+      frontend:
+        scheduler_dns_lookup_period: 1s
+        address: 127.0.0.1
+
+      query_scheduler:
+        use_scheduler_ring: false
+
+      limits_config:
+        retention_period: 168h  # 7 days (24h * 7)
+        otlp_config:
+          resource_attributes:
+            attributes_config:
+            - action: index_label
+              attributes:
+              - component.id
+              - workload.id
+              - log.type
+
+      compactor:
+        working_directory: /data/loki/compactor
+        compaction_interval: 10m
+        retention_enabled: true
+        retention_delete_delay: 2h
+        retention_delete_worker_count: 5  # TSDB: 1 file per day (~8 files for 7-day retention)
+
+    # Full otelcol-config.yaml. Edit to adjust the OpenTelemetry Collector
+    # receivers / processors / exporters / pipelines.
+    otelcolConfig: |
+      receivers:
+        otlp:
+          protocols:
+            grpc:
+              endpoint: 0.0.0.0:4317
+              max_recv_msg_size_mib: 128
+            http:
+              endpoint: 0.0.0.0:4318
+              cors:
+                allowed_origins:
+                  - http://*
+        prometheus/collector:
+          config:
+            scrape_configs:
+              - job_name: "opentelemetry-collector"
+                scrape_interval: 1s
+                static_configs:
+                  - targets: ["127.0.0.1:8888"]
+
+      extensions:
+        health_check:
+          endpoint: 0.0.0.0:13133
+          path: "/ready"
+
+      processors:
+        batch:
+
+      exporters:
+        otlphttp/metrics:
+          endpoint: http://127.0.0.1:9090/api/v1/otlp
+          tls:
+            insecure: true
+        otlphttp/traces:
+          endpoint: http://127.0.0.1:4418
+          tls:
+            insecure: true
+        otlphttp/logs:
+          endpoint: http://127.0.0.1:3100/otlp
+          tls:
+            insecure: true
+        otlp/profiles:
+          endpoint: http://127.0.0.1:4040
+          tls:
+            insecure: true
+        debug/metrics:
+          verbosity: detailed
+        debug/traces:
+          verbosity: detailed
+        debug/logs:
+          verbosity: detailed
+
+      service:
+        extensions: [health_check]
+        pipelines:
+          traces:
+            receivers: [otlp]
+            processors: [batch]
+            exporters: [otlphttp/traces]
+            #exporters: [otlphttp/traces,debug/traces]
+          metrics:
+            receivers: [otlp, prometheus/collector]
+            processors: [batch]
+            exporters: [otlphttp/metrics]
+            #exporters: [otlphttp/metrics,debug/metrics]
+          logs:
+            receivers: [otlp]
+            processors: [batch]
+            exporters: [otlphttp/logs]
+            #exporters: [otlphttp/logs,debug/logs]
+          profiles:
+            receivers: [otlp]
+            exporters: [otlp/profiles]
+
+  # LGTM stack main deployment resources
+  resources:
+    limits:
+      memory: 8Gi
+    requests:
+      memory: 2Gi
+      cpu: '1'
+  
+# OpenTelemetry Collectors resource configuration  
+collectors:
+  resources:
+    # Metrics collector (deployment mode) - original values
+    metrics:
+      limits:
+        memory: 8Gi
+        cpu: '2'
+      requests:
+        memory: 1Gi
+        cpu: 500m
+    # Logs collector (daemonset mode) - original conservative values  
+    logs:
+      limits:
+        memory: 2Gi
+        cpu: '1'
+      requests:
+        memory: 400Mi  # Conservative default
+        cpu: 200m    # Conservative default
+
+# Service configuration
+services:
+  # Main LGTM stack service ports
+  lgtm:
+    grafana: 3000
+    otelGrpc: 4317
+    otelHttp: 4318
+    prometheus: 9090
+    loki: 3100
+  # Kube state metrics service port
+  kubeStateMetrics:
+    http: 8080
+  # Node exporter service port
+  nodeExporter:
+    metrics: 9100
+
+# Component enablement
+dashboards:
+  enabled: true
+  github:
+    enabled: true
+    folder: kubernetes
+    image: curlimages/curl:8.8.0
+    urls:
+      - https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-system-api-server.json
+      - https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-system-coredns.json
+      - https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-global.json
+      - https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-namespaces.json
+      - https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-nodes.json
+      - https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-pods.json
+
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true

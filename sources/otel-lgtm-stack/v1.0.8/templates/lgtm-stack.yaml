@@ -1,0 +1,454 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+  name: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tempo-pvc
+  namespace: {{ .Release.Namespace }}
+spec:
+  storageClassName: default
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.lgtm.storage.tempo }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: loki-data-pvc
+  namespace: {{ .Release.Namespace }}
+spec:
+  storageClassName: default
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.lgtm.storage.loki }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: loki-storage-pvc
+  namespace: {{ .Release.Namespace }}
+spec:
+  storageClassName: default
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.lgtm.storage.extra }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-pvc
+  namespace: {{ .Release.Namespace }}
+spec:
+  storageClassName: default
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.lgtm.storage.grafana }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: p8s-pvc
+  namespace: {{ .Release.Namespace }}
+spec:
+  storageClassName: default
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.lgtm.storage.mimir }}
+---
+# Source: grafana/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: grafana-sidecar
+  namespace: {{ .Release.Namespace }}
+---
+# ConfigMap for liveness/readiness check script
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lgtm-check-scripts
+  namespace: {{ .Release.Namespace }}
+data:
+  check-ps.sh: |
+    #!/bin/sh
+    # Get processes using /proc filesystem (runs inside container)
+    PROCESS_LIST=""
+    for pid in /proc/[0-9]*; do
+        cmdline=$(cat "$pid/cmdline" 2>/dev/null | tr "\0" " ")
+        if [ -n "$cmdline" ]; then
+            PROCESS_LIST="${PROCESS_LIST}${cmdline}"$'\n'
+        fi
+    done
+
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    NC='\033[0m'
+
+    if [[ -z "$PROCESS_LIST" ]]; then
+        echo -e "${RED}[FAILED] Could not retrieve process list from container${NC}"
+        exit 1
+    fi
+
+    # Define required processes
+    REQUIRED_PROCESSES=(
+        "/bin/bash /otel-lgtm/run-all.sh"
+        "/bin/bash ./run-loki.sh"
+        "/bin/bash ./run-grafana.sh"
+        "./bin/grafana server"
+        "/bin/bash ./run-otelcol.sh"
+        "/bin/bash ./run-prometheus.sh"
+        "./otelcol-contrib/otelcol-contrib --feature-gates service.profilesSupport --config=file:./otelcol-config.yaml"
+        "./loki/loki --config.file=./loki-config.yaml"
+        "/bin/bash ./run-tempo.sh"
+        "./prometheus/prometheus --web.enable-remote-write-receiver --web.enable-otlp-receiver --enable-feature=exemplar-storage --enable-feature=native-histograms --storage.tsdb.path=/data/prometheus --config.file=./prometheus.yaml"
+        "/data/grafana/plugins/grafana-llm-app/gpx_llm_linux_amd64"
+    )
+
+    # Check each process and build list of missing ones
+    MISSING_COUNT=0
+    echo "Expected processes (${#REQUIRED_PROCESSES[@]} total):"
+    echo "---"
+
+    for REQUIRED in "${REQUIRED_PROCESSES[@]}"; do
+        if echo "$PROCESS_LIST" | grep -qF "$REQUIRED"; then
+            echo -e "${GREEN}  [RUNNING] $REQUIRED${NC}"
+        else
+            echo -e "${RED}  [MISSING] $REQUIRED${NC}"
+            MISSING_COUNT=$((MISSING_COUNT + 1))
+        fi
+    done
+
+    echo ""
+
+    if [[ $MISSING_COUNT -eq 0 ]]; then
+        echo -e "${GREEN}  [OK] All required processes are running${NC}"
+    else
+        echo -e "${RED}  [WARNING] $MISSING_COUNT of ${#REQUIRED_PROCESSES[@]} processes are missing${NC}"
+        echo ""
+        echo -e "${YELLOW}  This may indicate the LGTM stack is not fully operational.${NC}"
+        echo -e "${YELLOW}  Consider restarting the pod.${NC}"
+    fi
+
+    echo ""
+
+    if [[ $MISSING_COUNT -gt 0 ]]; then
+        echo -e "${RED}[FAILED] Some required processes are not running${NC}"
+        exit 1
+    fi
+    exit 0
+
+---
+# Source: grafana/templates/configmap-dashboard-provider.yaml ######
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+  name: grafana-config-dashboards
+  namespace: {{ .Release.Namespace }}
+data:
+  provider.yaml: |-
+    apiVersion: 1
+    providers:
+      - name: 'sidecarProvider'
+        orgId: 1
+        type: file
+        disableDeletion: false
+        allowUiUpdates: false
+        updateIntervalSeconds: 30
+        options:
+          foldersFromFilesStructure: true
+          path: /tmp/dashboards
+---
+# Source: grafana/templates/clusterrole.yaml
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: grafana-sidecar-clusterrole
+rules:
+  - apiGroups: [""] # "" indicates the core API group
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "watch", "list"]
+---
+# Source: grafana/templates/clusterrolebinding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: lgtm-grafana-clusterrolebinding
+subjects:
+  - kind: ServiceAccount
+    name: grafana-sidecar
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: grafana-sidecar-clusterrole
+  apiGroup: rbac.authorization.k8s.io
+---
+# this is intended for demo / testing purposes only, not for production usage
+apiVersion: v1
+kind: Service
+metadata:
+  name: lgtm-stack
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: lgtm
+  ports:
+    - name: grafana
+      protocol: TCP
+      port: {{ .Values.services.lgtm.grafana }}
+      targetPort: {{ .Values.services.lgtm.grafana }}
+    - name: otel-grpc
+      protocol: TCP
+      port: {{ .Values.services.lgtm.otelGrpc }}
+      targetPort: {{ .Values.services.lgtm.otelGrpc }}
+    - name: otel-http
+      protocol: TCP
+      port: {{ .Values.services.lgtm.otelHttp }}
+      targetPort: {{ .Values.services.lgtm.otelHttp }}
+    - name: prometheus
+      protocol: TCP
+      port: {{ .Values.services.lgtm.prometheus }}
+      targetPort: {{ .Values.services.lgtm.prometheus }}
+    - name: loki
+      protocol: TCP
+      port: {{ .Values.services.lgtm.loki }}
+      targetPort: {{ .Values.services.lgtm.loki }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lgtm
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: lgtm
+  template:
+    metadata:
+      annotations:
+        # Roll out new pods when the overridden config content changes.
+        # subPath mounts do not hot-reload, so a content change must restart the pod.
+        checksum/loki-config: {{ .Values.lgtm.configOverrides.lokiConfig | sha256sum }}
+        checksum/otelcol-config: {{ .Values.lgtm.configOverrides.otelcolConfig | sha256sum }}
+      labels:
+        app: lgtm
+    spec:
+      serviceAccountName: grafana-sidecar
+      automountServiceAccountToken: true
+      {{- if and .Values.dashboards.enabled .Values.dashboards.github.enabled (gt (len .Values.dashboards.github.urls) 0) }}
+      initContainers:
+        - name: grafana-github-dashboards
+          image: {{ .Values.dashboards.github.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - |
+              set -eu
+              target_dir="/tmp/dashboards/{{ .Values.dashboards.github.folder }}"
+              mkdir -p "$target_dir"
+              i=1
+              {{- range $url := .Values.dashboards.github.urls }}
+              if curl -fsSL {{ $url | quote }} -o "$target_dir/dashboard-$i.json"; then
+                echo "Downloaded dashboard $i"
+              else
+                echo "WARN: failed to download dashboard $i from {{ $url }}"
+              fi
+              i=$((i+1))
+              {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: sc-dashboard-volume
+              mountPath: /tmp/dashboards
+      {{- end }}
+      containers:
+        - name: grafana-sc-dashboard
+          image: "quay.io/kiwigrid/k8s-sidecar:1.27.4"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: METHOD
+              value: WATCH
+            - name: LABEL
+              value: "grafana_dashboard"
+            - name: FOLDER
+              value: "/tmp/dashboards" ##
+            - name: RESOURCE
+              value: "both"
+            - name: FOLDER_ANNOTATION
+              value: "grafana_folder"
+            - name: REQ_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-admin-credentials
+                  key: username
+            - name: REQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-admin-credentials
+                  key: password
+            - name: REQ_URL
+              value: http://localhost:3000/api/admin/provisioning/dashboards/reload
+            - name: REQ_METHOD
+              value: POST
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts: ##
+            - name: sc-dashboard-volume
+              mountPath: "/tmp/dashboards"
+        - name: lgtm
+          image: ghcr.io/silogen/docker-otel-lgtm:v1.0.7
+          env:
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "false"
+            - name: GF_AUTH_BASIC_ENABLED
+              value: "true"
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-admin-credentials
+                  key: username
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-admin-credentials
+                  key: password
+          ports:
+            - containerPort: 3000
+            - containerPort: 4317
+            - containerPort: 4318
+            - containerPort: 9090
+            - containerPort: 3100
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  curl -f http://localhost:9090/-/ready &&
+                  curl -f http://localhost:3100/ready &&
+                  curl -f http://localhost:3000/api/health
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 2
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  curl -f http://localhost:9090/-/ready &&
+                  curl -f http://localhost:3100/ready &&
+                  curl -f http://localhost:3000/api/health &&
+                  /scripts/check-ps.sh
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: {{ .Values.lgtm.resources.requests.cpu | quote }}
+              memory: {{ .Values.lgtm.resources.requests.memory | quote }}
+            limits:
+              memory: {{ .Values.lgtm.resources.limits.memory | quote }}
+          # NOTE: By default OpenShift does not allow writing the root directory.
+          # Thats why the data dirs for grafana, prometheus and loki can not be
+          # created and the pod never becomes ready.
+          # See: https://github.com/grafana/docker-otel-lgtm/issues/132
+          volumeMounts:
+            - name: tempo-data
+              mountPath: /data/tempo
+            - name: grafana-data
+              mountPath: /data/grafana
+            - name: loki-data
+              mountPath: /data/loki
+            - name: loki-storage
+              mountPath: /loki
+            - name: p8s-storage
+              mountPath: /data/prometheus
+            - name: sc-dashboard-volume ##
+              mountPath: "/tmp/dashboards"
+            - name: sc-dashboard-provider ##
+              mountPath: "/otel-lgtm/grafana/conf/provisioning/dashboards/sc-dashboardproviders.yaml"
+              subPath: provider.yaml
+            - name: check-scripts
+              mountPath: /scripts
+              readOnly: true
+            {{- if .Values.lgtm.configOverrides.lokiConfig }}
+            - name: loki-config
+              mountPath: /otel-lgtm/loki-config.yaml
+              subPath: loki-config.yaml
+            {{- end }}
+            {{- if .Values.lgtm.configOverrides.otelcolConfig }}
+            - name: otelcol-config
+              mountPath: /otel-lgtm/otelcol-config.yaml
+              subPath: otelcol-config.yaml
+            {{- end }}
+      volumes:
+        - name: tempo-data
+          persistentVolumeClaim:
+            claimName: tempo-pvc
+        - name: loki-data
+          persistentVolumeClaim:
+            claimName: loki-data-pvc
+        - name: grafana-data
+          persistentVolumeClaim:
+            claimName: grafana-pvc
+        - name: loki-storage
+          persistentVolumeClaim:
+            claimName: loki-storage-pvc
+        - name: p8s-storage
+          persistentVolumeClaim:
+            claimName: p8s-pvc
+        - name: sc-dashboard-volume ##
+          emptyDir:
+            {}
+        - name: sc-dashboard-provider ##
+          configMap:
+            name: grafana-config-dashboards
+        - name: check-scripts
+          configMap:
+            name: lgtm-check-scripts
+            defaultMode: 493
+        {{- if .Values.lgtm.configOverrides.lokiConfig }}
+        - name: loki-config
+          configMap:
+            name: lgtm-loki-config
+        {{- end }}
+        {{- if .Values.lgtm.configOverrides.otelcolConfig }}
+        - name: otelcol-config
+          configMap:
+            name: lgtm-otelcol-config
+        {{- end }}
