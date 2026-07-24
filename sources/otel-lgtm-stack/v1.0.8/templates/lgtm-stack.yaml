@@ -360,7 +360,7 @@ spec:
                   curl -f http://localhost:9090/-/ready &&
                   curl -f http://localhost:3100/ready &&
                   curl -f http://localhost:3000/api/health
-            initialDelaySeconds: 60
+            initialDelaySeconds: 180
             periodSeconds: 15
             timeoutSeconds: 10
             failureThreshold: 2
