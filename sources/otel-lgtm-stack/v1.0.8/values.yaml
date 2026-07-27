@@ -98,10 +98,10 @@ lgtm:
 
       compactor:
         working_directory: /data/loki/compactor
-        compaction_interval: 20m
+        compaction_interval: 30m
         retention_enabled: true
         retention_delete_delay: 2h
-        retention_delete_worker_count: 20
+        retention_delete_worker_count: 10 
         delete_request_store: filesystem  # Required by Loki v3.5.5+ when retention is enabled
 
     # Full otelcol-config.yaml. Edit to adjust the OpenTelemetry Collector
