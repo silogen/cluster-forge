@@ -1,12 +1,11 @@
-*************
-* EAI STACK
-*************
+# AMD Enterprise AI reference stack
+
 
 1. Requirements
 
 This scenario is expecting a valid Openshift cluster where AMD GPU Operator can be installed from Openshift Software Catalog, or it will be installed from this stack 
 
-2. Deploy EAI Stack
+2. Deploy AMD Enterprise AI reference stack
 
 Deploy the stack with all tools needed on a Openshift cluster
 
