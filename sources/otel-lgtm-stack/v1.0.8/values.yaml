@@ -32,6 +32,11 @@ lgtm:
   # not hot-reload). The Deployment carries a checksum annotation so a helm
   # upgrade with changed content triggers a rollout automatically.
   #
+  # NOTE: When overriding via cluster-org/cluster-values, you MUST copy the entire
+  # lokiConfig or otelcolConfig block—Helm does not deep-merge YAML strings, so
+  # partial overrides will discard the rest of the default config. Always start
+  # from the full block below and modify only the specific parameters you need.
+  #
   # NOTE: otelcol-config-export-http.yaml is intentionally NOT overridable here,
   # because run-otelcol.sh appends to it at runtime and a read-only mount would
   # break that. Use env vars OTEL_EXPORTER_OTLP_ENDPOINT / OTEL_EXPORTER_OTLP_HEADERS
