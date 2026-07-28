@@ -12,7 +12,6 @@ seaweed:
     replicas: 1
     requests:
       storage: 10Gi
-
 # S3 bucket initialization
 bucket:
   name: default-bucket
