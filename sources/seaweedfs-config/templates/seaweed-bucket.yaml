@@ -1,4 +1,4 @@
-{{- with .Values.seaweed }}
+{{- with .Values.bucket }}
 apiVersion: seaweed.seaweedfs.com/v1
 kind: Bucket
 metadata:
