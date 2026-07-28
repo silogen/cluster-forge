@@ -2,7 +2,7 @@
 apiVersion: seaweed.seaweedfs.com/v1
 kind: Bucket
 metadata:
-  name: {{ .bucket.name  }}
+  name: {{ .name }}
   namespace: seaweedfs-instance
 spec:
   clusterRef:
