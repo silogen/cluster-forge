@@ -4,6 +4,9 @@ clusterForge:
 externalValues:
   enabled: true
   path: values.yaml
+  # Dedicated file (in the same cluster-values overlay repo) for extraApps
+  # entries, kept separate from values.yaml so it doesn't bloat as extras grow.
+  extraAppsPath: extra-apps-values.yaml
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
   targetRevision: main
 global:
