@@ -14,7 +14,6 @@ seaweed:
       storage: 10Gi
 
 # S3 bucket initialization
-initJob:
-  enabled: true
-  buckets:
-    - name: default-bucket
+bucket:
+  name: default-bucket
+  namespace: demo

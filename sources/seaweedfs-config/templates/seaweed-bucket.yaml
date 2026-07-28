@@ -1,0 +1,15 @@
+{{- with .Values.seaweed }}
+apiVersion: seaweed.seaweedfs.com/v1
+kind: Bucket
+metadata:
+  name: {{ .bucket.name  }}
+  namespace: seaweedfs-instance
+spec:
+  clusterRef:
+    name: seaweed
+    namespace: seaweedfs-instance
+  reclaimPolicy: Retain
+  adoptExisting: true
+  versioning: Disabled
+  objectLock: false
+{{- end }}
