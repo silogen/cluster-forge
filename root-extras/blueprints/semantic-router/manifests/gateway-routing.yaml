@@ -1,0 +1,278 @@
+# vLLM Semantic Router — gateway wiring for one deployment.
+#
+# Copy this to extra-apps/semantic-router/manifests/gateway-routing.yaml in your
+# cluster-values overlay repo, then edit every `TODO` below.
+#
+# Plain manifests, applied by ArgoCD straight from the overlay repo — `{{ }}` is
+# NOT evaluated here, so the cluster domain has to be written out literally.
+#
+# What this does: puts semantic-router in the request path as an Envoy external
+# processor. A request to sr.<domain> reaches the shared `https` Gateway, Envoy
+# asks the router which model should serve it, the router answers by setting a
+# header, and Envoy re-runs its route matching and forwards to that model's
+# backend. The router never proxies the request itself.
+#
+# The cluster's `ai-gateway` is deliberately untouched — see the README.
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: semantic-router
+  namespace: semantic-router
+  # Uncomment to require cluster-auth group membership on this route. Without
+  # it, requests to sr.<domain> pass through unauthenticated — see the README's
+  # "Reaching the router" section for why.
+  # annotations:
+  #   cluster-auth/allowed-group: TODO-your-group
+spec:
+  # The shared Gateway every app on a bloomed cluster routes through. Its
+  # listener is a `*.<domain>` wildcard open to all namespaces, so this attaches
+  # with no change to the Gateway itself.
+  parentRefs:
+    - name: https
+      namespace: envoy-gateway-system
+  hostnames:
+    # TODO: your own subdomain, on this cluster's domain.
+    - sr.mycluster.example.com
+  rules:
+    # One rule per model the router is allowed to choose. `x-selected-model` is
+    # the routing signal the router emits (pkg/headers: SelectedModel); the value
+    # is a model name from `config.providers.models` in values.yaml, so the two
+    # files have to agree.
+    #
+    # The router only ever names a model, never a backend address, so every model
+    # it may pick needs a rule here or the request falls through to the catch-all.
+    #
+    # TODO: one block like this per model, each pointing at that model's backend.
+    - matches:
+        - headers:
+            - name: x-selected-model
+              value: TODO-your-model
+      backendRefs:
+        - name: TODO-your-vllm-service
+          namespace: TODO-your-vllm-namespace
+          port: 8000
+    # The catch-all is not optional, and it goes last. An external processor only
+    # runs once a route has already matched, so the request needs a rule that
+    # matches before the router has said anything — which is every request on
+    # arrival, since the header does not exist yet. Without it Envoy 404s and the
+    # router is never consulted. Last, because a rule with no matches would
+    # otherwise shadow the model rules above under first-match semantics.
+    #
+    # It doubles as where traffic lands while the router is down, because the
+    # policy below fails open.
+    #
+    # TODO: your default backend, for requests the router does not reroute.
+    - backendRefs:
+        - name: TODO-your-vllm-service
+          namespace: TODO-your-vllm-namespace
+          port: 8000
+---
+# Calls the router on the gRPC port it is actually designed to be used through
+# (50051), rather than treating it as an HTTP backend. Port 8080 is the
+# management API — upstream binds it to localhost with `remote_exposure: false`
+# and it is not meant to receive chat completions.
+#
+# Targets the HTTPRoute above rather than a Gateway. Envoy Gateway allows only
+# one EnvoyExtensionPolicy per target and the cluster's `ai-gateway` already has
+# one, so a Gateway-scoped policy would mean building a second gateway. Route
+# scope avoids that entirely and is the smaller blast radius anyway: nothing
+# outside sr.<domain> is affected.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyExtensionPolicy
+metadata:
+  name: semantic-router-extproc
+  namespace: semantic-router
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: semantic-router
+  extProc:
+    - backendRefs:
+        # Same namespace as this policy, so no ReferenceGrant is needed.
+        - kind: Service
+          name: semantic-router
+          port: 50051
+      processingMode:
+        request:
+          # The router classifies on the prompt, so it needs the body. Without
+          # this it is sent headers only and every request takes the catch-all.
+          body: Buffered
+        # Response processing is deliberately left off. Routing does not need it,
+        # and `body: Buffered` here would make Envoy hold the whole completion
+        # before returning it, which breaks token streaming. Turn it on only if
+        # you want the router's response-side features (semantic cache, token
+        # accounting) and can accept that.
+      # Upstream's own Envoy config uses message_timeout: 300s, because this
+      # budget covers buffering the request body and running classification, not
+      # just a network hop. The Envoy Gateway default of 200ms is far too short.
+      messageTimeout: 300s
+      # Router unreachable -> requests skip it and take the catch-all rule,
+      # instead of the whole hostname returning 5xx.
+      failOpen: true
+
+# Routing a model to an API outside the cluster (OpenAI, Anthropic, a vLLM box on
+# another network). A plain backendRef can only name an in-cluster Service, so an
+# external target needs an Envoy Gateway `Backend` to stand in for it. The
+# Backend API is enabled on every bloomed cluster, so no core change is required.
+#
+# Both objects below are commented out. Uncomment and edit if you need them, then
+# reference the Backend from a rule in the HTTPRoute above:
+#
+#     - matches:
+#         - headers:
+#             - name: x-selected-model
+#               value: gpt-4o
+#       backendRefs:
+#         - group: gateway.envoyproxy.io
+#           kind: Backend
+#           name: openai
+#
+# The router does not need to reach the API itself — it only classifies and names
+# a model. Envoy makes the upstream call.
+#
+# Authentication is yours to arrange. Nothing here injects an API key, so a
+# client-supplied `Authorization` header passes through to the provider as-is. If
+# the key should live in the cluster instead, that needs a mechanism this
+# blueprint does not set up.
+#
+# apiVersion: gateway.envoyproxy.io/v1alpha1
+# kind: Backend
+# metadata:
+#   name: openai
+#   namespace: semantic-router
+# spec:
+#   endpoints:
+#     - fqdn:
+#         hostname: api.openai.com
+#         port: 443
+# ---
+# # Without this Envoy talks plaintext to port 443 and every request fails. It
+# # also supplies the SNI name and verifies the provider's certificate against the
+# # system trust store.
+# apiVersion: gateway.networking.k8s.io/v1
+# kind: BackendTLSPolicy
+# metadata:
+#   name: openai-tls
+#   namespace: semantic-router
+# spec:
+#   targetRefs:
+#     - group: gateway.envoyproxy.io
+#       kind: Backend
+#       name: openai
+#   validation:
+#     wellKnownCACertificates: System
+#     hostname: api.openai.com
+#
+# Same pattern for an Anthropic upstream (api_format: anthropic in
+# values.yaml, see the README) — same two objects, different hostname:
+#
+# apiVersion: gateway.envoyproxy.io/v1alpha1
+# kind: Backend
+# metadata:
+#   name: anthropic
+#   namespace: semantic-router
+# spec:
+#   endpoints:
+#     - fqdn:
+#         hostname: api.anthropic.com
+#         port: 443
+# ---
+# apiVersion: gateway.networking.k8s.io/v1
+# kind: BackendTLSPolicy
+# metadata:
+#   name: anthropic-tls
+#   namespace: semantic-router
+# spec:
+#   targetRefs:
+#     - group: gateway.envoyproxy.io
+#       kind: Backend
+#       name: anthropic
+#   validation:
+#     wellKnownCACertificates: System
+#     hostname: api.anthropic.com
+#
+# A backend that keeps an OpenAI-shaped body but isn't mounted at a bare `/v1`
+# — common for internal gateways, API-management layers, and hosted proxies
+# that front several providers under one path scheme. No schema translation
+# needed here either, just a different host, path, and header. Say the real
+# endpoint is https://example.com/gateway/v1/chat/completions and it needs an
+# X-API-Key header the client never sends. See the README's "backend that
+# isn't mounted at a standard URL" section for the full explanation.
+#
+# apiVersion: gateway.envoyproxy.io/v1alpha1
+# kind: Backend
+# metadata:
+#   name: example-gateway
+#   namespace: semantic-router
+# spec:
+#   endpoints:
+#     - fqdn:
+#         hostname: example.com
+#         port: 443
+# ---
+# apiVersion: gateway.networking.k8s.io/v1
+# kind: BackendTLSPolicy
+# metadata:
+#   name: example-gateway-tls
+#   namespace: semantic-router
+# spec:
+#   targetRefs:
+#     - group: gateway.envoyproxy.io
+#       kind: Backend
+#       name: example-gateway
+#   validation:
+#     wellKnownCACertificates: System
+#     hostname: example.com
+#
+# The route rule needs two filters, and the path match has to be `/v1`
+# specifically — not `/` like the in-cluster rules above — so ReplacePrefixMatch
+# swaps out exactly the segment the client sent instead of prepending onto it:
+#
+#     - matches:
+#         - headers:
+#             - name: x-selected-model
+#               value: example-model
+#           path:
+#             type: PathPrefix
+#             value: /v1
+#       backendRefs:
+#         - group: gateway.envoyproxy.io
+#           kind: Backend
+#           name: example-gateway
+#       filters:
+#         - type: URLRewrite
+#           urlRewrite:
+#             hostname: example.com
+#             path:
+#               type: ReplacePrefixMatch
+#               replacePrefixMatch: /gateway/v1
+#         - type: RequestHeaderModifier
+#           requestHeaderModifier:
+#             set:
+#               - name: X-API-Key
+#                 value: TODO-your-key
+#
+# A request to /v1/chat/completions becomes /gateway/v1/chat/completions on the
+# wire. Matching PathPrefix `/` instead of `/v1` here would double it up to
+# /gateway/v1/v1/chat/completions — wrong.
+---
+# Only needed because the HTTPRoute above sends traffic to a Service in another
+# namespace. Delete this object if your vLLM backends run in the semantic-router
+# namespace, and repeat it once per namespace if they are spread across several.
+#
+# TODO: the namespace your vLLM backends run in.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-semantic-router-httproute
+  namespace: TODO-your-vllm-namespace
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: semantic-router
+  to:
+    - group: ""
+      kind: Service
