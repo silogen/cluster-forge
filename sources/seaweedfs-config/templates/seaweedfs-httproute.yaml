@@ -9,8 +9,8 @@ spec:
       namespace: envoy-gateway-system
   rules:
     - backendRefs:
-        - name: filer-s3
-          port: 80
+        - name: seaweed-s3
+          port: 8333
       matches:
         - headers:
           - type: RegularExpression
