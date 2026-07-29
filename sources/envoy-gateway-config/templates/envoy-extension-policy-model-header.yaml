@@ -22,13 +22,11 @@ spec:
         function envoy_on_request(request_handle)
           local body = request_handle:body()
           if body == nil then
-            request_handle:logWarn("SETMODEL-DEBUG body=nil (not buffered) path=" .. tostring(request_handle:headers():get(":path")))
             return
           end
           local body_str = tostring(body)
           local backend = body_str:match('"backend"%s*:%s*"([^"]+)"')
           local model = body_str:match('"model"%s*:%s*"([^"]+)"')
-          request_handle:logWarn("SETMODEL-DEBUG body_len=" .. tostring(#body_str) .. " backend=" .. tostring(backend) .. " model=" .. tostring(model))
           if backend ~= nil then
             request_handle:headers():replace("x-ai-eg-backend", backend)
           end
