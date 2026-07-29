@@ -33,5 +33,16 @@ spec:
           if model ~= nil then
             request_handle:headers():replace("x-ai-eg-model", model)
           end
+          -- Re-select the route now that the routing headers are set from the body.
+          -- Envoy picks the route BEFORE this filter runs, so a body-only request
+          -- (model/backend in the JSON body, no headers) matched the ai-gateway-injected
+          -- catch-all rule rather than the header-matched rules that carry the per-model
+          -- apiKeyAuth SecurityPolicy. Without clearing the route cache the request stays
+          -- on the catch-all and BYPASSES key auth (served regardless of key). This was
+          -- latent under cluster-auth (ext_authz only reads the header, route-agnostic);
+          -- native route-scoped apiKeyAuth needs the route re-matched to enforce.
+          if backend ~= nil or model ~= nil then
+            request_handle:clearRouteCache()
+          end
         end
 {{- end }}
