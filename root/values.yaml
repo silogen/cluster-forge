@@ -806,7 +806,7 @@ apps:
         value: "{{ .Values.global.domain }}"
       - name: webhook.enabled
         value: "false"
-    path: seaweedfs-operator/0.1.29
+    path: seaweedfs-operator/0.1.36
     namespace: seaweedfs-operator
     valuesFile: values.yaml
     syncWave: 0
