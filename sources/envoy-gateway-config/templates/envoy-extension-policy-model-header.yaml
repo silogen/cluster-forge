@@ -22,24 +22,16 @@ spec:
         function envoy_on_request(request_handle)
           local body = request_handle:body()
           if body == nil then
-            request_handle:logWarn("SETMODEL body=nil")
             return
           end
           local body_str = tostring(body)
           local backend = body_str:match('"backend"%s*:%s*"([^"]+)"')
           local model = body_str:match('"model"%s*:%s*"([^"]+)"')
-          request_handle:logWarn("SETMODEL len=" .. tostring(#body_str) .. " model=" .. tostring(model) .. " backend=" .. tostring(backend))
           if backend ~= nil then
             request_handle:headers():replace("x-ai-eg-backend", backend)
           end
           if model ~= nil then
             request_handle:headers():replace("x-ai-eg-model", model)
-          end
-          -- Re-select the route now that the routing headers are set from the body, so a
-          -- body-only request re-matches the header-scoped rule that carries per-model
-          -- apiKeyAuth (otherwise it stays on the auth-less catch-all chosen pre-Lua).
-          if backend ~= nil or model ~= nil then
-            request_handle:clearRouteCache()
           end
         end
 {{- end }}

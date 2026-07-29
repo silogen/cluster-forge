@@ -12,11 +12,6 @@ spec:
   filterOrder:
     - name: envoy.filters.http.lua
       before: envoy.filters.http.ext_authz
-    # Run the Lua before the ai-gateway ext_proc so request_handle:body() sees the
-    # FULL request body (ext_proc otherwise streams/consumes it first, leaving the
-    # Lua a truncated first chunk — the model/backend fields then fail to extract).
-    - name: envoy.filters.http.lua
-      before: envoy.filters.http.ext_proc
   provider:
     type: Kubernetes
     kubernetes:
