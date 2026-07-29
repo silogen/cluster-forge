@@ -10,6 +10,6 @@ spec:
     namespace: seaweedfs-instance
   reclaimPolicy: Retain
   adoptExisting: true
-  versioning: Disabled
+  versioning: Off
   objectLock: false
 {{- end }}
