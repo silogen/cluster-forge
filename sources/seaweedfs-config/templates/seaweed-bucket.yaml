@@ -9,7 +9,7 @@ spec:
     name: seaweed
     namespace: seaweedfs-instance
   reclaimPolicy: Retain
-  versioning: Off
   adoptExisting: true
+  versioning: "Off"
   objectLock: false
 {{- end }}
