@@ -676,10 +676,23 @@ apps:
     path: envoy-ai-gateway/v1.0.0
     syncWave: -5
     valuesObject:
+      # TEMP: v1.0.0's controller crashes its gateway reconcile when the Gateway
+      # lives in the Envoy Gateway namespace (envoy-gateway-system) with
+      # "found gateway-labeled objects in multiple namespaces", which blocks
+      # extproc filter-config generation and prevents the ai-gateway proxy from
+      # rolling. Fixed upstream by https://github.com/envoyproxy/ai-gateway/pull/2304
+      # (dedup candidate namespaces in getObjectsForGateway), not yet in a release.
+      # Pin controller + extProc to a main build that includes it (v1.0.0 + 11
+      # commits). Remove this override once a release past v1.0.0 ships #2304.
       controller:
+        image:
+          tag: 8007dfd481f7d1225bcaf9d059cb15b61d4d28e0
         mcp:
           sessionEncryption:
             seed: "cluster-forge-default-seed-override-in-production"
+      extProc:
+        image:
+          tag: 8007dfd481f7d1225bcaf9d059cb15b61d4d28e0
   inference-extension-crds:
     namespace: envoy-ai-gateway-system
     path: inference-extension-crds/v1.5.0
