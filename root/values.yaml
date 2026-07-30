@@ -604,7 +604,7 @@ apps:
           memory: "512Mi"
   envoy-gateway:
     namespace: envoy-gateway-system
-    path: envoy-gateway/v1.7.1
+    path: envoy-gateway/v1.8.1
     syncWave: -30
     valuesObject:
       kubernetesClusterDomain: cluster.local
@@ -669,11 +669,11 @@ apps:
     valuesFile: values.yaml
   envoy-ai-gateway-crds:
     namespace: envoy-ai-gateway-system
-    path: envoy-ai-gateway-crds/v0.6.0
+    path: envoy-ai-gateway-crds/v1.0.0
     syncWave: -10
   envoy-ai-gateway:
     namespace: envoy-ai-gateway-system
-    path: envoy-ai-gateway/v0.6.0
+    path: envoy-ai-gateway/v1.0.0
     syncWave: -5
     valuesObject:
       controller:
