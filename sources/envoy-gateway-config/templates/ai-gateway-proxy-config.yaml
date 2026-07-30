@@ -10,8 +10,11 @@ metadata:
   namespace: envoy-gateway-system
 spec:
   filterOrder:
+    # POC parity: run lua (set-model-header-from-body + clearRouteCache) before api_key_auth,
+    # so the body-derived headers re-select the keyed HTTPRoute before per-model apiKeyAuth
+    # evaluates. (ext_authz was removed from ai-gateway, so ordering vs it was a no-op.)
     - name: envoy.filters.http.lua
-      before: envoy.filters.http.ext_authz
+      before: envoy.filters.http.api_key_auth
   provider:
     type: Kubernetes
     kubernetes:
