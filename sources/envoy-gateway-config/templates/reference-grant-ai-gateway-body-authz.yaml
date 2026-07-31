@@ -6,7 +6,7 @@ apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
   name: ai-gateway-body-authz-grant
-  namespace: ai-gateway-discovery  # ai-gateway-discovery Service namespace
+  namespace: ai-gateway-system  # ai-gateway-discovery Service namespace
 spec:
   from:
     - group: gateway.envoyproxy.io

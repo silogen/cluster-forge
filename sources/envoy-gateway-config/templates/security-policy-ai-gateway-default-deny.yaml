@@ -45,7 +45,7 @@ spec:
         - group: ''
           kind: Service
           name: ai-gateway-discovery
-          namespace: ai-gateway-discovery
+          namespace: ai-gateway-system
           port: 8083
       headersToBackend:
         - x-api-key-id
