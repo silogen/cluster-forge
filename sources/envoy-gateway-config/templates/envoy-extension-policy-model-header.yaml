@@ -33,5 +33,10 @@ spec:
           if model ~= nil then
             request_handle:headers():replace("x-ai-eg-model", model)
           end
+          -- Force route re-evaluation so the header-set request lands on the keyed HTTPRoute
+          -- before api_key_auth runs (filterOrder puts lua before api_key_auth).
+          if backend ~= nil or model ~= nil then
+            request_handle:clearRouteCache()
+          end
         end
 {{- end }}
