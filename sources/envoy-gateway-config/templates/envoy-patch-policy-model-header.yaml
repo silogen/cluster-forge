@@ -1,27 +1,24 @@
 {{- if .Values.aiGateway.enabled }}
 # Header-less API-key bypass fix (EAI-7304): set x-ai-eg-model from the JSON request body BEFORE
-# api_key_auth, using filters injected ahead of the ai-gateway ext_proc via EnvoyPatchPolicy.
+# api_key_auth, using a Lua filter injected ahead of the ai-gateway ext_proc via EnvoyPatchPolicy.
 #
-# Why filterOrder/Lua alone could not do this:
+# Why filterOrder/Lua alone could not do this, and why this works:
 #   - The ai-gateway extension server anchors its ext_proc ahead of any filter whose name is in
 #     `afterExtProcFilterPrefixes` (ext_proc, wasm, LUA, rbac, ...). A normally-named Lua filter is
-#     therefore placed AFTER ext_proc, which consumes the body first, so the Lua reads an empty body.
-#   - EnvoyPatchPolicy runs before that injection and lets us add filters at the front of the chain.
-#     Names NOT in the prefix list (json_to_metadata, and a custom-named Lua) keep ext_proc deep, so
-#     the order stays: json_to_metadata -> set-model-header (Lua) -> api_key_auth -> ext_proc.
+#     placed AFTER ext_proc, which consumes the body first, so the Lua reads an empty body (the
+#     original reverted POC).
+#   - EnvoyPatchPolicy runs before that injection and adds this filter at the front of the chain.
+#     Its name is NOT in the prefix list, so ai-gateway keeps its ext_proc deep and the order is:
+#     set-model-header (Lua) -> api_key_auth -> ext_proc. The Lua is now AHEAD of ext_proc, so the
+#     body is intact when it reads it.
+#   - request_handle:body() blocks until the full request body is buffered, so it works in the
+#     header phase (unlike json_to_metadata, which only populates dynamic metadata in the later data
+#     phase -- too late for api_key_auth, which decides in the header phase).
 #
-# Flow:
-#   1. json_to_metadata reads the JSON body NON-destructively (re-injects it, so ext_proc still gets
-#      the full body) and writes body.model into dynamic metadata (ai.body:model).
-#   2. A custom-named Lua reads ai.body:model, sets x-ai-eg-model (only if the client did not already
-#      supply it -- preserves the header / exact-backend paths), then clearRouteCache() so api_key_auth
-#      re-resolves the route from the now-set header (-> the SP-covered model route) instead of the
-#      unauthenticated catch-all.
-#
-# NOTE: header_mutation with a %DYNAMIC_METADATA()% value did NOT populate the header in testing
-# (substitution not applied), so the metadata->header projection is done in Lua, which is confirmed
-# to work. The Lua name is intentionally non-prefixed so ai-gateway does not anchor ext_proc ahead
-# of it.
+# Flow: Lua reads body.model -> sets x-ai-eg-model (only if the client did not supply it, preserving
+# the header / exact-backend paths) -> clearRouteCache() so api_key_auth re-resolves onto the
+# SP-covered model route instead of the unauthenticated catch-all. The body read is non-destructive,
+# so the ai-gateway ext_proc downstream still gets the full body.
 #
 # Requires config.envoyGateway.extensionApis.enableEnvoyPatchPolicy: true (root/values.yaml) and an
 # envoy-gateway restart. Listener name follows the v1.8.1 default xDS scheme <ns>/<gw>/<listener>.
@@ -37,44 +34,26 @@ spec:
     name: ai-gateway
   type: JSONPatch
   jsonPatches:
-    # 1. Extract top-level JSON body field "model" into dynamic metadata (ai.body:model).
     - type: "type.googleapis.com/envoy.config.listener.v3.Listener"
       name: envoy-gateway-system/ai-gateway/https
       operation:
         op: add
         path: "/filter_chains/0/filters/0/typed_config/http_filters/0"
         value:
-          name: envoy.filters.http.json_to_metadata
-          typed_config:
-            "@type": type.googleapis.com/envoy.extensions.filters.http.json_to_metadata.v3.JsonToMetadata
-            request_rules:
-              rules:
-                - selectors:
-                    - key: model
-                  on_present:
-                    metadata_namespace: ai.body
-                    key: model
-                    type: STRING
-    # 2. Project ai.body:model -> x-ai-eg-model header (if absent), then clear the route cache so
-    #    api_key_auth re-resolves onto the SP-covered model route. Non-prefixed name keeps ext_proc deep.
-    - type: "type.googleapis.com/envoy.config.listener.v3.Listener"
-      name: envoy-gateway-system/ai-gateway/https
-      operation:
-        op: add
-        path: "/filter_chains/0/filters/0/typed_config/http_filters/1"
-        value:
-          name: set-model-header-and-clear-route
+          name: set-model-header-from-body-before-auth
           typed_config:
             "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
             default_source_code:
               inline_string: |
                 function envoy_on_request(request_handle)
                   if request_handle:headers():get("x-ai-eg-model") == nil then
-                    local ok, md = pcall(function()
-                      return request_handle:streamInfo():dynamicMetadata():get("ai.body")
-                    end)
-                    if ok and md ~= nil and md["model"] ~= nil then
-                      request_handle:headers():add("x-ai-eg-model", md["model"])
+                    local body = request_handle:body()
+                    if body ~= nil and body:length() ~= nil and body:length() > 0 then
+                      local content = body:getBytes(0, body:length())
+                      local model = string.match(content, '"model"%s*:%s*"([^"]+)"')
+                      if model ~= nil then
+                        request_handle:headers():add("x-ai-eg-model", model)
+                      end
                     end
                   end
                   request_handle:clearRouteCache()
