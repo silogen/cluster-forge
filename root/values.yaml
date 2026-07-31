@@ -660,9 +660,13 @@ apps:
       - name: domain
         value: "{{ .Values.global.domain }}"
       - name: aiGateway.enabled
-        value: "true"  
+        value: "true"
       - name: aiGateway.routeHostname
         value: "ai.{{ .Values.global.domain }}"
+      # Point the body-aware extAuth backendRef + ReferenceGrant at wherever the
+      # ai-gateway-discovery app is declared, so they never drift from it.
+      - name: aiGateway.discoveryNamespace
+        value: "{{ .Values.apps.ai-gateway-discovery.namespace }}"
     namespace: envoy-gateway-system
     path: envoy-gateway-config
     syncWave: -15
