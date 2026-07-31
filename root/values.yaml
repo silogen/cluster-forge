@@ -612,6 +612,7 @@ apps:
         envoyGateway:
           extensionApis:
             enableBackend: true
+            enableEnvoyPatchPolicy: true
           extensionManager:
             # Tolerate the AI extension erroring on the tls-passthrough gateway's L4
             # listener (it tries to splice an HTTP filter into a TCP chain with no

@@ -1,0 +1,76 @@
+{{- if .Values.aiGateway.enabled }}
+# Variant A of the header-less API-key bypass fix (EAI-7304): set x-ai-eg-model from the JSON
+# request body BEFORE api_key_auth, using native Envoy filters injected ahead of the ai-gateway
+# ext_proc.
+#
+# Why this works where the Lua/filterOrder POC did not:
+#   - The ai-gateway extension server anchors its ext_proc ahead of any filter whose name is in
+#     `afterExtProcFilterPrefixes` (ext_proc, wasm, LUA, rbac, ...). That is why a Lua filter can
+#     never read the body first -- ext_proc consumes it before Lua runs.
+#   - json_to_metadata and header_mutation are NOT in that list, so they naturally land ahead of
+#     the ai-gateway ext_proc. EnvoyPatchPolicy also runs before the ext_proc injection, so these
+#     two filters sit at the front of the chain, ahead of api_key_auth.
+#   - json_to_metadata reads the JSON body NON-destructively (re-injects it), so the ai-gateway
+#     ext_proc (RequestBodyMode: BUFFERED) still gets the full body downstream.
+#
+# Flow: json_to_metadata (body.model -> dynamic metadata) -> header_mutation (metadata ->
+#       x-ai-eg-model header) -> api_key_auth (route now matches the SP-covered model route) -> ext_proc.
+#
+# ADD_IF_ABSENT preserves a client-supplied x-ai-eg-model / the exact-backend header path.
+#
+# OPEN RISK being validated on app-dev: route re-computation. header_mutation does not clear the
+# route cache; if Envoy has already cached the catch-all route, api_key_auth may read stale
+# per-route config and the bypass stays open. If the matrix shows that, fall back to Variant B
+# (buffer-filter exception + Lua with clearRouteCache).
+#
+# Requires config.envoyGateway.extensionApis.enableEnvoyPatchPolicy: true (root/values.yaml) and
+# an envoy-gateway restart. Listener name follows the v1.8.1 default xDS scheme <ns>/<gw>/<listener>.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyPatchPolicy
+metadata:
+  name: model-header-from-body
+  namespace: envoy-gateway-system
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: ai-gateway
+  type: JSONPatch
+  jsonPatches:
+    # 1. Extract the top-level JSON body field "model" into dynamic metadata (ai.body:model).
+    - type: "type.googleapis.com/envoy.config.listener.v3.Listener"
+      name: envoy-gateway-system/ai-gateway/https
+      operation:
+        op: add
+        path: "/filter_chains/0/filters/0/typed_config/http_filters/0"
+        value:
+          name: envoy.filters.http.json_to_metadata
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.json_to_metadata.v3.JsonToMetadata
+            request_rules:
+              rules:
+                - selectors:
+                    - key: model
+                  on_present:
+                    metadata_namespace: ai.body
+                    key: model
+                    type: STRING
+    # 2. Project ai.body:model into the x-ai-eg-model request header (only if the client did not
+    #    already set it), so route matching + api_key_auth see it before ext_proc runs.
+    - type: "type.googleapis.com/envoy.config.listener.v3.Listener"
+      name: envoy-gateway-system/ai-gateway/https
+      operation:
+        op: add
+        path: "/filter_chains/0/filters/0/typed_config/http_filters/1"
+        value:
+          name: envoy.filters.http.header_mutation
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.header_mutation.v3.HeaderMutation
+            mutations:
+              request_mutations:
+                - append:
+                    header:
+                      key: x-ai-eg-model
+                      value: "%DYNAMIC_METADATA(ai.body:model)%"
+                    append_action: ADD_IF_ABSENT
+{{- end }}
