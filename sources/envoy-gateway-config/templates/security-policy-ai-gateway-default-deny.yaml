@@ -11,6 +11,16 @@
 # Per-model apiKeyAuth SecurityPolicies from ai-gateway-discovery target individual HTTPRoutes;
 # a route-level SecurityPolicy overrides this gateway-level one for that route (Envoy Gateway
 # resolves by specificity, no merge), so keyed models authenticate and keyless ones hit deny.
+#
+# extAuth (body-aware, supplement): native per-model apiKeyAuth only enforces on the HEADER path
+# (x-ai-eg-model/backend). Standard OpenAI clients put the model in the JSON body with no routing
+# headers, so those requests fall through here. The extAuth block forwards the request body
+# (bodyToExtAuth) and Authorization to ai-gateway-discovery's ext_authz handler, which authorizes
+# per-model against the same bound-key Secrets and returns x-api-key-id for metrics. It is merged
+# into this one SecurityPolicy because Envoy Gateway allows only one gateway-scoped SP per Gateway;
+# on keyed HTTPRoutes the per-model route SP overrides this whole policy (extAuth included), so
+# extAuth only ever authorizes the header-less path — a supplement until upstream ai-gateway
+# supports body-path client auth natively.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
@@ -24,4 +34,19 @@ spec:
   authorization:
     # No rules → every request on ai-gateway not overridden by a route-level policy is denied.
     defaultAction: Deny
+  extAuth:
+    failOpen: false
+    bodyToExtAuth:
+      maxRequestBytes: 65536
+    headersToExtAuth:
+      - authorization
+    http:
+      backendRefs:
+        - group: ''
+          kind: Service
+          name: ai-gateway-discovery
+          namespace: ai-gateway-system
+          port: 8083
+      headersToBackend:
+        - x-api-key-id
 {{- end }}
