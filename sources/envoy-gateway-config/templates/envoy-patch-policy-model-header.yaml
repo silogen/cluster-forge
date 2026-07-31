@@ -46,16 +46,34 @@ spec:
             default_source_code:
               inline_string: |
                 function envoy_on_request(request_handle)
-                  if request_handle:headers():get("x-ai-eg-model") == nil then
+                  local dbg = "start"
+                  if request_handle:headers():get("x-ai-eg-model") ~= nil then
+                    dbg = "client-header"
+                  else
                     local body = request_handle:body()
-                    if body ~= nil and body:length() ~= nil and body:length() > 0 then
-                      local content = body:getBytes(0, body:length())
-                      local model = string.match(content, '"model"%s*:%s*"([^"]+)"')
+                    if body == nil then
+                      dbg = "body-nil"
+                    else
+                      local len = body:length()
+                      local content = body:getBytes(0, len)
+                      local model = content and string.match(content, '"model"%s*:%s*"([^"]+)"')
                       if model ~= nil then
                         request_handle:headers():add("x-ai-eg-model", model)
+                        dbg = "set:" .. model
+                      else
+                        dbg = "nomatch:len=" .. tostring(len)
                       end
                     end
                   end
+                  request_handle:streamInfo():dynamicMetadata():set("lua.debug", "info", dbg)
                   request_handle:clearRouteCache()
+                end
+                function envoy_on_response(response_handle)
+                  local ok, md = pcall(function()
+                    return response_handle:streamInfo():dynamicMetadata():get("lua.debug")
+                  end)
+                  if ok and md ~= nil and md["info"] ~= nil then
+                    response_handle:headers():add("x-lua-debug", md["info"])
+                  end
                 end
 {{- end }}
