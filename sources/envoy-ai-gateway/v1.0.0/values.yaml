@@ -81,7 +81,10 @@ controller:
   # Comma-separated key-value pairs for mapping HTTP request headers to Otel attributes shared across metrics, spans, and access logs.
   # Format: "header1:attribute1,header2:attribute2"
   # Example: "x-tenant-id:tenant.id"
-  requestHeaderAttributes: ""
+  # silogen default: x-api-key-id (forwarded by apiKeyAuth SecurityPolicy, = client id)
+  # and x-ai-eg-backend drive per-API-key usage metrics in AIWB. Leaving these empty
+  # drops the controller flags and blanks api_key_id/aim_service_id on the gen_ai_* metrics.
+  requestHeaderAttributes: "x-api-key-id:api_key_id,x-ai-eg-backend:aim_service_id"
 
   # Comma-separated key-value pairs for mapping HTTP request headers to otel span attributes.
   # Format: "header1:attribute1,header2:attribute2"
@@ -93,7 +96,8 @@ controller:
   # Comma-separated key-value pairs for mapping HTTP request headers to Otel metric attributes.
   # Format: "header1:label1,header2:label2"
   # Example: "x-tenant-id:tenant.id,x-tenant-id:tenant.id"
-  metricsRequestHeaderAttributes: ""
+  # silogen default: drives api_key_id / aim_service_id on gen_ai_* metrics (AIWB per-key stats).
+  metricsRequestHeaderAttributes: "x-api-key-id:api_key_id,x-ai-eg-backend:aim_service_id"
 
   # Comma-separated key-value pairs for mapping HTTP request headers to access log attributes.
   # Format: "header1:attribute1,header2:attribute2"
