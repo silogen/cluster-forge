@@ -221,7 +221,12 @@ lgtm:
   # env var here without touching the template.
   extraEnv:
     GOMEMLIMIT: "6GiB"
-    PROMETHEUS_EXTRA_ARGS: |
+    # NOTE: use YAML folded style (>-) so multiple flags stay readable (one per
+    # line) but render as a SINGLE space-separated line. A literal block (|) would
+    # keep newlines, and the image's run-prometheus.sh uses
+    # `read -ra ... <<<"$PROMETHEUS_EXTRA_ARGS"` where `read` stops at the first
+    # newline — silently dropping every flag after the first.
+    PROMETHEUS_EXTRA_ARGS: >-
       --storage.tsdb.retention.time=168h
       --storage.tsdb.retention.size=40GB
     GF_AUTH_ANONYMOUS_ENABLED: "false"
