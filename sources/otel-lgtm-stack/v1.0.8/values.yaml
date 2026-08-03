@@ -91,6 +91,10 @@ lgtm:
         use_scheduler_ring: false
 
       limits_config:
+        # Loki retention is managed here, in-file (this blob). Prometheus has no
+        # equivalent config-file field, so its retention lives in lgtm.extraEnv
+        # (PROMETHEUS_EXTRA_ARGS) instead. No LOKI_EXTRA_ARGS flag is used, so
+        # this value is authoritative for Loki.
         retention_period: 168h  # 7 days (24h * 7)
         otlp_config:
           resource_attributes:
@@ -127,9 +131,23 @@ lgtm:
           config:
             scrape_configs:
               - job_name: "opentelemetry-collector"
-                scrape_interval: 1s
+                scrape_interval: 30s
                 static_configs:
                   - targets: ["127.0.0.1:8888"]
+              # Self-scrape each LGTM sub-process's own /metrics so per-process
+              # memory (process_resident_memory_bytes) is observable in Grafana.
+              # The image has no `ps`, so scraping these endpoints is the only
+              # viable way to see per-sub-process resource usage.
+              - job_name: "grafana"
+                static_configs: [{ targets: ["127.0.0.1:3000"] }]
+              - job_name: "loki"
+                static_configs: [{ targets: ["127.0.0.1:3100"] }]
+              - job_name: "prometheus"
+                static_configs: [{ targets: ["127.0.0.1:9090"] }]
+              - job_name: "tempo"
+                static_configs: [{ targets: ["127.0.0.1:3200"] }]
+              - job_name: "pyroscope"
+                static_configs: [{ targets: ["127.0.0.1:4040"] }]
 
       extensions:
         health_check:
@@ -185,6 +203,30 @@ lgtm:
             receivers: [otlp]
             exporters: [otlp/profiles]
 
+  # Extra environment variables passed through to the lgtm container.
+  #
+  # RULE OF THUMB: prefer configOverrides (the config-file blobs above) when a
+  # setting exists as a config-file field. Only use extraEnv for settings that
+  # CANNOT be expressed in a config file:
+  #   - PROMETHEUS_EXTRA_ARGS: Prometheus retention has no config-file field;
+  #     it is only settable via CLI flags (passed through by the official image).
+  #   - GOMEMLIMIT: a Go-runtime env var (no config-file concept). It is a soft,
+  #     container-wide GC ceiling SHARED by every Go sub-process (Grafana,
+  #     Prometheus, Loki, Tempo, Pyroscope). It is a shared safety line, NOT
+  #     per-process budgeting. Keep it comfortably below resources.limits.memory
+  #     so GC can react before the kernel OOM-kills the pod.
+  #   - GF_*: Grafana settings are configured via env vars.
+  #
+  # The template just ranges over this map, so operators can add any further
+  # env var here without touching the template.
+  extraEnv:
+    GOMEMLIMIT: "6GiB"
+    PROMETHEUS_EXTRA_ARGS: |
+      --storage.tsdb.retention.time=168h
+      --storage.tsdb.retention.size=40GB
+    GF_AUTH_ANONYMOUS_ENABLED: "false"
+    GF_AUTH_BASIC_ENABLED: "true"
+
   # LGTM stack main deployment resources
   resources:
     limits:
@@ -195,6 +237,17 @@ lgtm:
   
 # OpenTelemetry Collectors resource configuration  
 collectors:
+  # Prometheus scrape interval control for the OpenTelemetry collectors.
+  # `scrapeInterval` is the global default applied to every scrape job (via each
+  # collector's prometheus receiver global.scrape_interval). Individual heavy /
+  # slow jobs can be overridden by name in `scrapeIntervalOverrides`.
+  scrapeInterval: 30s
+  scrapeIntervalOverrides:
+    opencost: 1m
+    kubernetes-service-endpoints-slow: 5m
+    kubernetes-pods-slow: 5m
+    ai-gateway-extproc: 30s
+    airm-custom-metrics: 30s
   resources:
     # Metrics collector (deployment mode) - original values
     metrics:

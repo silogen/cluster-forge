@@ -325,10 +325,8 @@ spec:
         - name: lgtm
           image: grafana/otel-lgtm:0.29.2
           env:
-            - name: GF_AUTH_ANONYMOUS_ENABLED
-              value: "false"
-            - name: GF_AUTH_BASIC_ENABLED
-              value: "true"
+            # Admin credentials stay as Secret references (never plaintext in
+            # values.yaml). All other env vars come from lgtm.extraEnv below.
             - name: GF_SECURITY_ADMIN_USER
               valueFrom:
                 secretKeyRef:
@@ -339,6 +337,12 @@ spec:
                 secretKeyRef:
                   name: grafana-admin-credentials
                   key: password
+            {{- range $key, $value := .Values.lgtm.extraEnv }}
+            {{- if $value }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- end }}
           ports:
             - containerPort: 3000
             - containerPort: 4317
