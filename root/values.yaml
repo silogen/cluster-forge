@@ -692,6 +692,15 @@ apps:
       controller:
         image:
           tag: 8007dfd481f7d1225bcaf9d059cb15b61d4d28e0
+        # Map auth-forwarded request headers onto OTel attributes. The v1.0.0 chart
+        # ships these empty (v0.6.0 populated them), which drops the --requestHeaderAttributes
+        # / --metricsRequestHeaderAttributes controller flags and leaves api_key_id and
+        # aim_service_id unset on the gen_ai_* metrics — breaking per-API-key usage stats.
+        # x-api-key-id is forwarded by the per-model apiKeyAuth SecurityPolicy
+        # (forwardClientIDHeader); aim_service_id tracks x-ai-eg-backend to match the
+        # access-log mapping in envoy-proxy-access-logs.yaml.
+        requestHeaderAttributes: "x-api-key-id:api_key_id,x-ai-eg-backend:aim_service_id"
+        metricsRequestHeaderAttributes: "x-api-key-id:api_key_id,x-ai-eg-backend:aim_service_id"
         mcp:
           sessionEncryption:
             seed: "cluster-forge-default-seed-override-in-production"
