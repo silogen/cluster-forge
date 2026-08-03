@@ -701,9 +701,9 @@ spec:
           #send_batch_max_size: 1000  # Added explicit max size
         timeout: 10s
       memory_limiter:
-        check_interval: 5s
-        limit_percentage: 80
-        spike_limit_percentage: 25
+        check_interval: {{ .Values.collectors.memoryLimiter.checkInterval }}
+        limit_percentage: {{ .Values.collectors.memoryLimiter.limitPercentage }}
+        spike_limit_percentage: {{ .Values.collectors.memoryLimiter.spikeLimitPercentage }}
       attributes:
         actions:
           - key: k8s_cluster_name

@@ -253,6 +253,18 @@ collectors:
     kubernetes-pods-slow: 5m
     ai-gateway-extproc: 30s
     airm-custom-metrics: 30s
+  # memory_limiter processor settings applied to every collector's pipeline.
+  # This is the collector's built-in OOM guard: when in-use memory approaches
+  # `limitPercentage` of the container memory limit, the collector refuses
+  # incoming data (backpressure) instead of growing until it is OOM-killed.
+  # `spikeLimitPercentage` reserves headroom for sudden bursts between checks.
+  # Percentages are of each collector's own container memory limit
+  # (collectors.resources.*.limits.memory). Tune per-cluster: under-specced
+  # clusters may want a lower limitPercentage to trigger backpressure earlier.
+  memoryLimiter:
+    checkInterval: 5s
+    limitPercentage: 80
+    spikeLimitPercentage: 25
   resources:
     # Metrics collector (deployment mode) - original values
     metrics:
