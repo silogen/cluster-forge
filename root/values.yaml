@@ -810,6 +810,10 @@ apps:
     namespace: seaweedfs-operator
     valuesFile: values.yaml
     syncWave: 0
+  seaweedfs-crds:
+    path: seaweedfs-crds/0.1.36
+    namespace: seaweedfs-operator
+    syncWave: -1
   seaweedfs-config:
     ignoreDifferences:
       - group: gateway.networking.k8s.io
