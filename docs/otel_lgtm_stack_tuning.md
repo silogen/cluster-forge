@@ -1,9 +1,8 @@
 # Tuning the otel-lgtm-stack per cluster
 
-This chart runs the full **LGTM** observability stack (Grafana + Loki + Prometheus
-+ Tempo + Pyroscope) inside a single `lgtm` pod, plus a set of OpenTelemetry
-**collectors**. On small / under-specced clusters the `lgtm` pod (and some
-collectors) can hit **OOM**, and the Prometheus / Loki data volumes can fill up.
+This chart runs the full **LGTM** observability stack (Grafana + Loki + Prometheus + Tempo + Pyroscope)
+inside a single `lgtm` pod, plus a set of OpenTelemetry **collectors**. On small / under-specced clusters the `lgtm` pod
+(and some collectors) can hit **OOM**, and the Prometheus / Loki data volumes can fill up.
 
 This refactor exposes the knobs needed to deal with that **from
 `cluster-values.yaml` in gitea** — no template edits and no image rebuild.
@@ -27,7 +26,8 @@ This refactor exposes the knobs needed to deal with that **from
 
 **The one rule to remember:**
 - Rows marked ✅ are **partial overrides** — write only the key you want to change; everything else keeps the chart default.
-- Rows marked ❌ are **whole-blob overrides** — the value is a single YAML string, and Helm cannot merge inside a string. To change one line you must paste the entire blob and edit that one line.
+- Rows marked ❌ are **whole-blob overrides** — the value is a single YAML string, and Helm cannot merge inside a string.
+To change one line you must paste the entire blob and edit that one line.
 
 > Why the split? Frequently-tuned values (retention, memory, scrape rate) are
 > exposed as one-liners. The two big blobs stay whole on purpose: they are a
