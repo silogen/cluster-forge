@@ -51,4 +51,9 @@ spec:
           port: 8083
       headersToBackend:
         - x-api-key-id
+        # Resolved backend (workload id) discovery authorized against — forwarded so the ext_proc
+        # stamps aim_service_id on the header-less path (the gateway can't resolve the backend
+        # from EDS endpoint metadata). Exact for single-backend models; approximate when several
+        # backends share a model name. See EAI-7243 metrics note.
+        - x-ai-eg-backend
 {{- end }}
