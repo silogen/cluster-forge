@@ -3,6 +3,10 @@ kind: DeviceConfig
 metadata:
   name: gpu-operator
   namespace: {{ .Release.Namespace }}
+  annotations:
+    # Avoid a hard sync failure when the amd-gpu-operator has not yet registered
+    # the DeviceConfig CRD; ArgoCD retries this app until the CRD is established.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   configManager:
     enable: false

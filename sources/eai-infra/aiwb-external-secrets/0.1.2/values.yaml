@@ -30,6 +30,11 @@ minio:
 clusterAuth:
   secretName: "cluster-auth-admin-token"
 
+# Scoped OpenBao write token for the API-key KV path (EAI-7277). Consumed by the AIWB backend
+# as OPENBAO_TOKEN; must match openBao.secretName in the core aiwb chart.
+openbaoToken:
+  secretName: "aiwb-openbao-token"
+
 # PostgreSQL CNPG Configuration
 postgresql:
   username: "aiwb_user"

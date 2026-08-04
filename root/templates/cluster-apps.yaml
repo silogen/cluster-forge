@@ -115,6 +115,12 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    retry:
+      limit: {{ .syncRetryLimit | default 20 }}
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true

@@ -1,0 +1,46 @@
+# NodeFeatureRule: label AMD Instinct GPU nodes with
+# feature.node.kubernetes.io/amd-gpu=true
+#
+# The AMD GPU operator's device-plugin / metrics-exporter / node-labeller
+# DaemonSets use a nodeSelector of feature.node.kubernetes.io/amd-gpu=true.
+# That label is normally produced by an NFD rule shipped inside the operator's
+# own NodeFeatureDiscovery instance. However, if a second NodeFeatureDiscovery
+# instance (e.g. a generic "nfd-instance") owns the shared "nfd-worker"
+# DaemonSet, the operator's worker config is shadowed and its rule never runs —
+# leaving AMD GPU nodes unlabelled, the DaemonSets at DESIRED=0, and
+# amd.com/gpu capacity stuck at 0.
+#
+# This standalone NodeFeatureRule is processed by nfd-master directly (matching
+# against the raw pci.device features every worker reports), so it applies the
+# label regardless of which worker config is active. The device IDs below mirror
+# the AMD GPU operator's own amd-gpu rule (Instinct MI100..MI355X family).
+apiVersion: nfd.k8s-sigs.io/v1alpha1
+kind: NodeFeatureRule
+metadata:
+  name: amd-gpu-label
+spec:
+  rules:
+    - name: "amd-gpu"
+      labels:
+        "feature.node.kubernetes.io/amd-gpu": "true"
+      matchAny:
+        - matchFeatures:
+            - feature: pci.device
+              matchExpressions:
+                vendor: {op: In, value: ["1002"]}
+                device:
+                  op: In
+                  value:
+                    - "75a3" # MI355X
+                    - "75a0" # MI350X
+                    - "74a5" # MI325X
+                    - "74a2" # MI308X
+                    - "74a8" # MI308X-HF
+                    - "74a0" # MI300A
+                    - "74a1" # MI300X
+                    - "74a9" # MI300X-HF
+                    - "740f" # MI210
+                    - "7408" # MI250X
+                    - "740c" # MI250/MI250X
+                    - "738c" # MI100
+                    - "738e" # MI100

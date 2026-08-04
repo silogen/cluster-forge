@@ -168,6 +168,41 @@ Cleanup complete.
 2. Open Buckets and choose "default-bucket"
 3. Verify that all the data has been mirrored 
 
+### 2. Validate the copy
+The log lists each bucket and its target contents. Spot-check object counts per bucket:
+
+### Fetch credentials
+```bash
+S3_API_KEY=$(kubectl get secret default-user -n "$MINIO_NAMESPACE" -o jsonpath="{.data.API_ACCESS_KEY}" | base64 -d)
+echo $S3_API_KEY
+S3_SECRET_KEY=$(kubectl get secret default-user -n "$MINIO_NAMESPACE" -o jsonpath="{.data.API_SECRET_KEY}" | base64 -d)
+echo $S3_SECRET_KEY
+```
+#### Log in to the minio default pool pod
+```bash
+kubectl exec -n minio default-minio-pool-0-0 -it -- bash
+``` 
+
+```bash
+$ mc alias set myminio http://localhost:9000 "<paste S3_API_KEY>" "<paste S3_SECRET_KEY>"
+
+>> Added myminio successfully.
+
+$ mc ls myminio/default-bucket --recursive | wc -l
+
+>> some number of objects
+
+$ mc alias set myseaweed http://filer-s3.seaweedfs-instance.svc.cluster.local "<paste S3_API_KEY>" "<paste S3_SECRET_KEY>"
+
+Added myseaweed successfully.
+
+$ mc ls myseaweed/default-bucket --recursive | wc -l
+
+>> some number of objects, same value as above
+``` 
+
+Compare against MinIO — they should match.
+
 ### Step 3: Add seaweedfs storage to AIRM (optional)
 ***Navigate to AIRM UI***
 1. Open your browser and go to `https://airmui.<your-domain>`
