@@ -1,0 +1,139 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: {{ include "seaweedfs-operator.fullname" . }}-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificates
+  - issuers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - extensions
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - seaweed.seaweedfs.com
+  resources:
+  - buckets
+  - s3credentials
+  - s3identities
+  - s3oidcproviders
+  - s3policies
+  - s3policybindings
+  - seaweeds
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - seaweed.seaweedfs.com
+  resources:
+  - buckets/finalizers
+  - s3credentials/finalizers
+  - s3identities/finalizers
+  - s3oidcproviders/finalizers
+  - s3policies/finalizers
+  - s3policybindings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - seaweed.seaweedfs.com
+  resources:
+  - buckets/status
+  - s3credentials/status
+  - s3identities/status
+  - s3oidcproviders/status
+  - s3policies/status
+  - s3policybindings/status
+  - seaweeds/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - seaweed.seaweedfs.com
+  resources:
+  - resourcereferencegrants
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
