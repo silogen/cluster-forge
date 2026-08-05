@@ -5,7 +5,7 @@ metadata:
   name: seaweed
   namespace: seaweedfs-instance
 spec:
-  image: chrislusf/seaweedfs:latest
+  image: chrislusf/seaweedfs:4.40
   volumeServerDiskCount: 1
   hostSuffix: "seaweedfs-instance.svc.cluster.local"
   master:
