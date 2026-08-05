@@ -1,0 +1,40 @@
+{{- if and .Values.aiGateway.enabled .Values.aiGateway.routeHostname }}
+# Per-key /v1/models: route the OpenAI model-list call to ai-gateway-discovery's models handler
+# instead of Envoy AI Gateway's built-in aggregator, so the returned list is filtered to the
+# models the calling API key can actually use (deployed ∩ authorized) rather than the whole fleet.
+#
+# The exact-path match overrides the gateway's built-in /v1/models handling (a more-specific
+# HTTPRoute wins). The call is still authenticated by the gateway-scoped ai-gateway-default-deny
+# SecurityPolicy + body-aware ext_authz (which target the whole ai-gateway Gateway), so the handler
+# always sees a valid key. The backendRef is cross-namespace (Gateway here, discovery Service in
+# discoveryNamespace) — see reference-grant-ai-gateway-models.yaml.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ai-gateway-models
+  namespace: envoy-gateway-system  # same namespace as the ai-gateway Gateway
+spec:
+  hostnames:
+    - "{{ .Values.aiGateway.routeHostname }}"
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: ai-gateway
+      namespace: envoy-gateway-system
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: Exact
+            value: /v1/models
+          method: GET
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: ai-gateway-discovery
+          # discovery's per-key models handler port. Hardcoded like the ext_authz port (8083) in
+          # security-policy-ai-gateway-default-deny.yaml; must match the ai-gateway-discovery
+          # chart's controller.modelsPort.
+          namespace: {{ .Values.aiGateway.discoveryNamespace }}
+          port: 8082
+{{- end }}

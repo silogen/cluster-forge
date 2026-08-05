@@ -1,0 +1,21 @@
+{{- if and .Values.aiGateway.enabled .Values.aiGateway.routeHostname }}
+# Cross-namespace grant for the /v1/models HTTPRoute backendRef: the ai-gateway-models HTTPRoute
+# lives in envoy-gateway-system (with the ai-gateway Gateway), but the ai-gateway-discovery Service
+# it routes to lives in the discovery app's namespace. Gateway API requires a ReferenceGrant in the
+# target (Service) namespace, which tracks .Values.aiGateway.discoveryNamespace — mirrors
+# reference-grant-ai-gateway-body-authz.yaml, but from an HTTPRoute instead of a SecurityPolicy.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: ai-gateway-models-grant
+  namespace: {{ .Values.aiGateway.discoveryNamespace }}  # ai-gateway-discovery Service namespace
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: envoy-gateway-system  # HTTPRoute namespace
+  to:
+    - group: ""
+      kind: Service
+      name: ai-gateway-discovery  # per-key models handler Service (discovery models port)
+{{- end }}
