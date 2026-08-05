@@ -1,0 +1,39 @@
+{{- if and .Values.aiGateway.enabled .Values.aiGateway.routeHostname }}
+# Route-scoped SecurityPolicy for the /v1/models HTTPRoute.
+#
+# The gateway-scoped ai-gateway-default-deny SecurityPolicy applies BOTH extAuth and
+# authorization.defaultAction: Deny to every route on the ai-gateway Gateway. Per-model inference
+# routes escape the deny because ai-gateway-discovery stamps a per-model apiKeyAuth SecurityPolicy
+# that overrides it. The static /v1/models HTTPRoute has no such per-model policy, so without this
+# it authenticates via extAuth but is then refused by the gateway-level RBAC deny (HTTP 403).
+#
+# This route-scoped policy overrides the gateway-level one for /v1/models (Envoy Gateway resolves
+# by specificity, no merge): it keeps extAuth — so a missing/invalid key is still rejected at the
+# gateway (401) and a valid bound key is forwarded with x-api-key-id — but carries NO authorization
+# block, so RBAC no longer denies. The request then reaches the models handler, which returns the
+# list filtered to the caller's key. The extAuth backendRef reuses the cross-namespace grant from
+# reference-grant-ai-gateway-body-authz.yaml (SecurityPolicy → ai-gateway-discovery Service).
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: ai-gateway-models
+  namespace: envoy-gateway-system  # must match the ai-gateway Gateway / HTTPRoute namespace
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: ai-gateway-models
+  extAuth:
+    failOpen: false
+    headersToExtAuth:
+      - authorization
+    http:
+      backendRefs:
+        - group: ''
+          kind: Service
+          name: ai-gateway-discovery
+          namespace: {{ .Values.aiGateway.discoveryNamespace }}
+          port: 8083
+      headersToBackend:
+        - x-api-key-id
+{{- end }}
