@@ -16,3 +16,9 @@ spec:
           - type: RegularExpression
             name: Host
             value: "seaweed\\..*"
+      # Object transfers routinely outlast Envoy's 15s default request timeout, which resets the
+      # stream mid-transfer and truncates the object. The limit is duration, not size, so on a slow
+      # client link even a small object fails.
+      timeouts:
+        request: 30m
+        backendRequest: 30m
