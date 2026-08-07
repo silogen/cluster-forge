@@ -14,6 +14,8 @@ cnpg:
   # so node maintenance stalls until someone disables it by hand.
   # Set true or false to override.
   enablePDB: null
+  podAntiAffinityType: "preferred"
+  topologyKey: "kubernetes.io/hostname"
   storage:
     storageClassName: "default"
 

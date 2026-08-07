@@ -11,7 +11,8 @@ metadata:
 spec:
   affinity:
     enablePodAntiAffinity: true
-    topologyKey: topology.kubernetes.io/zone
+    podAntiAffinityType: {{ .Values.cnpg.podAntiAffinityType | quote }}
+    topologyKey: {{ .Values.cnpg.topologyKey | quote }}
   bootstrap:
     initdb:
       database: {{ .Values.postgresql.database }}

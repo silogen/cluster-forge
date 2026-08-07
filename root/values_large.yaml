@@ -53,6 +53,13 @@ enabledApps:
   - rabbitmq
   
 apps:
+  airm-infra-cnpg:
+    valuesObject:
+      instances: 2
+  keycloak:
+    valuesObject:
+      cnpg:
+        instances: 2
   seaweedfs-config:
     valuesObject:
       seaweed:

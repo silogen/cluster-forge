@@ -1,6 +1,8 @@
 domain: # to be filled by cluster-forge app
 seaweed:
   storageClassName: mlstorage
+  affinity:
+    topologyKey: "kubernetes.io/hostname"
   master:
     replicas: 1
     volumeSizeLimitMB: 1024
