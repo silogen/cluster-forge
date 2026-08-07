@@ -1,0 +1,33 @@
+{{- if .Values.aiGateway.enabled }}
+# Metric-hygiene filter (EAI-7864). The aim_service_id access-log field and the gen_ai_* metric
+# label are sourced from the client-supplied x-ai-eg-backend header (%REQ(x-ai-eg-backend)% and
+# --metricsRequestHeaderAttributes). On the header path nothing trusted overwrites that header, so
+# a caller can label their own usage series with a bogus backend id (e.g. "foobar").
+#
+# This drops x-ai-eg-backend unless it is a well-formed workload UUID, so junk is never recorded.
+# It is SANITIZATION ONLY — unlike the removed set-model-header-from-body POC it does not read the
+# body, set model/backend from the body, route, clear the route cache, or authorize. Removing a
+# non-UUID value is safe: such a value can never match a backend route rule (Exact UUID match), so
+# it only affects the recorded label, not where the request is served or authorized. Real
+# cross-model attempts (a valid foreign backend UUID) are already denied by native apiKeyAuth via
+# the EAI-7864 routing fix; a valid-format fake UUID is a known, accepted residual.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyExtensionPolicy
+metadata:
+  name: sanitize-backend-header
+  namespace: envoy-gateway-system
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: ai-gateway
+  lua:
+    - type: Inline
+      inline: |
+        function envoy_on_request(request_handle)
+          local be = request_handle:headers():get("x-ai-eg-backend")
+          if be ~= nil and be:match("^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$") == nil then
+            request_handle:headers():remove("x-ai-eg-backend")
+          end
+        end
+{{- end }}
