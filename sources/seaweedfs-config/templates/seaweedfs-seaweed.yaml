@@ -13,6 +13,18 @@ spec:
       enabled: false
     replicas: {{ .master.replicas }}
     volumeSizeLimitMB: 1024
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: In
+                    values:
+                      - master
+              topologyKey: {{ $.Values.seaweed.affinity.topologyKey }}
   volume:
     ingress:
       enabled: false
@@ -23,8 +35,32 @@ spec:
     # Topology configuration for rack/datacenter-aware placement
     rack: "rack1"
     dataCenter: "dc1"
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: In
+                    values:
+                      - volume
+              topologyKey: {{ $.Values.seaweed.affinity.topologyKey }}
   filer:
     replicas: {{ .filer.replicas }}
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: In
+                    values:
+                      - filer
+              topologyKey: {{ $.Values.seaweed.affinity.topologyKey }}
     volumes:
       - name: s3-metadata
         persistentVolumeClaim:
