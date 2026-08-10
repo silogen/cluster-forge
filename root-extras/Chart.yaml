@@ -1,0 +1,15 @@
+apiVersion: v2
+name: root-extras
+description: ClusterForge Extras - renders user-provided extra ArgoCD Applications from the cluster-values overlay
+version: 0.1.0
+keywords:
+  - argocd
+  - infrastructure
+  - cluster-forge
+  - app-of-apps
+  - extras
+maintainers:
+  - name: ClusterForge Team
+home: https://github.com/silogen/cluster-forge
+sources:
+  - https://github.com/silogen/cluster-forge

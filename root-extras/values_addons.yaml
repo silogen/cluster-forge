@@ -1,0 +1,55 @@
+# Example add-on. NOT loaded automatically by any Application, and not a real
+# component — just a template to copy and adapt.
+#
+# extraApps.<name> is the literal ArgoCD Application `spec:` block, written
+# exactly as you'd write it by hand. Copy this block into the cluster-values
+# overlay repo's extra-apps-values.yaml, rename it, and point `source` at your
+# own chart/manifests (see docs/adding_extra_components.md).
+
+extraApps:
+  example-app:
+    project: default
+    source:
+      repoURL: https://example.com/some-org/some-chart.git
+      path: charts/example-app
+      targetRevision: v1.0.0
+      helm:
+        values: |
+          replicaCount: 1
+          ingress:
+            enabled: true
+            hostname: "example-app.{{ .Values.global.domain }}"
+    destination:
+      server: https://kubernetes.default.svc
+      namespace: example-app
+    syncPolicy:
+      automated:
+        prune: true
+        selfHeal: true
+      syncOptions:
+        - CreateNamespace=true
+
+  # Same idea, but the chart values live in their own file that you create in
+  # THIS cluster-values overlay repo (e.g. extra-apps/example-app-2/values.yaml,
+  # next to this extra-apps-values.yaml) instead of an inline `helm.values`
+  # block. Add the overlay repo as a second source (forwarded as
+  # `externalValues`) and reference the file with the `$cluster-values` alias.
+  # example-app-2:
+  #   project: default
+  #   sources:
+  #     - repoURL: https://example.com/some-org/some-chart.git
+  #       path: charts/example-app
+  #       targetRevision: v1.0.0
+  #       helm:
+  #         valueFiles:
+  #           - $cluster-values/extra-apps/example-app-2/values.yaml
+  #     - repoURL: "{{ .Values.externalValues.repoUrl }}"
+  #       targetRevision: "{{ .Values.externalValues.targetRevision }}"
+  #       ref: cluster-values
+  #   destination:
+  #     server: https://kubernetes.default.svc
+  #     namespace: example-app-2
+  #   syncPolicy:
+  #     automated: { prune: true, selfHeal: true }
+  #     syncOptions:
+  #       - CreateNamespace=true
