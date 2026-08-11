@@ -25,7 +25,39 @@ else
   fi
   echo "ℹ️  Auto-detected DOMAIN from OpenShift ingress config: ${DOMAIN}"
 fi
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")" && pwd)"
+# Supports both invocations:
+#   bash docs/openshift/install.sh                 (from a checkout)
+#   curl -fsSL .../install.sh | bash               (nothing on disk)
+#
+# When piped, BASH_SOURCE is unset and $0 is "bash", so there is no script
+# directory to hang extra/ off -- resolving it anyway would silently yield
+# $PWD/extra and scatter downloads through whatever directory the operator
+# happened to be standing in. Detect that case and stage the manifests in a
+# temp dir instead. Every extra/ manifest is fetched from main on demand by
+# ensure_extra_file(), so a piped run needs nothing on disk up front.
+if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
+  SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+else
+  SCRIPT_DIR=""
+fi
+
+# Where extra/ manifests (SCC, routes, kyverno policies, NFR) are read from.
+# An explicit EXTRA_DIR always wins; otherwise prefer the copy beside the
+# script, and fall back to a scratch dir that is removed on exit.
+if [ -n "${EXTRA_DIR:-}" ]; then
+  echo "ℹ️  Using EXTRA_DIR override: ${EXTRA_DIR}"
+elif [ -n "${SCRIPT_DIR}" ] && [ -d "${SCRIPT_DIR}/extra" ]; then
+  EXTRA_DIR="${SCRIPT_DIR}/extra"
+else
+  EXTRA_DIR="$(mktemp -d "${TMPDIR:-/tmp}/cf-openshift-extra.XXXXXX")"
+  # shellcheck disable=SC2064  # expand EXTRA_DIR now, not at trap time
+  trap "rm -rf '${EXTRA_DIR}'" EXIT
+  echo "ℹ️  No local extra/ directory; staging manifests in ${EXTRA_DIR}"
+fi
+
+# Base for every extra/ manifest fetch. Pinned to main deliberately: the
+# install.sh people curl is the one on main, so its manifests must match.
+EXTRA_RAW_BASE="https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/main/docs/openshift/extra"
 
 
 # TODO: Replace the list of apps with oci URI instead of local
@@ -144,19 +176,37 @@ detect_amd_gpu_ns() {
   printf '%s' "${ns:-amd-gpu-operator}"
 }
 
-# ensure_extra_file <abs_path_under_docs/aiwb_on_openshift/extra> : make sure an
-# extra/ manifest exists locally, fetching it from the test-aiwb branch if the
-# cloned branch does not include it yet. (Same WORKAROUND used for scc.yaml,
-# routes.yaml, kyverno-scc-for-ns.yaml — remove once these are merged to main.)
+# ensure_extra_file <path under EXTRA_DIR> : guarantee the manifest is on disk,
+# fetching it from ${EXTRA_RAW_BASE} when it is not.
+#
+# EVERY extra/ manifest must go through this. A bare `[ -f ... ]` test that
+# warns and continues is not an acceptable substitute: it makes a piped run
+# (curl | bash, nothing on disk) skip the manifest entirely, and some of them
+# are load-bearing -- without local-path-provisioner-scc.yaml every PVC in the
+# cluster fails at admission, twenty minutes after the warning scrolled past.
+#
+# Hence: fetch failure is fatal. Stopping with the filename and URL is far
+# cheaper to diagnose than a cluster that came up subtly wrong.
 ensure_extra_file() {
-  local f="$1" base
+  local f="$1" base url
   base="$(basename "${f}")"
-  if [ ! -f "${f}" ]; then
-    echo "ℹ️  ${base} not in cloned branch '${CLUSTER_FORGE_BRANCH}'; fetching from test-aiwb..."
-    mkdir -p "$(dirname "${f}")"
-    retry curl -fsSL \
-      "https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/main/docs/openshift/extra/${base}" \
-      -o "${f}"
+  [ -f "${f}" ] && return 0
+
+  url="${EXTRA_RAW_BASE}/${base}"
+  echo "ℹ️  ${base} not present in ${EXTRA_DIR}; fetching from cluster-forge main..."
+  mkdir -p "$(dirname "${f}")"
+  if ! retry curl -fsSL "${url}" -o "${f}"; then
+    rm -f "${f}"   # curl -f can leave an empty file behind on HTTP errors
+    {
+      echo "❌ Could not obtain required manifest: ${base}"
+      echo "   Not in ${EXTRA_DIR}, and the fetch failed:"
+      echo "     ${url}"
+      echo ""
+      echo "   If this manifest has not been merged to cluster-forge main yet,"
+      echo "   run install.sh from a checkout that has it, or point EXTRA_DIR at"
+      echo "   a directory that does."
+    } >&2
+    exit 1
   fi
 }
 
@@ -260,9 +310,8 @@ rm -f "${CLUSTER_FORGE_DIR}/${RELEASE_TARBALL}"
 # The tarball unpacks under ${CLUSTER_FORGE_DIR}/cluster-forge; sources live there.
 SOURCES_DIR="${CLUSTER_FORGE_DIR}/cluster-forge/sources"
 
-# extra/ manifests (SCC, routes, kyverno policies, NFR) are vendored next to this
-# script. Override EXTRA_DIR to point elsewhere if needed.
-EXTRA_DIR="${EXTRA_DIR:-${SCRIPT_DIR}/extra}"
+# EXTRA_DIR is defined near the top, alongside the preflight that verifies the
+# manifests which have no upstream fallback.
 
 # manual_helm_install files (AIWB secrets + cluster-auth shim) are NOT shipped in
 # the release tarball, so fetch them from the matching git tag into a staging dir.
@@ -302,18 +351,17 @@ step "Custom SecurityContextConstraints (SCCs)"
 # effect once the SA is created.
 SCC_FILE="${EXTRA_DIR}/scc.yaml"
 echo "📦 Applying custom SecurityContextConstraints..."
-# WORKAROUND: the sources clone above uses ${CLUSTER_FORGE_BRANCH} (default
-# "main"), but scc.yaml currently only lives on the test-aiwb branch. If it is
-# missing from the clone, copy it in from the test-aiwb branch so the apply
-# works regardless of which branch was cloned. (Remove once scc.yaml is merged.)
-if [ ! -f "${SCC_FILE}" ]; then
-  echo "ℹ️  scc.yaml not in cloned branch '${CLUSTER_FORGE_BRANCH}'; fetching from test-aiwb..."
-  mkdir -p "$(dirname "${SCC_FILE}")"
-  retry curl -fsSL \
-    https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/main/docs/openshift/extra/scc.yaml \
-    -o "${SCC_FILE}"
-fi
+ensure_extra_file "${SCC_FILE}"
 retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f "${SCC_FILE}"
+
+# SCCs for the aim-engine accelerator-detector DaemonSets and discovery Jobs.
+# Both mount hostPath (they write NFD feature files under
+# /etc/kubernetes/node-feature-discovery/features.d/), and the GPU detector also
+# needs privileged to reach /dev/kfd and /dev/dri, so restricted-v2 rejects them
+# outright and the DaemonSets sit at DESIRED>0 / CURRENT=0.
+SCC_AIM_FILE="${EXTRA_DIR}/scc-aim-system.yaml"
+ensure_extra_file "${SCC_AIM_FILE}"
+retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f "${SCC_AIM_FILE}"
 echo "✅ Custom SCCs applied"
 
 # ============================================================================
@@ -335,6 +383,73 @@ else
   kwait --for=condition=available --timeout=120s deployment/local-path-provisioner -n local-path-storage
   echo "✅ local-path provisioner is ready"
 fi
+
+# The upstream manifest targets vanilla Kubernetes: it grants no SCC, and its
+# helper pod requests no SELinux context. On OpenShift that means every PVC
+# fails -- first at admission ("hostPath volumes are not allowed to be used"),
+# then, once the SCC is granted, at mkdir ("Permission denied", because the pod
+# runs confined as container_t while /var/opt is var_t).
+#
+# Deliberately OUTSIDE the guard above: re-applying the upstream manifest
+# reverts the ConfigMap patch, so both parts are re-asserted on every run.
+LOCAL_PATH_SCC_FILE="${EXTRA_DIR}/local-path-provisioner-scc.yaml"
+LOCAL_PATH_HELPER_PATCH_FILE="${EXTRA_DIR}/local-path-helper-pod-selinux.yaml"
+if ! kubectl get configmap local-path-config -n local-path-storage &>/dev/null; then
+  # e.g. RKE2, where the built-in provisioner lives in kube-system instead.
+  # Nothing to patch, so the manifests are not fetched either.
+  echo "ℹ️  No local-path-config in local-path-storage — skipping OpenShift SCC/SELinux fixes"
+else
+  ensure_extra_file "${LOCAL_PATH_SCC_FILE}"
+  ensure_extra_file "${LOCAL_PATH_HELPER_PATCH_FILE}"
+  echo "🔧 Allowing the local-path helper pod to run under OpenShift SCC and SELinux..."
+  ssa_apply < "${LOCAL_PATH_SCC_FILE}"
+  # A merge-patch fragment for the helperPod.yaml key, not a manifest, so this
+  # one cannot go through ssa_apply.
+  retry kubectl patch configmap local-path-config -n local-path-storage \
+    --type merge --patch-file "${LOCAL_PATH_HELPER_PATCH_FILE}"
+  retry kubectl rollout restart deployment/local-path-provisioner -n local-path-storage
+  kwait --for=condition=available --timeout=120s deployment/local-path-provisioner -n local-path-storage
+  echo "✅ local-path helper pod can now provision volumes"
+fi
+
+# Volumes now get created, but consuming pods still cannot write to them.
+# RHCOS is SELinux Enforcing and /opt -> /var/opt is labelled var_t, so every
+# per-volume directory the helper pod creates inherits var_t. Consuming pods run
+# as container_t with MCS categories and are denied write on var_t. The dirs are
+# already 0777, so this is a label problem, not a permissions one:
+#   touch: /openbao/data/.writetest: Permission denied
+#
+# container_file_t at BARE s0 is the right target: a process at s0:cX,cY
+# dominates s0, so every pod can write whatever categories it was assigned. New
+# per-volume dirs then inherit the label, so this is once per node, not once per
+# volume. semanage persists the rule across a filesystem relabel; restorecon
+# applies it to what is already on disk.
+#
+# Host state, so there is no manifest for it -- hence oc debug (no kubectl
+# equivalent) and cluster-admin.
+LOCAL_PATH_HOST_DIR="/var/opt/local-path-provisioner"
+if ! command -v oc &>/dev/null; then
+  echo "⚠️  oc not on PATH — skipping SELinux relabel of ${LOCAL_PATH_HOST_DIR}."
+  echo "    Pods will hit 'Permission denied' writing to volumes until it is done."
+else
+  echo "🏷️  Labelling ${LOCAL_PATH_HOST_DIR} for SELinux (one oc debug per node)..."
+  for lp_node in $(kubectl get nodes -o jsonpath='{.items[*].metadata.name}'); do
+    echo "   → ${lp_node}"
+    oc debug "node/${lp_node}" --quiet -- chroot /host /bin/bash -c "
+      set -e
+      mkdir -p '${LOCAL_PATH_HOST_DIR}'
+      semanage fcontext -a -t container_file_t '${LOCAL_PATH_HOST_DIR}(/.*)?' 2>/dev/null \
+        || semanage fcontext -m -t container_file_t '${LOCAL_PATH_HOST_DIR}(/.*)?'
+      restorecon -R '${LOCAL_PATH_HOST_DIR}'
+      ls -ldZ '${LOCAL_PATH_HOST_DIR}'
+    "
+  done
+  echo "✅ local-path backing directory labelled container_file_t"
+fi
+# NOTE: semanage writes to the node's local SELinux policy store, which the
+# Machine Config Operator does NOT manage. Nodes added later will not have this,
+# and an RHCOS upgrade may drop it. Convert to a MachineConfig for anything
+# beyond a small static cluster.
 
 # Ensure a StorageClass named "default" exists and is the cluster default.
 # Uses rancher.io/local-path which is always present on RKE2.
@@ -374,7 +489,14 @@ echo ""
 # ============================================================================
 step "Kuberay operator"
 echo "📦 Installing Kuberay operator..."
-helm template kuberay-operator ${SOURCES_DIR}/kuberay-operator/1.4.2 --namespace default | ssa_apply
+# --include-crds is REQUIRED: `helm template` does not render a chart's crds/
+# directory (only `helm install` does that implicitly), so without it none of
+# the three ray.io CRDs are created. The operator then waits for its own CRDs,
+# times out after ~30s and exits 1, roughly every 2 minutes -- and reports
+# 1/1 Running in between, so it looks healthy at a glance. It also takes the
+# kaiwo operator down with it, whose KaiwoService controller watches
+# RayService/RayJob and hits the same cache-sync timeout.
+helm template kuberay-operator ${SOURCES_DIR}/kuberay-operator/1.4.2 --namespace default --include-crds | ssa_apply
 
 # ============================================================================
 # DATABASE OPERATOR (CloudNativePG)
@@ -471,6 +593,28 @@ helm template kyverno-policies-base ${SOURCES_DIR}/kyverno-policies/base --names
 echo "📦 Installing Kyverno storage-local-path policies..."
 helm template kyverno-policies-storage ${SOURCES_DIR}/kyverno-policies/storage-local-path --namespace kyverno | ssa_apply
 
+# Immediately override two of the policies just installed. The chart's
+# local-path-access-mode-mutation matches EVERY PVC in the cluster with no
+# storageClassName filter, so it rewrites RWX/ROX to RWO on storage that may
+# well support RWX. Harmless while everything is local-path; silently
+# destructive the day NFS/CephFS/ODF is added, and accessModes is immutable
+# after creation, so recovery means recreating each PVC and moving its data.
+#
+# The override scopes both policies to the local-path StorageClasses and makes
+# the conversion visible (the chart's companion "warning" policy cannot fire --
+# see the file header). Must run AFTER the helm template above, which is why it
+# sits here rather than with the other extra/ policies further down.
+ACCESS_MODE_POLICY_FILE="${EXTRA_DIR}/local-path-access-mode-scoped.yaml"
+if ! kubectl get clusterpolicy local-path-access-mode-mutation &>/dev/null; then
+  # Chart not deployed on this cluster size (it ships only to small/medium),
+  # so there is nothing to scope.
+  echo "ℹ️  local-path-access-mode-mutation not present — skipping access-mode scoping"
+else
+  ensure_extra_file "${ACCESS_MODE_POLICY_FILE}"
+  echo "🔧 Scoping local-path access-mode policies to the local-path StorageClasses..."
+  ssa_apply < "${ACCESS_MODE_POLICY_FILE}"
+fi
+
 echo "✅ Kyverno policies installed"
 echo ""
 
@@ -525,8 +669,15 @@ sed "s|<DOMAIN>|${DOMAIN}|g" "${KYVERNO_ROUTE_REWRITE_POLICY_FILE}" | ssa_apply
 # different UID, so generated SCCs do not accumulate over the cluster's lifetime.
 # Requires the Kyverno cleanup controller to be enabled.
 echo "🧹 Installing orphaned-SCC cleanup policy..."
+KYVERNO_CLEANUP_RBAC_FILE="${EXTRA_DIR}/kyverno-cleanup-scc-permissions.yaml"
 KYVERNO_CLEANUP_POLICY_FILE="${EXTRA_DIR}/kyverno-cleanup-policy.yaml"
+ensure_extra_file "${KYVERNO_CLEANUP_RBAC_FILE}"
 ensure_extra_file "${KYVERNO_CLEANUP_POLICY_FILE}"
+# RBAC first: the cleanup-controller webhook validates at admission that the
+# cleanup controller can delete every kind the policy matches, so without this
+# the policy is rejected with "cleanup controller has no permission to delete
+# kind SecurityContextConstraints".
+ssa_apply < "${KYVERNO_CLEANUP_RBAC_FILE}"
 ssa_apply < "${KYVERNO_CLEANUP_POLICY_FILE}"
 
 echo "✅ Extra OpenShift Kyverno policies installed"
@@ -539,6 +690,21 @@ step "Workspace StorageClasses (multinode, mlstorage)"
 # Create multinode and mlstorage StorageClasses for workspace PVCs.
 # Skip each one if it already exists — the provisioner field is immutable
 # so applying over an existing class with a different provisioner would fail.
+#
+# NAMES ARE MISLEADING. Both are rancher.io/local-path with the same host
+# directory and no parameters, identical to the "default" and "local-path"
+# classes created earlier. All four are aliases; there are no separate pools
+# and no shared storage behind any of them.
+#
+# In particular "multinode" CANNOT do RWX. It only appears to, because the
+# cluster-forge Kyverno policy local-path-access-mode-mutation silently
+# rewrites RWX/ROX to RWO on every PVC cluster-wide before anything notices.
+# Do not size, schedule or promise workloads on the assumption that these are
+# distinct backends. Before adding real shared storage (NFS/CephFS/ODF), check
+# that the access-mode policy is scoped to the local-path classes -- see
+# extra/local-path-access-mode-scoped.yaml -- or RWX PVCs on the new storage
+# get downgraded too. Note also that accessModes is immutable: PVCs already
+# converted to RWO must be recreated to move to real RWX storage.
 echo "📦 Creating storage classes..."
 if kubectl get storageclass multinode &>/dev/null; then
   echo "ℹ️  multinode StorageClass already exists — skipping"
@@ -792,18 +958,43 @@ kubectl create namespace otel-lgtm-stack --dry-run=client -o yaml | kubectl appl
 # openshift-amd-gpu), so that job would find zero targets and no GPU metrics
 # (gpu_gfx_activity, ...) would reach Prometheus. Detect the real namespace and
 # rewrite it on the fly below — a local, apply-time patch (sources stay default).
+#
+# The same job hardcodes the exporter POD NAME the same way: it keeps targets
+# matching regex 'gpu-operator-metrics-exporter.*' against
+# __meta_kubernetes_pod_name, but the AMD operator names that DaemonSet
+# <deviceconfig-name>-metrics-exporter. Any DeviceConfig not called
+# "gpu-operator" (e.g. "test-deviceconfig" from the OpenShift Software Catalog)
+# produces pods the fully-anchored relabel regex drops, so the job silently
+# scrapes ZERO targets: no error, collector 1/1, but no gpu_* metrics reach
+# Prometheus. Widened to .*metrics-exporter.* by the second sed below, which
+# stays anchored to the -metrics-exporter suffix the operator always emits.
+#
+# Do NOT instead blanket-sed the keep to the app.kubernetes.io/name label form:
+# that string also appears in unrelated pod-log jobs in
+# collectors-logs-metrics-k8s.yaml and breaks them silently.
 AMD_GPU_NS="$(detect_amd_gpu_ns)"
 echo "ℹ️  AMD GPU Operator namespace (for otel GPU scrape job): ${AMD_GPU_NS}"
 
 # Use values from cluster-forge with medium-sized resource overrides.
-# services.nodeExporter.metrics=9101: the bundled prometheus-node-exporter runs
-# with hostNetwork on port 9100, which collides with OpenShift's built-in
-# cluster-monitoring node-exporter (also hostNetwork:9100) on every node, leaving
-# all node-exporter pods Pending ("didn't have free ports"). Move ours to 9101.
+# services.nodeExporter.metrics=9110: the bundled prometheus-node-exporter runs
+# with hostNetwork, and OpenShift's built-in cluster-monitoring node-exporter
+# occupies TWO ports on every node -- kube-rbac-proxy on 9100 and the exporter
+# itself on 127.0.0.1:9101. The chart hardcodes HOST_IP=0.0.0.0, so ours binds
+# every interface including loopback and collides with either one:
+#   9100 -> pods Pending, "didn't have free ports"
+#   9101 -> CrashLoopBackOff, "listen tcp 0.0.0.0:9101: address already in use"
+# 9110 is clear of the whole 9100-9108 OpenShift monitoring block. Do NOT "fix"
+# a future collision by nudging this to 9102 etc; check what is actually free.
+#
+# Not root-caused: HOST_IP=0.0.0.0 means this exporter claims every interface,
+# so any future service wanting 9110 collides the same way. Binding
+# status.hostIP would fix it properly, but the chart exposes no --set for it.
+# The durable alternative is nodeExporter.enabled=false plus scraping
+# OpenShift's exporter, since two exporters collect nearly the same metrics.
 #
 # Server-side apply merges container ports by their list key (containerPort +
 # protocol), NOT by name. If a previous install left the node-exporter DaemonSet
-# on a different metrics port (e.g. 9102), re-applying with 9101 does not replace
+# on a different metrics port (e.g. 9101), re-applying with 9110 does not replace
 # the old entry — SSA keeps BOTH, producing two ports named "metrics" and failing
 # with 'ports[1].name: Duplicate value: "metrics"'. Delete the DaemonSet first so
 # it is recreated cleanly on the intended port. (--ignore-not-found: no-op on a
@@ -823,7 +1014,7 @@ helm template otel-lgtm-stack ${SOURCES_DIR}/otel-lgtm-stack/v1.0.7 \
   --set dashboards.enabled=true \
   --set kubeStateMetrics.enabled=true \
   --set nodeExporter.enabled=true \
-  --set services.nodeExporter.metrics=9101 \
+  --set services.nodeExporter.metrics=9110 \
   --set lgtm.resources.requests.cpu=1 \
   --set lgtm.resources.requests.memory=2Gi \
   --set lgtm.resources.limits.memory=8Gi \
@@ -834,6 +1025,7 @@ helm template otel-lgtm-stack ${SOURCES_DIR}/otel-lgtm-stack/v1.0.7 \
   --set lgtm.storage.extra=50Gi \
   | sed 's#external-secrets.io/v1beta1#external-secrets.io/v1#g' \
   | sed "s#kube-amd-gpu#${AMD_GPU_NS}#g" \
+  | sed 's#^\( *\)regex: gpu-operator-metrics-exporter\.\*$#\1regex: .*metrics-exporter.*#' \
   | ssa_apply
 
 # Wait for main LGTM components
@@ -932,6 +1124,10 @@ if kserve_running kserve-system || kserve_running redhat-ods-applications; then
   echo "ℹ️  KServe already installed and running — skipping installation"
   echo "   (detected in kserve-system or redhat-ods-applications)"
 else
+  # VERSION PIN: v0.16.0 here and in the three kserve/ templates below. The
+  # aim-engine docs (docs/docs/admin/kserve-configuration.md) require v0.16.1
+  # or later. Bump all four pins together, and do the deploymentMode rename
+  # noted below in the same change -- they are coupled.
   echo "📦 Installing KServe CRDs..."
   kubectl create namespace kserve-system --dry-run=client -o yaml | kubectl apply -f -
   helm template kserve-crds ${SOURCES_DIR}/kserve-crds/v0.16.0 --namespace kserve-system | ssa_apply
@@ -939,7 +1135,13 @@ else
   echo "📦 Installing KServe operator..."
   # IMPORTANT: cert-manager Certificate resources don't work well with --server-side
   # Apply them separately with regular kubectl apply
-  # Set deploymentMode to RawDeployment (default is Knative, which requires Knative Serving)
+  # Set deploymentMode to RawDeployment (default is Knative, which requires Knative Serving).
+  # NAME MISMATCH, not a bug: v0.16.0's values.yaml documents the choices as
+  # "Standard"/"Knative" and the aim-engine doc asks for "Standard".
+  # RawDeployment is the legacy alias for exactly the same mode and works today
+  # (predictors come up as plain Deployments, no Knative anywhere). Rename to
+  # "Standard" when bumping to v0.16.1, not before -- changing it on its own
+  # buys nothing and risks the older chart not recognising the new spelling.
   kubectl config set-context --current --namespace=kserve-system
   helm template kserve ${SOURCES_DIR}/kserve/v0.16.0 \
     --namespace kserve-system \
@@ -982,13 +1184,60 @@ else
     --namespace kserve-system \
     --set kserve.controller.deploymentMode=RawDeployment \
     | kubectl apply -f - 2>&1 | grep -v "unchanged" | head -20
-
-  # Patch: kserve default cpuLimit of "1" causes InferenceService validation failures when
-  # the AIM engine profile sets requests.cpu > 1 (e.g. 4 for throughput-optimised templates).
-  # Setting cpuLimit to "" removes the default cap; cpuRequest remains as a scheduling hint.
-  kubectl patch configmap inferenceservice-config -n kserve-system --type=merge -p \
-    '{"data":{"inferenceService":"{\"resource\":{\"cpuLimit\":\"\",\"cpuRequest\":\"1\",\"memoryLimit\":\"2Gi\",\"memoryRequest\":\"2Gi\"}}"}}'
 fi
+
+# Patch: kserve's default cpuLimit "1" / memoryLimit "2Gi" are injected into every
+# InferenceService that does not set its own resources, and both break AIM workloads:
+#   - cpuLimit "1" fails validation when an AIM profile sets requests.cpu > 1
+#     (e.g. 4 for throughput-optimised templates) — requests would exceed limits.
+#   - memoryLimit "2Gi" OOM-kills the vLLM model server (exit 137) as soon as it
+#     loads weights, leaving the predictor in CrashLoopBackOff.
+# Per the kserve chart's own docs, setting a value to "" unbounds that resource.
+#
+# The REQUESTS are deliberately NOT cleared, even though the aim-engine doc
+# (docs/docs/admin/kserve-configuration.md) says to clear them too. Do not
+# "finish the job" here without re-checking the following first:
+#
+# AIM Engine v0.2.5 does not populate its own resource requests -- the
+# InferenceService carries KServe's 1 CPU / 2Gi verbatim, NOT the 4 CPU + 32Gi
+# per GPU the doc describes. So clearing these leaves predictors with no
+# requests at all, which drops them to BestEffort QoS and makes them the first
+# thing the kubelet evicts under node memory pressure. On a single-node cluster
+# that is a self-inflicted outage.
+#
+# Revisit after an AIM Engine upgrade: confirm AIM actually sets requests on
+# the InferenceService, and only THEN clear these. The limits already are
+# cleared, so the doc's "Verifying Configuration" check passes as-is.
+# Applied outside the branch above so the setting is re-asserted on every run, including
+# when the install itself was skipped because our kserve-system deployment already existed.
+# Deliberately scoped to kserve-system: a RHOAI-managed KServe in redhat-ods-applications
+# is owned by the cluster admin / ODS operator, which would revert the patch anyway, so we
+# leave it alone. If the configmap is absent (RHOAI-only cluster) this block is a no-op.
+KSERVE_RESOURCE_DEFAULTS='{"resource":{"cpuLimit":"","cpuRequest":"1","memoryLimit":"","memoryRequest":"2Gi"}}'
+# for ns in kserve-system redhat-ods-applications; do
+for ns in kserve-system; do
+  kubectl get configmap inferenceservice-config -n "${ns}" >/dev/null 2>&1 || continue
+
+  current=$(kubectl get configmap inferenceservice-config -n "${ns}" \
+    -o jsonpath='{.data.inferenceService}' 2>/dev/null || true)
+  if [ "${current}" = "${KSERVE_RESOURCE_DEFAULTS}" ]; then
+    echo "ℹ️  ${ns}/inferenceservice-config already has cpu/memory limits cleared — skipping patch"
+    continue
+  fi
+
+  # The configmap stores this JSON as a *string* value, so the inner quotes are escaped.
+  echo "🔧 Clearing kserve default cpu/memory limits in ${ns}/inferenceservice-config"
+  kubectl patch configmap inferenceservice-config -n "${ns}" --type=merge -p \
+    "{\"data\":{\"inferenceService\":\"${KSERVE_RESOURCE_DEFAULTS//\"/\\\"}\"}}"
+
+  # The controller caches this configmap, so an already-running instance keeps
+  # applying the old limits until it is restarted.
+  if kubectl get deployment kserve-controller-manager -n "${ns}" >/dev/null 2>&1; then
+    echo "♻️  Restarting kserve-controller-manager in ${ns} to pick up the new defaults"
+    kubectl rollout restart deployment/kserve-controller-manager -n "${ns}"
+    kubectl rollout status deployment/kserve-controller-manager -n "${ns}" --timeout=180s
+  fi
+done
 
 echo "✅ KServe is ready"
 echo ""
@@ -1110,15 +1359,7 @@ if kubectl get crd nodefeaturerules.nfd.k8s-sigs.io >/dev/null 2>&1; then
     echo "⚠️  AMD GPU hardware detected but no node has feature.node.kubernetes.io/amd-gpu=true"
     echo "📦 Applying NodeFeatureRule to label AMD GPU nodes..."
     NFR_FILE="${EXTRA_DIR}/amd-gpu-nodefeaturerule.yaml"
-    # WORKAROUND: same as scc.yaml — the manifest currently only lives on the
-    # test-aiwb branch; fetch it if the cloned branch does not include it.
-    if [ ! -f "${NFR_FILE}" ]; then
-      echo "ℹ️  amd-gpu-nodefeaturerule.yaml not in cloned branch '${CLUSTER_FORGE_BRANCH}'; fetching from test-aiwb..."
-      mkdir -p "$(dirname "${NFR_FILE}")"
-      retry curl -fsSL \
-        https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/main/docs/openshift/extra/amd-gpu-nodefeaturerule.yaml \
-        -o "${NFR_FILE}"
-    fi
+    ensure_extra_file "${NFR_FILE}"
     retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f "${NFR_FILE}"
     echo "⏳ Waiting for nodes to receive the amd-gpu label..."
     for i in $(seq 1 12); do
@@ -1850,16 +2091,7 @@ for f in ${SOURCES_DIR}/kaiwo-config/*.yaml; do echo "---"; cat "$f"; done \
 step "Apply OpenShift Routes (AIWB UI/API + Keycloak)"
 ROUTES_FILE="${EXTRA_DIR}/routes.yaml"
 echo "🌐 Applying OpenShift Routes..."
-# WORKAROUND: routes.yaml currently only lives on the test-aiwb branch (same as
-# scc.yaml). If it is missing from the clone, fetch it from test-aiwb so the
-# apply works regardless of which branch was cloned. (Remove once merged.)
-if [ ! -f "${ROUTES_FILE}" ]; then
-  echo "ℹ️  routes.yaml not in cloned branch '${CLUSTER_FORGE_BRANCH}'; fetching from test-aiwb..."
-  mkdir -p "$(dirname "${ROUTES_FILE}")"
-  retry curl -fsSL \
-    https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/main/docs/openshift/extra/routes.yaml \
-    -o "${ROUTES_FILE}"
-fi
+ensure_extra_file "${ROUTES_FILE}"
 # Substitute the ${DOMAIN} placeholder in the Route host fields with the cluster's
 # apps domain before applying (sed is used instead of envsubst for portability).
 sed "s|\${DOMAIN}|${DOMAIN}|g" "${ROUTES_FILE}" | ssa_apply
@@ -1958,56 +2190,3 @@ echo "✅ Cleanup complete"
 
 echo ""
 echo "✅ Deploy complete"
-
-# TODO: Missing apps???
-# aiwb-infra-external-secrets
-
-
-# kyverno-policies-storage-local-path DONE????
-# cluster-auth-config NOT IN OPENSHIFT???
-
-# envoy-ai-gateway-crds
-# envoy-ai-gateway
-# inference-extension-crds
-
-  # aiwb-infra-external-secrets:
-  #   repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-  #   repoVersion: "2.0.0"
-  #   chart: "aiwb-external-secrets-chart"
-  #   namespace: aiwb
-  #   syncWave: -20
-  #   valuesFile: values.yaml
-  #   ignoreDifferences:
-  #     - group: external-secrets.io
-  #       kind: ExternalSecret
-  #       jqPathExpressions:
-  #         - ".spec.data[].remoteRef.conversionStrategy"
-  #         - ".spec.data[].remoteRef.decodingStrategy"
-  #         - ".spec.data[].remoteRef.metadataPolicy"
-
-  # kaiwo-crds:
-  #   repoURL: "{{ .Values.ociRegistry.ghcr }}"
-  #   repoVersion: "v0.2.1"
-  #   chart: "kaiwo-crds-chart"
-  #   namespace: kaiwo
-  # kaiwo:
-  #   repoURL: "{{ .Values.ociRegistry.ghcr }}"
-  #   repoVersion: "v0.2.1"
-  #   chart: "kaiwo-operator-chart"
-  #   namespace: kaiwo-system
-  #   syncWave: -10
-  # kaiwo-config:
-  #   ignoreDifferences:
-  #     - group: external-secrets.io
-  #       jqPathExpressions:
-  #         - ".spec.data[].remoteRef.conversionStrategy"
-  #         - ".spec.data[].remoteRef.decodingStrategy"
-  #         - ".spec.data[].remoteRef.metadataPolicy"
-  #       kind: ExternalSecret
-  #     - group: ""
-  #       jsonPointers:
-  #         - /spec/accessModes
-  #       kind: "PersistentVolumeClaim"
-  #   namespace: kaiwo-system
-  #   path: kaiwo-config
-  #   syncWave: 0
