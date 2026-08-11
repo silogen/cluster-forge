@@ -46,6 +46,15 @@ spec:
         metadata:
           name: "{{request.object.metadata.name}}"
           namespace: "{{request.object.metadata.namespace}}"
+          annotations:
+            # A Route has no field equivalent to the HTTPRoute's
+            # spec.rules[].timeouts.request, so without this the generated Route
+            # silently falls back to the router default of 30s and long-running
+            # requests die with a 504. AIM sets "30m0s" on its HTTPRoutes, but
+            # haproxy rejects compound Go durations and drops the annotation
+            # without logging, so emit the normalised equivalent instead of
+            # copying the source value.
+            haproxy.router.openshift.io/timeout: 30m
         spec:
           # Mirror the source HTTPRoute's own hostname onto the generated Route
           # (AIWB sets exactly one, e.g. workspaces.<DOMAIN>) so the Route serves
