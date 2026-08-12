@@ -744,10 +744,13 @@ spec:
   serviceAccount: otel-collector
   image: "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0"
   env:
-    - name: K8S_NODE_NAME
+    # Address the kubelet by node IP, not node name: cluster DNS (CoreDNS) does not
+    # resolve node hostnames here, so ${env:K8S_NODE_NAME}:10250 fails with "no such host".
+    # status.hostIP is always routable.
+    - name: K8S_NODE_IP
       valueFrom:
         fieldRef:
-          fieldPath: spec.nodeName
+          fieldPath: status.hostIP
   podAnnotations:
     prometheus.io/scrape: "true"
     prometheus.io/port: "8888"
@@ -763,7 +766,7 @@ spec:
       kubeletstats:
         collection_interval: 30s
         auth_type: serviceAccount
-        endpoint: "https://${env:K8S_NODE_NAME}:10250"
+        endpoint: "https://${env:K8S_NODE_IP}:10250"
         insecure_skip_verify: true
         metric_groups:
           - pod
