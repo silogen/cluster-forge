@@ -30,13 +30,15 @@ Treat permission to create or mutate an `EnvoyExtensionPolicy` that can
 target the shared Gateway or any attached HTTPRoute as permission to run code
 in the Envoy data plane. Because the Gateway currently allows routes from all
 namespaces, enforce this restriction cluster-wide rather than only in
-`envoy-gateway-system`. Kubernetes RBAC and, where needed, admission policy
-must limit those actions to platform administrators. Apply the same
-restriction to ConfigMaps used by `ValueRef` Lua policies. RBAC operates on
-the whole `EnvoyExtensionPolicy` resource, not only its `lua` field; use an
+`envoy-gateway-system`. The config chart installs a cluster-wide role and
+binding that grants `EnvoyExtensionPolicy` management to the current and
+legacy AIRM Platform Administrator OIDC groups. Kubernetes RBAC is additive,
+so other broad role bindings must not grant the same write verbs to untrusted
+principals. RBAC operates on the whole resource, not only its `lua` field; use
 admission policy if non-admins must retain access to other extension types.
-Return to `Strict` as soon as Envoy Gateway's validator supports
-`handle:stats()`.
+This policy uses inline Lua; any future `ValueRef` policy must similarly
+restrict write access to its ConfigMap. Return to `Strict` as soon as Envoy
+Gateway's validator supports `handle:stats()`.
 
 The Envoy filter order explicitly places `ext_authz` before Lua. Requests
 rejected by external authorization therefore do not increment activation
