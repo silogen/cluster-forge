@@ -9,6 +9,15 @@ ports:
 appsGateway:
   serviceType: LoadBalancer
 
+# AIM Engine scale-from-zero gateway instrumentation. Cluster Forge owns this
+# shared policy and sink; AIM Engine owns only per-service ScaledObjects.
+aimScaleFromZero:
+  enabled: false
+  gatewayName: https
+  collector:
+    host: envoy-gateway-metrics-collector.keda.svc.cluster.local
+    port: 4317
+
 # Stable ClusterIP `https` selecting the apps-gateway data plane, used by CoreDNS for the
 # *.domain rewrite (in-cluster resolution).
 gatewayDnsService:

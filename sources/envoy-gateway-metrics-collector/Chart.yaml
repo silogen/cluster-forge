@@ -1,0 +1,6 @@
+apiVersion: v2
+name: envoy-gateway-metrics-collector
+description: Envoy route activation metrics pipeline for AIM Engine scale-from-zero
+type: application
+version: 0.1.0
+appVersion: "0.140.0"

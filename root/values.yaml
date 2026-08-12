@@ -612,6 +612,8 @@ apps:
         envoyGateway:
           extensionApis:
             enableBackend: true
+            # AIM scale-from-zero installs a Gateway-scoped Lua route counter.
+            disableLua: false
           extensionManager:
             # Tolerate the AI extension erroring on the tls-passthrough gateway's L4
             # listener (it tries to splice an HTTP filter into a TCP chain with no
@@ -663,6 +665,8 @@ apps:
         value: "true"
       - name: aiGateway.routeHostname
         value: "ai.{{ .Values.global.domain }}"
+      - name: aimScaleFromZero.enabled
+        value: "true"
       # Point the body-aware extAuth backendRef + ReferenceGrant at wherever the
       # ai-gateway-discovery app is declared, so they never drift from it.
       # index (not dot access) because the app key contains dashes.
@@ -671,6 +675,11 @@ apps:
     namespace: envoy-gateway-system
     path: envoy-gateway-config
     syncWave: -15
+    valuesFile: values.yaml
+  envoy-gateway-metrics-collector:
+    namespace: keda
+    path: envoy-gateway-metrics-collector
+    syncWave: -4
     valuesFile: values.yaml
   envoy-ai-gateway-crds:
     namespace: envoy-ai-gateway-system

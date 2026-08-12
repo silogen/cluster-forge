@@ -1,0 +1,29 @@
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: envoy-gateway-metrics-collector
+  automountServiceAccountToken: false
+
+collector:
+  name: envoy-gateway-metrics
+  replicas: 1
+  receiver:
+    endpoint: 0.0.0.0:4317
+  exporter:
+    endpoint: keda-otel-scaler.keda.svc:4317
+    compression: none
+    tls:
+      insecure: true
+  debug:
+    verbosity: basic
+    samplingInitial: 2
+    samplingThereafter: 200
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

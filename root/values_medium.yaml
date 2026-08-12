@@ -26,6 +26,7 @@ enabledApps:
   - inference-extension-crds
   - envoy-gateway
   - envoy-gateway-config
+  - envoy-gateway-metrics-collector
   - envoy-ai-gateway-crds
   - envoy-ai-gateway
   - gitea
