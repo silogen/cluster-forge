@@ -1,0 +1,54 @@
+# Merge patch for the local-path-provisioner helper pod spec.
+#
+# NOT a manifest: this is a merge-patch fragment, so it cannot be applied with
+# kubectl apply. install.sh applies it in STEP 3; by hand it is:
+#   oc patch cm local-path-config -n local-path-storage \
+#     --type merge --patch-file extra/local-path-helper-pod-selinux.yaml
+#   oc rollout restart deploy/local-path-provisioner -n local-path-storage
+#
+# Granting the privileged SCC (local-path-provisioner-scc.yaml) is necessary but
+# NOT sufficient. An SCC only permits a capability; the pod must request it. The
+# stock helper pod sets no securityContext, so it was admitted under the
+# privileged SCC yet still ran confined as container_t and failed with:
+#
+#   mkdir: can't create directory '/opt/local-path-provisioner/pvc-...':
+#   Permission denied
+#
+# The node is SELinux Enforcing and /opt (-> /var/opt) is labelled var_t, which
+# container_t may not write to. Running as spc_t lifts that confinement.
+#
+# Do NOT use `privileged: true` here. The provisioner validates its own helper
+# pod template and refuses to start, crash-looping with:
+#   Error starting daemon: helper pod template must not set privileged: true
+#   unless allow-unsafe-helper-pod-template is enabled
+# seLinuxOptions.type passes that validation and is narrower anyway.
+#
+# This patch alone only fixes volume CREATION. Consuming pods still cannot write
+# to the volume, because directories created here inherit the parent's var_t
+# label. The host-side relabel that install.sh performs in STEP 3 (semanage +
+# restorecon on /var/opt/local-path-provisioner) is also required.
+#
+# NOTE: this ConfigMap comes from the upstream rancher local-path-storage.yaml
+# the installer applies. Re-applying that manifest reverts this patch. The
+# installer only applies it when the local-path StorageClass is absent, so
+# normal re-runs are safe.
+data:
+  helperPod.yaml: |-
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: helper-pod
+    spec:
+      priorityClassName: system-node-critical
+      tolerations:
+        - key: node.kubernetes.io/disk-pressure
+          operator: Exists
+          effect: NoSchedule
+      containers:
+      - name: helper-pod
+        image: docker.io/library/busybox
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+          seLinuxOptions:
+            type: spc_t

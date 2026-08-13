@@ -1,0 +1,172 @@
+---
+# Overrides two cluster-forge Kyverno policies that rewrite PVC access modes.
+#
+# WHAT CLUSTER-FORGE SHIPS
+#   local-path-access-mode-mutation rewrites ReadWriteMany/ReadOnlyMany to
+#   ReadWriteOnce on EVERY PersistentVolumeClaim in the cluster, matching only
+#   on kind: PersistentVolumeClaim with no storageClassName filter at all. That
+#   is correct while every StorageClass is rancher.io/local-path, which cannot
+#   do RWX -- but it keeps applying to storage that CAN.
+#
+#   Add NFS/CephFS/ODF later and PVCs that legitimately need RWX are silently
+#   downgraded to RWO: no error, no event, just pods that cannot co-mount.
+#   Worse, spec.accessModes is IMMUTABLE after creation, so recovering means
+#   deleting and recreating each PVC and migrating its data.
+#
+# WHAT THIS FILE CHANGES
+#   1. Scopes both policies to the four local-path StorageClasses that
+#      install.sh actually creates. Anything else passes through untouched, so
+#      a future shared-storage class keeps its RWX. If a new class genuinely
+#      cannot do RWX, its PVC now fails loudly and stays Pending, which is far
+#      better than binding single-node storage nobody asked for.
+#
+#   2. Makes the downgrade VISIBLE. The companion "warning" policy cannot warn,
+#      for two independent reasons: its deny condition is the literal
+#      `"false" Equals "true"`, which never evaluates true, so the rule always
+#      passes and its message is never rendered; and its precondition tests
+#      spec.accessModes for RWX/ROX, but Kyverno mutates BEFORE it validates,
+#      so by then the value is already RWO and the rule reports "skip:
+#      preconditions not met". Combined with emitWarning: false, conversions
+#      were completely silent -- on the cluster this was found on, six PVCs
+#      (workbench volumes, mlflow, and model caches) had already been rewritten
+#      with nobody aware. Here the deny fires, validationFailureAction stays
+#      Audit so it never blocks, and emitWarning is on so the message reaches
+#      whoever created the PVC.
+#
+# ALLOWLIST, NOT A PROVISIONER LOOKUP
+#   Resolving the PVC's effective provisioner via a Kyverno apiCall would be
+#   more general, but it needs awkward JMESPath to cover an unset
+#   storageClassName, and apiCall semantics have already caused two silent
+#   no-ops in this cluster's policies. An explicit list fails safe and is
+#   reviewable at a glance. Keep it in sync with the StorageClasses install.sh
+#   creates (STEP "Workspace StorageClasses" plus the default class).
+#
+# KNOWN EDGE CASE
+#   A PVC with storageClassName: "" (explicit static binding, no provisioner)
+#   falls through the `|| 'default'` and is still treated as local-path. There
+#   are no static PVs here; revisit if that changes.
+#
+# Applied AFTER cluster-forge's own copy, which install.sh applies earlier.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: local-path-access-mode-mutation
+  annotations:
+    policies.kyverno.io/title: Local-Path Access Mode Mutation
+    policies.kyverno.io/category: Storage
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: PersistentVolumeClaim
+    policies.kyverno.io/minversion: 1.6.0
+    policies.kyverno.io/description: >-
+      Converts ReadWriteMany (RWX) and ReadOnlyMany (ROX) to ReadWriteOnce
+      (RWO) for PVCs on the local-path StorageClasses, which only support RWO
+      and RWOP. Scoped to those classes so PVCs on shared storage keep the
+      access mode they asked for.
+spec:
+  admission: true
+  background: false
+  # Surfaces the conversion to whoever created the PVC instead of doing it
+  # behind their back.
+  emitWarning: true
+  validationFailureAction: Enforce
+  rules:
+    - name: convert-rwx-rox-to-rwo
+      match:
+        resources:
+          kinds:
+            - PersistentVolumeClaim
+      preconditions:
+        all:
+          # THE SCOPING FIX. Absent this, the rule matched every PVC cluster-wide.
+          - key: "{{ request.object.spec.storageClassName || 'default' }}"
+            operator: AnyIn
+            value:
+              - default
+              - local-path
+              - mlstorage
+              - multinode
+        any:
+          - key: ReadWriteMany
+            operator: AnyIn
+            value: "{{ request.object.spec.accessModes || [] }}"
+          - key: ReadOnlyMany
+            operator: AnyIn
+            value: "{{ request.object.spec.accessModes || [] }}"
+      skipBackgroundRequests: true
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              +(kyverno.io/mutation-applied): local-path-rwx-to-rwo
+              +(kyverno.io/original-access-modes): "{{ request.object.spec.accessModes && join(',', request.object.spec.accessModes) || 'undefined' }}"
+              +(kyverno.io/policy-reason): "local-path provisioner only supports ReadWriteOnce and ReadWriteOncePod"
+          spec:
+            accessModes:
+              - ReadWriteOnce
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: local-path-access-mode-warning
+  annotations:
+    policies.kyverno.io/title: Local-Path Access Mode Warning
+    policies.kyverno.io/category: Storage
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: PersistentVolumeClaim
+    policies.kyverno.io/description: >-
+      Tells the requester that their RWX/ROX PVC was converted to RWO because
+      it targets a local-path StorageClass. Audit only -- it never blocks.
+spec:
+  admission: true
+  background: false
+  # Without this the message below stays inside PolicyReports and the user who
+  # created the PVC never sees it.
+  emitWarning: true
+  # MUST stay Audit. Enforce here would block every RWX PVC outright, including
+  # the AIWB workbench and model-cache volumes that rely on the conversion.
+  validationFailureAction: Audit
+  rules:
+    - name: warn-access-mode-conversion
+      match:
+        resources:
+          kinds:
+            - PersistentVolumeClaim
+      preconditions:
+        all:
+          # Keys off the annotation the mutation leaves behind, NOT off
+          # spec.accessModes. Kyverno runs mutation before validation, so by
+          # the time this rule is evaluated accessModes has already been
+          # rewritten to ReadWriteOnce and an RWX/ROX precondition can never
+          # match -- that is cluster-forge's second bug here, and it reports as
+          # "skip: preconditions not met" rather than as an error.
+          #
+          # Reading the marker also means the storage-class allowlist lives in
+          # exactly one place: the annotation only exists if the mutation
+          # actually ran, so this rule inherits that scoping automatically.
+          - key: "{{ request.object.metadata.annotations.\"kyverno.io/mutation-applied\" || '' }}"
+            operator: Equals
+            value: local-path-rwx-to-rwo
+      skipBackgroundRequests: true
+      validate:
+        allowExistingViolations: true
+        # Deliberately always true. cluster-forge had `"false" Equals "true"`,
+        # which never fires, so the rule always passed and the message never
+        # reached anyone. The rule must FAIL for its message to surface; Audit
+        # above is what keeps that failure non-blocking.
+        deny:
+          conditions:
+            - key: "true"
+              operator: Equals
+              value: "true"
+        # Reads the ORIGINAL modes from the annotation; spec.accessModes has
+        # already been overwritten by the time this renders.
+        message: >-
+          Access mode(s) {{ request.object.metadata.annotations."kyverno.io/original-access-modes"
+          || 'undefined' }} are not supported
+          by the local-path provisioner backing StorageClass
+          "{{ request.object.spec.storageClassName || 'default' }}". This PVC
+          was automatically converted to ReadWriteOnce. Note that RWO is
+          enforced per NODE, so this is transparent on a single-node cluster
+          but will restrict pods to one node once more are added. accessModes
+          cannot be changed after creation -- the PVC must be recreated to move
+          to real RWX storage.

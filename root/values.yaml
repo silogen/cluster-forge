@@ -4,6 +4,9 @@ clusterForge:
 externalValues:
   enabled: true
   path: values.yaml
+  # Dedicated file (in the same cluster-values overlay repo) for extraApps
+  # entries, kept separate from values.yaml so it doesn't bloat as extras grow.
+  extraAppsPath: extra-apps-values.yaml
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
   targetRevision: main
 global:
@@ -818,20 +821,20 @@ apps:
     namespace: default
     path: metallb/v0.15.2
     syncWave: 10
-  seaweedfs-crds:
-    path: seaweedfs-crds/0.1.13
-    namespace: seaweedfs-operator
-    syncWave: -1
   seaweedfs-operator:
     helmParameters:
       - name: domain
         value: "{{ .Values.global.domain }}"
       - name: webhook.enabled
         value: "false"
-    path: seaweedfs-operator/0.1.13
+    path: seaweedfs-operator/0.1.36
     namespace: seaweedfs-operator
     valuesFile: values.yaml
     syncWave: 0
+  seaweedfs-crds:
+    path: seaweedfs-crds/0.1.36
+    namespace: seaweedfs-operator
+    syncWave: -1
   seaweedfs-config:
     ignoreDifferences:
       - group: gateway.networking.k8s.io
@@ -858,6 +861,9 @@ apps:
           replicas: 1
           requests:
             storage: 10Gi
+      bucket:
+        name: default-bucket
+        namespace: demo
     path: seaweedfs-config
     namespace: seaweedfs-instance
     valuesFile: values.yaml
@@ -921,7 +927,7 @@ apps:
       - name: cluster.name
         value: "{{ .Values.global.domain }}"
     namespace: otel-lgtm-stack
-    path: otel-lgtm-stack/v1.0.7
+    path: otel-lgtm-stack/v1.0.8
     syncWave: -20
     valuesObject:
       cluster:
