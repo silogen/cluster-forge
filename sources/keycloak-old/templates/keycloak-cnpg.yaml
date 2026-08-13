@@ -11,7 +11,8 @@ metadata:
 spec:
   affinity:
     enablePodAntiAffinity: true
-    topologyKey: topology.kubernetes.io/zone
+    podAntiAffinityType: {{ .Values.cnpg.podAntiAffinityType | quote }}
+    topologyKey: {{ .Values.cnpg.topologyKey | quote }}
   bootstrap:
     initdb:
       database: {{ .Values.postgresql.database }}
@@ -20,6 +21,9 @@ spec:
         - GRANT CREATE ON SCHEMA public TO {{ .Values.postgresql.username }}
       secret:
         name: {{ .Values.postgresql.userSecretName }}
+  {{- /* An explicit value wins; otherwise a single instance gets no PDB,
+         since one that never permits a disruption only blocks drains. */}}
+  enablePDB: {{ if kindIs "invalid" .Values.cnpg.enablePDB }}{{ gt (int .Values.cnpg.instances) 1 }}{{ else }}{{ .Values.cnpg.enablePDB }}{{ end }}
   imageName: ghcr.io/cloudnative-pg/postgresql:17
   instances: {{ .Values.cnpg.instances }}
   nodeMaintenanceWindow:

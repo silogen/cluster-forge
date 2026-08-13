@@ -1,0 +1,51 @@
+# Helm values for the envoy-gateway chart (sources/envoy-gateway/v1.7.1).
+#
+# Extracted VERBATIM from cluster-forge root/values.yaml, key:
+#     apps.envoy-gateway.valuesObject
+#
+# Regenerate after a cluster-forge bump with:
+#     yq -y '.apps["envoy-gateway"].valuesObject' <cluster-forge>/root/values.yaml
+#
+# The extensionManager block is load-bearing: it wires envoy-gateway to the AI
+# controller. Without it AIGatewayRoute is never translated and InferencePool
+# routes 503, because nothing populates x-gateway-destination-endpoint. Do not
+# hand-trim it, and re-run the command above after every cluster-forge bump:
+# nothing checks this file against upstream, and drift here surfaces much later
+# as models that resolve but never answer.
+
+kubernetesClusterDomain: cluster.local
+config:
+  envoyGateway:
+    extensionApis:
+      enableBackend: true
+    extensionManager:
+      failOpen: true
+      resources:
+        - group: aigateway.envoyproxy.io
+          version: v1beta1
+          kind: AIGatewayRoute
+        - group: aigateway.envoyproxy.io
+          version: v1beta1
+          kind: AIServiceBackend
+      backendResources:
+        - group: inference.networking.k8s.io
+          version: v1
+          kind: InferencePool
+      hooks:
+        xdsTranslator:
+          translation:
+            listener:
+              includeAll: true
+            route:
+              includeAll: true
+            cluster:
+              includeAll: true
+            secret:
+              includeAll: true
+          post:
+            - Translation
+            - Cluster
+            - Route
+      service:
+        host: ai-gateway-controller.envoy-ai-gateway-system.svc.cluster.local
+        port: 1063

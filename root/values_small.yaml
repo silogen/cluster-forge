@@ -60,6 +60,9 @@ enabledApps:
   - rabbitmq
 
 apps:
+  aiwb-infra-cnpg:
+    valuesObject:
+      instances: 1
   argocd:
     valuesObject:
       applicationSet:

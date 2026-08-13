@@ -75,8 +75,11 @@ spec:
         - GRANT CREATE ON SCHEMA public TO keycloak
       secret:
         name: keycloak-cnpg-user
+  {{- /* An explicit value wins; otherwise a single instance gets no PDB,
+         since one that never permits a disruption only blocks drains. */}}
+  enablePDB: {{ if kindIs "invalid" .Values.cnpg.enablePDB }}{{ gt (int .Values.cnpg.instances) 1 }}{{ else }}{{ .Values.cnpg.enablePDB }}{{ end }}
   imageName: ghcr.io/cloudnative-pg/postgresql:17
-  instances: 1
+  instances: {{ .Values.cnpg.instances }}
   nodeMaintenanceWindow:
     inProgress: false
     reusePVC: true
