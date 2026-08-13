@@ -751,6 +751,12 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: status.hostIP
+    # Node name is used only as the local k8sattributes watch filter (not for DNS), so it
+    # is safe here despite node hostnames being unresolvable via cluster DNS.
+    - name: K8S_NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
   podAnnotations:
     prometheus.io/scrape: "true"
     prometheus.io/port: "8888"
@@ -787,6 +793,12 @@ spec:
         timeout: 10s
       k8sattributes:
         auth_type: serviceAccount
+        # Only watch pods on this collector's own node. kubeletstats already scrapes just
+        # the local node's kubelet, so local pod metadata is all the enrichment needs — this
+        # keeps each daemonset pod from holding a cluster-wide pod cache (cost scales with
+        # pods-per-node instead of pods x nodes).
+        filter:
+          node_from_env_var: K8S_NODE_NAME
         extract:
           labels:
           - from: pod
