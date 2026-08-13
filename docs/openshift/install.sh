@@ -65,7 +65,7 @@ EXTRA_RAW_BASE="https://raw.githubusercontent.com/silogen/cluster-forge/refs/hea
 # AIWB_RELEASE_VERSION_TAG=2.0.0
 
 # NOTE: anyuid SCC grants are no longer applied per-namespace here. They are
-# consolidated as declarative ClusterRoleBinding manifests in extra/scc.yaml,
+# consolidated as declarative ClusterRoleBinding manifests in extra/01-scc.yaml,
 # applied up front (see "Applying custom SecurityContextConstraints" below).
 
 # ============================================================================
@@ -176,13 +176,84 @@ detect_amd_gpu_ns() {
   printf '%s' "${ns:-amd-gpu-operator}"
 }
 
+# cf_app_version <app key> : print apps.<key>.repoVersion from the downloaded
+# release's root/values.yaml.
+#
+# The charts installed from OCI registries are NOT in the release tarball, and
+# their versions do not track the cluster-forge release number at all: at v2.2.2
+# aiwb is 2.0.0, aim-engine is 0.2.5 and kaiwo is v0.2.1. Deriving them from
+# CLUSTER_FORGE_VERSION therefore cannot work -- there is no 2.2.2 tag for any of
+# them. root/values.yaml is where cluster-forge states which chart version
+# belongs to the release, so that is the thing to read.
+#
+# Hardcoding them here instead means every release bump silently keeps installing
+# the previous charts, which looks exactly like the installer having no effect.
+#
+# Parsed with awk rather than yq: this is the only YAML this script has to read,
+# the block is a fixed two-level shape, and a `curl | bash` run cannot assume yq
+# is installed. Missing values are fatal, for the same reason as in
+# ensure_extra_file -- stopping here is far cheaper than a cluster that came up
+# on charts nobody chose.
+#
+# A per-app override wins over the release, for the case where a chart has been
+# published that no cluster-forge release references yet:
+#
+#     CF_VERSION_AIWB=2.0.1 ./install.sh
+#
+# The variable name is the app key uppercased with dashes turned into
+# underscores, so ai-gateway-discovery is CF_VERSION_AI_GATEWAY_DISCOVERY.
+# Overriding is a deliberate step outside what the release was tested with, so
+# it is announced in the output rather than applied quietly.
+cf_app_version() {
+  local app="$1" v override
+  override="CF_VERSION_$(printf '%s' "${app}" | tr 'a-z-' 'A-Z_')"
+  if [ -n "${!override:-}" ]; then
+    echo "ℹ️  ${app}: using ${!override} from ${override}, overriding cluster-forge ${CLUSTER_FORGE_VERSION}" >&2
+    printf '%s' "${!override}"
+    return 0
+  fi
+  [ -f "${CF_ROOT_VALUES}" ] || { echo "❌ ${CF_ROOT_VALUES} not found; cannot resolve chart versions" >&2; exit 1; }
+  v=$(awk -v want="  ${app}:" '
+    /^apps:/            { inapps = 1; next }
+    inapps && /^[^ ]/   { exit }            # left the apps: block
+    inapps && $0 == want { inapp = 1; next }
+    inapp && /^  [^ ]/  { exit }            # next app at the same indent
+    inapp && $1 == "repoVersion:" { gsub(/"/, "", $2); print $2; exit }
+  ' "${CF_ROOT_VALUES}")
+  if [ -z "${v}" ]; then
+    echo "❌ apps.${app}.repoVersion not found in ${CF_ROOT_VALUES}" >&2
+    echo "   cluster-forge ${CLUSTER_FORGE_VERSION} may have renamed or dropped this app." >&2
+    exit 1
+  fi
+  printf '%s' "${v}"
+}
+
+# is_openshift : true when this cluster serves the OpenShift Route API.
+#
+# Route is an aggregated API served by the openshift-apiserver, NOT a
+# CustomResourceDefinition, so the `kubectl get crd ...` test used elsewhere in
+# this script finds nothing even on a real OpenShift cluster. Probe the API
+# group instead.
+#
+# Route is also the right thing to probe rather than, say, SecurityContextConstraints:
+# the OpenShift-only work in this script is about exposing services through the
+# HAProxy router, and a cluster without Routes cannot do any of it.
+is_openshift() {
+  kubectl get --raw /apis/route.openshift.io/v1 >/dev/null 2>&1
+}
+
 # ensure_extra_file <path under EXTRA_DIR> : guarantee the manifest is on disk,
 # fetching it from ${EXTRA_RAW_BASE} when it is not.
+#
+# The filename is also the remote name: extra/ in this repo and extra/ on
+# cluster-forge main hold the same files under the same names, NN- prefix
+# included. Keep it that way. If the two ever diverge, a piped run stops being
+# equivalent to a checkout run, which is the whole point of this function.
 #
 # EVERY extra/ manifest must go through this. A bare `[ -f ... ]` test that
 # warns and continues is not an acceptable substitute: it makes a piped run
 # (curl | bash, nothing on disk) skip the manifest entirely, and some of them
-# are load-bearing -- without local-path-provisioner-scc.yaml every PVC in the
+# are load-bearing -- without 02-local-path-provisioner-scc.yaml every PVC in the
 # cluster fails at admission, twenty minutes after the warning scrolled past.
 #
 # Hence: fetch failure is fatal. Stopping with the filename and URL is far
@@ -284,6 +355,31 @@ else
   AIWB_UI_URL="https://aiwbui.${DOMAIN}"
 fi
 
+# --- Envoy AI Gateway (see the ENVOY AI GATEWAY step) ------------------------
+# The single hostname every served model is reached on, with the model selected
+# per-request by the x-ai-eg-backend / x-ai-eg-model headers.
+AI_HOST="ai.${DOMAIN}"
+
+# The gateway is fronted by an OpenShift Route and needs an OpenShift SCC, so
+# the whole step only applies where those exist. Probed once, here, so the
+# answer is the same for the source patches and for the step that uses them.
+if is_openshift; then
+  IS_OPENSHIFT=true
+else
+  IS_OPENSHIFT=false
+  echo "ℹ️  route.openshift.io is not served — the OpenShift-only steps will be skipped"
+fi
+
+# Envoy worker threads. Left unset, Envoy starts one worker per cpuset thread,
+# and each worker costs about four file descriptors before serving anything.
+# CRI-O hands containers a soft nofile limit of 1024, so any node with >=256
+# cores exhausts it during startup and the data plane never comes up.
+ENVOY_CONCURRENCY="${ENVOY_CONCURRENCY:-4}"
+
+# The AI controller encrypts MCP session state with this seed. cluster-forge
+# ships a placeholder; override it on any cluster that will serve real traffic.
+AI_GATEWAY_MCP_SEED="${AI_GATEWAY_MCP_SEED:-cluster-forge-default-seed-override-in-production}"
+
 # Download a pinned cluster-forge release tarball instead of cloning a branch.
 # CLUSTER_FORGE_VERSION selects the GitHub release (e.g. v2.2.0). The release
 # asset "release-enterprise-ai-<version>.tar.gz" unpacks into a top-level
@@ -309,6 +405,8 @@ rm -f "${CLUSTER_FORGE_DIR}/${RELEASE_TARBALL}"
 
 # The tarball unpacks under ${CLUSTER_FORGE_DIR}/cluster-forge; sources live there.
 SOURCES_DIR="${CLUSTER_FORGE_DIR}/cluster-forge/sources"
+# Chart versions for the OCI-hosted apps are declared here, not in sources/.
+CF_ROOT_VALUES="${CLUSTER_FORGE_DIR}/cluster-forge/root/values.yaml"
 
 # EXTRA_DIR is defined near the top, alongside the preflight that verifies the
 # manifests which have no upstream fallback.
@@ -338,6 +436,43 @@ if ! grep -q "failOpen" "${EXTAUTH_TPL}" 2>/dev/null; then
   echo "✅ Patched envoy-gateway-config SecurityPolicy: failOpen=true"
 fi
 
+# --- envoy-gateway-config, for the AI gateway on OpenShift -------------------
+# The chart is written for RKE2: a LoadBalancer apps gateway owning the whole
+# domain, and ordinary node sizes. Three lines have to change here. Patching the
+# extracted sources rather than forking keeps the chart reusable for RKE2; the
+# sources are re-downloaded on every run, so these are one-shot edits.
+#
+# Each patch is asserted afterwards because upstream could rename or reformat
+# the line it targets, and every failure mode is slow and misleading: a gateway
+# claiming every hostname, a pod Pending forever, a CrashLoopBackOff that reads
+# like a networking fault.
+if [ "${IS_OPENSHIFT}" = "true" ]; then
+  AI_GW_TPL="${SOURCES_DIR}/envoy-gateway-config/templates/ai-gateway.yaml"
+  AI_GW_PROXY_TPL="${SOURCES_DIR}/envoy-gateway-config/templates/ai-gateway-proxy-config.yaml"
+
+  # 1. The listener is "*.<domain>" because on RKE2 the apps gateway owns the
+  #    whole domain. Here HAProxy owns it and hands over one name, so the
+  #    wildcard would only widen which HTTPRoutes can attach to this gateway.
+  sed -i 's|hostname: "\*\.{{ \.Values\.domain }}"|hostname: "{{ .Values.aiGateway.routeHostname }}"|' "${AI_GW_TPL}"
+  grep -q 'hostname: "{{ .Values.aiGateway.routeHostname }}"' "${AI_GW_TPL}" \
+    || { echo "❌ ai-gateway.yaml hostname patch did not apply — upstream changed" >&2; exit 1; }
+
+  # 2. Drop the cluster-bloom/first-node nodeSelector. No OpenShift node carries
+  #    that label, so the Envoy pod would sit Pending forever.
+  sed -i '/^ *nodeSelector:$/{N;/cluster-bloom\/first-node/d}' "${AI_GW_PROXY_TPL}"
+  ! grep -q 'cluster-bloom/first-node' "${AI_GW_PROXY_TPL}" \
+    || { echo "❌ ai-gateway-proxy-config.yaml nodeSelector patch did not apply — upstream changed" >&2; exit 1; }
+
+  # 3. Cap the Envoy worker threads (see ENVOY_CONCURRENCY above). Raising the
+  #    ulimit instead would mean a node-level MachineConfig for CRI-O, a far
+  #    bigger blast radius than bounding a thread count the gateway never needs.
+  sed -i "0,/^spec:$/s//spec:\n  concurrency: ${ENVOY_CONCURRENCY}/" "${AI_GW_PROXY_TPL}"
+  grep -q "concurrency: ${ENVOY_CONCURRENCY}" "${AI_GW_PROXY_TPL}" \
+    || { echo "❌ ai-gateway-proxy-config.yaml concurrency patch did not apply — upstream changed" >&2; exit 1; }
+
+  echo "✅ Patched envoy-gateway-config for OpenShift: exact hostname, no nodeSelector, concurrency=${ENVOY_CONCURRENCY}"
+fi
+
 # ============================================================================
 # CUSTOM SECURITY CONTEXT CONSTRAINTS (OpenShift)
 # ============================================================================
@@ -349,19 +484,17 @@ step "Custom SecurityContextConstraints (SCCs)"
 # they exist before any workload pod is scheduled. SCC `users` entries may point
 # at service accounts that do not exist yet — that is fine; the binding takes
 # effect once the SA is created.
-SCC_FILE="${EXTRA_DIR}/scc.yaml"
+#
+# The file's last section covers aim-system: the aim-engine accelerator-detector
+# DaemonSets and discovery Jobs mount hostPath (they write NFD feature files
+# under /etc/kubernetes/node-feature-discovery/features.d/), and the GPU
+# detector also needs privileged to reach /dev/kfd and /dev/dri, so
+# restricted-v2 rejects them outright and the DaemonSets sit at DESIRED>0 /
+# CURRENT=0.
+SCC_FILE="${EXTRA_DIR}/01-scc.yaml"
 echo "📦 Applying custom SecurityContextConstraints..."
 ensure_extra_file "${SCC_FILE}"
 retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f "${SCC_FILE}"
-
-# SCCs for the aim-engine accelerator-detector DaemonSets and discovery Jobs.
-# Both mount hostPath (they write NFD feature files under
-# /etc/kubernetes/node-feature-discovery/features.d/), and the GPU detector also
-# needs privileged to reach /dev/kfd and /dev/dri, so restricted-v2 rejects them
-# outright and the DaemonSets sit at DESIRED>0 / CURRENT=0.
-SCC_AIM_FILE="${EXTRA_DIR}/scc-aim-system.yaml"
-ensure_extra_file "${SCC_AIM_FILE}"
-retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f "${SCC_AIM_FILE}"
 echo "✅ Custom SCCs applied"
 
 # ============================================================================
@@ -392,8 +525,8 @@ fi
 #
 # Deliberately OUTSIDE the guard above: re-applying the upstream manifest
 # reverts the ConfigMap patch, so both parts are re-asserted on every run.
-LOCAL_PATH_SCC_FILE="${EXTRA_DIR}/local-path-provisioner-scc.yaml"
-LOCAL_PATH_HELPER_PATCH_FILE="${EXTRA_DIR}/local-path-helper-pod-selinux.yaml"
+LOCAL_PATH_SCC_FILE="${EXTRA_DIR}/02-local-path-provisioner-scc.yaml"
+LOCAL_PATH_HELPER_PATCH_FILE="${EXTRA_DIR}/03-local-path-helper-pod-selinux.yaml"
 if ! kubectl get configmap local-path-config -n local-path-storage &>/dev/null; then
   # e.g. RKE2, where the built-in provisioner lives in kube-system instead.
   # Nothing to patch, so the manifests are not fetched either.
@@ -604,7 +737,7 @@ helm template kyverno-policies-storage ${SOURCES_DIR}/kyverno-policies/storage-l
 # the conversion visible (the chart's companion "warning" policy cannot fire --
 # see the file header). Must run AFTER the helm template above, which is why it
 # sits here rather than with the other extra/ policies further down.
-ACCESS_MODE_POLICY_FILE="${EXTRA_DIR}/local-path-access-mode-scoped.yaml"
+ACCESS_MODE_POLICY_FILE="${EXTRA_DIR}/04-local-path-access-mode-scoped.yaml"
 if ! kubectl get clusterpolicy local-path-access-mode-mutation &>/dev/null; then
   # Chart not deployed on this cluster size (it ships only to small/medium),
   # so there is nothing to scope.
@@ -622,63 +755,48 @@ echo ""
 # EXTRA OPENSHIFT KYVERNO POLICIES
 # ============================================================================
 step "Extra OpenShift Kyverno policies (SCC + HTTPRoute->Route)"
-# generate-scc-on-namespaces: auto-generates a per-project OpenShift SCC for any
-# Namespace labelled airm.silogen.ai/project-id. The RBAC that lets Kyverno
-# manage SecurityContextConstraints (the kyverno-scc-generator ClusterRole and
-# binding) is applied earlier from extra/scc.yaml, so by now it already exists.
-echo "📦 Installing extra OpenShift Kyverno policies..."
-# EXTRA_DIR is defined once near the top (defaults to the extra/ dir beside this script).
-KYVERNO_SCC_POLICY_FILE="${EXTRA_DIR}/kyverno-scc-for-ns.yaml"
-ensure_extra_file "${KYVERNO_SCC_POLICY_FILE}"
-ssa_apply < "${KYVERNO_SCC_POLICY_FILE}"
-
-# HTTPRoute -> OpenShift Route automation. AIWB exposes workspace apps via
-# Gateway API HTTPRoutes (labelled airm.silogen.ai/workload-id). On OpenShift
-# there is no Gateway controller serving them, so these Kyverno policies watch
-# those HTTPRoutes and generate a matching OpenShift Route automatically.
-#   1. RBAC first  — lets the Kyverno admission/background controllers manage
-#      Routes (incl. routes/custom-host, required to set spec.host).
-#   2. Policies    — the non-rewrite + rewrite variants. They hard-code the host
-#      as "workloads.<DOMAIN>", so substitute the real cluster domain on the fly
-#      (local apply-time patch; sources/extra files stay branch-default).
-echo "📦 Installing HTTPRoute->Route Kyverno policies..."
+# One file, one apply, in source order. What it contains and why:
+#
+#   generate-scc-on-namespaces — auto-generates a per-project OpenShift SCC for
+#     any Namespace labelled airm.silogen.ai/project-id. The RBAC that lets
+#     Kyverno manage SecurityContextConstraints (the kyverno-scc-generator
+#     ClusterRole and binding) came earlier from extra/01-scc.yaml, so it exists.
+#
+#   HTTPRoute -> OpenShift Route automation — AIWB exposes workspace apps via
+#     Gateway API HTTPRoutes (labelled airm.silogen.ai/workload-id). On OpenShift
+#     no Gateway controller serves them, so these policies watch those HTTPRoutes
+#     and generate a matching Route. RBAC comes first in the file so the
+#     admission/background controllers can manage Routes (incl.
+#     routes/custom-host, required to set spec.host) before the generate policies
+#     are admitted. Both variants (non-rewrite + rewrite) hard-code the host as
+#     "workloads.<DOMAIN>", hence the substitution below (apply-time patch only;
+#     the extra/ file stays branch-default).
+#
+#   cleanup-orphaned-sccs — companion GC for the SCCs generated above. A
+#     ClusterCleanupPolicy (+ GlobalContextEntry) that runs every minute and
+#     deletes per-project SCCs whose source namespace is gone or was recreated
+#     with a different UID, so they do not accumulate over the cluster's
+#     lifetime. Requires the Kyverno cleanup controller to be enabled. Its RBAC
+#     also precedes it in the file: the cleanup-controller webhook validates at
+#     admission that the controller can delete every kind the policy matches,
+#     otherwise the policy is rejected with "cleanup controller has no permission
+#     to delete kind SecurityContextConstraints".
+#
 # OpenShift's default route admission is "Strict": a Route in one namespace
 # cannot claim a hostname already owned by a Route in another namespace. The
-# policies below generate workspace Routes on the AIWB UI host (aiwbui.<DOMAIN>,
-# owned by the aiwb namespace) under distinct /workbench/<...> paths, but those
-# Routes live in the per-workspace namespaces (e.g. workbench). Without this they
-# are rejected with "HostAlreadyClaimed". InterNamespaceAllowed permits sharing a
+# policies generate workspace Routes on the AIWB UI host (aiwbui.<DOMAIN>, owned
+# by the aiwb namespace) under distinct /workbench/<...> paths, but those Routes
+# live in the per-workspace namespaces (e.g. workbench). Without this they are
+# rejected with "HostAlreadyClaimed". InterNamespaceAllowed permits sharing a
 # host across namespaces (path-based), which is exactly what AIWB needs.
 echo "🔧 Allowing inter-namespace route host sharing (workspace Routes share the AIWB UI host)..."
 retry kubectl patch ingresscontroller default -n openshift-ingress-operator --type=merge \
   -p '{"spec":{"routeAdmission":{"namespaceOwnership":"InterNamespaceAllowed"}}}'
-KYVERNO_ROUTE_RBAC_FILE="${EXTRA_DIR}/kyverno-route-permissions.yaml"
-KYVERNO_ROUTE_POLICY_FILE="${EXTRA_DIR}/kyverno-httproute-to-route-non-rewrite-policy.yaml"
-KYVERNO_ROUTE_REWRITE_POLICY_FILE="${EXTRA_DIR}/kyverno-httproute-to-route-rewrite-policy.yaml"
-ensure_extra_file "${KYVERNO_ROUTE_RBAC_FILE}"
-ensure_extra_file "${KYVERNO_ROUTE_POLICY_FILE}"
-ensure_extra_file "${KYVERNO_ROUTE_REWRITE_POLICY_FILE}"
-# RBAC must exist before the generate policies so Kyverno can create Routes.
-ssa_apply < "${KYVERNO_ROUTE_RBAC_FILE}"
-sed "s|<DOMAIN>|${DOMAIN}|g" "${KYVERNO_ROUTE_POLICY_FILE}" | ssa_apply
-sed "s|<DOMAIN>|${DOMAIN}|g" "${KYVERNO_ROUTE_REWRITE_POLICY_FILE}" | ssa_apply
-
-# Orphaned-SCC garbage collector: companion to kyverno-scc-for-ns.yaml. A
-# ClusterCleanupPolicy (+ GlobalContextEntry) that runs every minute and deletes
-# per-project SCCs whose source namespace is gone or was recreated with a
-# different UID, so generated SCCs do not accumulate over the cluster's lifetime.
-# Requires the Kyverno cleanup controller to be enabled.
-echo "🧹 Installing orphaned-SCC cleanup policy..."
-KYVERNO_CLEANUP_RBAC_FILE="${EXTRA_DIR}/kyverno-cleanup-scc-permissions.yaml"
-KYVERNO_CLEANUP_POLICY_FILE="${EXTRA_DIR}/kyverno-cleanup-policy.yaml"
-ensure_extra_file "${KYVERNO_CLEANUP_RBAC_FILE}"
-ensure_extra_file "${KYVERNO_CLEANUP_POLICY_FILE}"
-# RBAC first: the cleanup-controller webhook validates at admission that the
-# cleanup controller can delete every kind the policy matches, so without this
-# the policy is rejected with "cleanup controller has no permission to delete
-# kind SecurityContextConstraints".
-ssa_apply < "${KYVERNO_CLEANUP_RBAC_FILE}"
-ssa_apply < "${KYVERNO_CLEANUP_POLICY_FILE}"
+echo "📦 Installing extra OpenShift Kyverno policies..."
+# EXTRA_DIR is defined once near the top (defaults to the extra/ dir beside this script).
+KYVERNO_OPENSHIFT_FILE="${EXTRA_DIR}/05-kyverno.yaml"
+ensure_extra_file "${KYVERNO_OPENSHIFT_FILE}"
+sed "s|<DOMAIN>|${DOMAIN}|g" "${KYVERNO_OPENSHIFT_FILE}" | ssa_apply
 
 echo "✅ Extra OpenShift Kyverno policies installed"
 echo ""
@@ -702,7 +820,7 @@ step "Workspace StorageClasses (multinode, mlstorage)"
 # Do not size, schedule or promise workloads on the assumption that these are
 # distinct backends. Before adding real shared storage (NFS/CephFS/ODF), check
 # that the access-mode policy is scoped to the local-path classes -- see
-# extra/local-path-access-mode-scoped.yaml -- or RWX PVCs on the new storage
+# extra/04-local-path-access-mode-scoped.yaml -- or RWX PVCs on the new storage
 # get downgraded too. Note also that accessModes is immutable: PVCs already
 # converted to RWO must be recreated to move to real RWX storage.
 echo "📦 Creating storage classes..."
@@ -842,7 +960,7 @@ step "Gateway API CRDs"
 # Several components (openbao-config, otel-lgtm-stack) render HTTPRoute resources
 # (gateway.networking.k8s.io/v1) that fail to apply unless the Gateway API CRDs
 # already exist. Envoy Gateway is the Gateway API implementation (see the ENVOY
-# GATEWAY section below); its chart bundles both the upstream Gateway API CRDs and
+# AI GATEWAY section below); its chart bundles both the upstream Gateway API CRDs and
 # the envoy-specific CRDs. We install all of them early so those HTTPRoutes apply
 # cleanly. Idempotent — installed via --server-side so the later controller install
 # co-owns them without conflict.
@@ -1090,17 +1208,178 @@ echo "⏭️  Skipping MetalLB configuration (not applicable on OpenShift)"
 echo ""
 
 # ============================================================================
-# ENVOY GATEWAY — skipped (OpenShift provides its own routing via HAProxy/Istio)
+# ENVOY AI GATEWAY
 # ============================================================================
-step "Envoy Gateway (skipped on OpenShift; creating namespaces)"
-# On OpenShift, the Kyverno policy "generate-routes-from-httproutes" (installed
-# as part of kyverno-policies/base) automatically converts Gateway API HTTPRoute
-# resources into OpenShift Routes, so components can create HTTPRoutes as normal
-# and OpenShift's router will serve them without a separate Gateway controller.
-echo "⏭️  Skipping Envoy Gateway installation (OpenShift: using native routing)"
-# FIXME: Still create the namespaces since other components reference them
-kubectl create namespace envoy-gateway-system --dry-run=client -o yaml | kubectl apply -f -
+step "Envoy AI Gateway (https://${AI_HOST})"
+# Ordinary web traffic keeps using OpenShift's own routing: the Kyverno policy
+# "generate-routes-from-httproutes" turns Gateway API HTTPRoutes into OpenShift
+# Routes, so AIWB, Keycloak and the rest need no Gateway controller at all, and
+# that stays true whether or not this step runs.
+#
+# Inference is the exception. Every served model has to answer on one shared
+# hostname, with the model chosen per request from the x-ai-eg-backend and
+# x-ai-eg-model headers, and an OpenShift Route cannot match on headers — only
+# on host and path. So a real Gateway API implementation has to serve
+# ${AI_HOST}, and this step installs exactly enough of one to do that.
+#
+# WHAT IS DELIBERATELY NOT INSTALLED
+#   - Gateway API CRDs. The ingress-operator owns them and already serves the
+#     bundle the chart carries; applying them would only take field ownership.
+#   - The `https` apps gateway from envoy-gateway-config. HAProxy is the front
+#     door here, and a second one is what would actually collide with cluster
+#     ingress. Its TLSRoute is replaced by the passthrough Route in
+#     extra/06-ai-gateway.yaml.
+#
+# ROLLBACK: `kubectl delete route ai-gateway -n envoy-gateway-system` removes
+# the only object in cluster ingress. Everything else is inert without it.
+
+# cluster-auth is unrelated to the gateway but has always been created here.
 kubectl create namespace cluster-auth --dry-run=client -o yaml | kubectl apply -f -
+
+if [ "${IS_OPENSHIFT}" != "true" ]; then
+  # Everything below needs an OpenShift Route to be reachable and an OpenShift
+  # SCC to get its pods admitted, so there is nothing useful to install here.
+  # On RKE2 the equivalent is cluster-forge's own envoy-gateway-config, which
+  # puts the AI listener behind the `https` apps gateway instead.
+  echo "⏭️  Skipping Envoy AI Gateway (not an OpenShift cluster)"
+  # Other components reference this namespace, so create it regardless.
+  kubectl create namespace envoy-gateway-system --dry-run=client -o yaml | kubectl apply -f -
+else
+  AI_GW_MANIFEST="${EXTRA_DIR}/06-ai-gateway.yaml"
+  AI_GW_VALUES="${EXTRA_DIR}/07-ai-gateway-values.yaml"
+  ensure_extra_file "${AI_GW_MANIFEST}"
+  ensure_extra_file "${AI_GW_VALUES}"
+
+  # Namespaces, SCC, RBAC and the Route. Admission rules have to exist before
+  # anything can schedule a pod: the SCC in this manifest is what gets the Envoy
+  # pods past admission at all, and applying it after the Deployments would
+  # leave them at FailedCreate until something happened to retry them.
+  echo "📦 Namespaces, SCC, RBAC and Route..."
+  sed "s|\${DOMAIN}|${DOMAIN}|g" "${AI_GW_MANIFEST}" | ssa_apply
+
+  # The Route is TLS-passthrough, so HAProxy presents no certificate of its own
+  # and this secret is what clients actually see. Rather than mint a new one,
+  # copy the certificate the router already serves: it is a wildcard for
+  # *.${DOMAIN}, so it covers ${AI_HOST} with no extra client trust config.
+  #
+  # This is a COPY, not a reference. When the ingress-operator rotates the
+  # original the copy goes stale, and the symptom is a TLS error on ${AI_HOST}
+  # alone, with every other hostname fine. Re-running this script refreshes it.
+  CERT_SRC=$(kubectl get ingresscontroller default -n openshift-ingress-operator \
+    -o jsonpath='{.spec.defaultCertificate.name}' 2>/dev/null || true)
+  CERT_SRC="${CERT_SRC:-router-certs-default}"
+  echo "🔐 Copying ${CERT_SRC} (openshift-ingress) -> cluster-tls (envoy-gateway-system)..."
+  AI_GW_CERTDIR=$(mktemp -d)
+  kubectl get secret "${CERT_SRC}" -n openshift-ingress -o jsonpath='{.data.tls\.crt}' \
+    | base64 -d > "${AI_GW_CERTDIR}/tls.crt"
+  kubectl get secret "${CERT_SRC}" -n openshift-ingress -o jsonpath='{.data.tls\.key}' \
+    | base64 -d > "${AI_GW_CERTDIR}/tls.key"
+  if [ ! -s "${AI_GW_CERTDIR}/tls.crt" ] || [ ! -s "${AI_GW_CERTDIR}/tls.key" ]; then
+    rm -rf "${AI_GW_CERTDIR}"
+    echo "❌ Could not read tls.crt/tls.key from secret ${CERT_SRC} in openshift-ingress" >&2
+    exit 1
+  fi
+  if command -v openssl >/dev/null 2>&1; then
+    echo "   expires : $(openssl x509 -in "${AI_GW_CERTDIR}/tls.crt" -noout -enddate 2>/dev/null | sed 's/^notAfter=//')"
+  fi
+  kubectl create secret tls cluster-tls -n envoy-gateway-system \
+    --cert="${AI_GW_CERTDIR}/tls.crt" --key="${AI_GW_CERTDIR}/tls.key" \
+    --dry-run=client -o yaml | ssa_apply
+  rm -rf "${AI_GW_CERTDIR}"
+
+  # Only crds/generated — the chart also ships crds/gatewayapi-crds.yaml, which
+  # is skipped here for the reason given above.
+  echo "📦 Envoy Gateway CRDs (Gateway API CRDs skipped — owned by ingress-operator)..."
+  cat "${SOURCES_DIR}/envoy-gateway/v1.7.1"/crds/generated/*.yaml | ssa_apply
+  echo "📦 InferencePool CRDs..."
+  retry helm template inference-extension-crds "${SOURCES_DIR}/inference-extension-crds/v1.5.0" \
+    --namespace envoy-ai-gateway-system --include-crds | ssa_apply
+  echo "📦 Envoy AI Gateway CRDs..."
+  retry helm template envoy-ai-gateway-crds "${SOURCES_DIR}/envoy-ai-gateway-crds/v0.6.0" \
+    --namespace envoy-ai-gateway-system --include-crds | ssa_apply
+
+  # The values file carries the extensionManager block verbatim from
+  # cluster-forge root/values.yaml. That is what teaches Envoy Gateway to hand
+  # AIGatewayRoute, AIServiceBackend and InferencePool to the AI controller for
+  # translation; without it those resources apply cleanly and do nothing.
+  echo "🚀 Installing Envoy Gateway control plane..."
+  retry helm template envoy-gateway "${SOURCES_DIR}/envoy-gateway/v1.7.1" \
+    --namespace envoy-gateway-system \
+    -f "${AI_GW_VALUES}" | ssa_apply
+
+  echo "🚀 Installing Envoy AI Gateway controller..."
+  retry helm template envoy-ai-gateway "${SOURCES_DIR}/envoy-ai-gateway/v0.6.0" \
+    --namespace envoy-ai-gateway-system \
+    --set controller.mcp.sessionEncryption.seed="${AI_GATEWAY_MCP_SEED}" | ssa_apply
+
+  echo "⏳ Waiting for the control planes to become available..."
+  kubectl wait --for=condition=available --timeout=300s \
+    deployment/envoy-gateway -n envoy-gateway-system 2>/dev/null \
+    || echo "⚠️  envoy-gateway not ready yet; continuing"
+  kubectl wait --for=condition=available --timeout=300s \
+    deployment/ai-gateway-controller -n envoy-ai-gateway-system 2>/dev/null \
+    || echo "⚠️  ai-gateway controller not ready yet; continuing"
+
+  # Render only the six templates that apply on OpenShift. The rest of the
+  # chart targets the apps gateway that HAProxy replaces here, RKE2's CoreDNS
+  # layout, or the gRPC ext-auth on port 50051 that the cluster-auth shim does
+  # not expose (it is REST on 8081).
+  echo "🚀 Installing gateway configuration..."
+  retry helm template envoy-gateway-config "${SOURCES_DIR}/envoy-gateway-config" \
+    --namespace envoy-gateway-system \
+    --set domain="${DOMAIN}" \
+    --set aiGateway.enabled=true \
+    --set aiGateway.routeHostname="${AI_HOST}" \
+    -s templates/gateway-class.yaml \
+    -s templates/gateway-config-ai.yaml \
+    -s templates/ai-gateway.yaml \
+    -s templates/ai-gateway-proxy-config.yaml \
+    -s templates/ai-gateway-service.yaml \
+    -s templates/envoy-extension-policy-model-header.yaml \
+    | ssa_apply
+
+  echo "⏳ Waiting for the gateway to be programmed..."
+  kubectl wait --for=condition=Programmed --timeout=300s \
+    gateway/ai-gateway -n envoy-gateway-system 2>/dev/null \
+    || echo "⚠️  Gateway not Programmed yet — check the envoy-gateway controller logs"
+
+  # The envoy-ai-gateway chart mints a fresh self-signed certificate on every
+  # render, so each run rotates the pod-mutating webhook's keypair and caBundle
+  # together. The controller normally reloads the new cert, but if it ever did
+  # not, the webhook has failurePolicy: Fail on pod CREATE and would block the
+  # Envoy data plane from ever starting again — while leaving every other
+  # workload untouched, since its objectSelector only matches
+  # app.kubernetes.io/managed-by: envoy-gateway. Cheap to verify, expensive to
+  # discover by accident.
+  probe_ai_gateway_webhook() {
+    kubectl apply --dry-run=server -f - >/dev/null 2>&1 <<'PROBE'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ai-gateway-webhook-probe
+  namespace: envoy-gateway-system
+  labels:
+    app.kubernetes.io/managed-by: envoy-gateway
+spec:
+  containers:
+    - name: probe
+      image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+      command: ["sleep", "1"]
+PROBE
+  }
+  if probe_ai_gateway_webhook; then
+    echo "✅ Pod-mutating webhook healthy"
+  else
+    echo "⚠️  Pod-mutating webhook is rejecting pods; restarting the AI controller to reload its certificate"
+    kubectl rollout restart deploy/ai-gateway-controller -n envoy-ai-gateway-system >/dev/null 2>&1 || true
+    kubectl rollout status deploy/ai-gateway-controller -n envoy-ai-gateway-system --timeout=180s >/dev/null 2>&1 || true
+    probe_ai_gateway_webhook \
+      && echo "✅ Webhook healthy after restart" \
+      || echo "❌ Webhook still rejecting pods — the Envoy data plane cannot be recreated until this is fixed"
+  fi
+
+  echo "✅ Envoy AI Gateway installed (https://${AI_HOST})"
+fi
 echo ""
 
 # ============================================================================
@@ -1358,7 +1637,7 @@ if kubectl get crd nodefeaturerules.nfd.k8s-sigs.io >/dev/null 2>&1; then
   if [ "${AMD_HW_NODES}" != "0" ] && [ "${AMD_LABELLED_NODES}" = "0" ]; then
     echo "⚠️  AMD GPU hardware detected but no node has feature.node.kubernetes.io/amd-gpu=true"
     echo "📦 Applying NodeFeatureRule to label AMD GPU nodes..."
-    NFR_FILE="${EXTRA_DIR}/amd-gpu-nodefeaturerule.yaml"
+    NFR_FILE="${EXTRA_DIR}/08-amd-gpu-nodefeaturerule.yaml"
     ensure_extra_file "${NFR_FILE}"
     retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f "${NFR_FILE}"
     echo "⏳ Waiting for nodes to receive the amd-gpu label..."
@@ -1386,7 +1665,7 @@ step "AIM Engine (controller + CRDs)"
 echo "📦 Installing AIM Engine CRDs..."
 kubectl create namespace aim-system --dry-run=client -o yaml | kubectl apply -f -
 #retry kubectl apply --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" -f ${SOURCES_DIR}/aim-engine-crds/0.2.2/crds.yaml --namespace aim-system --recursive
-retry helm template aim-engine-crds oci://registry-1.docker.io/amdenterpriseai/aim-engine-crds-chart --version 0.2.5 --namespace aim-system | ssa_apply
+retry helm template aim-engine-crds oci://registry-1.docker.io/amdenterpriseai/aim-engine-crds-chart --version "$(cf_app_version aim-engine-crds)" --namespace aim-system | ssa_apply
 
 
 # Stage 2: Install AIM Engine operator
@@ -1394,7 +1673,7 @@ echo "📦 Installing AIM Engine operator..."
 # Routing disabled on OpenShift: enabling HTTPRoute routing causes Istio
 # (pilot-discovery) to fight over the routes, leaving AIMServices stuck in Starting.
 # The Kyverno "generate-routes-from-httproutes" policy handles exposure via OpenShift Routes.
-helm template aim-engine oci://registry-1.docker.io/amdenterpriseai/aim-engine-chart --version 0.2.5 \
+helm template aim-engine oci://registry-1.docker.io/amdenterpriseai/aim-engine-chart --version "$(cf_app_version aim-engine)" \
   --namespace aim-system \
   --set clusterRuntimeConfig.enable=true \
   --set clusterRuntimeConfig.spec.routing.enabled=false \
@@ -1598,7 +1877,7 @@ if [[ "${PLUGGABLE_DB}" != true ]]; then
   echo " 📦 Installing AIWB database cluster (${CNPG_INSTANCES} instance(s))..."
 
   retry helm template aiwb-infra-cnpg \
-    oci://registry-1.docker.io/amdenterpriseai/aiwb-cnpg-chart --version 2.0.0 \
+    oci://registry-1.docker.io/amdenterpriseai/aiwb-cnpg-chart --version "$(cf_app_version aiwb-infra-cnpg)" \
     --set instances=${CNPG_INSTANCES} \
     --set username=${AIWB_DB_USER} \
     --set storage.storageClass=${DEFAULT_STORAGE_CLASS_NAME} \
@@ -1930,7 +2209,7 @@ if [[ "${PLUGGABLE_DB}" == true ]]; then
 fi
 
 echo "🚀 Installing AIWB application..."
-helm template aiwb oci://registry-1.docker.io/amdenterpriseai/aiwb-chart --version 2.0.0 \
+helm template aiwb oci://registry-1.docker.io/amdenterpriseai/aiwb-chart --version "$(cf_app_version aiwb)" \
   --namespace aiwb \
   --set standAloneMode=true \
   --set appDomain="${DOMAIN}" \
@@ -1957,7 +2236,7 @@ echo ""
 step "AI Gateway Discovery"
 echo "📦 Installing AI Gateway Discovery..."
 kubectl create namespace ai-gateway-system --dry-run=client -o yaml | kubectl apply -f -
-retry helm template ai-gateway-discovery oci://registry-1.docker.io/amdenterpriseai/ai-gateway-discovery-chart --version 2.0.0 \
+retry helm template ai-gateway-discovery oci://registry-1.docker.io/amdenterpriseai/ai-gateway-discovery-chart --version "$(cf_app_version ai-gateway-discovery)" \
   --namespace ai-gateway-system \
   --set controller.gateway.routeHostname=ai.${DOMAIN} \
   --set controller.gateway.name=ai-gateway \
@@ -2060,7 +2339,7 @@ echo ""
 step "Kaiwo CRDs"
 echo "📦 Installing Kaiwo CRD..."
 #kubectl create namespace kaiwo --dry-run=client -o yaml | kubectl apply -f -
-retry helm template kaiwo-crds oci://ghcr.io/silogen/kaiwo-crds-chart --version v0.2.1 \
+retry helm template kaiwo-crds oci://ghcr.io/silogen/kaiwo-crds-chart --version "$(cf_app_version kaiwo-crds)" \
   --namespace kaiwo-system \
   | ssa_apply
 
@@ -2070,7 +2349,7 @@ retry helm template kaiwo-crds oci://ghcr.io/silogen/kaiwo-crds-chart --version 
 step "Kaiwo "
 echo "📦 Installing Kaiwo..."
 
-helm template kaiwo oci://ghcr.io/silogen/kaiwo-operator-chart --version v0.2.1 \
+helm template kaiwo oci://ghcr.io/silogen/kaiwo-operator-chart --version "$(cf_app_version kaiwo)" \
   --namespace kaiwo-system \
   | ssa_apply
 
@@ -2089,7 +2368,7 @@ for f in ${SOURCES_DIR}/kaiwo-config/*.yaml; do echo "---"; cat "$f"; done \
 # them as the final step once all Services exist.
 # ============================================================================
 step "Apply OpenShift Routes (AIWB UI/API + Keycloak)"
-ROUTES_FILE="${EXTRA_DIR}/routes.yaml"
+ROUTES_FILE="${EXTRA_DIR}/09-routes.yaml"
 echo "🌐 Applying OpenShift Routes..."
 ensure_extra_file "${ROUTES_FILE}"
 # Substitute the ${DOMAIN} placeholder in the Route host fields with the cluster's
@@ -2149,6 +2428,27 @@ else
   echo "   Ensure DNS points aiwbui.${DOMAIN}, aiwbapi.${DOMAIN}, and kc.${DOMAIN} to ${GATEWAY_IP}"
 fi
 echo ""
+
+if [ "${IS_OPENSHIFT}" = "true" ]; then
+  echo "🤖 Inference endpoint (all served models share this hostname):"
+  echo "   https://${AI_HOST}/v1/chat/completions"
+  echo ""
+  echo "   Which model answers is decided by the headers, not the path or host."
+  echo "   -k is needed while the router still serves a self-signed certificate."
+  echo ""
+  echo "   curl -k -X POST https://${AI_HOST}/v1/chat/completions \\"
+  echo "     -H 'Content-Type: application/json' \\"
+  echo "     -H 'x-ai-eg-backend: <workload-uuid>' \\"
+  echo "     -H 'x-ai-eg-model: <model-name>' \\"
+  echo "     -d '{\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"stream\":false}'"
+  echo ""
+  echo "   Routes appear on their own as models are deployed; the UUID is the"
+  echo "   InferenceService workload-id label:"
+  echo "     kubectl get inferenceservice -A -o custom-columns=\\"
+  echo "       'NAME:.metadata.name,UUID:.metadata.labels.airm\\.silogen\\.ai/workload-id'"
+  echo "     kubectl get aigatewayroute,aiservicebackend -A"
+  echo ""
+fi
 echo "💡 Keycloak Admin Credentials:"
 echo "   Username: silogen-admin"
 echo "   Password: placeholder"
@@ -2190,3 +2490,52 @@ echo "✅ Cleanup complete"
 
 echo ""
 echo "✅ Deploy complete"
+
+# TODO: Missing apps???
+# aiwb-infra-external-secrets
+
+
+# kyverno-policies-storage-local-path DONE????
+# cluster-auth-config NOT IN OPENSHIFT???
+
+  # aiwb-infra-external-secrets:
+  #   repoURL: "{{ .Values.ociRegistry.dockerHub }}"
+  #   repoVersion: "2.0.0"
+  #   chart: "aiwb-external-secrets-chart"
+  #   namespace: aiwb
+  #   syncWave: -20
+  #   valuesFile: values.yaml
+  #   ignoreDifferences:
+  #     - group: external-secrets.io
+  #       kind: ExternalSecret
+  #       jqPathExpressions:
+  #         - ".spec.data[].remoteRef.conversionStrategy"
+  #         - ".spec.data[].remoteRef.decodingStrategy"
+  #         - ".spec.data[].remoteRef.metadataPolicy"
+
+  # kaiwo-crds:
+  #   repoURL: "{{ .Values.ociRegistry.ghcr }}"
+  #   repoVersion: "v0.2.1"
+  #   chart: "kaiwo-crds-chart"
+  #   namespace: kaiwo
+  # kaiwo:
+  #   repoURL: "{{ .Values.ociRegistry.ghcr }}"
+  #   repoVersion: "v0.2.1"
+  #   chart: "kaiwo-operator-chart"
+  #   namespace: kaiwo-system
+  #   syncWave: -10
+  # kaiwo-config:
+  #   ignoreDifferences:
+  #     - group: external-secrets.io
+  #       jqPathExpressions:
+  #         - ".spec.data[].remoteRef.conversionStrategy"
+  #         - ".spec.data[].remoteRef.decodingStrategy"
+  #         - ".spec.data[].remoteRef.metadataPolicy"
+  #       kind: ExternalSecret
+  #     - group: ""
+  #       jsonPointers:
+  #         - /spec/accessModes
+  #       kind: "PersistentVolumeClaim"
+  #   namespace: kaiwo-system
+  #   path: kaiwo-config
+  #   syncWave: 0
