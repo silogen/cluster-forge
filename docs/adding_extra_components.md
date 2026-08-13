@@ -268,9 +268,10 @@ placeholder values pointing at a fake repo. Shows the shape; deploys nothing.
 component, pre-filled except for the parts only you know. Each blueprint ships
 an `extraApps.yaml` envelope, a `values.yaml`, a README covering prerequisites
 and which fields to edit, and — where the upstream chart is missing resources
-the cluster needs — a `manifests/` directory. Copy them into your overlay repo
-and edit the `TODO`s. They are plain copies — once taken, they no longer track
-this repo, so a blueprint change here will not alter a running cluster.
+the cluster needs — a `manifests/` directory. The README carries `curl` commands
+that pull them straight into a clone of your overlay repo; then edit the `TODO`s.
+They are plain copies — once taken, they no longer track this repo, so a
+blueprint change here will not alter a running cluster.
 
 | Blueprint | What it deploys |
 |---|---|

@@ -6,11 +6,11 @@ request. This blueprint deploys the router plus its web dashboard, exposed
 through the cluster's shared `https` Gateway, and puts the router in the request
 path as an Envoy external processor so it actually decides where traffic goes.
 
-Three files to copy, all into your cluster-values overlay repo:
+Three files, all fetched into your cluster-values overlay repo:
 
 | File | Goes to | Contains |
 |---|---|---|
-| `extraApps.yaml` | `extra-apps-values.yaml` (merge the `semantic-router:` block under the existing `extraApps:` key) | the ArgoCD Application envelope |
+| `extraApps.yaml` | `extra-apps-values.yaml` | the ArgoCD Application envelope |
 | `values.yaml` | `extra-apps/semantic-router/values.yaml` | the chart config you edit |
 | `manifests/gateway-routing.yaml` | `extra-apps/semantic-router/manifests/gateway-routing.yaml` | the gateway wiring you edit |
 
@@ -24,31 +24,66 @@ Three files to copy, all into your cluster-values overlay repo:
 
 ## Taking it into use
 
-1. Copy the `semantic-router:` block from `extraApps.yaml` into your overlay
-   repo's `extra-apps-values.yaml`, under the existing `extraApps:` key. Rename
-   the key if you want a different Application name — nothing else depends on it.
+1. Get the Gitea credentials. Writing to the overlay repo means logging in as
+   `devuser`, the account bootstrap creates and makes an owner of the
+   `cluster-org` org. Its password is generated at install time and kept in a
+   Secret on the cluster:
 
-2. Copy `values.yaml` to `extra-apps/semantic-router/values.yaml` in that same
-   repo. The directory won't exist yet (bootstrap only seeds
-   `extra-apps-values.yaml`); Gitea creates intermediate directories when you
-   push, so just add the file at that path.
+   ```bash
+   kubectl -n cf-gitea get secret gitea-devuser-secret \
+       -o jsonpath='{.data.GITEA_DEVUSER_SECRET}' | base64 -d
+   ```
 
-   If you renamed the key in step 1, keep the two in sync: the envelope's
-   `valueFiles` entry is what points at this path.
+   Username `devuser`, password as printed above. Git prompts for both on the
+   first push, and the same pair logs you into the Gitea web UI at
+   `https://gitea.<domain>`.
 
-3. Copy `manifests/gateway-routing.yaml` to
-   `extra-apps/semantic-router/manifests/gateway-routing.yaml` in the same repo.
+2. Clone your cluster-values overlay repo from that Gitea and pull the three
+   files into it:
 
-   Don't skip this one. The envelope has a source pointing at that directory, and
-   ArgoCD fails an Application whose source path doesn't exist — so a missing
-   `manifests/` takes the chart down with it, rather than just leaving the
-   routing unconfigured. If you don't want the router in the request path, delete
-   that source from the envelope instead of leaving it dangling.
+   ```bash
+   git clone https://gitea.<domain>/cluster-org/cluster-values.git
+   cd cluster-values
 
-4. Edit the `TODO`s in both files — dashboard hostname, model name and vLLM
+   BLUEPRINT=https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/main/root-extras/blueprints/semantic-router
+
+   curl -fsSL "$BLUEPRINT/extraApps.yaml" -o extra-apps-values.yaml
+
+   mkdir -p extra-apps/semantic-router/manifests
+   curl -fsSL "$BLUEPRINT/values.yaml" -o extra-apps/semantic-router/values.yaml
+   curl -fsSL "$BLUEPRINT/manifests/gateway-routing.yaml" \
+       -o extra-apps/semantic-router/manifests/gateway-routing.yaml
+   ```
+
+   Adjust the clone URL if your overlay repo isn't at the bootstrap default
+   (`cluster-org/cluster-values` on the cluster's Gitea).
+
+   The first `curl` overwrites `extra-apps-values.yaml`, which is what you want
+   on a cluster that has no extra components yet — bootstrap seeds that file as
+   an empty `extraApps: {}`. **If you already run other extras, don't overwrite
+   it**: download `extraApps.yaml` somewhere else and add its `semantic-router:`
+   block under your existing `extraApps:` key by hand. `extraApps` is a map, so
+   entries just sit side by side.
+
+   Rename the `semantic-router:` key if you want a different Application name —
+   nothing else depends on it. `extra-apps/semantic-router/values.yaml` is a
+   literal path baked into the envelope's `valueFiles` entry, not derived from
+   that key, so renaming it doesn't require touching the path.
+
+   Don't skip the `manifests/` file. The envelope has a source pointing at that
+   directory, and ArgoCD fails an Application whose source path doesn't exist —
+   so a missing `manifests/` takes the chart down with it, rather than just
+   leaving the routing unconfigured. If you don't want the router in the request
+   path, delete that source from the envelope instead of leaving it dangling.
+
+3. Edit the `TODO`s in both files — dashboard hostname, model name and vLLM
    backend endpoint in `values.yaml`; the router's own hostname and the backend
-   Services to route to in `gateway-routing.yaml`. `grep -r TODO` finds all of
-   them. The model names have to agree across the two files.
+   Services to route to in `gateway-routing.yaml`. The model names have to agree
+   across the two files. List what's left to fill in with:
+
+   ```bash
+   grep -rn TODO extra-apps-values.yaml extra-apps/semantic-router
+   ```
 
    The two hostname TODOs are deliberately different subdomains, not the same
    value copy-pasted twice: `values.yaml`'s is the dashboard
@@ -60,15 +95,55 @@ Three files to copy, all into your cluster-values overlay repo:
    sync fails and names the field. That's deliberate — better than a route that
    applies cleanly and points at nothing.
 
-5. Commit. ArgoCD syncs `cluster-forge-extras`, which renders a `semantic-router`
+   `sr.<domain>` has no authentication of its own by default — anyone who can
+   reach the hostname can spend your GPU capacity. Decide now whether to gate
+   it; see "Reaching the router" below for the annotation that requires a
+   `cluster-auth` group.
+
+4. Review and push:
+
+   ```bash
+   git add extra-apps-values.yaml extra-apps/semantic-router
+   git diff --cached
+   git commit -m "Add semantic-router extra app"
+   git push
+   ```
+
+   ArgoCD syncs `cluster-forge-extras`, which renders a `semantic-router`
    Application. Watch it with:
 
    ```bash
    kubectl get application semantic-router -n argocd -w
    ```
 
-Once copied, these files are yours. They don't track this repo, so nothing here
-will change your deployment later.
+   Once it's `Synced`/`Healthy`, confirm the router itself is up before trusting
+   any routing decisions:
+
+   ```bash
+   kubectl -n semantic-router port-forward svc/semantic-router 8080:8080
+   curl localhost:8080/health
+   ```
+
+Once fetched, these files are yours. They are plain copies, not a live
+reference, so nothing changed here later will alter your deployment.
+
+## Routing decisions: choosing which model gets a request
+
+The `values.yaml` above ships with exactly one `decisions` entry — a
+catch-all that sends every request to the one model you configured. That's
+the minimum to get something running, not the point of deploying a router:
+semantic-router's job is choosing between *multiple* models based on the
+request itself.
+
+Worked examples of multi-model routing live in `examples/`, one file per
+signal type:
+
+| File | Routes by |
+|---|---|
+| `examples/complexity-routing-example.md` | prompt complexity — simple factual queries vs. reasoning/code-heavy ones |
+
+Each example is self-contained: what the signal does, the full `values.yaml`
+block, and how to verify which model a given request actually landed on.
 
 ## Routing traffic through the router
 
@@ -97,6 +172,11 @@ the header does not exist yet. Delete it and Envoy 404s everything before the
 router is ever called. It goes last because a rule with no matches would
 otherwise shadow the per-model rules. It is also where traffic lands while the
 router is down, because the policy fails open.
+
+Re-routing also depends on the chart's `clear_route_cache: true` default —
+that's what tells Envoy to re-match after the router sets the header. If
+something overrides it to `false`, every request falls through to the
+catch-all no matter what the router decided.
 
 **The model list appears in both files, and that is not redundancy you can
 remove.** The router only ever emits a model *name* — its own reference Envoy
@@ -262,39 +342,6 @@ That translator does not exist in a release yet
 and it would only matter on an `AIGatewayRoute`, which this blueprint does not
 use. Nothing here goes through `ai-gateway`, so its gap is not ours.
 
-### Verified
-
-This wiring has been exercised end-to-end on a live cluster: an in-cluster
-dummy backend plus real external OpenAI and Anthropic backends (deliberately
-invalid keys, to prove reachability rather than a successful completion).
-Across every test request, the decision the router logged matched the backend
-that actually served it, confirming the whole chain:
-
-- **The re-routing depends on the router setting `clear_route_cache` in its
-  ext_proc response** — confirmed load-bearing. That is what tells Envoy to
-  match the route again with the new header, and there is no gateway-side
-  setting for it. The chart enables it (`clear_route_cache: true`); if someone
-  overrides it to `false`, every request lands on the catch-all no matter what
-  the router picked, and the rule-per-model design stops working entirely.
-- **The header is `x-selected-model`.** Confirmed against the gateway's access
-  log. Not `x-ai-eg-model` — that one belongs to the cluster's AI gateway and
-  this router does not emit it.
-- **Only the request path is processed**, which is all routing needs. See the
-  comment in `gateway-routing.yaml` for why enabling the response path costs
-  you token streaming — not exercised by this test, since neither the dummy nor
-  the external backends touch the router's response-side features (semantic
-  cache, token accounting).
-- **`messageTimeout: 300s`** — no timeouts observed on any test request. It
-  matches upstream's own Envoy config and covers buffering the body plus
-  running classification, so it is not the network-hop timeout its name
-  suggests.
-
-Check the router's own logs to see what it received and what it decided:
-
-```bash
-kubectl -n semantic-router logs deploy/semantic-router -f
-```
-
 ## Reaching the router
 
 Only the dashboard gets a route of its own. The router's ports stay
@@ -316,9 +363,29 @@ kubectl -n semantic-router port-forward svc/semantic-router 8080:8080
 curl localhost:8080/health
 ```
 
+To see which model the router would pick for a given prompt, without needing
+the gateway or any backend running yet, hit its classification endpoint
+directly:
+
+```bash
+curl -sX POST localhost:8080/api/v1/classify/intent \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"Write a Python function to implement a binary search tree"}'
+```
+
+The response's `recommended_model` and `decision_result.decision_name` show
+the outcome — useful for checking `values.yaml`'s `signals`/`decisions` logic
+in isolation before testing the full request path through `sr.<domain>`.
+
 The chart's `ingress.enabled` flag is not useful on our clusters either — it
 emits a classic `Ingress`, and Envoy Gateway only reconciles Gateway API
 resources.
+
+If routing doesn't look right, check what the router itself decided:
+
+```bash
+kubectl -n semantic-router logs deploy/semantic-router -f
+```
 
 One thing to be deliberate about: `sr.<domain>` has no authentication of its own,
 so anyone who can reach the hostname can spend your GPU capacity. Unlike

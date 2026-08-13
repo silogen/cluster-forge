@@ -1,7 +1,8 @@
-# vLLM Semantic Router — copy the `semantic-router:` block below into your
-# cluster-values overlay repo's extra-apps-values.yaml, under `extraApps:`.
-# The chart config and gateway wiring it references live in two more files you
-# also copy — see the README next to this one for the full take-into-use steps.
+# vLLM Semantic Router — this file is extra-apps-values.yaml for a cluster with
+# no other extra components. If you already run some, add the `semantic-router:`
+# block below under your existing `extraApps:` key instead of replacing the file.
+# The chart config and gateway wiring it references live in two more files that
+# go in the same repo — see the README next to this one for ready-made commands.
 
 extraApps:
   semantic-router:
