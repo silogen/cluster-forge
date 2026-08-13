@@ -761,6 +761,10 @@ spec:
     requests:
       cpu: {{ .Values.collectors.resources.logs.requests.cpu | quote }}
       memory: {{ .Values.collectors.resources.logs.requests.memory }}
+  tolerations:
+    # Run on every node, including tainted GPU/inference nodes, so per-workload CPU/memory
+    # is collected fleet-wide (matches the node-exporter daemonset's scheduling).
+    - operator: Exists
   config:
     receivers:
       kubeletstats:
@@ -769,8 +773,10 @@ spec:
         endpoint: "https://${env:K8S_NODE_IP}:10250"
         insecure_skip_verify: true
         metric_groups:
+          # pod-level only: consumers (AIWB) query the k8s_pod_* series. The container
+          # group would roughly double per-container cardinality (overlapping the existing
+          # cAdvisor scrape) for series nothing reads.
           - pod
-          - container
     processors:
       memory_limiter:
         check_interval: 5s
