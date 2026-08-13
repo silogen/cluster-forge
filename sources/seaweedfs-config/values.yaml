@@ -16,3 +16,10 @@ seaweed:
 bucket:
   name: default-bucket
   namespace: demo
+# S3 data-path HTTPRoute. Envoy's 15s default request timeout resets object transfers mid-stream and
+# truncates them; the limit is duration, not size, so on a slow client link even a small object fails.
+# Tune per cluster to the slowest transfer that should still be allowed to finish.
+s3Route:
+  timeouts:
+    request: 30m
+    backendRequest: 30m
