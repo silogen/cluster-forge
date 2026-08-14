@@ -6,9 +6,23 @@ metadata:
   name: access-logging-config
   namespace: envoy-gateway-system
 spec:
+{{- if .Values.aimScaleFromZero.enabled }}
+  # Envoy Gateway 1.8's Strict validator does not mock Envoy 1.38's stats()
+  # API. InsecureSyntax only syntax-checks policies; it bypasses the security
+  # hardening performed by Strict. Restrict mutation of EnvoyExtensionPolicy
+  # (and Lua ValueRef ConfigMaps) to platform admins, and restore Strict when
+  # upstream validator support for stats() lands.
+  luaValidation: InsecureSyntax
+{{- end }}
+  # Run every authorization filter before the activation counter. ext_authz
+  # protects Gateway-scoped routes, while SecurityPolicy.authorization is
+  # implemented by Envoy's RBAC filter. Keep both ahead of Lua so rejected
+  # traffic cannot produce scale-from-zero activation metrics.
   filterOrder:
     - name: envoy.filters.http.lua
-      before: envoy.filters.http.ext_authz
+      after: envoy.filters.http.ext_authz
+    - name: envoy.filters.http.rbac
+      before: envoy.filters.http.lua
   provider:
     type: Kubernetes
     kubernetes:
@@ -22,6 +36,17 @@ spec:
             cluster-bloom/first-node: "true"
           priorityClassName: "system-cluster-critical"
   telemetry:
+{{- if .Values.aimScaleFromZero.enabled }}
+    metrics:
+      sinks:
+        - type: OpenTelemetry
+          openTelemetry:
+            host: {{ .Values.aimScaleFromZero.collector.host | quote }}
+            port: {{ .Values.aimScaleFromZero.collector.port }}
+            # Convert at the source so collector restarts cannot replay the
+            # proxy's cumulative history as fresh activation traffic.
+            reportCountersAsDeltas: true
+{{- end }}
     accessLog:
       settings:
         - format:

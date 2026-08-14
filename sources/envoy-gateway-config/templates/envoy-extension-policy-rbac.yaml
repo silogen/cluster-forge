@@ -1,0 +1,27 @@
+{{- if .Values.aimScaleFromZero.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: envoy-extension-policy-admin
+rules:
+  - apiGroups: ["gateway.envoyproxy.io"]
+    resources: ["envoyextensionpolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: envoy-extension-policy-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: envoy-extension-policy-admin
+subjects:
+  # Current and legacy OIDC group prefixes used by the AIRM platform-admin role.
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: "oidc:airm-role:Platform Administrator"
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: "oidcairm-role:Platform Administrator"
+{{- end }}

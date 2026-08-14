@@ -1,0 +1,60 @@
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: {{ .Values.collector.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "envoy-gateway-metrics-collector.labels" . | nindent 4 }}
+spec:
+  mode: deployment
+  replicas: {{ .Values.collector.replicas }}
+  serviceAccount: {{ include "envoy-gateway-metrics-collector.serviceAccountName" . }}
+  resources:
+    {{- toYaml .Values.collector.resources | nindent 4 }}
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: {{ .Values.collector.receiver.endpoint | quote }}
+    processors:
+      filter/metrics:
+        metrics:
+          include:
+            match_type: regexp
+            metric_names:
+              - ^http\.lua\.aim_activation_requests\..*
+      transform/metric-name:
+        error_mode: propagate
+        metric_statements:
+          - context: metric
+            statements:
+              - 'replace_pattern(metric.name, "^http\\.lua\\.aim_activation_requests\\.", "envoy_http_lua_aim_activation_requests_")'
+              - 'replace_pattern(metric.name, "\\.", "_") where IsMatch(metric.name, "^envoy_http_lua_aim_activation_requests_")'
+      batch:
+        send_batch_size: 1024
+        timeout: 1s
+    exporters:
+      otlp:
+        endpoint: {{ .Values.collector.exporter.endpoint | quote }}
+        compression: {{ .Values.collector.exporter.compression }}
+        tls:
+          insecure: {{ .Values.collector.exporter.tls.insecure }}
+      debug:
+        verbosity: {{ .Values.collector.debug.verbosity }}
+        sampling_initial: {{ .Values.collector.debug.samplingInitial }}
+        sampling_thereafter: {{ .Values.collector.debug.samplingThereafter }}
+    service:
+      pipelines:
+        metrics:
+          receivers: [otlp]
+          processors: [filter/metrics, transform/metric-name, batch]
+          exporters: [otlp, debug]
+      telemetry:
+        metrics:
+          readers:
+            - pull:
+                exporter:
+                  prometheus:
+                    host: 0.0.0.0
+                    port: 8888

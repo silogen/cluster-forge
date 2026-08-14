@@ -165,6 +165,14 @@ components:
     projectUrl: https://github.com/envoyproxy/gateway
     license: Apache License 2.0
     licenseUrl: https://github.com/envoyproxy/gateway/blob/main/LICENSE
+  envoy-gateway-metrics-collector:
+    path: envoy-gateway-metrics-collector
+    type: helm
+    valuesFile: values.yaml
+    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/envoy-gateway-metrics-collector
+    projectUrl: https://github.com/silogen/aim-engine
+    license: Apache License 2.0
+    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   external-secrets:
     path: external-secrets/0.15.1
     type: helm
