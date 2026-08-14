@@ -1,10 +1,10 @@
 {{- if .Values.aimScaleFromZero.enabled }}
 # One platform-owned activation policy for the Gateway that directly owns AIM
 # HTTPRoutes. Per-service policies would duplicate filters and metric series.
-# The Gateway's ext_authz filter is explicitly ordered before Lua, so only
-# authorized requests increment these counters. The EnvoyProxy currently uses
-# syntax-only Lua validation because Strict lacks stats() support; access to
-# create or mutate EnvoyExtensionPolicy must therefore remain platform-admin
+# The Gateway's ext_authz and RBAC filters are explicitly ordered before Lua,
+# so only authorized requests increment these counters. The EnvoyProxy currently
+# uses syntax-only Lua validation because Strict lacks stats() support; access
+# to create or mutate EnvoyExtensionPolicy must therefore remain platform-admin
 # only. See the metrics collector README for the upgrade and security notes.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyExtensionPolicy

@@ -14,11 +14,15 @@ spec:
   # upstream validator support for stats() lands.
   luaValidation: InsecureSyntax
 {{- end }}
-  # Authorize requests before running the activation counter. This prevents
-  # rejected traffic from producing scale-from-zero activation metrics.
+  # Run every authorization filter before the activation counter. ext_authz
+  # protects Gateway-scoped routes, while SecurityPolicy.authorization is
+  # implemented by Envoy's RBAC filter. Keep both ahead of Lua so rejected
+  # traffic cannot produce scale-from-zero activation metrics.
   filterOrder:
     - name: envoy.filters.http.lua
       after: envoy.filters.http.ext_authz
+    - name: envoy.filters.http.rbac
+      before: envoy.filters.http.lua
   provider:
     type: Kubernetes
     kubernetes:

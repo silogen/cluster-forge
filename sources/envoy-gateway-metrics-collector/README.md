@@ -40,8 +40,10 @@ This policy uses inline Lua; any future `ValueRef` policy must similarly
 restrict write access to its ConfigMap. Return to `Strict` as soon as Envoy
 Gateway's validator supports `handle:stats()`.
 
-The Envoy filter order explicitly places `ext_authz` before Lua. Requests
-rejected by external authorization therefore do not increment activation
+The Envoy filter order explicitly places both `ext_authz` and `rbac` before
+Lua. Envoy Gateway implements `SecurityPolicy.authorization` with the RBAC
+filter, while Gateway-scoped external authorization uses `ext_authz`. Requests
+rejected by either authorization path therefore do not increment activation
 counters or trigger scale from zero.
 
 Cluster Forge currently keeps the AIM Engine and CRD charts together at
