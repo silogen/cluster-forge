@@ -1,0 +1,179 @@
+# =============================================================================
+# Envoy AI Gateway — the OpenShift-specific pieces
+# =============================================================================
+# Everything else (GatewayClass, GatewayConfig, Gateway, EnvoyProxy, Service,
+# EnvoyExtensionPolicy) is rendered from the unmodified cluster-forge chart
+# sources/envoy-gateway-config. Only what has no cluster-forge equivalent lives
+# here, so the chart stays reusable for RKE2 without a fork.
+#
+# NOTE: `host` uses the ${DOMAIN} placeholder, substituted at apply time (same
+# convention as routes.yaml). To apply by hand:
+#   DOMAIN=apps.<cluster>.example.com envsubst '${DOMAIN}' < 06-ai-gateway.yaml | kubectl apply -f -
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: envoy-gateway-system
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: envoy-ai-gateway-system
+
+---
+# envoy-gateway-system already gets its anyuid binding from extra/scc.yaml; this
+# namespace does not, and it is where the AI controller and the generated
+# Endpoint Picker pods run.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anyuid-scc-envoy-ai-gateway-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:serviceaccounts:envoy-ai-gateway-system
+
+---
+# anyuid alone is not enough for these pods, and the failure is easy to
+# misread: every Envoy Gateway pod sets seccompProfile RuntimeDefault, and
+# anyuid ships with an empty seccompProfiles list, so it rejects them with
+#   metadata.annotations[container.seccomp...]: Forbidden: seccomp may not be set
+# while resolving runAsUser 65532 just fine. The pod is then refused by every
+# SCC and the Deployment sits at ReplicaFailure/FailedCreate with no pod and no
+# obvious culprit. Same problem extra/scc.yaml already solves for the
+# OpenTelemetry operator, solved the same way: a scoped SCC that permits both.
+#
+# Scoped to the service-account groups rather than named users on purpose —
+# Envoy Gateway mints a service account per data-plane Deployment with a
+# generated name (envoy-<ns>-<gateway>-<hash>), so there is nothing stable to
+# enumerate. Both namespaces are infrastructure we own.
+#
+# Otherwise as restrictive as restricted-v2: no privilege escalation, no host
+# access, all capabilities dropped.
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: cf-envoy-gateway-scc
+priority: 100
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities: []
+defaultAddCapabilities: null
+requiredDropCapabilities:
+  - ALL
+readOnlyRootFilesystem: false
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+  - '*'
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+groups:
+  - system:serviceaccounts:envoy-gateway-system
+  - system:serviceaccounts:envoy-ai-gateway-system
+users: []
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - ephemeral
+  - persistentVolumeClaim
+  - projected
+  - secret
+
+---
+# OpenShift enables the OwnerReferencesPermissionEnforcement admission plugin;
+# upstream Kubernetes and RKE2 do not. It requires that whoever sets
+# blockOwnerDeletion: true on an ownerReference can also set finalizers on the
+# owner, and ai-gateway-discovery does exactly that when it creates an
+# AIGatewayRoute owned by the InferenceService.
+#
+# Its own ClusterRole grants serving.kserve.io/inferenceservices but not the
+# finalizers subresource, and RBAC does not imply subresources from the parent,
+# so on OpenShift every AIGatewayRoute is rejected with
+#   cannot set blockOwnerDeletion if an ownerReference refers to a resource
+#   you can't set finalizers on
+# and no model is ever reachable through the gateway. cluster-forge has no
+# reason to carry this rule, since the plugin is not enabled where it runs.
+#
+# Beware when checking this by hand: `kubectl auth can-i update
+# inferenceservices/finalizers` reads the slash as resource/NAME and answers
+# yes regardless. Use --subresource=finalizers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ai-gateway-discovery-inferenceservice-finalizers
+rules:
+  - apiGroups: ["serving.kserve.io"]
+    resources: ["inferenceservices/finalizers"]
+    verbs: ["update"]
+
+---
+# The service account is created later, by the ai-gateway-discovery step in
+# install.sh. Binding ahead of it is fine: the grant takes effect when the
+# account appears.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ai-gateway-discovery-inferenceservice-finalizers
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ai-gateway-discovery-inferenceservice-finalizers
+subjects:
+  - kind: ServiceAccount
+    name: ai-gateway-discovery-sa
+    namespace: ai-gateway-system
+
+---
+# Stands in for the ai-passthrough listener + TLSRoute that the reference RKE2
+# clusters put on their `https` apps gateway. Here the HAProxy router is that
+# front door: it matches SNI ai.${DOMAIN} and forwards the raw TLS stream to the
+# ai-gateway Service without decrypting it.
+#
+# This is the ONLY object that touches cluster ingress, and it claims a hostname
+# nothing else serves, so no existing Route is affected.
+#
+# Passthrough (rather than edge) keeps the manifest set identical to the other
+# clusters and the connection encrypted end to end. The cost is that HAProxy
+# presents no certificate of its own, so the `cluster-tls` secret in
+# envoy-gateway-system must be valid for this hostname — install.sh copies the
+# router's own wildcard certificate there to satisfy that.
+#
+# timeout-tunnel is the annotation that matters: a passthrough Route is TCP mode,
+# where plain `timeout` does not govern a long-lived inference stream. Both are
+# in HAProxy duration format ("30m"); Go-style "30m0s" is silently ignored.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: ai-gateway
+  namespace: envoy-gateway-system
+  annotations:
+    haproxy.router.openshift.io/timeout: 30m
+    haproxy.router.openshift.io/timeout-tunnel: 30m
+spec:
+  host: ai.${DOMAIN}
+  port:
+    targetPort: https-443
+  tls:
+    termination: passthrough
+    insecureEdgeTerminationPolicy: Redirect
+  to:
+    kind: Service
+    name: ai-gateway
+    weight: 100
+  wildcardPolicy: None

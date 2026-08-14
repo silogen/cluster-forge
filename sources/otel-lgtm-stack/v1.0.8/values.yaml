@@ -1,0 +1,321 @@
+# OpenTelemetry LGTM Stack Configuration
+# Phase 1: Essential Infrastructure Parameters
+
+# Cluster identification
+cluster:
+  name: "cluster-name"  # Update this to your actual cluster name
+
+# Namespace configuration
+namespace: otel-lgtm-stack
+
+# LGTM Stack storage configuration
+lgtm:
+  storage:
+    # Tempo storage for traces
+    tempo: 50Gi
+    # Loki storage for logs  
+    loki: 50Gi
+    # Grafana storage for dashboards/config  
+    grafana: 10Gi
+    # Mimir/Prometheus storage for metrics
+    mimir: 50Gi
+    # Loki additional storage
+    extra: 50Gi
+
+  # Config file overrides for the LGTM image (ghcr.io/silogen/docker-otel-lgtm).
+  # These full-file contents are mounted (via subPath) over the image's embedded
+  # configs at /otel-lgtm/<file>, so you can adjust Loki / OpenTelemetry Collector
+  # without rebuilding the image. The defaults below match the image's built-in
+  # configs, so out-of-the-box behavior is unchanged.
+  #
+  # NOTE: editing these requires a pod restart to take effect (subPath mounts do
+  # not hot-reload). The Deployment carries a checksum annotation so a helm
+  # upgrade with changed content triggers a rollout automatically.
+  #
+  # NOTE: When overriding via cluster-org/cluster-values, you MUST copy the entire
+  # lokiConfig or otelcolConfig block—Helm does not deep-merge YAML strings, so
+  # partial overrides will discard the rest of the default config. Always start
+  # from the full block below and modify only the specific parameters you need.
+  #
+  # NOTE: otelcol-config-export-http.yaml is intentionally NOT overridable here,
+  # because run-otelcol.sh appends to it at runtime and a read-only mount would
+  # break that. Use env vars OTEL_EXPORTER_OTLP_ENDPOINT / OTEL_EXPORTER_OTLP_HEADERS
+  # for OTLP export configuration instead.
+  configOverrides:
+    # Full loki-config.yaml. Edit e.g. limits_config.retention_period to change
+    # Loki log retention.
+    lokiConfig: |
+      auth_enabled: false
+
+      server:
+        http_listen_port: 3100
+
+      common:
+        instance_addr: 127.0.0.1
+        path_prefix: /data/loki
+        storage:
+          filesystem:
+            chunks_directory: /data/loki/chunks
+            rules_directory: /data/loki/rules
+        replication_factor: 1
+        ring:
+          kvstore:
+            store: inmemory
+
+      schema_config:
+        configs:
+          - from: 2020-10-24
+            store: tsdb
+            object_store: filesystem
+            schema: v13
+            index:
+              prefix: index_
+              period: 24h
+
+      ruler:
+        alertmanager_url: http://127.0.0.1:9093
+
+      pattern_ingester:
+        lifecycler:
+          min_ready_duration: 1s
+
+      ingester:
+        lifecycler:
+          min_ready_duration: 1s
+
+      frontend:
+        scheduler_dns_lookup_period: 1s
+        address: 127.0.0.1
+
+      query_scheduler:
+        use_scheduler_ring: false
+
+      limits_config:
+        # Loki retention is managed here, in-file (this blob). Prometheus has no
+        # equivalent config-file field, so its retention lives in lgtm.extraEnv
+        # (PROMETHEUS_EXTRA_ARGS) instead. No LOKI_EXTRA_ARGS flag is used, so
+        # this value is authoritative for Loki.
+        retention_period: 168h  # 7 days (24h * 7)
+        otlp_config:
+          resource_attributes:
+            attributes_config:
+            - action: index_label
+              attributes:
+              - component.id
+              - workload.id
+              - log.type
+
+      compactor:
+        working_directory: /data/loki/compactor
+        compaction_interval: 30m
+        retention_enabled: true
+        retention_delete_delay: 2h
+        retention_delete_worker_count: 10 
+        delete_request_store: filesystem  # Required by Loki v3.5.5+ when retention is enabled
+
+    # Full otelcol-config.yaml. Edit to adjust the OpenTelemetry Collector
+    # receivers / processors / exporters / pipelines.
+    otelcolConfig: |
+      receivers:
+        otlp:
+          protocols:
+            grpc:
+              endpoint: 0.0.0.0:4317
+              max_recv_msg_size_mib: 128
+            http:
+              endpoint: 0.0.0.0:4318
+              cors:
+                allowed_origins:
+                  - http://*
+        prometheus/collector:
+          config:
+            scrape_configs:
+              - job_name: "opentelemetry-collector"
+                scrape_interval: 30s
+                static_configs:
+                  - targets: ["127.0.0.1:8888"]
+              # Self-scrape each LGTM sub-process's own /metrics so per-process
+              # memory (process_resident_memory_bytes) is observable in Grafana.
+              # The image has no `ps`, so scraping these endpoints is the only
+              # viable way to see per-sub-process resource usage.
+              - job_name: "grafana"
+                static_configs: [{ targets: ["127.0.0.1:3000"] }]
+              - job_name: "loki"
+                static_configs: [{ targets: ["127.0.0.1:3100"] }]
+              - job_name: "prometheus"
+                static_configs: [{ targets: ["127.0.0.1:9090"] }]
+              - job_name: "tempo"
+                static_configs: [{ targets: ["127.0.0.1:3200"] }]
+              - job_name: "pyroscope"
+                static_configs: [{ targets: ["127.0.0.1:4040"] }]
+
+      extensions:
+        health_check:
+          endpoint: 0.0.0.0:13133
+          path: "/ready"
+
+      processors:
+        batch:
+
+      exporters:
+        otlphttp/metrics:
+          endpoint: http://127.0.0.1:9090/api/v1/otlp
+          tls:
+            insecure: true
+        otlphttp/traces:
+          endpoint: http://127.0.0.1:4418
+          tls:
+            insecure: true
+        otlphttp/logs:
+          endpoint: http://127.0.0.1:3100/otlp
+          tls:
+            insecure: true
+        otlp/profiles:
+          endpoint: http://127.0.0.1:4040
+          tls:
+            insecure: true
+        debug/metrics:
+          verbosity: detailed
+        debug/traces:
+          verbosity: detailed
+        debug/logs:
+          verbosity: detailed
+
+      service:
+        extensions: [health_check]
+        pipelines:
+          traces:
+            receivers: [otlp]
+            processors: [batch]
+            exporters: [otlphttp/traces]
+            #exporters: [otlphttp/traces,debug/traces]
+          metrics:
+            receivers: [otlp, prometheus/collector]
+            processors: [batch]
+            exporters: [otlphttp/metrics]
+            #exporters: [otlphttp/metrics,debug/metrics]
+          logs:
+            receivers: [otlp]
+            processors: [batch]
+            exporters: [otlphttp/logs]
+            #exporters: [otlphttp/logs,debug/logs]
+          profiles:
+            receivers: [otlp]
+            exporters: [otlp/profiles]
+
+  # Extra environment variables passed through to the lgtm container.
+  #
+  # RULE OF THUMB: prefer configOverrides (the config-file blobs above) when a
+  # setting exists as a config-file field. Only use extraEnv for settings that
+  # CANNOT be expressed in a config file:
+  #   - PROMETHEUS_EXTRA_ARGS: Prometheus retention has no config-file field;
+  #     it is only settable via CLI flags (passed through by the official image).
+  #   - GOMEMLIMIT: a Go-runtime env var (no config-file concept). It is a soft,
+  #     container-wide GC ceiling SHARED by every Go sub-process (Grafana,
+  #     Prometheus, Loki, Tempo, Pyroscope). It is a shared safety line, NOT
+  #     per-process budgeting. Keep it comfortably below resources.limits.memory
+  #     so GC can react before the kernel OOM-kills the pod.
+  #   - GF_*: Grafana settings are configured via env vars.
+  #
+  # The template just ranges over this map, so operators can add any further
+  # env var here without touching the template.
+  extraEnv:
+    GOMEMLIMIT: "6GiB"
+    # NOTE: use YAML folded style (>-) so multiple flags stay readable (one per
+    # line) but render as a SINGLE space-separated line. A literal block (|) would
+    # keep newlines, and the image's run-prometheus.sh uses
+    # `read -ra ... <<<"$PROMETHEUS_EXTRA_ARGS"` where `read` stops at the first
+    # newline — silently dropping every flag after the first.
+    PROMETHEUS_EXTRA_ARGS: >-
+      --storage.tsdb.retention.time=168h
+      --storage.tsdb.retention.size=40GB
+    GF_AUTH_ANONYMOUS_ENABLED: "false"
+    GF_AUTH_BASIC_ENABLED: "true"
+
+  # LGTM stack main deployment resources
+  resources:
+    limits:
+      memory: 8Gi
+    requests:
+      memory: 2Gi
+      cpu: '1'
+  
+# OpenTelemetry Collectors resource configuration  
+collectors:
+  # Prometheus scrape interval control for the OpenTelemetry collectors.
+  # `scrapeInterval` is the global default applied to every scrape job (via each
+  # collector's prometheus receiver global.scrape_interval). Individual heavy /
+  # slow jobs can be overridden by name in `scrapeIntervalOverrides`.
+  scrapeInterval: 30s
+  scrapeIntervalOverrides:
+    opencost: 1m
+    kubernetes-service-endpoints-slow: 5m
+    kubernetes-pods-slow: 5m
+    ai-gateway-extproc: 30s
+    airm-custom-metrics: 30s
+  # memory_limiter processor settings applied to every collector's pipeline.
+  # This is the collector's built-in OOM guard: when in-use memory approaches
+  # `limitPercentage` of the container memory limit, the collector refuses
+  # incoming data (backpressure) instead of growing until it is OOM-killed.
+  # `spikeLimitPercentage` reserves headroom for sudden bursts between checks.
+  # Percentages are of each collector's own container memory limit
+  # (collectors.resources.*.limits.memory). Tune per-cluster: under-specced
+  # clusters may want a lower limitPercentage to trigger backpressure earlier.
+  memoryLimiter:
+    checkInterval: 5s
+    limitPercentage: 80
+    spikeLimitPercentage: 25
+  resources:
+    # Metrics collector (deployment mode) - original values
+    metrics:
+      limits:
+        memory: 8Gi
+        cpu: '2'
+      requests:
+        memory: 1Gi
+        cpu: 500m
+    # Logs collector (daemonset mode) - original conservative values  
+    logs:
+      limits:
+        memory: 2Gi
+        cpu: '1'
+      requests:
+        memory: 400Mi  # Conservative default
+        cpu: 200m    # Conservative default
+
+# Service configuration
+services:
+  # Main LGTM stack service ports
+  lgtm:
+    grafana: 3000
+    otelGrpc: 4317
+    otelHttp: 4318
+    prometheus: 9090
+    loki: 3100
+  # Kube state metrics service port
+  kubeStateMetrics:
+    http: 8080
+  # Node exporter service port
+  nodeExporter:
+    metrics: 9100
+
+# Component enablement
+dashboards:
+  enabled: true
+  github:
+    enabled: true
+    folder: kubernetes
+    image: curlimages/curl:8.8.0
+    urls:
+      - https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-system-api-server.json
+      - https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-system-coredns.json
+      - https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-global.json
+      - https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-namespaces.json
+      - https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-nodes.json
+      - https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-pods.json
+
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true

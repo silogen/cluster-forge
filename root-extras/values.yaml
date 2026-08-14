@@ -1,0 +1,26 @@
+# Shared context forwarded from the core cluster-forge Application
+# (root/templates/cluster-forge-extras.yaml). Defaults kept empty here so
+# `tpl` references resolve safely even before forwarding is wired up.
+global:
+  clusterSize:
+  domain:
+ociRegistry:
+  dockerHub:
+  ghcr:
+# The cluster-forge repo itself. Forwarded in case an extraApp's multi-source
+# spec wants to reference it directly.
+clusterForge:
+  repoUrl:
+  targetRevision:
+# The user's cluster-values overlay repo — same repo where extraApps entries
+# are written. Forwarded so an extraApp can reference a values file the user
+# created there (multi-source, see root-extras/values_addons.yaml).
+externalValues:
+  repoUrl:
+  targetRevision:
+
+# User-provided extra components, populated via the cluster-values overlay
+# repo. Each entry is the literal ArgoCD Application `spec:` block for that
+# component. See docs/adding_extra_components.md for the schema and
+# root-extras/values_addons.yaml for a ready-to-copy example.
+extraApps: {}

@@ -54,6 +54,13 @@ enabledApps:
   - rabbitmq
   
 apps:
+  airm-infra-cnpg:
+    valuesObject:
+      instances: 2
+  keycloak:
+    valuesObject:
+      cnpg:
+        instances: 2
   seaweedfs-config:
     valuesObject:
       seaweed:
@@ -69,6 +76,9 @@ apps:
           replicas: 1
           requests:
             storage: 30Gi
+      bucket:
+        name: default-bucket
+        namespace: demo
 
   openbao:
     valuesObject:

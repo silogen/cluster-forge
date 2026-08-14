@@ -1,0 +1,46 @@
+---
+# Allows the local-path-provisioner helper pod to run on OpenShift.
+#
+# rancher.io/local-path provisions a volume by launching a short-lived
+# "helper pod" (busybox) that mkdir's the backing directory on the node via a
+# hostPath mount. The upstream manifest the installer applies
+# (rancher/local-path-provisioner .../local-path-storage.yaml) targets vanilla
+# Kubernetes and grants no SCC, so on OpenShift the helper pod is rejected:
+#
+#   pods "helper-pod-create-pvc-..." is forbidden: unable to validate against
+#   any security context constraint: ... hostPath volumes are not allowed to be used
+#
+# The helper pod spec in the local-path-config ConfigMap sets no
+# serviceAccountName, so it runs as the `default` SA of the namespace it is
+# created in (local-path-storage, per the provisioner's POD_NAMESPACE).
+#
+# `privileged` rather than `hostmount-anyuid`: the node is SELinux Enforcing and
+# the backing path /opt/local-path-provisioner (-> /var/opt, labelled usr_t)
+# does not exist yet. hostmount-anyuid permits the hostPath mount but runs the
+# container as container_t, which cannot create a directory under usr_t.
+# `privileged` runs it as spc_t, which can.
+#
+# BOTH service accounts are required. OpenShift's SCC admission evaluates the
+# SCCs available to the identity *submitting* the request as well as the pod's
+# own service account. The helper pod carries no serviceAccountName (so it runs
+# as `default`), but it is submitted by the provisioner itself
+# (local-path-provisioner-service-account). Granting only `default` leaves
+# admission still reporting:
+#   provider "privileged": Forbidden: not usable by user or serviceaccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: privileged-scc-local-path-helper
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:privileged
+subjects:
+  # The helper pod's own identity.
+  - kind: ServiceAccount
+    name: default
+    namespace: local-path-storage
+  # The identity that creates the helper pod.
+  - kind: ServiceAccount
+    name: local-path-provisioner-service-account
+    namespace: local-path-storage

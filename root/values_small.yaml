@@ -51,7 +51,6 @@ enabledApps:
   - kyverno-policies-base               # applicable to all cluster sizes
   - kyverno-policies-storage-local-path # small & medium cluster sizes only
   - metallb
-  - seaweedfs-crds
   - seaweedfs-operator
   - seaweedfs-config  
   - openbao
@@ -62,6 +61,9 @@ enabledApps:
   - rabbitmq
 
 apps:
+  aiwb-infra-cnpg:
+    valuesObject:
+      instances: 1
   argocd:
     valuesObject:
       applicationSet:
@@ -134,6 +136,9 @@ apps:
           replicas: 1
           requests:
             storage: 10Gi
+      bucket:
+        name: default-bucket
+        namespace: demo
 
   openbao:
     valuesObject:
