@@ -15,8 +15,26 @@ persistence:
   # name if this cluster has no default.
   storageClassName: ""
 
+# Management API (8080) defaults to binding 127.0.0.1, unreachable from the
+# dashboard's separate pod — this is why the dashboard reports the router as
+# not running. This env var widens the bind cluster-internally without the
+# heavier `remote_exposure: true` + bearer-auth path. Still not
+# internet-facing: no Gateway route touches 8080. See README.
+extraEnv:
+  - name: VLLM_SR_MANAGEMENT_INTERNAL_LISTENER
+    value: "true"
+
 dashboard:
   enabled: true
+
+  # Off by default upstream. Without it, the admin account and all session/
+  # workflow state live only in the pod's ephemeral filesystem and are wiped
+  # by ANY pod recreation — not just a restart, also a values change, a chart
+  # bump, or a node move. Cheap enough (1Gi) to leave on regardless of which
+  # login option below you pick — see the README's "Dashboard access" section.
+  persistence:
+    enabled: true
+    storageClassName: ""
 
   # Nobody can log in as shipped. Upstream's bootstrap endpoint is public and
   # unauthenticated, so it stays off by default — otherwise the first stranger
@@ -40,6 +58,11 @@ dashboard:
 # route. They are lists, and Helm replaces lists wholesale rather than merging
 # them — so keep each one complete, don't trim it to just the changed field.
 config:
+  # Pairs with extraEnv above — both are required, neither works alone.
+  global:
+    services:
+      management_api:
+        bind_address: "0.0.0.0"
   providers:
     defaults:
       default_model: "TODO-your-model"

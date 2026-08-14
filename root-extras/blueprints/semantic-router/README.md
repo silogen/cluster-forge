@@ -353,10 +353,13 @@ cluster-internal — traffic reaches it through Envoy, not directly:
 | `semantic-router` | 50051 | gRPC, the external processor port the gateway wiring uses |
 | `semantic-router-metrics` | 9190 | Prometheus metrics |
 
-Port 8080 is not a chat endpoint despite exposing an OpenAI-shaped path. Upstream
-binds it to localhost with `remote_exposure: false`, and it is not meant to take
-full completions. Route through `sr.<domain>` instead; use 8080 for health checks
-and classification debugging:
+Port 8080 is not a chat endpoint — route real requests through `sr.<domain>`
+instead. Upstream binds it to `127.0.0.1`, which also blocks the dashboard (a
+separate pod reaching it over the Service network). This blueprint widens the
+bind to `0.0.0.0` via `VLLM_SR_MANAGEMENT_INTERNAL_LISTENER`, avoiding the
+heavier `remote_exposure: true` + bearer-auth path. No Gateway route touches
+8080, so external reachability is unchanged. Use it for health checks and
+classification debugging:
 
 ```bash
 kubectl -n semantic-router port-forward svc/semantic-router 8080:8080
@@ -428,7 +431,13 @@ the UI. That's deliberate: the upstream bootstrap endpoint is public and
 unauthenticated, so leaving it open means whoever loads the URL first becomes
 admin. On a Gateway-exposed dashboard that's not a good default.
 
-Pick one before you try to log in.
+Without `dashboard.persistence.enabled: true` (on by default in this
+blueprint's `values.yaml`), the admin account lives only in the pod's
+ephemeral filesystem and is wiped by any pod recreation — confirmed by
+testing: turning `allowOpenBootstrap` back off recreated the pod and deleted
+the admin we'd just created, until persistence was turned on.
+
+Pick one login option before you try to log in.
 
 **Throwaway demo** — uncomment in `values.yaml`:
 
@@ -437,11 +446,21 @@ dashboard:
   allowOpenBootstrap: true
 ```
 
-Then create the admin through the web form. Fine on a cluster you're about to
-delete; don't leave it on otherwise.
+Then create the admin through the web form. Turn it back off once the admin
+exists — with persistence on, the account survives that.
 
-**Anything longer-lived** — provision the admin at startup instead. Adding these
-closes the bootstrap path automatically:
+**Anything longer-lived** — provision the admin at startup instead. First
+create the Secret the env vars below reference, directly on the cluster —
+**not** through the overlay repo, since that would put the plaintext password
+in Git:
+
+```bash
+kubectl -n semantic-router create secret generic semantic-router-dashboard-admin \
+  --from-literal=password="$(openssl rand -hex 16)"
+```
+
+Then add these to `values.yaml`. Adding them closes the bootstrap path
+automatically:
 
 ```yaml
 dashboard:
@@ -457,9 +476,16 @@ dashboard:
           key: password
 ```
 
+The Secret has to exist in the `semantic-router` namespace before ArgoCD syncs
+this, or the dashboard pod sits in `CreateContainerConfigError`.
+
+Self-healing even without persistence, since the admin is recreated from the
+env vars every startup — but persistence still matters for everything else the
+dashboard tracks (evaluation runs, saved workflows).
+
 Worth knowing that login sessions are signed with a key the dashboard
-regenerates on every pod start, so any restart logs everyone out. Set
-`dashboard.jwtSecret.existingSecret` if that matters.
+regenerates on every pod start, so any restart logs everyone out regardless of
+persistence. Set `dashboard.jwtSecret.existingSecret` if that matters.
 
 ## Updating
 
