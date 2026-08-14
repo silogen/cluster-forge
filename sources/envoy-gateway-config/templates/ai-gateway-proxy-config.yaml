@@ -1,17 +1,25 @@
 {{- if .Values.aiGateway.enabled }}
 # EnvoyProxy for the ai-gateway: ClusterIP (it sits behind the apps gateway, which forwards
-# the AI hostname to it) + the same lua-before-ext_authz filterOrder the apps gateway uses,
-# so set-model-header-from-body runs before cluster-auth and per-model group enforcement
-# works (EAI-6805). Same first-node placement + AI access-log telemetry.
+# the AI hostname to it), first-node placement + AI access-log telemetry (EAI-6805).
+# Header-less/body requests are authorized by ai-gateway-discovery's body-aware ext_authz
+# (see security-policy-ai-gateway-default-deny.yaml).
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
   name: ai-gateway-proxy-config
   namespace: envoy-gateway-system
 spec:
+  # Run the sanitize-backend-header Lua (envoy-extension-policy-backend-sanitize.yaml) before
+  # native apiKeyAuth AND before the ai-gateway ext_proc, so a bogus x-ai-eg-backend is stripped
+  # before the ext_proc snapshots request headers for the aim_service_id metric label (EAI-7864).
+  # NOTE: metric coverage depends on the Lua preceding whichever ext_proc pass captures the header
+  # attribute — verify on deploy that a bogus backend id is dropped from the Prometheus metric
+  # (not just the access log) and adjust ordering if the router ext_proc snapshots it earlier.
   filterOrder:
     - name: envoy.filters.http.lua
-      before: envoy.filters.http.ext_authz
+      before: envoy.filters.http.api_key_auth
+    - name: envoy.filters.http.lua
+      before: envoy.filters.http.ext_proc
   provider:
     type: Kubernetes
     kubernetes:
@@ -49,7 +57,7 @@ spec:
               llm_output_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_output_token)%"
               llm_total_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_total_token)%"
               api_key_id: "%REQ(x-api-key-id)%"
-              aim_service_id: "%REQ(x-aim-service-id)%"
+              aim_service_id: "%REQ(x-ai-eg-backend)%"
           sinks:
             - type: File
               file:
