@@ -29,7 +29,7 @@ spec:
         - name: prometheus
           parameters: 0.0.0.0:9153
         - name: forward
-          parameters: . /etc/resolv.conf
+          parameters: . {{ .Values.coredns.upstream | default "/etc/resolv.conf" }}
         - name: cache
           parameters: "30"
         - name: loop
