@@ -15,16 +15,8 @@ gatewayDnsService:
   enabled: true
 
 coredns:
-  # Upstream resolver(s) CoreDNS forwards non-cluster queries to, space-separated
-  # (e.g. "169.254.169.254" on OCI). Empty keeps the historical `/etc/resolv.conf`.
-  #
-  # Set this on any cluster whose kube-apiserver must resolve kc.<domain> in-cluster
-  # (EAI-8001). CoreDNS runs dnsPolicy: Default, so `/etc/resolv.conf` inside its pod
-  # is kubelet's --resolv-conf — the same file cluster-bloom points at the cluster DNS
-  # ClusterIP so the apiserver picks up the *.domain rewrite. Left as a file reference,
-  # CoreDNS would then forward to itself and the `loop` plugin would abort it at
-  # startup. Naming the upstream explicitly breaks that self-reference.
-  upstream: ""
+  # Upstream resolver(s) for non-cluster queries (e.g. "1.1.1.1")
+    upstream: ""
 
 # Dedicated AI gateway (`ai-gateway`): a separate Envoy (ClusterIP) for AIGatewayRoute traffic,
 # isolating inference/EPP failures from the apps gateway (EAI-6805). The apps gateway TLS-
