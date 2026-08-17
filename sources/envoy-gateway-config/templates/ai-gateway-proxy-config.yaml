@@ -9,6 +9,23 @@ metadata:
   name: ai-gateway-proxy-config
   namespace: envoy-gateway-system
 spec:
+  # Keep long LLM completions alive across listener churn. Every model deploy/undeploy changes the
+  # ai-gateway filter set (per-model EPP ext_proc + catch-all ext_authz filters), which triggers an
+  # Envoy in-place filter-chain update: the superseded chain is drained and any connection still on
+  # it is force-closed at the end of the drain window. With the 60s default that severs in-flight
+  # streaming completions mid-body (measured: unrelated-model events killing held ai.<domain>
+  # streams). Envoy Gateway feeds shutdown.drainTimeout into Envoy's --drain-time-s, which governs
+  # LDS-triggered filter-chain draining on a *running* pod — so raising it lets a superseded chain
+  # hold its connections long enough for the completion to finish and close naturally. Set >= the
+  # ai-gateway-discovery REQUEST_TIMEOUT (default 30m); a completion cannot outlive that, so it
+  # always finishes before force-close. A drained chain is released as soon as its connections close
+  # (or at drainTimeout), so cost is bounded by concurrent long streams, not by churn rate. This does
+  # not reduce churn — it stops churn from cutting live streams (the filter-topology fix is upstream:
+  # envoyproxy/ai-gateway filter dedup + rule naming). NOTE: pod-termination drains are still bounded
+  # by terminationGracePeriodSeconds (EG default 360s), so rollovers can still cut streams >6m — a
+  # separate concern from the on-running-pod churn this addresses.
+  shutdown:
+    drainTimeout: 31m
   # Run the sanitize-backend-header Lua (envoy-extension-policy-backend-sanitize.yaml) before
   # native apiKeyAuth AND before the ai-gateway ext_proc, so a bogus x-ai-eg-backend is stripped
   # before the ext_proc snapshots request headers for the aim_service_id metric label (EAI-7864).
