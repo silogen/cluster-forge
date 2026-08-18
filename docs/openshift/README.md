@@ -14,7 +14,7 @@ Deploy the stack with all tools needed on a Openshift cluster
 export CLUSTER_FORGE_DIR=".tmp/cf"
 
 # Set desired CF version to be used on the installation
-export CLUSTER_FORGE_VERSION=v2.2.0
+export CLUSTER_FORGE_VERSION=v2.2.2
 
 # Deploy using a subshell
 curl -fsSL https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/main/docs/openshift/install.sh | bash
