@@ -414,6 +414,38 @@ That matches cluster-auth's `httproute-group-based-access` policy
 (`requireAuth: true`), so only callers in `<your-group>` are let through; anyone
 else gets rejected before the request reaches the router or the model backend.
 
+## Timeouts, retries, and failover
+
+Every rule in `gateway-routing.yaml` sets `timeouts.request` and
+`timeouts.backendRequest` to `300s`, matching the `EnvoyExtensionPolicy`'s
+`messageTimeout` documented above. This isn't optional tuning — Envoy
+Gateway's own default (200ms) would silently cut off every real completion,
+so a `HTTPRoute` with no `timeouts` block at all is broken for anything but
+a health check. Raise it per rule if a model's expected completion time
+genuinely exceeds 300s; there's no per-model templating here, so edit that
+model's own rule directly. (This mirrors, but doesn't copy, the synopsys
+cluster's AI-Gateway setup, which uses 600s for the same reason on its
+`AIGatewayRoute` — different number, same reason for existing at all.)
+
+Retry and multi-backend failover are documented but **not enabled** —
+commented-out examples sit right after the `EnvoyExtensionPolicy` block in
+`gateway-routing.yaml`:
+
+- **Retry** (`BackendTrafficPolicy.spec.retry`) is safe to turn on: Envoy's
+  HTTP retry only replays a request if no response has started yet, so it
+  can't double-fire an in-flight generation or double-bill GPU time. The
+  example restricts `retryOn` to connect-failure/refused-stream/
+  reset-before-request only — deliberately not generic 5xx or timeout,
+  since a slow-but-working completion should never be retried. Still an
+  opt-in, not a default, since it's the first use of this field in this
+  repo.
+- **Failover** is a weighted multi-`backendRef` example, for routing one
+  model across two genuinely separate Deployments/Services (a second region,
+  a second cluster). Extra replicas of one Deployment don't need this —
+  those already load-balance across via the Service/EDS with zero extra
+  config. This is the plain-`HTTPRoute` equivalent of `AIServiceBackend`'s
+  priority/weight-across-multiple-Backends feature.
+
 ## Storage
 
 Upstream defaults `persistence.storageClassName` to `"standard"`, which our

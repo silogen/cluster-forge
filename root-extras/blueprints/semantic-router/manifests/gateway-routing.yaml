@@ -44,6 +44,12 @@ spec:
     # it may pick needs a rule here or the request falls through to the catch-all.
     #
     # TODO: one block like this per model, each pointing at that model's backend.
+    # `timeouts` below matches the EnvoyExtensionPolicy's messageTimeout further
+    # down — both budget for classification plus a full LLM completion, not a
+    # quick HTTP call. Envoy Gateway's own default (200ms) is far too short and
+    # would cut off every real request. Raise per-model if one model's expected
+    # completion time genuinely exceeds this — there's no per-model templating
+    # here, so just edit that rule's own timeouts block.
     - matches:
         - headers:
             - name: x-selected-model
@@ -52,6 +58,9 @@ spec:
         - name: TODO-your-vllm-service
           namespace: TODO-your-vllm-namespace
           port: 8000
+      timeouts:
+        request: 300s
+        backendRequest: 300s
     # The catch-all is not optional, and it goes last. An external processor only
     # runs once a route has already matched, so the request needs a rule that
     # matches before the router has said anything — which is every request on
@@ -63,10 +72,16 @@ spec:
     # policy below fails open.
     #
     # TODO: your default backend, for requests the router does not reroute.
+    # Same timeouts as the model rule above — this is a live traffic path too
+    # (where requests land while the router is down, per failOpen below), not
+    # just an error page.
     - backendRefs:
         - name: TODO-your-vllm-service
           namespace: TODO-your-vllm-namespace
           port: 8000
+      timeouts:
+        request: 300s
+        backendRequest: 300s
 ---
 # Calls the router on the gRPC port it is actually designed to be used through
 # (50051), rather than treating it as an HTTP backend. Port 8080 is the
@@ -111,6 +126,63 @@ spec:
       # Router unreachable -> requests skip it and take the catch-all rule,
       # instead of the whole hostname returning 5xx.
       failOpen: true
+
+# Retries for transient connection failures (a backend pod restarting mid-
+# rollout, a dropped connection) — not enabled by default. Envoy's HTTP retry
+# only replays a request if no response has started yet, so this cannot
+# double-fire an in-flight generation or double-bill GPU time; it only covers
+# the connection never being established or being reset before any response
+# bytes arrive. Deliberately excludes generic 5xx and timeout retries — a
+# slow-but-working completion should not be retried, and a real backend error
+# after generation started should surface, not silently re-run.
+#
+# Uncomment and edit targetRefs' `name` if you rename the HTTPRoute above.
+#
+# apiVersion: gateway.envoyproxy.io/v1alpha1
+# kind: BackendTrafficPolicy
+# metadata:
+#   name: semantic-router-retry
+#   namespace: semantic-router
+# spec:
+#   targetRefs:
+#     - group: gateway.networking.k8s.io
+#       kind: HTTPRoute
+#       name: semantic-router
+#   retry:
+#     numRetries: 2
+#     retryOn:
+#       triggers:
+#         - connect-failure
+#         - refused-stream
+#         - reset-before-request
+#     perRetry:
+#       backOff:
+#         baseInterval: 1s
+#         maxInterval: 5s
+
+# Failover across two independent backends for the SAME model — e.g. a second
+# Deployment/Service in another namespace or region, not just extra replicas
+# of one Deployment (extra replicas of one Deployment are already
+# load-balanced across by the Service/EDS with no config here). Weight
+# controls the traffic split; Envoy shifts traffic away from a backendRef
+# automatically once it's failing (paired with the retry policy above, or your
+# own active health checking). This is the plain-HTTPRoute equivalent of
+# AIServiceBackend's priority/weight-across-multiple-Backends feature — see
+# aigw-vs-direct-envoy.md's "Other differences" section.
+#
+#     - matches:
+#         - headers:
+#             - name: x-selected-model
+#               value: TODO-your-model
+#       backendRefs:
+#         - name: TODO-your-primary-vllm-service
+#           namespace: TODO-your-vllm-namespace
+#           port: 8000
+#           weight: 90
+#         - name: TODO-your-secondary-vllm-service
+#           namespace: TODO-your-other-vllm-namespace
+#           port: 8000
+#           weight: 10
 
 # Routing a model to an API outside the cluster (OpenAI, Anthropic, a vLLM box on
 # another network). A plain backendRef can only name an in-cluster Service, so an
