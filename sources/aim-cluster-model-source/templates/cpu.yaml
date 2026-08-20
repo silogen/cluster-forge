@@ -1,0 +1,16 @@
+{{- $families := include "aim.hardwareFamilies" . | fromJsonArray }}
+{{- if has "cpu" $families }}
+---
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterModelSource
+metadata:
+  name: amd-aim-cpu-0.12.0-rc1
+spec:
+  filters:
+    - image: silogenai/aim-cpu-qwen-qwen3-0-6b:0.12.0-rc1
+  imagePullSecrets:
+    - name: dockerhub-regcred
+  maxModels: 100
+  registry: docker.io
+  syncInterval: 1h
+{{- end }}

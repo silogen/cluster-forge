@@ -11,10 +11,12 @@ two mutually exclusive branches, selected by `hardwareFamilies`:
 
 - **Legacy (default):** when `hardwareFamilies` is empty, the chart installs the
   full set of generic `amd-aim-release-*` model sources (versions 0.8.5, 0.9.0,
-  0.10.0, 0.11.0), unchanged from the pre-chart directory app.
+  0.10.0, 0.11.0), unchanged from the pre-chart directory app. Implemented in
+  `templates/legacy.yaml`.
 - **Per-hardware-family profiles:** when `hardwareFamilies` is non-empty, the
   chart installs only the `AIMClusterModelSource` resources for the listed
-  families. The legacy generic sources are not installed.
+  families (`templates/instinct.yaml`, `epyc.yaml`, `cpu.yaml`, `radeon.yaml`).
+  The legacy generic sources are not installed.
 
 ## `hardwareFamilies`
 
