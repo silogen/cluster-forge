@@ -49,9 +49,9 @@ apps:
     path: aim-cluster-model-source
     syncWave: -20
     valuesObject:
-      # Hardware families to install (cpu,epyc,instinct,radeon).
-      # Empty = legacy (install all generic model sources). cluster-bloom
-      # injects the selected families as a YAML list at deploy time.
+      # Hardware families to install (cpu,epyc,instinct,radeon). Required — empty
+      # fails chart render (brownfield guard). cluster-bloom injects the selected
+      # families as a YAML list at deploy time.
       hardwareFamilies: []
   airm:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"

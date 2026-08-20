@@ -1682,7 +1682,9 @@ helm template aim-engine oci://registry-1.docker.io/amdenterpriseai/aim-engine-c
 # Stage 3: Install AIMClusterModelSource for model auto-discovery
 echo "📦 Installing AIM Cluster Model Source (v0.11.0)..."
 helm template aim-engine ${SOURCES_DIR}/aim-cluster-model-source/ \
-  --namespace kaiwo-system > ./aim-cluster-model-source-deploy-manually.yaml
+  --namespace kaiwo-system \
+  --set-json 'hardwareFamilies=["instinct"]' \
+  > ./aim-cluster-model-source-deploy-manually.yaml
 echo "WARNING: Check local file ./aim-cluster-model-source-deploy-manually.yaml for AIMClusterModelSource deployment"
 
 echo "✅ AIM Engine installed"

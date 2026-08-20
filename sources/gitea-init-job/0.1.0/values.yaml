@@ -20,7 +20,7 @@ disabledApps: null
 aiwbOnly: false
 
 # Comma-separated AIM hardware families to install (injected by bootstrap script when AIM_HARDWARE_FAMILY is set)
-# Empty/null = install all (legacy). Example: "epyc,instinct"
+# Required for aim-cluster-model-source chart render. Example: "epyc,instinct"
 aimHardwareFamily: null
 
 # GPU stack family driving ROCm + GPU Operator defaults (injected by cluster-bloom from GPU_STACK_FAMILY).
