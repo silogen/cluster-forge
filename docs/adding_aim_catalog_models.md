@@ -1,10 +1,10 @@
-# Adding AIM Catalog Models
+# Adding AIM catalog models
 
-Step-by-step guide for cluster administrators who need to add AIM container
-images to the AI Workbench model catalog **between Cluster Forge releases**.
+Step-by-step guide for cluster operators who need to add, replace, or remove AIM
+container images in the AI Workbench model catalog.
 
 For packaged baseline behaviour, version policy, and lifecycle rules, see
-[AIM Model Management](aim_model_management.md).
+[AIM model catalog lifecycle](aim_model_management.md).
 
 Validated with Cluster Forge `v2.2.2` and AIM Engine `0.2.5`.
 
@@ -177,4 +177,4 @@ Removing the application first leaves orphaned sources in the cluster.
 | Model in K8s but not AI Workbench | `AIMClusterModel` status; refresh catalog; wait 30s |
 | Many not-deployable entries | Additional images for wrong hardware family — fix or remove manifests |
 
-See [AIM Model Management](aim_model_management.md) for full lifecycle rules.
+See [AIM model catalog lifecycle](aim_model_management.md) for full lifecycle rules.

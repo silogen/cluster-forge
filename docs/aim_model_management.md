@@ -1,22 +1,29 @@
-# AIM Model Management
+# AIM model catalog lifecycle
 
-Reference for how AIM catalog sources are packaged, versioned, and extended on
-Cluster Forge clusters.
+Reference for how AIM model catalog sources are packaged, extended, and retired on
+Cluster Forge clusters. This guide is for **cluster operators and platform
+administrators** — including customer-run installations — who need to understand
+catalog behaviour and manage models over the life of a cluster.
 
-**Administrators adding models between releases** should follow the procedural
-guide [Adding AIM Catalog Models](adding_aim_catalog_models.md).
+It is **not tied to the Cluster Forge release cadence**. Use it whenever you
+need to add, replace, or remove catalog entries: private builds, early access
+tags, bespoke models, or housekeeping after a platform upgrade.
+
+For step-by-step procedures (Gitea manifests, Argo CD sync, verification), see
+[Adding AIM catalog models](adding_aim_catalog_models.md).
 
 ## Overview
 
-Two layers:
+The catalog has two complementary layers:
 
-| Layer | Mechanism | When to use |
+| Layer | Mechanism | Typical use |
 |-------|-----------|-------------|
-| **Packaged baseline** | `aim-cluster-model-source` Helm chart (Argo CD) | Every installation; updated at Cluster Forge release cuts |
-| **Inter-release additions** | Gitea `cluster-values` + `aim-cluster-model-source-additional` | Private builds, RCs, or public tags not yet in the packaged chart |
+| **Packaged baseline** | `aim-cluster-model-source` Helm chart (Argo CD) | Default AMD catalog for the cluster hardware family; refreshed when you upgrade Cluster Forge |
+| **Cluster-managed additions** | Gitea `cluster-values` + `aim-cluster-model-source-additional` | Any extra model or base images you choose to expose — RCs, private builds, site-specific tags, or images not yet in the packaged chart |
 
-Inter-release additions do not replace the AIM team release process or Platform
-packaging workflow.
+Cluster-managed additions do not replace the AIM team release process or Platform
+packaging workflow. They are an **operator-controlled extension** of the catalog,
+available at any time.
 
 ## Packaged baseline catalog
 
@@ -73,21 +80,24 @@ Platform CI environments only. They are not packaged in Cluster Forge.
 There is no automated deprecation schedule. Teams depending on an older AIM
 version retain its source until they remove it.
 
-## Inter-release additional catalog
+## Cluster-managed catalog additions
 
-Administrators add sources through Gitea and Argo CD; see
-[Adding AIM Catalog Models](adding_aim_catalog_models.md).
+Operators add or remove sources through Gitea and Argo CD; see
+[Adding AIM catalog models](adding_aim_catalog_models.md).
 
-Flow:
+Typical lifecycle:
 
 1. Gitea stores `AIMClusterModelSource` manifests in `cluster-values`.
 2. `cluster-forge` creates `aim-cluster-model-source-additional`.
 3. AIM Engine discovers images and creates `AIMClusterModel` resources.
 4. AI Workbench refreshes its catalog periodically.
 
+Use this path whenever the packaged baseline does not include the image you
+need — regardless of whether a Cluster Forge upgrade is planned.
+
 ### Hardware family and catalog UX
 
-The packaged baseline is family-filtered. Inter-release additions can list any
+The packaged baseline is family-filtered. Cluster-managed additions can list any
 image, but entries for the wrong accelerator appear as **not deployable** in AI
 Workbench. Prefer family-matched images and the `{family}-*.yaml` filename
 convention described in the how-to guide.
@@ -105,19 +115,23 @@ convention described in the how-to guide.
 Remove or replace source manifests while the additional application still
 exists. Disable the application only after sources are pruned.
 
+When upgrading Cluster Forge, review the incoming packaged catalog and remove
+cluster-managed manifests that duplicate newly packaged models or bases before
+syncing — see the how-to guide.
+
 ## Responsibilities
 
 | Responsibility | Owner |
 |----------------|-------|
 | AIM release manifests and base-image lists | AIM team (`aim-build`) |
 | Packaging into Cluster Forge | Platform release process |
-| Inter-release per-cluster additions | Cluster administrator |
+| Cluster-managed catalog additions and removals | Cluster / installation operator |
 | Removing deprecated catalog entries | Installation owner |
 
 ## Related documentation
 
-- [Adding AIM Catalog Models](adding_aim_catalog_models.md) — procedural guide
-  for administrators
+- [Adding AIM catalog models](adding_aim_catalog_models.md) — procedural guide
+  for operators
 - [aim-cluster-model-source README](../sources/aim-cluster-model-source/README.md)
   — Helm chart reference
 - [Values inheritance pattern](values_inheritance_pattern.md) — how
