@@ -1,0 +1,4 @@
+{{- $families := include "aim.hardwareFamilies" . | fromJsonArray -}}
+{{- if not $families -}}
+{{- fail "aim-cluster-model-source: hardwareFamilies must be set (allowed: cpu, epyc, instinct, radeon). An empty list no longer installs a default catalog and would cause ArgoCD prune to delete existing AIMClusterModelSource resources. Set at least one family in cluster-values before syncing this chart." -}}
+{{- end -}}
