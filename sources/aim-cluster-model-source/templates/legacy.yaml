@@ -168,4 +168,21 @@ spec:
     - name: dockerhub-regcred
   registry: docker.io
   syncInterval: 1h
+---
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterModelSource
+metadata:
+  name: amd-aim-instinct-bases
+spec:
+  filters:
+    - image: amdenterpriseai/aim-base:0.11
+    - image: amdenterpriseai/aim-base:0.12
+    - image: amdenterpriseai/aim-base:0.13
+    - image: amdenterpriseai/aim-base:0.13.0
+    - image: amdenterpriseai/aim-base:0.13.1
+  imagePullSecrets:
+    - name: dockerhub-regcred
+  maxModels: 10
+  registry: docker.io
+  syncInterval: 1h
 {{- end }}

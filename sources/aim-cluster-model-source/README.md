@@ -15,8 +15,9 @@ two mutually exclusive branches, selected by `hardwareFamilies`:
   `templates/legacy.yaml`.
 - **Per-hardware-family profiles:** when `hardwareFamilies` is non-empty, the
   chart installs only the `AIMClusterModelSource` resources for the listed
-  families (`templates/instinct.yaml`, `epyc.yaml`, `cpu.yaml`, `radeon.yaml`).
-  The legacy generic sources are not installed.
+  families (`templates/instinct.yaml`, `epyc.yaml`, `cpu.yaml`, `radeon.yaml`,
+  and family-gated base images in `bases.yaml`). The legacy generic sources are
+  not installed.
 
 ## `hardwareFamilies`
 
@@ -30,12 +31,12 @@ hardwareFamilies:
   - instinct
 ```
 
-| Family | Source name | Registry | Notes |
-|---|---|---|---|
-| `instinct` | `amd-aim-instinct-0.12.0` | docker.io | works today |
-| `epyc` | `amd-aim-epyc-0.11.0` | docker.io | works today |
-| `cpu` | `amd-aim-cpu-0.12.0-rc1` | docker.io | `silogenai/*` RC images; optional `dockerhub-regcred` if pulls are private |
-| `radeon` | `amd-aim-radeon-0.12.0-rc1` | docker.io | `silogenai/aim-radeon-*` RC tags; optional `dockerhub-regcred` if pulls are private |
+| Family | Model release source | Base catalog source | Registry | Notes |
+|---|---|---|---|---|
+| `instinct` | `amd-aim-instinct-0.12.0` | `amd-aim-instinct-bases` | docker.io | Base images for AIWB custom model onboarding |
+| `epyc` | `amd-aim-epyc-0.11.0` | `amd-aim-epyc-bases` | docker.io | works today |
+| `cpu` | `amd-aim-cpu-0.12.0-rc1` | — | docker.io | `silogenai/*` RC images; optional `dockerhub-regcred` if pulls are private |
+| `radeon` | `amd-aim-radeon-0.12.0` | `amd-aim-radeon-bases` | docker.io | `silogenai/aim-radeon-*` RC model tags; base uses `amdenterpriseai/aim-radeon-base` |
 
 `instinct` and `radeon` are GPU families; `cpu` and `epyc` are CPU inference
 targets. `cpu` and `radeon` use Docker Hub (`docker.io`) under the `silogenai`
