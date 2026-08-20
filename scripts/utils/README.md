@@ -12,6 +12,9 @@ For comprehensive documentation on backup and restore procedures, please refer t
 
 [cluster-forge/docs/backup_and_restore.md](../../docs/backup_and_restore.md)
 
+For the v1.8 → v2.0 upgrade procedure, see
+[docs/migrations/v1.8-to-v2.0-migration.md](../../docs/migrations/v1.8-to-v2.0-migration.md).
+
 ## Scripts
 
 This directory contains utility scripts for backup and restore operations, as well as upgrade scripts. The scripts include:
