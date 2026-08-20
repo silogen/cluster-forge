@@ -60,6 +60,9 @@ When changing `hardwareFamilies` or upgrading the chart:
 3. Existing AIM models tied to pruned sources may need redeployment from the
    remaining catalog.
 
+For in-place cluster upgrades from v2.2.x, see
+[docs/migrations/v2.2.x-to-v2.4-migration.md](../../docs/migrations/v2.2.x-to-v2.4-migration.md).
+
 ## Installing
 
 This chart is normally driven by cluster-bloom via the `AIM_HARDWARE_FAMILY`
