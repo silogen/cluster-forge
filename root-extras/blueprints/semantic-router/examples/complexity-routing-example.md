@@ -14,7 +14,9 @@ picks — see this blueprint's README, "The model list appears in both files".
 The block below replaces the entire `config:` key in your copy of
 `values.yaml` (`extra-apps/semantic-router/values.yaml` in your cluster-values
 overlay repo) — leave `persistence:` and `dashboard:` as you already have
-them.
+them. Keep the blueprint's `config.global.services.management_api.bind_address`
+line as well; it isn't repeated below, and dropping it puts the dashboard back
+to reporting the router as not running.
 
 ## How the signal works
 
@@ -132,16 +134,19 @@ model each landed on:
 ```bash
 curl -sk https://sr.<domain>/v1/chat/completions \
   -H 'Content-Type: application/json' \
-  -d '{"model":"TODO-simple-model","messages":[{"role":"user","content":"What is the capital of France?"}]}'
+  -d '{"model":"auto","messages":[{"role":"user","content":"What is the capital of France?"}]}'
 
 curl -sk https://sr.<domain>/v1/chat/completions \
   -H 'Content-Type: application/json' \
-  -d '{"model":"TODO-simple-model","messages":[{"role":"user","content":"Write a Python function to implement a binary search tree"}]}'
+  -d '{"model":"auto","messages":[{"role":"user","content":"Write a Python function to implement a binary search tree"}]}'
 ```
 
-The `model` field in the request body is what the client thinks it's calling
-— the router is free to override it. Check the router's own logs to see what
-it actually decided and why:
+`"model":"auto"` matters. Naming a configured model in the request body
+short-circuits classification entirely — the router honours the client's
+choice and logs `reason_code: "model_specified"`, so both prompts land on the
+same backend and the decision logic never runs. Only `auto` (or `MoM`) hands
+the choice to the router. Check the router's own logs to see what it decided
+and why:
 
 ```bash
 kubectl -n semantic-router logs deploy/semantic-router -f
@@ -151,9 +156,11 @@ Backends not wired up yet? The router's own classification endpoint (see the
 main README's "Reaching the router") checks the same `hard`/`easy` decision
 logic directly, without needing `sr.<domain>` or any backend at all.
 
-If both requests land on the same model, the two candidate sets are probably
-too close together for the `threshold` you set — widen the gap between your
-`hard`/`easy` candidates or lower the threshold.
+If both requests land on the same model, check the logs for
+`reason_code: "model_specified"` first — that means the request named a model
+instead of `auto`. Otherwise the two candidate sets are probably too close
+together for the `threshold` you set: widen the gap between your `hard`/`easy`
+candidates or lower the threshold.
 
 ## Other signal types
 

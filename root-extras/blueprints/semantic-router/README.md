@@ -213,11 +213,17 @@ every bloomed cluster (`extensionApis.enableBackend`), so it is available out of
 the box. `gateway-routing.yaml` carries commented-out OpenAI, Anthropic, and
 non-standard-URL examples.
 
-Two things that are easy to miss:
+Three things that are easy to miss:
 
 - **An HTTPS provider needs a `BackendTLSPolicy` as well.** Without one Envoy
   speaks plaintext to port 443 and every request fails. It is also what supplies
   the SNI name and verifies the provider's certificate.
+- **The route rule needs a `URLRewrite` hostname filter too.** The
+  `BackendTLSPolicy` only sets SNI; the HTTP `Host` header still says
+  `sr.<domain>`, and the provider's CDN answers 403 or 421 — a symptom that
+  looks nothing like a routing mistake. Add
+  `filters: [{type: URLRewrite, urlRewrite: {hostname: api.openai.com}}]` to the
+  rule. A 401 from the provider afterwards means the request really did arrive.
 - **The gateway does not inject an API key, but the router can.** Nothing in
   `gateway-routing.yaml` adds credentials, so a client-supplied `Authorization`
   header reaches the provider untouched. For a cluster-held key, give the
@@ -438,13 +444,24 @@ commented-out examples sit right after the `EnvoyExtensionPolicy` block in
   reset-before-request only — deliberately not generic 5xx or timeout,
   since a slow-but-working completion should never be retried. Still an
   opt-in, not a default, since it's the first use of this field in this
-  repo.
-- **Failover** is a weighted multi-`backendRef` example, for routing one
-  model across two genuinely separate Deployments/Services (a second region,
-  a second cluster). Extra replicas of one Deployment don't need this —
-  those already load-balance across via the Service/EDS with zero extra
-  config. This is the plain-`HTTPRoute` equivalent of `AIServiceBackend`'s
-  priority/weight-across-multiple-Backends feature.
+  repo. Verified on Envoy Gateway v1.8.1: a connect failure retried twice as
+  configured, and a backend killed after it had flushed response headers was
+  not retried. It does nothing for a backend that is scaled to zero — see
+  below.
+- **Failover** is *not* what the weighted multi-`backendRef` example gives
+  you. Weights split traffic across two genuinely separate
+  Deployments/Services (a second region, a second cluster) — that part works,
+  and it's the plain-`HTTPRoute` equivalent of `AIServiceBackend`'s
+  priority/weight-across-multiple-Backends feature. But a weight is not a
+  health signal: measured with a 90/10 split and the primary scaled to zero,
+  90 of 100 requests returned 503, and enabling retry didn't change that (an
+  empty cluster is "no healthy upstream", which matches none of the retry
+  triggers). A primary that is up but refusing connections partly recovers
+  via retry, and still failed 15 of 100. Real failover needs the backend
+  ejected from rotation — `BackendTrafficPolicy`'s `healthCheck` or
+  `outlierDetection`, neither of which this blueprint configures. Extra
+  replicas of one Deployment need none of this; they already load-balance via
+  the Service/EDS.
 
 ## Storage
 

@@ -136,8 +136,15 @@ spec:
 # slow-but-working completion should not be retried, and a real backend error
 # after generation started should surface, not silently re-run.
 #
-# Uncomment and edit targetRefs' `name` if you rename the HTTPRoute above.
+# Verified on Envoy Gateway v1.8.1 / Envoy 1.38.1: a connect failure retried
+# twice as configured, and a backend killed after it had already flushed
+# response headers was NOT retried — the client got a truncated body instead.
 #
+# Uncomment and edit targetRefs' `name` if you rename the HTTPRoute above. The
+# leading `---` is part of the block; without it this merges into the document
+# above and the file stops parsing.
+#
+# ---
 # apiVersion: gateway.envoyproxy.io/v1alpha1
 # kind: BackendTrafficPolicy
 # metadata:
@@ -160,15 +167,26 @@ spec:
 #         baseInterval: 1s
 #         maxInterval: 5s
 
-# Failover across two independent backends for the SAME model — e.g. a second
-# Deployment/Service in another namespace or region, not just extra replicas
-# of one Deployment (extra replicas of one Deployment are already
-# load-balanced across by the Service/EDS with no config here). Weight
-# controls the traffic split; Envoy shifts traffic away from a backendRef
-# automatically once it's failing (paired with the retry policy above, or your
-# own active health checking). This is the plain-HTTPRoute equivalent of
-# AIServiceBackend's priority/weight-across-multiple-Backends feature — see
-# aigw-vs-direct-envoy.md's "Other differences" section.
+# Traffic splitting across two independent backends for the SAME model — e.g. a
+# second Deployment/Service in another namespace or region, not just extra
+# replicas of one Deployment (extra replicas of one Deployment are already
+# load-balanced across by the Service/EDS with no config here). This is the
+# plain-HTTPRoute equivalent of AIServiceBackend's priority/weight-across-
+# multiple-Backends feature — see aigw-vs-direct-envoy.md's "Other differences"
+# section.
+#
+# Weights split traffic. They are NOT failover, and the retry policy above does
+# not make them failover. Measured on Envoy Gateway v1.8.1 with the 90/10 split
+# below: with the primary scaled to zero, 90 of 100 requests returned 503 —
+# unchanged with retries enabled, because an empty cluster is "no healthy
+# upstream" and matches none of the retry triggers. A primary that is present
+# but refusing connections does partly recover (retry re-picks a different
+# host), but still failed 15 of 100.
+#
+# Real failover needs the backend taken out of rotation, which is
+# BackendTrafficPolicy's `healthCheck` (active probing) or `outlierDetection`
+# (ejection on observed failures). Neither is configured by this blueprint, and
+# the generated cluster has neither by default.
 #
 #     - matches:
 #         - headers:
@@ -200,6 +218,14 @@ spec:
 #         - group: gateway.envoyproxy.io
 #           kind: Backend
 #           name: openai
+#       filters:
+#         - type: URLRewrite
+#           urlRewrite:
+#             hostname: api.openai.com
+#
+# The URLRewrite is not optional. The BackendTLSPolicy below only sets SNI; the
+# HTTP Host header would otherwise still say sr.<domain>, and the provider's
+# edge rejects that with a 403/421 that looks nothing like a routing problem.
 #
 # The router does not need to reach the API itself — it only classifies and names
 # a model. Envoy makes the upstream call.
@@ -209,6 +235,7 @@ spec:
 # the key should live in the cluster instead, that needs a mechanism this
 # blueprint does not set up.
 #
+# ---
 # apiVersion: gateway.envoyproxy.io/v1alpha1
 # kind: Backend
 # metadata:
@@ -238,8 +265,10 @@ spec:
 #     hostname: api.openai.com
 #
 # Same pattern for an Anthropic upstream (api_format: anthropic in
-# values.yaml, see the README) — same two objects, different hostname:
+# values.yaml, see the README) — same two objects, different hostname, and the
+# same `URLRewrite` hostname filter on its route rule:
 #
+# ---
 # apiVersion: gateway.envoyproxy.io/v1alpha1
 # kind: Backend
 # metadata:
@@ -273,6 +302,7 @@ spec:
 # X-API-Key header the client never sends. See the README's "backend that
 # isn't mounted at a standard URL" section for the full explanation.
 #
+# ---
 # apiVersion: gateway.envoyproxy.io/v1alpha1
 # kind: Backend
 # metadata:
