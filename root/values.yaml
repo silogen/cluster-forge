@@ -38,6 +38,9 @@ apps:
     namespace: aim-system
     valuesFile: values.yaml
     syncWave: 0
+    helmParameters:
+      - name: clusterRuntimeConfig.enable
+        value: false
   aim-engine-crds:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "0.2.5"
