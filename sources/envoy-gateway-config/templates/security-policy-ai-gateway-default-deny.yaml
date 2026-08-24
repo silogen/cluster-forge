@@ -49,6 +49,10 @@ spec:
           # backendRef follows wherever discovery deploys — no hardcoded namespace to drift.
           namespace: {{ .Values.aiGateway.discoveryNamespace }}
           port: 8083
+          # Envoy Gateway defaults weight to 1 on every backendRef. Set it explicitly so the
+          # manifest matches the live object, otherwise ArgoCD reports this policy (and the
+          # envoy-gateway-config Application) permanently OutOfSync.
+          weight: 1
       headersToBackend:
         - x-api-key-id
         # Resolved backend (workload id) discovery authorized against — forwarded so the ext_proc
