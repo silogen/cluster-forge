@@ -1,8 +1,0 @@
-# Copyright © Advanced Micro Devices, Inc., or its affiliates.
-#
-# SPDX-License-Identifier: MIT
-
-# Hardware families to install (string or list). Allowed: cpu, epyc, instinct, radeon.
-# Required: empty fails template render (see templates/guard.yaml). cluster-bloom
-# injects the selected families as a YAML list at deploy time.
-hardwareFamilies: []

@@ -45,8 +45,10 @@ apps:
     namespace: aim-system
     syncWave: 0
   aim-cluster-model-source:
+    repoURL: "{{ .Values.ociRegistry.dockerHub }}"
+    repoVersion: "0.12.0"
+    chart: "aim-cluster-model-source-chart"
     namespace: kaiwo-system
-    path: aim-cluster-model-source
     syncWave: -20
     valuesObject:
       # Hardware families to install (cpu,epyc,instinct,radeon). Required — empty

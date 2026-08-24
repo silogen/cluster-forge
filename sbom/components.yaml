@@ -14,12 +14,13 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   aim-cluster-model-source:
-    path: aim-cluster-model-source
+    path: null
+    repoVersion: 0.12.0
     type: helm
-    sourceUrl: https://github.com/silogen/kaiwo/releases/download/v0.2.0-rc11/crds.yaml
-    projectUrl: https://github.com/silogen/kaiwo/
+    sourceUrl: oci://registry-1.docker.io/amdenterpriseai/aim-cluster-model-source-chart
+    projectUrl: https://github.com/silogen/aim-build/tree/main/helm/aim-cluster-model-source
     license: MIT License
-    licenseUrl: https://github.com/silogen/kaiwo/blob/main/LICENSE
+    licenseUrl: https://github.com/silogen/aim-build/blob/main/LICENSE
   aim-engine:
     path: null
     repoVersion: 0.2.5
