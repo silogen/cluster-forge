@@ -1,6 +1,8 @@
 domain: # to be filled by cluster-forge app
 seaweed:
   storageClassName: mlstorage
+  affinity:
+    topologyKey: "kubernetes.io/hostname"
   master:
     replicas: 1
     volumeSizeLimitMB: 1024
@@ -12,9 +14,14 @@ seaweed:
     replicas: 1
     requests:
       storage: 10Gi
-
 # S3 bucket initialization
-initJob:
-  enabled: true
-  buckets:
-    - name: default-bucket
+bucket:
+  name: default-bucket
+  namespace: demo
+# S3 data-path HTTPRoute. Envoy's 15s default request timeout resets object transfers mid-stream and
+# truncates them; the limit is duration, not size, so on a slow client link even a small object fails.
+# Tune per cluster to the slowest transfer that should still be allowed to finish.
+s3Route:
+  timeouts:
+    request: 30m
+    backendRequest: 30m

@@ -4,9 +4,7 @@ metadata:
   name: seaweedfs-es-s3-config
   namespace: seaweedfs-instance
   annotations:
-    # PreSync + sync-wave: ensure OpenBao-backed Secret exists (and Argo marks this
-    # resource Healthy per ExternalSecret health rules) before the Seaweed CR syncs.
-    argocd.argoproj.io/hook: PreSync
+    # Not a PreSync hook: Argo does not track hooks, so selfHeal cannot restore them.
     argocd.argoproj.io/sync-wave: "-2"
 spec:
   secretStoreRef:

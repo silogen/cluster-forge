@@ -90,7 +90,7 @@
 | 36 | opentelemetry-operator | [0.93.1](https://open-telemetry.github.io/opentelemetry-helm-charts) | https://github.com/open-telemetry/opentelemetry-operator | [Apache License 2.0](https://github.com/open-telemetry/opentelemetry-operator/blob/main/LICENSE) |
 | 37 | otel-lgtm-stack | [1.0.7](https://github.com/silogen/docker-otel-lgtm) | https://github.com/grafana/docker-otel-lgtm | [Apache License 2.0](https://github.com/grafana/docker-otel-lgtm/blob/main/LICENSE) |
 | 38 | prometheus-crds | [23.0.0](https://prometheus-community.github.io/helm-charts) | https://github.com/prometheus-community/helm-charts | [Apache License 2.0](https://github.com/prometheus-community/helm-charts/blob/main/LICENSE) |
-| 39 | seaweedfs-operator | [0.1.13](https://github.com/seaweedfs/seaweedfs-operator) | https://github.com/seaweedfs/seaweedfs | [Apache License 2.0](https://github.com/seaweedfs/seaweedfs/blob/master/LICENSE) |
+| 39 | seaweedfs-operator | [0.1.36](https://github.com/seaweedfs/seaweedfs-operator) | https://github.com/seaweedfs/seaweedfs | [Apache License 2.0](https://github.com/seaweedfs/seaweedfs/blob/master/LICENSE) |
 
 ## Kubernetes Manifests
 
@@ -99,7 +99,7 @@
 | 1 | appwrapper | [1.1.2](https://github.com/project-codeflare/appwrapper/releases/download/v1.1.2/install.yaml) | https://github.com/project-codeflare/appwrapper | [Apache License 2.0](https://github.com/project-codeflare/appwrapper/blob/main/LICENSE) |
 | 2 | metallb | [0.15.2](https://raw.githubusercontent.com/metallb/metallb/v0.15.2/config/manifests/metallb-native.yaml) | https://github.com/metallb/metallb/ | [Apache License 2.0](https://github.com/metallb/metallb/blob/main/LICENSE) |
 | 3 | rabbitmq | [2.15.0](https://github.com/rabbitmq/cluster-operator/releases/download/v2.15.0/cluster-operator.yml) | https://github.com/rabbitmq/cluster-operator/ | [Mozilla Public License 2.0](https://github.com/rabbitmq/cluster-operator/blob/main/LICENSE.txt) |
-| 4 | seaweedfs-crds | [0.1.13](https://github.com/seaweedfs/seaweedfs-operator/tree/master/deploy/helm) | https://github.com/seaweedfs/seaweedfs-operator | [Apache License 2.0](https://github.com/seaweedfs/seaweedfs/blob/master/LICENSE) |
+| 4 | seaweedfs-crds | [0.1.36](https://github.com/seaweedfs/seaweedfs-operator/tree/master/deploy/helm) | https://github.com/seaweedfs/seaweedfs-operator | [Apache License 2.0](https://github.com/seaweedfs/seaweedfs/blob/master/LICENSE) |
 
 ## Container Images
 

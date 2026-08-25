@@ -1,0 +1,63 @@
+{{- if .Values.aiGateway.enabled }}
+# Gateway-scoped default-deny backstop for the `ai-gateway` Gateway (EAI-7304 cutover).
+#
+# Only model routes ride ai-gateway, so a blanket deny is safe here (unlike the shared
+# `https` gateway, whose model-route deny is route-scoped and owned by aim-engine / EAI-7302).
+# Any request whose HTTPRoute has no per-model apiKeyAuth SecurityPolicy — a keyless/opted-out
+# model, or a header-less/unmatched request — is refused, instead of falling through
+# unauthenticated once cluster-auth ext_authz is removed from this Gateway
+# (see security-policy-extauth.yaml, which drops its ai-gateway targetRef under the same switch).
+#
+# Per-model apiKeyAuth SecurityPolicies from ai-gateway-discovery target individual HTTPRoutes;
+# a route-level SecurityPolicy overrides this gateway-level one for that route (Envoy Gateway
+# resolves by specificity, no merge), so keyed models authenticate and keyless ones hit deny.
+#
+# extAuth (body-aware, supplement): native per-model apiKeyAuth only enforces on the HEADER path
+# (x-ai-eg-model/backend). Standard OpenAI clients put the model in the JSON body with no routing
+# headers, so those requests fall through here. The extAuth block forwards the request body
+# (bodyToExtAuth) and Authorization to ai-gateway-discovery's ext_authz handler, which authorizes
+# per-model against the same bound-key Secrets and returns x-api-key-id for metrics. It is merged
+# into this one SecurityPolicy because Envoy Gateway allows only one gateway-scoped SP per Gateway;
+# on keyed HTTPRoutes the per-model route SP overrides this whole policy (extAuth included), so
+# extAuth only ever authorizes the header-less path — a supplement until upstream ai-gateway
+# supports body-path client auth natively.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: ai-gateway-default-deny
+  namespace: envoy-gateway-system  # must match the ai-gateway Gateway's namespace
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: ai-gateway
+  authorization:
+    # No rules → every request on ai-gateway not overridden by a route-level policy is denied.
+    defaultAction: Deny
+  extAuth:
+    failOpen: false
+    bodyToExtAuth:
+      maxRequestBytes: 65536
+    headersToExtAuth:
+      - authorization
+    http:
+      backendRefs:
+        - group: ''
+          kind: Service
+          name: ai-gateway-discovery
+          # Tracks the ai-gateway-discovery app's namespace (root/values.yaml apps entry), so the
+          # backendRef follows wherever discovery deploys — no hardcoded namespace to drift.
+          namespace: {{ .Values.aiGateway.discoveryNamespace }}
+          port: 8083
+          # Envoy Gateway defaults weight to 1 on every backendRef. Set it explicitly so the
+          # manifest matches the live object, otherwise ArgoCD reports this policy (and the
+          # envoy-gateway-config Application) permanently OutOfSync.
+          weight: 1
+      headersToBackend:
+        - x-api-key-id
+        # Resolved backend (workload id) discovery authorized against — forwarded so the ext_proc
+        # stamps aim_service_id on the header-less path (the gateway can't resolve the backend
+        # from EDS endpoint metadata). Exact for single-backend models; approximate when several
+        # backends share a model name. See EAI-7243 metrics note.
+        - x-ai-eg-backend
+{{- end }}

@@ -16,3 +16,6 @@ spec:
           - type: RegularExpression
             name: Host
             value: "seaweed\\..*"
+      timeouts:
+        request: {{ .Values.s3Route.timeouts.request }}
+        backendRequest: {{ .Values.s3Route.timeouts.backendRequest }}

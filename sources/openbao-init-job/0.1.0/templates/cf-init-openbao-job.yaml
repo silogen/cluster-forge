@@ -4,6 +4,7 @@ metadata:
   name: openbao-init-job
   namespace: cf-openbao
 spec:
+  activeDeadlineSeconds: 1800
   template:
     spec:
       restartPolicy: Never

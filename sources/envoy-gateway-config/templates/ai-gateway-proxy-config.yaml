@@ -1,17 +1,49 @@
 {{- if .Values.aiGateway.enabled }}
 # EnvoyProxy for the ai-gateway: ClusterIP (it sits behind the apps gateway, which forwards
-# the AI hostname to it) + the same lua-before-ext_authz filterOrder the apps gateway uses,
-# so set-model-header-from-body runs before cluster-auth and per-model group enforcement
-# works (EAI-6805). Same first-node placement + AI access-log telemetry.
+# the AI hostname to it), first-node placement + AI access-log telemetry (EAI-6805).
+# Header-less/body requests are authorized by ai-gateway-discovery's body-aware ext_authz
+# (see security-policy-ai-gateway-default-deny.yaml).
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
   name: ai-gateway-proxy-config
   namespace: envoy-gateway-system
 spec:
+  # Keep long LLM completions alive across listener churn. Every model deploy/undeploy changes the
+  # ai-gateway filter set (per-model EPP ext_proc + catch-all ext_authz filters), which triggers an
+  # Envoy in-place filter-chain update: the superseded chain is drained and any connection still on
+  # it is force-closed at the end of the drain window. With the 60s default that severs in-flight
+  # streaming completions mid-body (measured: unrelated-model events killing held ai.<domain>
+  # streams). Envoy Gateway feeds shutdown.drainTimeout into Envoy's --drain-time-s, which governs
+  # LDS-triggered filter-chain draining on a *running* pod — so raising it lets a superseded chain
+  # hold its connections long enough for the completion to finish and close naturally. Set >= the
+  # ai-gateway-discovery REQUEST_TIMEOUT (default 30m); a completion cannot outlive that, so it
+  # always finishes before force-close. A drained chain is released as soon as its connections close
+  # (or at drainTimeout), so cost is bounded by concurrent long streams, not by churn rate. This does
+  # not reduce churn — it stops churn from cutting live streams (the filter-topology fix is upstream:
+  # envoyproxy/ai-gateway filter dedup + rule naming).
+  #
+  # DECOUPLED FROM POD TERMINATION. Envoy Gateway derives terminationGracePeriodSeconds =
+  # drainTimeout + 5m (internal/infrastructure/kubernetes/proxy/resource_provider.go), so a naive 31m
+  # would make every pod *termination* (rollout, node drain, autoscaler scale-down, upgrade) block up
+  # to 36m — and hit that ceiling on every rollout via the lingering-Prometheus-scrape drain bug
+  # (envoyproxy/gateway#4125). The envoyDeployment.patch below forces terminationGracePeriodSeconds
+  # back to the 360s default, so shutdown stays fast (rollovers still cut streams >6m, unchanged) while
+  # the running-pod churn drain keeps the full 31m. The two timers are independent at runtime: 31m is
+  # --drain-time-s (LDS drain on a live pod); 360s is the k8s SIGKILL deadline on termination.
+  shutdown:
+    drainTimeout: 31m
+  # Run the sanitize-backend-header Lua (envoy-extension-policy-backend-sanitize.yaml) before
+  # native apiKeyAuth AND before the ai-gateway ext_proc, so a bogus x-ai-eg-backend is stripped
+  # before the ext_proc snapshots request headers for the aim_service_id metric label (EAI-7864).
+  # NOTE: metric coverage depends on the Lua preceding whichever ext_proc pass captures the header
+  # attribute — verify on deploy that a bogus backend id is dropped from the Prometheus metric
+  # (not just the access log) and adjust ordering if the router ext_proc snapshots it earlier.
   filterOrder:
     - name: envoy.filters.http.lua
-      before: envoy.filters.http.ext_authz
+      before: envoy.filters.http.api_key_auth
+    - name: envoy.filters.http.lua
+      before: envoy.filters.http.ext_proc
   provider:
     type: Kubernetes
     kubernetes:
@@ -22,6 +54,18 @@ spec:
           nodeSelector:
             cluster-bloom/first-node: "true"
           priorityClassName: "system-cluster-critical"
+        # Override EG's derived terminationGracePeriodSeconds (= drainTimeout + 5m) back to the 360s
+        # default, decoupling the long running-pod churn drain (shutdown.drainTimeout, above) from pod
+        # termination so rollouts / node drains / autoscaling are not held up to ~36m. Applied last in
+        # EG's render, so it wins over the computed value; verify on deploy that the Deployment shows
+        # terminationGracePeriodSeconds: 360.
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              template:
+                spec:
+                  terminationGracePeriodSeconds: 360
   telemetry:
     accessLog:
       settings:
@@ -49,7 +93,7 @@ spec:
               llm_output_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_output_token)%"
               llm_total_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_total_token)%"
               api_key_id: "%REQ(x-api-key-id)%"
-              aim_service_id: "%REQ(x-aim-service-id)%"
+              aim_service_id: "%REQ(x-ai-eg-backend)%"
           sinks:
             - type: File
               file:

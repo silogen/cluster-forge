@@ -145,21 +145,21 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/cloudnative-pg/cloudnative-pg/blob/main/LICENSE
   envoy-ai-gateway:
-    path: envoy-ai-gateway/v0.6.0
+    path: envoy-ai-gateway/v1.0.0
     type: helm
     sourceUrl: oci://docker.io/envoyproxy/ai-gateway-helm
     projectUrl: https://github.com/envoyproxy/ai-gateway
     license: Apache License 2.0
     licenseUrl: https://github.com/envoyproxy/ai-gateway/blob/main/LICENSE
   envoy-ai-gateway-crds:
-    path: envoy-ai-gateway-crds/v0.6.0
+    path: envoy-ai-gateway-crds/v1.0.0
     type: helm
     sourceUrl: oci://docker.io/envoyproxy/ai-gateway-crds-helm
     projectUrl: https://github.com/envoyproxy/ai-gateway
     license: Apache License 2.0
     licenseUrl: https://github.com/envoyproxy/ai-gateway/blob/main/LICENSE
   envoy-gateway:
-    path: envoy-gateway/v1.7.1
+    path: envoy-gateway/v1.8.1
     type: helm
     sourceUrl: oci://docker.io/envoyproxy/gateway-helm
     projectUrl: https://github.com/envoyproxy/gateway
@@ -299,7 +299,7 @@ components:
     license: Apache License 2.0
     licenseUrl: https://github.com/open-telemetry/opentelemetry-operator/blob/main/LICENSE
   otel-lgtm-stack:
-    path: otel-lgtm-stack/v1.0.7
+    path: otel-lgtm-stack/v1.0.8
     type: helm
     sourceUrl: https://github.com/silogen/docker-otel-lgtm
     projectUrl: https://github.com/grafana/docker-otel-lgtm
@@ -321,14 +321,14 @@ components:
     license: Mozilla Public License 2.0
     licenseUrl: https://github.com/rabbitmq/cluster-operator/blob/main/LICENSE.txt
   seaweedfs-crds:
-    path: seaweedfs-crds/0.1.13
+    path: seaweedfs-crds/0.1.36
     type: manifest
     sourceUrl: https://github.com/seaweedfs/seaweedfs-operator/tree/master/deploy/helm
     projectUrl: https://github.com/seaweedfs/seaweedfs-operator
     license: Apache License 2.0
     licenseUrl: https://github.com/seaweedfs/seaweedfs/blob/master/LICENSE
   seaweedfs-operator:
-    path: seaweedfs-operator/0.1.13
+    path: seaweedfs-operator/0.1.36
     type: helm
     valuesFile: values.yaml
     sourceUrl: https://github.com/seaweedfs/seaweedfs-operator

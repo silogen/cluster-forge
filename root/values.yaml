@@ -38,6 +38,9 @@ apps:
     namespace: aim-system
     valuesFile: values.yaml
     syncWave: 0
+    helmParameters:
+      - name: clusterRuntimeConfig.enable
+        value: false
   aim-engine-crds:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "0.2.5"
@@ -607,7 +610,7 @@ apps:
           memory: "512Mi"
   envoy-gateway:
     namespace: envoy-gateway-system
-    path: envoy-gateway/v1.7.1
+    path: envoy-gateway/v1.8.1
     syncWave: -30
     valuesObject:
       kubernetesClusterDomain: cluster.local
@@ -663,26 +666,44 @@ apps:
       - name: domain
         value: "{{ .Values.global.domain }}"
       - name: aiGateway.enabled
-        value: "true"  
+        value: "true"
       - name: aiGateway.routeHostname
         value: "ai.{{ .Values.global.domain }}"
+      # Point the body-aware extAuth backendRef + ReferenceGrant at wherever the
+      # ai-gateway-discovery app is declared, so they never drift from it.
+      # index (not dot access) because the app key contains dashes.
+      - name: aiGateway.discoveryNamespace
+        value: '{{ index .Values.apps "ai-gateway-discovery" "namespace" }}'
     namespace: envoy-gateway-system
     path: envoy-gateway-config
     syncWave: -15
     valuesFile: values.yaml
   envoy-ai-gateway-crds:
     namespace: envoy-ai-gateway-system
-    path: envoy-ai-gateway-crds/v0.6.0
+    path: envoy-ai-gateway-crds/v1.0.0
     syncWave: -10
   envoy-ai-gateway:
     namespace: envoy-ai-gateway-system
-    path: envoy-ai-gateway/v0.6.0
+    path: envoy-ai-gateway/v1.0.0
     syncWave: -5
     valuesObject:
+      # TEMP: v1.0.0's controller crashes its gateway reconcile when the Gateway
+      # lives in the Envoy Gateway namespace (envoy-gateway-system) with
+      # "found gateway-labeled objects in multiple namespaces", which blocks
+      # extproc filter-config generation and prevents the ai-gateway proxy from
+      # rolling. Fixed upstream by https://github.com/envoyproxy/ai-gateway/pull/2304
+      # (dedup candidate namespaces in getObjectsForGateway), not yet in a release.
+      # Pin controller + extProc to a main build that includes it (v1.0.0 + 11
+      # commits). Remove this override once a release past v1.0.0 ships #2304.
       controller:
+        image:
+          tag: 8007dfd481f7d1225bcaf9d059cb15b61d4d28e0
         mcp:
           sessionEncryption:
             seed: "cluster-forge-default-seed-override-in-production"
+      extProc:
+        image:
+          tag: 8007dfd481f7d1225bcaf9d059cb15b61d4d28e0
   inference-extension-crds:
     namespace: envoy-ai-gateway-system
     path: inference-extension-crds/v1.5.0
@@ -803,22 +824,30 @@ apps:
     namespace: default
     path: metallb/v0.15.2
     syncWave: 10
-  seaweedfs-crds:
-    path: seaweedfs-crds/0.1.13
-    namespace: seaweedfs-operator
-    syncWave: -1
   seaweedfs-operator:
     helmParameters:
       - name: domain
         value: "{{ .Values.global.domain }}"
       - name: webhook.enabled
         value: "false"
-    path: seaweedfs-operator/0.1.13
+    path: seaweedfs-operator/0.1.36
     namespace: seaweedfs-operator
     valuesFile: values.yaml
     syncWave: 0
+  seaweedfs-crds:
+    path: seaweedfs-crds/0.1.36
+    namespace: seaweedfs-operator
+    syncWave: -1
   seaweedfs-config:
     ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          # The CRD defaults these inside spec.data[]; Argo's predicted live
+          # state drops them, so the app never converges without this.
+          - .spec.data[].remoteRef.conversionStrategy
+          - .spec.data[].remoteRef.decodingStrategy
+          - .spec.data[].remoteRef.metadataPolicy
       - group: gateway.networking.k8s.io
         kind: HTTPRoute
         jqPathExpressions:
@@ -843,6 +872,9 @@ apps:
           replicas: 1
           requests:
             storage: 10Gi
+      bucket:
+        name: default-bucket
+        namespace: demo
     path: seaweedfs-config
     namespace: seaweedfs-instance
     valuesFile: values.yaml
@@ -906,7 +938,7 @@ apps:
       - name: cluster.name
         value: "{{ .Values.global.domain }}"
     namespace: otel-lgtm-stack
-    path: otel-lgtm-stack/v1.0.7
+    path: otel-lgtm-stack/v1.0.8
     syncWave: -20
     valuesObject:
       cluster:
