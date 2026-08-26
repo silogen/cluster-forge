@@ -2,8 +2,8 @@
 # ============================================================================
 # AFTER THE UNINSTALL WALK
 # ============================================================================
-# uninstall-operator.sh deletes what each install step declared. That is the reverse of
-# setup-operator.sh, and it is enough for charts and extraObjects. It is not enough for
+# uninstall-all.sh deletes what each install step declared. That is the reverse of
+# install.sh, and it is enough for charts and extraObjects. It is not enough for
 # what never appears in a render:
 #
 #   - namespaces the install created with `kubectl create namespace` (no chart owns them,
@@ -12,7 +12,7 @@
 #   - objects an older install path put on the cluster that today's chart values no longer
 #     emit (OpenBao's agent injector when injector.enabled is false)
 #
-# This script is that second half. Run it after uninstall-operator.sh has walked the order
+# This script is that second half. Run it after uninstall-all.sh has walked the order
 # (or after the OpenShift operator's uninstall has done the same). Dry run unless --delete.
 #
 # Order matters only for clarity: unclaimed objects first (what no step's render names,
@@ -21,11 +21,13 @@
 #
 # Usage:
 #
-#   KUBECONFIG=docs/openshift/kube.yaml ./uninstall-leftovers.sh
-#   KUBECONFIG=docs/openshift/kube.yaml ./uninstall-leftovers.sh --delete
-#   KUBECONFIG=docs/openshift/kube.yaml ./uninstall-leftovers.sh --delete --step
+#   KUBECONFIG=docs/openshift/kube.yaml ./docs/openshift/uninstall/uninstall-leftovers.sh
+#   KUBECONFIG=docs/openshift/kube.yaml ./docs/openshift/uninstall/uninstall-leftovers.sh --delete
+#   KUBECONFIG=docs/openshift/kube.yaml ./docs/openshift/uninstall/uninstall-leftovers.sh --delete --step
 
 set -euo pipefail
+
+CF_START_EPOCH="$(date +%s)"
 
 CF_DELETE=false
 CF_STEP=false
@@ -37,7 +39,7 @@ usage() {
   cat <<'EOF'
 Usage: uninstall-leftovers.sh [options]
 
-Deletes what uninstall-operator.sh cannot claim: objects no step's render names
+Deletes what uninstall-all.sh cannot claim: objects no step's render names
 (Kyverno webhooks, the OpenBao agent injector), and the namespaces the install left
 standing. Dry run unless --delete.
 
@@ -48,9 +50,10 @@ standing. Dry run unless --delete.
   --namespaces          only the namespace sweep
   -h, --help            this
 
-Intended to run after uninstall-operator.sh (or the OpenShift operator uninstall that
-mirrors it). Does not touch local-path-storage, openshift-*, or namespaces that still
-hold an OLM Subscription.
+Intended to run after uninstall-all.sh (or the OpenShift operator uninstall that
+mirrors it). Does not touch openshift-*, kube-*, default, or namespaces that still
+hold an OLM Subscription. The local-path provisioner and its StorageClasses go here:
+the walk leaves them so PVCs can drain, and a later install recreates them.
 EOF
 }
 
@@ -74,7 +77,7 @@ if [ "${CF_ONLY_ORPHANS}" = true ] && [ "${CF_ONLY_NAMESPACES}" = true ]; then
 fi
 
 # Namespaces emptied by the uninstall walk and left for one final pass. Same set as
-# uninstall-namespaces.md. workbench and seaweedfs-instance stay last: they hold the
+# README.md. workbench and seaweedfs-instance stay last: they hold the
 # largest volumes, and watching them terminate after the empty ones is more readable.
 CF_NAMESPACES=(
   kaiwo-system
@@ -103,6 +106,11 @@ CF_NAMESPACES=(
   cnpg-system
   seaweedfs-instance
   workbench
+  # Empty leftovers from older installs that no current step declares.
+  ai-gateway-system
+  amd-gpu-operator
+  # Last: the walk leaves this on purpose so remaining PVCs can still bind.
+  local-path-storage
 )
 
 # namespace_kept <name> : true for a namespace this script must not delete.
@@ -110,7 +118,7 @@ CF_KEEP_REASON=""
 namespace_kept() {
   local ns="$1"
   case "${ns}" in
-    default|kube-*|openshift-*|local-path-storage)
+    default|kube-*|openshift-*)
       CF_KEEP_REASON="a platform namespace"
       return 0
       ;;
@@ -120,6 +128,21 @@ namespace_kept() {
     return 0
   fi
   return 1
+}
+
+cf_print_elapsed() {
+  local elapsed h m s
+  elapsed=$(( $(date +%s) - CF_START_EPOCH ))
+  h=$((elapsed / 3600))
+  m=$(( (elapsed % 3600) / 60 ))
+  s=$((elapsed % 60))
+  if [ "${h}" -gt 0 ]; then
+    echo "⏱️  Elapsed: ${h}h ${m}m ${s}s"
+  elif [ "${m}" -gt 0 ]; then
+    echo "⏱️  Elapsed: ${m}m ${s}s"
+  else
+    echo "⏱️  Elapsed: ${s}s"
+  fi
 }
 
 confirm() {
@@ -250,28 +273,49 @@ sweep_namespaces() {
 
   if [ "${#present[@]}" -eq 0 ]; then
     echo "   nothing to delete"
-    return 0
-  fi
+  else
+    confirm "Delete ${#present[@]} namespace(s) (cascades everything inside)?" || {
+      echo "   skipped"
+      return 0
+    }
 
-  confirm "Delete ${#present[@]} namespace(s) (cascades everything inside)?" || {
-    echo "   skipped"
-    return 0
-  }
+    for ns in "${present[@]}"; do
+      if [ "${CF_DELETE}" = true ]; then
+        echo "   🗑️  namespace/${ns}"
+        kubectl delete namespace "${ns}" --wait=false
+      else
+        echo "   would delete namespace/${ns}"
+      fi
+    done
 
-  for ns in "${present[@]}"; do
     if [ "${CF_DELETE}" = true ]; then
-      echo "   🗑️  namespace/${ns}"
-      kubectl delete namespace "${ns}" --wait=false
-    else
-      echo "   would delete namespace/${ns}"
+      echo ""
+      echo "   namespaces were asked to delete; termination is asynchronous (finalizers, PVCs)."
+      echo "   watch with: kubectl get ns ${present[*]}"
     fi
-  done
-
-  if [ "${CF_DELETE}" = true ] && [ "${#present[@]}" -gt 0 ]; then
-    echo ""
-    echo "   namespaces were asked to delete; termination is asynchronous (finalizers, PVCs)."
-    echo "   watch with: kubectl get ns ${present[*]}"
   fi
+
+  # Cluster-scoped: deleting the namespace does not take StorageClasses. If
+  # storageclass/local-path stays, install.sh skips the provisioner. The class
+  # named "default" is left alone: that name is often the platform's, not ours.
+  sweep_local_path_storageclasses
+}
+
+# rancher.io/local-path classes this install created (local-path, plus the
+# workspace classes). Never storageclass/default — that name is shared with
+# classes this script did not create.
+sweep_local_path_storageclasses() {
+  local sc provisioner found=false
+  echo ""
+  echo "   local-path StorageClasses:"
+  while read -r sc provisioner; do
+    [ -z "${sc}" ] && continue
+    [ "${provisioner}" = "rancher.io/local-path" ] || continue
+    [ "${sc}" = "default" ] && continue
+    found=true
+    delete_or_print "storageclass/${sc}"
+  done < <(kubectl get storageclass -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.provisioner}{"\n"}{end}' 2>/dev/null)
+  [ "${found}" = true ] || echo "   already gone"
 }
 
 if [ "${CF_LIST}" = true ]; then
@@ -281,6 +325,8 @@ if [ "${CF_LIST}" = true ]; then
   echo "  clusterrole/openbao-agent-injector-clusterrole"
   echo "  clusterrolebinding/openbao-agent-injector-binding"
   echo "  deploy/svc/sa openbao-agent-injector* in cf-openbao"
+  echo ""
+  echo "  storageclass/local-path (and other rancher.io/local-path classes except default)"
   echo ""
   echo "Namespaces (${#CF_NAMESPACES[@]}), in sweep order:"
   local_i=0
@@ -313,3 +359,4 @@ if [ "${CF_DELETE}" = true ]; then
 else
   echo "👀 Dry run finished — re-run with --delete to apply"
 fi
+cf_print_elapsed

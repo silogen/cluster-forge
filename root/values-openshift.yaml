@@ -1,10 +1,10 @@
 # =============================================================================
 # OpenShift install order
 # =============================================================================
-# The complete, ordered list of what docs/openshift/setup-operator.sh installs on
+# The complete, ordered list of what docs/openshift/install.sh installs on
 # OpenShift, one entry per step, in the order they are installed. Key order is the
-# install order and mirrors docs/openshift/install.sh, not values.yaml's syncWave.
-# docs/openshift/uninstall-operator.sh walks the same list backwards.
+# install order and mirrors docs/openshift/install-old.sh, not values.yaml's syncWave.
+# docs/openshift/uninstall/uninstall-all.sh walks the same list backwards.
 #
 # A fuller commentary on every step -- why each override, deviation and check is
 # there -- is kept out of this file to keep it readable. See git history for it.
@@ -772,10 +772,6 @@ apps:
     mode: core
     root-inherited: true
     verify:
-      - resource: deployment
-        name: envoy-gateway
-        condition: available
-        timeout: 300s
       - resource: secret
         name: envoy-gateway
         jsonPath: '{.data.tls\.crt}'
@@ -801,6 +797,15 @@ apps:
       - name: controller.mcp.sessionEncryption.seed
         value: ${AI_GATEWAY_MCP_SEED}
     verify:
+      # This chart grants envoy-gateway access to the AI and InferencePool
+      # resources configured in its extensionManager. Check envoy-gateway only
+      # after those ClusterRoleBindings exist, otherwise its readiness probe
+      # cannot succeed and the install deadlocks on the preceding step.
+      - resource: deployment
+        name: envoy-gateway
+        namespace: envoy-gateway-system
+        condition: available
+        timeout: 300s
       - resource: deployment
         name: ai-gateway-controller
         condition: available
@@ -1146,7 +1151,7 @@ apps:
     mode: objects
     root-inherited: false
     extraObjects: |
-      # The eleven namespaces install.sh creates here. Each is also created by whatever
+      # The eleven namespaces install-old.sh creates here. Each is also created by whatever
       # chart later installs into it, so these exist for the secrets below and for the
       # steps whose charts assume the namespace rather than render it.
       apiVersion: v1
@@ -1205,16 +1210,17 @@ apps:
         name: cluster-auth
       ---
       # The application secrets from docs/manual_helm_install/secrets/secrets-aiwb.yaml,
-      # which install.sh fetches from raw.githubusercontent at the release tag and
+      # which install-old.sh fetches from raw.githubusercontent at the release tag and
       # applies as a file. Written out here instead: an operator reading this file
       # cannot fetch a URL on an air-gapped cluster, and a secret whose value is
       # "placeholder" is better read than downloaded.
       #
       # Every value below is the placeholder that file ships, and they are placeholders
-      # in the same sense install.sh means: a real install replaces them, and nothing
-      # here is a credential anyone needs to keep. None is filled from the environment,
-      # because install.sh offers no variable for them either -- see the OPEN ITEM at
-      # the end of this entry.
+      # in the same sense install-old.sh means: a real install replaces them, and nothing
+      # here is a credential anyone needs to keep. The two Keycloak login passwords
+      # expand from KEYCLOAK_INITIAL_ADMIN_PASSWORD and KEYCLOAK_INITIAL_DEVUSER_PASSWORD
+      # (default placeholder). The rest are still literals: install-old.sh offers no
+      # variable for them either.
       apiVersion: v1
       kind: Secret
       metadata:
@@ -1251,7 +1257,7 @@ apps:
         FRONTEND_CLIENT_SECRET: placeholder
         GITEA_CLIENT_SECRET: placeholder
         K8S_CLIENT_SECRET: placeholder
-        KEYCLOAK_INITIAL_DEVUSER_PASSWORD: placeholder
+        KEYCLOAK_INITIAL_DEVUSER_PASSWORD: ${KEYCLOAK_INITIAL_DEVUSER_PASSWORD}
         MINIO_CLIENT_SECRET: placeholder
       ---
       apiVersion: v1
@@ -1262,9 +1268,9 @@ apps:
       type: Opaque
       stringData:
         # The Keycloak admin console password, for the admin user the chart bootstraps.
-        KEYCLOAK_INITIAL_ADMIN_PASSWORD: placeholder
+        KEYCLOAK_INITIAL_ADMIN_PASSWORD: ${KEYCLOAK_INITIAL_ADMIN_PASSWORD}
       ---
-      # From secrets-aiwb-standalone.yaml, the second file install.sh fetches.
+      # From secrets-aiwb-standalone.yaml, the second file install-old.sh fetches.
       apiVersion: v1
       kind: Secret
       metadata:
@@ -1277,7 +1283,7 @@ apps:
         # AIWB chart's own values expect to find.
         secretkey: placeholder
       ---
-      # The object-storage credentials, which install.sh builds from the environment
+      # The object-storage credentials, which install-old.sh builds from the environment
       # rather than shipping in a file, because these are the ones that have to match
       # something else: the SeaweedFS filer identity created from the same two
       # variables several steps later. AIWB and workbench pods read them as
@@ -1523,7 +1529,7 @@ apps:
       ---
       # Read by aiwb-api as CLUSTER_AUTH_ADMIN_TOKEN. Created here rather than with the
       # other AIWB secrets because its value belongs to the shim: the AIWB secrets file
-      # ships "placeholder" and install.sh overwrites it here, so this is the value a
+      # ships "placeholder" and install-old.sh overwrites it here, so this is the value a
       # cluster ends up with either way.
       #
       # The shim does not check it -- it authenticates nothing and answers every
@@ -1878,7 +1884,7 @@ apps:
       ---
       # Endpoints written by hand, which is what makes this a redirect: an address
       # outside the cluster behind an in-cluster name. Deprecated in favour of
-      # EndpointSlice, and kept as install.sh has it -- still served, and the
+      # EndpointSlice, and kept as install-old.sh has it -- still served, and the
       # hand-written form of the newer type is considerably less obvious.
       apiVersion: v1
       kind: Endpoints
@@ -2262,3 +2268,18 @@ apps:
         namespace: aiwb
         jsonPath: '{.spec.template.spec.containers[*].env[?(@.name=="NEXTAUTH_URL")].value}'
         equals: ${AIWB_UI_URL}
+
+  # AIM model catalog: AIMClusterModelSource CRs for Instinct and/or Radeon, chosen
+  # from amd.com/gpu.product-name on GPU nodes. install.sh discovers families lazily
+  # when this step runs and skips it when no matching labels exist.
+  aim-cluster-model-source:
+    name: AIM cluster model catalog
+    mode: core
+    root-inherited: true
+    helmParameters:
+      - name: hardwareFamilies
+        value: ${CF_AIM_HARDWARE_FAMILIES}
+    verify:
+      - resource: aimclustermodelsources.aim.eai.amd.com
+        namePrefix: amd-aim-
+        minCount: 1

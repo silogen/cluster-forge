@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# Remove what setup-operator.sh installs, one app at a time, in reverse order.
+# Remove what install.sh installs, one app at a time, in reverse order.
 #
 # The install order in root/values-openshift.yaml is a dependency order: CRDs before the
 # controllers that watch them, the gateway before the routes that hang off it, secrets
 # before the workloads that mount them. Walked backwards it is an uninstall order, so
 # this script reads that same file and needs nothing added to it.
 #
-# What gets deleted is not a guess. setup-operator.sh is sourced as a library and its
+# What gets deleted is not a guess. install.sh is sourced as a library and its
 # renderer is run again for each step, producing the same manifests that were applied;
 # the objects named in them are what this script deletes. That is why the two scripts
 # share the render functions rather than each having their own -- a chart's values decide
@@ -26,7 +26,7 @@
 # one step's to delete: openbao, openbao-config and openbao-init-job share cf-openbao, and
 # taking it at the first of them would delete the other two along with anything else that
 # has since moved in. It also cascades past this file entirely. The ones a walk has emptied
-# and left standing are tracked in uninstall-namespaces.md, to be swept in one final pass.
+# and left standing are tracked in README.md, to be swept in one final pass.
 #
 # It is a dry run unless --delete is passed, so the first run of this on any cluster prints
 # exactly what the real one would do.
@@ -42,17 +42,17 @@
 #
 # Usage:
 #
-#   KUBECONFIG=docs/openshift/kube.yaml ./uninstall-operator.sh
+#   KUBECONFIG=docs/openshift/kube.yaml ./docs/openshift/uninstall/uninstall-all.sh
 #       Dry run over the whole order: what each step would delete, and what it would keep.
 #
-#   ... ./uninstall-operator.sh --delete --step
+#   ... ./uninstall-all.sh --delete --step
 #       The real thing, pausing for a yes before each step. This is the one to use while
 #       finding out how a cluster comes apart.
 #
-#   ... ./uninstall-operator.sh --delete routes aiwb
+#   ... ./uninstall-all.sh --delete routes aiwb
 #       Only those two steps, in uninstall order.
 #
-#   ... ./uninstall-operator.sh --delete --namespaces
+#   ... ./uninstall-all.sh --delete --namespaces
 #       Everything above plus each step's namespace: a teardown that also takes what the
 #       platform created at runtime and no chart declares.
 #
@@ -62,6 +62,8 @@
 # than it was installed with deletes a different set of objects.
 
 set -euo pipefail
+
+CF_START_EPOCH="$(date +%s)"
 
 # ============================================================================
 # THE INSTALLER, AS A LIBRARY
@@ -74,7 +76,7 @@ set -euo pipefail
 #
 # Fetched from main when there is no copy next to this script, so that a piped run works
 # the same way the installer's own piped run does.
-CF_SETUP_URL="https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/main/docs/openshift/setup-operator.sh"
+CF_SETUP_URL="https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/main/docs/openshift/install.sh"
 
 cf_locate_setup() {
   local here
@@ -84,18 +86,22 @@ cf_locate_setup() {
   fi
   if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
     here="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
-    if [ -f "${here}/setup-operator.sh" ]; then
-      printf '%s' "${here}/setup-operator.sh"
+    if [ -f "${here}/install.sh" ]; then
+      printf '%s' "${here}/install.sh"
+      return 0
+    fi
+    if [ -f "${here}/../install.sh" ]; then
+      printf '%s' "${here}/../install.sh"
       return 0
     fi
   fi
   local staged
   staged="$(mktemp "${TMPDIR:-/tmp}/cf-setup-operator.XXXXXX.sh")"
-  echo "ℹ️  No setup-operator.sh next to this script; fetching it from cluster-forge main..." >&2
+  echo "ℹ️  No install.sh next to this script; fetching it from cluster-forge main..." >&2
   if ! curl -fsSL "${CF_SETUP_URL}" -o "${staged}"; then
     rm -f "${staged}"
     {
-      echo "❌ Could not obtain setup-operator.sh, which this script reads the install"
+      echo "❌ Could not obtain install.sh, which this script reads the install"
       echo "   order and the renderer from."
       echo "   Tried: ${CF_SETUP_URL}"
       echo "   Run from a cluster-forge checkout, or set CF_SETUP_SCRIPT to a copy."
@@ -132,7 +138,7 @@ CF_SKIP=()
 
 usage() {
   cat <<'EOF'
-Usage: uninstall-operator.sh [options] [app ...]
+Usage: uninstall-all.sh [options] [app ...]
 
 Walks root/values-openshift.yaml backwards and deletes what each step installed,
 including its CRDs and volumes. Prints what it would delete and changes nothing
@@ -884,6 +890,16 @@ for app in "${CF_ORDER[@]}"; do
     fi
   fi
 
+  if [ "${app}" = "aim-cluster-model-source" ]; then
+    discover_aim_hardware_families
+    if [ -z "${CF_AIM_HARDWARE_FAMILIES:-}" ]; then
+      echo ""
+      echo "⏭️  ${app_name}: skipped — no amd.com/gpu.product-name labels matching Instinct or Radeon found on any node"
+      cf_steps_skipped=$((cf_steps_skipped + 1))
+      continue
+    fi
+  fi
+
   echo ""
   echo "════════════════ [UNDO ${cf_index}/${#CF_ORDER[@]}] ${app_name} ════════════════"
 
@@ -1061,9 +1077,10 @@ echo ""
 if [ "${CF_DELETE}" = true ]; then
   echo "✅ ${cf_steps_done} step(s) uninstalled, ${cf_steps_skipped} skipped"
   echo "   ${CF_DELETED} deleted, ${CF_ABSENT} already gone, ${CF_KEPT} kept, ${CF_FAILED} failed"
-  [ "${CF_FAILED}" -gt 0 ] && exit 1
 else
   echo "👀 Dry run over ${cf_steps_done} step(s), ${cf_steps_skipped} skipped"
   echo "   ${CF_DELETED} object(s) would be deleted, ${CF_KEPT} kept"
 fi
+cf_print_elapsed
+[ "${CF_DELETE}" = true ] && [ "${CF_FAILED}" -gt 0 ] && exit 1
 exit 0

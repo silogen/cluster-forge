@@ -124,7 +124,7 @@ rules:
 
 ---
 # The service account is created later, by the ai-gateway-discovery step in
-# install.sh. Binding ahead of it is fine: the grant takes effect when the
+# install-old.sh. Binding ahead of it is fine: the grant takes effect when the
 # account appears.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -151,7 +151,7 @@ subjects:
 # Passthrough (rather than edge) keeps the manifest set identical to the other
 # clusters and the connection encrypted end to end. The cost is that HAProxy
 # presents no certificate of its own, so the `cluster-tls` secret in
-# envoy-gateway-system must be valid for this hostname — install.sh copies the
+# envoy-gateway-system must be valid for this hostname — install-old.sh copies the
 # router's own wildcard certificate there to satisfy that.
 #
 # timeout-tunnel is the annotation that matters: a passthrough Route is TCP mode,
