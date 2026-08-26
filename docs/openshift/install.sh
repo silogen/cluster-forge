@@ -389,20 +389,16 @@ done
 
 echo "✅ Sources extracted to ${SOURCES_DIR}"
 
-# TODO: remove this block once root/values-openshift.yaml is merged to main and
-# ships inside the release tarball. Until then it exists only in the checkout, so
-# stage it into the extracted release and let everything below read the single
-# canonical path. SCRIPT_DIR is docs/openshift, so root/ is two levels up.
+# values-openshift.yaml belongs in the release tarball under root/. Older tarballs
+# may not ship it yet; fetch the copy on main (same pin as REPO_RAW_BASE) into
+# the extracted release tree so everything below reads one canonical path.
 if [ ! -f "${CF_OPENSHIFT_VALUES}" ]; then
-  CF_OPENSHIFT_VALUES_LOCAL="${SCRIPT_DIR:+${SCRIPT_DIR}/../../root/values-openshift.yaml}"
-  if [ -n "${CF_OPENSHIFT_VALUES_LOCAL}" ] && [ -f "${CF_OPENSHIFT_VALUES_LOCAL}" ]; then
-    cp "${CF_OPENSHIFT_VALUES_LOCAL}" "${CF_OPENSHIFT_VALUES}"
-    echo "⚠️  values-openshift.yaml is not in the ${CLUSTER_FORGE_VERSION} tarball yet;"
-    echo "    staged the checkout copy from root/ (see TODO in this script)"
-  else
+  echo "ℹ️  values-openshift.yaml is not in the ${CLUSTER_FORGE_VERSION} tarball; fetching from cluster-forge main..."
+  if ! retry curl -fsSL "${REPO_RAW_BASE}/root/values-openshift.yaml" -o "${CF_OPENSHIFT_VALUES}"; then
+    rm -f "${CF_OPENSHIFT_VALUES}"
     {
-      echo "❌ ${CF_OPENSHIFT_VALUES} not found, and no checkout copy to stage."
-      echo "   Expected root/values-openshift.yaml in the cluster-forge checkout."
+      echo "❌ ${CF_OPENSHIFT_VALUES} not found in the release and could not be fetched."
+      echo "   Tried: ${REPO_RAW_BASE}/root/values-openshift.yaml"
     } >&2
     exit 1
   fi
