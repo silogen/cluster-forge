@@ -17,7 +17,7 @@ export CLUSTER_FORGE_DIR=".tmp/cf"
 export CLUSTER_FORGE_VERSION=v2.2.2
 
 # Deploy using a subshell
-curl -fsSL https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/main/docs/openshift/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/silogen/cluster-forge/main/docs/openshift/install.sh | bash
 ```
 
 ---
