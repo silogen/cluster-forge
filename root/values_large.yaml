@@ -16,8 +16,6 @@ enabledApps:
   - argocd
   - argocd-config
   - cert-manager
-  - cluster-auth
-  - cluster-auth-config
   - cnpg-operator
   - external-secrets
   - external-secrets-config

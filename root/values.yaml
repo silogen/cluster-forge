@@ -321,22 +321,6 @@ apps:
     syncWave: -40
     valuesObject:
       installCRDs: true
-  cluster-auth:
-    namespace: cluster-auth
-    path: cluster-auth/0.5.9
-    syncWave: -25
-    valuesFile: values.yaml
-  cluster-auth-config:
-    ignoreDifferences:
-      - group: external-secrets.io
-        jqPathExpressions:
-          - ".spec.data[].remoteRef.conversionStrategy"
-          - ".spec.data[].remoteRef.decodingStrategy"
-          - ".spec.data[].remoteRef.metadataPolicy"
-        kind: ExternalSecret
-    namespace: cluster-auth
-    path: cluster-auth-config
-    syncWave: -20
   cnpg-operator:
     namespace: cnpg-system
     path: cnpg-operator/0.26.0
