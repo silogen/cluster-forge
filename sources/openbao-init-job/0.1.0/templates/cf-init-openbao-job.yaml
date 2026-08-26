@@ -28,7 +28,6 @@ spec:
               fi
               export BAO_ADDR="http://openbao-internal:8200"
               export DOMAIN="{{ .Values.domain }}"
-              export INIT_MODE="true"
 
               echo "Running secret management script directly..."
               /tmp/secret-manager/manage-secrets.sh

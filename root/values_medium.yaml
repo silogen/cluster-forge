@@ -18,8 +18,6 @@ enabledApps:
   - argocd
   - argocd-config
   - cert-manager
-  - cluster-auth
-  - cluster-auth-config
   - cnpg-operator
   - external-secrets
   - external-secrets-config
@@ -257,12 +255,6 @@ apps:
       resources:
         requests:
           cpu: "5m"
-          memory: "256Mi"
-  cluster-auth:
-    valuesObject:
-      resources:
-        requests:
-          cpu: "100m"
           memory: "256Mi"
   cnpg-operator:
     valuesObject:

@@ -5,8 +5,7 @@
 # `https` gateway, whose model-route deny is route-scoped and owned by aim-engine / EAI-7302).
 # Any request whose HTTPRoute has no per-model apiKeyAuth SecurityPolicy — a keyless/opted-out
 # model, or a header-less/unmatched request — is refused, instead of falling through
-# unauthenticated once cluster-auth ext_authz is removed from this Gateway
-# (see security-policy-extauth.yaml, which drops its ai-gateway targetRef under the same switch).
+# unauthenticated. This is the sole gateway-scoped backstop.
 #
 # Per-model apiKeyAuth SecurityPolicies from ai-gateway-discovery target individual HTTPRoutes;
 # a route-level SecurityPolicy overrides this gateway-level one for that route (Envoy Gateway
