@@ -1,7 +1,7 @@
 # =============================================================================
 # Custom SecurityContextConstraints for OpenShift
 # =============================================================================
-# Every SCC install.sh applies in STEP 1, plus the RBAC that goes with them:
+# Every SCC install-old.sh applies in STEP 1, plus the RBAC that goes with them:
 # the per-namespace `anyuid` grants and the ClusterRole that lets Kyverno
 # generate per-project SCCs.
 #
@@ -12,7 +12,7 @@
 #
 # This file supersedes the separate scc.yaml and scc-aim-system.yaml that
 # cluster-forge main carried until 2026-08-13. Both were deleted in the same
-# change that added this one; a piped install.sh fetches this file by name, so
+# change that added this one; a piped install-old.sh fetches this file by name, so
 # do not restore them.
 ---
 apiVersion: security.openshift.io/v1

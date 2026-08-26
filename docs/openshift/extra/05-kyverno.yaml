@@ -1,7 +1,7 @@
 # =============================================================================
 # Extra Kyverno policies for OpenShift
 # =============================================================================
-# Everything install.sh applies in STEP 9, in one file because it is one apply:
+# Everything install-old.sh applies in STEP 9, in one file because it is one apply:
 # a single `ssa_apply` in source order. Document order is therefore load-bearing
 # — each RBAC ClusterRole must precede the policy that depends on it, or Kyverno
 # rejects the policy at admission.

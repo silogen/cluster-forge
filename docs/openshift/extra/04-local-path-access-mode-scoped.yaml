@@ -15,7 +15,7 @@
 #
 # WHAT THIS FILE CHANGES
 #   1. Scopes both policies to the four local-path StorageClasses that
-#      install.sh actually creates. Anything else passes through untouched, so
+#      install-old.sh actually creates. Anything else passes through untouched, so
 #      a future shared-storage class keeps its RWX. If a new class genuinely
 #      cannot do RWX, its PVC now fails loudly and stays Pending, which is far
 #      better than binding single-node storage nobody asked for.
@@ -38,7 +38,7 @@
 #   more general, but it needs awkward JMESPath to cover an unset
 #   storageClassName, and apiCall semantics have already caused two silent
 #   no-ops in this cluster's policies. An explicit list fails safe and is
-#   reviewable at a glance. Keep it in sync with the StorageClasses install.sh
+#   reviewable at a glance. Keep it in sync with the StorageClasses install-old.sh
 #   creates (STEP "Workspace StorageClasses" plus the default class).
 #
 # KNOWN EDGE CASE
@@ -46,7 +46,7 @@
 #   falls through the `|| 'default'` and is still treated as local-path. There
 #   are no static PVs here; revisit if that changes.
 #
-# Applied AFTER cluster-forge's own copy, which install.sh applies earlier.
+# Applied AFTER cluster-forge's own copy, which install-old.sh applies earlier.
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
