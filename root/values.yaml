@@ -38,6 +38,9 @@ apps:
     namespace: aim-system
     valuesFile: values.yaml
     syncWave: 0
+    helmParameters:
+      - name: clusterRuntimeConfig.enable
+        value: false
   aim-engine-crds:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "0.2.5"
@@ -837,6 +840,14 @@ apps:
     syncWave: -1
   seaweedfs-config:
     ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          # The CRD defaults these inside spec.data[]; Argo's predicted live
+          # state drops them, so the app never converges without this.
+          - .spec.data[].remoteRef.conversionStrategy
+          - .spec.data[].remoteRef.decodingStrategy
+          - .spec.data[].remoteRef.metadataPolicy
       - group: gateway.networking.k8s.io
         kind: HTTPRoute
         jqPathExpressions:
