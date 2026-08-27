@@ -1,0 +1,91 @@
+# vLLM Semantic Router — chart config for one deployment.
+#
+# Copy this to extra-apps/semantic-router/values.yaml in your cluster-values
+# overlay repo, then edit every `TODO` below. Only overrides live here; anything
+# not set falls through to the upstream chart's own defaults.
+#
+# Plain Helm values, read directly by ArgoCD — `{{ }}` is NOT evaluated here, so
+# values like the cluster domain have to be written out literally.
+
+persistence:
+  # Upstream defaults to "standard", which does not exist on our clusters. Empty
+  # omits the field so the cluster's default StorageClass applies. Do not use
+  # "-": the chart turns that into an explicit `storageClassName: ""`, which
+  # means "no class at all" and leaves the PVC Pending forever. Set a real class
+  # name if this cluster has no default.
+  storageClassName: ""
+
+# Management API (8080) defaults to binding 127.0.0.1, unreachable from the
+# dashboard's separate pod — this is why the dashboard reports the router as
+# not running. This env var widens the bind cluster-internally without the
+# heavier `remote_exposure: true` + bearer-auth path. Still not
+# internet-facing: no Gateway route touches 8080. See README.
+extraEnv:
+  - name: VLLM_SR_MANAGEMENT_INTERNAL_LISTENER
+    value: "true"
+
+dashboard:
+  enabled: true
+
+  # Off by default upstream. Without it, the admin account and all session/
+  # workflow state live only in the pod's ephemeral filesystem and are wiped
+  # by ANY pod recreation — not just a restart, also a values change, a chart
+  # bump, or a node move. Cheap enough (1Gi) to leave on regardless of which
+  # login option below you pick — see the README's "Dashboard access" section.
+  persistence:
+    enabled: true
+    storageClassName: ""
+
+  # Nobody can log in as shipped. Upstream's bootstrap endpoint is public and
+  # unauthenticated, so it stays off by default — otherwise the first stranger
+  # to load the URL claims admin. Pick one before using the dashboard:
+  #   - uncomment for a throwaway demo on a cluster you're about to delete
+  #   - or provision an admin via `extraEnv` (see this blueprint's README)
+  # allowOpenBootstrap: true
+
+  httpRoute:
+    enabled: true
+    # TODO: your own subdomain, on this cluster's domain.
+    hostname: sr-dashboard.mycluster.example.com
+    # The shared Gateway every app on a bloomed cluster routes through.
+    parentRef:
+      name: https
+      namespace: envoy-gateway-system
+
+# TODO: point the router at your own model and vLLM backend.
+#
+# All four settings below have to name the SAME model, or requests match no
+# route. They are lists, and Helm replaces lists wholesale rather than merging
+# them — so keep each one complete, don't trim it to just the changed field.
+config:
+  # Pairs with extraEnv above — both are required, neither works alone.
+  global:
+    services:
+      management_api:
+        bind_address: "0.0.0.0"
+  providers:
+    defaults:
+      default_model: "TODO-your-model"
+    models:
+      - name: "TODO-your-model"
+        # The ID the backend itself expects, which may differ from the name above.
+        provider_model_id: "TODO-your-model"
+        backend_refs:
+          - name: "primary"
+            # TODO: your vLLM service, e.g. my-vllm.my-namespace.svc:8000
+            endpoint: "TODO-your-vllm-service:8000"
+            protocol: "http"
+            weight: 100
+  routing:
+    modelCards:
+      - name: "TODO-your-model"
+    decisions:
+      - name: "default-route"
+        description: "Catch-all route. Add real decisions once a backend is wired up."
+        priority: 100
+        rules:
+          operator: "AND"
+          conditions: []
+        modelRefs:
+          - model: "TODO-your-model"
+            use_reasoning: false
