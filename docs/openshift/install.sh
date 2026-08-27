@@ -2241,64 +2241,27 @@ step_copy_objects() {
 # ============================================================================
 # CUSTOM STEP: AI GATEWAY POD-MUTATING WEBHOOK
 # ============================================================================
-# Check that the AI gateway's pod-mutating webhook is answering, and restart the
-# controller if it is not.
+# Probe (and heal) the envoy-ai-gateway pod mutating webhook via the shared
+# cluster-forge script. Mainline clusters issue the webhook cert via cert-manager
+# (see root/values.yaml); legacy genCA clusters or post-cutover drift can still
+# leave clientConfig.caBundle out of sync with the controller TLS secret. With
+# failurePolicy: Fail that blocks Envoy data-plane pod creation.
 #
-# The envoy-ai-gateway chart mints a fresh self-signed certificate on every
-# render, so each run rotates that webhook's keypair and caBundle together. The
-# controller normally reloads the new certificate. If it ever did not, the webhook
-# has failurePolicy: Fail on pod CREATE and would stop the Envoy data plane from
-# ever being recreated, while leaving every other workload alone -- its
-# objectSelector only matches app.kubernetes.io/managed-by: envoy-gateway. A
-# cluster in that state looks healthy until something deletes an Envoy pod.
-#
-# Custom because it is neither an install nor a read-back: the question is whether
-# admission accepts a pod it would mutate, which is answered by asking the API
-# server to admit one and throw it away.
+# Custom because it is neither an install nor a read-back: admission must accept a
+# probe pod, and healing syncs caBundle, restarts the controller, and rolls the
+# https and ai-gateway Envoy data planes.
 step_ai_gateway_webhook_probe() {
   local app="$1"
+  local ai_gateway_webhook_health="${CLUSTER_FORGE_DIR}/cluster-forge/scripts/ai-gateway-webhook-health.sh"
 
-  # --dry-run=server runs the full admission chain, this webhook included, and
-  # persists nothing. The labels are what its objectSelector matches; without them
-  # the webhook is never consulted and the probe proves nothing.
-  probe_pod() {
-    kubectl apply --dry-run=server -f - >/dev/null 2>&1 <<'PROBE'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: ai-gateway-webhook-probe
-  namespace: envoy-gateway-system
-  labels:
-    app.kubernetes.io/managed-by: envoy-gateway
-spec:
-  containers:
-    - name: probe
-      image: registry.access.redhat.com/ubi9/ubi-minimal:latest
-      command: ["sleep", "1"]
-PROBE
-  }
-
-  if probe_pod; then
-    echo "✅ ${app}: pod-mutating webhook is admitting pods"
-    return 0
+  if [[ ! -x "${ai_gateway_webhook_health}" ]]; then
+    echo "❌ ${ai_gateway_webhook_health} not found or not executable" >&2
+    exit 1
   fi
 
-  echo "⚠️  ${app}: the pod-mutating webhook is rejecting pods; restarting the controller to reload its certificate"
-  kubectl rollout restart deploy/ai-gateway-controller -n envoy-ai-gateway-system
-  kubectl rollout status deploy/ai-gateway-controller -n envoy-ai-gateway-system --timeout=180s
-
-  if probe_pod; then
-    echo "✅ ${app}: webhook healthy after the restart"
-    return 0
-  fi
-
-  # Fatal, unlike install-old.sh, which prints the same finding and carries on. A
-  # webhook rejecting pods means the data plane cannot be recreated, and every
-  # later step that expects the gateway to serve would fail further from the cause.
-  echo "❌ ${app}: the webhook is still rejecting pods after a controller restart." >&2
-  echo "   The Envoy data plane cannot be recreated until this is fixed. Check:" >&2
-  echo "     kubectl logs -n envoy-ai-gateway-system deploy/ai-gateway-controller" >&2
-  exit 1
+  # Shared with mainline cluster-forge (see scripts/ai-gateway-webhook-health.sh).
+  "${ai_gateway_webhook_health}"
+  echo "✅ ${app}: pod-mutating webhook healthy"
 }
 
 # ============================================================================
