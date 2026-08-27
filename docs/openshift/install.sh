@@ -286,9 +286,11 @@ ensure_extra_file() {
   [ -f "${f}" ] && return 0
 
   url="${EXTRA_RAW_BASE}/${base}"
-  echo "ℹ️  ${base} not present in ${EXTRA_DIR}; fetching from cluster-forge main..."
+  # stage_extra_file captures stdout as the path it will apply. Keep progress
+  # messages on stderr so a piped run does not mistake this text for a filename.
+  echo "ℹ️  ${base} not present in ${EXTRA_DIR}; fetching from cluster-forge main..." >&2
   mkdir -p "$(dirname "${f}")"
-  if ! retry curl -fsSL "${url}" -o "${f}"; then
+  if ! retry curl -fsSL "${url}" -o "${f}" >&2; then
     rm -f "${f}"   # curl -f can leave an empty file behind on HTTP errors
     {
       echo "❌ Could not obtain required manifest: ${base}"

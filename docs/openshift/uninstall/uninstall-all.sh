@@ -118,7 +118,8 @@ CF_DELETE=false          # --delete: actually delete, rather than print what wou
 CF_STEP=false            # --step: confirm each step
 CF_LIST=false            # --list: print the uninstall order and stop
 CF_DRAIN=auto            # --drain forces on, --keep-runtime off; auto = whole-order runs
-CF_DRAIN_TIMEOUT=300     # seconds to wait for the drained objects to actually go
+CF_DRAIN_TIMEOUT="${CF_DRAIN_TIMEOUT:-300}"  # seconds to wait for the drained objects to actually
+                         # go; 0 deletes them and moves on without waiting
 CF_KEEP_NAMESPACES=true  # --namespaces turns this off
 CF_KEEP_CRDS=false       # --keep-crds turns this on
 CF_KEEP_VOLUMES=false    # --keep-volumes turns this on
@@ -151,6 +152,9 @@ unless --delete is given.
                       run (default: only when the run covers the whole order)
   --keep-runtime      skip that, and leave the served models, workspaces and caches
                       to whatever takes them later
+                      CF_DRAIN_TIMEOUT sets how long the drain waits for finalizers
+                      (default 300s; 0 deletes and moves on, for the case where a
+                      controller keeps recreating what the drain removes)
   --from <app>        start at this app in the uninstall order
   --until <app>       stop after this app
   --skip <app,...>    leave these apps alone, for the ones this cluster had changed by
@@ -570,18 +574,67 @@ delete_object() {
   esac
 }
 
+# still_present_group <resource> <namespace> <name> [<name>...]
+#
+# How many of the named objects are still on the cluster. Namespace is empty when the
+# type is cluster-scoped. Names are fetched in batches of 25, the same size drain_runtime
+# uses for discovery.
+still_present_group() {
+  local res="$1" ns="$2"
+  shift 2
+  local -a names=("$@") batch=() ns_args=() out n=0 i=0
+
+  [ "${#names[@]}" -eq 0 ] && { printf '0'; return; }
+  [ -n "${ns}" ] && ns_args=(--namespace "${ns}")
+
+  while [ "${i}" -lt "${#names[@]}" ]; do
+    batch=("${names[@]:i:25}")
+    i=$((i + 25))
+    out="$(kubectl get "${res}" "$(IFS=,; printf '%s' "${batch[*]}")" "${ns_args[@]}" \
+      --ignore-not-found --request-timeout="${KUBECTL_REQUEST_TIMEOUT}" \
+      -o name 2>/dev/null || true)"
+    [ -n "${out}" ] && n=$((n + $(printf '%s\n' "${out}" | grep -c .)))
+  done
+  printf '%s' "${n}"
+}
+
 # still_present <objects...> : how many of the objects just deleted are still there.
 #
 # Deleting without waiting means "deleted" only ever meant "accepted", and the difference
 # matters here: a namespace stuck Terminating on a finalizer, or a custom resource whose
 # controller has already been uninstalled and can no longer run its own, will sit there
 # indefinitely and block the reinstall of that same step.
+#
+# Each line is apiVersion|Kind|name|namespace. Lines are sorted and grouped by resource
+# type and namespace so one kubectl get covers many names, instead of one round trip each.
 still_present() {
-  local line api kind name ns n=0
-  for line in "$@"; do
+  local line api kind name ns res n=0 cur_res="" cur_ns=""
+  local -a batch=() sorted
+
+  [ $# -eq 0 ] && { printf '0'; return; }
+
+  sorted="$(for line in "$@"; do
     IFS='|' read -r api kind name ns <<< "${line}"
-    object_exists "${api}" "${kind}" "${name}" "${ns}" && n=$((n + 1))
-  done
+    res="$(resource_arg "${api}" "${kind}")"
+    printf '%s|%s|%s\n' "${res}" "${ns}" "${name}"
+  done | LC_ALL=C sort -t'|' -k1,1 -k2,2)"
+
+  while IFS='|' read -r res ns name; do
+    [ -z "${name}" ] && continue
+    if [ "${res}" != "${cur_res}" ] || [ "${ns}" != "${cur_ns}" ]; then
+      if [ ${#batch[@]} -gt 0 ]; then
+        n=$((n + $(still_present_group "${cur_res}" "${cur_ns}" "${batch[@]}")))
+        batch=()
+      fi
+      cur_res="${res}"
+      cur_ns="${ns}"
+    fi
+    batch+=("${name}")
+  done <<< "${sorted}"
+
+  if [ ${#batch[@]} -gt 0 ]; then
+    n=$((n + $(still_present_group "${cur_res}" "${cur_ns}" "${batch[@]}")))
+  fi
   printf '%s' "${n}"
 }
 
@@ -708,7 +761,7 @@ drainable_types() {
 # Whatever is still there when the wait runs out is named, with the finalizer holding it,
 # because that is the one thing worth knowing before the controllers start going.
 drain_runtime() {
-  local line waited=0 left crd api kind ns name managers
+  local line left crd api kind ns name managers
   local -a cf_drain=() cf_types=()
 
   echo ""
@@ -748,11 +801,21 @@ drain_runtime() {
     return 0
   fi
 
+  if [ "${CF_DRAIN_TIMEOUT}" -le 0 ]; then
+    echo "   ${#cf_drain[@]} runtime object(s) deleted; not waiting on finalizers (CF_DRAIN_TIMEOUT=0)"
+    return 0
+  fi
+
+  # A wall-clock deadline, not a count of the sleeps: still_present batches its kubectl
+  # calls by type and namespace, but each pass still costs seconds against a slow API.
+  local started deadline
+  started="$(date +%s)"
+  deadline=$((started + CF_DRAIN_TIMEOUT))
   left="$(still_present "${cf_drain[@]}")"
-  while [ "${left}" -gt 0 ] && [ "${waited}" -lt "${CF_DRAIN_TIMEOUT}" ]; do
-    printf '\r   ⏳ %s of %s still finalizing (%ss)' "${left}" "${#cf_drain[@]}" "${waited}"
+  while [ "${left}" -gt 0 ] && [ "$(date +%s)" -lt "${deadline}" ]; do
+    printf '\r   ⏳ %s of %s still finalizing (%ss)' "${left}" "${#cf_drain[@]}" \
+      "$(( $(date +%s) - started ))"
     sleep 5
-    waited=$((waited + 5))
     left="$(still_present "${cf_drain[@]}")"
   done
   printf '\r%*s\r' 60 ''
