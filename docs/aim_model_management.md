@@ -57,17 +57,15 @@ base images (Instinct → `aim-base`, EPYC → `aim-epyc-base`, Radeon →
 
 ### Source of truth
 
-The AIM team maintains canonical lists in
-[silogen/aim-build](https://github.com/silogen/aim-build):
-
-- **Model sources** — version-pinned files under `.releases/`
-- **Base images** — curated tag list (packaged into the chart at release cut)
+The AIM team maintains canonical model source and base-image lists in the
+[public AIM build repository](https://github.com/amd-enterprise-ai/aim-build).
+Those lists are published into the `aim-cluster-model-source` Helm chart for
+clusters to consume.
 
 The Platform release process incorporates approved manifests into
 `sources/aim-cluster-model-source/` at each Cluster Forge release.
 
-Environment-specific rolling snapshots under aim-build `.deployments/` serve
-Platform CI environments only. They are not packaged in Cluster Forge.
+Environment-specific CI snapshots are not packaged in Cluster Forge.
 
 ## Version policy
 
@@ -123,7 +121,7 @@ syncing — see the how-to guide.
 
 | Responsibility | Owner |
 |----------------|-------|
-| AIM release manifests and base-image lists | AIM team (`aim-build`) |
+| AIM release manifests and base-image lists | AIM team |
 | Packaging into Cluster Forge | Platform release process |
 | Cluster-managed catalog additions and removals | Cluster / installation operator |
 | Removing deprecated catalog entries | Installation owner |
