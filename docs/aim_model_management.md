@@ -2,7 +2,7 @@
 
 Reference for how AIM model catalog sources are packaged, extended, and retired on
 Cluster Forge clusters. This guide is for **cluster operators and platform
-administrators** — including customer-run installations — who need to understand
+administrators** who need to understand
 catalog behaviour and manage models over the life of a cluster.
 
 It is **not tied to the Cluster Forge release cadence**. Use it whenever you

@@ -6,7 +6,7 @@ container images in the AI Workbench model catalog.
 For packaged baseline behaviour, version policy, and lifecycle rules, see
 [AIM model catalog lifecycle](aim_model_management.md).
 
-Validated with Cluster Forge `v2.2.2` and AIM Engine `0.2.5`.
+Validated with Cluster Forge >=`v2.2.2` and AIM Engine `0.2.5`.
 
 ## Before you start
 
