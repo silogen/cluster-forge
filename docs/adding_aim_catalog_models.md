@@ -6,7 +6,7 @@ container images in the AI Workbench model catalog.
 For packaged baseline behaviour, version policy, and lifecycle rules, see
 [AIM model catalog lifecycle](aim_model_management.md).
 
-Validated with Cluster Forge >=`v2.2.2` and AIM Engine `0.2.5`.
+Validated with Cluster Forge >= v2.2.2 and AIM Engine 0.2.5.
 
 ## Before you start
 
@@ -20,6 +20,11 @@ You need:
 
 Use images that match the cluster's hardware family. Listing images for other
 accelerators creates catalog entries that AI Workbench marks as not deployable.
+Active families: 
+```
+kubectl get application -n argocd aim-cluster-model-source -o go-template='{{ index (fromYaml .spec.source.helm.values) "hardwareFamilies" }}{{ println }}'
+``` 
+...also in Gitea **cluster-values** → `values.yaml` → `apps.aim-cluster-model-source.valuesObject.hardwareFamilies`.
 
 For private registries, set `spec.imagePullSecrets` on the source to a secret in
 `aim-system`. Do not commit credentials to Gitea.
