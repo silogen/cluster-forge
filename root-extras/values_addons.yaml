@@ -53,3 +53,40 @@ extraApps:
   #     automated: { prune: true, selfHeal: true }
   #     syncOptions:
   #       - CreateNamespace=true
+
+  # Chart plus static YAML the chart itself doesn't ship (an AIGatewayRoute, a
+  # ReferenceGrant, ...). A source with a `path` produces manifests, so adding a
+  # directory source puts them in this same Application: one health rollup, one
+  # prune boundary. Manifests are read from the overlay repo directly and are
+  # NOT tpl-rendered — write hostnames out literally.
+  # example-app-3:
+  #   project: default
+  #   sources:
+  #     # 1. the upstream chart
+  #     - repoURL: https://example.com/some-org/some-chart.git
+  #       path: charts/example-app
+  #       targetRevision: v1.0.0
+  #       helm:
+  #         valueFiles:
+  #           - $cluster-values/extra-apps/example-app-3/values.yaml
+  #     # 2. your static manifests, from this overlay repo
+  #     - repoURL: "{{ .Values.externalValues.repoUrl }}"
+  #       targetRevision: "{{ .Values.externalValues.targetRevision }}"
+  #       path: extra-apps/example-app-3/manifests
+  #       directory:
+  #         recurse: true
+  #     # 3. resolves the $cluster-values alias above; produces no manifests
+  #     - repoURL: "{{ .Values.externalValues.repoUrl }}"
+  #       targetRevision: "{{ .Values.externalValues.targetRevision }}"
+  #       ref: cluster-values
+  #   destination:
+  #     server: https://kubernetes.default.svc
+  #     namespace: example-app-3
+  #   syncPolicy:
+  #     automated: { prune: true, selfHeal: true }
+  #     syncOptions:
+  #       - CreateNamespace=true
+  #
+  # You create both of these in the overlay repo, next to this file:
+  #   extra-apps/example-app-3/values.yaml
+  #   extra-apps/example-app-3/manifests/*.yaml   (must be non-empty)

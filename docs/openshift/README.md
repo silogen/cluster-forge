@@ -14,10 +14,10 @@ Deploy the stack with all tools needed on a Openshift cluster
 export CLUSTER_FORGE_DIR=".tmp/cf"
 
 # Set desired CF version to be used on the installation
-export CLUSTER_FORGE_VERSION=v2.2.0
+export CLUSTER_FORGE_VERSION=v2.2.2
 
 # Deploy using a subshell
-curl -fsSL https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/main/docs/openshift/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/silogen/cluster-forge/main/docs/openshift/install.sh | bash
 ```
 
 ---
@@ -69,7 +69,15 @@ Finally this is the expected output from console after all components have been 
 
 4. Installation steps
 
-The `install.sh` script runs through the numbered phases below. Each phase prints a banner like `[STEP N]` as it progresses. Before step 1, the script resolves the cluster domain from the first argument or auto-detects it from the OpenShift ingress config (`ingresses.config.openshift.io/cluster`).
+`install.sh` walks `root/values-openshift.yaml` in declaration order (the same list
+`uninstall-all.sh` walks backwards). The previous hardcoded installer is kept as
+`install-old.sh` for comparison.
+
+The current installer downloads the pinned cluster-forge release (`CLUSTER_FORGE_VERSION`),
+resolves the cluster domain from the first argument or from
+`ingresses.config.openshift.io/cluster`, then installs each app from that YAML. The
+table below is the stack that lands; the source of truth for order and overrides is
+the values file, not this list.
 
 | Step | Phase | Description |
 |------|-------|-------------|
@@ -156,7 +164,7 @@ CF_VERSION_AIWB=2.0.1 CF_VERSION_AI_GATEWAY_DISCOVERY=2.0.1 ./install.sh
 
 The override is announced in the output, since it puts the cluster on a combination the release was not tested with.
 
-Charts that come from the tarball still have their version written into the path in `install.sh`. In every case that is the newest version the tarball holds, with one deliberate exception: `external-secrets` is installed at `0.19.2` while v2.2.2 declares `0.15.1`. Keep that in mind before making those dynamic too — doing it naively would downgrade it.
+Charts that come from the tarball still have their version written into `path:` in `root/values.yaml` (or an OpenShift override). In every case that is the newest version the tarball holds, with one deliberate exception: `external-secrets` is installed at `0.19.2` while v2.2.2 declares `0.15.1`. Keep that in mind before making those dynamic too — doing it naively would downgrade it.
 
 ---
 

@@ -321,22 +321,6 @@ apps:
     syncWave: -40
     valuesObject:
       installCRDs: true
-  cluster-auth:
-    namespace: cluster-auth
-    path: cluster-auth/0.5.9
-    syncWave: -25
-    valuesFile: values.yaml
-  cluster-auth-config:
-    ignoreDifferences:
-      - group: external-secrets.io
-        jqPathExpressions:
-          - ".spec.data[].remoteRef.conversionStrategy"
-          - ".spec.data[].remoteRef.decodingStrategy"
-          - ".spec.data[].remoteRef.metadataPolicy"
-        kind: ExternalSecret
-    namespace: cluster-auth
-    path: cluster-auth-config
-    syncWave: -20
   cnpg-operator:
     namespace: cnpg-system
     path: cnpg-operator/0.26.0
@@ -701,6 +685,27 @@ apps:
         mcp:
           sessionEncryption:
             seed: "cluster-forge-default-seed-override-in-production"
+        mutatingWebhook:
+          # Issue the webhook serving cert via cert-manager instead of the chart's
+          # built-in Helm genCA path, which upstream's own values.yaml calls "not
+          # recommended for production use".
+          #
+          # The genCA path guards regeneration with `lookup "v1" "Secret" ...`, and
+          # lookup returns empty whenever Helm renders without a live cluster — which
+          # is exactly how ArgoCD renders. So every sync mints a fresh CA and rewrites
+          # the MutatingWebhookConfiguration caBundle, while the running controller
+          # keeps serving the cert it loaded at startup. The two drift apart and pod
+          # admission fails with "x509: certificate signed by unknown authority".
+          # Because failurePolicy is Fail, the ai-gateway proxy ReplicaSet can then no
+          # longer create pods, so the extproc sidecar is never injected and every
+          # inference request dies with an empty 500 (seen on int-test).
+          #
+          # With cert-manager the Certificate and Issuer are declarative and ca-injector
+          # keeps the caBundle in sync with the issued cert, so a re-render cannot
+          # desynchronise them. cert-manager is already installed at syncWave -40, well
+          # ahead of this app at -5.
+          certManager:
+            enable: true
       extProc:
         image:
           tag: 8007dfd481f7d1225bcaf9d059cb15b61d4d28e0

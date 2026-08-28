@@ -1,0 +1,2285 @@
+# =============================================================================
+# OpenShift install order
+# =============================================================================
+# The complete, ordered list of what docs/openshift/install.sh installs on
+# OpenShift, one entry per step, in the order they are installed. Key order is the
+# install order and mirrors docs/openshift/install-old.sh, not values.yaml's syncWave.
+# docs/openshift/uninstall/uninstall-all.sh walks the same list backwards.
+#
+# A fuller commentary on every step -- why each override, deviation and check is
+# there -- is kept out of this file to keep it readable. See git history for it.
+#
+# ---- entry schema ----------------------------------------------------------
+#   name             banner printed for the step
+#   mode             core (chart in the release tarball's sources/), external (OCI
+#                    chart), extra (manifest in docs/openshift/extra/), objects (the
+#                    payload is the extraObjects/extraManifests/configMaps below),
+#                    custom (a shell function named by handler:)
+#   root-inherited   true: take the app's details from values.yaml, local wins.
+#                    false: this block is the whole definition
+#   path             mode core -> chart directory under sources/; extra -> filename
+#   repoURL          mode external -> registry, chart name and version to pull, the
+#   chart            same three fields ArgoCD reads. repoURL may be the ArgoCD
+#   repoVersion      reference {{ .Values.ociRegistry.* }}. CF_VERSION_<APP>
+#                    overrides repoVersion for one run
+#   namespace        required for mode core, usually inherited; optional elsewhere
+#   handler          mode custom -> shell function to run
+#   release          mode core -> helm release name, defaults to the app key
+#   valuesFile       mode core -> values file inside the chart
+#   valuesObject     chart values inline, passed as helm --values
+#   helmParameters   list of {name, value} passed as helm --set. when: VAR=value
+#                    passes one only in that deployment shape; when: VAR only when
+#                    the variable is set at all, for an optional override
+#   skipWhen         VAR=value -> the whole step is skipped in that shape
+#   skipInstallWhenExists
+#                    {resource, optional name/namespace/selector} of an object whose
+#                    presence means the platform already provides this payload, so
+#                    only the install is skipped -- patches and verify still run
+#   includeCrds      mode core -> also render the chart's crds/ directory
+#   templates        mode core -> render only these templates (helm --show-only)
+#   onlyKinds        keep, or conversely drop, these kinds from the render; one or
+#   excludeKinds     the other, for a chart split across two entries
+#   render           `manifests` for a directory of plain YAML rather than a chart
+#   recursive        render: manifests -> apply subdirectories too
+#   substitutions    list of {from, to} sed replacements made to the render
+#   substituteDomain mode extra -> fill in <DOMAIN>/${DOMAIN} before applying
+#   configMaps       [{name, namespace, files: [{key, path}]}] built from repository
+#                    files, i.e. `kubectl create configmap --from-file`
+#   extraObjects     YAML applied after the step; ${VAR} expanded from the
+#                    environment. With mode objects it is the whole step
+#   extraManifests   filenames under extra/ applied after the step
+#   deleteBefore     [{resource, name, namespace}] deleted before installing, for
+#                    what server-side apply cannot reach. unless: {jsonPath, equals}
+#   patches          kubectl patch operations on objects the step does not own:
+#                    resource, name, patch, optional namespace/type/stage
+#   verify           read-back checks run after every step, whatever its mode.
+#                    Select with name:, names:, namePrefix:, selector: or minCount:,
+#                    and assert existence, condition: (timeout:, default 120s), or
+#                    jsonPath: with equals:/contains:/notEmpty:/empty:
+#   storageClasses   handler step_workspace_storageclasses -> class names to create
+#   copies           handler step_copy_objects -> [{resource, from, to,
+#                    fromNamespace, toNamespace}]
+# =============================================================================
+
+apps:
+
+  # --- cluster groundwork ---------------------------------------------------
+
+  # The custom SCCs and the bindings that grant them by service account name, so
+  # later steps' pods are admitted at all.
+  scc:
+    name: Custom SecurityContextConstraints (SCCs)
+    mode: extra
+    path: 01-scc.yaml
+    root-inherited: false
+    verify:
+      - resource: scc
+        namePrefix: cf-
+        minCount: 1
+
+  # Installs the provisioner only where it is missing, then makes it work on
+  # OpenShift: SCC, helper-pod SELinux context, and a node relabel of hostDir.
+  local-path-storage:
+    name: local-path provisioner & default StorageClass
+    mode: custom
+    handler: step_local_path_storage
+    root-inherited: false
+    namespace: local-path-storage
+    upstreamManifest: https://raw.githubusercontent.com/rancher/local-path-provisioner/master/deploy/local-path-storage.yaml
+    hostDir: /var/opt/local-path-provisioner
+    defaultStorageClass: default
+    verify:
+      - resource: storageclass
+        names:
+          - default
+          - local-path
+      - resource: deployment
+        name: local-path-provisioner
+        condition: Available
+        timeout: 120s
+
+  # --- operators ------------------------------------------------------------
+
+  # includeCrds: the ray.io CRDs are in the chart's crds/, and without them the
+  # operator crash-loops while reporting 1/1 Running in between.
+  kuberay-operator:
+    name: Kuberay operator
+    mode: core
+    root-inherited: true
+    includeCrds: true
+    verify:
+      - resource: crd
+        names:
+          - rayclusters.ray.io
+          - rayjobs.ray.io
+          - rayservices.ray.io
+      - resource: deployment
+        name: kuberay-operator
+        condition: Available
+        timeout: 180s
+
+  # The in-cluster PostgreSQL operator, whose webhooks admit the Cluster objects
+  # Keycloak and AIWB create later.
+  cnpg-operator:
+    name: CloudNativePG database operator
+    mode: core
+    root-inherited: true
+    skipWhen: PLUGGABLE_DB=true
+    verify:
+      - resource: crd
+        names:
+          - clusters.postgresql.cnpg.io
+      - resource: deployment
+        name: cnpg-operator-cloudnative-pg
+        condition: Available
+        timeout: 120s
+
+  # A single install.yaml rather than a chart, so the directory is applied as-is.
+  # Its two webhooks gate every AppWrapper created after this.
+  appwrapper:
+    name: Appwrapper
+    mode: core
+    root-inherited: true
+    render: manifests
+    verify:
+      - resource: crd
+        names:
+          - appwrappers.workload.codeflare.dev
+      - resource: deployment
+        name: appwrapper-controller-manager
+        condition: Available
+        timeout: 120s
+
+  # The policy engine. Its pre-delete hooks would run as ordinary Jobs here and are
+  # dropped by the script; the large CRD schemas need the long request timeout.
+  kyverno:
+    name: Kyverno (policy management)
+    mode: core
+    root-inherited: true
+    helmParameters:
+      - name: webhooksCleanup.enabled
+        value: false
+      - name: reportsController.resources.limits.memory
+        value: 1Gi
+      - name: reportsController.resources.requests.memory
+        value: 256Mi
+    extraObjects: |
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: kyverno-reports-controller-cluster-reader
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: cluster-reader
+      subjects:
+        - kind: ServiceAccount
+          name: kyverno-reports-controller
+          namespace: kyverno
+    verify:
+      - resource: deployment
+        condition: Available
+        timeout: 180s
+        names:
+          - kyverno-admission-controller
+          - kyverno-background-controller
+          - kyverno-cleanup-controller
+          - kyverno-reports-controller
+
+  # Two ClusterPolicies plus the RBAC the PVC-generating rule needs. Needs kyverno's
+  # admission controller up, or these fail on a webhook timeout rather than a CRD.
+  kyverno-policies-base:
+    name: Kyverno base policies
+    mode: core
+    root-inherited: true
+    verify:
+      - resource: clusterpolicy
+        condition: Ready
+        timeout: 120s
+        names:
+          - dynamic-pvc-creation
+          - modelcache-download-resource-limits
+      - resource: clusterrolebinding
+        name: kyverno-pvc-generator-binding
+
+  # Rewrites RWX/ROX to RWO, which local-path cannot serve. The chart's own policies
+  # match every PVC in the cluster, so extra/04 replaces them with scoped ones.
+  kyverno-policies-storage-local-path:
+    name: Kyverno storage policies (local-path)
+    mode: core
+    root-inherited: true
+    extraManifests:
+      - 04-local-path-access-mode-scoped.yaml
+    verify:
+      - resource: clusterpolicy
+        condition: Ready
+        timeout: 120s
+        names:
+          - local-path-access-mode-mutation
+          - local-path-access-mode-warning
+
+  # OpenShift-only policies: generate an SCC per namespace, turn HTTPRoutes into
+  # native Routes, and clean up orphaned SCCs.
+  openshift-kyverno-policies:
+    name: Extra OpenShift Kyverno policies (SCC + HTTPRoute->Route)
+    mode: extra
+    path: 05-kyverno.yaml
+    root-inherited: false
+    substituteDomain: true
+    patches:
+      - stage: pre
+        resource: ingresscontroller
+        name: default
+        namespace: openshift-ingress-operator
+        type: merge
+        patch: '{"spec":{"routeAdmission":{"namespaceOwnership":"InterNamespaceAllowed"}}}'
+    verify:
+      - resource: clusterpolicy
+        condition: Ready
+        timeout: 120s
+        names:
+          - generate-scc-on-namespaces
+          - generate-routes-from-httproutes
+          - generate-routes-from-httproutes-rewrite
+      - resource: clustercleanuppolicy
+        name: cleanup-orphaned-sccs
+      - resource: globalcontextentry
+        name: namespaces
+      - resource: ingresscontroller
+        name: default
+        namespace: openshift-ingress-operator
+        jsonPath: '{.spec.routeAdmission.namespaceOwnership}'
+        equals: InterNamespaceAllowed
+
+  # multinode and mlstorage are aliases of local-path, not separate backends, and
+  # neither can do RWX. Created because charts and the storage policies name them.
+  workspace-storageclasses:
+    name: Workspace StorageClasses (multinode, mlstorage)
+    mode: custom
+    handler: step_workspace_storageclasses
+    root-inherited: false
+    storageClasses:
+      - multinode
+      - mlstorage
+    provisioner: rancher.io/local-path
+    verify:
+      - resource: storageclass
+        names:
+          - multinode
+          - mlstorage
+
+  # Skipped where OpenShift's own monitoring stack already provides these at a newer
+  # version: applying our older copies would downgrade schemas and fight the CVO.
+  prometheus-crds:
+    name: Prometheus Operator CRDs
+    mode: core
+    root-inherited: true
+    skipInstallWhenExists:
+      resource: crd
+      name: alertmanagers.monitoring.coreos.com
+    verify:
+      - resource: crd
+        names:
+          - alertmanagers.monitoring.coreos.com
+          - alertmanagerconfigs.monitoring.coreos.com
+          - podmonitors.monitoring.coreos.com
+          - probes.monitoring.coreos.com
+          - prometheuses.monitoring.coreos.com
+          - prometheusrules.monitoring.coreos.com
+          - servicemonitors.monitoring.coreos.com
+          - thanosrulers.monitoring.coreos.com
+
+  # Issues the webhook certificates the OpenTelemetry operator and KServe need. CRDs
+  # come from values.yaml's installCRDs; setting crds.enabled as well fails the render.
+  cert-manager:
+    name: cert-manager
+    mode: core
+    root-inherited: true
+    verify:
+      - resource: deployment
+        condition: available
+        timeout: 120s
+        names:
+          - cert-manager
+          - cert-manager-webhook
+          - cert-manager-cainjector
+      - resource: validatingwebhookconfiguration
+        name: cert-manager-webhook
+        jsonPath: '{.webhooks[0].clientConfig.caBundle}'
+        notEmpty: true
+        timeout: 120s
+
+  # Namespace overridden to opentelemetry-system, which is the one extra/01-scc.yaml
+  # grants the SCC to by name, so the operator is only admitted there.
+  opentelemetry-operator:
+    name: OpenTelemetry operator
+    mode: core
+    root-inherited: true
+    namespace: opentelemetry-system
+    verify:
+      - resource: deployment
+        name: opentelemetry-operator
+        condition: available
+        timeout: 120s
+      - resource: crd
+        names:
+          - opentelemetrycollectors.opentelemetry.io
+          - instrumentations.opentelemetry.io
+          - opampbridges.opentelemetry.io
+          - targetallocators.opentelemetry.io
+      - resource: mutatingwebhookconfiguration
+        name: opentelemetry-operator-mutation
+        jsonPath: '{.webhooks[0].clientConfig.caBundle}'
+        notEmpty: true
+        timeout: 120s
+
+  # Pinned to 0.19.2, which serves only v1. Every manifest here is written against
+  # v1beta1, which is why later steps rewrite the apiVersion in substitutions.
+  external-secrets:
+    name: External Secrets Operator
+    mode: core
+    root-inherited: true
+    path: external-secrets/0.19.2
+    verify:
+      - resource: deployment
+        condition: available
+        timeout: 120s
+        names:
+          - external-secrets
+          - external-secrets-webhook
+      - resource: deployment
+        name: external-secrets-cert-controller
+        condition: available
+        timeout: 120s
+      - resource: crd
+        condition: established
+        timeout: 60s
+        names:
+          - externalsecrets.external-secrets.io
+          - secretstores.external-secrets.io
+          - clustersecretstores.external-secrets.io
+      - resource: validatingwebhookconfiguration
+        names:
+          - externalsecret-validate
+          - secretstore-validate
+        jsonPath: '{.webhooks[0].clientConfig.caBundle}'
+        notEmpty: true
+        timeout: 120s
+
+  # The Gateway API CRDs, taken from envoy-gateway's own crds/ directory, needed by
+  # the HTTPRoutes that openbao-config and the LGTM stack render.
+  gateway-api-crds:
+    name: Gateway API CRDs
+    mode: core
+    render: manifests
+    root-inherited: false
+    path: envoy-gateway/v1.7.1/crds
+    recursive: true
+    skipInstallWhenExists:
+      resource: crd
+      name: httproutes.gateway.networking.k8s.io
+    verify:
+      - resource: crd
+        condition: established
+        timeout: 60s
+        names:
+          - httproutes.gateway.networking.k8s.io
+          - gateways.gateway.networking.k8s.io
+
+  # --- secrets & observability ----------------------------------------------
+
+  # The secret store everything else reads credentials from. Comes up sealed; the
+  # init job below unseals it.
+  openbao:
+    name: OpenBao (server)
+    mode: core
+    root-inherited: true
+    verify:
+      - resource: pod
+        name: openbao-0
+        namespace: cf-openbao
+        jsonPath: '{.status.phase}'
+        equals: Running
+        timeout: 300s
+      - resource: service
+        names:
+          - openbao
+          - openbao-internal
+          - openbao-ui
+
+  # Secret definitions plus the unseal and manager cronjobs. The object-store keys
+  # written here are the same ones SeaweedFS and AIWB are configured with.
+  openbao-config:
+    name: OpenBao configuration (secret definitions, unseal + manager cronjobs)
+    mode: core
+    root-inherited: true
+    helmParameters:
+      - name: domain
+        value: ${DOMAIN}
+      - name: minio.apiAccessKey
+        value: ${MINIO_API_ACCESS_KEY}
+      - name: minio.consoleAccessKey
+        value: ${MINIO_CONSOLE_ACCESS_KEY}
+    verify:
+      - resource: configmap
+        names:
+          - openbao-secrets-config
+          - openbao-secret-manager-scripts
+          - openbao-unseal-scripts
+      - resource: cronjob
+        names:
+          - openbao-unseal-job
+          - openbao-secret-manager
+      - resource: httproute
+        name: openbao
+      - resource: configmap
+        name: openbao-secrets-config
+        jsonPath: '{.data.secrets\.env}'
+        contains: secrets/cluster-domain|static|${DOMAIN}|0
+
+  # Copies the config ConfigMaps under the names the init job mounts them by.
+  openbao-init-configmaps:
+    name: OpenBao init ConfigMap aliases
+    mode: custom
+    handler: step_copy_objects
+    root-inherited: false
+    namespace: cf-openbao
+    copies:
+      - resource: configmap
+        from: openbao-secrets-config
+        to: openbao-secrets-init-config
+      - resource: configmap
+        from: openbao-secret-manager-scripts
+        to: openbao-secret-manager-scripts-init
+    verify:
+      - resource: configmap
+        names:
+          - openbao-secrets-init-config
+          - openbao-secret-manager-scripts-init
+      - resource: configmap
+        name: openbao-secrets-init-config
+        jsonPath: '{.data.secrets\.env}'
+        contains: secrets/cluster-domain|static|${DOMAIN}|0
+
+  # Initialises and unseals OpenBao, then seeds the secret definitions above.
+  openbao-init-job:
+    name: OpenBao init job (initialise, unseal, seed secrets)
+    mode: core
+    root-inherited: false
+    path: openbao-init-job/0.1.0
+    namespace: cf-openbao
+    helmParameters:
+      - name: domain
+        value: ${DOMAIN}
+    verify:
+      - resource: job
+        name: openbao-init-job
+        condition: complete
+        timeout: 300s
+      - resource: secret
+        names:
+          - openbao-keys
+          - openbao-user
+      - resource: pod
+        name: openbao-0
+        condition: ready
+        timeout: 300s
+
+  # The ClusterSecretStore pointing External Secrets at OpenBao, with its apiVersion
+  # rewritten to v1 for the operator version pinned above.
+  external-secrets-config:
+    name: OpenBao ClusterSecretStore
+    mode: core
+    render: manifests
+    root-inherited: true
+    substitutions:
+      - from: external-secrets.io/v1beta1
+        to: external-secrets.io/v1
+    verify:
+      - resource: clustersecretstore
+        name: openbao-secret-store
+        condition: Ready
+        timeout: 120s
+
+  # Grafana, Loki, Tempo and Prometheus, with the Grafana admin credentials fetched
+  # out of OpenBao through an ExternalSecret.
+  otel-lgtm-stack:
+    name: OTEL LGTM stack (Grafana/Loki/Tempo/Prometheus)
+    mode: core
+    root-inherited: true
+    path: otel-lgtm-stack/v1.0.7
+    deleteBefore:
+      - resource: daemonset
+        name: nodeexporter-prometheus-node-exporter
+        unless:
+          jsonPath: '{.spec.template.spec.containers[*].ports[?(@.name=="metrics")].containerPort}'
+          equals: "9110"
+    helmParameters:
+      - name: cluster.name
+        value: ${DOMAIN}
+      - name: collectors.resources.metrics.requests.cpu
+        value: 500m
+      - name: collectors.resources.metrics.requests.memory
+        value: 1Gi
+      - name: collectors.resources.metrics.limits.memory
+        value: 4Gi
+      - name: collectors.resources.logs.requests.cpu
+        value: 250m
+      - name: collectors.resources.logs.requests.memory
+        value: 256Mi
+      - name: collectors.resources.logs.limits.cpu
+        value: "1"
+      - name: collectors.resources.logs.limits.memory
+        value: 1Gi
+      - name: dashboards.enabled
+        value: "true"
+      - name: kubeStateMetrics.enabled
+        value: "true"
+      - name: nodeExporter.enabled
+        value: "true"
+      - name: services.nodeExporter.metrics
+        value: "9110"
+      - name: lgtm.resources.requests.cpu
+        value: "1"
+      - name: lgtm.resources.requests.memory
+        value: 2Gi
+      - name: lgtm.resources.limits.memory
+        value: 8Gi
+      - name: lgtm.storage.grafana
+        value: 10Gi
+      - name: lgtm.storage.loki
+        value: 50Gi
+      - name: lgtm.storage.mimir
+        value: 50Gi
+      - name: lgtm.storage.tempo
+        value: 50Gi
+      - name: lgtm.storage.extra
+        value: 50Gi
+    substitutions:
+      - from: external-secrets.io/v1beta1
+        to: external-secrets.io/v1
+      - from: kube-amd-gpu
+        to: ${CF_AMD_GPU_NS}
+      - from: '^\( *\)regex: gpu-operator-metrics-exporter\.\*$'
+        to: '\1regex: .*metrics-exporter.*'
+    verify:
+      - resource: deployment
+        name: lgtm
+        condition: available
+        timeout: 300s
+      - resource: deployment
+        name: my-kube-state-metrics
+        condition: available
+        timeout: 180s
+      - resource: daemonset
+        name: nodeexporter-prometheus-node-exporter
+        jsonPath: '{.spec.template.spec.containers[*].ports[?(@.name=="metrics")].containerPort}'
+        equals: "9110"
+      - resource: daemonset
+        name: nodeexporter-prometheus-node-exporter
+        jsonPath: '{.status.numberAvailable}'
+        notEmpty: true
+        timeout: 180s
+      - resource: externalsecret
+        name: grafana-admin-credentials
+        condition: Ready
+        timeout: 180s
+      - resource: opentelemetrycollector
+        names:
+          - otel-collector-logs
+          - otel-collector-logs-events
+          - otel-collector-metrics-airm
+          - otel-collector-metrics-chrony
+          - otel-collector-metrics-k8s
+          - otel-collector-metrics-rest
+      - resource: deployment
+        name: otel-collector-metrics-rest-collector
+        condition: available
+        timeout: 180s
+      - resource: opentelemetrycollector
+        name: otel-collector-metrics-rest
+        jsonPath: '{.spec.config}'
+        contains: ${CF_AMD_GPU_NS}
+      - resource: opentelemetrycollector
+        name: otel-collector-metrics-rest
+        jsonPath: '{.spec.config}'
+        contains: '.*metrics-exporter.*'
+
+  # Event-driven autoscaling, which the model-serving scalers are built on.
+  keda:
+    name: KEDA (event-driven autoscaling)
+    mode: core
+    root-inherited: true
+    verify:
+      - resource: deployment
+        names:
+          - keda-operator
+          - keda-operator-metrics-apiserver
+          - keda-admission-webhooks
+        condition: available
+        timeout: 120s
+      - resource: crd
+        names:
+          - scaledobjects.keda.sh
+          - scaledjobs.keda.sh
+          - triggerauthentications.keda.sh
+          - clustertriggerauthentications.keda.sh
+          - cloudeventsources.eventing.keda.sh
+          - clustercloudeventsources.eventing.keda.sh
+      - resource: apiservice
+        name: v1beta1.external.metrics.k8s.io
+        condition: Available
+        timeout: 120s
+      - resource: validatingwebhookconfiguration
+        name: keda-admission
+        jsonPath: '{.webhooks[0].clientConfig.caBundle}'
+        notEmpty: true
+        timeout: 120s
+
+  # The OTEL scaler KEDA reads its metrics from.
+  kedify-otel:
+    name: Kedify OTEL scaler
+    mode: core
+    root-inherited: true
+    verify:
+      - resource: deployment
+        names:
+          - otel-add-on-scaler
+          - otelcol
+        condition: available
+        timeout: 120s
+      - resource: service
+        name: keda-otel-scaler
+      - resource: service
+        name: keda-otel-scaler
+        jsonPath: '{.spec.ports[?(@.name=="keda-external-scaler")].port}'
+        equals: "4318"
+
+  # --- gateway --------------------------------------------------------------
+
+  # The namespaces, SCC, RBAC and the TLS-passthrough Route for ai.<domain> that the
+  # gateway steps below all need in place first.
+  ai-gateway-base:
+    name: AI gateway namespaces, SCC, RBAC and Route
+    mode: extra
+    path: 06-ai-gateway.yaml
+    root-inherited: false
+    substituteDomain: true
+    extraObjects: |
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: cluster-auth
+    verify:
+      - resource: namespace
+        names:
+          - envoy-gateway-system
+          - envoy-ai-gateway-system
+          - cluster-auth
+      - resource: securitycontextconstraints
+        name: cf-envoy-gateway-scc
+      - resource: route
+        name: ai-gateway
+        namespace: envoy-gateway-system
+        jsonPath: '{.spec.host}'
+        equals: ${AI_HOST}
+      - resource: route
+        name: ai-gateway
+        namespace: envoy-gateway-system
+        jsonPath: '{.status.ingress[0].conditions[?(@.type=="Admitted")].status}'
+        equals: "True"
+        timeout: 60s
+
+  # Copies the router's wildcard certificate into the gateway's namespace, because
+  # its Route is TLS passthrough and HAProxy presents nothing of its own.
+  ai-gateway-tls:
+    name: AI gateway TLS certificate
+    mode: custom
+    handler: step_copy_objects
+    root-inherited: false
+    namespace: envoy-gateway-system
+    copies:
+      - resource: secret
+        from: ${CF_ROUTER_CERT}
+        fromNamespace: openshift-ingress
+        to: cluster-tls
+    verify:
+      - resource: secret
+        name: cluster-tls
+        jsonPath: '{.type}'
+        equals: kubernetes.io/tls
+      - resource: secret
+        name: cluster-tls
+        jsonPath: '{.data.tls\.crt}'
+        notEmpty: true
+      - resource: secret
+        name: cluster-tls
+        jsonPath: '{.data.tls\.key}'
+        notEmpty: true
+
+  # Envoy Gateway's own gateway.envoyproxy.io CRDs, from the chart's crds/ directory.
+  envoy-gateway-crds:
+    name: Envoy Gateway CRDs
+    mode: core
+    render: manifests
+    path: envoy-gateway/v1.7.1/crds/generated
+    root-inherited: false
+    verify:
+      - resource: crd
+        names:
+          - backends.gateway.envoyproxy.io
+          - backendtrafficpolicies.gateway.envoyproxy.io
+          - clienttrafficpolicies.gateway.envoyproxy.io
+          - envoyextensionpolicies.gateway.envoyproxy.io
+          - envoypatchpolicies.gateway.envoyproxy.io
+          - envoyproxies.gateway.envoyproxy.io
+          - httproutefilters.gateway.envoyproxy.io
+          - securitypolicies.gateway.envoyproxy.io
+
+  # The InferencePool CRDs the AI gateway routes model traffic through.
+  inference-extension-crds:
+    name: InferencePool CRDs
+    mode: core
+    root-inherited: true
+    verify:
+      - resource: crd
+        name: inferencepools.inference.networking.k8s.io
+      - resource: crd
+        name: inferencepools.inference.networking.k8s.io
+        jsonPath: '{.spec.versions[*].name}'
+        contains: v1
+
+  # AIGatewayRoute and AIServiceBackend, the kinds named in the extensionManager
+  # block the envoy-gateway entry installs.
+  envoy-ai-gateway-crds:
+    name: Envoy AI Gateway CRDs
+    mode: core
+    root-inherited: true
+    verify:
+      - resource: crd
+        names:
+          - aigatewayroutes.aigateway.envoyproxy.io
+          - aiservicebackends.aigateway.envoyproxy.io
+          - backendsecuritypolicies.aigateway.envoyproxy.io
+          - gatewayconfigs.aigateway.envoyproxy.io
+          - mcproutes.aigateway.envoyproxy.io
+          - quotapolicies.aigateway.envoyproxy.io
+
+  # The Gateway API control plane. Its inherited extensionManager block is what hands
+  # the AI kinds to the AI controller; without it they apply and do nothing.
+  envoy-gateway:
+    name: Envoy Gateway control plane
+    mode: core
+    root-inherited: true
+    verify:
+      - resource: secret
+        name: envoy-gateway
+        jsonPath: '{.data.tls\.crt}'
+        notEmpty: true
+        timeout: 180s
+      - resource: mutatingwebhookconfiguration
+        name: envoy-gateway-topology-injector.envoy-gateway-system
+        jsonPath: '{.webhooks[0].clientConfig.caBundle}'
+        notEmpty: true
+        timeout: 180s
+      - resource: configmap
+        name: envoy-gateway-config
+        jsonPath: '{.data}'
+        contains: aigateway.envoyproxy.io
+
+  # The AI controller. It mints its own self-signed webhook certificate at render
+  # time, so unlike envoy-gateway there is no certgen Job to wait for.
+  envoy-ai-gateway:
+    name: Envoy AI Gateway controller
+    mode: core
+    root-inherited: true
+    helmParameters:
+      - name: controller.mcp.sessionEncryption.seed
+        value: ${AI_GATEWAY_MCP_SEED}
+    verify:
+      # This chart grants envoy-gateway access to the AI and InferencePool
+      # resources configured in its extensionManager. Check envoy-gateway only
+      # after those ClusterRoleBindings exist, otherwise its readiness probe
+      # cannot succeed and the install deadlocks on the preceding step.
+      - resource: deployment
+        name: envoy-gateway
+        namespace: envoy-gateway-system
+        condition: available
+        timeout: 300s
+      - resource: deployment
+        name: ai-gateway-controller
+        condition: available
+        timeout: 300s
+      - resource: secret
+        name: self-signed-cert-for-mutating-webhook
+      - resource: mutatingwebhookconfiguration
+        name: envoy-ai-gateway-gateway-pod-mutator.envoy-ai-gateway-system
+        jsonPath: '{.webhooks[0].clientConfig.caBundle}'
+        notEmpty: true
+
+  # The Gateway, its GatewayClass and the EnvoyProxy shaping its data plane. Only ten
+  # of sixteen templates apply here, and the listener is pinned to one hostname.
+  envoy-gateway-config:
+    name: AI gateway configuration
+    mode: core
+    root-inherited: true
+    templates:
+      - templates/gateway-class.yaml
+      - templates/gateway-config-ai.yaml
+      - templates/ai-gateway.yaml
+      - templates/ai-gateway-proxy-config.yaml
+      - templates/ai-gateway-service.yaml
+      - templates/envoy-extension-policy-model-header.yaml
+    helmParameters:
+      - name: domain
+        value: ${DOMAIN}
+      - name: aiGateway.enabled
+        value: "true"
+      - name: aiGateway.routeHostname
+        value: ${AI_HOST}
+    substitutions:
+      - from: 'hostname: "\*\.${DOMAIN}"'
+        to: 'hostname: "${AI_HOST}"'
+      - from: '^\( *\)cluster-bloom/first-node: "true"$'
+        to: '\1{}'
+      - from: '^  filterOrder:$'
+        to: '  concurrency: ${ENVOY_CONCURRENCY}\n  filterOrder:'
+    verify:
+      - resource: gatewayclass
+        name: envoy-gateway
+        condition: Accepted
+        timeout: 120s
+      - resource: gateway
+        name: ai-gateway
+        condition: Programmed
+        timeout: 300s
+      - resource: gateway
+        name: ai-gateway
+        jsonPath: '{.spec.listeners[0].hostname}'
+        equals: ${AI_HOST}
+      - resource: envoyproxy
+        name: ai-gateway-proxy-config
+        jsonPath: '{.spec.concurrency}'
+        equals: ${ENVOY_CONCURRENCY}
+      - resource: service
+        name: ai-gateway
+        jsonPath: '{.spec.ports[?(@.name=="https-443")].port}'
+        equals: "443"
+      - resource: deployment
+        namePrefix: envoy-envoy-gateway-system-ai-gateway
+        condition: available
+        timeout: 300s
+
+  # Waits for the gateway's webhook to answer before anything creates a pod in its
+  # namespaces: its failure policy is Fail, so an unready webhook blocks admission.
+  ai-gateway-webhook-probe:
+    name: AI gateway webhook health
+    mode: custom
+    handler: step_ai_gateway_webhook_probe
+    root-inherited: false
+    verify:
+      - resource: mutatingwebhookconfiguration
+        name: envoy-ai-gateway-gateway-pod-mutator.envoy-ai-gateway-system
+        jsonPath: '{.webhooks[0].failurePolicy}'
+        equals: Fail
+
+  # --- serving & GPU --------------------------------------------------------
+
+  # Skipped where RHOAI runs its own KServe in redhat-ods-applications and owns these
+  # CRDs at whatever version it ships.
+  kserve-crds:
+    name: KServe CRDs
+    mode: core
+    root-inherited: true
+    skipInstallWhenExists:
+      resource: deployment
+      name: kserve-controller-manager
+      namespace: redhat-ods-applications
+    verify:
+      - resource: crd
+        names:
+          - clusterservingruntimes.serving.kserve.io
+          - clusterstoragecontainers.serving.kserve.io
+          - inferencegraphs.serving.kserve.io
+          - inferenceservices.serving.kserve.io
+          - localmodelcaches.serving.kserve.io
+          - localmodelnodegroups.serving.kserve.io
+          - localmodelnodes.serving.kserve.io
+          - servingruntimes.serving.kserve.io
+          - trainedmodels.serving.kserve.io
+      - resource: crd
+        name: inferenceservices.serving.kserve.io
+        jsonPath: '{.spec.versions[?(@.served==true)].name}'
+        contains: v1beta1
+      - resource: namespace
+        name: kserve-system
+
+  # RawDeployment, which is Standard's legacy alias. Clears the container limits but
+  # keeps the requests, which AIM Engine relies on since it sets none of its own.
+  kserve:
+    name: KServe controller
+    mode: core
+    root-inherited: true
+    excludeKinds:
+      - ClusterServingRuntime
+    valuesObject:
+      kserve:
+        controller:
+          deploymentMode: RawDeployment
+        inferenceservice:
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+    verify:
+      - resource: certificate
+        name: serving-cert
+        condition: ready
+        timeout: 60s
+      - resource: deployment
+        name: kserve-controller-manager
+        condition: available
+        timeout: 120s
+      - resource: endpoints
+        name: kserve-webhook-server-service
+        jsonPath: '{.subsets[*].addresses[*].ip}'
+        notEmpty: true
+        timeout: 120s
+      - resource: validatingwebhookconfiguration
+        name: clusterservingruntime.serving.kserve.io
+        jsonPath: '{.webhooks[0].clientConfig.caBundle}'
+        notEmpty: true
+        timeout: 120s
+      - resource: configmap
+        name: inferenceservice-config
+        jsonPath: '{.data.inferenceService}'
+        contains: '"cpuLimit": ""'
+      - resource: configmap
+        name: inferenceservice-config
+        jsonPath: '{.data.inferenceService}'
+        contains: '"cpuRequest": "1"'
+
+  # The eleven cluster-scoped runtimes an InferenceService selects by model format; a
+  # missing one only surfaces when someone deploys that framework.
+  kserve-serving-runtimes:
+    name: KServe serving runtimes
+    mode: core
+    release: kserve
+    path: kserve/v0.16.0
+    namespace: kserve-system
+    root-inherited: false
+    onlyKinds:
+      - ClusterServingRuntime
+    valuesObject:
+      kserve:
+        controller:
+          deploymentMode: RawDeployment
+        inferenceservice:
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+    verify:
+      - resource: clusterservingruntime
+        names:
+          - kserve-lgbserver
+          - kserve-mlserver
+          - kserve-paddleserver
+          - kserve-pmmlserver
+          - kserve-sklearnserver
+          - kserve-tensorflow-serving
+          - kserve-torchserve
+          - kserve-tritonserver
+          - kserve-xgbserver
+          - kserve-huggingfaceserver
+          - kserve-huggingfaceserver-multinode
+
+  # Half of another app's chart, so it names its own path rather than inheriting one.
+  # Keep this pin in step with values.yaml's amd-gpu-operator version.
+  amd-gpu-operator-crds:
+    name: AMD GPU operator CRDs
+    mode: core
+    root-inherited: true
+    path: amd-gpu-operator/v1.4.1
+    namespace: amd-gpu-operator
+    includeCrds: true
+    onlyKinds:
+      - CustomResourceDefinition
+    skipInstallWhenExists:
+      resource: crd
+      name: deviceconfigs.amd.com
+    verify:
+      - resource: crd
+        condition: established
+        timeout: 60s
+        names:
+          - deviceconfigs.amd.com
+          - modules.kmm.sigs.x-k8s.io
+          - nodemodulesconfigs.kmm.sigs.x-k8s.io
+          - preflightvalidations.kmm.sigs.x-k8s.io
+          - nodefeatures.nfd.k8s-sigs.io
+          - nodefeaturegroups.nfd.k8s-sigs.io
+          - nodefeaturerules.nfd.k8s-sigs.io
+
+  # Skipped where the operator came from the OpenShift catalogue. The chart's generic
+  # DeviceConfig stays off; the next step owns that object.
+  amd-gpu-operator:
+    name: AMD GPU operator
+    mode: core
+    root-inherited: true
+    namespace: amd-gpu-operator
+    excludeKinds:
+      - CustomResourceDefinition
+    skipInstallWhenExists:
+      resource: crd
+      name: deviceconfigs.amd.com
+    verify:
+      - resource: deployment
+        namePrefix: amd-gpu-operator
+        namespace: ${CF_AMD_GPU_NS}
+        condition: available
+        timeout: 180s
+
+  # The DeviceConfig, in the namespace where the operator actually runs. Skipped when
+  # any exists: a second one over the same nodes doubles every device plugin.
+  amd-gpu-operator-config:
+    name: AMD GPU operator config (DeviceConfig)
+    mode: core
+    root-inherited: true
+    namespace: ${CF_AMD_GPU_NS}
+    helmParameters:
+      - name: namespace
+        value: ${CF_AMD_GPU_NS}
+    skipInstallWhenExists:
+      resource: deviceconfigs.amd.com
+    verify:
+      - resource: deviceconfigs.amd.com
+        namespace: ${CF_AMD_GPU_NS}
+        minCount: 1
+      - resource: configmap
+        name: gpu-config
+        namespace: ${CF_AMD_GPU_NS}
+        jsonPath: '{.data.config\.json}'
+        contains: GPU_PACKAGE_POWER
+
+  # Fallback labelling of GPU nodes, skipped when something already labels them.
+  amd-gpu-nodefeaturerule:
+    name: AMD GPU node labelling (NodeFeatureRule fallback)
+    mode: extra
+    path: 08-amd-gpu-nodefeaturerule.yaml
+    root-inherited: false
+    namespace: ${CF_AMD_GPU_NS}
+    skipInstallWhenExists:
+      resource: node
+      selector: feature.node.kubernetes.io/amd-gpu=true
+    verify:
+      - resource: node
+        selector: feature.node.kubernetes.io/amd-gpu=true
+        minCount: 1
+      - resource: node
+        selector: feature.node.kubernetes.io/amd-gpu=true
+        jsonPath: '{.status.capacity.amd\.com/gpu}'
+        notEmpty: true
+        timeout: 60s
+
+  # AIM Engine's CRDs from Docker Hub. CF_VERSION_AIM_ENGINE_CRDS overrides the pin.
+  aim-engine-crds:
+    name: AIM Engine CRDs
+    mode: external
+    root-inherited: true
+    verify:
+      - resource: crd
+        condition: established
+        timeout: 60s
+        names:
+          - aimartifacts.aim.eai.amd.com
+          - aimclustermodels.aim.eai.amd.com
+          - aimclustermodelsources.aim.eai.amd.com
+          - aimclusterprofiles.aim.eai.amd.com
+          - aimclusterprofilesets.aim.eai.amd.com
+          - aimclusterruntimeconfigs.aim.eai.amd.com
+          - aimclusterservicetemplates.aim.eai.amd.com
+          - aimmodels.aim.eai.amd.com
+          - aimprofilecaches.aim.eai.amd.com
+          - aimprofiles.aim.eai.amd.com
+          - aimprofilesets.aim.eai.amd.com
+          - aimruntimeconfigs.aim.eai.amd.com
+          - aimservices.aim.eai.amd.com
+          - aimservicetemplates.aim.eai.amd.com
+          - aimtemplatecaches.aim.eai.amd.com
+
+  # Owns AIMClusterRuntimeConfig, including routing disabled for OpenShift, where
+  # HAProxy owns the domain and the gateway serves exactly one hostname.
+  aim-engine:
+    name: AIM Engine (controller)
+    mode: external
+    root-inherited: true
+    valuesObject:
+      clusterRuntimeConfig:
+        enable: true
+        spec:
+          routing:
+            enabled: false
+          pvcHeadroomPercent: 100
+          labelPropagation:
+            enabled: true
+            match:
+              - "airm.silogen.ai/*"
+    verify:
+      - resource: deployment
+        name: aim-engine-controller-manager
+        condition: available
+        timeout: 180s
+      - resource: aimclusterruntimeconfigs.aim.eai.amd.com
+        name: default
+        jsonPath: '{.spec.routing.enabled}'
+        equals: "false"
+      - resource: deployment
+        name: aim-engine-kgateway-metrics-collector
+        condition: available
+        timeout: 180s
+      - resource: node
+        selector: feature.node.kubernetes.io/aim-accelerator.GPU
+        minCount: 1
+
+  # --- AIWB platform --------------------------------------------------------
+
+  # The namespaces and credential Secrets AIWB needs. Order matters: the namespaces
+  # come first, since kubectl applies a stream in file order.
+  aiwb-infra:
+    name: AIWB infrastructure (namespaces + secrets)
+    mode: objects
+    root-inherited: false
+    extraObjects: |
+      # The eleven namespaces install-old.sh creates here. Each is also created by whatever
+      # chart later installs into it, so these exist for the secrets below and for the
+      # steps whose charts assume the namespace rather than render it.
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: aiwb
+      ---
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: airm
+      ---
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: demo
+      ---
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: keycloak
+      ---
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: metallb-system
+      ---
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: aim-system
+      ---
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: envoy-gateway-system
+      ---
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: workbench
+      ---
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: kaiwo-system
+      ---
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: minio-tenant-default
+      ---
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: cluster-auth
+      ---
+      # The application secrets from docs/manual_helm_install/secrets/secrets-aiwb.yaml,
+      # which install-old.sh fetches from raw.githubusercontent at the release tag and
+      # applies as a file. Written out here instead: an operator reading this file
+      # cannot fetch a URL on an air-gapped cluster, and a secret whose value is
+      # "placeholder" is better read than downloaded.
+      #
+      # Every value below is the placeholder that file ships, and they are placeholders
+      # in the same sense install-old.sh means: a real install replaces them, and nothing
+      # here is a credential anyone needs to keep. The two Keycloak login passwords
+      # expand from KEYCLOAK_INITIAL_ADMIN_PASSWORD and KEYCLOAK_INITIAL_DEVUSER_PASSWORD
+      # (default placeholder). The rest are still literals: install-old.sh offers no
+      # variable for them either.
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: aiwb-nextauth-secret
+        namespace: aiwb
+      type: Opaque
+      stringData:
+        # NextAuth.js session encryption for the AIWB UI.
+        NEXTAUTH_SECRET: placeholder
+      ---
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: aiwb-ui-keycloak-secret
+        namespace: aiwb
+      type: Opaque
+      stringData:
+        # The UI's OIDC client secret, and the Keycloak side of it is the
+        # FRONTEND_CLIENT_SECRET below: the two have to agree.
+        value: placeholder
+      ---
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: airm-realm-credentials
+        namespace: keycloak
+      type: Opaque
+      stringData:
+        # Every client secret in the airm realm, consumed by the realm import.
+        ADMIN_CLIENT_ID: placeholder
+        ADMIN_CLIENT_SECRET: placeholder
+        ARGOCD_CLIENT_SECRET: placeholder
+        CI_CLIENT_SECRET: placeholder
+        FRONTEND_CLIENT_SECRET: placeholder
+        GITEA_CLIENT_SECRET: placeholder
+        K8S_CLIENT_SECRET: placeholder
+        KEYCLOAK_INITIAL_DEVUSER_PASSWORD: ${KEYCLOAK_INITIAL_DEVUSER_PASSWORD}
+        MINIO_CLIENT_SECRET: placeholder
+      ---
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: keycloak-credentials
+        namespace: keycloak
+      type: Opaque
+      stringData:
+        # The Keycloak admin console password, for the admin user the chart bootstraps.
+        KEYCLOAK_INITIAL_ADMIN_PASSWORD: ${KEYCLOAK_INITIAL_ADMIN_PASSWORD}
+      ---
+      # From secrets-aiwb-standalone.yaml, the second file install-old.sh fetches.
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: memberlist
+        namespace: metallb-system
+      type: Opaque
+      stringData:
+        # MetalLB's speaker-to-speaker encryption key. Present even though MetalLB is
+        # not installed on OpenShift, because the namespace and secret are what the
+        # AIWB chart's own values expect to find.
+        secretkey: placeholder
+      ---
+      # The object-storage credentials, which install-old.sh builds from the environment
+      # rather than shipping in a file, because these are the ones that have to match
+      # something else: the SeaweedFS filer identity created from the same two
+      # variables several steps later. AIWB and workbench pods read them as
+      # minio-access-key / minio-secret-key -- names kept from MinIO, which SeaweedFS
+      # replaced while keeping its S3 API.
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: minio-credentials
+        namespace: aiwb
+      type: Opaque
+      stringData:
+        minio-access-key: ${MINIO_API_ACCESS_KEY}
+        minio-secret-key: ${MINIO_API_SECRET_KEY}
+      ---
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: minio-credentials
+        namespace: workbench
+      type: Opaque
+      stringData:
+        minio-access-key: ${MINIO_API_ACCESS_KEY}
+        minio-secret-key: ${MINIO_API_SECRET_KEY}
+    verify:
+      - resource: namespace
+        jsonPath: '{.status.phase}'
+        equals: Active
+        names:
+          - aiwb
+          - airm
+          - demo
+          - keycloak
+          - metallb-system
+          - aim-system
+          - envoy-gateway-system
+          - workbench
+          - kaiwo-system
+          - minio-tenant-default
+          - cluster-auth
+      - resource: secret
+        namespace: aiwb
+        names:
+          - aiwb-nextauth-secret
+          - aiwb-ui-keycloak-secret
+          - minio-credentials
+      - resource: secret
+        namespace: keycloak
+        names:
+          - airm-realm-credentials
+          - keycloak-credentials
+      - resource: secret
+        namespace: metallb-system
+        name: memberlist
+      - resource: secret
+        namespace: aiwb
+        name: minio-credentials
+        jsonPath: '{.data.minio-access-key}'
+        notEmpty: true
+      - resource: secret
+        namespace: workbench
+        name: minio-credentials
+        jsonPath: '{.data.minio-access-key}'
+        notEmpty: true
+
+  # Superuser and application credentials, which CNPG bootstraps from and AIWB and
+  # Keycloak log in with -- one pair of variables writes both, so they cannot differ.
+  aiwb-infra-cnpg-secrets:
+    name: AIWB database credentials (in-cluster CNPG)
+    mode: objects
+    root-inherited: false
+    skipWhen: PLUGGABLE_DB=true
+    extraObjects: |
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: aiwb-cnpg-superuser
+        namespace: aiwb
+      type: Opaque
+      stringData:
+        username: ${AIWB_CNPG_SUPERUSER_USER}
+        password: ${AIWB_CNPG_SUPERUSER_PASSWORD}
+      ---
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: aiwb-cnpg-user
+        namespace: aiwb
+      type: Opaque
+      stringData:
+        username: ${AIWB_DB_USER}
+        password: ${AIWB_DB_PASSWORD}
+      ---
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: keycloak-cnpg-superuser
+        namespace: keycloak
+      type: Opaque
+      stringData:
+        username: ${KEYCLOAK_CNPG_SUPERUSER_USER}
+        password: ${KEYCLOAK_CNPG_SUPERUSER_PASSWORD}
+      ---
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: keycloak-cnpg-user
+        namespace: keycloak
+      type: Opaque
+      stringData:
+        username: ${KEYCLOAK_DB_USER}
+        password: ${KEYCLOAK_DB_PASSWORD}
+    verify:
+      - resource: secret
+        namespace: aiwb
+        names:
+          - aiwb-cnpg-superuser
+          - aiwb-cnpg-user
+        jsonPath: '{.data.username}'
+        notEmpty: true
+      - resource: secret
+        namespace: aiwb
+        names:
+          - aiwb-cnpg-superuser
+          - aiwb-cnpg-user
+        jsonPath: '{.data.password}'
+        notEmpty: true
+      - resource: secret
+        namespace: keycloak
+        names:
+          - keycloak-cnpg-superuser
+          - keycloak-cnpg-user
+        jsonPath: '{.data.username}'
+        notEmpty: true
+      - resource: secret
+        namespace: keycloak
+        names:
+          - keycloak-cnpg-superuser
+          - keycloak-cnpg-user
+        jsonPath: '{.data.password}'
+        notEmpty: true
+
+  # The same application credentials for the external-PostgreSQL shape, under the
+  # secret names the AIWB and Keycloak charts read them by.
+  aiwb-infra-db-secrets:
+    name: AIWB database credentials (external PostgreSQL)
+    mode: objects
+    root-inherited: false
+    skipWhen: PLUGGABLE_DB=false
+    extraObjects: |
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: aiwb-db-user
+        namespace: aiwb
+      type: Opaque
+      stringData:
+        username: ${AIWB_DB_USER}
+        password: ${AIWB_DB_PASSWORD}
+      ---
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: keycloak-db-user
+        namespace: keycloak
+      type: Opaque
+      stringData:
+        username: ${KEYCLOAK_DB_USER}
+        password: ${KEYCLOAK_DB_PASSWORD}
+    verify:
+      - resource: secret
+        namespace: aiwb
+        name: aiwb-db-user
+        jsonPath: '{.data.password}'
+        notEmpty: true
+      - resource: secret
+        namespace: keycloak
+        name: keycloak-db-user
+        jsonPath: '{.data.password}'
+        notEmpty: true
+
+  # A hundred lines of Python standing in for cluster-auth, mounted from a ConfigMap
+  # built out of the repository so both install paths run the same program.
+  cluster-auth-shim:
+    name: cluster-auth shim (standalone)
+    mode: objects
+    root-inherited: false
+    namespace: cluster-auth
+    configMaps:
+      - name: cluster-auth-shim
+        files:
+          - key: shim.py
+            path: docs/manual_helm_install/scripts/cluster-auth-shim.py
+    extraObjects: |
+      # A stock python image running the mounted script. No build, no registry, and
+      # nothing to keep in sync with the operator's own image -- which is the reason a
+      # shim is viable at all.
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: cluster-auth
+        namespace: cluster-auth
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: cluster-auth
+        template:
+          metadata:
+            labels:
+              app: cluster-auth
+          spec:
+            containers:
+              - name: shim
+                image: python:3.11-slim
+                command: ["python3", "/shim/shim.py"]
+                ports:
+                  - containerPort: 8081
+                volumeMounts:
+                  - name: shim
+                    mountPath: /shim
+            volumes:
+              - name: shim
+                configMap:
+                  name: cluster-auth-shim
+      ---
+      # Named cluster-auth, not cluster-auth-shim: aiwb-api resolves the service by the
+      # name the real chart would have created, and the substitution works only because
+      # this answers on it.
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: cluster-auth
+        namespace: cluster-auth
+      spec:
+        selector:
+          app: cluster-auth
+        ports:
+          - name: rest-api
+            port: 8081
+            targetPort: 8081
+        type: ClusterIP
+      ---
+      # Read by aiwb-api as CLUSTER_AUTH_ADMIN_TOKEN. Created here rather than with the
+      # other AIWB secrets because its value belongs to the shim: the AIWB secrets file
+      # ships "placeholder" and install-old.sh overwrites it here, so this is the value a
+      # cluster ends up with either way.
+      #
+      # The shim does not check it -- it authenticates nothing and answers every
+      # request -- so what this secret has to be is present and agreed on, not secret.
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: cluster-auth-admin-token
+        namespace: aiwb
+      type: Opaque
+      stringData:
+        value: standalone-shim-token
+    verify:
+      - resource: deployment
+        name: cluster-auth
+        condition: available
+        timeout: 120s
+      - resource: endpoints
+        name: cluster-auth
+        jsonPath: '{.subsets[*].addresses[*].ip}'
+        notEmpty: true
+        timeout: 120s
+      - resource: configmap
+        name: cluster-auth-shim
+        jsonPath: '{.data.shim\.py}'
+        contains: cluster-auth shim listening on
+      - resource: secret
+        namespace: aiwb
+        name: cluster-auth-admin-token
+        jsonPath: '{.data.value}'
+        notEmpty: true
+
+  # The AIWB database cluster: three instances with zone anti-affinity, so it needs
+  # three nodes to schedule onto.
+  aiwb-infra-cnpg:
+    name: AIWB database cluster (CNPG)
+    mode: external
+    root-inherited: true
+    skipWhen: PLUGGABLE_DB=true
+    helmParameters:
+      - name: instances
+        value: 1
+      - name: username
+        value: ${AIWB_DB_USER}
+      - name: storage.storageClass
+        value: ${CF_STORAGE_CLASS}
+      - name: walStorage.storageClass
+        value: ${CF_STORAGE_CLASS}
+    verify:
+      - resource: clusters.postgresql.cnpg.io
+        name: aiwb-infra-cnpg-cnpg
+        jsonPath: '{.status.phase}'
+        equals: Cluster in healthy state
+        timeout: 600s
+      - resource: clusters.postgresql.cnpg.io
+        name: aiwb-infra-cnpg-cnpg
+        jsonPath: '{.status.readyInstances}'
+        equals: "1"
+      - resource: endpoints
+        name: aiwb-infra-cnpg-cnpg-rw
+        jsonPath: '{.subsets[*].addresses[*].ip}'
+        notEmpty: true
+        timeout: 300s
+      - resource: pvc
+        names:
+          - aiwb-infra-cnpg-cnpg-1
+          - aiwb-infra-cnpg-cnpg-1-wal
+        jsonPath: '{.spec.storageClassName}'
+        equals: ${CF_STORAGE_CLASS}
+
+  # The keycloak-old chart, which reads five values and hardcodes the rest, so most
+  # of values.yaml's inherited block is ignored by this chart and by ArgoCD alike.
+  keycloak:
+    name: Keycloak (identity & access management)
+    mode: core
+    root-inherited: true
+    skipWhen: PLUGGABLE_DB=true
+    helmParameters:
+      - name: domain
+        value: ${DOMAIN}
+      - name: hostname
+        value: ${KC_URL}
+      - name: externalSecrets.enabled
+        value: false
+      - name: cnpg.enabled
+        value: true
+      - name: cnpg.instances
+        value: 1
+      - name: cnpg.storage.storageClassName
+        value: ${CF_STORAGE_CLASS}
+      - name: postgresql.username
+        value: ${KEYCLOAK_DB_USER}
+    patches:
+      - stage: post
+        resource: deployment
+        name: keycloak
+        namespace: keycloak
+        type: strategic
+        patch: |
+          {"spec":{"template":{"spec":{"containers":[{"name":"keycloak",
+            "readinessProbe":{"initialDelaySeconds":120,"failureThreshold":10}}]}}}}
+    verify:
+      - resource: clusters.postgresql.cnpg.io
+        name: keycloak-cnpg
+        jsonPath: '{.status.phase}'
+        equals: Cluster in healthy state
+        timeout: 600s
+      - resource: endpoints
+        name: keycloak-cnpg-rw
+        jsonPath: '{.subsets[*].addresses[*].ip}'
+        notEmpty: true
+        timeout: 300s
+      - resource: deployment
+        name: keycloak
+        condition: available
+        timeout: 420s
+      - resource: deployment
+        name: keycloak
+        jsonPath: '{.spec.template.spec.containers[?(@.name=="keycloak")].readinessProbe.initialDelaySeconds}'
+        equals: "120"
+      - resource: configmap
+        name: keycloak-realm-templates
+        jsonPath: '{.data.airm-realm\.json}'
+        notEmpty: true
+      - resource: endpoints
+        name: keycloak
+        jsonPath: '{.subsets[*].addresses[*].ip}'
+        notEmpty: true
+
+  # The same chart with the database half turned around: no CNPG cluster, and the
+  # connection pointed at the PostgreSQL the caller supplied.
+  # DO NOT APPLY
+  keycloak-external-db:
+    name: Keycloak (external PostgreSQL)
+    mode: core
+    release: keycloak
+    path: keycloak-old
+    namespace: keycloak
+    root-inherited: false
+    skipWhen: PLUGGABLE_DB=false
+    helmParameters:
+      - name: domain
+        value: ${DOMAIN}
+      - name: hostname
+        value: ${KC_URL}
+      - name: externalSecrets.enabled
+        value: false
+      - name: cnpg.enabled
+        value: false
+      - name: postgresql.host
+        value: ${POSTGRES_HOST}
+      - name: postgresql.port
+        value: ${POSTGRES_PORT}
+      - name: postgresql.database
+        value: ${KEYCLOAK_DB_NAME}
+      - name: postgresql.username
+        value: ${KEYCLOAK_DB_USER}
+      - name: postgresql.userSecretName
+        value: keycloak-db-user
+    patches:
+      - stage: post
+        resource: deployment
+        name: keycloak
+        namespace: keycloak
+        type: strategic
+        patch: |
+          {"spec":{"template":{"spec":{"containers":[{"name":"keycloak",
+            "readinessProbe":{"initialDelaySeconds":120,"failureThreshold":10}}]}}}}
+    verify:
+      - resource: deployment
+        name: keycloak
+        condition: available
+        timeout: 420s
+      - resource: configmap
+        name: keycloak-realm-templates
+        jsonPath: '{.data.airm-realm\.json}'
+        notEmpty: true
+      - resource: endpoints
+        name: keycloak
+        jsonPath: '{.subsets[*].addresses[*].ip}'
+        notEmpty: true
+
+  # Pinned to 0.1.13, the only version the release tarball ships. Keep it in step
+  # with the operator below, which is written against the schema it shipped with.
+  seaweedfs-crds:
+    name: SeaweedFS CRDs
+    mode: core
+    render: manifests
+    root-inherited: true
+    path: seaweedfs-crds/0.1.13
+    skipWhen: PLUGGABLE_S3=true
+    verify:
+      - resource: crd
+        name: seaweeds.seaweed.seaweedfs.com
+        condition: established
+        timeout: 60s
+
+  # The copy of the CRD in the chart's crds/ is deliberately not rendered: the step
+  # above owns that object.
+  seaweedfs-operator:
+    name: SeaweedFS operator
+    mode: core
+    root-inherited: true
+    path: seaweedfs-operator/0.1.13
+    skipWhen: PLUGGABLE_S3=true
+    helmParameters:
+      - name: domain
+        value: ${DOMAIN}
+      - name: webhook.enabled
+        value: false
+    verify:
+      - resource: deployment
+        name: seaweedfs-operator
+        condition: available
+        timeout: 180s
+
+  # s3.json and the admin secret, written from the environment rather than pulled
+  # from OpenBao. Only the ApiUser identity: SeaweedFS rejects a duplicate accessKey.
+  seaweedfs-secrets:
+    name: SeaweedFS S3 config & admin secrets
+    mode: objects
+    root-inherited: false
+    namespace: seaweedfs-instance
+    skipWhen: PLUGGABLE_S3=true
+    extraObjects: |
+      # The instance namespace, created here because this is the first step that puts
+      # anything in it. mode objects applies what it is given and nothing else.
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: seaweedfs-instance
+      ---
+      # s3.json: the identities the filer's S3 endpoint accepts. The ApiUser keys MUST
+      # equal the minio-credentials Secret that AIWB and workbench pods read, which
+      # aiwb-infra writes from these same two variables.
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: seaweedfs-s3-config
+        namespace: seaweedfs-instance
+      type: Opaque
+      stringData:
+        s3.json: |-
+          {
+            "identities": [
+              {
+                "name": "ApiUser",
+                "actions": ["Admin"],
+                "credentials": [{ "accessKey": "${MINIO_API_ACCESS_KEY}", "secretKey": "${MINIO_API_SECRET_KEY}" }]
+              }
+            ]
+          }
+      ---
+      # The SeaweedFS admin UI's password, read by the seaweedfs-admin Deployment the
+      # next step installs as SEAWEEDFS_ADMIN_PASSWORD.
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: seaweedfs-admin-secret
+        namespace: seaweedfs-instance
+      type: Opaque
+      stringData:
+        admin-password: ${MINIO_CONSOLE_SECRET_KEY}
+    verify:
+      - resource: secret
+        name: seaweedfs-s3-config
+        jsonPath: '{.data.s3\.json}'
+        notEmpty: true
+      - resource: secret
+        name: seaweedfs-admin-secret
+        jsonPath: '{.data.admin-password}'
+        notEmpty: true
+
+  # The instance and its buckets on the chart's own defaults, not values.yaml's block,
+  # which asks for a 250Gi volume on a storage class this cluster does not have.
+  seaweedfs-config:
+    name: SeaweedFS instance & buckets
+    mode: core
+    root-inherited: false
+    path: seaweedfs-config
+    namespace: seaweedfs-instance
+    skipWhen: PLUGGABLE_S3=true
+    excludeKinds:
+      - ExternalSecret
+    helmParameters:
+      - name: domain
+        value: ${DOMAIN}
+      - name: seaweed.storageClassName
+        value: ${CF_STORAGE_CLASS}
+      - name: initJob.buckets[0].name
+        value: default-bucket
+      - name: initJob.buckets[1].name
+        value: models
+      - name: initJob.buckets[2].name
+        value: datasets
+    substitutions:
+      - from: '^          command: \["/bin/bash", "-c"\]'
+        to: '          env:\n            - name: HOME\n              value: "/tmp"\n          command: ["/bin/bash", "-c"]'
+    verify:
+      - resource: endpoints
+        name: filer-s3
+        jsonPath: '{.subsets[*].addresses[*].ip}'
+        notEmpty: true
+        timeout: 300s
+      - resource: job
+        name: seaweedfs-init-job
+        condition: complete
+        timeout: 300s
+      - resource: job
+        name: seaweedfs-init-job
+        jsonPath: '{.spec.template.spec.containers[?(@.name=="seaweedfs-init")].env[?(@.name=="HOME")].value}'
+        equals: /tmp
+      - resource: statefulset
+        names:
+          - seaweed-master
+          - seaweed-volume
+          - seaweed-filer
+        jsonPath: '{.status.readyReplicas}'
+        equals: "1"
+        timeout: 300s
+
+  # A selectorless Service and hand-written Endpoints pointing at an external MinIO,
+  # replacing whatever the MinIO operator left behind in the other shape.
+  minio-external-redirect:
+    name: External MinIO redirect Service
+    mode: objects
+    root-inherited: false
+    namespace: minio-tenant-default
+    skipWhen: PLUGGABLE_S3=false
+    deleteBefore:
+      - resource: service
+        name: minio
+        unless:
+          jsonPath: '{.spec.clusterIP}'
+          equals: None
+      - resource: endpoints
+        name: minio
+    extraObjects: |
+      # A Service with no selector, so nothing populates its Endpoints automatically
+      # and the ones below stand.
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: minio
+        namespace: minio-tenant-default
+      spec:
+        ports:
+          - name: http-minio
+            port: 80
+            targetPort: ${MINIO_PORT}
+            protocol: TCP
+      ---
+      # Endpoints written by hand, which is what makes this a redirect: an address
+      # outside the cluster behind an in-cluster name. Deprecated in favour of
+      # EndpointSlice, and kept as install-old.sh has it -- still served, and the
+      # hand-written form of the newer type is considerably less obvious.
+      apiVersion: v1
+      kind: Endpoints
+      metadata:
+        name: minio
+        namespace: minio-tenant-default
+      subsets:
+        - addresses:
+            - ip: ${MINIO_HOST_IP}
+          ports:
+            - name: http-minio
+              port: ${MINIO_PORT}
+              protocol: TCP
+    verify:
+      - resource: service
+        name: minio
+        jsonPath: '{.spec.selector}'
+        empty: true
+      - resource: endpoints
+        name: minio
+        jsonPath: '{.subsets[*].addresses[*].ip}'
+        equals: ${MINIO_HOST_IP}
+
+  # The workbench application. Its copy of AIMClusterRuntimeConfig is excluded in
+  # favour of aim-engine's, and the project id is preserved from the namespace label.
+  aiwb:
+    name: AIWB application
+    mode: external
+    root-inherited: true
+    excludeKinds:
+      - AIMClusterRuntimeConfig
+    helmParameters:
+      - name: standAloneMode
+        value: true
+      - name: appDomain
+        value: ${DOMAIN}
+      - name: backend.clusterHost
+        value: ${AIWB_UI_URL}
+      - name: frontend.env.NEXTAUTH_URL
+        value: ${AIWB_UI_URL}
+      - name: keycloak.url
+        value: ${KC_URL}
+      - name: frontend.env.KEYCLOAK_ISSUER
+        value: ${KC_URL}/realms/airm
+      - name: postgresql.username
+        value: ${AIWB_DB_USER}
+      - name: kgateway.namespace
+        value: envoy-gateway-system
+      - name: kgateway.gatewayName
+        value: ai-gateway
+      - name: aim.routing.enabled
+        value: false
+      - name: backend.image.tag
+        value: ${CF_AIWB_API_IMAGE_TAG}
+        when: CF_AIWB_API_IMAGE_TAG
+      - name: frontend.image.tag
+        value: ${CF_AIWB_UI_IMAGE_TAG}
+        when: CF_AIWB_UI_IMAGE_TAG
+      - name: backend.image.repository
+        value: ${CF_AIWB_API_IMAGE_REPO}
+        when: CF_AIWB_API_IMAGE_REPO
+      - name: frontend.image.repository
+        value: ${CF_AIWB_UI_IMAGE_REPO}
+        when: CF_AIWB_UI_IMAGE_REPO
+      - name: backend.image.pullPolicy
+        value: ${CF_AIWB_IMAGE_PULL_POLICY}
+        when: CF_AIWB_IMAGE_PULL_POLICY
+      - name: frontend.image.pullPolicy
+        value: ${CF_AIWB_IMAGE_PULL_POLICY}
+        when: CF_AIWB_IMAGE_PULL_POLICY
+      - name: minio.url
+        value: http://${MINIO_HOST}:${MINIO_PORT}
+        when: PLUGGABLE_S3=true
+      - name: minio.bucket
+        value: ${MINIO_BUCKET}
+        when: PLUGGABLE_S3=true
+      - name: postgresql.host
+        value: ${POSTGRES_HOST}
+        when: PLUGGABLE_DB=true
+      - name: postgresql.port
+        value: ${POSTGRES_PORT}
+        when: PLUGGABLE_DB=true
+      - name: postgresql.database
+        value: ${AIWB_DB_NAME}
+        when: PLUGGABLE_DB=true
+      - name: postgresql.userSecretName
+        value: aiwb-db-user
+        when: PLUGGABLE_DB=true
+    substitutions:
+      - from: '\(airm\.silogen\.ai/project-id: \).*'
+        to: '\1${CF_AIWB_PROJECT_ID}'
+    verify:
+      - resource: deployment
+        names:
+          - aiwb-api
+          - aiwb-ui
+        condition: available
+        timeout: 300s
+      - resource: endpoints
+        names:
+          - aiwb-api
+          - aiwb-ui
+        jsonPath: '{.subsets[*].addresses[*].ip}'
+        notEmpty: true
+        timeout: 300s
+      - resource: aimclusterruntimeconfigs
+        name: default
+        jsonPath: '{.spec.routing.enabled}'
+        equals: "false"
+      - resource: aimclusterruntimeconfigs
+        name: default
+        jsonPath: '{.spec.labelPropagation.enabled}'
+        equals: "true"
+      - resource: aimclusterruntimeconfigs
+        name: default
+        jsonPath: '{.spec.routing.hostnames}'
+        empty: true
+      - resource: clusterpolicy
+        name: aiwb-add-workload-id-to-workloads
+        condition: Ready
+        timeout: 120s
+      - resource: daemonset
+        name: aiwb-vllm-otel-collector
+        jsonPath: '{.status.numberReady}'
+        notEmpty: true
+        timeout: 180s
+      - resource: deployment
+        name: aiwb-api
+        jsonPath: '{.spec.template.spec.containers[*].env[?(@.name=="AIM_GATEWAY_NAME")].value}'
+        equals: ai-gateway
+      - resource: gateway
+        name: ai-gateway
+        namespace: envoy-gateway-system
+      - resource: namespace
+        name: workbench
+      - resource: namespace
+        name: workbench
+        jsonPath: "{.metadata.labels['airm\\.silogen\\.ai/project-id']}"
+        equals: ${CF_AIWB_PROJECT_ID}
+
+  # Discovers served models and writes the AIGatewayRoutes for them. Both --set flags
+  # correct chart defaults that would otherwise reconcile into nothing.
+  ai-gateway-discovery:
+    name: AI Gateway Discovery
+    mode: external
+    root-inherited: true
+    helmParameters:
+      - name: controller.gateway.routeHostname
+        value: ${AI_HOST}
+      - name: controller.gateway.name
+        value: ai-gateway
+      - name: controller.image.tag
+        value: ${CF_AI_GATEWAY_DISCOVERY_IMAGE_TAG}
+        when: CF_AI_GATEWAY_DISCOVERY_IMAGE_TAG
+      - name: controller.image.repository
+        value: ${CF_AI_GATEWAY_DISCOVERY_IMAGE_REPO}
+        when: CF_AI_GATEWAY_DISCOVERY_IMAGE_REPO
+      - name: controller.image.pullPolicy
+        value: ${CF_AI_GATEWAY_DISCOVERY_IMAGE_PULL_POLICY}
+        when: CF_AI_GATEWAY_DISCOVERY_IMAGE_PULL_POLICY
+      - name: controller.epp.image.tag
+        value: ${CF_AI_GATEWAY_DISCOVERY_EPP_IMAGE_TAG}
+        when: CF_AI_GATEWAY_DISCOVERY_EPP_IMAGE_TAG
+    verify:
+      - resource: deployment
+        name: ai-gateway-discovery
+        condition: available
+        timeout: 300s
+      - resource: deployment
+        name: ai-gateway-discovery
+        jsonPath: '{.spec.template.spec.containers[*].env[?(@.name=="AI_ROUTE_HOSTNAME")].value}'
+        equals: ${AI_HOST}
+      - resource: deployment
+        name: ai-gateway-discovery
+        jsonPath: '{.spec.template.spec.containers[*].env[?(@.name=="GATEWAY_NAME")].value}'
+        equals: ai-gateway
+      - resource: gateway
+        name: ai-gateway
+        namespace: envoy-gateway-system
+      - resource: deployment
+        name: ai-gateway-controller
+        namespace: envoy-ai-gateway-system
+
+  # --- queueing & workloads -------------------------------------------------
+
+  # The cluster operator bundle, waited for properly rather than reported installed
+  # the moment its manifests are accepted.
+  rabbitmq:
+    name: RabbitMQ cluster operator
+    mode: core
+    root-inherited: true
+    render: manifests
+    verify:
+      - resource: deployment
+        name: rabbitmq-cluster-operator
+        condition: available
+        timeout: 300s
+      - resource: crd
+        names:
+          - rabbitmqclusters.rabbitmq.com
+
+  # Queueing for Kaiwo's workloads. It serves its own webhook certificates, patching
+  # the CA onto both webhook configurations on startup.
+  kueue:
+    name: Kueue
+    mode: core
+    root-inherited: true
+    verify:
+      - resource: deployment
+        name: kueue-controller-manager
+        condition: available
+        timeout: 300s
+      - resource: configmap
+        name: kueue-manager-config
+        jsonPath: '{.data}'
+        contains: workload.codeflare.dev/appwrapper
+      - resource: configmap
+        name: kueue-manager-config
+        jsonPath: '{.data}'
+        contains: kueue-managed
+      - resource: secret
+        name: kueue-webhook-server-cert
+        jsonPath: '{.data.tls\.crt}'
+        notEmpty: true
+        timeout: 120s
+      - resource: mutatingwebhookconfiguration
+        name: kueue-mutating-webhook-configuration
+        jsonPath: '{.webhooks[0].clientConfig.caBundle}'
+        notEmpty: true
+        timeout: 120s
+      - resource: validatingwebhookconfiguration
+        name: kueue-validating-webhook-configuration
+        jsonPath: '{.webhooks[0].clientConfig.caBundle}'
+        notEmpty: true
+        timeout: 120s
+      - resource: crd
+        names:
+          - clusterqueues.kueue.x-k8s.io
+          - localqueues.kueue.x-k8s.io
+          - resourceflavors.kueue.x-k8s.io
+          - topologies.kueue.x-k8s.io
+          - workloads.kueue.x-k8s.io
+
+  # A ClusterRole and a binding onto the ServiceAccount the chart above created.
+  kueue-config:
+    name: Kueue configuration
+    mode: core
+    root-inherited: true
+    render: manifests
+    verify:
+      - resource: clusterrole
+        name: kueue-reader-all
+      - resource: clusterrolebinding
+        name: kueue-reader-binding-all
+        jsonPath: '{.subjects[?(@.kind=="ServiceAccount")].namespace}'
+        equals: kueue-system
+      - resource: clusterrolebinding
+        name: kueue-reader-binding-all
+        jsonPath: '{.subjects[?(@.kind=="ServiceAccount")].name}'
+        equals: kueue-controller-manager
+
+  # Kaiwo's five CRDs, from ghcr.io rather than Docker Hub, installed ahead of the
+  # operator that serves them.
+  kaiwo-crds:
+    name: Kaiwo CRDs
+    mode: external
+    root-inherited: true
+    verify:
+      - resource: crd
+        names:
+          - kaiwojobs.kaiwo.silogen.ai
+          - kaiwoservices.kaiwo.silogen.ai
+          - kaiwoqueueconfigs.kaiwo.silogen.ai
+          - kaiwoconfigs.config.kaiwo.silogen.ai
+          - gpuworkloads.kaiwo.silogen.ai
+
+  # The operator, plus a GPU-aware scheduler it installs into kube-system that only
+  # pods naming it ever reach. It writes its own KaiwoConfig on startup.
+  kaiwo:
+    name: Kaiwo operator
+    mode: external
+    root-inherited: true
+    helmParameters:
+      - name: image.tag
+        value: ${CF_KAIWO_IMAGE_TAG}
+        when: CF_KAIWO_IMAGE_TAG
+      - name: image.repository
+        value: ${CF_KAIWO_IMAGE_REPO}
+        when: CF_KAIWO_IMAGE_REPO
+    verify:
+      - resource: deployment
+        name: kaiwo-kaiwo-operator-chart-controller-manager
+        condition: available
+        timeout: 300s
+      - resource: deployment
+        name: kaiwo-scheduler
+        namespace: kube-system
+        condition: available
+        timeout: 300s
+      - resource: kaiwoconfig
+        name: kaiwo
+        timeout: 180s
+      - resource: kaiwoqueueconfig
+        name: kaiwo
+        jsonPath: '{.status.status}'
+        equals: READY
+        timeout: 180s
+      - resource: clusterqueue
+        name: kaiwo
+        timeout: 180s
+      - resource: topology
+        name: default-topology
+        timeout: 180s
+
+  # The ExternalSecret that fetches the object-store credentials, and the demo
+  # workspace PVC, which stays Pending until a pod mounts it.
+  kaiwo-config:
+    name: Kaiwo configuration
+    mode: core
+    root-inherited: true
+    render: manifests
+    substitutions:
+      - from: external-secrets.io/v1beta1
+        to: external-secrets.io/v1
+    verify:
+      - resource: externalsecret
+        name: minio-credentials-fetcher
+        condition: Ready
+        timeout: 180s
+      - resource: secret
+        name: minio-credentials
+        jsonPath: '{.data.minio-access-key}'
+        notEmpty: true
+      - resource: pvc
+        name: pvc-user-demo
+        jsonPath: '{.spec.storageClassName}'
+        equals: multinode
+
+  # --- exposure -------------------------------------------------------------
+
+  # The Routes for the AIWB UI and API and for Keycloak, with ${DOMAIN} substituted.
+  # Admitted is the condition that matters: a refused Route is created and inert.
+  routes:
+    name: OpenShift Routes (AIWB UI/API + Keycloak)
+    mode: extra
+    path: 09-routes.yaml
+    root-inherited: false
+    substituteDomain: true
+    verify:
+      - resource: route
+        names:
+          - aiwb-api
+          - aiwb-ui
+        namespace: aiwb
+        jsonPath: '{.status.ingress[0].conditions[?(@.type=="Admitted")].status}'
+        equals: "True"
+        timeout: 120s
+      - resource: route
+        name: keycloak
+        namespace: keycloak
+        jsonPath: '{.status.ingress[0].conditions[?(@.type=="Admitted")].status}'
+        equals: "True"
+        timeout: 120s
+      - resource: route
+        name: aiwb-api
+        namespace: aiwb
+        jsonPath: '{.spec.host}'
+        equals: aiwbapi.${DOMAIN}
+      - resource: route
+        name: aiwb-ui
+        namespace: aiwb
+        jsonPath: '{.spec.host}'
+        equals: aiwbui.${DOMAIN}
+      - resource: route
+        name: keycloak
+        namespace: keycloak
+        jsonPath: '{.spec.host}'
+        equals: kc.${DOMAIN}
+      - resource: deployment
+        name: aiwb-ui
+        namespace: aiwb
+        jsonPath: '{.spec.template.spec.containers[*].env[?(@.name=="NEXTAUTH_URL")].value}'
+        equals: ${AIWB_UI_URL}
+
+  # AIM model catalog: AIMClusterModelSource CRs for Instinct and/or Radeon, chosen
+  # from amd.com/gpu.product-name on GPU nodes. install.sh discovers families lazily
+  # when this step runs and skips it when no matching labels exist.
+  aim-cluster-model-source:
+    name: AIM cluster model catalog
+    mode: core
+    root-inherited: true
+    helmParameters:
+      - name: hardwareFamilies
+        value: ${CF_AIM_HARDWARE_FAMILIES}
+    verify:
+      - resource: aimclustermodelsources.aim.eai.amd.com
+        namePrefix: amd-aim-
+        minCount: 1
