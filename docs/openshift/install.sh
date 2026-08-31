@@ -2254,13 +2254,18 @@ step_ai_gateway_webhook_probe() {
   local app="$1"
   local ai_gateway_webhook_health="${CLUSTER_FORGE_DIR}/cluster-forge/scripts/ai-gateway-webhook-health.sh"
 
-  if [[ ! -x "${ai_gateway_webhook_health}" ]]; then
-    echo "❌ ${ai_gateway_webhook_health} not found or not executable" >&2
-    exit 1
+  # scripts/ ships in the release tarball, but tarballs cut before this script
+  # was added there do not carry it. Fall back to the checkout or to main rather
+  # than failing the run, the same way values-openshift.yaml is handled above.
+  if [ ! -f "${ai_gateway_webhook_health}" ]; then
+    echo "ℹ️  scripts/ai-gateway-webhook-health.sh is not in the ${CLUSTER_FORGE_VERSION} release tarball"
+    ai_gateway_webhook_health="$(ensure_repo_file "scripts/ai-gateway-webhook-health.sh")"
   fi
 
   # Shared with mainline cluster-forge (see scripts/ai-gateway-webhook-health.sh).
-  "${ai_gateway_webhook_health}"
+  # Run through bash rather than executed directly: a fetched copy arrives
+  # without the executable bit, and the tarball's mode is not guaranteed either.
+  bash "${ai_gateway_webhook_health}"
   echo "✅ ${app}: pod-mutating webhook healthy"
 }
 
