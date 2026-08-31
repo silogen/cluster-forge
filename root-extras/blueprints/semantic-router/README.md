@@ -97,8 +97,8 @@ Three files, all fetched into your cluster-values overlay repo:
 
    `sr.<domain>` has no authentication of its own by default — anyone who can
    reach the hostname can spend your GPU capacity. Decide now whether to gate
-   it; see "Reaching the router" below for the annotation that requires a
-   `cluster-auth` group.
+   it; see "Reaching the router" below for the SecurityPolicy example that
+   gates it with an API key.
 
 4. Review and push:
 
@@ -402,23 +402,28 @@ so anyone who can reach the hostname can spend your GPU capacity. Unlike
 on `ai-gateway`, which this blueprint deliberately leaves alone. Put an auth layer
 in front of it before exposing it to anyone you would not hand a GPU to.
 
-`cluster-auth`'s ext_authz already runs against every route on the shared
-`https` Gateway, including this one — but its default policy set only requires
-auth for `admin`-role callers, so `sr.<domain>` passes through unauthenticated
-by default just like any other new route. To require a specific group, annotate
-the `HTTPRoute` in `gateway-routing.yaml`:
+A commented `SecurityPolicy` in `gateway-routing.yaml`, right after the
+`EnvoyExtensionPolicy`, gates the route with a client API key: a bearer token
+in the `Authorization` header is checked against a Secret, stripped before the
+request reaches the router or backend, and a mismatch is a 401 before either
+sees it. Unlike synopsys's own version of this (`sr-api-apikey`, bolted onto a
+second bridge `HTTPRoute` because its real route is `AIGatewayRoute`-generated
+and can't carry a policy directly), this blueprint's `HTTPRoute` is
+hand-authored, so the policy targets it directly — same namespace, one
+object, one Secret, no bridge route needed.
 
-```yaml
-metadata:
-  name: semantic-router
-  namespace: semantic-router
-  annotations:
-    cluster-auth/allowed-group: <your-group>
+Create the Secret directly on the cluster, not the overlay repo:
+
+```bash
+kubectl -n semantic-router create secret generic semantic-router-client-keys \
+  --from-literal=TODO-your-client-name="$(openssl rand -hex 32)"
 ```
 
-That matches cluster-auth's `httproute-group-based-access` policy
-(`requireAuth: true`), so only callers in `<your-group>` are let through; anyone
-else gets rejected before the request reaches the router or the model backend.
+Clients send the key as a bearer token:
+
+```bash
+curl https://sr.<domain>/... -H "Authorization: Bearer <the secret value>"
+```
 
 ## Timeouts, retries, and failover
 
