@@ -1,7 +1,7 @@
 # AIM model catalog lifecycle
 
 Reference for how AIM model catalog sources are packaged, extended, and retired on
-Cluster Forge clusters. This guide is for **cluster operators and platform
+Enterprise AI reference stack clusters. This guide is for **cluster operators and platform
 administrators** who need to understand
 catalog behaviour and manage models over the life of a cluster.
 
@@ -27,14 +27,19 @@ available at any time.
 
 ## Packaged baseline catalog
 
-Cluster Forge installs `aim-cluster-model-source`. Its
-`AIMClusterModelSource` resources are selected by `AIM_HARDWARE_FAMILY` from
-cluster-bloom (auto-detected when omitted).
+Cluster Forge installs the in-tree Helm chart `sources/aim-cluster-model-source`.
+`AIMClusterModelSource` resources are selected by `hardwareFamilies`, which
+cluster-bloom sets from `AIM_HARDWARE_FAMILY` (auto-detected when omitted).
 
-The chart renders **per-hardware-family profiles** for `instinct`, `epyc`,
-`cpu`, and `radeon`. Only listed families are installed. The former legacy
-behaviour (full generic `amd-aim-release-*` catalog when `hardwareFamilies` is
-empty) is removed; an empty family list is not supported on new installations.
+| `hardwareFamilies` | Template | Result |
+|--------------------|----------|--------|
+| Non-empty list (`instinct`, `epyc`, `cpu`, `radeon`) | `templates/profiles.yaml` | Only listed families. The Instinct profile includes generic `amd-aim-release-*` sources (0.8.5–0.11.0) plus Instinct 0.11.1+. `cpu` is a placeholder and renders no sources. |
+| Empty list (`[]`, chart default) | `templates/unfiltered.yaml` | Instinct **0.11.1, 0.12.0, 0.13.0** plus mixed base images (`aim-base`, `aim-epyc-base`, `aim-radeon-base`). |
+
+A typical new cluster-bloom install injects a non-empty list, so it uses
+**profiles**. Clearing `hardwareFamilies` to `[]` in Gitea switches to
+**unfiltered**; it does not fail chart rendering. See the
+[aim-cluster-model-source README](../sources/aim-cluster-model-source/README.md).
 
 ### Model release sources vs base catalog sources
 
@@ -71,7 +76,8 @@ Environment-specific CI snapshots are not packaged in Cluster Forge.
 
 | Scenario | Policy |
 |----------|--------|
-| **New installation** | Packaged catalog starts at AIM **0.11.1** and later. Pre-0.11.1 generic release sources are not installed. |
+| **New installation (cluster-bloom)** | Auto-detect or explicit `AIM_HARDWARE_FAMILY` injects a non-empty list → **profiles** branch. Instinct profile still includes generic `amd-aim-release-*` 0.8.5–0.11.0. |
+| **Empty `hardwareFamilies` in Gitea** | **unfiltered** catalog: Instinct 0.11.1+ only (no generic 0.8.x–0.11.0 sources). |
 | **Platform upgrade** | New AIM versions are **added**. Older versions are **not** removed automatically. |
 | **Catalog cleanup** | Installation owner removes deprecated sources or models when no longer needed. |
 
@@ -95,10 +101,11 @@ need — regardless of whether a Cluster Forge upgrade is planned.
 
 ### Hardware family and catalog UX
 
-The packaged baseline is family-filtered. Cluster-managed additions can list any
-image, but entries for the wrong accelerator appear as **not deployable** in AI
-Workbench. Prefer family-matched images and the `{family}-*.yaml` filename
-convention described in the how-to guide.
+The packaged baseline is family-filtered when `hardwareFamilies` is non-empty.
+Cluster-managed additions can list any image, but entries for the wrong
+accelerator appear as **not deployable** in AI Workbench. Prefer family-matched
+images and the `{family}-*.yaml` filename convention described in the how-to
+guide.
 
 ## Lifecycle constraints
 
