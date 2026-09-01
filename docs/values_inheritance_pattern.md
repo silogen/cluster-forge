@@ -151,7 +151,9 @@ When ArgoCD renders applications with multi-source:
    `apps.aim-cluster-model-source.valuesObject.hardwareFamilies` (see
    `sources/aim-cluster-model-source`). The value travels as a structured list,
    not a string, so no comma parsing is involved. The base `root/values.yaml`
-   default is an empty list, which selects the legacy (install-all) branch.
+   default is an empty list, which selects `templates/legacy.yaml` (Instinct
+   0.11.1+ plus mixed bases), not the per-family `templates/profiles.yaml`
+   branch.
 
    GPU stack family (ROCm + GPU Operator) is injected the same way, driven by
    cluster-bloom's `GPU_STACK_FAMILY`. Two child-app keys are set:

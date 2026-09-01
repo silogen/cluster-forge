@@ -25,6 +25,8 @@ Active families:
 kubectl get application -n argocd aim-cluster-model-source -o go-template='{{ index (fromYaml .spec.source.helm.values) "hardwareFamilies" }}{{ println }}'
 ``` 
 ...also in Gitea **cluster-values** → `values.yaml` → `apps.aim-cluster-model-source.valuesObject.hardwareFamilies`.
+An empty list there selects `templates/legacy.yaml` (Instinct 0.11.1+ plus mixed
+bases), not a render failure.
 
 For private registries, set `spec.imagePullSecrets` on the source to a secret in
 `aim-system`. Do not commit credentials to Gitea.
