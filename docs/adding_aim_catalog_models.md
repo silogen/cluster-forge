@@ -20,13 +20,15 @@ You need:
 
 Use images that match the cluster's hardware family. Listing images for other
 accelerators creates catalog entries that AI Workbench marks as not deployable.
-Active families: 
-```
+Active families:
+
+```bash
 kubectl get application -n argocd aim-cluster-model-source -o go-template='{{ index (fromYaml .spec.source.helm.values) "hardwareFamilies" }}{{ println }}'
-``` 
+```
+
 ...also in Gitea **cluster-values** → `values.yaml` → `apps.aim-cluster-model-source.valuesObject.hardwareFamilies`.
 An empty list there selects `templates/legacy.yaml` (Instinct 0.11.1+ plus mixed
-bases), not a render failure.
+bases).
 
 For private registries, set `spec.imagePullSecrets` on the source to a secret in
 `aim-system`. Do not commit credentials to Gitea.
@@ -176,7 +178,7 @@ Removing the application first leaves orphaned sources in the cluster.
 ## Troubleshooting
 
 | Symptom | Check |
-|---------|--------|
+| --------- | -------- |
 | Additional app missing | `enabledApps` entry, `apps` definition, parent `cluster-forge` synced |
 | Model remains after app removed | Source was not pruned first — `kubectl delete aimclustermodelsource <name>` |
 | Filter removed but model remains | Append-only discovery — delete and replace the source |
