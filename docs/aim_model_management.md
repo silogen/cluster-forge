@@ -34,11 +34,11 @@ cluster-bloom sets from `AIM_HARDWARE_FAMILY` (auto-detected when omitted).
 | `hardwareFamilies` | Template | Result |
 |--------------------|----------|--------|
 | Non-empty list (`instinct`, `epyc`, `cpu`, `radeon`) | `templates/profiles.yaml` | Only listed families. The Instinct profile includes generic `amd-aim-release-*` sources (0.8.5–0.11.0) plus Instinct 0.11.1+. `cpu` is a placeholder and renders no sources. |
-| Empty list (`[]`, chart default) | `templates/legacy.yaml` | Instinct **0.11.1, 0.12.0, 0.13.0** plus mixed base images (`aim-base`, `aim-epyc-base`, `aim-radeon-base`). |
+| Empty list (`[]`, chart default) | `templates/unfiltered.yaml` | Instinct **0.11.1, 0.12.0, 0.13.0** plus mixed base images (`aim-base`, `aim-epyc-base`, `aim-radeon-base`). |
 
 A typical new cluster-bloom install injects a non-empty list, so it uses
 **profiles**. Clearing `hardwareFamilies` to `[]` in Gitea switches to
-**legacy**; it does not fail chart rendering. See the
+**unfiltered**; it does not fail chart rendering. See the
 [aim-cluster-model-source README](../sources/aim-cluster-model-source/README.md).
 
 ### Model release sources vs base catalog sources
@@ -77,7 +77,7 @@ Environment-specific CI snapshots are not packaged in Cluster Forge.
 | Scenario | Policy |
 |----------|--------|
 | **New installation (cluster-bloom)** | Auto-detect or explicit `AIM_HARDWARE_FAMILY` injects a non-empty list → **profiles** branch. Instinct profile still includes generic `amd-aim-release-*` 0.8.5–0.11.0. |
-| **Empty `hardwareFamilies` in Gitea** | **legacy** branch: Instinct 0.11.1+ only (no generic 0.8.x–0.11.0 sources). |
+| **Empty `hardwareFamilies` in Gitea** | **unfiltered** catalog: Instinct 0.11.1+ only (no generic 0.8.x–0.11.0 sources). |
 | **Platform upgrade** | New AIM versions are **added**. Older versions are **not** removed automatically. |
 | **Catalog cleanup** | Installation owner removes deprecated sources or models when no longer needed. |
 

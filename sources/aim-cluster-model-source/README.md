@@ -11,12 +11,12 @@ exclusive branches, selected by `hardwareFamilies`:
 
 | `hardwareFamilies` | Template | What is installed |
 |---|---|---|
-| Empty (`[]`, chart default) | `templates/legacy.yaml` | Instinct model sources **0.11.1, 0.12.0, 0.13.0** plus a mixed base catalog (`aim-base`, `aim-epyc-base`, `aim-radeon-base`) |
+| Empty (`[]`, chart default) | `templates/unfiltered.yaml` | Instinct model sources **0.11.1, 0.12.0, 0.13.0** plus a mixed base catalog (`aim-base`, `aim-epyc-base`, `aim-radeon-base`) |
 | Non-empty list | `templates/profiles.yaml` | Only the listed families (see table below) |
 
 cluster-bloom injects a YAML list at install (`AIM_HARDWARE_FAMILY`, auto-detected
 when omitted), so a typical new install takes the **profiles** path. Clearing the
-list to `[]` in Gitea selects `legacy.yaml`.
+list to `[]` in Gitea selects `unfiltered.yaml`.
 
 ## `hardwareFamilies`
 
@@ -31,7 +31,7 @@ hardwareFamilies:
 
 | Family | Model sources | Base images | Notes |
 |---|---|---|---|
-| `instinct` | `amd-aim-release-0.8.5` … `0.11.0`, `amd-aim-instinct-0.11.1`, `0.12.0`, `0.13.0` | `aim-base` 0.11–0.13.1 | Generic `amd-aim-release-*` sources are part of the Instinct profile, not the empty-list branch |
+| `instinct` | `amd-aim-release-0.8.5` … `0.11.0`, `amd-aim-instinct-0.11.1`, `0.12.0`, `0.13.0` | `aim-base` 0.11–0.13.1 | Generic `amd-aim-release-*` sources are part of the Instinct profile, not the unfiltered catalog |
 | `epyc` | `amd-aim-epyc-0.11.0`, `amd-aim-epyc-0.13.0` | `aim-epyc-base` 0.11, 0.13 | |
 | `radeon` | `amd-aim-radeon-0.12.0` | `aim-radeon-base` 0.12 | Preview tags |
 | `cpu` | — | — | Placeholder only; no `AIMClusterModelSource` is rendered |

@@ -151,7 +151,7 @@ When ArgoCD renders applications with multi-source:
    `apps.aim-cluster-model-source.valuesObject.hardwareFamilies` (see
    `sources/aim-cluster-model-source`). The value travels as a structured list,
    not a string, so no comma parsing is involved. The base `root/values.yaml`
-   default is an empty list, which selects `templates/legacy.yaml` (Instinct
+   default is an empty list, which selects `templates/unfiltered.yaml` (Instinct
    0.11.1+ plus mixed bases), not the per-family `templates/profiles.yaml`
    branch.
 

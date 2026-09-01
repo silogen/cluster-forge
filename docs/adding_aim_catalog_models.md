@@ -27,7 +27,7 @@ kubectl get application -n argocd aim-cluster-model-source -o go-template='{{ in
 ```
 
 ...also in Gitea **cluster-values** → `values.yaml` → `apps.aim-cluster-model-source.valuesObject.hardwareFamilies`.
-An empty list there selects `templates/legacy.yaml` (Instinct 0.11.1+ plus mixed
+An empty list there selects `templates/unfiltered.yaml` (Instinct 0.11.1+ plus mixed
 bases).
 
 For private registries, set `spec.imagePullSecrets` on the source to a secret in

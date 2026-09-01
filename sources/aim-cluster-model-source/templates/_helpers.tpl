@@ -2,7 +2,7 @@
 Normalize .Values.hardwareFamilies into a clean list of family tokens.
 Accepts a native list (the primary path, injected by cluster-bloom) or a
 comma-separated string. Trims whitespace and drops empty tokens. Empty input
-yields an empty list, which triggers the legacy branch.
+yields an empty list, which triggers the unfiltered catalog (templates/unfiltered.yaml).
 */}}
 {{- define "aim.hardwareFamilies" -}}
 {{- $raw := .Values.hardwareFamilies -}}
