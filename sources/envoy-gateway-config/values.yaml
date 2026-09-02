@@ -38,3 +38,12 @@ aiGateway:
   # Stable ClusterIP `ai-gateway` (CoreDNS target / passthrough backend).
   dnsService:
     enabled: true
+  # Max request-body size (bytes) the body-aware extAuth filter buffers before calling
+  # ai-gateway-discovery. Envoy returns HTTP 413 (skipping auth, overriding failOpen) once a
+  # body exceeds this — so it is a hard ceiling on request size for the header-less (model-in-
+  # body) path that standard OpenAI/Anthropic clients use. The upstream default of 64KiB rejects
+  # ordinary large-context inference turns (a 200k-token coding request is ~1MB; image-bearing
+  # turns are larger). Set to 32MiB to match clients' own request ceiling; the ai-gateway
+  # ClientTrafficPolicy connection bufferLimit (50Mi) sits above it. Raising this increases the
+  # memory the extAuth path may hold per in-flight header-less request. (EAI-8489.)
+  bodyAuthMaxRequestBytes: 33554432
