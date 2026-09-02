@@ -36,7 +36,10 @@ spec:
   extAuth:
     failOpen: false
     bodyToExtAuth:
-      maxRequestBytes: 65536
+      # Ceiling on the header-less (model-in-body) path: a body over this returns HTTP 413 and
+      # skips auth (overrides failOpen). Sized via values so large-context/image inference turns
+      # are not rejected — see aiGateway.bodyAuthMaxRequestBytes.
+      maxRequestBytes: {{ .Values.aiGateway.bodyAuthMaxRequestBytes | int64 }}
     headersToExtAuth:
       - authorization
     http:
