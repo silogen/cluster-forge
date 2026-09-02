@@ -111,19 +111,16 @@ Environment-specific CI snapshots are not packaged in Cluster Forge.
 | **Catalog cleanup** | Manual. The cluster operator removes deprecated sources; nothing expires on its own. |
 
 There is no automated deprecation schedule. An older AIM version stays in the
-catalog until a cluster operator removes its source.
-
-To remove one, delete the source manifest in Gitea and sync with prune, as
-described in
-[Replace or remove a source](adding_aim_catalog_models.md#replace-or-remove-a-source).
-Deleting an `AIMClusterModelSource` garbage-collects the `AIMClusterModel`
-resources AIM Engine derived from it — you do not delete those separately.
+catalog until its `AIMClusterModelSource` is deleted. Narrowing a filter is not
+enough — see [Filter removal vs source removal](#filter-removal-vs-source-removal).
 
 This applies to cluster-managed additions. Packaged baseline sources are owned
 by the `aim-cluster-model-source` chart and are restored by the next Argo CD
 sync if deleted in the cluster. The chart's only selector is `hardwareFamilies`,
 which switches whole family profiles; it cannot drop an individual packaged
-version.
+version. Packaged source names (`amd-aim-instinct-0.12.0`,
+`amd-aim-epyc-0.13.0`, and so on) are therefore a **stable API**: a Cluster
+Forge release adds tracks; it does not delete source names from the chart.
 
 ## Cluster-managed catalog additions
 
@@ -153,12 +150,40 @@ accelerator appear as **not deployable** in AI Workbench. Prefer family-matched
 images and the `{family}-*.yaml` filename convention described in
 [Add a model](adding_aim_catalog_models.md#add-a-model).
 
+## Filter removal vs source removal
+
+AIM Engine discovery is append-only. Two edits that look similar in YAML have
+opposite runtime effects:
+
+| Action | What happens | Running deployments |
+|--------|--------------|---------------------|
+| Drop an image from `spec.filters` (or `spec.images`) on an existing source | Already-discovered `AIMClusterModel` resources **stay**. The catalog can keep showing the old image. | Unaffected |
+| Delete the `AIMClusterModelSource` (Gitea manifest + Argo CD prune, or drop the source **name** from the packaged chart) | The CR is deleted. Kubernetes garbage-collects every `AIMClusterModel` it owned. | **Can break** workloads that still use those models |
+
+A “hollow shell” — keep the source CR but empty the filter list — **does not
+work**. The `AIMClusterModelSource` CRD requires at least one entry in
+`spec.filters` or `spec.images` (`MinItems=1`), so empty filters fail
+validation.
+
+**To retire a model you actually want gone**, delete the source (and sync with
+prune), as in
+[Replace or remove a source](adding_aim_catalog_models.md#replace-or-remove-a-source).
+You do not delete `AIMClusterModel` resources separately.
+
+**To keep running deployments** while stopping new discoveries of an image,
+leave the source name in place and stop listing that image. Expect catalog
+clutter until a later source deletion.
+
+**Do not delete packaged source names** from `sources/aim-cluster-model-source`
+between Cluster Forge releases. Retire a track by adding a new source; leaving
+the old name is what keeps existing clusters from having their models
+garbage-collected on the next chart sync.
+
 ## Lifecycle constraints
 
 - **Discovery is additive** — adding a filter can create another
   `AIMClusterModel`.
-- **Removing a filter does not remove discovered models** — delete and replace
-  the source, or remove its manifest and sync with prune.
+- **Removing a filter does not remove discovered models** — see above.
 - **Removing the additional Argo CD Application does not delete its resources**
   — child apps lack a cascading-resources finalizer.
 - **Deleting an `AIMClusterModelSource` garbage-collects its owned models.**
