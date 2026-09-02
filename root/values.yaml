@@ -53,8 +53,9 @@ apps:
     syncWave: -20
     valuesObject:
       # Hardware families to install (cpu,epyc,instinct,radeon).
-      # Empty = legacy (install all generic model sources). cluster-bloom
-      # injects the selected families as a YAML list at deploy time.
+      # Empty = unfiltered catalog (templates/unfiltered.yaml). cluster-bloom
+      # injects the selected families as a YAML list at deploy time, and only
+      # when AIM_HARDWARE_FAMILY is set.
       hardwareFamilies: []
   airm:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"

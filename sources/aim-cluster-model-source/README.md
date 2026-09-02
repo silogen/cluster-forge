@@ -14,9 +14,10 @@ exclusive branches, selected by `hardwareFamilies`:
 | Empty (`[]`, chart default) | `templates/unfiltered.yaml` | Instinct model sources **0.11.1, 0.12.0, 0.13.0** plus a mixed base catalog (`aim-base`, `aim-epyc-base`, `aim-radeon-base`) |
 | Non-empty list | `templates/profiles.yaml` | Only the listed families (see table below) |
 
-cluster-bloom injects a YAML list at install (`AIM_HARDWARE_FAMILY`, auto-detected
-when omitted), so a typical new install takes the **profiles** path. Clearing the
-list to `[]` in Gitea selects `unfiltered.yaml`.
+cluster-bloom injects a YAML list at install from `AIM_HARDWARE_FAMILY`. That
+setting has no default and is injected only when set, so an install that leaves
+it unset falls through to the chart default `[]` and takes the **unfiltered**
+path. Clearing the list to `[]` in Gitea also selects `unfiltered.yaml`.
 
 ## `hardwareFamilies`
 
