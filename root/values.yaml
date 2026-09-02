@@ -12,6 +12,12 @@ externalValues:
 global:
   clusterSize:    # injected via scripts/bootstrap.sh
   domain:         # injected via scripts/bootstrap.sh
+  aiGateway:
+    # Body-authz request-body ceiling, shared by envoy-gateway-config (gateway-scoped policy) and
+    # ai-gateway-discovery (per-model catch-all policies). The catch-all policies are rule-scoped
+    # and override the gateway one per route, so both must carry the same value. Rendered through
+    # int64 below: a bare number here is a float64 and would otherwise emit 4.194304e+06.
+    bodyAuthMaxRequestBytes: 4194304
 localHelmValues:
   enabled: false
 ociRegistry:
@@ -31,6 +37,9 @@ apps:
         value: "ai.{{ .Values.global.domain }}"
       - name: controller.gateway.name
         value: ai-gateway
+      # Same ceiling envoy-gateway-config renders into the gateway-scoped policy.
+      - name: controller.bodyAuthMaxRequestBytes
+        value: "{{ .Values.global.aiGateway.bodyAuthMaxRequestBytes | int64 }}"
   aim-engine:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "0.2.5"
@@ -658,6 +667,8 @@ apps:
       # index (not dot access) because the app key contains dashes.
       - name: aiGateway.discoveryNamespace
         value: '{{ index .Values.apps "ai-gateway-discovery" "namespace" }}'
+      - name: aiGateway.bodyAuthMaxRequestBytes
+        value: "{{ .Values.global.aiGateway.bodyAuthMaxRequestBytes | int64 }}"
     namespace: envoy-gateway-system
     path: envoy-gateway-config
     syncWave: -15
