@@ -75,15 +75,14 @@ on.
 
 ### Source of truth
 
-The AIM team maintains the canonical model source and base-image lists in an
-AMD-internal build repository. Operators have no direct access to it, and there
-is no automated feed from it into a cluster.
-
-Those lists are copied into `sources/aim-cluster-model-source/templates/` by
-hand as part of preparing a Cluster Forge release. The chart templates in a
-given release are therefore a **point-in-time snapshot**, not a live mirror: an
-AIM version published after that release does not appear in the packaged
-baseline until a later Cluster Forge release picks it up.
+Canonical model source and base-image lists live in an AMD-internal repository
+that operators cannot access. There is no automated feed from it into a
+cluster. Those lists are copied into
+`sources/aim-cluster-model-source/templates/` by hand when a Cluster Forge
+release is prepared. The chart templates in a given release are therefore a
+**point-in-time snapshot**, not a live mirror: an AIM version published after
+that release does not appear in the packaged baseline until a later Cluster
+Forge release picks it up.
 
 For a cluster, the operator-visible source of truth is
 `sources/aim-cluster-model-source/` in the Cluster Forge release you installed.
@@ -200,8 +199,7 @@ syncing — see
 
 | Responsibility | Owner |
 |----------------|-------|
-| Canonical AIM release manifests and base-image lists | AIM team (internal repository) |
-| Copying those lists into the packaged chart at release time | Cluster Forge release process (manual step) |
+| Packaged baseline catalog (what a new cluster gets) | The Cluster Forge release you installed |
 | Choosing `AIM_HARDWARE_FAMILY` at install | Whoever runs cluster-bloom |
 | Cluster-managed catalog additions and removals | Cluster operator |
 | Removing deprecated catalog entries | Cluster operator |
