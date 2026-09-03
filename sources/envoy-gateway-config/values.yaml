@@ -25,8 +25,9 @@ gatewayDnsService:
 #                    ConfigMap and restarts CoreDNS.
 #   none             Leave CoreDNS alone. Use this where an operator owns DNS (OpenShift), or
 #                    where the rewrite is applied outside cluster-forge.
-#   auto             Pick helmChartConfig when the cluster serves helm.cattle.io/v1, else
-#                    patchJob.
+#   auto             Pick helmChartConfig when the cluster serves the HelmChart kind, else
+#                    patchJob. The test names HelmChart because a cluster can carry the
+#                    HelmChartConfig CRD alone as a shim, with no controller behind it.
 #
 # A distribution upgrade that rewrites the CoreDNS manifest drops a patchJob edit. The Job is
 # idempotent, so re-syncing this application puts it back.

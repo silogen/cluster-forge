@@ -3,8 +3,8 @@
 # Makes *.domain resolve to envoy-gateway service
 #
 # RKE2 only. Its helm-controller owns the rke2-coredns release and reads this to override the
-# release values. No other distribution serves helm.cattle.io/v1, and on one that does not, this
-# object is accepted and then read by nothing. See coredns-patch-job.yaml for those.
+# release values. A cluster without that controller accepts this object and then reads it with
+# nothing, even when a shim supplies the CRD. See coredns-patch-job.yaml for those clusters.
 apiVersion: helm.cattle.io/v1
 kind: HelmChartConfig
 metadata:
