@@ -14,6 +14,31 @@ appsGateway:
 gatewayDnsService:
   enabled: true
 
+# How the *.domain rewrite reaches the cluster's CoreDNS. The rewrite is what makes a pod resolve
+# an application's public name, which OIDC needs: the issuer URL a browser sees must also resolve
+# inside the cluster. Without it every in-cluster lookup of <app>.<domain> is NXDOMAIN.
+#
+# There is no portable API for this, so the delivery differs by distribution:
+#   helmChartConfig  RKE2. Its helm-controller owns the rke2-coredns release and reads a
+#                    HelmChartConfig to override the values.
+#   patchJob         Anything else (k0s, kubeadm). A Job merges the rewrite into the CoreDNS
+#                    ConfigMap and restarts CoreDNS.
+#   none             Leave CoreDNS alone. Use this where an operator owns DNS (OpenShift), or
+#                    where the rewrite is applied outside cluster-forge.
+#   auto             Pick helmChartConfig when the cluster serves helm.cattle.io/v1, else
+#                    patchJob.
+#
+# A distribution upgrade that rewrites the CoreDNS manifest drops a patchJob edit. The Job is
+# idempotent, so re-syncing this application puts it back.
+coredns:
+  mode: auto
+  # Where the CoreDNS configuration lives, for patchJob. kubeadm and k0s both use these.
+  configMap: coredns
+  deployment: coredns
+  namespace: kube-system
+  # Image with kubectl, for patchJob.
+  image: ghcr.io/silogen/cluster-tool:latest
+
 # Dedicated AI gateway (`ai-gateway`): a separate Envoy (ClusterIP) for AIGatewayRoute traffic,
 # isolating inference/EPP failures from the apps gateway (EAI-6805). The apps gateway TLS-
 # passes-through routeHostname to it by SNI and ai-gateway terminates its own TLS. AI routes

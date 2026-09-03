@@ -1,11 +1,15 @@
+{{- if eq (include "envoy-gateway-config.corednsMode" .) "helmChartConfig" }}
 # CoreDNS Configuration for Wildcard Domain Routing
-# Copied from kgateway-config with service reference update
 # Makes *.domain resolve to envoy-gateway service
+#
+# RKE2 only. Its helm-controller owns the rke2-coredns release and reads this to override the
+# release values. No other distribution serves helm.cattle.io/v1, and on one that does not, this
+# object is accepted and then read by nothing. See coredns-patch-job.yaml for those.
 apiVersion: helm.cattle.io/v1
 kind: HelmChartConfig
 metadata:
   name: rke2-coredns
-  namespace: kube-system
+  namespace: {{ .Values.coredns.namespace }}
 spec:
   valuesContent: |-
     servers:
@@ -35,3 +39,4 @@ spec:
         - name: loop
         - name: reload
         - name: loadbalance
+{{- end }}

@@ -1,0 +1,116 @@
+{{- if eq (include "envoy-gateway-config.corednsMode" .) "patchJob" }}
+{{- $rewrite := include "envoy-gateway-config.corednsRewrite" . }}
+# Add the *.domain rewrite to a CoreDNS that no helm-controller owns: k0s, kubeadm, and anything
+# else outside RKE2. The Corefile belongs to the distribution and carries settings this chart knows
+# nothing about, so the rewrite is merged into the live file rather than replacing it.
+#
+# The Job name carries a hash of the rewrite, so changing the domain makes a new Job instead of
+# failing on an immutable pod template.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: coredns-rewrite-sa
+  namespace: {{ .Values.coredns.namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: coredns-rewrite-role
+  namespace: {{ .Values.coredns.namespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ .Values.coredns.configMap | quote }}]
+    # kubectl apply sends a PATCH, so update alone is refused.
+    verbs: ["get", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: [{{ .Values.coredns.deployment | quote }}]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: coredns-rewrite-rolebinding
+  namespace: {{ .Values.coredns.namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: coredns-rewrite-sa
+    namespace: {{ .Values.coredns.namespace }}
+roleRef:
+  kind: Role
+  name: coredns-rewrite-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: coredns-rewrite-{{ $rewrite | sha256sum | trunc 8 }}
+  namespace: {{ .Values.coredns.namespace }}
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: coredns-rewrite-sa
+      containers:
+        - name: coredns-rewrite
+          image: {{ .Values.coredns.image }}
+          command: ["/bin/bash"]
+          env:
+            # Single quotes, because the rule holds a backslash and YAML reads an escape inside
+            # double quotes. The rule has no single quote of its own.
+            - name: REWRITE
+              value: {{ $rewrite | squote }}
+            - name: CONFIGMAP
+              value: {{ .Values.coredns.configMap | quote }}
+            - name: DEPLOYMENT
+              value: {{ .Values.coredns.deployment | quote }}
+            - name: NAMESPACE
+              value: {{ .Values.coredns.namespace | quote }}
+          args:
+            - -c
+            - |
+              set -euo pipefail
+
+              kubectl get configmap "$CONFIGMAP" -n "$NAMESPACE" \
+                -o jsonpath='{.data.Corefile}' > /tmp/Corefile.live
+
+              if grep -qF "$REWRITE" /tmp/Corefile.live; then
+                echo "The rewrite is already in $CONFIGMAP, so nothing changed."
+                exit 0
+              fi
+
+              # A stale rewrite means the domain changed. Drop it, then add the current one.
+              # The rewrite goes before the kubernetes plugin, so cluster.local still wins.
+              grep -v 'https\.envoy-gateway-system\.svc\.cluster\.local answer auto' \
+                /tmp/Corefile.live > /tmp/Corefile.clean
+
+              if ! grep -qE '^[[:space:]]*kubernetes ' /tmp/Corefile.clean; then
+                echo "ERROR: $CONFIGMAP has no kubernetes plugin, so there is nowhere to add the rewrite."
+                exit 1
+              fi
+
+              # The rule comes from ENVIRON, not from -v: awk reads an escape sequence in a -v
+              # value and the rule holds a backslash.
+              awk '
+                BEGIN { rule = ENVIRON["REWRITE"] }
+                !done && /^[[:space:]]*kubernetes / {
+                  match($0, /^[[:space:]]*/)
+                  printf "%s%s\n", substr($0, 1, RLENGTH), rule
+                  done = 1
+                }
+                { print }
+              ' /tmp/Corefile.clean > /tmp/Corefile.new
+
+              kubectl create configmap "$CONFIGMAP" -n "$NAMESPACE" \
+                --from-file=Corefile=/tmp/Corefile.new --dry-run=client -o yaml \
+                | kubectl apply -f -
+
+              # CoreDNS reloads on its own, but only after its watch interval. Restart so the
+              # rewrite is live when this Job reports success.
+              kubectl rollout restart "deployment/$DEPLOYMENT" -n "$NAMESPACE"
+              echo "Added the rewrite to $CONFIGMAP and restarted $DEPLOYMENT."
+{{- end }}
