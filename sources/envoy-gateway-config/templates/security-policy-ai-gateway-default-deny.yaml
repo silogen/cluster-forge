@@ -1,4 +1,6 @@
 {{- if .Values.aiGateway.enabled }}
+{{- $bodyAuthMax := .Values.aiGateway.bodyAuthMaxRequestBytes | int64 }}
+{{- if le $bodyAuthMax 0 }}{{ fail "aiGateway.bodyAuthMaxRequestBytes must be a positive integer; a float or scientific-notation value casts to 0 here and would publish maxRequestBytes: 0" }}{{ end }}
 # Gateway-scoped default-deny backstop for the `ai-gateway` Gateway (EAI-7304 cutover).
 #
 # Only model routes ride ai-gateway, so a blanket deny is safe here (unlike the shared
@@ -36,7 +38,10 @@ spec:
   extAuth:
     failOpen: false
     bodyToExtAuth:
-      maxRequestBytes: 65536
+      # Ceiling on the header-less (model-in-body) path: a body over this returns HTTP 413 and
+      # skips auth (overrides failOpen). Sized via values so large-context/image inference turns
+      # are not rejected — see aiGateway.bodyAuthMaxRequestBytes.
+      maxRequestBytes: {{ $bodyAuthMax }}
     headersToExtAuth:
       - authorization
     http:
