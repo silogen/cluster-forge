@@ -137,7 +137,16 @@ family-specific (`aim-base` on Instinct, `aim-epyc-base` on EPYC, and so on).
 ## Replace or remove a source
 
 **Do not** remove entries by narrowing filters on an existing source — discovery
-is append-only.
+is append-only. The image stays in the catalog as an `AIMClusterModel` until the
+source itself is deleted. Emptying `spec.filters` is not a workaround: the CRD
+requires at least one filter or image.
+
+Deleting the source **is** how models leave the catalog, and it is a breaking
+change for anything still using them: Argo CD prune removes the
+`AIMClusterModelSource`, then Kubernetes garbage-collects its owned
+`AIMClusterModel` resources. Confirm no running deployments depend on those
+images before you prune. See
+[Filter removal vs source removal](aim_model_management.md#filter-removal-vs-source-removal).
 
 **Replace:**
 
