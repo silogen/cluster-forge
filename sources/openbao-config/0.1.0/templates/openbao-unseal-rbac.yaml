@@ -12,8 +12,13 @@ metadata:
   namespace: cf-openbao
 rules:
   - apiGroups: [""]
-    resources: ["pods", "pods/exec"]
+    resources: ["pods"]
     verbs: ["get", "list"]
+  # The API server authorises a kubectl exec call as create on pods/exec, so the unseal script
+  # cannot open a session with get and list alone.
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get"]
