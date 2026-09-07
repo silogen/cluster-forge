@@ -48,12 +48,12 @@ apps:
     valuesFile: values.yaml
     syncWave: 0
     helmParameters:
-    - name: manager.image.repository
-      value: silogenai/aim-engine
-    - name: manager.artifactDownloaderImage
-      value: docker.io/silogenai/aim-artifact-downloader:0.2.6-rc1
-    - name: clusterRuntimeConfig.enable
-      value: 'false'
+      - name: manager.image.repository
+        value: silogenai/aim-engine
+      - name: manager.artifactDownloaderImage
+        value: docker.io/silogenai/aim-artifact-downloader:0.2.6-rc1
+      - name: clusterRuntimeConfig.enable
+        value: 'false'
   aim-engine-crds:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "0.2.6-rc1"
