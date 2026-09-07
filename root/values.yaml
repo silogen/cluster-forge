@@ -47,7 +47,7 @@ apps:
     namespace: aim-system
     valuesFile: values.yaml
     syncWave: 0
-        helmParameters:
+    helmParameters:
     - name: manager.image.repository
       value: silogenai/aim-engine
     - name: manager.artifactDownloaderImage
