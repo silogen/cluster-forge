@@ -21,13 +21,13 @@ global:
 localHelmValues:
   enabled: false
 ociRegistry:
-  dockerHub: "registry-1.docker.io/amdenterpriseai"
+  dockerHub: "registry-1.docker.io/silogenai"
   ghcr: "ghcr.io/silogen"
 
 apps:
   ai-gateway-discovery:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.2-rc5"
     chart: "ai-gateway-discovery-chart"
     namespace: ai-gateway-system
     valuesFile: values.yaml
@@ -42,17 +42,21 @@ apps:
         value: "{{ .Values.global.aiGateway.bodyAuthMaxRequestBytes | int64 }}"
   aim-engine:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "0.2.5"
+    repoVersion: "0.2.6-rc1"
     chart: "aim-engine-chart"
     namespace: aim-system
     valuesFile: values.yaml
     syncWave: 0
-    helmParameters:
-      - name: clusterRuntimeConfig.enable
-        value: false
+        helmParameters:
+    - name: manager.image.repository
+      value: silogenai/aim-engine
+    - name: manager.artifactDownloaderImage
+      value: docker.io/silogenai/aim-artifact-downloader:0.2.6-rc1
+    - name: clusterRuntimeConfig.enable
+      value: 'false'
   aim-engine-crds:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "0.2.5"
+    repoVersion: "0.2.6-rc1"
     chart: "aim-engine-crds-chart"
     namespace: aim-system
     syncWave: 0
@@ -67,7 +71,7 @@ apps:
       hardwareFamilies: []
   airm:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.2-rc5"
     chart: "airm-chart"
     namespace: airm
     syncWave: 0
@@ -84,7 +88,7 @@ apps:
         kind: ClusterPolicy
   aiwb:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.2-rc5"
     chart: "aiwb-chart"
     namespace: aiwb
     valuesFile: values.yaml
@@ -99,14 +103,14 @@ apps:
           - /spec/rules/*/skipBackgroundRequests
   airm-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.2-rc5"
     chart: "airm-cnpg-chart"
     namespace: airm
     syncWave: -10
     valuesFile: values.yaml
   airm-infra-external-secrets:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.2-rc5"
     chart: "airm-external-secrets-chart"
     namespace: airm
     syncWave: -20
@@ -120,21 +124,21 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
   airm-infra-rabbitmq:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.2-rc5"
     chart: "airm-rabbitmq-chart"
     namespace: airm
     syncWave: -5
     valuesFile: values.yaml
   aiwb-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.2-rc5"
     chart: "aiwb-cnpg-chart"
     namespace: aiwb
     syncWave: -10
     valuesFile: values.yaml
   aiwb-infra-external-secrets:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.2-rc5"
     chart: "aiwb-external-secrets-chart"
     namespace: aiwb
     syncWave: -20
