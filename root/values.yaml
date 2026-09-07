@@ -27,7 +27,7 @@ ociRegistry:
 apps:
   ai-gateway-discovery:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.2-rc5"
+    repoVersion: "2.0.2-rc.5"
     chart: "ai-gateway-discovery-chart"
     namespace: ai-gateway-system
     valuesFile: values.yaml
@@ -71,7 +71,7 @@ apps:
       hardwareFamilies: []
   airm:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.2-rc5"
+    repoVersion: "2.0.2-rc.5"
     chart: "airm-chart"
     namespace: airm
     syncWave: 0
@@ -88,7 +88,7 @@ apps:
         kind: ClusterPolicy
   aiwb:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.2-rc5"
+    repoVersion: "2.0.2-rc.5"
     chart: "aiwb-chart"
     namespace: aiwb
     valuesFile: values.yaml
@@ -103,14 +103,14 @@ apps:
           - /spec/rules/*/skipBackgroundRequests
   airm-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.2-rc5"
+    repoVersion: "2.0.2-rc.5"
     chart: "airm-cnpg-chart"
     namespace: airm
     syncWave: -10
     valuesFile: values.yaml
   airm-infra-external-secrets:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.2-rc5"
+    repoVersion: "2.0.2-rc.5"
     chart: "airm-external-secrets-chart"
     namespace: airm
     syncWave: -20
@@ -124,21 +124,21 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
   airm-infra-rabbitmq:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.2-rc5"
+    repoVersion: "2.0.2-rc.5"
     chart: "airm-rabbitmq-chart"
     namespace: airm
     syncWave: -5
     valuesFile: values.yaml
   aiwb-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.2-rc5"
+    repoVersion: "2.0.2-rc.5"
     chart: "aiwb-cnpg-chart"
     namespace: aiwb
     syncWave: -10
     valuesFile: values.yaml
   aiwb-infra-external-secrets:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.2-rc5"
+    repoVersion: "2.0.2-rc.5"
     chart: "aiwb-external-secrets-chart"
     namespace: aiwb
     syncWave: -20
