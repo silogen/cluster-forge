@@ -1,0 +1,7 @@
+name: aim-engine
+namespace: aim-system
+provides:
+  - inference.aim
+requires:
+  - serving.kserve
+  - storage.default-class
