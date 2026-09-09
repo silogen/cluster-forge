@@ -58,3 +58,31 @@ Post-handoff cluster checks. See [`scripts/platform-gates/README.md`](../scripts
 | `AI_GATEWAY_NAME` | `ai-gateway` | AI Gateway name (skipped when absent) |
 
 Webhook gate env vars are inherited from `ai-gateway-webhook-health.sh`.
+
+## `byok/bootstrap.sh`
+
+Installs a minimal cluster-forge on a Kubernetes cluster that already exists.
+See [`byok/README.md`](../byok/README.md).
+
+| Flag or variable | Command | Default | Meaning |
+|---|---|---|---|
+| `--profile <file>` | `install`, `validate` | none, required | Profile file. A path relative to `byok/` also works. |
+| `--source github:<ref>` | `install` | the local checkout | Clone cluster-forge at that ref and install from it. |
+| `--source <path>` | `install` | the local checkout | Install from another checkout. |
+| `--purge` | `remove` | off | Also delete the CRDs of the package, the PVCs in its namespace, and the namespace. |
+| `KUBECONFIG` | all | none, required | Path to a cluster-admin kubeconfig. |
+| `HELM_TIMEOUT` | all | `10m` | Value for `helm --timeout`. |
+
+## `byok/tests/smoke.sh`
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `GHCR_PULL_SECRET_JSON` | empty | Docker config JSON for the private dummy image. |
+| `AIM_TIMEOUT` | `15m` | How long to wait for the AIMService conditions. |
+| `KEEP` | `0` | `1` keeps the `aims-test` namespace after the test. |
+
+## `byok/footprint/footprint.sh`
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `NAMESPACES` | `cert-manager kserve-system aim-system` | Namespaces to measure. |
