@@ -96,6 +96,33 @@ apps:
 | **Medium** | All base apps | +1 (storage policy) | Balanced resources, single replicas | 
 | **Large** | All base apps | +0 (no additions) | Production resources, OpenBao HA (3 replicas) |
 
+## Optional Apps (declared, not auto-enabled)
+
+Not every app under `root/values.yaml`'s `apps:` block ships enabled. An app
+can be fully defined there (`path`, `namespace`, `syncWave`, any
+`valuesObject`) purely so it *can* be referenced, while being left out of
+every `values_small.yaml` / `values_medium.yaml` / `values_large.yaml`
+`enabledApps` list on purpose. Declared-but-unlisted apps render nothing —
+ArgoCD only creates an Application for names present in `enabledApps`.
+
+To turn one on, add its name to `enabledApps` in your own
+`cluster-values/values.yaml` (this layers in as the "External" override at
+step 3 of the merge order above — no change to `cluster-forge` itself
+needed):
+
+```yaml
+enabledApps:
+  - envoy-ai-gateway-ratelimit
+```
+
+**Example**: `envoy-ai-gateway-ratelimit` (the `envoyproxy/ratelimit` binary +
+Redis that AI Gateway's `QuotaPolicy` needs to enforce anything) is declared
+this way — see the comment on its entry in `root/values.yaml`. It's opt-in
+because most clusters don't use `QuotaPolicy` at all, and enabling it always
+means standing up a Redis; blueprints or overlays that need it (e.g.
+`root-extras/blueprints/semantic-router`) call this out in their own docs
+rather than have it cost every cluster by default.
+
 ## Bootstrap and GitOps Workflow
 
 ### Bootstrap Process
@@ -151,9 +178,7 @@ When ArgoCD renders applications with multi-source:
    `apps.aim-cluster-model-source.valuesObject.hardwareFamilies` (see
    `sources/aim-cluster-model-source`). The value travels as a structured list,
    not a string, so no comma parsing is involved. The base `root/values.yaml`
-   default is an empty list, which selects `templates/unfiltered.yaml` (Instinct
-   0.11.1+ plus mixed bases), not the per-family `templates/profiles.yaml`
-   branch.
+   default is an empty list, which selects the legacy (install-all) branch.
 
    GPU stack family (ROCm + GPU Operator) is injected the same way, driven by
    cluster-bloom's `GPU_STACK_FAMILY`. Two child-app keys are set:
