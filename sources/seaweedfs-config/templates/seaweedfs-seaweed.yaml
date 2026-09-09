@@ -29,7 +29,9 @@ spec:
     ingress:
       enabled: false
     replicas: {{ .volume.replicas }}
-    storageClassName: {{ .storageClassName }}
+{{- with .storageClassName }}
+    storageClassName: {{ . }}
+{{- end }}
     requests:
       storage: {{ .volume.requests.storage }}
     # Topology configuration for rack/datacenter-aware placement
