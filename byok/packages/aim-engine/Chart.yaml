@@ -1,0 +1,12 @@
+apiVersion: v2
+name: aim-engine
+description: AIM inference engine and its CRDs
+type: application
+version: 0.1.0
+dependencies:
+  - name: aim-engine-crds-chart
+    version: 0.2.5
+    repository: oci://registry-1.docker.io/amdenterpriseai
+  - name: aim-engine-chart
+    version: 0.2.5
+    repository: oci://registry-1.docker.io/amdenterpriseai

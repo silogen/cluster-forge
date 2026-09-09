@@ -1,0 +1,9 @@
+apiVersion: v2
+name: aim-catalog
+description: AIMClusterModelSource catalog for the AIM engine
+type: application
+version: 0.1.0
+dependencies:
+  - name: aim-cluster-model-source
+    version: 0.1.0
+    repository: file://../../../sources/aim-cluster-model-source
