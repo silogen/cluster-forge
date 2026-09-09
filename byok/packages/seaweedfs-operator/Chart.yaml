@@ -1,0 +1,9 @@
+apiVersion: v2
+name: seaweedfs-operator
+description: SeaweedFS operator and its custom resource definitions
+type: application
+version: 0.1.0
+dependencies:
+  - name: seaweedfs-operator
+    version: 0.1.36
+    repository: file://../../../sources/seaweedfs-operator/0.1.36

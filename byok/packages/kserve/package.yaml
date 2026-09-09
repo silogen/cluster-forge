@@ -3,4 +3,7 @@ namespace: kserve-system
 provides:
   - serving.kserve
 requires:
+  # The chart holds ClusterServingRuntime objects, so the CRDs must exist
+  # before helm builds the release manifest.
+  - serving.kserve.crds
   - certificates.cert-manager

@@ -1,9 +1,6 @@
 dependencies:
-- name: seaweedfs-operator
-  repository: file://../../../sources/seaweedfs-operator/0.1.36
-  version: 0.1.36
 - name: seaweedfs-config
   repository: file://../../../sources/seaweedfs-config
   version: 0.1.0
-digest: sha256:4f83f0ab2fb5090ad2dfbf068d560e6003d45a5f04ec7e3a6d90b60fc6854380
-generated: "2026-09-09T15:07:30.068239516+03:00"
+digest: sha256:08b4315a36105b19f2df7ac18654bc53caf83e68948ca1216655ee68d56a7a79
+generated: "2026-09-09T16:35:38.630709853+03:00"
