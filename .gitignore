@@ -63,3 +63,6 @@ node_modules/
 # Task files
 # tasks.json
 # tasks/ 
+
+# byok package chart dependencies are built, not committed
+byok/packages/*/charts/
