@@ -1,12 +1,9 @@
 apiVersion: v2
 name: seaweedfs
-description: Optional S3 object storage with the SeaweedFS operator
+description: Optional S3 object storage, a Seaweed cluster and a bucket
 type: application
 version: 0.1.0
 dependencies:
-  - name: seaweedfs-operator
-    version: 0.1.36
-    repository: file://../../../sources/seaweedfs-operator/0.1.36
   - name: seaweedfs-config
     version: 0.1.0
     repository: file://../../../sources/seaweedfs-config
