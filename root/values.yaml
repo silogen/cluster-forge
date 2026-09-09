@@ -51,7 +51,7 @@ apps:
       - name: manager.image.repository
         value: silogenai/aim-engine
       - name: manager.artifactDownloaderImage
-        value: docker.io/silogenai/aim-artifact-downloader:0.2.6-rc1
+        value: docker.io/silogenai/aim-artifact-downloader:v0.2.6-rc1
       - name: clusterRuntimeConfig.enable
         value: 'false'
   aim-engine-crds:
