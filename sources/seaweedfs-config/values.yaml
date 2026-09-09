@@ -25,3 +25,6 @@ s3Route:
   timeouts:
     request: 30m
     backendRequest: 30m
+# Standalone mode: no OpenBao, no external-secrets and no gateway.
+# The chart makes the S3 and admin credentials itself.
+standalone: false
