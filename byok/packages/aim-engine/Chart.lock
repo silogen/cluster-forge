@@ -1,0 +1,9 @@
+dependencies:
+- name: aim-engine-crds-chart
+  repository: oci://registry-1.docker.io/amdenterpriseai
+  version: 0.2.5
+- name: aim-engine-chart
+  repository: oci://registry-1.docker.io/amdenterpriseai
+  version: 0.2.5
+digest: sha256:2e6365a6778fb13590d8ed5c58c26b43e33145edcabbfa8b02820015b687e351
+generated: "2026-09-09T15:04:51.876772461+03:00"

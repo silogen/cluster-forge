@@ -1,0 +1,17 @@
+aim-engine-chart:
+  # The CRD chart above installs the CRDs.
+  crd:
+    enable: false
+  # AIWB makes this object in the full install. The minimal core has no AIWB.
+  clusterRuntimeConfig:
+    enable: true
+    spec:
+      routing:
+        enabled: false
+  # Needs Node Feature Discovery, which the minimal core does not install.
+  acceleratorDetector:
+    enable: false
+  scaleFromZero:
+    # Makes an OpenTelemetryCollector object. The minimal core has no OTel operator.
+    gatewayMetricsCollector:
+      enable: false
