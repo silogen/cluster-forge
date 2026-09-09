@@ -5,6 +5,8 @@ set -euo pipefail
 
 BYOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HELM_TIMEOUT="${HELM_TIMEOUT:-10m}"
+WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "$WORK_DIR"' EXIT
 
 die() { echo "error: $*" >&2; exit 1; }
 info() { echo "[$(date -u +%H:%M:%S)] $*"; }
@@ -28,6 +30,7 @@ check_tools() {
   done
   local hv
   hv="$(helm version --template '{{.Version}}' 2>/dev/null | sed 's/^v//')"
+  [ -n "$hv" ] || die "cannot read the helm version"
   local major="${hv%%.*}" rest="${hv#*.}" minor
   minor="${rest%%.*}"
   if [ "$major" -lt 3 ] || { [ "$major" -eq 3 ] && [ "$minor" -lt 8 ]; }; then
@@ -48,13 +51,12 @@ resolve_source() {
   [ -n "$src" ] || return 0
   case "$src" in
     github:*)
-      local ref="${src#github:}" tmp
-      tmp="$(mktemp -d)"
+      local ref="${src#github:}"
       info "clone cluster-forge at $ref"
       git clone --depth 1 --branch "$ref" \
-        https://github.com/silogen/cluster-forge.git "$tmp/cluster-forge" >/dev/null 2>&1 \
+        https://github.com/silogen/cluster-forge.git "$WORK_DIR/cluster-forge" >/dev/null 2>&1 \
         || die "cannot clone cluster-forge at ref $ref"
-      BYOK_DIR="$tmp/cluster-forge/byok"
+      BYOK_DIR="$WORK_DIR/cluster-forge/byok"
       ;;
     *)
       [ -d "$src/byok" ] && BYOK_DIR="$src/byok" || BYOK_DIR="$src"
@@ -133,11 +135,10 @@ install_profile() {
     ns="$(pkg_field "$pkg" '.namespace')"
     info "build dependencies for $pkg"
     helm dependency build "$dir" >/dev/null
-    vals="$(mktemp)"
+    vals="$WORK_DIR/values-$pkg.yaml"
     PKG="$pkg" yq -r '.packages[] | select(.name == strenv(PKG)) | .values // {}' "$profile" > "$vals"
     info "install $pkg into namespace $ns"
     helm_install_retry "$pkg" "$dir" "$ns" "$vals"
-    rm -f "$vals"
   done
   info "install finished"
 }
