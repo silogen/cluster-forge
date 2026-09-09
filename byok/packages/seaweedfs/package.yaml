@@ -1,0 +1,6 @@
+name: seaweedfs
+namespace: seaweedfs-instance
+provides:
+  - storage.s3
+requires:
+  - storage.default-class

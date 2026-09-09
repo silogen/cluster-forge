@@ -1,0 +1,6 @@
+name: kserve
+namespace: kserve-system
+provides:
+  - serving.kserve
+requires:
+  - certificates.cert-manager

@@ -1,0 +1,12 @@
+apiVersion: v2
+name: kserve
+description: KServe model serving control plane and its CRDs
+type: application
+version: 0.1.0
+dependencies:
+  - name: kserve-crd
+    version: v0.16.0
+    repository: file://../../../sources/kserve-crds/v0.16.0
+  - name: kserve
+    version: v0.16.0
+    repository: file://../../../sources/kserve/v0.16.0

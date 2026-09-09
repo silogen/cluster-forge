@@ -1,0 +1,25 @@
+seaweedfs-operator:
+  webhook:
+    enabled: false
+
+seaweedfs-config:
+  # No OpenBao, no external-secrets and no gateway in the minimal core, so the
+  # chart makes the S3 and admin credentials itself.
+  standalone: true
+  seaweed:
+    # Use the default StorageClass of the cluster.
+    storageClassName: ""
+    master:
+      replicas: 1
+      volumeSizeLimitMB: 1024
+    volume:
+      replicas: 1
+      requests:
+        storage: 25Gi
+    filer:
+      replicas: 1
+      requests:
+        storage: 10Gi
+  bucket:
+    name: default-bucket
+    namespace: seaweedfs-instance
