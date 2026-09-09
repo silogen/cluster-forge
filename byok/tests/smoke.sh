@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Smoke test for the scalable-inference profile. Run it against the cluster
 # after bootstrap.sh install. Set KEEP=1 to keep the test namespace.
-# Set GHCR_PULL_SECRET_JSON to a docker config JSON to pull the private
-# dummy image.
+# The dummy image is public. Set GHCR_PULL_SECRET_JSON to a docker config
+# JSON when your cluster needs credentials for ghcr.io.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,16 +37,28 @@ if [ -n "${GHCR_PULL_SECRET_JSON:-}" ]; then
     --dry-run=client -o yaml | kubectl apply -f - >/dev/null
   ok "pull secret"
 else
-  echo "warn: GHCR_PULL_SECRET_JSON is not set, the image pull can fail"
+  echo "GHCR_PULL_SECRET_JSON is not set, the image is pulled without credentials"
 fi
 
 echo "== 5. apply the dummy service"
-kubectl apply -f "$HERE/aimservice-dummy.yaml" >/dev/null
+# aim-engine fails the model when a named pull secret does not exist, so the
+# reference stays only when the secret was made in step 4.
+if [ -n "${GHCR_PULL_SECRET_JSON:-}" ]; then
+  kubectl apply -f "$HERE/aimservice-dummy.yaml" >/dev/null
+else
+  yq 'del(.spec.imagePullSecrets)' "$HERE/aimservice-dummy.yaml" | kubectl apply -f - >/dev/null
+fi
 
 echo "== 6. wait for the service"
+# aim-engine 0.2.5 sets ModelReady, TemplateReady, RuntimeConfigReady,
+# CacheReady, InferenceServiceReady and Ready. There is no RuntimeReady.
 for cond in InferenceServiceReady Ready; do
-  kubectl wait --for=condition=$cond aimservice/aim-dummy --namespace "$NS" \
-    --timeout="$AIM_TIMEOUT" >/dev/null || fail "condition $cond did not become true"
+  if ! kubectl wait --for=condition=$cond aimservice/aim-dummy --namespace "$NS" \
+      --timeout="$AIM_TIMEOUT" >/dev/null; then
+    kubectl get aimservice aim-dummy --namespace "$NS" -o json \
+      | jq -r '.status.conditions[] | "  \(.type)=\(.status) \(.reason): \(.message)"' >&2
+    fail "condition $cond did not become true"
+  fi
   ok "$cond"
 done
 
