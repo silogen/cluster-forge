@@ -1,0 +1,26 @@
+# CPU-only smoke-test service. The image is private, so the test namespace
+# needs the pull secret aim-dummy-pull when GHCR_PULL_SECRET_JSON is set.
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMService
+metadata:
+  name: aim-dummy
+  namespace: aims-test
+spec:
+  replicas: 1
+  # local-path-provisioner gives ReadWriteOnce only, and Shared mode asks for
+  # ReadWriteMany.
+  caching:
+    mode: Dedicated
+  template:
+    allowUnoptimized: true
+  imagePullSecrets:
+    - name: aim-dummy-pull
+  model:
+    custom:
+      baseImage: ghcr.io/silogen/aim-dummy:0.1.10
+      hardware:
+        cpu:
+          requests: 500m
+      modelSources:
+        - modelId: sshleifer/tiny-gpt2
+          sourceUri: hf://sshleifer/tiny-gpt2
