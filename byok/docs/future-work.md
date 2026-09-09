@@ -22,3 +22,10 @@ These items are out of scope for the first byok release.
 - An upgrade test with two published chart versions.
 - byok on more than one node, and high availability.
 - Repair or remove `docs/manual_helm_install`.
+- Ask the aim-engine team for a value that stops the controller from watching
+  Gateway and HTTPRoute. Then the `gateway-api-crds` package can go away.
+- Ask the aim-engine team for a cache access mode that follows
+  `caching.mode: Dedicated`. Today every cache claim is ReadWriteMany, so a
+  cluster with ReadWriteOnce storage needs Kyverno.
+- Merge the CRD packages back into their parent packages if helm learns to
+  build a release manifest after the CRDs of the same release apply.

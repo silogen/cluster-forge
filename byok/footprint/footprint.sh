@@ -4,7 +4,7 @@
 set -euo pipefail
 
 LABEL="${1:-idle}"
-NAMESPACES="${NAMESPACES:-cert-manager kserve-system aim-system}"
+NAMESPACES="${NAMESPACES:-kyverno cert-manager kserve-system aim-system}"
 
 echo "## Footprint: $LABEL"
 echo
@@ -61,7 +61,8 @@ if command -v crictl >/dev/null 2>&1; then
   crictl images --output json 2>/dev/null \
     | jq -r '[.images[].size | tonumber] | add / 1073741824 | "total image size: \(. * 100 | round / 100) GiB"'
 elif command -v k0s >/dev/null 2>&1; then
-  k0s ctr images ls 2>/dev/null | awk 'NR>1 {print $1, $4, $5}'
+  echo "images: $(sudo k0s ctr images ls -q 2>/dev/null | wc -l)"
+  sudo du -sh /var/lib/k0s/containerd 2>/dev/null
 else
   echo "run this on the node to get the image size"
 fi
