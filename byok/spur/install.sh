@@ -13,6 +13,8 @@ KUBECONFIG_OUT="${KUBECONFIG_OUT:-$HOME/.kube/byok-admin.yaml}"
 HELM_VERSION="${HELM_VERSION:-}"
 KUBECTL_VERSION="${KUBECTL_VERSION:-}"
 YQ_VERSION="${YQ_VERSION:-latest}"
+WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "$WORK_DIR"' EXIT
 
 die() { echo "error: $*" >&2; exit 1; }
 info() { echo "[$(date -u +%H:%M:%S)] $*"; }
@@ -63,10 +65,7 @@ case "$arch" in
 esac
 
 install_tools() {
-  local tmp
-  tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' RETURN
-
+  local tmp="$WORK_DIR"
   if ! command -v jq >/dev/null; then
     info "install jq"
     sudo apt-get install -y -q jq >/dev/null
