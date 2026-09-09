@@ -1,0 +1,4 @@
+apiVersion: v2
+name: envoy-ai-gateway-ratelimit
+description: The envoyproxy/ratelimit service + Redis backing AI Gateway QuotaPolicy enforcement
+version: 0.1.0

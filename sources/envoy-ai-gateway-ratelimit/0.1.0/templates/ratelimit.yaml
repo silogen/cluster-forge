@@ -1,0 +1,71 @@
+# Name and namespace are hardcoded, not templated: the AI Gateway controller's
+# --quotaRateLimitServiceAddr default (unconfigured elsewhere in this repo) is
+# the literal envoy-ai-gateway-ratelimit.envoy-gateway-system, and the ratelimit
+# binary's xDS node ID must match the controller's hardcoded NodeID constant.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: envoy-ai-gateway-ratelimit
+  namespace: envoy-gateway-system
+spec:
+  replicas: {{ .Values.ratelimit.replicas }}
+  selector:
+    matchLabels:
+      app: envoy-ai-gateway-ratelimit
+  template:
+    metadata:
+      labels:
+        app: envoy-ai-gateway-ratelimit
+    spec:
+      containers:
+        - name: ratelimit
+          image: "{{ .Values.ratelimit.image.repository }}:{{ .Values.ratelimit.image.tag }}"
+          # The image's baked-in ENTRYPOINT silently exits 0; it must be overridden.
+          command: ["/bin/ratelimit"]
+          env:
+            - name: LOG_LEVEL
+              value: {{ .Values.ratelimit.logLevel | quote }}
+            - name: USE_STATSD
+              value: "false"
+            - name: CONFIG_TYPE
+              value: GRPC_XDS_SOTW
+            - name: CONFIG_GRPC_XDS_NODE_ID
+              # Must match the controller's hardcoded xDS NodeID constant exactly.
+              value: envoy-ai-gateway-ratelimit
+            - name: CONFIG_GRPC_XDS_SERVER_URL
+              value: ai-gateway-controller.envoy-ai-gateway-system:18002
+            - name: REDIS_SOCKET_TYPE
+              value: tcp
+            - name: REDIS_URL
+              value: {{ include "envoy-ai-gateway-ratelimit.redisURL" . | quote }}
+{{- if .Values.redis.auth.enabled }}
+            - name: REDIS_AUTH
+              valueFrom:
+                secretKeyRef:
+{{ include "envoy-ai-gateway-ratelimit.redisAuthSecretRef" . | indent 18 }}
+{{- end }}
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: grpc
+              containerPort: 8081
+            - name: debug
+              containerPort: 6070
+          resources:
+{{ toYaml .Values.ratelimit.resources | indent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: envoy-ai-gateway-ratelimit
+  namespace: envoy-gateway-system
+spec:
+  selector:
+    app: envoy-ai-gateway-ratelimit
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+    - name: grpc
+      port: 8081
+      targetPort: 8081
