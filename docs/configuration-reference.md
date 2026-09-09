@@ -73,11 +73,29 @@ See [`byok/README.md`](../byok/README.md).
 | `KUBECONFIG` | all | none, required | Path to a cluster-admin kubeconfig. |
 | `HELM_TIMEOUT` | all | `10m` | Value for `helm --timeout`. |
 
+## `byok/spur/install.sh`
+
+Installs the byok minimal core on a node of a Spur k0s cluster. See
+[`byok/README.md`](../byok/README.md).
+
+| Flag or variable | Default | Meaning |
+|---|---|---|
+| `--ref <git ref>` | `main` | cluster-forge tag or branch to clone. |
+| `--source <path>` | none | Use this cluster-forge checkout instead of a clone. |
+| `--profile <file>` | `profiles/scalable-inference.yaml` | Profile file, relative to `byok/` or absolute. |
+| `--smoke` | off | Run `byok/tests/smoke.sh` after the install. |
+| `CLUSTER_FORGE_REPO` | `https://github.com/silogen/cluster-forge.git` | Clone URL. |
+| `CHECKOUT_DIR` | `$HOME/cluster-forge` | Clone target. |
+| `KUBECONFIG_OUT` | `$HOME/.kube/byok-admin.yaml` | Where the admin kubeconfig is written. |
+| `HELM_VERSION` | latest 3.x | Helm version to install when helm is missing. |
+| `KUBECTL_VERSION` | latest stable | kubectl version to install when kubectl is missing. |
+| `YQ_VERSION` | `latest` | yq version to install when yq is missing. |
+
 ## `byok/tests/smoke.sh`
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `GHCR_PULL_SECRET_JSON` | empty | Docker config JSON for the private dummy image. |
+| `GHCR_PULL_SECRET_JSON` | empty | Docker config JSON for ghcr.io. The dummy image is public, so it is optional. |
 | `AIM_TIMEOUT` | `15m` | How long to wait for the AIMService conditions. |
 | `KEEP` | `0` | `1` keeps the `aims-test` namespace after the test. |
 
