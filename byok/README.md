@@ -16,6 +16,12 @@ This path runs beside the ArgoCD path in `root/`. It does not replace it.
 - A default StorageClass with dynamic provisioning.
 - `helm` 3.8 or later, `kubectl`, `yq` v4, `jq` and `git` on your PATH.
 
+aim-engine 0.2.5 asks for ReadWriteMany cache volumes. If your default
+StorageClass gives ReadWriteOnce only, as local-path-provisioner does, keep the
+`kyverno` and `kyverno-policies-storage-local-path` packages in the profile.
+They rewrite the access mode at admission time. Take them out when the cluster
+gives ReadWriteMany.
+
 The core does no routing. Use a port-forward to reach the model. The core adds
 no autoscaling. If a profile needs autoscaling, the cluster must give it.
 
@@ -53,8 +59,9 @@ capability and the packages that give it.
 ## Remove
 
 ```bash
-byok/bootstrap.sh remove seaweedfs           # keeps the CRDs and the PVCs
-byok/bootstrap.sh remove seaweedfs --purge   # also removes them
+byok/bootstrap.sh remove seaweedfs                    # keeps the CRDs and the PVCs
+byok/bootstrap.sh remove seaweedfs --purge            # also removes them
+byok/bootstrap.sh remove seaweedfs-operator --purge   # the CRDs live here
 ```
 
 `remove` refuses to remove a package that another installed package needs.
@@ -81,11 +88,23 @@ config JSON before you run it.
 
 | Package | Namespace | Provides | Requires |
 |---|---|---|---|
+| kyverno | kyverno | policy.kyverno | (none) |
+| kyverno-policies-storage-local-path | kyverno | storage.access-mode-mutation | policy.kyverno |
 | cert-manager | cert-manager | certificates.cert-manager | (none) |
-| kserve | kserve-system | serving.kserve | certificates.cert-manager |
-| aim-engine | aim-system | inference.aim | serving.kserve, storage.default-class |
+| kserve-crds | kserve-system | serving.kserve.crds | (none) |
+| kserve | kserve-system | serving.kserve | serving.kserve.crds, certificates.cert-manager |
+| gateway-api-crds | gateway-api | gateway.api.crds | (none) |
+| aim-engine-crds | aim-system | inference.aim.crds | (none) |
+| aim-engine | aim-system | inference.aim | inference.aim.crds, gateway.api.crds, serving.kserve, storage.default-class |
 | aim-catalog | aim-system | catalog.aim | inference.aim |
-| seaweedfs (optional) | seaweedfs-instance | storage.s3 | storage.default-class |
+| seaweedfs-operator (optional) | seaweedfs-operator | storage.s3.operator | (none) |
+| seaweedfs (optional) | seaweedfs-instance | storage.s3 | storage.s3.operator, storage.default-class |
+
+Several components ship their CRDs in one chart and objects of those CRDs in
+another. Helm builds the whole release manifest before it applies anything, so
+one release cannot hold both. Such a component is two packages: `kserve-crds`
+and `kserve`, `aim-engine-crds` and `aim-engine`, `seaweedfs-operator` and
+`seaweedfs`.
 
 ### How to write a package
 

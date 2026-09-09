@@ -85,4 +85,4 @@ See [`byok/README.md`](../byok/README.md).
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `NAMESPACES` | `cert-manager kserve-system aim-system` | Namespaces to measure. |
+| `NAMESPACES` | `kyverno cert-manager kserve-system aim-system` | Namespaces to measure. |
