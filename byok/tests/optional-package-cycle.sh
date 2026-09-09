@@ -11,7 +11,7 @@ ok() { echo "ok: $*"; }
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-yq '.packages += [{"name": "seaweedfs"}]' "$PROFILE" > "$tmp/with-seaweedfs.yaml"
+yq '.packages += [{"name": "seaweedfs-operator"}, {"name": "seaweedfs"}]' "$PROFILE" > "$tmp/with-seaweedfs.yaml"
 
 echo "== 1. install the profile with seaweedfs"
 "$BYOK/bootstrap.sh" install --profile "$tmp/with-seaweedfs.yaml"
@@ -32,10 +32,13 @@ ok "no change on the second install"
 
 echo "== 4. remove seaweedfs"
 "$BYOK/bootstrap.sh" remove seaweedfs --purge
+"$BYOK/bootstrap.sh" remove seaweedfs-operator --purge
 
 echo "== 5. nothing of seaweedfs stays"
 helm status seaweedfs --namespace seaweedfs-instance >/dev/null 2>&1 \
   && fail "the helm release still exists"
+helm status seaweedfs-operator --namespace seaweedfs-operator >/dev/null 2>&1 \
+  && fail "the operator helm release still exists"
 kubectl get namespace seaweedfs-instance >/dev/null 2>&1 && fail "the namespace still exists"
 kubectl get crd -o name | grep -q 'seaweed\.seaweedfs\.com$' && fail "seaweedfs CRDs still exist"
 ok "seaweedfs is gone"
