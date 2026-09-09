@@ -1,0 +1,12 @@
+# The reference profile. It gives one model endpoint served by aim-engine and
+# KServe. The list order is the install order. The values block merges on top
+# of the package values.yaml.
+name: scalable-inference
+packages:
+  - name: cert-manager
+  - name: kserve
+  - name: aim-engine
+  - name: aim-catalog
+    values:
+      aim-cluster-model-source:
+        hardwareFamilies: [epyc]
