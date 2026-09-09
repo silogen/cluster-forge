@@ -46,6 +46,19 @@ The three pods are the predictor and two finished cache jobs. The predictor
 uses 1 mCPU and 1 MiB at rest, because the model is `sshleifer/tiny-gpt2`. The
 cache PVC is 1 GiB, ReadWriteOnce after the Kyverno mutation.
 
+## Three nodes, idle
+
+Measured on 2026-09-09 on a three-node Spur k0s cluster on Kaytoo VMs of the
+same shape. Spur makes one node the control plane and two nodes workers. The
+same profile was installed with `byok/spur/install.sh` from a worker node.
+The requests and limits are the same as on one node. The six pods spread over
+the two workers. Live usage from `kubectl top`: 11 mCPU and 227 MiB together.
+The node that ran the measurement holds 60 images and 13 GiB in
+`/var/lib/k0s/containerd`.
+
+The three-node cluster on OCI needs kube-router in full overlay mode. See
+[future work](future-work.md).
+
 Reproduce with:
 
 ```bash
