@@ -29,6 +29,30 @@ jobs:
       - name: Helm template
         run: helm template ./root -f ${{ matrix.values }}
 
+  byok-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4.3.0
+
+      - name: Lint and template every package
+        run: |
+          for pkg in byok/packages/*/; do
+            echo "== $pkg"
+            helm dependency build "$pkg"
+            helm lint "$pkg"
+            helm template byok "$pkg" > /dev/null
+          done
+
+      - name: Check version drift
+        run: byok/tests/check-version-drift.sh
+
+      - name: Validation stops a bad profile
+        run: byok/tests/validate-negative.sh
+
   install-script-checks:
     runs-on: ubuntu-latest
     steps:
