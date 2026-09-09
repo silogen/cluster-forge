@@ -1,7 +1,3 @@
-seaweedfs-operator:
-  webhook:
-    enabled: false
-
 seaweedfs-config:
   # No OpenBao, no external-secrets and no gateway in the minimal core, so the
   # chart makes the S3 and admin credentials itself.

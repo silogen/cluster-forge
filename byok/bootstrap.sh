@@ -102,6 +102,29 @@ validate_profile() {
   info "validation passed for $(basename "$profile")"
 }
 
+# A chart that holds both a webhook and objects that the webhook validates
+# fails on the first pass, because the webhook server starts later. ArgoCD
+# retries such a sync; helm does not, so retry here.
+helm_install_retry() { # <name> <dir> <namespace> <profile values file>
+  local pkg="$1" dir="$2" ns="$3" vals="$4" try
+  for try in 1 2 3; do
+    if helm upgrade --install "$pkg" "$dir" \
+        --namespace "$ns" --create-namespace \
+        --values "$dir/values.yaml" --values "$vals" \
+        --wait --timeout "$HELM_TIMEOUT"; then
+      return 0
+    fi
+    [ "$try" -eq 3 ] && die "install of $pkg failed after 3 attempts"
+    # A first install that fails leaves a release that upgrade cannot use.
+    if [ "$(helm status "$pkg" --namespace "$ns" -o json 2>/dev/null \
+            | jq -r '.version // 0')" = 1 ]; then
+      helm uninstall "$pkg" --namespace "$ns" --wait >/dev/null 2>&1 || true
+    fi
+    info "attempt $try for $pkg failed, wait 20s and try again"
+    sleep 20
+  done
+}
+
 install_profile() {
   local profile="$1" pkg ns dir vals
   validate_profile "$profile"
@@ -113,10 +136,7 @@ install_profile() {
     vals="$(mktemp)"
     PKG="$pkg" yq -r '.packages[] | select(.name == strenv(PKG)) | .values // {}' "$profile" > "$vals"
     info "install $pkg into namespace $ns"
-    helm upgrade --install "$pkg" "$dir" \
-      --namespace "$ns" --create-namespace \
-      --values "$dir/values.yaml" --values "$vals" \
-      --wait --timeout "$HELM_TIMEOUT"
+    helm_install_retry "$pkg" "$dir" "$ns" "$vals"
     rm -f "$vals"
   done
   info "install finished"
