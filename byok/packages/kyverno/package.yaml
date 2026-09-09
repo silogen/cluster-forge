@@ -1,0 +1,5 @@
+name: kyverno
+namespace: kyverno
+provides:
+  - policy.kyverno
+requires: []
