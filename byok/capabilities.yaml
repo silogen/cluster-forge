@@ -1,0 +1,16 @@
+# A capability name maps to a shell probe. The probe exits zero when the
+# cluster already gives the capability.
+#
+# Reserved names, not implemented yet: gateway.api, autoscaling.keda, gpu.amd.
+storage.default-class:
+  probe: kubectl get storageclass -o json | jq -e '[.items[] | select(.metadata.annotations["storageclass.kubernetes.io/is-default-class"]=="true")] | length > 0' >/dev/null
+certificates.cert-manager:
+  probe: kubectl get crd certificates.cert-manager.io >/dev/null 2>&1
+serving.kserve:
+  probe: kubectl get crd inferenceservices.serving.kserve.io >/dev/null 2>&1
+inference.aim:
+  probe: kubectl get crd aimservices.aim.eai.amd.com >/dev/null 2>&1
+catalog.aim:
+  probe: kubectl get aimclustermodelsources.aim.eai.amd.com -o name 2>/dev/null | grep -q .
+storage.s3:
+  probe: kubectl get crd seaweeds.seaweed.seaweedfs.com >/dev/null 2>&1
