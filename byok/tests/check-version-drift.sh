@@ -20,8 +20,10 @@ dep_field() { # <package> <dependency> <field>
 for row in \
   "cert-manager:cert-manager:cert-manager" \
   "kserve:kserve:kserve" \
-  "kserve:kserve-crd:kserve-crds" \
-  "seaweedfs:seaweedfs-operator:seaweedfs-operator"
+  "kserve-crds:kserve-crd:kserve-crds" \
+  "seaweedfs-operator:seaweedfs-operator:seaweedfs-operator" \
+  "kyverno:kyverno:kyverno" \
+  "kyverno-policies-storage-local-path:kyverno-policies-storage-local-path:kyverno-policies-storage-local-path"
 do
   IFS=: read -r pkg dep app <<<"$row"
   want="$(APP="$app" yq -r '.apps[strenv(APP)].path' "$VALUES")"
@@ -30,11 +32,18 @@ do
   [ "$got" = "$want" ] || report "package $pkg dependency $dep uses sources/$got, root/values.yaml uses $want"
 done
 
+# The Gateway API CRDs come from the crds subchart of the vendored
+# envoy-gateway chart, so compare the parent path.
+want="$(APP=envoy-gateway yq -r '.apps[strenv(APP)].path' "$VALUES")/charts/crds"
+got="$(dep_field gateway-api-crds crds repository)"
+got="${got#file://../../../sources/}"
+[ "$got" = "$want" ] || report "package gateway-api-crds uses sources/$got, root/values.yaml uses $want"
+
 # OCI charts: the byok dependency version must match the ArgoCD repoVersion.
 # package:dependency:app
 for row in \
   "aim-engine:aim-engine-chart:aim-engine" \
-  "aim-engine:aim-engine-crds-chart:aim-engine-crds"
+  "aim-engine-crds:aim-engine-crds-chart:aim-engine-crds"
 do
   IFS=: read -r pkg dep app <<<"$row"
   want="$(APP="$app" yq -r '.apps[strenv(APP)].repoVersion' "$VALUES")"

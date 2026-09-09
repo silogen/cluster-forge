@@ -11,10 +11,11 @@ AIM_TIMEOUT="${AIM_TIMEOUT:-15m}"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 ok() { echo "ok: $*"; }
 
-echo "== 1. controller pods are ready"
+echo "== 1. the controllers are available"
+# Not "pod --all": the catalog runs short-lived model discovery pods.
 for ns in cert-manager kserve-system aim-system; do
-  kubectl wait --for=condition=Ready pod --all --namespace "$ns" --timeout=5m >/dev/null \
-    || fail "pods in $ns are not ready"
+  kubectl wait --for=condition=Available deployment --all --namespace "$ns" --timeout=5m >/dev/null \
+    || fail "deployments in $ns are not available"
   ok "$ns"
 done
 
@@ -43,15 +44,16 @@ echo "== 5. apply the dummy service"
 kubectl apply -f "$HERE/aimservice-dummy.yaml" >/dev/null
 
 echo "== 6. wait for the service"
-for cond in RuntimeReady InferenceServiceReady; do
+for cond in InferenceServiceReady Ready; do
   kubectl wait --for=condition=$cond aimservice/aim-dummy --namespace "$NS" \
     --timeout="$AIM_TIMEOUT" >/dev/null || fail "condition $cond did not become true"
   ok "$cond"
 done
 
 echo "== 7. call the model"
+# The InferenceService name carries a suffix, so select by the AIMService name.
 svc="$(kubectl get svc --namespace "$NS" \
-  -l serving.kserve.io/inferenceservice=aim-dummy -o name | head -n1)"
+  -l aim.eai.amd.com/service.name=aim-dummy,component=predictor -o name | head -n1)"
 [ -n "$svc" ] || fail "no predictor service found"
 kubectl port-forward --namespace "$NS" "$svc" 18080:80 >/dev/null 2>&1 &
 pf=$!
@@ -73,10 +75,17 @@ for ns in seaweedfs-instance keda opentelemetry-system; do
 done
 kubectl get crd -o name | grep -Eq 'keda\.sh$|opentelemetry\.io$|seaweed\.seaweedfs\.com$' \
   && fail "CRDs of an optional component exist"
-bad="$(kubectl get pods --all-namespaces \
-  --field-selector=status.phase!=Running,status.phase!=Succeeded \
-  -o name | wc -l)"
-[ "$bad" -eq 0 ] || fail "$bad pods are not Running or Succeeded"
+# Discovery pods appear and finish all the time, so give them a moment.
+for _ in $(seq 1 6); do
+  bad="$(kubectl get pods --all-namespaces \
+    --field-selector=status.phase!=Running,status.phase!=Succeeded \
+    -o name | wc -l)"
+  [ "$bad" -eq 0 ] && break
+  sleep 10
+done
+[ "$bad" -eq 0 ] || { kubectl get pods --all-namespaces \
+  --field-selector=status.phase!=Running,status.phase!=Succeeded; \
+  fail "$bad pods are not Running or Succeeded"; }
 ok "no unexpected components"
 
 echo "== 9. clean up"

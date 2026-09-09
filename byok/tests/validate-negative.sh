@@ -18,6 +18,8 @@ chmod +x "$tmp/kubectl"
 cat > "$tmp/bad-profile.yaml" <<'EOF'
 name: bad
 packages:
+  - name: gateway-api-crds
+  - name: aim-engine-crds
   - name: aim-engine
 EOF
 
