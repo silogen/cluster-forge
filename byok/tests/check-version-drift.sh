@@ -15,7 +15,8 @@ dep_field() { # <package> <dependency> <field>
 }
 
 # In-repo charts: the byok dependency must point at the same sources/ directory
-# that the ArgoCD app uses.
+# that the ArgoCD app uses. There is no seaweedfs-crds row: that ArgoCD app is
+# deprecated and the seaweedfs-operator chart ships the CRDs itself.
 # package:dependency:app
 for row in \
   "cert-manager:cert-manager:cert-manager" \

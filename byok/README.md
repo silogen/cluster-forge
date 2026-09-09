@@ -25,13 +25,6 @@ gives ReadWriteMany.
 The core does no routing. Use a port-forward to reach the model. The core adds
 no autoscaling. If a profile needs autoscaling, the cluster must give it.
 
-### Spur k0s
-
-Spur's k0s gives local-path-provisioner as the default StorageClass. The
-default `spur k8s kubeconfig` is namespace-scoped, so it is not enough. Get the
-admin kubeconfig with `k0s kubeconfig admin` on the node, or set
-`allow_admin_kubeconfig = true`.
-
 ## Install
 
 ```bash
@@ -44,6 +37,34 @@ To install from a git ref instead of your checkout:
 ```bash
 byok/bootstrap.sh install --profile <file> --source github:<tag-or-branch>
 ```
+
+## Install on a Spur k0s cluster
+
+`spur/install.sh` does the whole install on a node of a Spur cluster that
+runs Kubernetes from `spur k8s up`. Copy the script to a node and run it:
+
+```bash
+scp byok/spur/install.sh ubuntu@<node>:
+ssh ubuntu@<node> ./install.sh --ref <tag-or-branch> --smoke
+```
+
+The script installs `helm`, `kubectl`, `yq` and `jq` when they are missing,
+gets the cluster-admin kubeconfig from Spur, clones cluster-forge at `--ref`
+into `~/cluster-forge`, runs `bootstrap.sh install` with the
+`scalable-inference` profile, and with `--smoke` runs the smoke test. Run it
+again to upgrade. See `install.sh --help` for the options and the environment
+variables.
+
+Spur's k0s gives local-path-provisioner as the default StorageClass. The
+default `spur k8s kubeconfig` is namespace-scoped, so it is not enough. The
+script asks Spur for the admin kubeconfig, which needs
+`allow_admin_kubeconfig = true` in the `[cluster]` section of `spur.conf`. On
+the control-plane node the script falls back to `k0s kubeconfig admin`.
+
+A Spur cluster with more than one node needs pod traffic between the nodes.
+On OCI the default kube-router mode does not give that. See
+[Future work](docs/future-work.md) for the workaround that the three-node test
+used.
 
 ## Validate
 
@@ -81,7 +102,8 @@ byok/tests/check-version-drift.sh     # pins agree with root/values.yaml
 byok/tests/validate-negative.sh       # validation stops a bad profile
 ```
 
-`smoke.sh` uses a private image. Set `GHCR_PULL_SECRET_JSON` to a docker
+`smoke.sh` pulls `ghcr.io/silogen/aim-dummy`. The image is public. If your
+cluster needs credentials for ghcr.io, set `GHCR_PULL_SECRET_JSON` to a docker
 config JSON before you run it.
 
 ## Packages

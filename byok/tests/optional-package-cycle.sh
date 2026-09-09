@@ -24,10 +24,18 @@ kubectl wait --for=condition=Ready pod --all --namespace seaweedfs-instance --ti
 ok "seaweedfs is ready"
 
 echo "== 3. the install is idempotent"
-before="$(helm list --all-namespaces -o json | jq -S '[.[] | {name, namespace, chart}]')"
+# helm upgrade makes a new revision on every run, so compare the rendered
+# manifests and the release set, not the revision numbers.
+release_state() {
+  helm list --all-namespaces -o json | jq -r '.[] | "\(.name) \(.namespace) \(.chart)"' | sort | while read -r name ns chart; do
+    echo "== $name $ns $chart"
+    helm get manifest "$name" --namespace "$ns"
+  done
+}
+release_state > "$tmp/before.txt"
 "$BYOK/bootstrap.sh" install --profile "$tmp/with-seaweedfs.yaml"
-after="$(helm list --all-namespaces -o json | jq -S '[.[] | {name, namespace, chart}]')"
-[ "$before" = "$after" ] || fail "the release set changed on the second install"
+release_state > "$tmp/after.txt"
+diff "$tmp/before.txt" "$tmp/after.txt" || fail "the rendered manifests changed on the second install"
 ok "no change on the second install"
 
 echo "== 4. remove seaweedfs"

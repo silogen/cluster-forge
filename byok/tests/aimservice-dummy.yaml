@@ -1,5 +1,6 @@
-# CPU-only smoke-test service. The image is private, so the test namespace
-# needs the pull secret aim-dummy-pull when GHCR_PULL_SECRET_JSON is set.
+# CPU-only smoke-test service. The image is public. smoke.sh removes the
+# imagePullSecrets entry when GHCR_PULL_SECRET_JSON is not set, because
+# aim-engine fails the model when the named secret does not exist.
 apiVersion: aim.eai.amd.com/v1alpha1
 kind: AIMService
 metadata:
