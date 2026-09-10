@@ -1,0 +1,6 @@
+dependencies:
+- name: opentelemetry-operator-crds
+  repository: file://../../../sources/opentelemetry-operator-crds/0.93.1
+  version: 0.93.1
+digest: sha256:f4f15ad947c62008f51c468d1af737c3263bbbd6b03777b0c5dd9f574c9ea57a
+generated: "2026-09-10T19:30:36.352057617+03:00"
