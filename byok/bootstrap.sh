@@ -6,6 +6,9 @@ set -euo pipefail
 BYOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HELM_TIMEOUT="${HELM_TIMEOUT:-10m}"
 WORK_DIR="$(mktemp -d)"
+declare -A VAR_OVERRIDE=()
+declare -A VAR_VALUE=()
+READY_PROFILE=""
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -14,9 +17,14 @@ info() { echo "[$(date -u +%H:%M:%S)] $*"; }
 usage() {
   cat <<'EOF'
 Usage:
-  bootstrap.sh install  --profile <file> [--source github:<ref> | --source <path>]
-  bootstrap.sh validate --profile <file>
+  bootstrap.sh install  --profile <file> [--var name=value]... [--source github:<ref> | --source <path>]
+  bootstrap.sh validate --profile <file> [--var name=value]...
   bootstrap.sh remove   <package> [--purge]
+
+Options:
+  --var name=value  Fill a variable that the profile declares under vars.
+                    Repeat it for every variable. A declared variable with an
+                    empty value stops the run.
 
 Environment:
   KUBECONFIG    Path to the cluster-admin kubeconfig. Required.
@@ -63,6 +71,61 @@ resolve_source() {
       ;;
   esac
   [ -d "$BYOK_DIR/packages" ] || die "no packages directory under $BYOK_DIR"
+}
+
+# Resolves extends and fills the vars. Sets READY_PROFILE.
+# The base packages come first. A child entry with the same name replaces the
+# base entry in place. Child-only entries follow in child order.
+prepare_profile() { # <profile file>
+  local profile="$1" base merged="$WORK_DIR/profile-merged.yaml"
+  READY_PROFILE="$WORK_DIR/profile.yaml"
+  base="$(yq -r '.extends // ""' "$profile")"
+  if [ -n "$base" ]; then
+    local base_file="$(dirname "$profile")/$base.yaml"
+    [ -f "$base_file" ] || die "profile $(basename "$profile") extends $base, but $base_file does not exist"
+    [ -z "$(yq -r '.extends // ""' "$base_file")" ] \
+      || die "profile $base itself extends another profile, one level only"
+    BASE="$base_file" CHILD="$profile" yq -n '
+      load(strenv(BASE)) as $b | load(strenv(CHILD)) as $c |
+      ($b * $c) * {"packages":
+        (($b.packages // []) | map(. as $bp | (($c.packages // []) | map(select(.name == $bp.name)) | .[0]) // $bp))
+        + (($c.packages // []) | map(select([.name] - ($b.packages // [] | map(.name)) | length > 0)))
+      }' > "$merged"
+  else
+    cp "$profile" "$merged"
+  fi
+  substitute_vars "$merged" "$READY_PROFILE"
+}
+
+# Replaces ${name} with the value of every declared var. VAR_OVERRIDE holds
+# the --var values.
+substitute_vars() { # <in> <out>
+  local in="$1" out="$2" name value text left
+  text="$(<"$in")"
+  for name in $(yq -r '.vars // {} | keys | .[]' "$in"); do
+    if [ -n "${VAR_OVERRIDE[$name]+set}" ]; then
+      value="${VAR_OVERRIDE[$name]}"
+    else
+      value="$(NAME="$name" yq -r '.vars[strenv(NAME)] // ""' "$in")"
+    fi
+    [ -n "$value" ] || die "the profile needs --var $name=<value>"
+    VAR_VALUE[$name]="$value"
+    text="${text//\$\{$name\}/$value}"
+  done
+  for name in "${!VAR_OVERRIDE[@]}"; do
+    [ -n "${VAR_VALUE[$name]+set}" ] || die "the profile does not declare the variable $name"
+  done
+  left="$(printf '%s' "$text" | grep -o '\${[A-Za-z_][A-Za-z0-9_]*}' | sort -u | tr '\n' ' ' || true)"
+  [ -z "$left" ] || die "the profile uses variables that it does not declare: $left"
+  printf '%s\n' "$text" > "$out"
+}
+
+print_notes() { # <ready profile>
+  local notes
+  notes="$(yq -r '.notes // ""' "$1")"
+  [ -n "$notes" ] || return 0
+  echo
+  printf '%s\n' "$notes"
 }
 
 pkg_field() { yq -r "$2" "$BYOK_DIR/packages/$1/package.yaml"; }
@@ -140,6 +203,7 @@ install_profile() {
     info "install $pkg into namespace $ns"
     helm_install_retry "$pkg" "$dir" "$ns" "$vals"
   done
+  print_notes "$profile"
   info "install finished"
 }
 
@@ -182,6 +246,9 @@ main() {
   while [ $# -gt 0 ]; do
     case "$1" in
       --profile) profile="$2"; shift 2;;
+      --var)
+        case "$2" in *=*) :;; *) die "--var needs name=value, got $2";; esac
+        VAR_OVERRIDE["${2%%=*}"]="${2#*=}"; shift 2;;
       --source) source="$2"; shift 2;;
       --purge) purge=yes; shift;;
       -h|--help) usage; exit 0;;
@@ -196,6 +263,8 @@ main() {
       check_tools; check_admin; resolve_source "$source"
       [ -f "$profile" ] || profile="$BYOK_DIR/$profile"
       [ -f "$profile" ] || die "no such profile file"
+      prepare_profile "$profile"
+      profile="$READY_PROFILE"
       if [ "$cmd" = install ]; then install_profile "$profile"; else validate_profile "$profile"; fi
       ;;
     remove)
