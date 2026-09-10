@@ -1,0 +1,6 @@
+name: envoy-gateway
+namespace: envoy-gateway-system
+provides:
+  - gateway.api
+requires:
+  - gateway.api.crds

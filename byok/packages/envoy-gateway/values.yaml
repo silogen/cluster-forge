@@ -1,0 +1,7 @@
+gateway-helm:
+  crds:
+    gatewayAPI:
+      # The gateway-api-crds package installs the same CRDs and renders the
+      # safe upgrade policy. A second copy of that policy fails the install.
+      safeUpgradePolicy:
+        enabled: false
