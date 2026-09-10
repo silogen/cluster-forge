@@ -31,6 +31,7 @@ spec:
             kind: Secret
             name: cluster-tls
         mode: Terminate
+{{- if .Values.k8sPassthrough.enabled }}
     # k8s.<domain> -> kube API, raw TLS passthrough (the API server terminates TLS itself).
     # SNI longest-match beats the *.<domain> terminate listener. On :443 only, never :6443,
     # so it cannot hijack pod->apiserver traffic on cluster-bloom.
@@ -46,6 +47,7 @@ spec:
       protocol: TLS
       tls:
         mode: Passthrough
+{{- end }}
 {{- if and .Values.aiGateway.enabled .Values.aiGateway.routeHostname }}
     # <ai-host> -> ai-gateway, raw TLS passthrough so ai-gateway terminates its own TLS and
     # runs the full AI auth chain (native apiKeyAuth + body-aware ext_authz) + EPP on its
