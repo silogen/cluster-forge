@@ -1,0 +1,6 @@
+dependencies:
+- name: envoy-gateway-config
+  repository: file://../../../sources/envoy-gateway-config
+  version: 0.1.0
+digest: sha256:93528ae91516d57d5b35f7fed9c230a4908482f5f4141a817d6046587551ef8a
+generated: "2026-09-10T19:29:45.262052453+03:00"

@@ -1,10 +1,16 @@
 # A capability name maps to a shell probe. The probe exits zero when the
 # cluster already gives the capability.
 #
-# Reserved names, not implemented yet: gateway.api, autoscaling.keda, gpu.amd.
+# Reserved names, not implemented yet: autoscaling.keda, gpu.amd.
 # gateway.api.crds gives the CRDs only, with no gateway implementation.
 gateway.api.crds:
   probe: kubectl get crd gateways.gateway.networking.k8s.io >/dev/null 2>&1
+gateway.api:
+  probe: kubectl get gatewayclass envoy-gateway >/dev/null 2>&1
+tls.cluster-cert:
+  probe: kubectl get secret cluster-tls -n envoy-gateway-system >/dev/null 2>&1
+gateway.https:
+  probe: kubectl get gateway https -n envoy-gateway-system >/dev/null 2>&1
 policy.kyverno:
   probe: kubectl get crd clusterpolicies.kyverno.io >/dev/null 2>&1
 storage.access-mode-mutation:
