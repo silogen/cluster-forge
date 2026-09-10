@@ -1,0 +1,5 @@
+name: opentelemetry-crds
+namespace: opentelemetry-operator-system
+provides:
+  - telemetry.otel.crds
+requires: []
