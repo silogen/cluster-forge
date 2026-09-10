@@ -31,6 +31,12 @@ inference.aim:
   probe: kubectl get crd aimservices.aim.eai.amd.com >/dev/null 2>&1 && kubectl get deployments -A -o name | grep -q aim-engine-controller-manager
 catalog.aim:
   probe: kubectl get aimclustermodelsources.aim.eai.amd.com -o name 2>/dev/null | grep -q .
+secrets.aiwb-demo:
+  # A customer who replaces the aiwb-demo-secrets package with their own
+  # secret management makes the same Secrets. Then this probe passes and the
+  # package can leave the profile.
+  probe: |
+    kubectl get secret aiwb-cnpg-user aiwb-ui-keycloak-secret aiwb-nextauth-secret minio-credentials cluster-auth-admin-token -n aiwb >/dev/null 2>&1       && kubectl get secret airm-realm-credentials keycloak-cnpg-user keycloak-credentials -n keycloak >/dev/null 2>&1       && kubectl get secret postgres-superuser aiwb-db-user keycloak-db-user -n postgres >/dev/null 2>&1
 database.postgres:
   probe: kubectl get svc postgres -n postgres >/dev/null 2>&1
 telemetry.otel.crds:
