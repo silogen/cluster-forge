@@ -5,7 +5,10 @@ set -euo pipefail
 
 REF="${REF:-main}"
 SOURCE=""
-PROFILE="profiles/scalable-inference.yaml"
+PROFILE_NAME="${PROFILE_NAME:-scalable-inference}"
+PROFILE=""
+DOMAIN="${DOMAIN:-}"
+GATEWAY_SERVICE_TYPE="${GATEWAY_SERVICE_TYPE:-ClusterIP}"
 SMOKE=no
 REPO="${CLUSTER_FORGE_REPO:-https://github.com/silogen/cluster-forge.git}"
 CHECKOUT_DIR="${CHECKOUT_DIR:-$HOME/cluster-forge}"
@@ -22,7 +25,8 @@ info() { echo "[$(date -u +%H:%M:%S)] $*"; }
 usage() {
   cat <<'EOF'
 Usage:
-  install.sh [--ref <git ref>] [--source <path>] [--profile <file>] [--smoke]
+  install.sh [--ref <git ref>] [--source <path>] [--profile <name or file>]
+             [--domain <name>] [--smoke]
 
 Run on a node of a Spur k0s cluster. The script installs helm, kubectl, yq and
 jq when they are missing, gets the cluster-admin kubeconfig from Spur, clones
@@ -31,9 +35,12 @@ cluster-forge at --ref, and runs byok/bootstrap.sh install.
 Options:
   --ref <git ref>   cluster-forge tag or branch to clone. Default: main.
   --source <path>   Use this cluster-forge checkout instead of a clone.
-  --profile <file>  Profile file, relative to byok/ or absolute.
-                    Default: profiles/scalable-inference.yaml.
-  --smoke           Run byok/tests/smoke.sh after the install.
+  --profile <name>  Profile name, for example aiwb-demo, or a file path.
+                    Default: scalable-inference.
+  --domain <name>   The DNS name of the cluster. Only a profile that declares
+                    the domain variable needs it. Without it the script uses
+                    <node-ip>.nip.io.
+  --smoke           Run the smoke tests after the install.
 
 Environment:
   CLUSTER_FORGE_REPO  Clone URL. Default: https://github.com/silogen/cluster-forge.git
@@ -43,6 +50,11 @@ Environment:
   HELM_VERSION        Helm version to install, for example v3.19.0. Default: latest 3.x.
   KUBECTL_VERSION     kubectl version to install, for example v1.36.0. Default: latest stable.
   YQ_VERSION          yq version to install, for example v4.52.5. Default: latest.
+  DOMAIN              Same as --domain.
+  GATEWAY_SERVICE_TYPE  Service type of the Envoy data plane. Default:
+                      ClusterIP with the node address in externalIPs, which
+                      needs no load balancer. Use LoadBalancer on a cluster
+                      that has one.
 EOF
 }
 
@@ -51,6 +63,7 @@ while [ $# -gt 0 ]; do
     --ref) REF="$2"; shift 2;;
     --source) SOURCE="$2"; shift 2;;
     --profile) PROFILE="$2"; shift 2;;
+    --domain) DOMAIN="$2"; shift 2;;
     --smoke) SMOKE=yes; shift;;
     -h|--help) usage; exit 0;;
     *) usage; die "unknown argument: $1";;
@@ -143,20 +156,43 @@ resolve_source() {
   SOURCE="$CHECKOUT_DIR"
 }
 
+# The first IPv4 address of the node, the one that carries the default route.
+node_ip() {
+  ip -4 -o route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -n1
+}
+
 main() {
   install_tools
   fetch_kubeconfig
   resolve_source
-  local profile="$PROFILE"
-  [ -f "$profile" ] || profile="$SOURCE/byok/$PROFILE"
-  [ -f "$profile" ] || die "no such profile: $PROFILE"
+  local profile="${PROFILE:-profiles/$PROFILE_NAME.yaml}"
+  [ -f "$profile" ] || profile="$SOURCE/byok/$profile"
+  [ -f "$profile" ] || die "no such profile: ${PROFILE:-$PROFILE_NAME}"
+
+  # A profile that declares the domain variable also declares the two
+  # gateway variables, so fill all three.
+  local -a vars=()
+  if yq -e '.vars | has("domain")' "$profile" >/dev/null 2>&1; then
+    local ip; ip="$(node_ip)"
+    [ -n "$ip" ] || die "cannot read the node address, use --domain"
+    [ -n "$DOMAIN" ] || DOMAIN="$ip.nip.io"
+    vars+=(--var "domain=$DOMAIN" --var "gatewayServiceType=$GATEWAY_SERVICE_TYPE")
+    [ "$GATEWAY_SERVICE_TYPE" = ClusterIP ] && vars+=(--var "gatewayExternalIP=$ip")
+    info "domain $DOMAIN, gateway service $GATEWAY_SERVICE_TYPE"
+  fi
 
   info "install profile $(basename "$profile") from $SOURCE"
-  "$SOURCE/byok/bootstrap.sh" install --profile "$profile"
+  "$SOURCE/byok/bootstrap.sh" install --profile "$profile" ${vars[@]+"${vars[@]}"}
 
   if [ "$SMOKE" = yes ]; then
-    info "run the smoke test"
-    "$SOURCE/byok/tests/smoke.sh"
+    if [ -f "$profile" ] && yq -e '.name == "aiwb-demo"' "$profile" >/dev/null 2>&1; then
+      info "run the smoke tests"
+      NAMESPACE=workbench "$SOURCE/byok/tests/smoke.sh"
+      "$SOURCE/byok/tests/smoke-ui.sh"
+    else
+      info "run the smoke test"
+      "$SOURCE/byok/tests/smoke.sh"
+    fi
   fi
   echo
   echo "Done. Use the cluster with:"
