@@ -75,7 +75,7 @@ echo "== 6. the API lists the deployment"
 found=no
 for _ in $(seq 1 30); do
   if api "https://aiwbapi.$DOMAIN/v1/projects/$NS/inference" \
-      | jq -e '.data | map(select(.name == "aim-dummy")) | length > 0' >/dev/null 2>&1; then
+      | jq -e '.data | map(select(.metadata.name == "aim-dummy")) | length > 0' >/dev/null 2>&1; then
     found=yes; break
   fi
   sleep 5
