@@ -97,8 +97,8 @@ prepare_profile() { # <profile file>
   substitute_vars "$merged" "$READY_PROFILE"
 }
 
-# Replaces ${name} with the value of every declared var. VAR_OVERRIDE holds
-# the --var values.
+# Replaces ${name} with the value of every declared var. A var that the
+# profile declares as null needs a --var value. VAR_OVERRIDE holds them.
 substitute_vars() { # <in> <out>
   local in="$1" out="$2" name value text left
   text="$(<"$in")"
@@ -106,9 +106,12 @@ substitute_vars() { # <in> <out>
     if [ -n "${VAR_OVERRIDE[$name]+set}" ]; then
       value="${VAR_OVERRIDE[$name]}"
     else
-      value="$(NAME="$name" yq -r '.vars[strenv(NAME)] // ""' "$in")"
+      # A declared default of null means required, an empty string means
+      # optional with an empty value.
+      NAME="$name" yq -e '.vars[strenv(NAME)] | tag != "!!null"' "$in" >/dev/null 2>&1 \
+        || die "the profile needs --var $name=<value>"
+      value="$(NAME="$name" yq -r '.vars[strenv(NAME)]' "$in")"
     fi
-    [ -n "$value" ] || die "the profile needs --var $name=<value>"
     VAR_VALUE[$name]="$value"
     text="${text//\$\{$name\}/$value}"
   done
@@ -164,7 +167,7 @@ validate_profile() {
     done
     seen="$seen $(pkg_field "$pkg" '.provides // [] | .[]' | tr '\n' ' ')"
   done
-  info "validation passed for $(basename "$profile")"
+  info "validation passed for profile $(yq -r '.name // "?"' "$profile")"
 }
 
 # A chart that holds both a webhook and objects that the webhook validates

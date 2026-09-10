@@ -77,7 +77,7 @@ expect_fail "extends chain" "one level only" "$tmp/chain.yaml"
 cat > "$tmp/empty-var.yaml" <<'EOF'
 name: empty-var
 vars:
-  domain: ""
+  domain:
 packages:
   - name: gateway-api-crds
     values:
@@ -104,12 +104,14 @@ cat > "$tmp/child.yaml" <<'EOF'
 name: child
 extends: base
 vars:
-  domain: ""
+  domain:
+  optional: ""
 packages:
   - name: gateway-api-crds
     values:
       crds:
         domain: ${domain}
+        extra: "${optional}"
 notes: |
   URL: https://ui.${domain}
 EOF
