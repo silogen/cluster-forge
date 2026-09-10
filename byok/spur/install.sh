@@ -5,8 +5,7 @@ set -euo pipefail
 
 REF="${REF:-main}"
 SOURCE=""
-PROFILE_NAME="${PROFILE_NAME:-scalable-inference}"
-PROFILE=""
+PROFILE="${PROFILE:-scalable-inference}"
 DOMAIN="${DOMAIN:-}"
 GATEWAY_SERVICE_TYPE="${GATEWAY_SERVICE_TYPE:-ClusterIP}"
 SMOKE=no
@@ -50,6 +49,7 @@ Environment:
   HELM_VERSION        Helm version to install, for example v3.19.0. Default: latest 3.x.
   KUBECTL_VERSION     kubectl version to install, for example v1.36.0. Default: latest stable.
   YQ_VERSION          yq version to install, for example v4.52.5. Default: latest.
+  PROFILE             Same as --profile.
   DOMAIN              Same as --domain.
   GATEWAY_SERVICE_TYPE  Service type of the Envoy data plane. Default:
                       ClusterIP with the node address in externalIPs, which
@@ -165,9 +165,13 @@ main() {
   install_tools
   fetch_kubeconfig
   resolve_source
-  local profile="${PROFILE:-profiles/$PROFILE_NAME.yaml}"
-  [ -f "$profile" ] || profile="$SOURCE/byok/$profile"
-  [ -f "$profile" ] || die "no such profile: ${PROFILE:-$PROFILE_NAME}"
+  # --profile takes a profile name, a path under byok/, or an absolute path.
+  local profile=""
+  local candidate
+  for candidate in "$PROFILE" "$SOURCE/byok/$PROFILE" "$SOURCE/byok/profiles/$PROFILE.yaml"; do
+    [ -f "$candidate" ] && { profile="$candidate"; break; }
+  done
+  [ -n "$profile" ] || die "no such profile: $PROFILE"
 
   # A profile that declares the domain variable also declares the two
   # gateway variables, so fill all three.
