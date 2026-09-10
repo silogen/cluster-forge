@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # Smoke test for the scalable-inference profile. Run it against the cluster
 # after bootstrap.sh install. Set KEEP=1 to keep the test namespace.
+# On an aiwb-demo cluster run it with NAMESPACE=workbench: routing is on
+# there, and an AIMService in a namespace without the project-id label gets
+# no workload-id label and a routing error.
 # The dummy image is public. Set GHCR_PULL_SECRET_JSON to a docker config
 # JSON when your cluster needs credentials for ghcr.io.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NS=aims-test
+NS="${NAMESPACE:-aims-test}"
 AIM_TIMEOUT="${AIM_TIMEOUT:-15m}"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 ok() { echo "ok: $*"; }
@@ -44,9 +47,10 @@ echo "== 5. apply the dummy service"
 # aim-engine fails the model when a named pull secret does not exist, so the
 # reference stays only when the secret was made in step 4.
 if [ -n "${GHCR_PULL_SECRET_JSON:-}" ]; then
-  kubectl apply -f "$HERE/aimservice-dummy.yaml" >/dev/null
+  NS="$NS" yq '.metadata.namespace = strenv(NS)' "$HERE/aimservice-dummy.yaml" | kubectl apply -f - >/dev/null
 else
-  yq 'del(.spec.imagePullSecrets)' "$HERE/aimservice-dummy.yaml" | kubectl apply -f - >/dev/null
+  NS="$NS" yq 'del(.spec.imagePullSecrets) | .metadata.namespace = strenv(NS)' \
+    "$HERE/aimservice-dummy.yaml" | kubectl apply -f - >/dev/null
 fi
 
 echo "== 6. wait for the service"
@@ -82,6 +86,9 @@ echo "$body" | jq -e '.choices | length > 0' >/dev/null || fail "no choices in t
 ok "chat completion"
 
 echo "== 8. absence of components that the core does not install"
+if [ "$NS" != aims-test ]; then
+  echo "NAMESPACE is $NS, so this is not a minimal core cluster, step 8 is skipped"
+else
 for ns in seaweedfs-instance keda opentelemetry-system; do
   kubectl get namespace "$ns" >/dev/null 2>&1 && fail "namespace $ns exists"
 done
@@ -99,11 +106,15 @@ done
   --field-selector=status.phase!=Running,status.phase!=Succeeded; \
   fail "$bad pods are not Running or Succeeded"; }
 ok "no unexpected components"
+fi
 
 echo "== 9. clean up"
 if [ "${KEEP:-0}" = 1 ]; then
   echo "KEEP=1, namespace $NS stays"
-else
+elif [ "$NS" = aims-test ]; then
   kubectl delete namespace "$NS" --wait=false >/dev/null
+else
+  # A namespace that another release owns stays, only the test object goes.
+  kubectl delete aimservice aim-dummy --namespace "$NS" --wait=false >/dev/null
 fi
 echo "SMOKE TEST PASSED"
