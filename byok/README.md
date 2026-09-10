@@ -4,9 +4,14 @@ byok installs a minimal cluster-forge on a Kubernetes cluster that already
 exists. It uses `helm upgrade --install` only. It does not install ArgoCD,
 Gitea or OpenBao.
 
-The reference profile `scalable-inference` gives one model endpoint that
-aim-engine and KServe serve. It does not install AIRM, AIWB, Keycloak, Kaiwo,
-Kueue, a gateway or a UI.
+There are two profiles:
+
+- `scalable-inference` gives one model endpoint that aim-engine and KServe
+  serve. It does not install AIRM, AIWB, Keycloak, Kaiwo, Kueue, a gateway or
+  a UI.
+- `aiwb-demo` extends `scalable-inference` with a gateway, one PostgreSQL Pod,
+  a small Keycloak and AIWB. It is a reference demo installation, not a
+  production installation. See [The aiwb-demo profile](#the-aiwb-demo-profile).
 
 This path runs beside the ArgoCD path in `root/`. It does not replace it.
 
@@ -38,6 +43,67 @@ To install from a git ref instead of your checkout:
 byok/bootstrap.sh install --profile <file> --source github:<tag-or-branch>
 ```
 
+## The aiwb-demo profile
+
+The demo shows the whole path: log in through Keycloak, deploy a model from
+the catalog with the AIWB UI, and chat with the model on CPU. AIWB runs in
+standalone mode, so it needs no AIRM and no Kueue.
+
+```bash
+export KUBECONFIG=/path/to/admin.kubeconfig
+byok/bootstrap.sh install --profile byok/profiles/aiwb-demo.yaml \
+  --var domain=demo.example.com
+```
+
+The profile declares three variables:
+
+| Variable | Meaning |
+|---|---|
+| `domain` | The DNS name under which the cluster answers. Required. Use a `nip.io` name such as `203.0.113.10.nip.io` when there is no real DNS name. |
+| `gatewayServiceType` | Service type of the Envoy data plane. Default `LoadBalancer`. |
+| `gatewayExternalIP` | Node address that a `ClusterIP` Service also answers on. Optional. |
+
+The install prints the URLs and the login of the demo user at the end.
+
+### How traffic reaches the gateway
+
+- **A cloud load balancer or MetalLB**: keep the default
+  `gatewayServiceType=LoadBalancer`. Point `*.<domain>` at the address of the
+  Service.
+- **No load balancer**: use `--var gatewayServiceType=ClusterIP --var
+  gatewayExternalIP=<node-ip>`. The Service keeps the node address in
+  `externalIPs`, so the node answers on port 443.
+- **Neither works**: use `--var gatewayServiceType=NodePort` and the port that
+  the Service gets.
+
+### What the demo does not do
+
+- The API-key page answers 503. There is no cluster-auth and no OpenBao.
+- Datasets, artifacts and models that need S3 answer "storage unavailable".
+  There is no S3 in the profile. The `seaweedfs-operator` and `seaweedfs`
+  packages are in the profile as comments.
+- The metrics panels stay empty. There is no Prometheus.
+- The browser shows a certificate warning, because the `selfsigned-tls`
+  package makes a self-signed certificate. Take that package out and bring
+  your own `cluster-tls` Secret in `envoy-gateway-system` to remove the
+  warning.
+- PostgreSQL is one Pod with one volume. There is no backup and no high
+  availability.
+- A model volume is about two times the model size, because the AIWB chart
+  sets `pvcHeadroomPercent: 100`.
+
+### The Secrets
+
+The `aiwb-demo-secrets` package makes every Secret that AIWB, Keycloak and
+PostgreSQL read. It makes each password once and reads it back with `lookup`
+on the next run, so an upgrade does not rotate it. `lookup` gives nothing
+under `helm template` and under ArgoCD, so the package works with
+`bootstrap.sh` only.
+
+This is the package to replace with your own secret management. The
+`secrets.aiwb-demo` capability probe looks for the Secrets themselves, so when
+they already exist the package can leave the profile.
+
 ## Install on a Spur k0s cluster
 
 `spur/install.sh` does the whole install on a node of a Spur cluster that
@@ -46,14 +112,19 @@ runs Kubernetes from `spur k8s up`. Copy the script to a node and run it:
 ```bash
 scp byok/spur/install.sh ubuntu@<node>:
 ssh ubuntu@<node> ./install.sh --ref <tag-or-branch> --smoke
+ssh ubuntu@<node> ./install.sh --ref <tag-or-branch> --profile aiwb-demo --smoke
 ```
 
 The script installs `helm`, `kubectl`, `yq` and `jq` when they are missing,
 gets the cluster-admin kubeconfig from Spur, clones cluster-forge at `--ref`
-into `~/cluster-forge`, runs `bootstrap.sh install` with the
-`scalable-inference` profile, and with `--smoke` runs the smoke test. Run it
-again to upgrade. See `install.sh --help` for the options and the environment
-variables.
+into `~/cluster-forge`, runs `bootstrap.sh install` with the profile of
+`--profile`, and with `--smoke` runs the smoke tests. Run it again to upgrade.
+See `install.sh --help` for the options and the environment variables.
+
+For the `aiwb-demo` profile the script fills the domain with
+`<node-ip>.nip.io` and gives the node address to the Envoy Service in
+`externalIPs`, so the cluster needs no load balancer. `--domain` and
+`GATEWAY_SERVICE_TYPE` override both.
 
 Spur's k0s gives local-path-provisioner as the default StorageClass. The
 default `spur k8s kubeconfig` is namespace-scoped, so it is not enough. The
@@ -97,6 +168,8 @@ Run `install` again with the same profile. The command is idempotent.
 
 ```bash
 byok/tests/smoke.sh                   # the core serves a model
+NAMESPACE=workbench byok/tests/smoke.sh   # the same on an aiwb-demo cluster
+byok/tests/smoke-ui.sh                # login, API, deploy and chat
 byok/tests/optional-package-cycle.sh  # add, re-install and purge seaweedfs
 byok/tests/check-version-drift.sh     # pins agree with root/values.yaml
 byok/tests/validate-negative.sh       # validation stops a bad profile
@@ -121,6 +194,16 @@ config JSON before you run it.
 | aim-catalog | aim-system | catalog.aim | inference.aim |
 | seaweedfs-operator (optional) | seaweedfs-operator | storage.s3.operator | (none) |
 | seaweedfs (optional) | seaweedfs-instance | storage.s3 | storage.s3.operator, storage.default-class |
+| envoy-gateway | envoy-gateway-system | gateway.api | gateway.api.crds |
+| selfsigned-tls | envoy-gateway-system | tls.cluster-cert | certificates.cert-manager |
+| envoy-gateway-config | envoy-gateway-system | gateway.https | gateway.api, tls.cluster-cert |
+| opentelemetry-crds | opentelemetry-operator-system | telemetry.otel.crds | (none) |
+| aiwb-demo-secrets | aiwb | secrets.aiwb-demo | (none) |
+| postgres | postgres | database.postgres | storage.default-class, secrets.aiwb-demo |
+| keycloak | keycloak | auth.oidc | database.postgres, gateway.https, secrets.aiwb-demo |
+| aiwb | aiwb | workbench.ui | auth.oidc, database.postgres, gateway.https, inference.aim, policy.kyverno, telemetry.otel.crds, secrets.aiwb-demo |
+
+The last nine rows belong to the `aiwb-demo` profile.
 
 Several components ship their CRDs in one chart and objects of those CRDs in
 another. Helm builds the whole release manifest before it applies anything, so
@@ -149,19 +232,40 @@ cluster already gives it.
 A profile is a name and an ordered package list. The list order is the install
 order. A `values` block merges on top of the package `values.yaml`.
 
+`extends: <name>` takes the packages of another profile in the same directory.
+The base packages come first, an entry with the same name replaces the base
+entry in place, and the entries that only the child has follow. A base profile
+must not extend a third profile.
+
+`vars` declares the inputs. `--var name=value` fills one. A variable that the
+profile declares as null needs a value and stops the run without one. A
+variable that the profile declares as an empty string is optional.
+`${name}` in the text of the profile takes the value. A `${name}` that no
+profile declares stops the run.
+
+`notes` is printed after a successful install, with the variables filled in.
+
 ```yaml
 name: my-profile
+extends: scalable-inference
+vars:
+  domain:
 packages:
-  - name: cert-manager
-  - name: kserve
   - name: aim-engine
     values:
       aim-engine-chart:
         clusterRuntimeConfig:
           enable: true
+  - name: selfsigned-tls
+    values:
+      cert-manager-config:
+        domain: ${domain}
+notes: |
+  The cluster answers under ${domain}.
 ```
 
 ## Documents
 
 - [Footprint of scalable-inference](docs/footprint-scalable-inference.md)
+- [Footprint of aiwb-demo](docs/footprint-aiwb-demo.md)
 - [Future work](docs/future-work.md)
