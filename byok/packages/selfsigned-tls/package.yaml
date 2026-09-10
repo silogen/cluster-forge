@@ -1,0 +1,6 @@
+name: selfsigned-tls
+namespace: envoy-gateway-system
+provides:
+  - tls.cluster-cert
+requires:
+  - certificates.cert-manager

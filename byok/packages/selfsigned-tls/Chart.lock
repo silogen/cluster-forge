@@ -1,0 +1,6 @@
+dependencies:
+- name: cert-manager-config
+  repository: file://../../../sources/cert-manager-config
+  version: 0.1.0
+digest: sha256:a421c924d2bfcc08f81926fd1801e8f6dcf6182927b6d2ebf7c927d5d34cb5da
+generated: "2026-09-10T19:29:45.110032507+03:00"

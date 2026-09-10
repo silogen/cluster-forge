@@ -1,0 +1,14 @@
+envoy-gateway-config:
+  # The HelmChartConfig object is RKE2 only.
+  coreDns:
+    enabled: false
+  # cluster-bloom labels the first node. A foreign cluster has no such label.
+  envoyProxy:
+    nodeSelector: {}
+  # The kube API is reached with the kubeconfig, not through the gateway.
+  k8sPassthrough:
+    enabled: false
+  gatewayDnsService:
+    enabled: false
+  aiGateway:
+    enabled: false
