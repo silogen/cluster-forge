@@ -1,0 +1,15 @@
+# Namespaces that the chart makes. The aiwb chart makes the workbench
+# namespace itself, so it is not in this list.
+namespaces:
+  - postgres
+  - keycloak
+
+# The namespace of the AIWB release. The chart does not make it, the aiwb
+# package release does, but the Secrets must be there before AIWB starts.
+aiwbNamespace: aiwb
+
+postgres:
+  namespace: postgres
+  superuser: postgres
+  aiwbUser: aiwb_user
+  keycloakUser: keycloak
