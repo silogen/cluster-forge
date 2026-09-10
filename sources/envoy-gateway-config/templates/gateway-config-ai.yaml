@@ -1,3 +1,4 @@
+{{- if .Values.aiGateway.enabled }}
 apiVersion: aigateway.envoyproxy.io/v1beta1
 kind: GatewayConfig
 metadata:
@@ -10,3 +11,4 @@ spec:
         requests:
           cpu: 100m
           memory: 256Mi
+{{- end }}
