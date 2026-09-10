@@ -4,6 +4,7 @@
 set -euo pipefail
 
 LABEL="${1:-idle}"
+# The aiwb-demo profile adds: envoy-gateway-system aiwb keycloak postgres
 NAMESPACES="${NAMESPACES:-kyverno cert-manager kserve-system aim-system}"
 
 echo "## Footprint: $LABEL"
