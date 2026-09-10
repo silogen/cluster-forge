@@ -21,6 +21,25 @@ This path runs beside the ArgoCD path in `root/`. It does not replace it.
 - A default StorageClass with dynamic provisioning.
 - `helm` 3.8 or later, `kubectl`, `yq` v4, `jq` and `git` on your PATH.
 
+### A k3s test cluster
+
+Skip this section when you have a cluster. A stock k3s cluster serves the byok
+packages, but Traefik takes port 443 and the ServiceLB controller answers every
+`LoadBalancer` Service. Both collide with the Envoy gateway of the `aiwb-demo`
+profile, so leave them out:
+
+```bash
+curl -sfL https://get.k3s.io | sudo INSTALL_K3S_VERSION=v1.36.4+k3s1 \
+  INSTALL_K3S_EXEC="--disable traefik --disable servicelb --write-kubeconfig-mode 644" sh -
+```
+
+The version pin is needed, because the install script reads the channel from
+`update.k3s.io`, which answers with a certificate that no client trusts. The
+kubeconfig is `/etc/rancher/k3s/k3s.yaml`, and the default StorageClass is
+local-path-provisioner, which gives ReadWriteOnce only.
+
+### Storage and routing
+
 aim-engine 0.2.5 asks for ReadWriteMany cache volumes. If your default
 StorageClass gives ReadWriteOnce only, as local-path-provisioner does, keep the
 `kyverno` and `kyverno-policies-storage-local-path` packages in the profile.
@@ -53,6 +72,16 @@ standalone mode, so it needs no AIRM and no Kueue.
 export KUBECONFIG=/path/to/admin.kubeconfig
 byok/bootstrap.sh install --profile byok/profiles/aiwb-demo.yaml \
   --var domain=demo.example.com
+```
+
+On a cluster without a load balancer, give the node address to the gateway and
+use a `nip.io` name:
+
+```bash
+byok/bootstrap.sh install --profile byok/profiles/aiwb-demo.yaml \
+  --var domain=10.0.255.181.nip.io \
+  --var gatewayServiceType=ClusterIP \
+  --var gatewayExternalIP=10.0.255.181
 ```
 
 The profile declares three variables:
@@ -115,6 +144,15 @@ ssh ubuntu@<node> ./install.sh --ref <tag-or-branch> --smoke
 ssh ubuntu@<node> ./install.sh --ref <tag-or-branch> --profile aiwb-demo --smoke
 ```
 
+`--source <path>` uses a checkout on the node instead of a clone, which is the
+way to try a change that is not pushed yet:
+
+```bash
+tar czf /tmp/cf.tgz byok sources root && scp /tmp/cf.tgz ubuntu@<node>:
+ssh ubuntu@<node> 'mkdir -p cf && tar xzf cf.tgz -C cf'
+ssh ubuntu@<node> 'cf/byok/spur/install.sh --source ~/cf --profile aiwb-demo --smoke'
+```
+
 The script installs `helm`, `kubectl`, `yq` and `jq` when they are missing,
 gets the cluster-admin kubeconfig from Spur, clones cluster-forge at `--ref`
 into `~/cluster-forge`, runs `bootstrap.sh install` with the profile of
@@ -141,7 +179,12 @@ used.
 
 ```bash
 byok/bootstrap.sh validate --profile byok/profiles/scalable-inference.yaml
+byok/bootstrap.sh validate --profile byok/profiles/aiwb-demo.yaml \
+  --var domain=demo.example.com
 ```
+
+`validate` needs the same `--var` values as `install`, so a missing variable
+shows before anything installs.
 
 Validation runs before every install. Each `requires` entry of a package must
 be satisfied by a package earlier in the profile, or by a cluster probe from
@@ -175,6 +218,25 @@ byok/tests/optional-package-cycle.sh  # add, re-install and purge seaweedfs
 byok/tests/check-version-drift.sh     # pins agree with root/values.yaml
 byok/tests/validate-negative.sh       # validation stops a bad profile
 ```
+
+`smoke-ui.sh` and `NAMESPACE=workbench smoke.sh` need an `aiwb-demo` cluster.
+`smoke.sh` without the variable and `optional-package-cycle.sh` need a
+`scalable-inference` cluster: the cycle test installs that profile, and its
+aim-engine package takes the `AIMClusterRuntimeConfig` that the aiwb release
+owns on an `aiwb-demo` cluster.
+
+## Measure the footprint
+
+```bash
+byok/footprint/footprint.sh idle > /tmp/footprint.md
+NAMESPACES="kyverno cert-manager kserve-system aim-system envoy-gateway-system \
+  opentelemetry-operator-system postgres keycloak aiwb" \
+  byok/footprint/footprint.sh idle          # the aiwb-demo namespaces
+```
+
+The script prints markdown: pods, requests and limits per namespace, live usage
+from `kubectl top`, the volume claims, and the image size on the node. Run it on
+a node to get the image size.
 
 `smoke.sh` pulls `ghcr.io/silogen/aim-dummy`. The image is public. If your
 cluster needs credentials for ghcr.io, set `GHCR_PULL_SECRET_JSON` to a docker
