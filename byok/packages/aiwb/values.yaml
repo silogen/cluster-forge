@@ -1,0 +1,16 @@
+aiwb-chart:
+  # One namespace, no AIRM. The chart makes the namespace, its Kyverno
+  # policy and its project-id label.
+  standAloneMode: true
+  postgresql:
+    host: postgres.postgres.svc.cluster.local
+    port: 5432
+    database: aiwb
+    username: aiwb_user
+    userSecretName: aiwb-cnpg-user
+  # cluster-auth is not in the demo. The API-key endpoints answer 503.
+  clusterAuth:
+    enabled: false
+  # There is no ai-gateway in the demo.
+  aiGateway:
+    enabled: false
