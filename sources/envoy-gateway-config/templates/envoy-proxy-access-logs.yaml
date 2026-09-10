@@ -16,10 +16,21 @@ spec:
         # LoadBalancer: the apps gateway is the external front door and owns the VIP on :443
         # (HTTPS terminate + k8s TLS-passthrough listeners).
         type: {{ .Values.appsGateway.serviceType }}
+        {{- if .Values.appsGateway.externalIP }}
+        # A cluster without a load balancer reaches the gateway on the node address.
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              externalIPs:
+                - {{ .Values.appsGateway.externalIP | quote }}
+        {{- end }}
       envoyDeployment:
         pod:
+          {{- with .Values.envoyProxy.nodeSelector }}
           nodeSelector:
-            cluster-bloom/first-node: "true"
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           priorityClassName: "system-cluster-critical"
   telemetry:
     accessLog:

@@ -1,0 +1,27 @@
+# CPU-only smoke-test service. The image is public. smoke.sh removes the
+# imagePullSecrets entry when GHCR_PULL_SECRET_JSON is not set, because
+# aim-engine fails the model when the named secret does not exist.
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMService
+metadata:
+  name: aim-dummy
+  namespace: aims-test
+spec:
+  replicas: 1
+  # local-path-provisioner gives ReadWriteOnce only, and Shared mode asks for
+  # ReadWriteMany.
+  caching:
+    mode: Dedicated
+  template:
+    allowUnoptimized: true
+  imagePullSecrets:
+    - name: aim-dummy-pull
+  model:
+    custom:
+      baseImage: ghcr.io/silogen/aim-dummy:0.1.10
+      hardware:
+        cpu:
+          requests: 500m
+      modelSources:
+        - modelId: sshleifer/tiny-gpt2
+          sourceUri: hf://sshleifer/tiny-gpt2

@@ -1,0 +1,5 @@
+name: gateway-api-crds
+namespace: gateway-api
+provides:
+  - gateway.api.crds
+requires: []

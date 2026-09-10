@@ -1,3 +1,4 @@
+{{- if not .Values.standalone }}
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
@@ -19,3 +20,4 @@ spec:
         # Legacy OpenBao path name; backs SeaweedFS admin UI, not MinIO.
         key: secrets/data/minio-root-password
         property: value
+{{- end }}

@@ -1,0 +1,13 @@
+name: aim-engine
+namespace: aim-system
+provides:
+  - inference.aim
+requires:
+  # The chart holds an AIMClusterRuntimeConfig, so the CRDs must exist before
+  # helm builds the release manifest.
+  - inference.aim.crds
+  # aim-engine 0.2.5 watches Gateway and HTTPRoute even when routing is off.
+  # Without the CRDs the controller manager exits at start.
+  - gateway.api.crds
+  - serving.kserve
+  - storage.default-class

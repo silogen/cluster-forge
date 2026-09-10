@@ -1,0 +1,3 @@
+cert-manager-config:
+  # The Secret must live where the Gateway reads it.
+  certificateNamespace: envoy-gateway-system

@@ -1,0 +1,8 @@
+apiVersion: v2
+name: postgres
+description: |
+  One PostgreSQL Pod for a demo installation. No backup, no high
+  availability, no monitoring. Use CloudNativePG for anything else.
+type: application
+version: 0.1.0
+appVersion: "17"

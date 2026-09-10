@@ -35,6 +35,13 @@ For end-to-end installation instructions, follow the official AMD Enterprise AI 
 
 **➡️ [On-Premises Installation Guide](https://enterprise-ai.docs.amd.com/en/latest/platform-infrastructure/on-premises-installation.html)**
 
+### Minimal install on a cluster that already exists
+
+`byok/` gives a second, parallel install path for a Kubernetes cluster that
+already exists. It uses `helm upgrade --install` only, with no ArgoCD, Gitea or
+OpenBao, and installs a minimal core that serves one AIM model. See
+[byok/README.md](byok/README.md).
+
 ## 📋 Architecture
 
 ### Bootstrap-First Deployment
@@ -169,6 +176,7 @@ Comprehensive documentation is available in the `/docs` folder:
 | Topic | Documentation |
 |-------|---------------|
 | **Getting Started** | [On-Premises Installation Guide](https://enterprise-ai.docs.amd.com/en/latest/platform-infrastructure/on-premises-installation.html) |
+| **Minimal install** | [byok: bring your own Kubernetes](byok/README.md) |
 | **Configuration** | [Cluster Size Configuration](docs/cluster_size_configuration.md) · [Configuration Reference](docs/configuration-reference.md) |
 | **Architecture** | [Values Inheritance Pattern](docs/values_inheritance_pattern.md) |
 | **AIM Catalog** | [AIM model catalog lifecycle](docs/aim_model_management.md) · [Adding AIM catalog models](docs/adding_aim_catalog_models.md) |

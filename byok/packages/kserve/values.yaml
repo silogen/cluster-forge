@@ -1,0 +1,18 @@
+# Same values the ArgoCD path sets in root/values.yaml for the kserve app.
+kserve:
+  kserve:
+    controller:
+      deploymentMode: Standard
+      gateway:
+        ingressGateway:
+          enableGatewayApi: false
+    localmodel:
+      enabled: false
+    inferenceservice:
+      resources:
+        limits:
+          cpu: ""
+          memory: ""
+        requests:
+          cpu: ""
+          memory: ""

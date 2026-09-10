@@ -1,0 +1,8 @@
+name: keycloak
+namespace: keycloak
+provides:
+  - auth.oidc
+requires:
+  - database.postgres
+  - gateway.https
+  - secrets.aiwb-demo

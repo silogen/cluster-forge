@@ -1,0 +1,7 @@
+postgres:
+  # The aiwb-demo-secrets package makes these Secrets.
+  databases:
+    - name: aiwb
+      secretName: aiwb-db-user
+    - name: keycloak
+      secretName: keycloak-db-user

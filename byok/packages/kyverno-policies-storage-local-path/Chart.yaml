@@ -1,0 +1,9 @@
+apiVersion: v2
+name: kyverno-policies-storage-local-path
+description: Rewrites ReadWriteMany claims to ReadWriteOnce for local-path storage
+type: application
+version: 0.1.0
+dependencies:
+  - name: kyverno-policies-storage-local-path
+    version: 1.0.0
+    repository: file://../../../sources/kyverno-policies/storage-local-path

@@ -1,0 +1,5 @@
+name: kserve-crds
+namespace: kserve-system
+provides:
+  - serving.kserve.crds
+requires: []

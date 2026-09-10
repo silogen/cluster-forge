@@ -1,0 +1,13 @@
+keycloak-old:
+  # The demo uses the shared PostgreSQL Pod, not CloudNativePG.
+  cnpg:
+    enabled: false
+  # The aiwb-demo-secrets package makes the Secrets.
+  externalSecrets:
+    enabled: false
+  postgresql:
+    host: postgres.postgres.svc.cluster.local
+    port: 5432
+    database: keycloak
+    username: keycloak
+    userSecretName: keycloak-cnpg-user

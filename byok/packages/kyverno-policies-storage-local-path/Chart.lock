@@ -1,0 +1,6 @@
+dependencies:
+- name: kyverno-policies-storage-local-path
+  repository: file://../../../sources/kyverno-policies/storage-local-path
+  version: 1.0.0
+digest: sha256:130117174c8ee803f12ff9699f9e9b6b8b20f3d9fc1bac7092bc2875a2e3bf05
+generated: "2026-09-09T16:19:50.994105131+03:00"

@@ -1,0 +1,9 @@
+name: seaweedfs
+namespace: seaweedfs-instance
+provides:
+  - storage.s3
+requires:
+  # The chart holds Seaweed and Bucket objects, so the CRDs must exist before
+  # helm builds the release manifest.
+  - storage.s3.operator
+  - storage.default-class

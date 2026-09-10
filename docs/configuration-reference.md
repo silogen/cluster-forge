@@ -58,3 +58,49 @@ Post-handoff cluster checks. See [`scripts/platform-gates/README.md`](../scripts
 | `AI_GATEWAY_NAME` | `ai-gateway` | AI Gateway name (skipped when absent) |
 
 Webhook gate env vars are inherited from `ai-gateway-webhook-health.sh`.
+
+## `byok/bootstrap.sh`
+
+Installs a minimal cluster-forge on a Kubernetes cluster that already exists.
+See [`byok/README.md`](../byok/README.md).
+
+| Flag or variable | Command | Default | Meaning |
+|---|---|---|---|
+| `--profile <file>` | `install`, `validate` | none, required | Profile file. A path relative to `byok/` also works. |
+| `--source github:<ref>` | `install` | the local checkout | Clone cluster-forge at that ref and install from it. |
+| `--source <path>` | `install` | the local checkout | Install from another checkout. |
+| `--purge` | `remove` | off | Also delete the CRDs of the package, the PVCs in its namespace, and the namespace. |
+| `KUBECONFIG` | all | none, required | Path to a cluster-admin kubeconfig. |
+| `HELM_TIMEOUT` | all | `10m` | Value for `helm --timeout`. |
+
+## `byok/spur/install.sh`
+
+Installs the byok minimal core on a node of a Spur k0s cluster. See
+[`byok/README.md`](../byok/README.md).
+
+| Flag or variable | Default | Meaning |
+|---|---|---|
+| `--ref <git ref>` | `main` | cluster-forge tag or branch to clone. |
+| `--source <path>` | none | Use this cluster-forge checkout instead of a clone. |
+| `--profile <file>` | `profiles/scalable-inference.yaml` | Profile file, relative to `byok/` or absolute. |
+| `--smoke` | off | Run `byok/tests/smoke.sh` after the install. |
+| `CLUSTER_FORGE_REPO` | `https://github.com/silogen/cluster-forge.git` | Clone URL. |
+| `CHECKOUT_DIR` | `$HOME/cluster-forge` | Clone target. |
+| `KUBECONFIG_OUT` | `$HOME/.kube/byok-admin.yaml` | Where the admin kubeconfig is written. |
+| `HELM_VERSION` | latest 3.x | Helm version to install when helm is missing. |
+| `KUBECTL_VERSION` | latest stable | kubectl version to install when kubectl is missing. |
+| `YQ_VERSION` | `latest` | yq version to install when yq is missing. |
+
+## `byok/tests/smoke.sh`
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `GHCR_PULL_SECRET_JSON` | empty | Docker config JSON for ghcr.io. The dummy image is public, so it is optional. |
+| `AIM_TIMEOUT` | `15m` | How long to wait for the AIMService conditions. |
+| `KEEP` | `0` | `1` keeps the `aims-test` namespace after the test. |
+
+## `byok/footprint/footprint.sh`
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `NAMESPACES` | `kyverno cert-manager kserve-system aim-system` | Namespaces to measure. |
