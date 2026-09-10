@@ -31,6 +31,8 @@ inference.aim:
   probe: kubectl get crd aimservices.aim.eai.amd.com >/dev/null 2>&1 && kubectl get deployments -A -o name | grep -q aim-engine-controller-manager
 catalog.aim:
   probe: kubectl get aimclustermodelsources.aim.eai.amd.com -o name 2>/dev/null | grep -q .
+database.postgres:
+  probe: kubectl get svc postgres -n postgres >/dev/null 2>&1
 telemetry.otel.crds:
   probe: kubectl get crd opentelemetrycollectors.opentelemetry.io >/dev/null 2>&1
 storage.s3.operator:
