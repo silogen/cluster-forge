@@ -14,6 +14,8 @@ dep_field() { # <package> <dependency> <field>
     "$HERE/../packages/$1/Chart.yaml"
 }
 
+# sources/cert-manager-config has no ArgoCD app, so the selfsigned-tls package
+# has no row here.
 # In-repo charts: the byok dependency must point at the same sources/ directory
 # that the ArgoCD app uses. There is no seaweedfs-crds row: that ArgoCD app is
 # deprecated and the seaweedfs-operator chart ships the CRDs itself.
@@ -24,7 +26,10 @@ for row in \
   "kserve-crds:kserve-crd:kserve-crds" \
   "seaweedfs-operator:seaweedfs-operator:seaweedfs-operator" \
   "kyverno:kyverno:kyverno" \
-  "kyverno-policies-storage-local-path:kyverno-policies-storage-local-path:kyverno-policies-storage-local-path"
+  "kyverno-policies-storage-local-path:kyverno-policies-storage-local-path:kyverno-policies-storage-local-path" \
+  "envoy-gateway:gateway-helm:envoy-gateway" \
+  "envoy-gateway-config:envoy-gateway-config:envoy-gateway-config" \
+  "keycloak:keycloak-old:keycloak"
 do
   IFS=: read -r pkg dep app <<<"$row"
   want="$(APP="$app" yq -r '.apps[strenv(APP)].path' "$VALUES")"
@@ -44,13 +49,31 @@ got="${got#file://../../../sources/}"
 # package:dependency:app
 for row in \
   "aim-engine:aim-engine-chart:aim-engine" \
-  "aim-engine-crds:aim-engine-crds-chart:aim-engine-crds"
+  "aim-engine-crds:aim-engine-crds-chart:aim-engine-crds" \
+  "aiwb:aiwb-chart:aiwb"
 do
   IFS=: read -r pkg dep app <<<"$row"
   want="$(APP="$app" yq -r '.apps[strenv(APP)].repoVersion' "$VALUES")"
   got="$(dep_field "$pkg" "$dep" version)"
   [ "$got" = "$want" ] || report "package $pkg dependency $dep is pinned to $got, root/values.yaml uses $want"
 done
+
+# The opentelemetry-crds chart holds a render of the collector CRD from the
+# operator chart. Render it again and compare.
+otel_src="$ROOT/sources/opentelemetry-operator/$(APP=opentelemetry-operator yq -r '.apps[strenv(APP)].path' "$VALUES" | sed 's|^opentelemetry-operator/||')"
+otel_copy="$ROOT/sources/opentelemetry-operator-crds/0.93.1/crds/crd-opentelemetrycollector.yaml"
+if [ -d "$otel_src" ]; then
+  tmp="$(mktemp)"
+  helm template otel "$otel_src" \
+    --set admissionWebhooks.create=false --set admissionWebhooks.certManager.enabled=false \
+    --set crds.create=true -s templates/admission-webhooks/operator-webhook.yaml \
+    | yq 'select(.metadata.name == "opentelemetrycollectors.opentelemetry.io")' > "$tmp"
+  diff -q "$tmp" "$otel_copy" >/dev/null \
+    || report "the CRD copy in sources/opentelemetry-operator-crds differs from the render of $otel_src"
+  rm -f "$tmp"
+else
+  report "no operator chart at $otel_src"
+fi
 
 [ "$rc" -eq 0 ] && echo "no version drift"
 exit "$rc"
