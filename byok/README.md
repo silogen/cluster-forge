@@ -171,6 +171,7 @@ byok/tests/smoke.sh                   # the core serves a model
 NAMESPACE=workbench byok/tests/smoke.sh   # the same on an aiwb-demo cluster
 byok/tests/smoke-ui.sh                # login, API, deploy and chat
 byok/tests/optional-package-cycle.sh  # add, re-install and purge seaweedfs
+                                      # (a scalable-inference cluster only)
 byok/tests/check-version-drift.sh     # pins agree with root/values.yaml
 byok/tests/validate-negative.sh       # validation stops a bad profile
 ```
@@ -268,4 +269,6 @@ notes: |
 
 - [Footprint of scalable-inference](docs/footprint-scalable-inference.md)
 - [Footprint of aiwb-demo](docs/footprint-aiwb-demo.md)
+- [The aiwb-demo slide](docs/slide-aiwb-demo.md)
+- [The minimal install slide](docs/slide-minimal-install.md)
 - [Future work](docs/future-work.md)
