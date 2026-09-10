@@ -32,7 +32,8 @@ kubectl get aimclusterruntimeconfig default >/dev/null || fail "no AIMClusterRun
 ok "AIMClusterRuntimeConfig default"
 
 echo "== 4. test namespace"
-kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+# The aiwb chart owns the workbench namespace, so do not apply over it.
+kubectl get namespace "$NS" >/dev/null 2>&1 || kubectl create namespace "$NS" >/dev/null
 if [ -n "${GHCR_PULL_SECRET_JSON:-}" ]; then
   kubectl create secret generic aim-dummy-pull --namespace "$NS" \
     --type=kubernetes.io/dockerconfigjson \
