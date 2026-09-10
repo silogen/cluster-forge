@@ -1,0 +1,65 @@
+# A reference demo installation: log in through Keycloak, deploy a model from
+# the catalog with the AIWB UI, and chat with it on CPU. It is not a
+# production installation. It extends scalable-inference, so it also holds
+# every package of that profile.
+name: aiwb-demo
+extends: scalable-inference
+vars:
+  # The DNS name under which the cluster answers. Required. Use a nip.io name
+  # such as 203.0.113.10.nip.io when there is no real DNS name.
+  domain:
+  # Service type of the Envoy data plane. LoadBalancer needs a cloud load
+  # balancer or MetalLB. ClusterIP with gatewayExternalIP needs neither.
+  gatewayServiceType: LoadBalancer
+  # Node address that the ClusterIP Service also answers on.
+  gatewayExternalIP: ""
+packages:
+  # Replaces the entry of the base profile. The aiwb chart owns the
+  # AIMClusterRuntimeConfig default object, so aim-engine must not make it.
+  - name: aim-engine
+    values:
+      aim-engine-chart:
+        crd:
+          enable: false
+        clusterRuntimeConfig:
+          enable: false
+        acceleratorDetector:
+          enable: false
+        scaleFromZero:
+          gatewayMetricsCollector:
+            enable: false
+  - name: envoy-gateway
+  - name: selfsigned-tls
+    values:
+      cert-manager-config:
+        domain: ${domain}
+  - name: envoy-gateway-config
+    values:
+      envoy-gateway-config:
+        domain: ${domain}
+        appsGateway:
+          serviceType: ${gatewayServiceType}
+          externalIP: ${gatewayExternalIP}
+  - name: opentelemetry-crds
+  - name: aiwb-demo-secrets
+  - name: postgres
+  - name: keycloak
+    values:
+      keycloak-old:
+        domain: ${domain}
+  - name: aiwb
+    values:
+      aiwb-chart:
+        appDomain: ${domain}
+  # There is no S3 in the demo. AIWB works without it, but datasets,
+  # artifacts and S3-backed models answer "storage unavailable".
+  # - name: seaweedfs-operator
+  # - name: seaweedfs
+notes: |
+  AIWB UI:   https://aiwbui.${domain}
+  Keycloak:  https://kc.${domain}
+  User:      devuser@${domain}
+  Password:  kubectl get secret airm-realm-credentials -n keycloak \
+               -o jsonpath='{.data.KEYCLOAK_INITIAL_DEVUSER_PASSWORD}' | base64 -d; echo
+
+  The certificate is self-signed, so the browser shows a warning.
