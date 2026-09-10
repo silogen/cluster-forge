@@ -41,6 +41,10 @@ database.postgres:
   probe: kubectl get svc postgres -n postgres >/dev/null 2>&1
 telemetry.otel.crds:
   probe: kubectl get crd opentelemetrycollectors.opentelemetry.io >/dev/null 2>&1
+auth.oidc:
+  probe: kubectl get svc keycloak -n keycloak >/dev/null 2>&1
+workbench.ui:
+  probe: kubectl get deployment aiwb-ui -n aiwb >/dev/null 2>&1
 storage.s3.operator:
   probe: kubectl get crd seaweeds.seaweed.seaweedfs.com >/dev/null 2>&1
 storage.s3:

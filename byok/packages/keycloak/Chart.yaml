@@ -1,0 +1,9 @@
+apiVersion: v2
+name: keycloak
+description: Keycloak with the airm realm
+type: application
+version: 0.1.0
+dependencies:
+  - name: keycloak-old
+    version: 0.2.0
+    repository: file://../../../sources/keycloak-old

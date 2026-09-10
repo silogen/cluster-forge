@@ -1,0 +1,12 @@
+name: aiwb
+namespace: aiwb
+provides:
+  - workbench.ui
+requires:
+  - auth.oidc
+  - database.postgres
+  - gateway.https
+  - inference.aim
+  - policy.kyverno
+  - telemetry.otel.crds
+  - secrets.aiwb-demo

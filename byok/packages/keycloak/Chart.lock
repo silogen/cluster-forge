@@ -1,0 +1,6 @@
+dependencies:
+- name: keycloak-old
+  repository: file://../../../sources/keycloak-old
+  version: 0.2.0
+digest: sha256:5f153c4f315b5047fb0495ddf01876859deeeea3cd47093d8a944e3b58b1b492
+generated: "2026-09-10T19:32:48.609729403+03:00"
