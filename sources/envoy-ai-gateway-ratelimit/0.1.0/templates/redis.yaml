@@ -1,0 +1,74 @@
+{{- if .Values.redis.enabled }}
+# Name and namespace hardcoded to match the DNS name that
+# envoy-ai-gateway-ratelimit.redisURL (_helpers.tpl) hands to REDIS_URL.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: envoy-ai-gateway-ratelimit-redis
+  namespace: envoy-gateway-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: envoy-ai-gateway-ratelimit-redis
+  template:
+    metadata:
+      labels:
+        app: envoy-ai-gateway-ratelimit-redis
+    spec:
+      containers:
+        - name: redis
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+{{- if .Values.redis.auth.enabled }}
+          command: ["sh", "-c", "exec redis-server --requirepass \"$REDIS_PASSWORD\""]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+{{ include "envoy-ai-gateway-ratelimit.redisAuthSecretRef" . | indent 18 }}
+{{- end }}
+          ports:
+            - containerPort: 6379
+          resources:
+{{ toYaml .Values.redis.resources | indent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+{{- if .Values.redis.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: envoy-ai-gateway-ratelimit-redis
+{{- else }}
+          emptyDir: {}
+{{- end }}
+{{- if .Values.redis.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: envoy-ai-gateway-ratelimit-redis
+  namespace: envoy-gateway-system
+spec:
+  accessModes:
+    - ReadWriteOnce
+{{- if .Values.redis.persistence.storageClassName }}
+  storageClassName: {{ .Values.redis.persistence.storageClassName }}
+{{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.redis.persistence.size }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: envoy-ai-gateway-ratelimit-redis
+  namespace: envoy-gateway-system
+spec:
+  selector:
+    app: envoy-ai-gateway-ratelimit-redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+{{- end }}
