@@ -1,0 +1,57 @@
+# Dedicated Envoy data plane for semantic-router, modelled on the cluster's own
+# `ai-gateway` (sources/envoy-gateway-config/templates/ai-gateway.yaml) — but
+# reached differently. `ai-gateway` terminates TLS itself because the shared
+# `https` Gateway passes its hostname straight through by SNI. This Gateway is
+# never reached that way: the outer HTTPRoute in gateway-routing.yaml already
+# terminates TLS at the edge and forwards to this Gateway's ClusterIP Service
+# as a plain internal HTTP hop (see sr-gateway-service.yaml), so this listener
+# is HTTP, not HTTPS, and carries no certificate.
+#
+# Existing on its own gateway — rather than a route on the shared `ai-gateway`
+# — is what makes semantic-router's catch-all the ONLY catch-all AI Gateway
+# resolves against. A route-scoped SecurityPolicy on a Gateway that carries
+# other apps' routes too gets evaluated against Envoy's pre-rerouted first
+# catch-all route (chosen by route creation time, not by the model the
+# request actually resolves to) before the router's own re-route has taken
+# effect — on a multi-route gateway that can let a request through the wrong
+# policy, or none. A dedicated single-route Gateway removes the ambiguity.
+#
+# No hostname restriction: AIGatewayRoute (gateway-routing.yaml) matches on
+# headers only, never on hostname, and nothing reaches this listener except
+# the internal hop from the outer HTTPRoute — there is no separate client to
+# restrict.
+#
+# NOTE: `sr-gateway` living in the `semantic-router` namespace alongside
+# `ai-gateway` in `envoy-gateway-system` is a multi-namespace Gateway topology
+# that a past AI Gateway controller version crashed on ("found gateway-labeled
+# objects in multiple namespaces", root/values.yaml's envoy-ai-gateway comment).
+# Confirmed fixed upstream and pinned in cluster-forge core as of this writing —
+# but reconfirm the extProc sidecar is injected on your cluster before relying
+# on this, and again after any envoy-ai-gateway controller bump.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: sr-gateway
+  namespace: semantic-router
+  annotations:
+    # Must name a GatewayConfig in THIS namespace -- GatewayConfig is
+    # namespace-scoped, so the cluster's own `ai-extproc` (in
+    # envoy-gateway-system) is not reachable here. sr-gateway-config.yaml
+    # creates this blueprint's own copy.
+    aigateway.envoyproxy.io/gateway-config: sr-extproc
+spec:
+  gatewayClassName: envoy-gateway
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      # Also namespace-scoped and also needs its own copy -- see
+      # sr-gateway-proxy-config.yaml.
+      name: sr-gateway-proxy-config
+  listeners:
+    - allowedRoutes:
+        namespaces:
+          from: Same
+      name: http
+      port: 8080
+      protocol: HTTP

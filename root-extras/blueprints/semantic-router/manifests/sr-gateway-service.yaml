@@ -1,0 +1,57 @@
+# Stable ClusterIP selecting sr-gateway's data plane (HTTP listener). This is
+# the backendRef the outer HTTPRoute in gateway-routing.yaml sends traffic to --
+# modelled on ai-gateway-service.yaml, which does the same thing for the
+# cluster's own ai-gateway.
+#
+# CONFIRMED LIVE TEST (envoy-gateway v1.8.1): Envoy Gateway always creates its
+# managed proxy Deployment/Pod in envoy-gateway's OWN install namespace
+# (envoy-gateway-system), never in the namespace of the Gateway object that
+# owns it -- confirmed via the auto-generated Service/EndpointSlice for this
+# Gateway (envoy-semantic-router-sr-gateway-<hash>), which lives in
+# envoy-gateway-system even though the sr-gateway Gateway object itself is in
+# semantic-router. A Service's label selector cannot cross namespaces, so this
+# Service must live here (envoy-gateway-system) rather than semantic-router --
+# putting it in semantic-router silently selects zero pods (empty Endpoints,
+# every request 503s). gateway-routing.yaml's outer HTTPRoute backendRef and
+# this file's ReferenceGrant below both depend on this namespace.
+apiVersion: v1
+kind: Service
+metadata:
+  name: sr-gateway
+  namespace: envoy-gateway-system
+spec:
+  selector:
+    app.kubernetes.io/component: proxy
+    app.kubernetes.io/managed-by: envoy-gateway
+    app.kubernetes.io/name: envoy
+    gateway.envoyproxy.io/owning-gateway-name: sr-gateway
+    gateway.envoyproxy.io/owning-gateway-namespace: semantic-router
+  ports:
+    - name: http-8080
+      port: 8080
+      protocol: TCP
+      # CONFIRMED LIVE TEST: unlike an HTTPS listener, where Envoy Gateway's
+      # real container port is offset (10443 for declared port 443, per
+      # ai-gateway-service.yaml), a plain HTTP listener is NOT offset -- the
+      # real container port equals the declared listener port (8080 here).
+      targetPort: 8080
+  type: ClusterIP
+---
+# Required because this Service now lives in a different namespace
+# (envoy-gateway-system) than the HTTPRoute referencing it (semantic-router,
+# gateway-routing.yaml) -- Gateway API requires an explicit opt-in for any
+# cross-namespace backendRef.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-semantic-router-httproute
+  namespace: envoy-gateway-system
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: semantic-router
+  to:
+    - group: ""
+      kind: Service
+      name: sr-gateway

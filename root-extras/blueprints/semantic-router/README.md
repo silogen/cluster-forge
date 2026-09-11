@@ -6,21 +6,30 @@ request. This blueprint deploys the router plus its web dashboard, exposed
 through the cluster's shared `https` Gateway, and puts the router in the request
 path as an Envoy external processor so it actually decides where traffic goes.
 
-Three files, all fetched into your cluster-values overlay repo:
+Files fetched into your cluster-values overlay repo:
 
 | File | Goes to | Contains |
 |---|---|---|
 | `extraApps.yaml` | `extra-apps-values.yaml` | the ArgoCD Application envelope |
 | `values.yaml` | `extra-apps/semantic-router/values.yaml` | the chart config you edit |
-| `manifests/gateway-routing.yaml` | `extra-apps/semantic-router/manifests/gateway-routing.yaml` | the gateway wiring you edit |
+| `manifests/gateway-routing.yaml` | `extra-apps/semantic-router/manifests/gateway-routing.yaml` | the routes and backends you edit |
+| `manifests/sr-gateway*.yaml` | same directory | a dedicated Envoy data plane for the router — not edited per deployment, see "Routing traffic through the router" |
+| `manifests/quota.yaml` | same directory | per-API-key token quota — optional, see "Quota" |
 
 ## Prerequisites
 
-- Gateway API CRDs, the Envoy Gateway CRDs (`EnvoyExtensionPolicy`) and an
+- Gateway API CRDs, the Envoy Gateway CRDs (`EnvoyExtensionPolicy`), the AI
+  Gateway CRDs (`AIGatewayRoute`, `AIServiceBackend`, `QuotaPolicy`), and an
   `https` Gateway in `envoy-gateway-system` — all present on any bloomed cluster.
 - A reachable vLLM backend serving the model you want to route to. The router
   deploys fine without one, it just has nothing to route to.
 - A default StorageClass, or a real class name set in `values.yaml` (see below).
+- **For token quota enforcement (`manifests/quota.yaml`) only:** the
+  `envoy-ai-gateway-ratelimit` app — optional, opt-in, cluster-forge core, not
+  installed by default. Add `envoy-ai-gateway-ratelimit` to your cluster
+  overlay's `enabledApps`. Without it, `QuotaPolicy` still loads and every
+  request still succeeds — it fails open — but nothing is ever throttled. See
+  "Quota" below before assuming a missing 429 means you're under budget.
 
 ## Taking it into use
 
@@ -51,9 +60,20 @@ Three files, all fetched into your cluster-values overlay repo:
 
    mkdir -p extra-apps/semantic-router/manifests
    curl -fsSL "$BLUEPRINT/values.yaml" -o extra-apps/semantic-router/values.yaml
-   curl -fsSL "$BLUEPRINT/manifests/gateway-routing.yaml" \
-       -o extra-apps/semantic-router/manifests/gateway-routing.yaml
+   for f in gateway-routing.yaml sr-gateway.yaml sr-gateway-config.yaml \
+            sr-gateway-proxy-config.yaml sr-gateway-service.yaml \
+            sr-gateway-extproc.yaml quota.yaml; do
+     curl -fsSL "$BLUEPRINT/manifests/$f" \
+         -o "extra-apps/semantic-router/manifests/$f"
+   done
    ```
+
+   The `sr-gateway*.yaml` files stand up a dedicated Envoy data plane for the
+   router — you don't edit them per deployment, just fetch them as-is (see
+   "Routing traffic through the router" for why a dedicated gateway exists at
+   all). `quota.yaml` is optional — delete it if you don't want per-API-key
+   token quotas, or leave it and fill in its `TODO`s alongside
+   `gateway-routing.yaml`'s (see "Quota").
 
    Adjust the clone URL if your overlay repo isn't at the bootstrap default
    (`cluster-org/cluster-values` on the cluster's Gitea).
@@ -95,10 +115,12 @@ Three files, all fetched into your cluster-values overlay repo:
    sync fails and names the field. That's deliberate — better than a route that
    applies cleanly and points at nothing.
 
-   `sr.<domain>` has no authentication of its own by default — anyone who can
-   reach the hostname can spend your GPU capacity. Decide now whether to gate
-   it; see "Reaching the router" below for the SecurityPolicy example that
-   gates it with an API key.
+   Unlike an earlier version of this blueprint, `sr.<domain>` is **not**
+   reachable without a client API key — `gateway-routing.yaml`'s
+   `SecurityPolicy` is mandatory, not optional, and everything not covered by
+   its `apiKeyAuth` is refused by that same policy's default-deny backstop. You
+   still have to create the key Secret before anything can call through; see
+   "Reaching the router" below.
 
 4. Review and push:
 
@@ -155,37 +177,78 @@ processor: a request to `sr.<domain>` hits the shared `https` Gateway, Envoy ask
 the router over gRPC which model should serve it, the router answers by setting a
 header, and Envoy re-runs its route matching and forwards to that model's backend.
 
-Three objects, all in the `semantic-router` namespace except the last:
+The request actually crosses two gateways. The shared `https` Gateway terminates
+TLS for `sr.<domain>` and immediately hands off, unchanged, to a second,
+dedicated `sr-gateway` that this blueprint stands up for itself — plain HTTP,
+internal-only, one route. That second hop is where the router's ext_proc, the
+model rule matching, the mandatory API key check, and (optionally) quota
+enforcement all live.
 
-| Object | Does |
-|---|---|
-| `HTTPRoute` | claims `sr.<domain>` on the shared `https` Gateway, one rule per model |
-| `EnvoyExtensionPolicy` | calls the router on `50051` for requests matching that route |
-| `ReferenceGrant` | only if your vLLM backends live in another namespace |
+| Object | File | Does |
+|---|---|---|
+| `HTTPRoute` (`semantic-router-gateway`) | `gateway-routing.yaml` | claims `sr.<domain>` on the shared `https` Gateway, one catch-all rule forwarding to `sr-gateway` |
+| `Gateway` (`sr-gateway`) | `sr-gateway.yaml` | this blueprint's own single-route Envoy data plane, HTTP only |
+| `GatewayConfig`, `EnvoyProxy` | `sr-gateway-config.yaml`, `sr-gateway-proxy-config.yaml` | `sr-gateway`'s own copies of the cluster's ext_proc and Envoy tuning — `GatewayConfig`/`EnvoyProxy` are namespace-scoped, so the cluster's own can't be reused across namespaces |
+| `Service` (`sr-gateway`) | `sr-gateway-service.yaml` | ClusterIP fronting `sr-gateway`'s Envoy pods — what the outer `HTTPRoute` actually forwards to |
+| `EnvoyExtensionPolicy` (`sr-gateway-extproc`) | `sr-gateway-extproc.yaml` | calls the router on `50051`, plus metric-hygiene Lua |
+| `AIGatewayRoute` (`semantic-router`) | `gateway-routing.yaml` | matches `x-selected-model`, one rule per model, on `sr-gateway` |
+| `AIServiceBackend`, `Backend` | `gateway-routing.yaml` | one pair per model, the actual vLLM endpoint |
+| `SecurityPolicy` (`semantic-router-apikey`) | `gateway-routing.yaml` | mandatory, targets the `Gateway` — gateway-scoped default-deny backstop, overridden only by checking a bearer token against a Secret and forwarding the caller's identity as `x-api-key-id` |
+| `QuotaPolicy` (optional) | `quota.yaml` | per-API-key token budget, see "Quota" |
+
+Why a second gateway at all, rather than one `HTTPRoute` on the shared
+`https` Gateway the way an earlier version of this blueprint did it: a
+route-scoped `SecurityPolicy` on a Gateway that carries other apps' routes too
+gets evaluated against Envoy's *pre-rerouted* first catch-all route — chosen by
+route creation time, not by the model the request actually resolves to —
+before the router's own re-route has taken effect. On a multi-route gateway
+that can let a request through the wrong policy, or none. Giving the router a
+Gateway that carries exactly one route removes the ambiguity: there is only
+ever one catch-all, and it belongs to the one route this Gateway carries — the
+outer `HTTPRoute` above.
+
+CONFIRMED LIVE TEST (envoy-gateway v1.8.1): the mandatory `SecurityPolicy`
+above targets the `Gateway`, not the `AIGatewayRoute` — SecurityPolicy's CRD
+has a hard CEL validation rule restricting `targetRefs[*].kind` to
+`Gateway`/`HTTPRoute`/`GRPCRoute`/`TCPRoute`, and rejects an `AIGatewayRoute`
+targetRef outright, so a policy written against it can never apply. Targeting
+the Gateway is safe here specifically because `sr-gateway` carries exactly one
+route, per the paragraph above.
 
 Two things about it are easy to get wrong later:
 
-**The catch-all rule has to stay, and it goes last.** An external processor only
-runs once a route has already matched, so the request needs a rule that matches
-before the router has said anything — which is every request on arrival, since
-the header does not exist yet. Delete it and Envoy 404s everything before the
-router is ever called. It goes last because a rule with no matches would
-otherwise shadow the per-model rules. It is also where traffic lands while the
-router is down, because the policy fails open.
+**The catch-all rule has to stay, and it goes last — in both the outer
+`HTTPRoute` and the `AIGatewayRoute`.** An external processor only runs once a
+route has already matched, so the request needs a rule that matches before the
+router has said anything — which is every request on arrival, since
+`x-selected-model` does not exist yet. Delete it and Envoy 404s everything
+before the router is ever called. It goes last because a rule with no matches
+would otherwise shadow the per-model rules. It is also where traffic lands
+while the router is down, because the policy fails open — and, now, where a
+request lands if the model name it's classified into has no matching rule,
+since that model now arrives from an unvalidated request body rather than a
+header this route itself set.
 
 Re-routing also depends on the chart's `clear_route_cache: true` default —
 that's what tells Envoy to re-match after the router sets the header. If
 something overrides it to `false`, every request falls through to the
-catch-all no matter what the router decided.
+catch-all no matter what the router decided. Note this happens twice now:
+once when AI Gateway's own built-in ext_proc derives a model from the request
+body, and again when the router's ext_proc overrides that with its own
+classification via `x-selected-model`. Whether the second re-route reliably
+lands where the router intends has not been verified against a live cluster —
+confirm it before relying on it in anything that matters.
 
 **The model list appears in both files, and that is not redundancy you can
 remove.** The router only ever emits a model *name* — its own reference Envoy
 config puts it plainly: *"ExtProc only emits the x-selected-model routing signal;
-Envoy owns endpoint load balancing."* It never names a backend address, so Envoy
-has to already know a route for every model the router may pick. `values.yaml`
-tells the router which models it may choose between; `gateway-routing.yaml` tells
-Envoy where each of those models actually lives. Two consumers, two lists, and a
-model missing from the second one silently lands on the catch-all.
+Envoy owns endpoint load balancing."* It never names a backend address, so the
+`AIGatewayRoute` has to already know a rule for every model the router may
+pick. `values.yaml` tells the router which models it may choose between;
+`gateway-routing.yaml` tells Envoy where each of those models actually lives —
+now via an `AIServiceBackend`/`Backend` pair, not a plain `HTTPRoute` rule. Two
+consumers, two lists, and a model missing from the second one silently lands on
+the catch-all.
 
 There is an ecosystem design that works the way you might expect — the processor
 returns an `ip:port` and Envoy forwards there, via `x-gateway-destination-endpoint`
@@ -194,36 +257,56 @@ commit (no such header exists in its `pkg/headers`), and Envoy Gateway cannot
 express an `ORIGINAL_DST` cluster without `EnvoyPatchPolicy`, which is disabled
 cluster-wide. Not an option here.
 
-**The policy targets the HTTPRoute, not a Gateway.** Envoy Gateway allows one
-`EnvoyExtensionPolicy` per target and the cluster's `ai-gateway` already has one,
-so a Gateway-scoped policy would mean standing up a second gateway and its own
-routing objects. Targeting your own route needs none of that, touches nothing
-global, and confines the blast radius to `sr.<domain>` — no other app's routes
-and no `ai.<domain>` traffic. Nothing in this blueprint modifies `ai-gateway` or
-anything else in `envoy-gateway-system`.
+This blueprint's own gateway wiring touches nothing global — it stands up its
+own `Gateway`, `GatewayConfig`, and `EnvoyProxy` in the `semantic-router`
+namespace, alongside (not instead of) the cluster's own `ai-gateway` in
+`envoy-gateway-system`. (The `sr-gateway` Service itself is CONFIRMED to live
+in `envoy-gateway-system`, not `semantic-router` — see `sr-gateway-service.yaml`
+— because that's where Envoy Gateway always creates the managed proxy pod it
+selects, regardless of which namespace the `Gateway` object itself is in.)
+Nothing here modifies `ai-gateway` or anything else in `envoy-gateway-system`.
+Two cautions worth knowing about:
+
+- Envoy AI Gateway has previously crashed outright when Gateway-labeled
+  objects existed in more than one namespace at once — fixed upstream, and the
+  fix is in the pinned commit this blueprint targets, but this exact
+  multi-namespace shape (`sr-gateway` here, `ai-gateway` in
+  `envoy-gateway-system`) has not been re-verified live. Watch the AI Gateway
+  controller's logs after first deploy.
+- CONFIRMED LIVE TEST: if the controller reconciles the `AIGatewayRoute` in
+  `gateway-routing.yaml` before `sr-gateway.yaml`'s `Gateway` exists, it logs
+  `"Gateway not found"` and — unlike the crash above — this does NOT self-heal:
+  the route config for `sr-gateway` is left with zero `virtual_hosts`
+  permanently, and every request 404s with an Envoy "NR" response flag. See the
+  `AIGatewayRoute`'s comment in `gateway-routing.yaml` for the symptom check and
+  fix (a genuine spec-level change to force a fresh reconcile).
 
 ### Backends outside the cluster
 
 Routing a model to OpenAI, Anthropic or any vLLM box on another network works,
-and needs no core change. A Gateway API `backendRefs` entry can only name an
-in-cluster Service, so an external target is expressed as an Envoy Gateway
-`Backend` with an FQDN endpoint, which a rule then references by
-`group: gateway.envoyproxy.io, kind: Backend`. The Backend API is enabled on
-every bloomed cluster (`extensionApis.enableBackend`), so it is available out of
-the box. `gateway-routing.yaml` carries commented-out OpenAI, Anthropic, and
-non-standard-URL examples.
+and needs no core change. An `AIServiceBackend`'s `backendRef` can only name an
+Envoy Gateway `Backend` (not a plain Service — a current upstream limitation,
+[envoyproxy/ai-gateway#902](https://github.com/envoyproxy/ai-gateway/issues/902)),
+so an external target is expressed as a `Backend` with an FQDN endpoint, paired
+with an `AIServiceBackend` naming the provider's schema (`OpenAI`, `Anthropic`,
+...). The Backend API is enabled on every bloomed cluster
+(`extensionApis.enableBackend`), so it is available out of the box.
+`gateway-routing.yaml` carries commented-out OpenAI and Anthropic examples.
 
-Three things that are easy to miss:
+Two things that are easy to miss:
 
 - **An HTTPS provider needs a `BackendTLSPolicy` as well.** Without one Envoy
   speaks plaintext to port 443 and every request fails. It is also what supplies
   the SNI name and verifies the provider's certificate.
-- **The route rule needs a `URLRewrite` hostname filter too.** The
-  `BackendTLSPolicy` only sets SNI; the HTTP `Host` header still says
-  `sr.<domain>`, and the provider's CDN answers 403 or 421 — a symptom that
-  looks nothing like a routing mistake. Add
-  `filters: [{type: URLRewrite, urlRewrite: {hostname: api.openai.com}}]` to the
-  rule. A 401 from the provider afterwards means the request really did arrive.
+- **`AIServiceBackend` translates the wire format for you — no `URLRewrite`
+  needed.** Unlike the old plain-`HTTPRoute` design, you don't hand-rewrite the
+  hostname or path: `schema.name: OpenAI`/`Anthropic` on the `AIServiceBackend`
+  tells AI Gateway which upstream shape to speak, and it rewrites the request
+  accordingly. This simplification follows from AI Gateway's own
+  schema-translation design but hasn't been independently re-verified against a
+  live external provider by this blueprint's own testing — a 401 from the
+  provider (rather than a routing-level error) is still the sign the request
+  really arrived.
 - **The gateway does not inject an API key, but the router can.** Nothing in
   `gateway-routing.yaml` adds credentials, so a client-supplied `Authorization`
   header reaches the provider untouched. For a cluster-held key, give the
@@ -232,121 +315,44 @@ Three things that are easy to miss:
   call. Prefer `api_key_env` over `api_key`: the latter puts the secret in a file
   committed to the overlay repo.
 
-This is a smaller setup than a sidecar Envoy with hand-written config, because
-the `Backend` CRD covers the one thing hand-written config was needed for. What
-it does not cover is anything requiring raw xDS — an `ORIGINAL_DST` cluster, for
-instance — since `EnvoyPatchPolicy` is not enabled on these clusters.
-
-### A backend that isn't mounted at a standard URL
-
-Not every OpenAI-compatible backend actually lives at `/v1/...` on its own
-hostname. Internal LLM gateways, API-management layers, and hosted proxies
-often keep an OpenAI-shaped request/response body but mount it under their own
-path, and require a header of their own (a subscription key, a tenant ID,
-whatever their auth scheme needs). None of that needs `AIGatewayRoute`'s
-schema translation — the body is still OpenAI-shaped, only the URL and headers
-differ, and that is squarely inside what Gateway API's own `HTTPRoute` filters
-already do.
-
-Say the real endpoint is `https://example.com/gateway/v1/chat/completions`
-(note `/gateway/v1` instead of a bare `/v1`) and it needs an `X-API-Key` header
-the client never sends. Reachable with the same `Backend`/`BackendTLSPolicy`
-pair as the OpenAI/Anthropic examples above, plus two filters on the model's
-rule in the `HTTPRoute`:
-
-```yaml
-apiVersion: gateway.envoyproxy.io/v1alpha1
-kind: Backend
-metadata:
-  name: example-gateway
-  namespace: semantic-router
-spec:
-  endpoints:
-    - fqdn:
-        hostname: example.com
-        port: 443
----
-apiVersion: gateway.networking.k8s.io/v1
-kind: BackendTLSPolicy
-metadata:
-  name: example-gateway-tls
-  namespace: semantic-router
-spec:
-  targetRefs:
-    - group: gateway.envoyproxy.io
-      kind: Backend
-      name: example-gateway
-  validation:
-    wellKnownCACertificates: System
-    hostname: example.com
-```
-
-Then the route rule itself. The path match has to be `/v1` specifically, not
-the bare `/` used by the in-cluster rules elsewhere in this file, so that
-`ReplacePrefixMatch` swaps out exactly the segment the client sent instead of
-prepending onto it:
-
-```yaml
-    - matches:
-        - headers:
-            - name: x-selected-model
-              value: example-model
-          path:
-            type: PathPrefix
-            value: /v1
-      backendRefs:
-        - group: gateway.envoyproxy.io
-          kind: Backend
-          name: example-gateway
-      filters:
-        - type: URLRewrite
-          urlRewrite:
-            hostname: example.com
-            path:
-              type: ReplacePrefixMatch
-              replacePrefixMatch: /gateway/v1
-        - type: RequestHeaderModifier
-          requestHeaderModifier:
-            set:
-              - name: X-API-Key
-                value: TODO-your-key
-```
-
-A request to `/v1/chat/completions` becomes `/gateway/v1/chat/completions` on
-the wire to `example.com` — `PathPrefix: /v1` matches the segment the client
-sent, and `ReplacePrefixMatch` substitutes it for `/gateway/v1` rather than
-gluing the two together. Matching `/` instead of `/v1` here would produce
-`/gateway/v1/v1/chat/completions`, which is wrong.
-
-`URLRewrite` and `RequestHeaderModifier` are both core Gateway API filter
-types, same status as the `headers` match above — no extra CRD instance to
-create, they go inline in the rule.
-
-This only covers URL and header differences. If the backend's request or
-response *body* isn't OpenAI-shaped at all, `URLRewrite`/`RequestHeaderModifier`
-can't help — see the Anthropic section below for how the router can own that
-adaptation itself instead, or stand up a small translation shim as the real
-`Backend` if the router has no built-in adapter for that provider's format.
+What this does not cover: a backend that keeps an OpenAI-shaped body but is
+mounted under its own path with its own auth header (an internal LLM gateway,
+an API-management layer, a hosted proxy that isn't literally OpenAI or
+Anthropic). The old plain-`HTTPRoute` design handled that with
+`URLRewrite`/`RequestHeaderModifier` filters on the route rule; there is no
+confirmed equivalent under `AIServiceBackend`'s schema-translation model, since
+its `backendRef` only names a `Backend` (an FQDN + port, no path/header
+rewriting of its own) and a schema name from a fixed set. If you need this,
+treat it as unsolved here rather than assuming it still works — check current
+upstream `AIServiceBackend`/`Backend` capabilities before relying on it.
 
 ### Anthropic Messages API upstreams
 
-Supported, and the wiring above needs no change. Mark the model with
-`api_format: anthropic` in `values.yaml` and the router takes its Anthropic path:
-it rewrites `:path` to `/v1/messages`, adapts the body, sets `anthropic-version`,
-attaches the credential, and still signals the choice with `x-selected-model`.
-So the HTTPRoute rule for a Claude model looks exactly like one for a vLLM model,
-just with a `Backend` pointing at `api.anthropic.com`.
+Supported. Mark the model with `api_format: anthropic` in `values.yaml` and the
+router takes its Anthropic path: it rewrites `:path` to `/v1/messages`, adapts
+the body, sets `anthropic-version`, attaches the credential, and still signals
+the choice with `x-selected-model`. Pair it with an `AIServiceBackend` whose
+`schema.name` is `Anthropic` and a `Backend` pointing at `api.anthropic.com`.
 
-Requests arriving on `/v1/messages` are recognised as Anthropic on the way in
-too, so clients can speak either wire format.
+Requests arriving on `/v1/messages` are recognised as Anthropic by the router
+on the way in too, so clients can speak either wire format.
 
-Worth being precise about what this is not: the router adapts to an Anthropic
-*upstream*, it is not Envoy AI Gateway's OpenAI→Anthropic schema translator.
-That translator does not exist in a release yet
+Worth being precise about what changed here: an earlier version of this
+blueprint claimed nothing in this setup went through `ai-gateway`'s
+`AIGatewayRoute` machinery, so a known gap in AI Gateway's own OpenAI→Anthropic
+schema translator
 ([envoyproxy/ai-gateway#1936](https://github.com/envoyproxy/ai-gateway/issues/1936),
-[#2127](https://github.com/envoyproxy/ai-gateway/pull/2127) — both still open),
-and it would only matter on an `AIGatewayRoute`, which this blueprint does not
-use. Nothing here goes through `ai-gateway`, so its gap is not ours.
+[#2127](https://github.com/envoyproxy/ai-gateway/pull/2127) — both still open)
+didn't apply. That's no longer accurate — this blueprint now runs its own
+`AIGatewayRoute` on its own dedicated `sr-gateway` (see "Routing traffic
+through the router"), and mixing an `AIServiceBackend` whose `schema.name` is
+`OpenAI` for one model with `Anthropic` for another, behind one
+`AIGatewayRoute`, may exercise that same translation gap depending on how the
+router's own body adaptation interacts with it. This has not been re-tested
+against a live Anthropic backend under the new architecture — treat the
+combination of "router does its own Anthropic adaptation" and "AIGatewayRoute
+also does schema-aware routing" as unverified rather than assuming they compose
+cleanly.
 
 ## Reaching the router
 
@@ -396,28 +402,45 @@ If routing doesn't look right, check what the router itself decided:
 kubectl -n semantic-router logs deploy/semantic-router -f
 ```
 
-One thing to be deliberate about: `sr.<domain>` has no authentication of its own,
-so anyone who can reach the hostname can spend your GPU capacity. Unlike
-`ai.<domain>`, it does not pass through the cluster's AI auth chain — that runs
-on `ai-gateway`, which this blueprint deliberately leaves alone. Put an auth layer
-in front of it before exposing it to anyone you would not hand a GPU to.
+Unlike an earlier version of this blueprint, `sr.<domain>` does **not** have
+authentication left up to you: `gateway-routing.yaml`'s `SecurityPolicy`
+(`semantic-router-apikey`) is mandatory, targets the `sr-gateway` `Gateway`
+itself (CONFIRMED LIVE TEST: SecurityPolicy's CEL validation rejects an
+`AIGatewayRoute` targetRef outright, so it cannot target that object instead —
+see "Routing traffic through the router"), and gates every request behind a
+bearer token checked against a Secret via `apiKeyAuth` — a request without a
+valid key gets a 401 from that filter directly, before reaching the router or
+backend. Unlike `ai.<domain>`, this never touches the cluster's own
+`ai-gateway` auth chain — the two are entirely separate, and nothing in this
+blueprint modifies `ai-gateway`.
 
-A commented `SecurityPolicy` in `gateway-routing.yaml`, right after the
-`EnvoyExtensionPolicy`, gates the route with a client API key: a bearer token
-in the `Authorization` header is checked against a Secret, stripped before the
-request reaches the router or backend, and a mismatch is a 401 before either
-sees it. Unlike synopsys's own version of this (`sr-api-apikey`, bolted onto a
-second bridge `HTTPRoute` because its real route is `AIGatewayRoute`-generated
-and can't carry a policy directly), this blueprint's `HTTPRoute` is
-hand-authored, so the policy targets it directly — same namespace, one
-object, one Secret, no bridge route needed.
+CONFIRMED LIVE TEST (envoy-gateway v1.8.1): do not add an `authorization:`
+block to this `SecurityPolicy` expecting it to "back up" apiKeyAuth — Envoy
+Gateway's RBAC authorization layer is independent of apiKeyAuth, and a
+successful apiKeyAuth authentication does not generate any RBAC allow rule.
+`authorization: {defaultAction: Deny}` with no `rules` denies literally every
+request, authenticated or not (confirmed via Envoy's `/config_dump`: the
+compiled per-route RBAC policy had zero match branches, only an
+`on_no_match: DENY` fallback). apiKeyAuth alone is sufficient for "mandatory
+key, no keyless path"; only add an `authorization` block with explicit
+`rules` if you want a second, independent allow-list layer (e.g.
+`principal.headers` matching `x-api-key-id` against specific onboarded client
+IDs) — and note that list has to be maintained here too, it is not implied by
+the Secret.
 
-Create the Secret directly on the cluster, not the overlay repo:
+Create the Secret directly on the cluster, not the overlay repo, before
+sending any real traffic — until it exists, every request is refused:
 
 ```bash
 kubectl -n semantic-router create secret generic semantic-router-client-keys \
   --from-literal=TODO-your-client-name="$(openssl rand -hex 32)"
 ```
+
+The key **name** matters, not just its value: it's forwarded downstream as
+`x-api-key-id` and is what `quota.yaml` (if you're using it) buckets spend
+against. Reusing a name for a different tenant hands them whatever quota spend
+the old tenant already accumulated in the current window — give each real
+client its own key name, and don't recycle one.
 
 Clients send the key as a bearer token:
 
@@ -425,22 +448,117 @@ Clients send the key as a bearer token:
 curl https://sr.<domain>/... -H "Authorization: Bearer <the secret value>"
 ```
 
+A mismatched or missing token is a 401 before the request reaches the router
+or any backend.
+
+## Quota
+
+`manifests/quota.yaml` is optional — delete it if you don't want per-API-key
+token budgets. If you keep it, it needs the `envoy-ai-gateway-ratelimit` app
+(see "Prerequisites") and the Secret from "Reaching the router" above, since
+quota buckets key on the same `x-api-key-id` the API-key policy forwards.
+
+`quota.yaml` ships with exactly one `perModelQuotas` entry and one
+`bucketRule` — the same limit for every key, on one model. For a separate
+budget per model, or a higher limit for one named client without raising it
+for everyone else, see `examples/quota-tiers-example.md`. That example also
+covers two multi-model gotchas confirmed live on this blueprint: every
+`AIServiceBackend` in `targetRefs` needs its own `perModelQuotas` entry (a
+backend without one bleeds into another model's bucket instead of going
+unmetered), and the CRD's `serviceQuota` field for a combined/router-wide
+budget is inert on this controller build — don't configure it.
+
+### Installing `envoy-ai-gateway-ratelimit`
+
+`quota.yaml`'s actual enforcement backend: the generic `envoyproxy/ratelimit`
+binary plus a bundled single-instance Redis, both defined in
+`sources/envoy-ai-gateway-ratelimit/0.1.0` in this repo. `QuotaPolicy`'s
+`bucketRules` are config the AI Gateway controller pushes to this service over
+xDS — without it running, there's nothing to check or charge counters
+against, which is why a missing install fails open instead of erroring.
+
+Not in any `values_small/medium/large.yaml` `enabledApps` list — declared in
+core `root/values.yaml` but deliberately left disabled by default (see
+`docs/values_inheritance_pattern.md`'s "Optional Apps" section in the main
+cluster-forge repo for this pattern in general). Add it to your own overlay's
+`values.yaml`:
+
+```yaml
+enabledApps:
+  - envoy-ai-gateway-ratelimit
+```
+
+That's enough for the default: bundled Redis, no persistence, no HA — a pod
+restart loses at most one window's counters, the same exposure the
+controller's fail-open default (`quotaRateLimitFailureModeDeny: false`)
+already accepts. To point at a shared/HA Redis instead, override this app's
+`valuesObject` in the same overlay:
+
+```yaml
+apps:
+  envoy-ai-gateway-ratelimit:
+    valuesObject:
+      redis:
+        enabled: false
+        url: "your-redis-host:6379"
+```
+
+Its Service name and namespace (`envoy-ai-gateway-ratelimit.envoy-gateway-system`)
+are hardcoded in the chart, not templated: the AI Gateway controller's
+`--quotaRateLimitServiceAddr` default and the ratelimit binary's xDS node ID
+both target that exact address. Don't rename this app in your overlay.
+
+Fill in its `TODO`s: which `AIServiceBackend` to target, the `modelName` (must
+match the corresponding `AIGatewayRoute` rule's `x-selected-model` value, not
+the backend's own name), and a `limit`/`duration` per key (`duration` accepts
+only `1s`, `1m`, `1h`, or `1d`).
+
+Ship with `shadowMode: true` on every `bucketRule`. In shadow mode every
+request is still counted against its bucket — so you can watch real spend
+accumulate against the limit you set before anyone is actually throttled — but
+nothing is ever denied. Flip a rule's `shadowMode` to `false` only once you've
+watched real usage against the real limit look right.
+
+Two things worth knowing before you rely on this:
+
+- **It fails open.** If `envoy-ai-gateway-ratelimit` is unreachable, requests
+  are not blocked and not throttled — they just succeed, unmetered. A missing
+  429 does not mean you're under budget; it can also mean the ratelimit
+  service is down. Treat that as something to alert on, not something a 429
+  will tell you about.
+- **What a 429 means once `shadowMode` is off:** the caller's `x-api-key-id`
+  bucket has exceeded its `limit` for the current `duration` window. It clears
+  automatically at the next window boundary — there's nothing to reset by
+  hand. To raise it, edit `quota.yaml` and let it sync — either the shared
+  `Distinct` rule everyone falls under, or, for one client only, an `Exact`
+  override rule (see `examples/quota-tiers-example.md`); there's no separate
+  per-key override file.
+
+On the AI Gateway controller build this blueprint was written against, a known
+upstream defect means `limit` currently behaves as a **request** count per
+window per key, not a token budget — the counter charged with actual token
+cost is a different, shared-across-all-keys counter that can never deny. Real
+token spend is still measured and visible (in the access log and this policy's
+own counters), just not enforced as a token limit yet. `quota.yaml`'s own
+comments carry the full detail; confirm this is fixed upstream before trusting
+`limit` as tokens rather than requests.
+
 ## Timeouts, retries, and failover
 
-Every rule in `gateway-routing.yaml` sets `timeouts.request` and
-`timeouts.backendRequest` to `300s`, matching the `EnvoyExtensionPolicy`'s
-`messageTimeout` documented above. This isn't optional tuning — Envoy
-Gateway's own default (200ms) would silently cut off every real completion,
-so a `HTTPRoute` with no `timeouts` block at all is broken for anything but
-a health check. Raise it per rule if a model's expected completion time
-genuinely exceeds 300s; there's no per-model templating here, so edit that
-model's own rule directly. (This mirrors, but doesn't copy, the synopsys
-cluster's AI-Gateway setup, which uses 600s for the same reason on its
-`AIGatewayRoute` — different number, same reason for existing at all.)
+Every rule in `gateway-routing.yaml` (both the outer `HTTPRoute` and the
+`AIGatewayRoute`) sets `timeouts.request` and `timeouts.backendRequest` to
+`300s`, matching `sr-gateway-extproc.yaml`'s `messageTimeout`. This isn't
+optional tuning — Envoy Gateway's own default (200ms) would silently cut off
+every real completion, so a route with no `timeouts` block at all is broken
+for anything but a health check. Raise it per rule if a model's expected
+completion time genuinely exceeds 300s; there's no per-model templating here,
+so edit that model's own rule directly. (This mirrors, but doesn't copy, the
+synopsys cluster's AI-Gateway setup, which uses 600s for the same reason on
+its own `AIGatewayRoute` — different number, same reason for existing at all.)
 
 Retry and multi-backend failover are documented but **not enabled** —
-commented-out examples sit right after the `EnvoyExtensionPolicy` block in
-`gateway-routing.yaml`:
+commented-out examples sit at the end of `gateway-routing.yaml`, retargeted at
+the `AIGatewayRoute` rather than a plain `HTTPRoute`:
 
 - **Retry** (`BackendTrafficPolicy.spec.retry`) is safe to turn on: Envoy's
   HTTP retry only replays a request if no response has started yet, so it
@@ -449,24 +567,28 @@ commented-out examples sit right after the `EnvoyExtensionPolicy` block in
   reset-before-request only — deliberately not generic 5xx or timeout,
   since a slow-but-working completion should never be retried. Still an
   opt-in, not a default, since it's the first use of this field in this
-  repo. Verified on Envoy Gateway v1.8.1: a connect failure retried twice as
-  configured, and a backend killed after it had flushed response headers was
-  not retried. It does nothing for a backend that is scaled to zero — see
-  below.
-- **Failover** is *not* what the weighted multi-`backendRef` example gives
-  you. Weights split traffic across two genuinely separate
-  Deployments/Services (a second region, a second cluster) — that part works,
-  and it's the plain-`HTTPRoute` equivalent of `AIServiceBackend`'s
-  priority/weight-across-multiple-Backends feature. But a weight is not a
-  health signal: measured with a 90/10 split and the primary scaled to zero,
+  repo. Verified on Envoy Gateway v1.8.1 (against the old plain-`HTTPRoute`
+  design): a connect failure retried twice as configured, and a backend killed
+  after it had flushed response headers was not retried. It does nothing for a
+  backend that is scaled to zero — see below. Not re-verified against
+  `BackendTrafficPolicy` targeting an `AIGatewayRoute` specifically —
+  `BackendTrafficPolicy` is documented against Gateway/HTTPRoute/GRPCRoute, and
+  whether it attaches the same way to an `AIGatewayRoute` is unconfirmed.
+- **Failover** is *not* what a weighted multi-`backendRef` example gives you.
+  `AIGatewayRoute` rules natively support `backendRefs[].weight` across
+  multiple `AIServiceBackend`s, splitting traffic across two genuinely
+  separate deployments (a second region, a second cluster) — that part works
+  as a load split, but a weight is not a health signal. Measured under the old
+  plain-`HTTPRoute` design with a 90/10 split and the primary scaled to zero,
   90 of 100 requests returned 503, and enabling retry didn't change that (an
   empty cluster is "no healthy upstream", which matches none of the retry
-  triggers). A primary that is up but refusing connections partly recovers
-  via retry, and still failed 15 of 100. Real failover needs the backend
-  ejected from rotation — `BackendTrafficPolicy`'s `healthCheck` or
-  `outlierDetection`, neither of which this blueprint configures. Extra
-  replicas of one Deployment need none of this; they already load-balance via
-  the Service/EDS.
+  triggers). A primary that is up but refusing connections partly recovers via
+  retry, and still failed 15 of 100. Real failover needs the backend ejected
+  from rotation — `BackendTrafficPolicy`'s `healthCheck` or
+  `outlierDetection`, neither of which this blueprint configures, and neither
+  re-verified against `AIServiceBackend`/`AIGatewayRoute`. Extra replicas of
+  one Deployment need none of this; they already load-balance via the
+  Service/EDS.
 
 ## Storage
 
