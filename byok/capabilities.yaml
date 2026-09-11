@@ -36,13 +36,15 @@ secrets.aiwb-demo:
   # secret management makes the same Secrets. Then this probe passes and the
   # package can leave the profile.
   probe: |
-    kubectl get secret aiwb-cnpg-user aiwb-ui-keycloak-secret aiwb-nextauth-secret minio-credentials cluster-auth-admin-token -n aiwb >/dev/null 2>&1       && kubectl get secret airm-realm-credentials keycloak-cnpg-user keycloak-credentials -n keycloak >/dev/null 2>&1       && kubectl get secret postgres-superuser aiwb-db-user keycloak-db-user -n postgres >/dev/null 2>&1
+    kubectl get secret aiwb-cnpg-user aiwb-oidc-client-secret aiwb-nextauth-secret minio-credentials cluster-auth-admin-token aiwb-openbao-token -n aiwb >/dev/null 2>&1       && kubectl get secret dex-credentials -n dex >/dev/null 2>&1       && kubectl get secret postgres-superuser aiwb-db-user -n postgres >/dev/null 2>&1
 database.postgres:
   probe: kubectl get svc postgres -n postgres >/dev/null 2>&1
 telemetry.otel.crds:
   probe: kubectl get crd opentelemetrycollectors.opentelemetry.io >/dev/null 2>&1
 auth.oidc:
-  probe: kubectl get svc keycloak -n keycloak >/dev/null 2>&1
+  # Any OIDC issuer that the aiwb package values point at. The demo probe
+  # looks for Dex.
+  probe: kubectl get svc dex -n dex >/dev/null 2>&1
 workbench.ui:
   probe: kubectl get deployment aiwb-ui -n aiwb >/dev/null 2>&1
 storage.s3.operator:

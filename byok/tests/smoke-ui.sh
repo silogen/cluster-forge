@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Smoke test for the aiwb-demo profile. It logs in to Keycloak with a password
-# grant, calls the AIWB API, deploys the dummy AIMService into the workbench
-# namespace and calls the model through the gateway. Set KEEP=1 to keep the
-# AIMService. curl -k, because the demo certificate is self-signed.
+# Smoke test for the aiwb-demo profile. It gets a token from Dex with a
+# password grant, calls the AIWB API, deploys the dummy AIMService into the
+# workbench namespace and calls the model through the gateway. Set KEEP=1 to
+# keep the AIMService. curl -k, because the demo certificate is self-signed.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NS="${NS:-workbench}"
 AIM_TIMEOUT="${AIM_TIMEOUT:-15m}"
-CLIENT_ID=354a0fa1-35ac-4a6d-9c4d-d661129c2cd0
+CLIENT_ID=aiwb
 fail() { echo "FAIL: $*" >&2; exit 1; }
 ok() { echo "ok: $*"; }
 api() { curl -sk -H "Authorization: Bearer $TOKEN" "$@"; }
@@ -21,17 +21,17 @@ DOMAIN="${DOMAIN#\*.}"
 ok "$DOMAIN"
 
 echo "== 2. the OIDC discovery document"
-curl -skf "https://kc.$DOMAIN/realms/airm/.well-known/openid-configuration" \
-  | jq -e '.token_endpoint' >/dev/null || fail "no OIDC discovery document"
-ok "realm airm answers"
+discovery="$(curl -sk "https://auth.$DOMAIN/.well-known/openid-configuration" || true)"
+TOKEN_ENDPOINT="$(echo "$discovery" | jq -r '.token_endpoint // ""' 2>/dev/null || true)"
+[ -n "$TOKEN_ENDPOINT" ] || fail "no OIDC discovery document at auth.$DOMAIN"
+ok "issuer auth.$DOMAIN answers"
 
 echo "== 3. a token for devuser"
-secret="$(kubectl get secret aiwb-ui-keycloak-secret -n aiwb -o jsonpath='{.data.value}' | base64 -d)"
-password="$(kubectl get secret airm-realm-credentials -n keycloak \
-  -o jsonpath='{.data.KEYCLOAK_INITIAL_DEVUSER_PASSWORD}' | base64 -d)"
-TOKEN="$(curl -skf -X POST "https://kc.$DOMAIN/realms/airm/protocol/openid-connect/token" \
+secret="$(kubectl get secret dex-credentials -n dex -o jsonpath='{.data.client-secret}' | base64 -d)"
+password="$(kubectl get secret dex-credentials -n dex -o jsonpath='{.data.password}' | base64 -d)"
+TOKEN="$(curl -skf -X POST "$TOKEN_ENDPOINT" \
   -d grant_type=password -d "client_id=$CLIENT_ID" -d "client_secret=$secret" \
-  -d "username=devuser@$DOMAIN" -d "password=$password" -d scope=openid \
+  -d "username=devuser@$DOMAIN" -d "password=$password" -d 'scope=openid email' \
   | jq -r '.access_token // ""')"
 [ -n "$TOKEN" ] || fail "the password grant gave no token"
 ok "token"
@@ -42,6 +42,18 @@ api "https://aiwbapi.$DOMAIN/v1/inference/models" | jq -e 'has("data")' >/dev/nu
 ok "the API lists the catalog"
 curl -skf -o /dev/null "https://aiwbui.$DOMAIN/" || fail "the UI does not answer"
 ok "the UI answers"
+# The UI sends the browser to the issuer for the login. The CSRF token and
+# its cookie must arrive together, so the two calls share a cookie jar.
+jar="$(mktemp)"
+csrf="$(curl -sk -c "$jar" "https://aiwbui.$DOMAIN/api/auth/csrf" | jq -r '.csrfToken // ""')"
+location="$(curl -sk -b "$jar" -c "$jar" -o /dev/null -w '%{redirect_url}' \
+  -X POST "https://aiwbui.$DOMAIN/api/auth/signin/oidc" \
+  --data-urlencode "csrfToken=$csrf" --data-urlencode "callbackUrl=https://aiwbui.$DOMAIN/")"
+rm -f "$jar"
+case "$location" in
+  https://auth.$DOMAIN/auth?*) ok "the UI login goes to the issuer";;
+  *) fail "the UI login redirect was '$location'";;
+esac
 
 echo "== 5. the dummy service in namespace $NS"
 if [ -n "${GHCR_PULL_SECRET_JSON:-}" ]; then
