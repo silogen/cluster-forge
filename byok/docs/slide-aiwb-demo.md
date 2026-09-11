@@ -2,7 +2,7 @@
 
 **Bring-your-own-Kubernetes — aiwb-demo profile**
 
-A reference demo of the AI Workbench on an existing cluster, with `helm upgrade --install` only. Log in through Keycloak, deploy a model from the catalog in the UI, chat with the model on CPU. Not a production installation.
+A reference demo of the AI Workbench on an existing cluster, with `helm upgrade --install` only. Log in through Dex, deploy a model from the catalog in the UI, chat with the model on CPU. Not a production installation.
 
 ---
 
@@ -15,8 +15,8 @@ A reference demo of the AI Workbench on an existing cluster, with `helm upgrade 
 | selfsigned-tls | Self-signed `*.<domain>` certificate through cert-manager |
 | opentelemetry-crds | The `OpenTelemetryCollector` CRD, no operator |
 | aiwb-demo-secrets | Every Secret, made by the chart itself |
-| postgres | One PostgreSQL Pod with two databases |
-| keycloak | Keycloak with the `airm` realm and a demo user |
+| postgres | One PostgreSQL Pod with one database |
+| dex | Dex as the OIDC issuer: one demo user, one client, state in memory |
 | aiwb | AI Workbench API and UI in standalone mode |
 
 ¹ cert-manager, KServe, aim-engine, the AIM catalog and the Kyverno storage policy.

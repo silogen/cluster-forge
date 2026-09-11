@@ -30,9 +30,11 @@ These items are out of scope for the first byok release.
 
   Spur could set this for OCI nodes itself.
 - Remove `docs/manual_helm_install`: EAI-8674.
-- A Keycloak-less variant of `aiwb-demo`: AIWB with another OIDC provider or
-  with a static identity. Then the demo needs no Keycloak and no second
-  database.
+- A branded Dex login page for the demo. Today the demo shows the stock Dex
+  page.
+- Rename the `keycloak` values block of the aiwb chart to `oidc` in one
+  breaking change. Today the `oidc` block derives its defaults from it.
+  EAI-5551 is related.
 - S3 for a demo as one `weed server -s3` Pod without the operator, when a
   profile needs S3 with the smallest footprint.
 - Ask the AIWB team for a switch that stops the `OpenTelemetryCollector`

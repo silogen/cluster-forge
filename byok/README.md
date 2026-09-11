@@ -7,10 +7,10 @@ Gitea or OpenBao.
 There are two profiles:
 
 - `scalable-inference` gives one model endpoint that aim-engine and KServe
-  serve. It does not install AIRM, AIWB, Keycloak, Kaiwo, Kueue, a gateway or
+  serve. It does not install AIRM, AIWB, Dex, Kaiwo, Kueue, a gateway or
   a UI.
 - `aiwb-demo` extends `scalable-inference` with a gateway, one PostgreSQL Pod,
-  a small Keycloak and AIWB. It is a reference demo installation, not a
+  Dex as the OIDC issuer and AIWB. It is a reference demo installation, not a
   production installation. See [The aiwb-demo profile](#the-aiwb-demo-profile).
 
 This path runs beside the ArgoCD path in `root/`. It does not replace it.
@@ -64,7 +64,7 @@ byok/bootstrap.sh install --profile <file> --source github:<tag-or-branch>
 
 ## The aiwb-demo profile
 
-The demo shows the whole path: log in through Keycloak, deploy a model from
+The demo shows the whole path: log in through Dex, deploy a model from
 the catalog with the AIWB UI, and chat with the model on CPU. AIWB runs in
 standalone mode, so it needs no AIRM and no Kueue.
 
@@ -94,6 +94,16 @@ The profile declares three variables:
 
 The install prints the URLs and the login of the demo user at the end.
 
+### The login
+
+Dex is the OIDC issuer of the demo: one Pod, one static user
+`devuser@<domain>`, one client `aiwb`, and its state in memory, so a restart
+of the Pod ends every session. The `aiwb-demo-secrets` package makes the
+password and the client secret. AIWB logs in through any OIDC issuer: the
+`oidc` block of the aiwb chart holds the issuer, the internal URL, the client
+and the JWKS URL. Replace the `dex` package with your own issuer and set that
+block in the profile.
+
 ### How traffic reaches the gateway
 
 - **A cloud load balancer or MetalLB**: keep the default
@@ -107,7 +117,8 @@ The install prints the URLs and the login of the demo user at the end.
 
 ### What the demo does not do
 
-- The API-key page answers 503. There is no cluster-auth and no OpenBao.
+- The API-key page is hidden and its endpoints answer 503. There is no
+  cluster-auth and no OpenBao.
 - Datasets, artifacts and models that need S3 answer "storage unavailable".
   There is no S3 in the profile. The `seaweedfs-operator` and `seaweedfs`
   packages are in the profile as comments.
@@ -123,7 +134,7 @@ The install prints the URLs and the login of the demo user at the end.
 
 ### The Secrets
 
-The `aiwb-demo-secrets` package makes every Secret that AIWB, Keycloak and
+The `aiwb-demo-secrets` package makes every Secret that AIWB, Dex and
 PostgreSQL read. It makes each password once and reads it back with `lookup`
 on the next run, so an upgrade does not rotate it. `lookup` gives nothing
 under `helm template` and under ArgoCD, so the package works with
@@ -230,7 +241,7 @@ owns on an `aiwb-demo` cluster.
 ```bash
 byok/footprint/footprint.sh idle > /tmp/footprint.md
 NAMESPACES="kyverno cert-manager kserve-system aim-system envoy-gateway-system \
-  opentelemetry-operator-system postgres keycloak aiwb" \
+  opentelemetry-operator-system postgres dex aiwb" \
   byok/footprint/footprint.sh idle          # the aiwb-demo namespaces
 ```
 
@@ -263,7 +274,7 @@ config JSON before you run it.
 | opentelemetry-crds | opentelemetry-operator-system | telemetry.otel.crds | (none) |
 | aiwb-demo-secrets | aiwb | secrets.aiwb-demo | (none) |
 | postgres | postgres | database.postgres | storage.default-class, secrets.aiwb-demo |
-| keycloak | keycloak | auth.oidc | database.postgres, gateway.https, secrets.aiwb-demo |
+| dex | dex | auth.oidc | gateway.https, secrets.aiwb-demo |
 | aiwb | aiwb | workbench.ui | auth.oidc, database.postgres, gateway.https, inference.aim, policy.kyverno, telemetry.otel.crds, secrets.aiwb-demo |
 
 The last nine rows belong to the `aiwb-demo` profile.

@@ -15,7 +15,7 @@ dep_field() { # <package> <dependency> <field>
 }
 
 # sources/cert-manager-config has no ArgoCD app, so the selfsigned-tls package
-# has no row here.
+# has no row here. The dex package has no ArgoCD app either.
 # In-repo charts: the byok dependency must point at the same sources/ directory
 # that the ArgoCD app uses. There is no seaweedfs-crds row: that ArgoCD app is
 # deprecated and the seaweedfs-operator chart ships the CRDs itself.
@@ -28,8 +28,7 @@ for row in \
   "kyverno:kyverno:kyverno" \
   "kyverno-policies-storage-local-path:kyverno-policies-storage-local-path:kyverno-policies-storage-local-path" \
   "envoy-gateway:gateway-helm:envoy-gateway" \
-  "envoy-gateway-config:envoy-gateway-config:envoy-gateway-config" \
-  "keycloak:keycloak-old:keycloak"
+  "envoy-gateway-config:envoy-gateway-config:envoy-gateway-config"
 do
   IFS=: read -r pkg dep app <<<"$row"
   want="$(APP="$app" yq -r '.apps[strenv(APP)].path' "$VALUES")"

@@ -1,28 +1,35 @@
 # Footprint of the aiwb-demo profile
 
-Measured on 2026-09-10 on one Kaytoo VM, OCI, 16 vCPU and 94 GiB memory, with
-k3s v1.36.4 and its local-path StorageClass. The profile is `aiwb-demo`, which
-holds every package of `scalable-inference` and adds the gateway, PostgreSQL,
-Keycloak and AIWB. The gateway is a `ClusterIP` Service with the node address
-in `externalIPs`, so the cluster needs no load balancer.
+Measured on 2026-09-11 on one Kaytoo VM, OCI, 16 vCPU and 94 GiB memory, with
+a single-node Spur k0s cluster, k0s v1.36.2, and its local-path StorageClass.
+The profile is `aiwb-demo`, which holds every package of
+`scalable-inference` and adds the gateway, PostgreSQL, Dex and AIWB. The
+gateway is a `ClusterIP` Service with the node address in `externalIPs`, so
+the cluster needs no load balancer.
+
+The AIWB images and chart of this measurement come from the core branch that
+adds the `oidc` block to the aiwb chart, built locally as `2.0.2-oidc.1`.
+The measurement of 2026-09-10 with Keycloak, k3s and aiwb-chart 2.0.0 is in
+the git history of this file.
 
 This document holds minimal numbers only. There is no baseline from a full
 cluster-forge install.
 
 | Item | Value |
 |---|---|
-| date | 2026-09-10 |
-| kubernetes | v1.36.4+k3s1, one node |
+| date | 2026-09-11 |
+| kubernetes | v1.36.2+k0s, one node |
 | VM shape | 16 vCPU, 94 GiB memory, 96 GiB boot disk |
 | profile | aiwb-demo |
 | domain | `<node-ip>.nip.io`, self-signed certificate |
-| first install wall-clock time | 5 min 46 s |
-| second install wall-clock time | 33 s |
-| container images on the node | 39 images, 19 GiB in `/var/lib/rancher/k3s/agent/containerd` |
+| install of the demo layer on top of `scalable-inference` | 1 min 17 s |
+| second install wall-clock time | 29 s |
+| container images on the node | 119 images, 19 GiB in `/var/lib/k0s/containerd` |
 
-The first install pulls every image. The second install changes nothing and
-only re-renders the releases. The 19 GiB holds the images of both profiles and
-of k3s.
+The demo layer is `aiwb-demo-secrets`, `postgres`, `dex` and `aiwb`, with
+the images already on the node. The second install changes nothing and only
+re-renders the releases. The 19 GiB holds the images of both profiles, of
+k0s, and of a few test images.
 
 ## Idle
 
@@ -37,16 +44,22 @@ Twelve pods, no model running.
 | envoy-gateway-system | 2 | 210m | 800Mi | 0m | 1024Mi |
 | opentelemetry-operator-system | 0 | 0m | 0Mi | 0m | 0Mi |
 | postgres | 1 | 100m | 256Mi | 0m | 1024Mi |
-| keycloak | 1 | 250m | 512Mi | 500m | 2048Mi |
-| aiwb | 2 | 600m | 640Mi | 2500m | 2560Mi |
-| **total** | **12** | **1560m** | **3192Mi** | **3200m** | **11736Mi** |
+| dex | 1 | 20m | 64Mi | 0m | 128Mi |
+| aiwb | 2 | 600m | 1024Mi | 4000m | 6144Mi |
+| **total** | **12** | **1330m** | **3128Mi** | **4200m** | **13400Mi** |
 
 The `opentelemetry-operator-system` namespace holds the collector CRD only,
-with no pod.
+with no pod. The aiwb row follows the chart of the core branch, which asks
+for more than aiwb-chart 2.0.0 did.
 
-Live usage from `kubectl top`, the whole node: 784 mCPU and 4240 MiB, which
-includes k3s itself. The largest pods are Keycloak with 837 MiB, the AIWB API
-with 284 MiB and the AIWB UI with 109 MiB.
+Dex replaces Keycloak: 20 mCPU and 64 MiB requested where Keycloak requested
+250 mCPU and 512 MiB, and one database instead of two. The Dex image is
+44 MiB where the Keycloak image was about 470 MiB.
+
+Live usage from `kubectl top`, the whole node: 681 mCPU and 3539 MiB, which
+includes k0s itself. The largest pods are the AIWB API with 276 MiB and the
+AIWB UI with 124 MiB. Dex uses 1 mCPU and 7 MiB. With Keycloak the node used
+784 mCPU and 4240 MiB, and Keycloak alone 837 MiB.
 
 The only volume claim of the idle installation is `data-postgres-0`, 5 GiB,
 ReadWriteOnce.
@@ -68,8 +81,16 @@ size, because the AIWB chart sets `pvcHeadroomPercent: 100`.
 ## What the measurement covers
 
 `byok/tests/smoke-ui.sh` passed on this installation: the OIDC discovery
-document answers, a password grant gives a token, the AIWB API lists the model
-catalog, the UI answers, the dummy AIMService becomes Ready in the `workbench`
-namespace, the API lists it, and a chat completion answers through
+document of Dex answers, a password grant gives a token, the AIWB API lists
+the model catalog, the UI answers and sends the login to Dex, the dummy
+AIMService becomes Ready in the `workbench` namespace, the API lists it, and
+a chat completion answers through
 `https://workloads.<domain>/workbench/<workload-id>/v1/chat/completions`.
 `NAMESPACE=workbench byok/tests/smoke.sh` passed as well.
+
+The browser login was driven with curl on the node: the UI sends the browser
+to `https://auth.<domain>/auth`, Dex shows its login form, the callback of
+the UI exchanges the code on the in-cluster Dex address, the session holds
+the email and an access token with `iss` and `aud` of Dex, the API answers
+200 to that token, and the logout route answers with the app URL because Dex
+has no end session endpoint.

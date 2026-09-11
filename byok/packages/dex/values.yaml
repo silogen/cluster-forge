@@ -1,0 +1,54 @@
+dex:
+  # One Pod, state in memory. A restart ends every session, which is fine for
+  # a demo. The aiwb-demo-secrets package makes the dex-credentials Secret.
+  # The profile sets the issuer, the user, the client and the hostname,
+  # because they hold the domain.
+  replicaCount: 1
+  config:
+    storage:
+      type: memory
+    web:
+      http: 0.0.0.0:5556
+    oauth2:
+      skipApprovalScreen: true
+      # The password grant serves the smoke test only.
+      passwordConnector: local
+      grantTypes:
+        - authorization_code
+        - refresh_token
+        - password
+      responseTypes:
+        - code
+    expiry:
+      # Equal to the session length of the AIWB UI.
+      idTokens: 8h
+    enablePasswordDB: true
+  envVars:
+    - name: DEX_DEVUSER_PASSWORD_HASH
+      valueFrom:
+        secretKeyRef:
+          name: dex-credentials
+          key: password-hash
+    - name: DEX_AIWB_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: dex-credentials
+          key: client-secret
+  httpRoute:
+    enabled: true
+    parentRefs:
+      - group: gateway.networking.k8s.io
+        kind: Gateway
+        name: https
+        namespace: envoy-gateway-system
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: /
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
