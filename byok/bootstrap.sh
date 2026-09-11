@@ -184,7 +184,12 @@ helm_install_retry() { # <name> <dir> <namespace> <profile values file>
     fi
     [ "$try" -eq 3 ] && die "install of $pkg failed after 3 attempts"
     # A first install that fails leaves a release that upgrade cannot use.
+    # A deployed release stays: an uninstall would remove its objects, and a
+    # namespace among them takes everything in it away.
     if [ "$(helm status "$pkg" --namespace "$ns" -o json 2>/dev/null \
+            | jq -r '(.version // 0 | tostring) + " " + (.info.status // "")')" \
+         != "1 deployed" ] \
+       && [ "$(helm status "$pkg" --namespace "$ns" -o json 2>/dev/null \
             | jq -r '.version // 0')" = 1 ]; then
       helm uninstall "$pkg" --namespace "$ns" --wait >/dev/null 2>&1 || true
     fi
