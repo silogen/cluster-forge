@@ -8,8 +8,19 @@ aiwb-chart:
     database: aiwb
     username: aiwb_user
     userSecretName: aiwb-cnpg-user
-  # cluster-auth is not in the demo. The API-key endpoints answer 503.
+  # Dex is the OIDC issuer. The profile sets the issuer, because it holds the
+  # domain. The aiwb-demo-secrets package makes the client secret.
+  oidc:
+    internalUrl: http://dex.dex.svc.cluster.local:5556
+    jwksUrl: http://dex.dex.svc.cluster.local:5556/keys
+    clientId: aiwb
+    secretName: aiwb-oidc-client-secret
+    audience: aiwb
+  # Neither cluster-auth nor OpenBao is in the demo, so the API-key page is
+  # hidden. The API-key endpoints answer 503.
   clusterAuth:
+    enabled: false
+  apiKeysManagement:
     enabled: false
   # There is no ai-gateway in the demo.
   aiGateway:

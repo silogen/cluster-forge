@@ -1,0 +1,6 @@
+dependencies:
+- name: dex
+  repository: file://../../../sources/dex/0.24.1
+  version: 0.24.1
+digest: sha256:36232534c3bc4395371dc09a19068ca5b47d36faf8e4c8f9149d044271b2b95e
+generated: "2026-09-11T11:54:32.398647977+03:00"

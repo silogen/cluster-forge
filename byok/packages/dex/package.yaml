@@ -1,8 +1,7 @@
-name: keycloak
-namespace: keycloak
+name: dex
+namespace: dex
 provides:
   - auth.oidc
 requires:
-  - database.postgres
   - gateway.https
   - secrets.aiwb-demo

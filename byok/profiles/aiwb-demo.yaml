@@ -1,7 +1,7 @@
-# A reference demo installation: log in through Keycloak, deploy a model from
-# the catalog with the AIWB UI, and chat with it on CPU. It is not a
-# production installation. It extends scalable-inference, so it also holds
-# every package of that profile.
+# A reference demo installation: log in through Dex, deploy a model from the
+# catalog with the AIWB UI, and chat with it on CPU. It is not a production
+# installation. It extends scalable-inference, so it also holds every package
+# of that profile.
 name: aiwb-demo
 extends: scalable-inference
 vars:
@@ -43,23 +43,43 @@ packages:
   - name: opentelemetry-crds
   - name: aiwb-demo-secrets
   - name: postgres
-  - name: keycloak
+  # Dex is the OIDC issuer: one static user and one client, state in memory.
+  # The aiwb-demo-secrets package makes the password hash and the client
+  # secret, Dex reads both from its environment.
+  - name: dex
     values:
-      keycloak-old:
-        domain: ${domain}
+      dex:
+        config:
+          issuer: https://auth.${domain}
+          staticPasswords:
+            - email: devuser@${domain}
+              username: devuser
+              userID: 08a8684b-db88-4b73-90a9-3cd1661f5466
+              hashFromEnv: DEX_DEVUSER_PASSWORD_HASH
+          staticClients:
+            - id: aiwb
+              name: AI Workbench
+              secretEnv: DEX_AIWB_CLIENT_SECRET
+              redirectURIs:
+                - https://aiwbui.${domain}/api/auth/callback/oidc
+        httpRoute:
+          hostnames:
+            - auth.${domain}
   - name: aiwb
     values:
       aiwb-chart:
         appDomain: ${domain}
+        oidc:
+          issuer: https://auth.${domain}
   # There is no S3 in the demo. AIWB works without it, but datasets,
   # artifacts and S3-backed models answer "storage unavailable".
   # - name: seaweedfs-operator
   # - name: seaweedfs
 notes: |
   AIWB UI:   https://aiwbui.${domain}
-  Keycloak:  https://kc.${domain}
+  Login:     https://auth.${domain}
   User:      devuser@${domain}
-  Password:  kubectl get secret airm-realm-credentials -n keycloak \
-               -o jsonpath='{.data.KEYCLOAK_INITIAL_DEVUSER_PASSWORD}' | base64 -d; echo
+  Password:  kubectl get secret dex-credentials -n dex \
+               -o jsonpath='{.data.password}' | base64 -d; echo
 
   The certificate is self-signed, so the browser shows a warning.
