@@ -17,6 +17,8 @@ spec:
   - amdenterpriseai/aim-epyc-base:0.11
   - amdenterpriseai/aim-epyc-base:0.13
   - amdenterpriseai/aim-radeon-base:0.12
+  - amdenterpriseai/aim-base:2026.9.0
+  - amdenterpriseai/aim-base:2026.9.1
   maxModels: 10
   registry: docker.io
   syncInterval: 1h

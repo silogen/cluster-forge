@@ -14,6 +14,8 @@ spec:
   - amdenterpriseai/aim-base:0.13
   - amdenterpriseai/aim-base:0.13.0
   - amdenterpriseai/aim-base:0.13.1
+  - amdenterpriseai/aim-base:2026.9.0
+  - amdenterpriseai/aim-base:2026.9.1
   maxModels: 10
   registry: docker.io
   syncInterval: 1h
@@ -174,6 +176,25 @@ spec:
     # - image: amdenterpriseai/aim-base:0.13.0
     - image: amdenterpriseai/aim-google-gemma-4-31b-it:0.13.0-preview
     - image: amdenterpriseai/aim-google-medgemma-27b-it:0.13.0
+  maxModels: 100
+  registry: docker.io
+  syncInterval: 1h
+---
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterModelSource
+metadata:
+  name: amd-aim-instinct-2026.9.0
+spec:
+  filters:
+    # MiniMax-M3: vLLM 0.26.0, built on aim-base:2026.9.0
+    # - image: amdenterpriseai/aim-base:2026.9.0
+    - image: amdenterpriseai/aim-minimaxai-minimax-m3:2026.9.0
+    # GLM-5.2: vLLM 0.27.1, built on aim-base:2026.9.1
+    # - image: amdenterpriseai/aim-base:2026.9.1
+    - image: amdenterpriseai/aim-zai-org-glm-5-2:2026.9.0
   maxModels: 100
   registry: docker.io
   syncInterval: 1h
