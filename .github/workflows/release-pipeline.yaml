@@ -22,6 +22,7 @@ jobs:
 
       - name: Calculate Next Version
         id: calculate_version
+        if: ${{ github.event.inputs.version_override == '' }}
         uses: ietf-tools/semver-action@v1
         with:
           branch: ${{ github.ref_name }}
@@ -54,8 +55,7 @@ jobs:
           gh release create "$VERSION" "release-enterprise-ai-${VERSION}.tar.gz#ClusterForge Enterprise AI Package" \
             --title="ClusterForge Release $VERSION" \
             --target ${{ github.sha }} \
-            --generate-notes \
-            --prerelease || true # Ignore if release already exists
+            --generate-notes || true # Ignore if release already exists
 
   sbom:
     needs: [release]
