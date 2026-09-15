@@ -2,8 +2,20 @@
 
 These items are out of scope for the first byok release.
 
-- GPU: an AMD GPU operator package, the accelerator detector on, the Instinct
-  catalog family, and a footprint measured on a GPU node.
+- The kserve package fails on a cold single node: `helm_install_retry` gives
+  three attempts 20 seconds apart, and the webhook of the release needs longer
+  when the image still pulls. A second run of the installer passes. Make the
+  retry wait for the webhook Deployment instead of a fixed sleep.
+- The CPU accelerator detector of the aim-engine chart has no node affinity,
+  although its values comment says it targets nodes without a GPU. On an
+  MI300X node it reports `model=CPU count=1` and its startup probe never
+  passes, so the DaemonSet stays 0/1. The `scalable-inference-gpu` profile
+  turns it off. Ask the aim-engine team for the node affinity.
+- The accelerator detector images live in `amdenterpriseai`, and the chart
+  ships an empty `imagePullSecrets`. The GPU profile names an `aim-pull`
+  Secret that the operator must make in `aim-system` before the install. A
+  byok package that makes registry Secrets from one place would remove that
+  manual step.
 - Blueprints on top of the inference profile.
 - An AIRM package. The `aiwb-demo` profile holds AIWB without AIRM.
 - Autoscaling as a capability that the cluster gives, `autoscaling.keda`, with
