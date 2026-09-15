@@ -135,7 +135,13 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
    of the Kaytoo skill cannot be run. The plugin work did not remove it; the
    skill names a command that this version never had. Read the health from
    `spur nodes` instead.
-16. **`--ref` defaults to `main`, which holds no `byok/` directory.** Every
+16. **The CRD keep of an uninstall is wider than it needs to be.** Removing
+   `envoy-gateway` kept its own eight `gateway.envoyproxy.io` CRDs, because a
+   package that stays ships the same names in its chart. Nothing that stays
+   uses that API group, so the CRDs only go later, with the base profile. The
+   end state is right and no object is lost; the keep decision reads the chart
+   names, not the live owners.
+17. **`--ref` defaults to `main`, which holds no `byok/` directory.** Every
    command needs `--ref EAI-8560-byok` until the branch merges. The error
    message names the cause: `no byok/bootstrap.sh under ...`.
 
