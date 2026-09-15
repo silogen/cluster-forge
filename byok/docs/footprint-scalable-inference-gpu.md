@@ -47,6 +47,34 @@ and gc), the device plugin, the node labeller and the metrics exporter.
 There are no PersistentVolumeClaims. The profile keeps no state of its own; a
 model cache PVC appears only when an AIMService asks for one.
 
+## Images
+
+The 17 digests that the running pods of the profile reference, 10.86 GiB in
+all. `aim-base` is the image a model server runs, and it is 92 % of the total.
+
+| Size | Image |
+|---|---|
+| 10240.0 MiB | `amdenterpriseai/aim-base:0.12` |
+| 333.9 MiB | `rocm/device-metrics-exporter:v1.4.1` |
+| 121.7 MiB | `rocm/gpu-operator:v1.4.1` |
+| 65.3 MiB | `registry.k8s.io/nfd/node-feature-discovery:v0.16.1` |
+| 48.8 MiB | `amdenterpriseai/aim-engine:v0.2.5` |
+| 42.6 MiB | `kserve/kserve-controller:v0.16.0` |
+| 40.3 MiB | `reg.kyverno.io/kyverno/kyverno:v1.15.1` |
+| 36.1 MiB | `reg.kyverno.io/kyverno/kyvernopre:v1.15.1` |
+| 32.1 MiB | `rocm/kernel-module-management-operator:v1.4.1` |
+| 30.7 MiB | `rocm/kernel-module-management-webhook-server:v1.4.1` |
+| 30.1 MiB | `rocm/k8s-device-plugin:labeller-latest` |
+| 29.7 MiB | `quay.io/brancz/kube-rbac-proxy:v0.18.0` |
+| 20.9 MiB | `quay.io/jetstack/cert-manager-controller:v1.18.2` |
+| 18.0 MiB | `quay.io/jetstack/cert-manager-webhook:v1.18.2` |
+| 16.2 MiB | `rocm/k8s-device-plugin:latest` |
+| 15.3 MiB | `quay.io/jetstack/cert-manager-cainjector:v1.18.2` |
+| 2.1 MiB | `docker.io/library/busybox:1.36` |
+
+The GPU operator brings six of these, `rocm/*` and the node feature discovery
+image, about 630 MiB together.
+
 ## What the numbers do not say
 
 - The cert-manager pods declare no requests and no limits, so the scheduler
