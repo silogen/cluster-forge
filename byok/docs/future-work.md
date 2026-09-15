@@ -6,6 +6,16 @@ These items are out of scope for the first byok release.
   three attempts 20 seconds apart, and the webhook of the release needs longer
   when the image still pulls. A second run of the installer passes. Make the
   retry wait for the webhook Deployment instead of a fixed sleep.
+- The AIM images of the 0.8.5 release do not run on a host whose amdgpu
+  driver is older than their ROCm. On `useocpm2m-silogen-014`, driver
+  6.19.14 with the ROCm 7.0.2 amdsmi of the image, `amdsmi_get_gpu_activity`
+  answers AMDSMI_STATUS_UNEXPECTED_DATA. The GPU detector of the runtime
+  holds all three amdsmi calls in one try block, so one failing call hides
+  the GPU: it reports `Detected GPU: NONE`, finds no compatible profile and
+  the predictor container exits. The `amd-smi` command line of the same
+  image reads the GPU without fault, and the aim-base 0.12 image answers the
+  same call without fault. Ask the aim-engine team to read the activity of a
+  GPU in its own try block. The GPU test uses the 0.11.1 image.
 - The CPU accelerator detector of the aim-engine chart has no node affinity,
   although its values comment says it targets nodes without a GPU. On an
   MI300X node it reports `model=CPU count=1` and its startup probe never
