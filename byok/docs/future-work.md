@@ -21,11 +21,19 @@ These items are out of scope for the first byok release.
   MI300X node it reports `model=CPU count=1` and its startup probe never
   passes, so the DaemonSet stays 0/1. The `scalable-inference-gpu` profile
   turns it off. Ask the aim-engine team for the node affinity.
-- The accelerator detector images live in `amdenterpriseai`, and the chart
-  ships an empty `imagePullSecrets`. The GPU profile names an `aim-pull`
-  Secret that the operator must make in `aim-system` before the install. A
-  byok package that makes registry Secrets from one place would remove that
-  manual step.
+- The accelerator detector images live in `amdenterpriseai` and the chart
+  ships an empty `imagePullSecrets`. The images are public today, so a pull
+  Secret only lifts the rate limit of an anonymous pull. A byok package that
+  makes registry Secrets from one place would remove the manual step when a
+  registry does need credentials.
+- `footprint/footprint.sh` stops with a jq error when a container writes a
+  memory value without the binary suffix, for example `4G` in place of `4Gi`.
+  The GPU footprint is therefore not measured yet. Read the quantity with a
+  suffix table instead of `tonumber`.
+- The `absence of components` step of `tests/smoke.sh` holds every Pod of the
+  cluster to Running or Succeeded, so a GPU cluster fails the step while any
+  Pod of `kube-amd-gpu` is not ready, although steps 1 to 7 pass. Give the
+  step a namespace list, or run it only for the minimal core.
 - Blueprints on top of the inference profile.
 - An AIRM package. The `aiwb-demo` profile holds AIWB without AIRM.
 - Autoscaling as a capability that the cluster gives, `autoscaling.keda`, with
