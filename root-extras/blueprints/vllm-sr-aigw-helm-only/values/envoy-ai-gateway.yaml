@@ -1,0 +1,63 @@
+# Envoy AI Gateway values, for the `ai-gateway-helm` chart.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# READ THIS BEFORE RELYING ON PER-TENANT TOKEN QUOTA
+#
+# The images below are the upstream ones. On them, `manifests/quota.yaml`'s
+# per-API-key token quota LOADS, REPORTS, AND ENFORCES NOTHING USEFUL: the
+# counter each tenant's bucket actually checks increments by 1 per request,
+# while the real token cost is charged to a different, shared-across-all-keys
+# counter that can never deny. Net effect: `limit` behaves as requests per
+# window, not tokens, and one tenant's spend is indistinguishable from another's.
+#
+# The fix is theagentrouter/agent-router#2664, still open and unreleased. To get
+# working per-tenant quota you have to build the controller yourself and point
+# the override below at it -- see "Build the patched AI Gateway image" in this
+# blueprint's README.
+#
+# Everything else (routing, model selection, apiKeyAuth, token accounting in the
+# access log) works correctly on the upstream images, which is why they are the
+# default here rather than a placeholder that would refuse to install.
+#
+# Once the fix ships upstream: drop the override, bump the tags below, and
+# delete this comment block.
+# ─────────────────────────────────────────────────────────────────────────────
+controller:
+  image:
+    repository: docker.io/envoyproxy/ai-gateway-controller
+    # Not a release tag: a main build that includes envoyproxy/ai-gateway#2304,
+    # without which the controller crashes its reconcile with "found
+    # gateway-labeled objects in multiple namespaces" whenever a Gateway lives
+    # outside the AI Gateway namespace -- which sr-gateway does.
+    tag: 8007dfd481f7d1225bcaf9d059cb15b61d4d28e0
+
+  # Chart default is the literal string "default-insecure-seed". It keys MCP
+  # session encryption. Override it anywhere the sessions matter.
+  mcp:
+    sessionEncryption:
+      seed: "change-me-before-production"
+
+  # NOT enabling certManager here, deliberately. The chart's built-in genCA path
+  # guards regeneration with `lookup "v1" "Secret" ...`, which returns empty
+  # whenever Helm renders without a live cluster -- so under ArgoCD every sync
+  # mints a fresh CA, the caBundle drifts from the cert the running controller
+  # loaded at startup, and pod admission starts failing with "x509: certificate
+  # signed by unknown authority". `helm upgrade` renders AGAINST the live
+  # cluster, so `lookup` works, the CA is stable across re-runs, and cert-manager
+  # is not a prerequisite for this blueprint. Set
+  # `controller.mutatingWebhook.certManager.enable: true` if you have
+  # cert-manager and would rather it own the cert anyway.
+
+extProc:
+  image:
+    repository: docker.io/envoyproxy/ai-gateway-extproc
+    tag: 8007dfd481f7d1225bcaf9d059cb15b61d4d28e0
+
+# Left at chart defaults on purpose:
+#   controller.quotaRateLimitServiceAddr -- already
+#     "envoy-ai-gateway-ratelimit.envoy-gateway-system", which is exactly where
+#     install.sh puts the rate limit service.
+#   controller.quotaRateLimitFailureModeDeny (false) -- an unreachable rate
+#     limit service lets traffic through unthrottled rather than blocking it.
+#     Fail-open is the right default, but it means a broken quota setup looks
+#     identical to a working one from the client side. Verify, don't assume.
