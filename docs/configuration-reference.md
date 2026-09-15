@@ -75,20 +75,41 @@ See [`byok/README.md`](../byok/README.md).
 | `KUBECONFIG` | all | none, required | Path to a cluster-admin kubeconfig. |
 | `HELM_TIMEOUT` | all | `10m` | Value for `helm --timeout`. |
 
-## `byok/spur/spur-silo`
+## `byok/spur-silo` (the Go build)
 
 Installs a byok profile on a Spur k0s cluster, as the Spur CLI plugin
-`spur silo`. See [`byok/README.md`](../byok/README.md).
+`spur silo`. Every chart of the release is inside the binary, so it takes no
+ref and needs no tool on the node. See
+[`byok/spur-silo/README.md`](../byok/spur-silo/README.md).
 
 | Flag or variable | Command | Default | Meaning |
 |---|---|---|---|
-| `--ref <git ref>` | `install`, `uninstall`, `validate`, `status`, `list` | the checkout the plugin runs from, else `EAI-8560-byok` | cluster-forge tag or branch to use. |
+| `--var name=value` | `install`, `validate` | none | Fill a variable that the profile declares. Repeat per variable. |
+| `--kubeconfig <path>` | all but `list` | none | Use this kubeconfig instead of asking Spur for one. |
+| `--pull-secret <file>` | `install` | none | Docker config JSON for the Secret `aim-pull` in `aim-system`. |
+| `--no-gpu` | `install` | off | Do not select `scalable-inference-gpu` on a cluster that has AMD Instinct GPUs. |
+| `--smoke-test` | `install` | off | Deploy the dummy model after the install and wait until it is ready. |
+| `--keep-data` | `uninstall` | off | Keep the PVCs and the CRDs of the profile. |
+| `KUBECONFIG` | all but `list` | none | Used when `--kubeconfig` is not given. |
+| `PULL_SECRET_JSON` | `install` | empty | Same content as `--pull-secret`, as a string. |
+| `SPUR_BIN` | `install`, `status`, and every command that needs a kubeconfig | `spur` | The Spur binary to ask for a kubeconfig and for the node GRES. |
+| `REF` (build time) | `make build` | the current branch | The version string that `version` prints and the install record keeps. |
+
+## `byok/spur/spur-silo` (the bash build)
+
+Installs the same profiles from a cluster-forge checkout or clone, for a ref
+that has no binary yet. See [`byok/README.md`](../byok/README.md).
+
+| Flag or variable | Command | Default | Meaning |
+|---|---|---|---|
+| `--ref <git ref>` | `install`, `uninstall`, `validate`, `status`, `list` | the checkout the plugin runs from, else `main` | cluster-forge tag or branch to use. |
 | `--source <path>` | the same | none | Use this cluster-forge checkout instead of a clone. |
 | `--var name=value` | `install`, `validate` | none | Fill a variable that the profile declares. Repeat per variable. |
 | `--kubeconfig <path>` | all but `list` | none | Use this kubeconfig instead of asking Spur for one. |
 | `--pull-secret <file>` | `install` | none | Docker config JSON for the Secret `aim-pull` in `aim-system`. |
 | `--no-gpu` | `install` | off | Do not select `scalable-inference-gpu` on a cluster that has AMD Instinct GPUs. |
 | `--install-tools` | all but `list` | off | Install helm, kubectl, yq and jq when they are missing. |
+| `--smoke-test` | `install` | off | Deploy the dummy model after the install and wait until it is ready. |
 | `--keep-data` | `uninstall` | off | Keep the PVCs and the CRDs of the profile. |
 | `KUBECONFIG` | all but `list` | none | Used when `--kubeconfig` is not given. |
 | `PULL_SECRET_JSON` | `install` | empty | Same content as `--pull-secret`, as a string. |
