@@ -4,7 +4,7 @@
 # also works when it is called directly. See byok/README.md.
 set -euo pipefail
 
-DEFAULT_REF="EAI-8560-byok"
+DEFAULT_REF="main"
 REPO="${CLUSTER_FORGE_REPO:-https://github.com/silogen/cluster-forge.git}"
 CACHE_DIR="${SPUR_SILO_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/spur-silo}"
 SPUR="${SPUR_BIN:-spur}"
@@ -19,6 +19,7 @@ KUBECONFIG_ARG=""
 PULL_SECRET=""
 NO_GPU=no
 KEEP_DATA=no
+SMOKE=no
 INSTALL_TOOLS=no
 VARS=()
 
@@ -34,7 +35,7 @@ usage() {
 Usage:
   spur silo install   <profile> [--ref <git-ref>] [--var name=value]...
                       [--kubeconfig <path>] [--pull-secret <docker-config.json>]
-                      [--no-gpu] [--install-tools] [--source <path>]
+                      [--no-gpu] [--smoke-test] [--install-tools] [--source <path>]
   spur silo uninstall <profile> [--keep-data]
   spur silo status
   spur silo list
@@ -52,6 +53,7 @@ Options:
                        rate limit.
   --no-gpu             Do not select the GPU profile on a cluster that has
                        AMD Instinct GPUs.
+  --smoke-test         Run the smoke tests of the profile after the install.
   --install-tools      Install helm, kubectl, yq and jq when they are missing.
   --source <path>      Use this cluster-forge checkout instead of a clone.
   --keep-data          Keep the PVCs and the CRDs of the profile.
@@ -239,6 +241,20 @@ cmd_install() { # <profile>
 
   ensure_pull_secret
   BYOK_REF="$REF" "$BYOK_DIR/bootstrap.sh" install --profile "$file" ${VARS[@]+"${VARS[@]}"}
+  [ "$SMOKE" = no ] || smoke_test "$(yq -r '.name // ""' "$file")"
+}
+
+# The aiwb-demo profile serves the model in the workbench namespace and adds
+# the UI test.
+smoke_test() { # <profile name>
+  if [ "$1" = aiwb-demo ]; then
+    info "run the smoke tests"
+    NAMESPACE=workbench "$BYOK_DIR/tests/smoke.sh"
+    "$BYOK_DIR/tests/smoke-ui.sh"
+  else
+    info "run the smoke test"
+    "$BYOK_DIR/tests/smoke.sh"
+  fi
 }
 
 cmd_uninstall() { # <profile>
@@ -315,6 +331,7 @@ main() {
         case "$2" in *=*) :;; *) die "--var needs name=value, got $2";; esac
         VARS+=(--var "$2"); shift 2;;
       --no-gpu) NO_GPU=yes; shift;;
+      --smoke-test) SMOKE=yes; shift;;
       --keep-data) KEEP_DATA=yes; shift;;
       --install-tools) INSTALL_TOOLS=yes; shift;;
       -h|--help) usage; exit 0;;
