@@ -107,10 +107,47 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
    `aiwb-api` and `aiwb-ui` stay in `CreateContainerConfigError` with
    `secret "aiwb-ui-keycloak-secret" not found`, so the install of the
    `aiwb-demo` profile never finishes. The change from Keycloak to Dex did not
-   follow the name through. The profile must set `keycloak.secretName`,
-   `keycloak.url`, `keycloak.internalUrl` and `keycloak.clientId` for Dex, or
-   the secrets package must make the Secret under the name the chart wants,
-   with the keys the chart reads with `envFrom`.
+   follow the name through.
+
+   The `aiwb` package values already give the whole `oidc` block
+   (`internalUrl`, `jwksUrl`, `clientId`, `secretName: aiwb-oidc-client-secret`,
+   `audience`) and `openBao.enabled: false`, and the profile gives
+   `oidc.issuer`. Chart 2.0.0 knows neither key, so it ignores both and reads
+   `keycloak.secretName`. The package is written for a chart that does not
+   exist yet.
+
+   Two open pull requests in silogen/core make that chart, and the demo needs
+   both:
+
+   - silogen/core#4643 (`EAI-8694: Let AIWB log in through any OIDC issuer`)
+     adds the `oidc` block. `oidc.secretName` gives the Secret name,
+     `oidc.issuer`, `oidc.internalUrl`, `oidc.clientId` and `oidc.jwksUrl` give
+     the issuer, and the API no longer reads the client secret at all. An empty
+     `oidc` block keeps the Keycloak defaults.
+   - silogen/core#4642 (`EAI-8693: Make the OpenBao API-key store optional in
+     the aiwb chart`) adds `openBao.enabled`. Chart 2.0.0 holds no OpenBao, but
+     the chart on `main` holds it and asks for the Secret
+     `aiwb-openbao-token`, which the demo does not make either. Without this
+     pull request the next chart trades one missing Secret for another.
+
+   So the profile and the package need no change. The fix is to vendor the
+   `aiwb` chart from a build that holds both changes, that is, after both pull
+   requests go in.
+
+   **Proved on Kaytoo, 2026-09-16.** A chart packaged from the two branches
+   merged (`aiwb-chart-2.1.0-oidc-openbao`), with the images
+   `silogenai/aiwb-{api,ui}:EAI-8694-feat-generic-oidc`, installed the
+   `aiwb-demo` profile twice on a two-node k0s cluster. Both times the install
+   said `install finished` and `aiwb-api` and `aiwb-ui` came to `1/1 Running`;
+   the second round took 37 seconds for the two pods. No Deployment names
+   `aiwb-ui-keycloak-secret` any more: the UI takes `OIDC_CLIENT_SECRET` from
+   `aiwb-oidc-client-secret/value`, the API takes no client secret, and
+   `OPENBAO_ADDR` is empty. The UI reads the Dex discovery document and the API
+   reads the Dex JWKS (1 key) from inside the cluster. `uninstall aiwb-demo`
+   then removed the profile in 1 minute 25 seconds. The images are in the
+   private `silogenai` repository, so the test needed a pull secret; the
+   released chart takes the images from `amdenterpriseai`.
+
 10. **aim-catalog never collects the pods of its discovery Jobs.** Ten minutes
    after the install, `aim-system` held 160 `Succeeded`
    `discover-amdenterpriseai-aim-*` pods, and new bursts follow. They hold no
