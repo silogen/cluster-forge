@@ -21,13 +21,21 @@ echo "|---|---|---|---|---|---|"
 for ns in $NAMESPACES; do
   kubectl get pods --namespace "$ns" -o json | jq -r --arg ns "$ns" '
     def milli: if . == null then 0
-      elif endswith("m") then (.[:-1] | tonumber)
-      else ((. | tonumber) * 1000) end;
+      else tostring as $s
+      | if $s | endswith("m") then ($s[:-1] | tonumber)
+        else ($s | tonumber) * 1000 end end;
     def mib: if . == null then 0
-      elif endswith("Ki") then (.[:-2] | tonumber) / 1024
-      elif endswith("Mi") then (.[:-2] | tonumber)
-      elif endswith("Gi") then (.[:-2] | tonumber) * 1024
-      else (. | tonumber) / 1048576 end;
+      else tostring as $s
+      | (if   $s | endswith("Ki") then [$s[:-2], 1 / 1024]
+         elif $s | endswith("Mi") then [$s[:-2], 1]
+         elif $s | endswith("Gi") then [$s[:-2], 1024]
+         elif $s | endswith("Ti") then [$s[:-2], 1048576]
+         elif $s | endswith("k")  then [$s[:-1], 1000 / 1048576]
+         elif $s | endswith("M")  then [$s[:-1], 1000000 / 1048576]
+         elif $s | endswith("G")  then [$s[:-1], 1000000000 / 1048576]
+         elif $s | endswith("T")  then [$s[:-1], 1000000000000 / 1048576]
+         else [$s, 1 / 1048576] end) as [$number, $factor]
+      | ($number | tonumber) * $factor end;
     [.items[].spec.containers[].resources] as $r
     | "| \($ns) | \(.items | length)"
       + " | \([$r[].requests.cpu | milli] | add // 0)m"

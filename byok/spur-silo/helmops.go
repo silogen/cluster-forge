@@ -11,6 +11,8 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const helmTimeout = 10 * time.Minute
@@ -105,8 +107,11 @@ func installPackage(c *cluster, name, namespace string, values map[string]interf
 	return fmt.Errorf("install of %s failed after 3 attempts: %w", name, lastErr)
 }
 
-// removePackage uninstalls one release. purge also deletes the CRDs of the
-// release, the PVCs of the namespace and the namespace itself.
+// removePackage uninstalls one release. purge also deletes the CRDs that the
+// release owns. The namespace is not touched here: more than one package of a
+// profile can live in the same namespace, and a namespace that goes away takes
+// the releases of its other packages with it. purgeNamespace does that step
+// after the last package of the namespace is gone.
 func removePackage(ctx context.Context, c *cluster, name, namespace string, purge bool) error {
 	cfg, err := helmConfig(c, namespace)
 	if err != nil {
@@ -116,6 +121,22 @@ func removePackage(ctx context.Context, c *cluster, name, namespace string, purg
 	if purge {
 		if rel, err := releaseStatus(c, name, namespace); err == nil && rel != nil {
 			crds = crdNamesOf(rel.Manifest)
+		}
+		// A CRD in the crds/ directory of a chart is not in the manifest, so
+		// helm never removes it. The profile owns it all the same.
+		if chart, err := loadChart(name); err == nil {
+			for _, object := range chart.CRDObjects() {
+				crds = append(crds, crdNamesOf(string(object.File.Data))...)
+			}
+		}
+	}
+
+	// A CR whose controller is already gone keeps its finalizer for ever, and
+	// the deletion of its CRD then never ends. Clear the CRs first, while the
+	// controller of this release still runs.
+	for _, crd := range crds {
+		if err := clearCustomResources(ctx, c, crd); err != nil {
+			return err
 		}
 	}
 
@@ -136,12 +157,77 @@ func removePackage(ctx context.Context, c *cluster, name, namespace string, purg
 			return err
 		}
 	}
+	return nil
+}
+
+// purgeNamespace deletes the PVCs of a namespace and the namespace itself.
+func purgeNamespace(ctx context.Context, c *cluster, namespace string) error {
 	pvcs := c.typed.CoreV1().PersistentVolumeClaims(namespace)
 	if err := pvcs.DeleteCollection(ctx, metav1.DeleteOptions{}, listAll); err != nil && !isNotFound(err) {
 		return err
 	}
+	infof("delete namespace %s", namespace)
 	if err := c.typed.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{}); err != nil && !isNotFound(err) {
 		return err
+	}
+	return nil
+}
+
+// clearCustomResources deletes every object of a CRD and takes the finalizers
+// off the ones that do not go away on their own.
+func clearCustomResources(ctx context.Context, c *cluster, crdName string) error {
+	crds := c.dynamic.Resource(gvr("apiextensions.k8s.io", "v1", "customresourcedefinitions"))
+	crd, err := crds.Get(ctx, crdName, metav1.GetOptions{})
+	if err != nil {
+		if isNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	group, _, _ := unstructured.NestedString(crd.Object, "spec", "group")
+	plural, _, _ := unstructured.NestedString(crd.Object, "spec", "names", "plural")
+	versions, _, _ := unstructured.NestedSlice(crd.Object, "spec", "versions")
+	if group == "" || plural == "" || len(versions) == 0 {
+		return nil
+	}
+	version := ""
+	for _, item := range versions {
+		entry, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if served, _ := entry["served"].(bool); served {
+			version, _ = entry["name"].(string)
+			break
+		}
+	}
+	if version == "" {
+		return nil
+	}
+
+	client := c.dynamic.Resource(gvr(group, version, plural))
+	list, err := client.List(ctx, metav1.ListOptions{})
+	if err != nil {
+		if isNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	const noFinalizers = `{"metadata":{"finalizers":null}}`
+	for i := range list.Items {
+		item := &list.Items[i]
+		objects := client.Namespace(item.GetNamespace())
+		if err := objects.Delete(ctx, item.GetName(), metav1.DeleteOptions{}); err != nil && !isNotFound(err) {
+			return err
+		}
+		if len(item.GetFinalizers()) == 0 {
+			continue
+		}
+		_, err := objects.Patch(ctx, item.GetName(), types.MergePatchType,
+			[]byte(noFinalizers), metav1.PatchOptions{})
+		if err != nil && !isNotFound(err) {
+			return err
+		}
 	}
 	return nil
 }
