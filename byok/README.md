@@ -263,6 +263,7 @@ byok/tests/optional-package-cycle.sh  # add, re-install and purge seaweedfs
                                       # (a scalable-inference cluster only)
 byok/tests/check-version-drift.sh     # pins agree with root/values.yaml
 byok/tests/validate-negative.sh       # validation stops a bad profile
+byok/tests/install-record.sh          # remove --profile follows the install record
 ```
 
 `smoke-ui.sh` and `NAMESPACE=workbench smoke.sh` need an `aiwb-demo` cluster.
@@ -270,6 +271,8 @@ byok/tests/validate-negative.sh       # validation stops a bad profile
 image of `amdenterpriseai` and needs a `scalable-inference-gpu` cluster. The
 image is public, so `PULL_SECRET_JSON` is optional: it lifts the Docker Hub
 rate limit of an anonymous pull.
+`check-version-drift.sh`, `validate-negative.sh` and `install-record.sh` need
+no cluster.
 `smoke.sh` without the variable and `optional-package-cycle.sh` need a
 `scalable-inference` cluster: the cycle test installs that profile, and its
 aim-engine package takes the `AIMClusterRuntimeConfig` that the aiwb release
