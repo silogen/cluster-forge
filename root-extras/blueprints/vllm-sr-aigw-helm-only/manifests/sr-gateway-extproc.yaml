@@ -1,0 +1,42 @@
+# One Gateway policy carries metric-hygiene Lua and semantic-router ext_proc.
+# Lua runs before api_key_auth and ext_proc. It removes client-supplied routing
+# and identity headers before Envoy processes the request.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyExtensionPolicy
+metadata:
+  name: sr-gateway-extproc
+  namespace: semantic-router
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: sr-gateway
+  lua:
+    - type: Inline
+      inline: |
+        function envoy_on_request(request_handle)
+          request_handle:headers():remove("x-selected-model")
+          request_handle:headers():remove("x-ai-eg-model")
+          request_handle:headers():remove("x-api-key-id")
+          request_handle:headers():remove("x-ai-eg-backend")
+        end
+  extProc:
+    - backendRefs:
+        # Same namespace as this policy, so no ReferenceGrant is needed.
+        - kind: Service
+          name: semantic-router
+          port: 50051
+      processingMode:
+        request:
+          # The router classifies on the prompt, so it needs the body. Without
+          # this it is sent headers only and every request takes the catch-all.
+          body: Buffered
+        # Response processing deliberately left off: body: Buffered here would
+        # hold the whole completion before returning it, breaking token
+        # streaming.
+      # Budget covers buffering the request body and running classification, not
+      # just a network hop.
+      messageTimeout: 300s
+      # Router unreachable -> requests skip it and take the catch-all rule,
+      # instead of every request returning 5xx.
+      failOpen: true
