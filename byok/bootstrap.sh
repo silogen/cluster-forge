@@ -20,15 +20,22 @@ Usage:
   bootstrap.sh install  --profile <file> [--var name=value]... [--source github:<ref> | --source <path>]
   bootstrap.sh validate --profile <file> [--var name=value]...
   bootstrap.sh remove   <package> [--purge]
+  bootstrap.sh remove   --profile <file> [--purge]
 
 Options:
   --var name=value  Fill a variable that the profile declares under vars.
                     Repeat it for every variable. A declared variable with an
                     empty value stops the run.
+  --purge           Also delete the CRDs, the PVCs and the namespace.
+
+A successful install writes the profile into the ConfigMap install-record in
+the namespace silo-system. remove --profile reads it: a package that another
+recorded profile also holds stays on the cluster.
 
 Environment:
   KUBECONFIG    Path to the cluster-admin kubeconfig. Required.
   HELM_TIMEOUT  Helm --timeout value. Default 10m.
+  BYOK_REF      Source ref to write into the install record. Default: local.
 EOF
 }
 
@@ -77,8 +84,16 @@ resolve_source() {
 # The base packages come first. A child entry with the same name replaces the
 # base entry in place. Child-only entries follow in child order.
 prepare_profile() { # <profile file>
-  local profile="$1" base merged="$WORK_DIR/profile-merged.yaml"
+  local merged="$WORK_DIR/profile-merged.yaml"
   READY_PROFILE="$WORK_DIR/profile.yaml"
+  merge_profile "$1" "$merged"
+  substitute_vars "$merged" "$READY_PROFILE"
+}
+
+# Resolves extends only. The package names need no variable value, so remove
+# can work from this when the install record does not hold the profile.
+merge_profile() { # <profile file> <out>
+  local profile="$1" merged="$2" base
   base="$(yq -r '.extends // ""' "$profile")"
   if [ -n "$base" ]; then
     local base_file="$(dirname "$profile")/$base.yaml"
@@ -94,7 +109,6 @@ prepare_profile() { # <profile file>
   else
     cp "$profile" "$merged"
   fi
-  substitute_vars "$merged" "$READY_PROFILE"
 }
 
 # Replaces ${name} with the value of every declared var. A var that the
@@ -211,8 +225,76 @@ install_profile() {
     info "install $pkg into namespace $ns"
     helm_install_retry "$pkg" "$dir" "$ns" "$vals"
   done
+  write_record "$profile"
   print_notes "$profile"
   info "install finished"
+}
+
+RECORD_NS=silo-system
+RECORD_CM=install-record
+
+# The whole record as a json object of profile name to entry, {} when absent.
+record_read() {
+  kubectl get configmap "$RECORD_CM" -n "$RECORD_NS" -o json 2>/dev/null \
+    | jq -r '.data // {} | map_values(fromjson)' 2>/dev/null || echo '{}'
+}
+
+record_write() { # <profile name> <entry json>
+  kubectl create namespace "$RECORD_NS" >/dev/null 2>&1 || true
+  kubectl get configmap "$RECORD_CM" -n "$RECORD_NS" >/dev/null 2>&1 \
+    || kubectl create configmap "$RECORD_CM" -n "$RECORD_NS" >/dev/null
+  kubectl patch configmap "$RECORD_CM" -n "$RECORD_NS" --type merge \
+    -p "$(jq -nc --arg k "$1" --arg v "$2" '{data: {($k): $v}}')" >/dev/null
+}
+
+record_forget() { # <profile name>
+  kubectl get configmap "$RECORD_CM" -n "$RECORD_NS" >/dev/null 2>&1 || return 0
+  kubectl patch configmap "$RECORD_CM" -n "$RECORD_NS" --type merge \
+    -p "$(jq -nc --arg k "$1" '{data: {($k): null}}')" >/dev/null
+}
+
+write_record() { # <ready profile>
+  local profile="$1" name vars packages entry k
+  name="$(yq -r '.name // ""' "$profile")"
+  [ -n "$name" ] || { info "the profile has no name, no install record written"; return 0; }
+  vars='{}'
+  for k in "${!VAR_VALUE[@]}"; do
+    vars="$(jq -c --arg k "$k" --arg v "${VAR_VALUE[$k]}" '. + {($k): $v}' <<<"$vars")"
+  done
+  packages="$(profile_packages "$profile" | jq -Rc -s 'split("\n") | map(select(length > 0))')"
+  entry="$(jq -nc --arg ref "${BYOK_REF:-local}" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --argjson vars "$vars" --argjson packages "$packages" \
+    '{ref: $ref, installed: $at, vars: $vars, packages: $packages}')"
+  record_write "$name" "$entry"
+  info "install record written for profile $name"
+}
+
+# Removes every package of the profile in reverse install order.
+remove_profile() { # <profile file> <purge>
+  local profile="$1" purge="$2" merged="$WORK_DIR/profile-remove.yaml" record name packages keep pkg
+  merge_profile "$profile" "$merged"
+  name="$(yq -r '.name // ""' "$merged")"
+  [ -n "$name" ] || die "the profile has no name"
+  record="$(record_read)"
+
+  # What the install recorded wins: it is what really went onto the cluster.
+  packages="$(NAME="$name" jq -r '.[env.NAME].packages // [] | .[]' <<<"$record")"
+  [ -n "$packages" ] || packages="$(profile_packages "$merged")"
+  keep=" $(NAME="$name" jq -r '
+    to_entries | map(select(.key != env.NAME) | .value.packages // []) | add // [] | join(" ")' <<<"$record") "
+
+  for pkg in $(printf '%s\n' "$packages" | tac); do
+    case "$keep" in
+      *" $pkg "*) info "keep $pkg, another installed profile holds it"; continue;;
+    esac
+    if ! helm status "$pkg" --namespace "$(pkg_field "$pkg" '.namespace')" >/dev/null 2>&1; then
+      info "skip $pkg, it is not installed"
+      continue
+    fi
+    remove_package "$pkg" "$purge"
+  done
+  record_forget "$name"
+  info "profile $name removed"
 }
 
 remove_package() {
@@ -276,9 +358,15 @@ main() {
       if [ "$cmd" = install ]; then install_profile "$profile"; else validate_profile "$profile"; fi
       ;;
     remove)
-      [ -n "$target" ] || { usage; die "a package name is needed"; }
-      check_tools; check_admin
-      remove_package "$target" "$purge"
+      [ -n "$target" ] || [ -n "$profile" ] || { usage; die "a package name or --profile is needed"; }
+      check_tools; check_admin; resolve_source "$source"
+      if [ -n "$profile" ]; then
+        [ -f "$profile" ] || profile="$BYOK_DIR/$profile"
+        [ -f "$profile" ] || die "no such profile file"
+        remove_profile "$profile" "$purge"
+      else
+        remove_package "$target" "$purge"
+      fi
       ;;
     ""|-h|--help) usage;;
     *) usage; die "unknown command: $cmd";;

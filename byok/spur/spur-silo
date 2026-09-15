@@ -1,0 +1,341 @@
+#!/usr/bin/env bash
+# spur-silo: install an AMD Enterprise AI profile on the Kubernetes cluster
+# that Spur manages. Spur runs it as `spur silo ...` when it is on PATH; it
+# also works when it is called directly. See byok/README.md.
+set -euo pipefail
+
+DEFAULT_REF="EAI-8560-byok"
+REPO="${CLUSTER_FORGE_REPO:-https://github.com/silogen/cluster-forge.git}"
+CACHE_DIR="${SPUR_SILO_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/spur-silo}"
+SPUR="${SPUR_BIN:-spur}"
+HELM_VERSION="${HELM_VERSION:-}"
+KUBECTL_VERSION="${KUBECTL_VERSION:-}"
+YQ_VERSION="${YQ_VERSION:-latest}"
+
+REF=""
+SOURCE=""
+BYOK_DIR=""
+KUBECONFIG_ARG=""
+PULL_SECRET=""
+NO_GPU=no
+KEEP_DATA=no
+INSTALL_TOOLS=no
+VARS=()
+
+WORK_DIR="$(mktemp -d)"
+chmod 700 "$WORK_DIR"
+trap 'rm -rf "$WORK_DIR"' EXIT
+
+die() { echo "error: $*" >&2; exit 1; }
+info() { echo "[$(date -u +%H:%M:%S)] $*"; }
+
+usage() {
+  cat <<'EOF'
+Usage:
+  spur silo install   <profile> [--ref <git-ref>] [--var name=value]...
+                      [--kubeconfig <path>] [--pull-secret <docker-config.json>]
+                      [--no-gpu] [--install-tools] [--source <path>]
+  spur silo uninstall <profile> [--keep-data]
+  spur silo status
+  spur silo list
+  spur silo validate  <profile> [--var name=value]...
+
+Options:
+  --ref <git-ref>      cluster-forge tag or branch to install from.
+                       Default: the ref this plugin was released from.
+  --var name=value     Fill a variable that the profile declares. Repeat it
+                       for every variable. There is no auto-fill.
+  --kubeconfig <path>  Use this kubeconfig instead of asking Spur for one.
+  --pull-secret <file> A docker config json. The plugin makes the Secret
+                       aim-pull in the namespace aim-system from it. The
+                       images are public; a secret only lifts the Docker Hub
+                       rate limit.
+  --no-gpu             Do not select the GPU profile on a cluster that has
+                       AMD Instinct GPUs.
+  --install-tools      Install helm, kubectl, yq and jq when they are missing.
+  --source <path>      Use this cluster-forge checkout instead of a clone.
+  --keep-data          Keep the PVCs and the CRDs of the profile.
+
+There is no upgrade command. An upgrade is an install with a newer --ref.
+
+Environment:
+  KUBECONFIG           Used when --kubeconfig is not given.
+  PULL_SECRET_JSON     Same content as --pull-secret, as a string.
+  CLUSTER_FORGE_REPO   Clone URL of cluster-forge.
+  SPUR_SILO_CACHE      Where the clone is kept. Default: ~/.cache/spur-silo.
+EOF
+}
+
+# --- tools -----------------------------------------------------------------
+
+arch() {
+  case "$(uname -m)" in
+    x86_64) echo amd64;;
+    aarch64) echo arm64;;
+    *) die "unsupported architecture: $(uname -m)";;
+  esac
+}
+
+install_tools() {
+  local a; a="$(arch)"
+  if ! command -v jq >/dev/null; then
+    info "install jq"
+    sudo apt-get install -y -q jq >/dev/null
+  fi
+  if ! command -v git >/dev/null; then
+    info "install git"
+    sudo apt-get install -y -q git >/dev/null
+  fi
+  if ! command -v helm >/dev/null; then
+    info "install helm ${HELM_VERSION:-latest}"
+    curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 -o "$WORK_DIR/get-helm-3"
+    if [ -n "$HELM_VERSION" ]; then
+      bash "$WORK_DIR/get-helm-3" --version "$HELM_VERSION" >/dev/null
+    else
+      bash "$WORK_DIR/get-helm-3" >/dev/null
+    fi
+  fi
+  if ! command -v kubectl >/dev/null; then
+    local kv="$KUBECTL_VERSION"
+    [ -n "$kv" ] || kv="$(curl -fsSL https://dl.k8s.io/release/stable.txt)"
+    info "install kubectl $kv"
+    curl -fsSL "https://dl.k8s.io/release/$kv/bin/linux/$a/kubectl" -o "$WORK_DIR/kubectl"
+    sudo install -m 755 "$WORK_DIR/kubectl" /usr/local/bin/kubectl
+  fi
+  if ! command -v yq >/dev/null; then
+    info "install yq $YQ_VERSION"
+    local url="https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$a"
+    [ "$YQ_VERSION" = latest ] \
+      || url="https://github.com/mikefarah/yq/releases/download/$YQ_VERSION/yq_linux_$a"
+    curl -fsSL "$url" -o "$WORK_DIR/yq"
+    sudo install -m 755 "$WORK_DIR/yq" /usr/local/bin/yq
+  fi
+}
+
+check_tools() {
+  [ "$INSTALL_TOOLS" = yes ] && install_tools
+  local missing=() t
+  for t in helm kubectl yq jq git; do
+    command -v "$t" >/dev/null || missing+=("$t")
+  done
+  if command -v yq >/dev/null && ! yq --version 2>/dev/null | grep -q 'version v4'; then
+    missing+=("yq v4 (found $(yq --version 2>/dev/null))")
+  fi
+  [ ${#missing[@]} -eq 0 ] \
+    || die "these tools are missing: ${missing[*]}. Run again with --install-tools."
+}
+
+# --- cluster ---------------------------------------------------------------
+
+# --kubeconfig, then KUBECONFIG, then Spur over gRPC, then local k0s.
+ensure_kubeconfig() {
+  if [ -n "$KUBECONFIG_ARG" ]; then
+    [ -f "$KUBECONFIG_ARG" ] || die "no such kubeconfig: $KUBECONFIG_ARG"
+    export KUBECONFIG="$KUBECONFIG_ARG"
+    return
+  fi
+  [ -z "${KUBECONFIG:-}" ] || return 0
+
+  local out="$WORK_DIR/kubeconfig"
+  # shellcheck disable=SC2024  # the file must belong to the caller, not to root
+  if "$SPUR" k8s kubeconfig --admin >"$out" 2>/dev/null && grep -q 'server:' "$out"; then
+    info "admin kubeconfig from $SPUR k8s kubeconfig --admin"
+  elif command -v k0s >/dev/null && sudo k0s kubeconfig admin >"$out" 2>/dev/null \
+      && grep -q 'server:' "$out"; then
+    info "admin kubeconfig from k0s kubeconfig admin"
+  else
+    rm -f "$out"
+    die "cannot get the admin kubeconfig. Give --kubeconfig, or set [cluster] allow_admin_kubeconfig = true in spur.conf, or run this on the control-plane node."
+  fi
+  chmod 600 "$out"
+  export KUBECONFIG="$out"
+  kubectl get nodes >/dev/null 2>&1 || die "the kubeconfig does not reach the cluster"
+}
+
+# The nodes that report an AMD Instinct GPU to Spur. Radeon is never selected:
+# the GPU profile supports Instinct only.
+instinct_nodes() {
+  "$SPUR" show node 2>/dev/null | awk '
+    /^NodeName=/ { split($0, f, "="); node = f[2] }
+    /^[[:space:]]*Gres=/ && /gpu:mi[0-9]/ { print node }' | sort -u
+}
+
+# --- source ----------------------------------------------------------------
+
+resolve_source() {
+  local self_byok
+  self_byok="$(cd "$(dirname "$(readlink -f "$0")")/.." 2>/dev/null && pwd)" || self_byok=""
+
+  if [ -n "$SOURCE" ]; then
+    [ -d "$SOURCE/byok" ] && BYOK_DIR="$SOURCE/byok" || BYOK_DIR="$SOURCE"
+    REF="${REF:-local}"
+  elif [ -z "$REF" ] && [ -n "$self_byok" ] && [ -f "$self_byok/bootstrap.sh" ]; then
+    BYOK_DIR="$self_byok"
+    REF=local
+  else
+    REF="${REF:-$DEFAULT_REF}"
+    local dir="$CACHE_DIR/cluster-forge"
+    mkdir -p "$CACHE_DIR"
+    if [ -d "$dir/.git" ]; then
+      info "update $dir to $REF"
+      git -C "$dir" fetch --depth 1 origin "$REF" >/dev/null 2>&1 \
+        || die "cannot fetch ref $REF from $REPO"
+      git -C "$dir" checkout -q --detach FETCH_HEAD
+    else
+      info "clone $REPO at $REF into $dir"
+      git clone --depth 1 --branch "$REF" "$REPO" "$dir" >/dev/null 2>&1 \
+        || die "cannot clone $REPO at ref $REF"
+    fi
+    BYOK_DIR="$dir/byok"
+  fi
+  [ -f "$BYOK_DIR/bootstrap.sh" ] || die "no byok/bootstrap.sh under $BYOK_DIR"
+}
+
+profile_file() { # <name or path>
+  local candidate
+  for candidate in "$1" "$BYOK_DIR/$1" "$BYOK_DIR/profiles/$1.yaml"; do
+    [ -f "$candidate" ] && { echo "$candidate"; return 0; }
+  done
+  die "no such profile: $1. Run 'spur silo list' for the profiles of this release."
+}
+
+# --- pull secret -----------------------------------------------------------
+
+ensure_pull_secret() {
+  local json=""
+  if [ -n "$PULL_SECRET" ]; then
+    [ -f "$PULL_SECRET" ] || die "no such pull secret file: $PULL_SECRET"
+    json="$(<"$PULL_SECRET")"
+  elif [ -n "${PULL_SECRET_JSON:-}" ]; then
+    json="$PULL_SECRET_JSON"
+  else
+    return 0
+  fi
+  info "make the Secret aim-pull in the namespace aim-system"
+  kubectl create namespace aim-system >/dev/null 2>&1 || true
+  kubectl create secret generic aim-pull --namespace aim-system \
+    --type=kubernetes.io/dockerconfigjson \
+    --from-literal=.dockerconfigjson="$json" \
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+}
+
+# --- commands --------------------------------------------------------------
+
+cmd_install() { # <profile>
+  local wanted="$1" file name
+  check_tools
+  ensure_kubeconfig
+  resolve_source
+  file="$(profile_file "$wanted")"
+  name="$(yq -r '.name // ""' "$file")"
+
+  if [ "$name" = scalable-inference ] && [ "$NO_GPU" = no ]; then
+    local nodes; nodes="$(instinct_nodes | tr '\n' ' ')"
+    if [ -n "${nodes// /}" ]; then
+      info "detected AMD GPUs on nodes ${nodes% }, using profile scalable-inference-gpu"
+      file="$(profile_file scalable-inference-gpu)"
+    fi
+  fi
+
+  ensure_pull_secret
+  BYOK_REF="$REF" "$BYOK_DIR/bootstrap.sh" install --profile "$file" ${VARS[@]+"${VARS[@]}"}
+}
+
+cmd_uninstall() { # <profile>
+  local file purge=(--purge)
+  check_tools
+  ensure_kubeconfig
+  resolve_source
+  file="$(profile_file "$1")"
+  [ "$KEEP_DATA" = no ] || purge=()
+  "$BYOK_DIR/bootstrap.sh" remove --profile "$file" ${purge[@]+"${purge[@]}"}
+}
+
+cmd_validate() { # <profile>
+  check_tools
+  ensure_kubeconfig
+  resolve_source
+  "$BYOK_DIR/bootstrap.sh" validate --profile "$(profile_file "$1")" ${VARS[@]+"${VARS[@]}"}
+}
+
+cmd_list() {
+  resolve_source
+  echo "Profiles of cluster-forge $REF:"
+  local f vars
+  for f in "$BYOK_DIR"/profiles/*.yaml; do
+    vars="$(yq -r '.vars // {} | keys | join(", ")' "$f")"
+    [ -n "$vars" ] && vars="variables: $vars" || vars="no variables"
+    printf '  %-26s %s\n' "$(yq -r '.name' "$f")" "$vars"
+  done
+}
+
+cmd_status() {
+  check_tools
+  ensure_kubeconfig
+  resolve_source
+
+  local record
+  record="$(kubectl get configmap install-record -n silo-system -o json 2>/dev/null \
+    | jq -r '.data // {} | map_values(fromjson)' 2>/dev/null)" || record=""
+  [ -n "$record" ] || record='{}'
+
+  if [ "$record" = '{}' ]; then
+    echo "No profile is recorded on this cluster."
+  else
+    echo "Installed profiles:"
+    jq -r 'to_entries[] | "  \(.key)\n    ref:       \(.value.ref)\n    installed: \(.value.installed)\n    variables: \(.value.vars | to_entries | map("\(.key)=\(.value)") | join(", ") | if . == "" then "none" else . end)"' <<<"$record"
+  fi
+
+  echo
+  echo "Capabilities on the cluster:"
+  local cap probe
+  for cap in $(yq -r 'keys | .[]' "$BYOK_DIR/capabilities.yaml"); do
+    probe="$(CAP="$cap" yq -r '.[strenv(CAP)].probe // ""' "$BYOK_DIR/capabilities.yaml")"
+    [ -n "$probe" ] || continue
+    if bash -c "$probe" >/dev/null 2>&1; then
+      printf '  %-32s yes\n' "$cap"
+    else
+      printf '  %-32s no\n' "$cap"
+    fi
+  done
+}
+
+# --- argument parsing ------------------------------------------------------
+
+main() {
+  local cmd="${1:-}"; shift || true
+  local target=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --ref) REF="$2"; shift 2;;
+      --source) SOURCE="$2"; shift 2;;
+      --kubeconfig) KUBECONFIG_ARG="$2"; shift 2;;
+      --pull-secret) PULL_SECRET="$2"; shift 2;;
+      --var)
+        case "$2" in *=*) :;; *) die "--var needs name=value, got $2";; esac
+        VARS+=(--var "$2"); shift 2;;
+      --no-gpu) NO_GPU=yes; shift;;
+      --keep-data) KEEP_DATA=yes; shift;;
+      --install-tools) INSTALL_TOOLS=yes; shift;;
+      -h|--help) usage; exit 0;;
+      -*) usage >&2; die "unknown flag: $1";;
+      *) [ -z "$target" ] || die "only one profile is allowed, got $target and $1"
+         target="$1"; shift;;
+    esac
+  done
+
+  case "$cmd" in
+    install)   [ -n "$target" ] || { usage >&2; die "a profile name is needed"; }
+               cmd_install "$target";;
+    uninstall) [ -n "$target" ] || { usage >&2; die "a profile name is needed"; }
+               cmd_uninstall "$target";;
+    validate)  [ -n "$target" ] || { usage >&2; die "a profile name is needed"; }
+               cmd_validate "$target";;
+    status)    cmd_status;;
+    list)      cmd_list;;
+    ""|-h|--help|help) usage;;
+    *) usage >&2; die "unknown command: $cmd";;
+  esac
+}
+
+main "$@"
