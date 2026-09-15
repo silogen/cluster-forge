@@ -47,6 +47,8 @@ Options:
   --var name=value     Fill a variable that the profile declares. Repeat it
                        for every variable. There is no auto-fill.
   --kubeconfig <path>  Use this kubeconfig instead of asking Spur for one.
+                       Without it the plugin asks Spur, then Spur under sudo,
+                       then a local k0s.
   --pull-secret <file> A docker config json. The plugin makes the Secret
                        aim-pull in the namespace aim-system from it. The
                        images are public; a secret only lifts the Docker Hub
@@ -142,7 +144,12 @@ ensure_kubeconfig() {
   # shellcheck disable=SC2024  # the file must belong to the caller, not to root
   if "$SPUR" k8s kubeconfig --admin >"$out" 2>/dev/null && grep -q 'server:' "$out"; then
     info "admin kubeconfig from $SPUR k8s kubeconfig --admin"
-  elif command -v k0s >/dev/null && sudo k0s kubeconfig admin >"$out" 2>/dev/null \
+  elif sudo -n "$SPUR" k8s kubeconfig --admin >"$out" 2>/dev/null && grep -q 'server:' "$out"; then
+    # A cluster without accounting knows no admin but root, so the same call
+    # under sudo is the one that answers on a node that is not the control
+    # plane.
+    info "admin kubeconfig from sudo $SPUR k8s kubeconfig --admin"
+  elif command -v k0s >/dev/null && sudo -n k0s kubeconfig admin >"$out" 2>/dev/null \
       && grep -q 'server:' "$out"; then
     info "admin kubeconfig from k0s kubeconfig admin"
   else
