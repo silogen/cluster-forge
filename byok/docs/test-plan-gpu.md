@@ -68,7 +68,7 @@ Copy `spurctld`, `spurd` and `spur` to `/usr/local/bin` of the node.
 - `cluster_name` at the top level. The daemon does not start without it.
 - `[controller] node_id = 1` and `peers` with the own address only.
 - `[cluster] enabled = true` before `spurctld` starts, and
-  `allow_admin_kubeconfig = true`, because `byok/spur/install.sh` asks Spur for
+  `allow_admin_kubeconfig = true`, because `byok/spur/spur-silo` asks Spur for
   the admin kubeconfig.
 - One `[[partitions]]` block with the hostname of the node.
 
@@ -125,12 +125,14 @@ Install from a checkout on the node, because the profile is not pushed:
 ```bash
 tar czf /tmp/cf.tgz byok sources root && scp /tmp/cf.tgz ubuntu@10.0.0.163:
 ssh ubuntu@10.0.0.163 'mkdir -p cf && tar xzf cf.tgz -C cf'
-ssh ubuntu@10.0.0.163 'cf/byok/spur/install.sh --source ~/cf \
-  --profile scalable-inference-gpu'
+ssh ubuntu@10.0.0.163 'cf/byok/spur/spur-silo install scalable-inference-gpu'
 ```
 
-Make the pull secret from the saved Docker Hub credentials, and give it to the
-AIMService.
+`install scalable-inference` selects the GPU profile by itself when a node
+reports an AMD Instinct GPU to Spur; the name above asks for it directly.
+
+The AIM images are public on Docker Hub. Give `--pull-secret <docker-config>`
+only to lift the rate limit of an anonymous pull.
 
 `tests/smoke.sh` runs the CPU dummy, so the GPU test needs a second object,
 `tests/aimservice-gpu.yaml`, with
@@ -160,11 +162,13 @@ Two possible ways. The first way is also a test result.
 The node has no load balancer and no public DNS name, so:
 
 ```bash
-cf/byok/spur/install.sh --source ~/cf --profile aiwb-demo \
-  --domain 10.0.0.163.nip.io
+cf/byok/spur/spur-silo install aiwb-demo \
+  --var domain=10.0.0.163.nip.io \
+  --var gatewayServiceType=ClusterIP \
+  --var gatewayExternalIP=10.0.0.163
 ```
 
-The script gives the node address to the Envoy Service in `externalIPs`.
+That gives the node address to the Envoy Service in `externalIPs`.
 
 Confirm that a browser on the workstation reaches port 443 of 10.0.0.163. If it
 does not, run `tests/smoke-ui.sh` on the node, because the test uses curl only,
