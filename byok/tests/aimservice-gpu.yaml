@@ -1,0 +1,23 @@
+# GPU smoke-test service for the scalable-inference-gpu profile. The image is
+# private, so smoke.sh needs PULL_SECRET_JSON with the Docker Hub credentials
+# that give a pull of amdenterpriseai/aim-*.
+#
+# The AIM image holds the recipe, so the number of GPUs comes from the recipe
+# of the model, not from this object.
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMService
+metadata:
+  name: aim-llama-3-1-8b
+  namespace: aims-test
+spec:
+  replicas: 1
+  # local-path-provisioner gives ReadWriteOnce only, and Shared mode asks for
+  # ReadWriteMany.
+  caching:
+    mode: Dedicated
+  template:
+    allowUnoptimized: true
+  imagePullSecrets:
+    - name: aim-pull
+  model:
+    image: docker.io/amdenterpriseai/aim-meta-llama-llama-3-1-8b-instruct:0.8.5

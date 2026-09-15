@@ -1,0 +1,7 @@
+# Same values the ArgoCD path sets in root/values.yaml for the
+# amd-gpu-operator app. The amd-gpu-operator-config package owns the
+# DeviceConfig object, so the operator chart must not make its own.
+gpu-operator-charts:
+  crds:
+    defaultCR:
+      install: false

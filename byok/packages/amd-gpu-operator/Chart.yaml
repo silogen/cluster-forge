@@ -1,0 +1,9 @@
+apiVersion: v2
+name: amd-gpu-operator
+description: AMD GPU operator, the device plugin and node labeller for Instinct GPUs
+type: application
+version: 0.1.0
+dependencies:
+  - name: gpu-operator-charts
+    version: v1.4.1
+    repository: file://../../../sources/amd-gpu-operator/v1.4.1

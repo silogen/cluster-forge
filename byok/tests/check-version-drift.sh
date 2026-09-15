@@ -28,7 +28,9 @@ for row in \
   "kyverno:kyverno:kyverno" \
   "kyverno-policies-storage-local-path:kyverno-policies-storage-local-path:kyverno-policies-storage-local-path" \
   "envoy-gateway:gateway-helm:envoy-gateway" \
-  "envoy-gateway-config:envoy-gateway-config:envoy-gateway-config"
+  "envoy-gateway-config:envoy-gateway-config:envoy-gateway-config" \
+  "amd-gpu-operator:gpu-operator-charts:amd-gpu-operator" \
+  "amd-gpu-operator-config:amd-gpu-operator-config:amd-gpu-operator-config"
 do
   IFS=: read -r pkg dep app <<<"$row"
   want="$(APP="$app" yq -r '.apps[strenv(APP)].path' "$VALUES")"

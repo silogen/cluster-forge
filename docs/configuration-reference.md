@@ -117,7 +117,7 @@ Installs the byok minimal core on a node of a Spur k0s cluster. See
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `GHCR_PULL_SECRET_JSON` | empty | Docker config JSON for ghcr.io. The dummy image is public, so it is optional. |
+| `PULL_SECRET_JSON` | empty | Docker config JSON for the registry of the test image. The dummy image is public, so it is optional. The GPU test image needs the Docker Hub credentials. |
 | `AIM_TIMEOUT` | `15m` | How long to wait for the AIMService conditions. |
 | `KEEP` | `0` | `1` keeps the `aims-test` namespace after the test. |
 

@@ -56,10 +56,10 @@ case "$location" in
 esac
 
 echo "== 5. the dummy service in namespace $NS"
-if [ -n "${GHCR_PULL_SECRET_JSON:-}" ]; then
-  kubectl create secret generic aim-dummy-pull --namespace "$NS" \
+if [ -n "${PULL_SECRET_JSON:-}" ]; then
+  kubectl create secret generic aim-pull --namespace "$NS" \
     --type=kubernetes.io/dockerconfigjson \
-    --from-literal=.dockerconfigjson="$GHCR_PULL_SECRET_JSON" \
+    --from-literal=.dockerconfigjson="$PULL_SECRET_JSON" \
     --dry-run=client -o yaml | kubectl apply -f - >/dev/null
   NS="$NS" yq '.metadata.namespace = strenv(NS)' "$HERE/aimservice-dummy.yaml" | kubectl apply -f - >/dev/null
 else

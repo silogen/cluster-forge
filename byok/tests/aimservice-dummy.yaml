@@ -15,7 +15,7 @@ spec:
   template:
     allowUnoptimized: true
   imagePullSecrets:
-    - name: aim-dummy-pull
+    - name: aim-pull
   model:
     custom:
       baseImage: ghcr.io/silogen/aim-dummy:0.1.10
