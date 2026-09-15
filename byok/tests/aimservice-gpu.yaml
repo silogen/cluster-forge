@@ -2,8 +2,9 @@
 # private, so smoke.sh needs PULL_SECRET_JSON with the Docker Hub credentials
 # that give a pull of amdenterpriseai/aim-*.
 #
-# The AIM image holds the recipe, so the number of GPUs comes from the recipe
-# of the model, not from this object.
+# The AIM image holds the recipe, but the auto-made template asks for no GPU,
+# and then the runtime finds no GPU and no compatible profile. spec.resources
+# gives the GPU to the predictor.
 apiVersion: aim.eai.amd.com/v1alpha1
 kind: AIMService
 metadata:
@@ -17,6 +18,11 @@ spec:
     mode: Dedicated
   template:
     allowUnoptimized: true
+  resources:
+    requests:
+      amd.com/gpu: "1"
+    limits:
+      amd.com/gpu: "1"
   imagePullSecrets:
     - name: aim-pull
   model:
