@@ -22,6 +22,8 @@ type recordEntry struct {
 	Installed string            `json:"installed"`
 	Vars      map[string]string `json:"vars"`
 	Packages  []string          `json:"packages"`
+	// Partial says the install stopped before the last package of the profile.
+	Partial bool `json:"partial,omitempty"`
 }
 
 func readRecord(ctx context.Context, c *cluster) (map[string]recordEntry, error) {

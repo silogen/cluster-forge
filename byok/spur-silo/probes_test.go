@@ -189,3 +189,33 @@ func TestLoadProfileKeepsExtends(t *testing.T) {
 		t.Errorf("aiwb-demo extends %q", p.Extends)
 	}
 }
+
+func TestASharedCRDOfAKeptPackageIsProtected(t *testing.T) {
+	// envoy-gateway of aiwb-demo ships the Gateway API CRDs in a subchart, and
+	// gateway-api-crds of scalable-inference ships the same names. The
+	// uninstall of aiwb-demo must leave them to the profile that stays.
+	base := chartCRDNames("gateway-api-crds")
+	if len(base) == 0 {
+		t.Fatal("gateway-api-crds ships no CRD, the fixture is wrong")
+	}
+	demo := map[string]bool{}
+	for _, name := range chartCRDNames("envoy-gateway") {
+		demo[name] = true
+	}
+	var shared []string
+	for _, name := range base {
+		if demo[name] {
+			shared = append(shared, name)
+		}
+	}
+	if len(shared) == 0 {
+		t.Skip("envoy-gateway no longer ships the Gateway API CRDs")
+	}
+
+	protected := protectedCRDNames([]string{"gateway-api-crds"})
+	for _, name := range shared {
+		if !protected[name] {
+			t.Errorf("%s is shared with a package that stays, it is not protected", name)
+		}
+	}
+}

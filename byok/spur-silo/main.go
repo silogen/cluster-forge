@@ -327,6 +327,13 @@ func cmdInstall(ctx context.Context, name string, opts options) error {
 		}
 		infof("install %s into namespace %s", meta.Name, meta.Namespace)
 		if err := installPackage(ctx, c, meta.Name, meta.Namespace, entry.Values); err != nil {
+			// The packages that did go on are on the cluster whatever happens
+			// next. Without a record, `uninstall` cannot know which they are.
+			partial := newEntry(version, opts.vars, installed)
+			partial.Partial = true
+			if writeErr := writeRecord(ctx, c, p.Name, partial); writeErr != nil {
+				infof("the install record of the packages that went on could not be written: %v", writeErr)
+			}
 			return err
 		}
 		installed = append(installed, meta.Name)
@@ -374,6 +381,26 @@ func cmdUninstall(ctx context.Context, name string, opts options) error {
 	keep := packagesOfOtherProfiles(record, p.Name)
 	purge := !opts.keepData
 
+	// A chart can ship a CRD that a package of another profile ships too. That
+	// CRD must stay, or the profile that stays loses a capability.
+	protected := map[string]bool{}
+	if purge {
+		stay := make([]string, 0, len(keep))
+		for pkg := range keep {
+			stay = append(stay, pkg)
+		}
+		protected = protectedCRDNames(stay)
+		for _, pkg := range stay {
+			meta, err := loadPackageMeta(pkg)
+			if err != nil {
+				continue
+			}
+			for _, crd := range packageCRDs(c, pkg, meta.Namespace) {
+				protected[crd] = true
+			}
+		}
+	}
+
 	var emptied []string
 	stays := map[string]bool{}
 	for i := len(packages) - 1; i >= 0; i-- {
@@ -394,7 +421,7 @@ func cmdUninstall(ctx context.Context, name string, opts options) error {
 		if err := refuseWhenNeeded(ctx, c, meta); err != nil {
 			return err
 		}
-		if err := removePackage(ctx, c, meta.Name, meta.Namespace, purge); err != nil {
+		if err := removePackage(ctx, c, meta.Name, meta.Namespace, purge, protected); err != nil {
 			return err
 		}
 		emptied = append(emptied, meta.Namespace)
@@ -545,6 +572,10 @@ func cmdStatus(ctx context.Context, opts options) error {
 			entry := record[name]
 			fmt.Printf("  %s\n    ref:       %s\n    installed: %s\n    variables: %s\n",
 				name, entry.Ref, entry.Installed, varsLine(entry.Vars))
+			if entry.Partial {
+				fmt.Printf("    state:     the install stopped after %d packages, `uninstall %s` removes them\n",
+					len(entry.Packages), name)
+			}
 		}
 	}
 
