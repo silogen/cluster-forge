@@ -20,3 +20,10 @@ profiles:
     driverVersion: "7.0"
   radeon:
     driverVersion: "7.13"
+
+# Host path of the kubelet pod-resources socket for the metrics exporter.
+# Empty keeps the operator default, /var/lib/kubelet/pod-resources, which is
+# right for vanilla Kubernetes, RKE2 and k3s. A distribution that moves the
+# kubelet root needs its own path, for example /var/lib/k0s/kubelet/pod-resources
+# on k0s.
+podResourceAPISocketPath: ""
