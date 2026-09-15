@@ -1,0 +1,6 @@
+dependencies:
+- name: gpu-operator-charts
+  repository: file://../../../sources/amd-gpu-operator/v1.4.1
+  version: v1.4.1
+digest: sha256:df4ae9b1a747d5b0a4d45b36d11abe7d0a1939be2cae1aabd024521dd7a9a912
+generated: "2026-09-15T16:15:13.229749468+03:00"

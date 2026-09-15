@@ -1,7 +1,7 @@
 # A capability name maps to a shell probe. The probe exits zero when the
 # cluster already gives the capability.
 #
-# Reserved names, not implemented yet: autoscaling.keda, gpu.amd.
+# Reserved names, not implemented yet: autoscaling.keda.
 # gateway.api.crds gives the CRDs only, with no gateway implementation.
 gateway.api.crds:
   probe: kubectl get crd gateways.gateway.networking.k8s.io >/dev/null 2>&1
@@ -51,3 +51,9 @@ storage.s3.operator:
   probe: kubectl get crd seaweeds.seaweed.seaweedfs.com >/dev/null 2>&1
 storage.s3:
   probe: kubectl get seaweed -A -o name 2>/dev/null | grep -q .
+gpu.amd.operator:
+  probe: kubectl get crd deviceconfigs.amd.com >/dev/null 2>&1
+gpu.amd:
+  # The DeviceConfig alone is not enough, the device plugin must also publish
+  # the GPUs of a node.
+  probe: kubectl get nodes -o json | jq -e '[.items[] | select((.status.capacity["amd.com/gpu"] // "0") != "0")] | length > 0' >/dev/null
