@@ -18,6 +18,13 @@ packages:
   # driver.enable false.
   - name: amd-gpu-operator
   - name: amd-gpu-operator-config
+    values:
+      amd-gpu-operator-config:
+        # k0s keeps the kubelet root under /var/lib/k0s, and the metrics
+        # exporter does not start when the pod-resources path is wrong. Take
+        # this value out on a cluster that keeps the kubelet in the usual
+        # place, such as RKE2, k3s or vanilla Kubernetes.
+        podResourceAPISocketPath: /var/lib/k0s/kubelet/pod-resources
   - name: kserve-crds
   - name: kserve
   - name: gateway-api-crds
