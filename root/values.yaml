@@ -721,6 +721,16 @@ apps:
       extProc:
         image:
           tag: 8007dfd481f7d1225bcaf9d059cb15b61d4d28e0
+  # Optional, opt-in: the envoyproxy/ratelimit binary + Redis that AI Gateway's
+  # QuotaPolicy needs in order to enforce anything. Declared here so it can be
+  # referenced, but deliberately left out of every values_small/medium/large.yaml
+  # enabledApps list -- add the name to your own overlay's enabledApps to install
+  # it. See sources/envoy-ai-gateway-ratelimit/0.1.0/values.yaml for why its
+  # Service name and namespace are fixed rather than configurable.
+  envoy-ai-gateway-ratelimit:
+    namespace: envoy-gateway-system
+    path: envoy-ai-gateway-ratelimit/0.1.0
+    syncWave: -4
   inference-extension-crds:
     namespace: envoy-ai-gateway-system
     path: inference-extension-crds/v1.5.0
