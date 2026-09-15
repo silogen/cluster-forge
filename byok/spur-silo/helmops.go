@@ -85,6 +85,9 @@ func installPackage(ctx context.Context, c *cluster, name, namespace string, val
 		if lastErr == nil {
 			return nil
 		}
+		if reason := whyPodsFail(ctx, c, namespace); reason != "" {
+			return fmt.Errorf("install of %s failed: %w\n  %s", name, lastErr, reason)
+		}
 		if attempt == 3 || ctx.Err() != nil {
 			break
 		}
@@ -112,22 +115,19 @@ func installPackage(ctx context.Context, c *cluster, name, namespace string, val
 // profile can live in the same namespace, and a namespace that goes away takes
 // the releases of its other packages with it. purgeNamespace does that step
 // after the last package of the namespace is gone.
-func removePackage(ctx context.Context, c *cluster, name, namespace string, purge bool) error {
+func removePackage(ctx context.Context, c *cluster, name, namespace string, purge bool, protected map[string]bool) error {
 	cfg, err := helmConfig(c, namespace)
 	if err != nil {
 		return err
 	}
 	var crds []string
 	if purge {
-		if rel, err := releaseStatus(c, name, namespace); err == nil && rel != nil {
-			crds = crdNamesOf(rel.Manifest)
-		}
-		// A CRD in the crds/ directory of a chart is not in the manifest, so
-		// helm never removes it. The profile owns it all the same.
-		if chart, err := loadChart(name); err == nil {
-			for _, object := range chart.CRDObjects() {
-				crds = append(crds, crdNamesOf(string(object.File.Data))...)
+		for _, crd := range packageCRDs(c, name, namespace) {
+			if protected[crd] {
+				infof("keep the CRD %s, a package that stays owns it too", crd)
+				continue
 			}
+			crds = append(crds, crd)
 		}
 	}
 
@@ -171,6 +171,42 @@ func purgeNamespace(ctx context.Context, c *cluster, namespace string) error {
 		return err
 	}
 	return nil
+}
+
+// packageCRDs names every CRD a package owns: the ones in its release manifest
+// and the ones its chart ships in a crds/ directory, which helm never owns.
+func packageCRDs(c *cluster, name, namespace string) []string {
+	var crds []string
+	if rel, err := releaseStatus(c, name, namespace); err == nil && rel != nil {
+		crds = append(crds, crdNamesOf(rel.Manifest)...)
+	}
+	return append(crds, chartCRDNames(name)...)
+}
+
+// chartCRDNames gives the CRDs a chart ships in its crds/ directory. helm never
+// owns those, and more than one chart can ship the same name.
+func chartCRDNames(pkg string) []string {
+	chart, err := loadChart(pkg)
+	if err != nil {
+		return nil
+	}
+	var names []string
+	for _, object := range chart.CRDObjects() {
+		names = append(names, crdNamesOf(string(object.File.Data))...)
+	}
+	return names
+}
+
+// protectedCRDNames gives the CRDs that the packages which stay on the cluster
+// ship. An uninstall must leave those, whichever release also ships them.
+func protectedCRDNames(packages []string) map[string]bool {
+	names := map[string]bool{}
+	for _, pkg := range packages {
+		for _, crd := range chartCRDNames(pkg) {
+			names[crd] = true
+		}
+	}
+	return names
 }
 
 // clearCustomResources deletes every object of a CRD and takes the finalizers
@@ -235,6 +271,36 @@ func clearCustomResources(ctx context.Context, c *cluster, crdName string) error
 // crdNamesOf reads the CustomResourceDefinition names out of a release
 // manifest. A CRD that the chart ships in its crds/ directory is not in the
 // manifest, so helm never owned it and this does not remove it.
+// whyPodsFail names a pod of the namespace that cannot start for a reason that
+// a retry does not change. helm reports only `context deadline exceeded`, which
+// says nothing about the missing Secret or the image that is not there.
+func whyPodsFail(ctx context.Context, c *cluster, namespace string) string {
+	terminal := map[string]bool{
+		"CreateContainerConfigError": true,
+		"CreateContainerError":       true,
+		"ErrImagePull":               true,
+		"ImagePullBackOff":           true,
+		"InvalidImageName":           true,
+		"CrashLoopBackOff":           true,
+	}
+	pods, err := c.typed.CoreV1().Pods(namespace).List(ctx, listAll)
+	if err != nil {
+		return ""
+	}
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		for _, status := range pod.Status.ContainerStatuses {
+			waiting := status.State.Waiting
+			if waiting == nil || !terminal[waiting.Reason] {
+				continue
+			}
+			return fmt.Sprintf("pod %s/%s is in %s: %s",
+				namespace, pod.Name, waiting.Reason, strings.TrimSpace(waiting.Message))
+		}
+	}
+	return ""
+}
+
 func crdNamesOf(manifest string) []string {
 	var names []string
 	for _, doc := range strings.Split(manifest, "\n---") {
