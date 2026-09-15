@@ -146,16 +146,17 @@ func usage(w *os.File) {
 	fmt.Fprint(w, `Usage:
   spur silo install   <profile> [--var name=value]... [--kubeconfig <path>]
                       [--pull-secret <docker-config.json>] [--no-gpu] [--smoke-test]
-  spur silo uninstall <profile> [--keep-data]
-  spur silo status
+  spur silo uninstall <profile> [--keep-data] [--kubeconfig <path>]
+  spur silo status    [--kubeconfig <path>]
   spur silo list
-  spur silo validate  <profile> [--var name=value]...
+  spur silo validate  <profile> [--var name=value]... [--kubeconfig <path>]
   spur silo version
 
 Options:
   --var name=value     Fill a variable that the profile declares. Repeat it
                        for every variable. There is no auto-fill.
   --kubeconfig <path>  Use this kubeconfig instead of asking Spur for one.
+                       Every command but list takes it.
                        Without it the binary asks Spur, then Spur under sudo,
                        then a local k0s.
   --pull-secret <file> A docker config json. The binary makes the Secret
