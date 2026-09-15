@@ -149,6 +149,10 @@ they already exist the package can leave the profile.
 
 ## Install on a Spur k0s cluster
 
+[Set up one node for byok with Spur](docs/spur-node-setup.md) holds every step
+from a node that runs nothing to a profile that serves a model. The rest of
+this section is the plugin itself.
+
 `spur silo` does the whole install on a Spur cluster that runs Kubernetes from
 `spur k8s up`. It is a Spur CLI plugin: put it on `PATH` under the name
 `spur-silo` and `spur silo ...` runs it. It also works when it is called
