@@ -25,7 +25,7 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
 
 ## Fixed in the Go plugin, and in bootstrap.sh with it
 
-4. **A purge deleted the namespace of a package while a later package of the
+3. **A purge deleted the namespace of a package while a later package of the
    same namespace still needed it.** `kyverno-policies-storage-local-path` goes
    first and its purge deleted the namespace `kyverno`. The next removal, the
    `kyverno` chart itself, then failed in its `pre-delete` hook with
@@ -35,20 +35,41 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
    first and deletes each namespace once, after the last package of that
    namespace is gone, and never a namespace that a package of another installed
    profile holds.
-5. **The deletion of a CRD never ended when its CRs kept a finalizer.** The
+4. **The deletion of a CRD never ended when its CRs kept a finalizer.** The
    removal of `aim-engine-crds` stopped at the helm timeout of 10 minutes,
    because the `aim-engine` controller was already gone and no one took the
    finalizers off the AIM objects. A purge now deletes the CRs and takes their
    finalizers off before it removes the CRD, while the controller of the
    release still runs. The same removal now takes 45 seconds.
-6. **The CRDs of a `crds/` directory stayed after a purge.** `helm get
+5. **The CRDs of a `crds/` directory stayed after a purge.** `helm get
    manifest` does not hold them, so `gateway.api.crds` still probed `yes` after
    an uninstall. A purge now reads the CRD names of the chart `crds/` directory
    too.
 
+## Found on itg1 and fixed
+
+6. **The smoke test waited out its 15 minutes on an object that had already
+   failed.** The dummy AIMService names the Secret `aim-pull`, and aim-engine
+   fails the model when that Secret is not in the namespace
+   (`SecretNotFound: imagePullSecret "aim-pull" not found in namespace
+   "aims-test"`). `byok/tests/smoke.sh` takes the reference off the object in
+   that case; the Go build did not. It now copies the Secret from `aim-system`
+   when the install made one, takes the reference off when there is none, and
+   stops as soon as the object reports `Failed`, with the conditions that hold
+   it back. The smoke test then passed on itg1 in 31 seconds.
+7. **A second profile could go on top of a profile it shares packages with.**
+   `install scalable-inference --no-gpu` on a node that already had
+   `scalable-inference-gpu` installed both profiles: the record held both
+   names, and the CPU values went over the charts of the GPU install. An
+   install now stops when another recorded profile shares packages with it. An
+   install of the same profile is an upgrade, and a profile that says `extends`
+   the recorded one, as `aiwb-demo` does, is the documented way to add to it.
+8. **The API server deprecation warning came once per request.** The client
+   now prints one line per warning.
+
 ## Open
 
-3. **The `aiwb` chart 2.0.0 asks for the Secret `aiwb-ui-keycloak-secret`,
+9. **The `aiwb` chart 2.0.0 asks for the Secret `aiwb-ui-keycloak-secret`,
    which the `aiwb-demo` profile does not make.** The `aiwb-demo-secrets`
    package makes `aiwb-oidc-client-secret`, and the chart reads the name from
    `keycloak.secretName`, whose default is `aiwb-ui-keycloak-secret`. Both
@@ -59,7 +80,18 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
    `keycloak.url`, `keycloak.internalUrl` and `keycloak.clientId` for Dex, or
    the secrets package must make the Secret under the name the chart wants,
    with the keys the chart reads with `envFrom`.
-7. **`--ref` defaults to `main`, which holds no `byok/` directory.** Every
+10. **aim-catalog never collects the pods of its discovery Jobs.** Ten minutes
+   after the install, `aim-system` held 160 `Succeeded`
+   `discover-amdenterpriseai-aim-*` pods, and new bursts follow. They hold no
+   resources, but they hide the running pods of the namespace. The chart needs
+   `ttlSecondsAfterFinished` on the Job.
+11. **The cert-manager pods declare no requests and no limits.** All three are
+   invisible to the scheduler for capacity planning.
+12. **An install cannot be stopped from outside the process group.** Under
+   `sudo`, a `SIGTERM` to the caller left the child running to the end. The Go
+   build now cancels the helm operation on `SIGINT` and `SIGTERM` of its own
+   process, which covers Ctrl-C in a terminal.
+13. **`--ref` defaults to `main`, which holds no `byok/` directory.** Every
    command needs `--ref EAI-8560-byok` until the branch merges. The error
    message names the cause: `no byok/bootstrap.sh under ...`.
 
@@ -72,5 +104,10 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
 - `uninstall aiwb-demo` with both profiles recorded keeps every package of
   `scalable-inference` and removes only the packages of the demo.
 - `uninstall scalable-inference` empties the install record.
+- On itg1, one MI300X node with 8 GPUs: `uninstall scalable-inference-gpu` in
+  2 min 51 s with no CRD and no namespace left, `install scalable-inference
+  --smoke-test` in 3 min 24 s with the GPU profile selected by the node GRES,
+  every capability `yes`, `amd.com/gpu: 8` allocatable and the smoke test
+  passed.
 - `spur plugin list` marks a plugin that shadows a built-in command, and the
   built-in command wins.

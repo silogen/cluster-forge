@@ -156,3 +156,36 @@ metadata:
 		t.Errorf("crdNamesOf gave %v", got)
 	}
 }
+
+func TestOverlappingProfile(t *testing.T) {
+	base := []string{"kyverno", "kserve"}
+	record := map[string]recordEntry{"scalable-inference": {Packages: base}}
+
+	if other, _ := overlappingProfile(record, "scalable-inference", "", base); other != "" {
+		t.Error("an install of the same profile is an upgrade, not an overlap")
+	}
+	if other, _ := overlappingProfile(record, "aiwb-demo", "scalable-inference",
+		[]string{"kyverno", "kserve", "aiwb"}); other != "" {
+		t.Error("a profile that extends the installed one is not an overlap")
+	}
+	other, shared := overlappingProfile(record, "scalable-inference-gpu", "",
+		[]string{"kyverno", "kserve", "amd-gpu-operator"})
+	if other != "scalable-inference" || len(shared) != 2 {
+		t.Errorf("two profiles over the same packages gave %q %v", other, shared)
+	}
+	if other, _ := overlappingProfile(record, "other", "", []string{"nothing"}); other != "" {
+		t.Error("a profile with no shared package is not an overlap")
+	}
+}
+
+func TestLoadProfileKeepsExtends(t *testing.T) {
+	p, err := loadProfile("aiwb-demo", map[string]string{
+		"domain": "example.com", "gatewayServiceType": "ClusterIP", "gatewayExternalIP": "10.0.0.1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Extends != "scalable-inference" {
+		t.Errorf("aiwb-demo extends %q", p.Extends)
+	}
+}

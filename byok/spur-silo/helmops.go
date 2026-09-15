@@ -47,7 +47,7 @@ func isInstalled(c *cluster, name, namespace string) bool {
 // A chart that holds both a webhook and objects that the webhook validates
 // fails on the first pass, because the webhook server starts later. ArgoCD
 // retries such a sync; helm does not, so retry here.
-func installPackage(c *cluster, name, namespace string, values map[string]interface{}) error {
+func installPackage(ctx context.Context, c *cluster, name, namespace string, values map[string]interface{}) error {
 	chart, err := loadChart(name)
 	if err != nil {
 		return err
@@ -74,18 +74,18 @@ func installPackage(c *cluster, name, namespace string, values map[string]interf
 			install.CreateNamespace = true
 			install.Wait = true
 			install.Timeout = helmTimeout
-			_, lastErr = install.RunWithContext(context.Background(), chart, merged)
+			_, lastErr = install.RunWithContext(ctx, chart, merged)
 		} else {
 			upgrade := action.NewUpgrade(cfg)
 			upgrade.Namespace = namespace
 			upgrade.Wait = true
 			upgrade.Timeout = helmTimeout
-			_, lastErr = upgrade.RunWithContext(context.Background(), name, chart, merged)
+			_, lastErr = upgrade.RunWithContext(ctx, name, chart, merged)
 		}
 		if lastErr == nil {
 			return nil
 		}
-		if attempt == 3 {
+		if attempt == 3 || ctx.Err() != nil {
 			break
 		}
 		// A first install that fails leaves a release that upgrade cannot use.

@@ -22,11 +22,11 @@ import (
 var assets embed.FS
 
 type profile struct {
-	Name     string            `json:"name"`
-	Extends  string            `json:"extends"`
+	Name     string             `json:"name"`
+	Extends  string             `json:"extends"`
 	Vars     map[string]*string `json:"vars"`
-	Packages []profilePackage  `json:"packages"`
-	Notes    string            `json:"notes"`
+	Packages []profilePackage   `json:"packages"`
+	Notes    string             `json:"notes"`
 }
 
 type profilePackage struct {
@@ -92,6 +92,9 @@ func loadProfile(name string, vars map[string]string) (*profile, error) {
 	if err := yaml.Unmarshal(filled, &p); err != nil {
 		return nil, fmt.Errorf("profile %s: %w", name, err)
 	}
+	// The merge takes `extends` out of the result, and the caller needs to know
+	// which profile this one builds on.
+	p.Extends = head.Extends
 	return &p, nil
 }
 
