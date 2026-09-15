@@ -130,7 +130,12 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
 14. **Two namespaces stay after every uninstall.** `aims-test` comes from
    `--smoke-test` and `workbench` from the `aiwb-demo` install. Both are empty.
    Neither is the namespace of a package, so the purge does not reach them.
-15. **`--ref` defaults to `main`, which holds no `byok/` directory.** Every
+15. **The skill command `spur admin raft status` does not exist.** The spur
+   CLI of `main` at `467d521` has no `admin` command, so the Raft health check
+   of the Kaytoo skill cannot be run. The plugin work did not remove it; the
+   skill names a command that this version never had. Read the health from
+   `spur nodes` instead.
+16. **`--ref` defaults to `main`, which holds no `byok/` directory.** Every
    command needs `--ref EAI-8560-byok` until the branch merges. The error
    message names the cause: `no byok/bootstrap.sh under ...`.
 
@@ -143,6 +148,12 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
 - `uninstall aiwb-demo` with both profiles recorded keeps every package of
   `scalable-inference` and removes only the packages of the demo.
 - `uninstall scalable-inference` empties the install record.
+- The last Kaytoo round, with every fix in: `uninstall aiwb-demo` after a
+  failed install removes the failed `aiwb` release first, keeps all nine
+  packages of `scalable-inference` and twenty CRDs, and takes 20 seconds. The
+  `aiwb` failure itself reports in 10 min 53 s and names the pod and the
+  missing Secret. The end state holds no CRD, no record and only the namespace
+  `aims-test` of the smoke test.
 - On two Kaytoo VMs with the Go build: `install scalable-inference` 1 min 41 s,
   `uninstall scalable-inference` 51 s with no CRD and no namespace left,
   `install scalable-inference --smoke-test` 3 min 04 s with the smoke test
