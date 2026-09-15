@@ -149,13 +149,24 @@ they already exist the package can leave the profile.
 
 ## Install on a Spur k0s cluster
 
-`spur/spur-silo` does the whole install on a Spur cluster that runs Kubernetes
-from `spur k8s up`. It is a Spur CLI plugin: put it on `PATH` under the name
+`spur silo` does the whole install on a Spur cluster that runs Kubernetes from
+`spur k8s up`. It is a Spur CLI plugin: put it on `PATH` under the name
 `spur-silo` and `spur silo ...` runs it. It also works when it is called
 directly.
 
+There are two builds of the plugin:
+
+| Build | What it needs | When to use it |
+|---|---|---|
+| `spur-silo/` (Go) | nothing on the node | the release build, charts inside the binary |
+| `spur/spur-silo` (bash) | helm, kubectl, yq v4, jq, git and GitHub | to install any `--ref` of cluster-forge |
+
+The Go binary holds every chart, profile and capability probe of its release,
+so the node needs no tool and no access to GitHub. Build it with `make -C
+byok/spur-silo` (see `spur-silo/README.md`) and copy it to the node:
+
 ```bash
-scp byok/spur/spur-silo ubuntu@<node>:
+scp byok/spur-silo/spur-silo ubuntu@<node>:
 ssh ubuntu@<node> 'sudo install -m 755 spur-silo /usr/local/bin/spur-silo'
 ssh ubuntu@<node> 'spur silo install scalable-inference'
 ssh ubuntu@<node> 'spur silo install aiwb-demo --var domain=<node-ip>.nip.io \
@@ -170,15 +181,13 @@ ssh ubuntu@<node> 'spur silo install aiwb-demo --var domain=<node-ip>.nip.io \
 | `spur silo status` | The install record and the live capability probes. |
 | `spur silo uninstall <profile>` | Remove the packages of the profile, `--keep-data` keeps the PVCs and the CRDs. |
 
-There is no `upgrade`. An upgrade is `install` with a newer `--ref`.
+There is no `upgrade`. An upgrade is an `install` from a newer build.
 
-The plugin needs `helm`, `kubectl`, `yq` v4, `jq` and `git`, and it names the
-ones that are missing. `--install-tools` installs them.
-
-`--ref <tag-or-branch>` selects the cluster-forge version to install from. The
-plugin clones it into `~/.cache/spur-silo`. When the plugin is run from a
-cluster-forge checkout and `--ref` is not given, it uses that checkout, which
-is the way to try a change that is not pushed yet:
+The bash build takes the cluster-forge version from `--ref <tag-or-branch>` and
+clones it into `~/.cache/spur-silo`. It needs `helm`, `kubectl`, `yq` v4, `jq`
+and `git`, names the ones that are missing, and `--install-tools` installs
+them. When it runs from a cluster-forge checkout and `--ref` is not given, it
+uses that checkout, which is the way to try a change that is not pushed yet:
 
 ```bash
 tar czf /tmp/cf.tgz byok sources root && scp /tmp/cf.tgz ubuntu@<node>:
@@ -206,7 +215,8 @@ default `spur k8s kubeconfig` is namespace-scoped, so it is not enough. The
 plugin asks Spur for the admin kubeconfig, which needs
 `allow_admin_kubeconfig = true` in the `[cluster]` section of `spur.conf`. On
 the control-plane node it falls back to `sudo k0s kubeconfig admin`.
-`--kubeconfig <path>` and `KUBECONFIG` win over both.
+`--kubeconfig <path>` and `KUBECONFIG` win over both. Without them the order
+is: Spur, Spur under `sudo -n`, then `sudo -n k0s kubeconfig admin`.
 
 A Spur cluster with more than one node needs pod traffic between the nodes.
 On OCI the default kube-router mode does not give that. See
