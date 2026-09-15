@@ -295,6 +295,8 @@ byok/footprint/footprint.sh idle > /tmp/footprint.md
 NAMESPACES="kyverno cert-manager kserve-system aim-system envoy-gateway-system \
   opentelemetry-operator-system postgres dex aiwb" \
   byok/footprint/footprint.sh idle          # the aiwb-demo namespaces
+NAMESPACES="kyverno cert-manager kserve-system aim-system kube-amd-gpu" \
+  byok/footprint/footprint.sh idle          # the scalable-inference-gpu namespaces
 ```
 
 The script prints markdown: pods, requests and limits per namespace, live usage
@@ -395,6 +397,7 @@ notes: |
 ## Documents
 
 - [Footprint of scalable-inference](docs/footprint-scalable-inference.md)
+- [Footprint of scalable-inference-gpu](docs/footprint-scalable-inference-gpu.md)
 - [Footprint of aiwb-demo](docs/footprint-aiwb-demo.md)
 - [The aiwb-demo slide](docs/slide-aiwb-demo.md)
 - [The minimal install slide](docs/slide-minimal-install.md)
