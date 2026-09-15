@@ -275,6 +275,7 @@ cmd_validate() { # <profile>
 }
 
 cmd_list() {
+  check_tools
   resolve_source
   echo "Profiles of cluster-forge $REF:"
   local f vars
