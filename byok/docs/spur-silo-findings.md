@@ -88,6 +88,16 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
   writes the record of the packages that did go on and marks it partial, and
   `status` says that the install stopped and which command removes them.
 
+- **A profile whose install stopped could not be removed.** The partial record
+  of `aiwb-demo` ended at the last package that went on, so `aiwb` was never a
+  removal target, but the failed helm install had left the release `aiwb/aiwb`.
+  `refuseWhenNeeded` then saw `aiwb` installed, saw `dex` giving it
+  `auth.oidc`, and refused at the first package: `error: aiwb is installed and
+  needs auth.oidc from dex`. A package of the profile that goes away no longer
+  holds that same removal back, the partial record names the failed package
+  too, and a removal that reads a partial record takes the package list from
+  the profile.
+
 ## Open
 
 9. **The `aiwb` chart 2.0.0 asks for the Secret `aiwb-ui-keycloak-secret`,
@@ -117,7 +127,10 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
    envoy-gateway-config.envoy-gateway-config.envoyProxy.nodeSelector
    (map[cluster-bloom/first-node:true])`. No k0s cluster has that label, and
    the profile cannot override the value.
-14. **`--ref` defaults to `main`, which holds no `byok/` directory.** Every
+14. **Two namespaces stay after every uninstall.** `aims-test` comes from
+   `--smoke-test` and `workbench` from the `aiwb-demo` install. Both are empty.
+   Neither is the namespace of a package, so the purge does not reach them.
+15. **`--ref` defaults to `main`, which holds no `byok/` directory.** Every
    command needs `--ref EAI-8560-byok` until the branch merges. The error
    message names the cause: `no byok/bootstrap.sh under ...`.
 
