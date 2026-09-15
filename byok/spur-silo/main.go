@@ -9,8 +9,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"sort"
 	"strings"
+	"syscall"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -37,13 +39,16 @@ type options struct {
 }
 
 func main() {
-	if err := run(os.Args[1:]); err != nil {
+	// An operator that stops the command expects helm to stop with it.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := run(ctx, os.Args[1:]); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(args []string) error {
+func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
 		usage(os.Stdout)
 		return nil
@@ -59,19 +64,19 @@ func run(args []string) error {
 		if target == "" {
 			return fmt.Errorf("a profile name is needed")
 		}
-		return cmdInstall(target, opts)
+		return cmdInstall(ctx, target, opts)
 	case "uninstall":
 		if target == "" {
 			return fmt.Errorf("a profile name is needed")
 		}
-		return cmdUninstall(target, opts)
+		return cmdUninstall(ctx, target, opts)
 	case "validate":
 		if target == "" {
 			return fmt.Errorf("a profile name is needed")
 		}
-		return cmdValidate(target, opts)
+		return cmdValidate(ctx, target, opts)
 	case "status":
-		return cmdStatus(opts)
+		return cmdStatus(ctx, opts)
 	case "list":
 		return cmdList()
 	case "version":
@@ -222,7 +227,7 @@ func loadProfileHead(name string) ([]string, error) {
 	return names, nil
 }
 
-func cmdValidate(name string, opts options) error {
+func cmdValidate(ctx context.Context, name string, opts options) error {
 	c, err := connect(opts.kubeconfig)
 	if err != nil {
 		return err
@@ -285,13 +290,12 @@ func providersOf(capability string) ([]string, error) {
 	return providers, nil
 }
 
-func cmdInstall(name string, opts options) error {
+func cmdInstall(ctx context.Context, name string, opts options) error {
 	c, err := connect(opts.kubeconfig)
 	if err != nil {
 		return err
 	}
 	defer c.close()
-	ctx := context.Background()
 
 	if name == "scalable-inference" && !opts.noGPU {
 		if nodes := instinctNodes(); len(nodes) > 0 {
@@ -303,6 +307,9 @@ func cmdInstall(name string, opts options) error {
 
 	p, err := loadProfile(name, opts.vars)
 	if err != nil {
+		return err
+	}
+	if err := refuseOverlappingProfile(ctx, c, p); err != nil {
 		return err
 	}
 	if err := validateProfile(ctx, c, p); err != nil {
@@ -319,7 +326,7 @@ func cmdInstall(name string, opts options) error {
 			return err
 		}
 		infof("install %s into namespace %s", meta.Name, meta.Namespace)
-		if err := installPackage(c, meta.Name, meta.Namespace, entry.Values); err != nil {
+		if err := installPackage(ctx, c, meta.Name, meta.Namespace, entry.Values); err != nil {
 			return err
 		}
 		installed = append(installed, meta.Name)
@@ -340,13 +347,12 @@ func cmdInstall(name string, opts options) error {
 	return nil
 }
 
-func cmdUninstall(name string, opts options) error {
+func cmdUninstall(ctx context.Context, name string, opts options) error {
 	c, err := connect(opts.kubeconfig)
 	if err != nil {
 		return err
 	}
 	defer c.close()
-	ctx := context.Background()
 
 	// The package names need no variable value, so an uninstall asks for none.
 	p, err := loadProfileForRemoval(name)
@@ -413,6 +419,59 @@ func cmdUninstall(name string, opts options) error {
 	return nil
 }
 
+// refuseOverlappingProfile stops an install that would put a second name on
+// packages another profile already holds. An install of the same profile is an
+// upgrade and goes through. A profile that only extends the installed one, and
+// adds packages to it, goes through too.
+func refuseOverlappingProfile(ctx context.Context, c *cluster, p *profile) error {
+	record, err := readRecord(ctx, c)
+	if err != nil {
+		return err
+	}
+	names := make([]string, 0, len(p.Packages))
+	for _, entry := range p.Packages {
+		names = append(names, entry.Name)
+	}
+	other, shared := overlappingProfile(record, p.Name, p.Extends, names)
+	if other == "" {
+		return nil
+	}
+	return fmt.Errorf("profile %s is installed and holds %d of the packages of %s: %s\n"+
+		"  two profiles over the same packages cannot be removed one at a time\n"+
+		"  uninstall %s first, or install %s again to upgrade it",
+		other, len(shared), p.Name, strings.Join(shared, " "), other, other)
+}
+
+// overlappingProfile names a recorded profile that shares packages with the
+// one that goes on now. An install of the same profile is an upgrade, and a
+// profile that says `extends` the recorded one is the documented way to add to
+// it, so neither is an overlap. Two profiles that only happen to share
+// packages, such as the CPU and the GPU build of one profile, are: the second
+// install writes its own values over the charts of the first.
+func overlappingProfile(record map[string]recordEntry, name, extends string, packages []string) (string, []string) {
+	mine := map[string]bool{}
+	for _, pkg := range packages {
+		mine[pkg] = true
+	}
+	for _, other := range recordedProfileNames(record) {
+		if other == name || other == extends {
+			continue
+		}
+		theirs := record[other].Packages
+		var shared []string
+		for _, pkg := range theirs {
+			if mine[pkg] {
+				shared = append(shared, pkg)
+			}
+		}
+		if len(shared) == 0 {
+			continue
+		}
+		return other, shared
+	}
+	return "", nil
+}
+
 // refuseWhenNeeded stops a removal that would take a capability away from a
 // package that is still installed.
 func refuseWhenNeeded(ctx context.Context, c *cluster, meta *packageMeta) error {
@@ -467,13 +526,12 @@ func loadProfileForRemoval(name string) (*profile, error) {
 	return loadProfile(name, vars)
 }
 
-func cmdStatus(opts options) error {
+func cmdStatus(ctx context.Context, opts options) error {
 	c, err := connect(opts.kubeconfig)
 	if err != nil {
 		return err
 	}
 	defer c.close()
-	ctx := context.Background()
 
 	record, err := readRecord(ctx, c)
 	if err != nil {
