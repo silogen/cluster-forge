@@ -1,3 +1,57 @@
+# Deletes every object of a CRD and takes the finalizers off the ones that stay.
+# A CR whose controller is already gone keeps its finalizer for ever, and the
+# deletion of its CRD then never ends.
+clear_custom_resources() { # <crd name>
+  local crd="$1" group plural line ns name
+  group="$(kubectl get crd "$crd" -o jsonpath='{.spec.group}' 2>/dev/null)" || return 0
+  plural="$(kubectl get crd "$crd" -o jsonpath='{.spec.names.plural}' 2>/dev/null)" || return 0
+  [ -n "$group" ] && [ -n "$plural" ] || return 0
+  kubectl get "$plural.$group" --all-namespaces \
+    -o jsonpath='{range .items[*]}{.metadata.namespace}|{.metadata.name}{"\n"}{end}' 2>/dev/null \
+  | while IFS='|' read -r ns name; do
+      [ -n "$name" ] || continue
+      local scope=(); [ -n "$ns" ] && scope=(--namespace "$ns")
+      kubectl delete "$plural.$group" "$name" "${scope[@]}" --wait=false --ignore-not-found >/dev/null 2>&1 || true
+      kubectl patch "$plural.$group" "$name" "${scope[@]}" --type=merge \
+        -p '{"metadata":{"finalizers":null}}' >/dev/null 2>&1 || true
+    done
+}
+
+# The namespace is not removed here: more than one package of a profile can
+# live in the same namespace, and a namespace that goes away takes the releases
+# of its other packages with it. remove_profile does that step at the end.
+remove_package() {
+  local pkg="$1" purge="$2" ns other cap
+  [ -f "$BYOK_DIR/packages/$pkg/package.yaml" ] || die "unknown package: $pkg"
+  ns="$(pkg_field "$pkg" '.namespace')"
+
+  # Refuse when another installed release still needs what this package gives.
+  for cap in $(pkg_field "$pkg" '.provides // [] | .[]'); do
+    for other in "$BYOK_DIR"/packages/*/package.yaml; do
+      local name; name="$(basename "$(dirname "$other")")"
+      [ "$name" = "$pkg" ] && continue
+      CAP="$cap" yq -e '.requires // [] | any_c(. == strenv(CAP))' "$other" >/dev/null 2>&1 || continue
+      helm status "$name" --namespace "$(yq -r '.namespace' "$other")" >/dev/null 2>&1 \
+        && die "$name is installed and needs $cap from $pkg"
+    done
+  done
+
+  local crds=""
+  if [ "$purge" = yes ]; then
+    crds="$(helm get manifest "$pkg" --namespace "$ns" 2>/dev/null \
+      | yq -N 'select(.kind == "CustomResourceDefinition") | .metadata.name' || true)"
+    for crd in $crds; do clear_custom_resources "$crd"; done
+  fi
+
+  info "uninstall $pkg from namespace $ns"
+  helm uninstall "$pkg" --namespace "$ns" --wait --timeout "$HELM_TIMEOUT"
+
+  if [ "$purge" = yes ] && [ -n "$crds" ]; then
+    echo "$crds" | xargs -r kubectl delete crd --ignore-not-found
+  fi
+  info "remove finished"
+}
+
 #!/usr/bin/env bash
 # Install, validate or remove byok packages on a Kubernetes cluster that
 # already exists. See README.md.
@@ -283,16 +337,28 @@ remove_profile() { # <profile file> <purge>
   keep=" $(NAME="$name" jq -r '
     to_entries | map(select(.key != env.NAME) | .value.packages // []) | add // [] | join(" ")' <<<"$record") "
 
+  local emptied="" stays="" ns
   for pkg in $(printf '%s\n' "$packages" | tac); do
+    ns="$(pkg_field "$pkg" '.namespace')"
     case "$keep" in
-      *" $pkg "*) info "keep $pkg, another installed profile holds it"; continue;;
+      *" $pkg "*) info "keep $pkg, another installed profile holds it"; stays="$stays $ns "; continue;;
     esac
-    if ! helm status "$pkg" --namespace "$(pkg_field "$pkg" '.namespace')" >/dev/null 2>&1; then
+    if ! helm status "$pkg" --namespace "$ns" >/dev/null 2>&1; then
       info "skip $pkg, it is not installed"
       continue
     fi
     remove_package "$pkg" "$purge"
+    case "$emptied" in *" $ns "*) ;; *) emptied="$emptied $ns ";; esac
   done
+
+  if [ "$purge" = yes ]; then
+    for ns in $emptied; do
+      case "$stays" in *" $ns "*) continue;; esac
+      kubectl delete pvc --all --namespace "$ns" --ignore-not-found
+      info "delete namespace $ns"
+      kubectl delete namespace "$ns" --ignore-not-found
+    done
+  fi
   record_forget "$name"
   info "profile $name removed"
 }

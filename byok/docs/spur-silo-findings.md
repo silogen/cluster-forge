@@ -23,6 +23,29 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
    `--kubeconfig`, `KUBECONFIG`, `spur k8s kubeconfig --admin`, the same call
    under `sudo -n`, then `sudo -n k0s kubeconfig admin`.
 
+## Fixed in the Go plugin, and in bootstrap.sh with it
+
+4. **A purge deleted the namespace of a package while a later package of the
+   same namespace still needed it.** `kyverno-policies-storage-local-path` goes
+   first and its purge deleted the namespace `kyverno`. The next removal, the
+   `kyverno` chart itself, then failed in its `pre-delete` hook with
+   `jobs.batch "kyverno-scale-to-zero" is forbidden: unable to create new
+   content in namespace kyverno because it is being terminated`. The same
+   happened in the namespace `aim-system`. A purge now removes the releases
+   first and deletes each namespace once, after the last package of that
+   namespace is gone, and never a namespace that a package of another installed
+   profile holds.
+5. **The deletion of a CRD never ended when its CRs kept a finalizer.** The
+   removal of `aim-engine-crds` stopped at the helm timeout of 10 minutes,
+   because the `aim-engine` controller was already gone and no one took the
+   finalizers off the AIM objects. A purge now deletes the CRs and takes their
+   finalizers off before it removes the CRD, while the controller of the
+   release still runs. The same removal now takes 45 seconds.
+6. **The CRDs of a `crds/` directory stayed after a purge.** `helm get
+   manifest` does not hold them, so `gateway.api.crds` still probed `yes` after
+   an uninstall. A purge now reads the CRD names of the chart `crds/` directory
+   too.
+
 ## Open
 
 3. **The `aiwb` chart 2.0.0 asks for the Secret `aiwb-ui-keycloak-secret`,
@@ -36,18 +59,7 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
    `keycloak.url`, `keycloak.internalUrl` and `keycloak.clientId` for Dex, or
    the secrets package must make the Secret under the name the chart wants,
    with the keys the chart reads with `envFrom`.
-4. **`--purge` of a package takes the namespace, and with it the release
-   secret of every other package in that namespace.** `kyverno` and
-   `kyverno-policies-storage-local-path` share the namespace `kyverno`. The
-   removal of the policies package deletes the namespace, so the following
-   removal of `kyverno` says `skip kyverno, it is not installed`. The result
-   is correct, but the message is misleading.
-5. **The CRDs of `gateway-api-crds` stay after a purge.** After
-   `uninstall scalable-inference --purge` the capability `gateway.api.crds`
-   still probes `yes`. `--purge` collects the CRDs from `helm get manifest`,
-   which does not hold the CRDs that the chart installs from its `crds/`
-   directory.
-6. **`--ref` defaults to `main`, which holds no `byok/` directory.** Every
+7. **`--ref` defaults to `main`, which holds no `byok/` directory.** Every
    command needs `--ref EAI-8560-byok` until the branch merges. The error
    message names the cause: `no byok/bootstrap.sh under ...`.
 

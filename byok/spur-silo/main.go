@@ -363,15 +363,18 @@ func cmdUninstall(name string, opts options) error {
 	keep := packagesOfOtherProfiles(record, p.Name)
 	purge := !opts.keepData
 
+	var emptied []string
+	stays := map[string]bool{}
 	for i := len(packages) - 1; i >= 0; i-- {
 		pkg := packages[i]
-		if keep[pkg] {
-			infof("keep %s, another installed profile holds it", pkg)
-			continue
-		}
 		meta, err := loadPackageMeta(pkg)
 		if err != nil {
 			return err
+		}
+		if keep[pkg] {
+			infof("keep %s, another installed profile holds it", pkg)
+			stays[meta.Namespace] = true
+			continue
 		}
 		if !isInstalled(c, meta.Name, meta.Namespace) {
 			infof("skip %s, it is not installed", pkg)
@@ -382,6 +385,20 @@ func cmdUninstall(name string, opts options) error {
 		}
 		if err := removePackage(ctx, c, meta.Name, meta.Namespace, purge); err != nil {
 			return err
+		}
+		emptied = append(emptied, meta.Namespace)
+	}
+
+	if purge {
+		done := map[string]bool{}
+		for _, namespace := range emptied {
+			if done[namespace] || stays[namespace] {
+				continue
+			}
+			done[namespace] = true
+			if err := purgeNamespace(ctx, c, namespace); err != nil {
+				return err
+			}
 		}
 	}
 	if err := forgetRecord(ctx, c, p.Name); err != nil {
