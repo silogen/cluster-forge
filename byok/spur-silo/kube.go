@@ -38,6 +38,9 @@ func connect(kubeconfigArg string) (*cluster, error) {
 	if err != nil {
 		return nil, fmt.Errorf("kubeconfig %s: %w", path, err)
 	}
+	// The API server repeats a deprecation warning for every request. One line
+	// per warning is enough for the operator.
+	cfg.WarningHandler = rest.NewWarningWriter(os.Stderr, rest.WarningWriterOptions{Deduplicate: true})
 	c.rest = cfg
 	if c.typed, err = kubernetes.NewForConfig(cfg); err != nil {
 		return nil, err

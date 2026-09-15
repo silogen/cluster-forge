@@ -18,6 +18,11 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	pullSecretName      = "aim-pull"
+	pullSecretNamespace = "aim-system"
+)
+
 // version is the cluster-forge ref the binary was built from. The Makefile
 // sets it.
 var version = "dev"
@@ -526,20 +531,20 @@ func ensurePullSecret(ctx context.Context, c *cluster, opts options) error {
 		return nil
 	}
 
-	infof("make the Secret aim-pull in the namespace aim-system")
+	infof("make the Secret %s in the namespace %s", pullSecretName, pullSecretNamespace)
 	namespaces := c.typed.CoreV1().Namespaces()
-	if _, err := namespaces.Get(ctx, "aim-system", metav1.GetOptions{}); isNotFound(err) {
-		ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "aim-system"}}
+	if _, err := namespaces.Get(ctx, pullSecretNamespace, metav1.GetOptions{}); isNotFound(err) {
+		ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: pullSecretNamespace}}
 		if _, err := namespaces.Create(ctx, ns, metav1.CreateOptions{}); err != nil && !isAlreadyExists(err) {
 			return err
 		}
 	}
 	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: "aim-pull", Namespace: "aim-system"},
+		ObjectMeta: metav1.ObjectMeta{Name: pullSecretName, Namespace: pullSecretNamespace},
 		Type:       corev1.SecretTypeDockerConfigJson,
 		Data:       map[string][]byte{corev1.DockerConfigJsonKey: []byte(content)},
 	}
-	secrets := c.typed.CoreV1().Secrets("aim-system")
+	secrets := c.typed.CoreV1().Secrets(pullSecretNamespace)
 	if _, err := secrets.Create(ctx, secret, metav1.CreateOptions{}); err != nil {
 		if !isAlreadyExists(err) {
 			return err
