@@ -329,7 +329,7 @@ func cmdInstall(ctx context.Context, name string, opts options) error {
 		if err := installPackage(ctx, c, meta.Name, meta.Namespace, entry.Values); err != nil {
 			// The packages that did go on are on the cluster whatever happens
 			// next. Without a record, `uninstall` cannot know which they are.
-			partial := newEntry(version, opts.vars, installed)
+			partial := newEntry(version, opts.vars, append(installed, meta.Name))
 			partial.Partial = true
 			if writeErr := writeRecord(ctx, c, p.Name, partial); writeErr != nil {
 				infof("the install record of the packages that went on could not be written: %v", writeErr)
@@ -372,14 +372,30 @@ func cmdUninstall(ctx context.Context, name string, opts options) error {
 	}
 
 	// What the install recorded wins: it is what really went onto the cluster.
+	// After an install that stopped in the middle, the profile wins instead:
+	// the failed package can have left objects that the record does not name,
+	// and a package that never went on is skipped anyway.
 	packages := record[p.Name].Packages
-	if len(packages) == 0 {
+	if record[p.Name].Partial || len(packages) == 0 {
+		packages = nil
 		for _, entry := range p.Packages {
 			packages = append(packages, entry.Name)
 		}
 	}
 	keep := packagesOfOtherProfiles(record, p.Name)
 	purge := !opts.keepData
+
+	// Everything the profile declares goes away in this run, so one of its own
+	// packages never holds another one back. A failed install leaves a release
+	// that the record does not name, and without this the profile could not be
+	// removed at all.
+	mine := map[string]bool{}
+	for _, entry := range p.Packages {
+		mine[entry.Name] = true
+	}
+	for _, pkg := range packages {
+		mine[pkg] = true
+	}
 
 	// A chart can ship a CRD that a package of another profile ships too. That
 	// CRD must stay, or the profile that stays loses a capability.
@@ -418,7 +434,7 @@ func cmdUninstall(ctx context.Context, name string, opts options) error {
 			infof("skip %s, it is not installed", pkg)
 			continue
 		}
-		if err := refuseWhenNeeded(ctx, c, meta); err != nil {
+		if err := refuseWhenNeeded(ctx, c, meta, mine); err != nil {
 			return err
 		}
 		if err := removePackage(ctx, c, meta.Name, meta.Namespace, purge, protected); err != nil {
@@ -500,8 +516,9 @@ func overlappingProfile(record map[string]recordEntry, name, extends string, pac
 }
 
 // refuseWhenNeeded stops a removal that would take a capability away from a
-// package that is still installed.
-func refuseWhenNeeded(ctx context.Context, c *cluster, meta *packageMeta) error {
+// package that is still installed. A package of the profile that goes away is
+// not one of those: it goes away in the same run.
+func refuseWhenNeeded(ctx context.Context, c *cluster, meta *packageMeta, mine map[string]bool) error {
 	if len(meta.Provides) == 0 {
 		return nil
 	}
@@ -510,7 +527,7 @@ func refuseWhenNeeded(ctx context.Context, c *cluster, meta *packageMeta) error 
 		return err
 	}
 	for _, other := range names {
-		if other == meta.Name {
+		if other == meta.Name || mine[other] {
 			continue
 		}
 		otherMeta, err := loadPackageMeta(other)
