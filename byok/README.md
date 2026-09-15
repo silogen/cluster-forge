@@ -4,11 +4,14 @@ byok installs a minimal cluster-forge on a Kubernetes cluster that already
 exists. It uses `helm upgrade --install` only. It does not install ArgoCD,
 Gitea or OpenBao.
 
-There are two profiles:
+There are three profiles:
 
 - `scalable-inference` gives one model endpoint that aim-engine and KServe
   serve. It does not install AIRM, AIWB, Dex, Kaiwo, Kueue, a gateway or
   a UI.
+- `scalable-inference-gpu` gives the same on AMD Instinct GPUs: it adds the
+  AMD GPU operator, turns the accelerator detector on and takes the Instinct
+  family of the catalog.
 - `aiwb-demo` extends `scalable-inference` with a gateway, one PostgreSQL Pod,
   Dex as the OIDC issuer and AIWB. It is a reference demo installation, not a
   production installation. See [The aiwb-demo profile](#the-aiwb-demo-profile).
@@ -223,6 +226,8 @@ Run `install` again with the same profile. The command is idempotent.
 ```bash
 byok/tests/smoke.sh                   # the core serves a model
 NAMESPACE=workbench byok/tests/smoke.sh   # the same on an aiwb-demo cluster
+AIM_OBJECT=byok/tests/aimservice-gpu.yaml PULL_SECRET_JSON=... \
+  byok/tests/smoke.sh                 # a real model on a GPU cluster
 byok/tests/smoke-ui.sh                # login, API, deploy and chat
 byok/tests/optional-package-cycle.sh  # add, re-install and purge seaweedfs
                                       # (a scalable-inference cluster only)
@@ -231,6 +236,9 @@ byok/tests/validate-negative.sh       # validation stops a bad profile
 ```
 
 `smoke-ui.sh` and `NAMESPACE=workbench smoke.sh` need an `aiwb-demo` cluster.
+`AIM_OBJECT` takes any AIMService object. `aimservice-gpu.yaml` holds a model
+image of `amdenterpriseai`, so it needs `PULL_SECRET_JSON` with the Docker Hub
+credentials and a `scalable-inference-gpu` cluster.
 `smoke.sh` without the variable and `optional-package-cycle.sh` need a
 `scalable-inference` cluster: the cycle test installs that profile, and its
 aim-engine package takes the `AIMClusterRuntimeConfig` that the aiwb release
@@ -250,7 +258,7 @@ from `kubectl top`, the volume claims, and the image size on the node. Run it on
 a node to get the image size.
 
 `smoke.sh` pulls `ghcr.io/silogen/aim-dummy`. The image is public. If your
-cluster needs credentials for ghcr.io, set `GHCR_PULL_SECRET_JSON` to a docker
+cluster needs credentials for ghcr.io, set `PULL_SECRET_JSON` to a docker
 config JSON before you run it.
 
 ## Packages
@@ -260,6 +268,8 @@ config JSON before you run it.
 | kyverno | kyverno | policy.kyverno | (none) |
 | kyverno-policies-storage-local-path | kyverno | storage.access-mode-mutation | policy.kyverno |
 | cert-manager | cert-manager | certificates.cert-manager | (none) |
+| amd-gpu-operator | kube-amd-gpu | gpu.amd.operator | certificates.cert-manager |
+| amd-gpu-operator-config | kube-amd-gpu | gpu.amd | gpu.amd.operator |
 | kserve-crds | kserve-system | serving.kserve.crds | (none) |
 | kserve | kserve-system | serving.kserve | serving.kserve.crds, certificates.cert-manager |
 | gateway-api-crds | gateway-api | gateway.api.crds | (none) |
@@ -344,4 +354,5 @@ notes: |
 - [Footprint of aiwb-demo](docs/footprint-aiwb-demo.md)
 - [The aiwb-demo slide](docs/slide-aiwb-demo.md)
 - [The minimal install slide](docs/slide-minimal-install.md)
+- [Test plan: byok on a GPU node](docs/test-plan-gpu.md)
 - [Future work](docs/future-work.md)

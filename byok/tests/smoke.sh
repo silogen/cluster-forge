@@ -4,13 +4,17 @@
 # On an aiwb-demo cluster run it with NAMESPACE=workbench: routing is on
 # there, and an AIMService in a namespace without the project-id label gets
 # no workload-id label and a routing error.
-# The dummy image is public. Set GHCR_PULL_SECRET_JSON to a docker config
-# JSON when your cluster needs credentials for ghcr.io.
+# The dummy image is public. Set PULL_SECRET_JSON to a docker config
+# JSON when the registry of the image needs credentials. Set AIM_OBJECT to
+# tests/aimservice-gpu.yaml for the GPU test.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NS="${NAMESPACE:-aims-test}"
 AIM_TIMEOUT="${AIM_TIMEOUT:-15m}"
+# The object under test. The GPU profile uses tests/aimservice-gpu.yaml.
+AIM_OBJECT="${AIM_OBJECT:-$HERE/aimservice-dummy.yaml}"
+NAME="$(yq -r .metadata.name "${AIM_OBJECT}")"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 ok() { echo "ok: $*"; }
 
@@ -34,33 +38,33 @@ ok "AIMClusterRuntimeConfig default"
 echo "== 4. test namespace"
 # The aiwb chart owns the workbench namespace, so do not apply over it.
 kubectl get namespace "$NS" >/dev/null 2>&1 || kubectl create namespace "$NS" >/dev/null
-if [ -n "${GHCR_PULL_SECRET_JSON:-}" ]; then
-  kubectl create secret generic aim-dummy-pull --namespace "$NS" \
+if [ -n "${PULL_SECRET_JSON:-}" ]; then
+  kubectl create secret generic aim-pull --namespace "$NS" \
     --type=kubernetes.io/dockerconfigjson \
-    --from-literal=.dockerconfigjson="$GHCR_PULL_SECRET_JSON" \
+    --from-literal=.dockerconfigjson="$PULL_SECRET_JSON" \
     --dry-run=client -o yaml | kubectl apply -f - >/dev/null
   ok "pull secret"
 else
-  echo "GHCR_PULL_SECRET_JSON is not set, the image is pulled without credentials"
+  echo "PULL_SECRET_JSON is not set, the image is pulled without credentials"
 fi
 
 echo "== 5. apply the dummy service"
 # aim-engine fails the model when a named pull secret does not exist, so the
 # reference stays only when the secret was made in step 4.
-if [ -n "${GHCR_PULL_SECRET_JSON:-}" ]; then
-  NS="$NS" yq '.metadata.namespace = strenv(NS)' "$HERE/aimservice-dummy.yaml" | kubectl apply -f - >/dev/null
+if [ -n "${PULL_SECRET_JSON:-}" ]; then
+  NS="$NS" yq '.metadata.namespace = strenv(NS)' "$AIM_OBJECT" | kubectl apply -f - >/dev/null
 else
   NS="$NS" yq 'del(.spec.imagePullSecrets) | .metadata.namespace = strenv(NS)' \
-    "$HERE/aimservice-dummy.yaml" | kubectl apply -f - >/dev/null
+    "$AIM_OBJECT" | kubectl apply -f - >/dev/null
 fi
 
 echo "== 6. wait for the service"
 # aim-engine 0.2.5 sets ModelReady, TemplateReady, RuntimeConfigReady,
 # CacheReady, InferenceServiceReady and Ready. There is no RuntimeReady.
 for cond in InferenceServiceReady Ready; do
-  if ! kubectl wait --for=condition=$cond aimservice/aim-dummy --namespace "$NS" \
+  if ! kubectl wait --for=condition=$cond aimservice/$NAME --namespace "$NS" \
       --timeout="$AIM_TIMEOUT" >/dev/null; then
-    kubectl get aimservice aim-dummy --namespace "$NS" -o json \
+    kubectl get aimservice "$NAME" --namespace "$NS" -o json \
       | jq -r '.status.conditions[] | "  \(.type)=\(.status) \(.reason): \(.message)"' >&2
     fail "condition $cond did not become true"
   fi
@@ -70,18 +74,22 @@ done
 echo "== 7. call the model"
 # The InferenceService name carries a suffix, so select by the AIMService name.
 svc="$(kubectl get svc --namespace "$NS" \
-  -l aim.eai.amd.com/service.name=aim-dummy,component=predictor -o name | head -n1)"
+  -l aim.eai.amd.com/service.name=$NAME,component=predictor -o name | head -n1)"
 [ -n "$svc" ] || fail "no predictor service found"
 kubectl port-forward --namespace "$NS" "$svc" 18080:80 >/dev/null 2>&1 &
 pf=$!
 trap 'kill $pf 2>/dev/null || true' EXIT
+models=""
 for _ in $(seq 1 30); do
-  curl -sf -o /dev/null "http://127.0.0.1:18080/v1/models" && break
+  models="$(curl -sf "http://127.0.0.1:18080/v1/models")" && break
   sleep 2
 done
+# The served model name comes from the image recipe, so read it from the API.
+model="$(echo "$models" | jq -r '.data[0].id // ""')"
+[ -n "$model" ] || fail "the model endpoint listed no model"
 body="$(curl -sf -X POST "http://127.0.0.1:18080/v1/chat/completions" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"sshleifer/tiny-gpt2","messages":[{"role":"user","content":"hi"}],"max_tokens":4}')" \
+  -d "$(jq -nc --arg m "$model" '{model:$m,messages:[{role:"user",content:"hi"}],max_tokens:4}')")" \
   || fail "the chat completion request failed"
 echo "$body" | jq -e '.choices | length > 0' >/dev/null || fail "no choices in the answer"
 ok "chat completion"
@@ -116,6 +124,6 @@ elif [ "$NS" = aims-test ]; then
   kubectl delete namespace "$NS" --wait=false >/dev/null
 else
   # A namespace that another release owns stays, only the test object goes.
-  kubectl delete aimservice aim-dummy --namespace "$NS" --wait=false >/dev/null
+  kubectl delete aimservice "$NAME" --namespace "$NS" --wait=false >/dev/null
 fi
 echo "SMOKE TEST PASSED"
