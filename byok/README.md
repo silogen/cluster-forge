@@ -149,40 +149,64 @@ they already exist the package can leave the profile.
 
 ## Install on a Spur k0s cluster
 
-`spur/install.sh` does the whole install on a node of a Spur cluster that
-runs Kubernetes from `spur k8s up`. Copy the script to a node and run it:
+`spur/spur-silo` does the whole install on a Spur cluster that runs Kubernetes
+from `spur k8s up`. It is a Spur CLI plugin: put it on `PATH` under the name
+`spur-silo` and `spur silo ...` runs it. It also works when it is called
+directly.
 
 ```bash
-scp byok/spur/install.sh ubuntu@<node>:
-ssh ubuntu@<node> ./install.sh --ref <tag-or-branch> --smoke
-ssh ubuntu@<node> ./install.sh --ref <tag-or-branch> --profile aiwb-demo --smoke
+scp byok/spur/spur-silo ubuntu@<node>:
+ssh ubuntu@<node> 'sudo install -m 755 spur-silo /usr/local/bin/spur-silo'
+ssh ubuntu@<node> 'spur silo install scalable-inference'
+ssh ubuntu@<node> 'spur silo install aiwb-demo --var domain=<node-ip>.nip.io \
+  --var gatewayServiceType=ClusterIP --var gatewayExternalIP=<node-ip>'
 ```
 
-`--source <path>` uses a checkout on the node instead of a clone, which is the
-way to try a change that is not pushed yet:
+| Command | What it does |
+|---|---|
+| `spur silo list` | The profiles of this plugin release. |
+| `spur silo install <profile>` | Install the profile. `--var name=value` per profile variable. |
+| `spur silo validate <profile>` | The capability check of `install`, with nothing installed. |
+| `spur silo status` | The install record and the live capability probes. |
+| `spur silo uninstall <profile>` | Remove the packages of the profile, `--keep-data` keeps the PVCs and the CRDs. |
+
+There is no `upgrade`. An upgrade is `install` with a newer `--ref`.
+
+The plugin needs `helm`, `kubectl`, `yq` v4, `jq` and `git`, and it names the
+ones that are missing. `--install-tools` installs them.
+
+`--ref <tag-or-branch>` selects the cluster-forge version to install from. The
+plugin clones it into `~/.cache/spur-silo`. When the plugin is run from a
+cluster-forge checkout and `--ref` is not given, it uses that checkout, which
+is the way to try a change that is not pushed yet:
 
 ```bash
 tar czf /tmp/cf.tgz byok sources root && scp /tmp/cf.tgz ubuntu@<node>:
 ssh ubuntu@<node> 'mkdir -p cf && tar xzf cf.tgz -C cf'
-ssh ubuntu@<node> 'cf/byok/spur/install.sh --source ~/cf --profile aiwb-demo --smoke'
+ssh ubuntu@<node> 'cf/byok/spur/spur-silo install aiwb-demo --var domain=...'
 ```
 
-The script installs `helm`, `kubectl`, `yq` and `jq` when they are missing,
-gets the cluster-admin kubeconfig from Spur, clones cluster-forge at `--ref`
-into `~/cluster-forge`, runs `bootstrap.sh install` with the profile of
-`--profile`, and with `--smoke` runs the smoke tests. Run it again to upgrade.
-See `install.sh --help` for the options and the environment variables.
+There is no auto-fill for a profile variable: `install aiwb-demo` without
+`--var domain=` stops with the error of `bootstrap.sh`. On a k0s cluster that
+has no load balancer, give all three variables as in the example above.
 
-For the `aiwb-demo` profile the script fills the domain with
-`<node-ip>.nip.io` and gives the node address to the Envoy Service in
-`externalIPs`, so the cluster needs no load balancer. `--domain` and
-`GATEWAY_SERVICE_TYPE` override both.
+`install scalable-inference` asks Spur for the node GRES. When a node reports
+an AMD Instinct GPU, the plugin installs `scalable-inference-gpu` instead and
+says so. `--no-gpu` keeps the CPU profile. A Radeon GPU is never selected
+automatically, the GPU profile supports Instinct only.
+
+Every install writes the profile, the ref, the time and the variables into the
+ConfigMap `install-record` in the namespace `silo-system`. `uninstall` reads
+it: a package that another recorded profile also holds stays on the cluster,
+so `uninstall aiwb-demo` on a cluster that also has `scalable-inference` keeps
+the base packages.
 
 Spur's k0s gives local-path-provisioner as the default StorageClass. The
 default `spur k8s kubeconfig` is namespace-scoped, so it is not enough. The
-script asks Spur for the admin kubeconfig, which needs
+plugin asks Spur for the admin kubeconfig, which needs
 `allow_admin_kubeconfig = true` in the `[cluster]` section of `spur.conf`. On
-the control-plane node the script falls back to `k0s kubeconfig admin`.
+the control-plane node it falls back to `sudo k0s kubeconfig admin`.
+`--kubeconfig <path>` and `KUBECONFIG` win over both.
 
 A Spur cluster with more than one node needs pod traffic between the nodes.
 On OCI the default kube-router mode does not give that. See
@@ -211,7 +235,13 @@ capability and the packages that give it.
 byok/bootstrap.sh remove seaweedfs                    # keeps the CRDs and the PVCs
 byok/bootstrap.sh remove seaweedfs --purge            # also removes them
 byok/bootstrap.sh remove seaweedfs-operator --purge   # the CRDs live here
+byok/bootstrap.sh remove --profile byok/profiles/aiwb-demo.yaml --purge
 ```
+
+`remove --profile` removes the packages of the profile in reverse install
+order. It reads the ConfigMap `install-record` in the namespace `silo-system`
+that `install` writes: a package that another recorded profile also holds
+stays on the cluster.
 
 `remove` refuses to remove a package that another installed package needs.
 An install run never removes anything. A package that you take out of the
@@ -226,7 +256,7 @@ Run `install` again with the same profile. The command is idempotent.
 ```bash
 byok/tests/smoke.sh                   # the core serves a model
 NAMESPACE=workbench byok/tests/smoke.sh   # the same on an aiwb-demo cluster
-AIM_OBJECT=byok/tests/aimservice-gpu.yaml PULL_SECRET_JSON=... \
+AIM_OBJECT=byok/tests/aimservice-gpu.yaml \
   byok/tests/smoke.sh                 # a real model on a GPU cluster
 byok/tests/smoke-ui.sh                # login, API, deploy and chat
 byok/tests/optional-package-cycle.sh  # add, re-install and purge seaweedfs
@@ -237,8 +267,9 @@ byok/tests/validate-negative.sh       # validation stops a bad profile
 
 `smoke-ui.sh` and `NAMESPACE=workbench smoke.sh` need an `aiwb-demo` cluster.
 `AIM_OBJECT` takes any AIMService object. `aimservice-gpu.yaml` holds a model
-image of `amdenterpriseai`, so it needs `PULL_SECRET_JSON` with the Docker Hub
-credentials and a `scalable-inference-gpu` cluster.
+image of `amdenterpriseai` and needs a `scalable-inference-gpu` cluster. The
+image is public, so `PULL_SECRET_JSON` is optional: it lifts the Docker Hub
+rate limit of an anonymous pull.
 `smoke.sh` without the variable and `optional-package-cycle.sh` need a
 `scalable-inference` cluster: the cycle test installs that profile, and its
 aim-engine package takes the `AIMClusterRuntimeConfig` that the aiwb release

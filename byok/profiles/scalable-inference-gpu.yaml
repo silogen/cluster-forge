@@ -26,18 +26,14 @@ packages:
     values:
       aim-engine-chart:
         # The detector reads the node-feature-discovery labels of the GPU
-        # operator and writes the accelerator of every node. Its image comes
-        # from amdenterpriseai, so make the aim-pull Secret in the aim-system
-        # namespace before the install:
-        #   kubectl create namespace aim-system
+        # operator and writes the accelerator of every node. Its image is
+        # public on Docker Hub, so no pull secret is needed. Make the aim-pull
+        # Secret only to lift the Docker Hub rate limit, and give it here:
         #   kubectl create secret docker-registry aim-pull -n aim-system \
         #     --docker-server=docker.io --docker-username=<user> \
         #     --docker-password=<token>
         acceleratorDetector:
           enable: true
-          gpu:
-            imagePullSecrets:
-              - name: aim-pull
           # The CPU detector has no node affinity, so it also runs on a GPU
           # node. There it reports model=CPU count=1 and its startup probe
           # never passes. A GPU profile does not need it.

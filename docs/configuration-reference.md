@@ -69,27 +69,34 @@ See [`byok/README.md`](../byok/README.md).
 | `--profile <file>` | `install`, `validate` | none, required | Profile file. A path relative to `byok/` also works. |
 | `--source github:<ref>` | `install` | the local checkout | Clone cluster-forge at that ref and install from it. |
 | `--source <path>` | `install` | the local checkout | Install from another checkout. |
+| `--profile <file>` | `remove` | none | Remove every package of the profile in reverse install order, instead of one package. |
 | `--purge` | `remove` | off | Also delete the CRDs of the package, the PVCs in its namespace, and the namespace. |
+| `BYOK_REF` | `install` | `local` | Source ref that the install record keeps. |
 | `KUBECONFIG` | all | none, required | Path to a cluster-admin kubeconfig. |
 | `HELM_TIMEOUT` | all | `10m` | Value for `helm --timeout`. |
 
-## `byok/spur/install.sh`
+## `byok/spur/spur-silo`
 
-Installs the byok minimal core on a node of a Spur k0s cluster. See
-[`byok/README.md`](../byok/README.md).
+Installs a byok profile on a Spur k0s cluster, as the Spur CLI plugin
+`spur silo`. See [`byok/README.md`](../byok/README.md).
 
-| Flag or variable | Default | Meaning |
-|---|---|---|
-| `--ref <git ref>` | `main` | cluster-forge tag or branch to clone. |
-| `--source <path>` | none | Use this cluster-forge checkout instead of a clone. |
-| `--profile <file>` | `profiles/scalable-inference.yaml` | Profile file, relative to `byok/` or absolute. |
-| `--smoke` | off | Run `byok/tests/smoke.sh` after the install. |
-| `CLUSTER_FORGE_REPO` | `https://github.com/silogen/cluster-forge.git` | Clone URL. |
-| `CHECKOUT_DIR` | `$HOME/cluster-forge` | Clone target. |
-| `KUBECONFIG_OUT` | `$HOME/.kube/byok-admin.yaml` | Where the admin kubeconfig is written. |
-| `HELM_VERSION` | latest 3.x | Helm version to install when helm is missing. |
-| `KUBECTL_VERSION` | latest stable | kubectl version to install when kubectl is missing. |
-| `YQ_VERSION` | `latest` | yq version to install when yq is missing. |
+| Flag or variable | Command | Default | Meaning |
+|---|---|---|---|
+| `--ref <git ref>` | `install`, `uninstall`, `validate`, `status`, `list` | the checkout the plugin runs from, else `EAI-8560-byok` | cluster-forge tag or branch to use. |
+| `--source <path>` | the same | none | Use this cluster-forge checkout instead of a clone. |
+| `--var name=value` | `install`, `validate` | none | Fill a variable that the profile declares. Repeat per variable. |
+| `--kubeconfig <path>` | all but `list` | none | Use this kubeconfig instead of asking Spur for one. |
+| `--pull-secret <file>` | `install` | none | Docker config JSON for the Secret `aim-pull` in `aim-system`. |
+| `--no-gpu` | `install` | off | Do not select `scalable-inference-gpu` on a cluster that has AMD Instinct GPUs. |
+| `--install-tools` | all but `list` | off | Install helm, kubectl, yq and jq when they are missing. |
+| `--keep-data` | `uninstall` | off | Keep the PVCs and the CRDs of the profile. |
+| `KUBECONFIG` | all but `list` | none | Used when `--kubeconfig` is not given. |
+| `PULL_SECRET_JSON` | `install` | empty | Same content as `--pull-secret`, as a string. |
+| `CLUSTER_FORGE_REPO` | all | `https://github.com/silogen/cluster-forge.git` | Clone URL. |
+| `SPUR_SILO_CACHE` | all | `~/.cache/spur-silo` | Where the clone is kept. |
+| `HELM_VERSION` | all | latest 3.x | Helm version that `--install-tools` installs. |
+| `KUBECTL_VERSION` | all | latest stable | kubectl version that `--install-tools` installs. |
+| `YQ_VERSION` | all | `latest` | yq version that `--install-tools` installs. |
 
 ## `byok/tests/smoke.sh`
 
