@@ -14,12 +14,14 @@ echo "- kubernetes: $(kubectl version -o json | jq -r '.serverVersion.gitVersion
 echo "- nodes: $(kubectl get nodes -o name | wc -l)"
 echo
 
-echo "### Pods and requests per namespace"
+# A Job leaves its pods behind in Succeeded, and aim-catalog makes hundreds of
+# them. Only a running pod holds resources.
+echo "### Running pods and requests per namespace"
 echo
 echo "| namespace | pods | cpu requests | memory requests | cpu limits | memory limits |"
 echo "|---|---|---|---|---|---|"
 for ns in $NAMESPACES; do
-  kubectl get pods --namespace "$ns" -o json | jq -r --arg ns "$ns" '
+  kubectl get pods --namespace "$ns" --field-selector=status.phase=Running -o json | jq -r --arg ns "$ns" '
     def milli: if . == null then 0
       else tostring as $s
       | if $s | endswith("m") then ($s[:-1] | tonumber)
