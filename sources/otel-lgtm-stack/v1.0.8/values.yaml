@@ -19,8 +19,6 @@ lgtm:
     grafana: 10Gi
     # Mimir/Prometheus storage for metrics
     mimir: 50Gi
-    # Loki additional storage
-    extra: 50Gi
 
   # Config file overrides for the LGTM image (ghcr.io/silogen/docker-otel-lgtm).
   # These full-file contents are mounted (via subPath) over the image's embedded

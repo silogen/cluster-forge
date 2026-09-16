@@ -996,7 +996,6 @@ apps:
             cpu: "1"
             memory: 2Gi
         storage:
-          extra: 50Gi
           grafana: 10Gi
           loki: 50Gi
           mimir: 50Gi
