@@ -87,7 +87,7 @@ ref and needs no tool on the node. See
 | `--var name=value` | `install`, `validate` | none | Fill a variable that the profile declares. Repeat per variable. |
 | `--kubeconfig <path>` | all but `list` | none | Use this kubeconfig instead of asking Spur for one. |
 | `--pull-secret <file>` | `install` | none | Docker config JSON for the Secret `aim-pull` in `aim-system`. |
-| `--no-gpu` | `install` | off | Do not select `scalable-inference-gpu` on a cluster that has AMD Instinct GPUs. |
+| `--no-gpu` | `install` | off | Do not select `inference-gpu` on a cluster that has AMD Instinct GPUs. |
 | `--smoke-test` | `install` | off | Deploy the dummy model after the install and wait until it is ready. |
 | `--keep-data` | `uninstall` | off | Keep the PVCs and the CRDs of the profile. |
 | `KUBECONFIG` | all but `list` | none | Used when `--kubeconfig` is not given. |
@@ -107,7 +107,7 @@ that has no binary yet. See [`byok/README.md`](../byok/README.md).
 | `--var name=value` | `install`, `validate` | none | Fill a variable that the profile declares. Repeat per variable. |
 | `--kubeconfig <path>` | all but `list` | none | Use this kubeconfig instead of asking Spur for one. |
 | `--pull-secret <file>` | `install` | none | Docker config JSON for the Secret `aim-pull` in `aim-system`. |
-| `--no-gpu` | `install` | off | Do not select `scalable-inference-gpu` on a cluster that has AMD Instinct GPUs. |
+| `--no-gpu` | `install` | off | Do not select `inference-gpu` on a cluster that has AMD Instinct GPUs. |
 | `--install-tools` | all but `list` | off | Install helm, kubectl, yq and jq when they are missing. |
 | `--smoke-test` | `install` | off | Deploy the dummy model after the install and wait until it is ready. |
 | `--keep-data` | `uninstall` | off | Keep the PVCs and the CRDs of the profile. |

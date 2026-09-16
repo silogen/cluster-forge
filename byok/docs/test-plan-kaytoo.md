@@ -46,13 +46,13 @@ ssh ubuntu@<driver public ip> 'sudo install -m755 /tmp/spur-silo /usr/local/bin/
 
 ```bash
 spur silo list
-spur silo validate  scalable-inference --var domain=<ip>.nip.io
-spur silo install   scalable-inference --smoke-test --var ...
+spur silo validate  inference --var domain=<ip>.nip.io
+spur silo install   inference --smoke-test --var ...
 spur silo status
-spur silo install   aiwb-demo --var domain=<ip>.nip.io \
+spur silo install   inference-demo --var domain=<ip>.nip.io \
                     --var gatewayServiceType=ClusterIP --var gatewayExternalIP=<node ip>
-spur silo uninstall aiwb-demo      # the base profile and its CRDs must stay
-spur silo uninstall scalable-inference
+spur silo uninstall inference-demo      # the base profile and its CRDs must stay
+spur silo uninstall inference
 ```
 
 With no load balancer, give `gatewayServiceType=ClusterIP` and

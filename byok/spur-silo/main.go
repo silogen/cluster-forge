@@ -298,11 +298,11 @@ func cmdInstall(ctx context.Context, name string, opts options) error {
 	}
 	defer c.close()
 
-	if name == "scalable-inference" && !opts.noGPU {
+	if name == "inference" && !opts.noGPU {
 		if nodes := instinctNodes(); len(nodes) > 0 {
-			infof("detected AMD GPUs on nodes %s, using profile scalable-inference-gpu",
+			infof("detected AMD GPUs on nodes %s, using profile inference-gpu",
 				strings.Join(nodes, ","))
-			name = "scalable-inference-gpu"
+			name = "inference-gpu"
 		}
 	}
 
