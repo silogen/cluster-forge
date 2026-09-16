@@ -12,6 +12,12 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: spec.nodeName
+{{- with .Values.collectors.extraEnv.logs }}
+    {{- range $k, $v := . }}
+    - name: {{ $k }}
+      value: {{ $v | quote }}
+    {{- end }}
+{{- end }}
   tolerations:
         - effect: NoSchedule
           key: exampleKey1
@@ -241,6 +247,13 @@ metadata:
 spec:
   image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
   mode: deployment
+{{- with .Values.collectors.extraEnv.logsEvents }}
+  env:
+    {{- range $k, $v := . }}
+    - name: {{ $k }}
+      value: {{ $v | quote }}
+    {{- end }}
+{{- end }}
   resources:
     limits:
 {{- if .Values.collectors.resources.logsEvents.limits.cpu }}
@@ -364,6 +377,13 @@ metadata:
 spec:
   mode: deployment
   serviceAccount: otel-collector
+{{- with .Values.collectors.extraEnv.metrics }}
+  env:
+    {{- range $k, $v := . }}
+    - name: {{ $k }}
+      value: {{ $v | quote }}
+    {{- end }}
+{{- end }}
   image: "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0"
   replicas: 1
   podAnnotations:
@@ -820,6 +840,12 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: spec.nodeName
+{{- with .Values.collectors.extraEnv.logs }}
+    {{- range $k, $v := . }}
+    - name: {{ $k }}
+      value: {{ $v | quote }}
+    {{- end }}
+{{- end }}
   podAnnotations:
     prometheus.io/scrape: "true"
     prometheus.io/port: "8888"

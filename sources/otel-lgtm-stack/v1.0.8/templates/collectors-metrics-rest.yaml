@@ -6,6 +6,13 @@ metadata:
 spec:
   image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
   mode: deployment
+{{- with .Values.collectors.extraEnv.metricsRest }}
+  env:
+    {{- range $k, $v := . }}
+    - name: {{ $k }}
+      value: {{ $v | quote }}
+    {{- end }}
+{{- end }}
   podAnnotations:
     prometheus.io/port: "8888"
     prometheus.io/scrape: "true"
@@ -145,6 +152,13 @@ metadata:
 spec:
   image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
   mode: deployment
+{{- with .Values.collectors.extraEnv.metricsRest }}
+  env:
+    {{- range $k, $v := . }}
+    - name: {{ $k }}
+      value: {{ $v | quote }}
+    {{- end }}
+{{- end }}
   podAnnotations:
     prometheus.io/port: "8888"
     prometheus.io/scrape: "true"
@@ -220,6 +234,13 @@ metadata:
 spec:
   image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
   mode: deployment
+{{- with .Values.collectors.extraEnv.metricsRest }}
+  env:
+    {{- range $k, $v := . }}
+    - name: {{ $k }}
+      value: {{ $v | quote }}
+    {{- end }}
+{{- end }}
   podAnnotations:
     prometheus.io/port: "8888"
     prometheus.io/scrape: "true"

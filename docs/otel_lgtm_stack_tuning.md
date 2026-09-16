@@ -22,6 +22,7 @@ This refactor exposes the knobs needed to deal with that **from
 | Collector memory guard             | `collectors.memoryLimiter.*`                     | ✅ one line each             |
 | Collector CPU / memory resources   | `collectors.resources.*`                         | ✅ partial (only what you set)|
 | **Apiserver metric filtering**     | `collectors.metricFilters.*`                     | ✅ one line                  |
+| Collector env vars (GOMEMLIMIT)    | `collectors.extraEnv.<group>.<NAME>`             | ✅ one line                  |
 | **Loki retention / any Loki cfg**  | `lgtm.configOverrides.lokiConfig`                | ❌ **paste whole ~70-line blob** |
 | **OpenTelemetry collector config** | `lgtm.configOverrides.otelcolConfig`             | ❌ **paste whole ~100-line blob** |
 
@@ -257,6 +258,37 @@ storage for this app; resources live in the chart and the three size files.
 
 ---
 
+### GOMEMLIMIT: set on the k8s metrics collector, inert on lgtm
+
+`collectors.extraEnv.metrics.GOMEMLIMIT` is `6GiB` -- 75% of that collector's
+8Gi limit. It exists because that container is the only one here that has ever
+been OOMKilled (epycenv 2026-09-04, workload-dev 2026-09-11, both from a 1-2 GiB
+steady state), and until now **nothing bounded its heap at all**: no GOMEMLIMIT,
+and its `memory_limiter` has never refused a single point
+(`otelcol_processor_refused_metric_points` has never been initialised). Without
+GOMEMLIMIT the Go runtime collects at GOGC=100 -- roughly 2x live heap -- with no
+knowledge that a cgroup limit exists.
+
+What it does NOT do is make anything faster. It is a ceiling: as the heap nears
+it, GC runs harder. Measured on int-test, GC already costs about **0.001% of wall
+time** (Prometheus: one cycle every ~14s, pause rate 0.00001 s/s), so there is no
+performance to reclaim by tuning GC either way. This buys reliability, not speed.
+The knob that trades memory for speed is `GOGC`, which is not set here.
+
+If you change `collectors.resources.metrics.limits.memory`, change this with it:
+above the container limit it is inert, below the working set (0.9-2.2 GiB
+measured) it makes the runtime collect continuously at normal load.
+
+**`lgtm.extraEnv.GOMEMLIMIT` is deliberately left alone at 6GiB.** The lgtm
+container runs five Go processes (Prometheus, Loki, Grafana, Tempo, Pyroscope)
+that each inherit the same value, so they are collectively permitted 5x it under
+one 8Gi container limit -- it protects nothing. The largest, Prometheus, peaks at
+1.65 GiB against a 1.41 GiB GC target, so no plausible value binds. Per-process
+budgeting would need image changes and is out of scope. No lgtm container has
+ever OOM-restarted on any cluster.
+
+---
+
 ## Quick reference: current defaults
 
 | Key                                        | Default |
@@ -270,6 +302,8 @@ storage for this app; resources live in the chart and the three size files.
 | Loki `retention_period`                    | `168h`  |
 | `collectors.metricFilters.profile`         | `standard` |
 | `collectors.metricFilters.keepAllBuckets`  | `false` |
+| `collectors.extraEnv.metrics.GOMEMLIMIT`   | `6GiB` |
+| `lgtm.extraEnv.GOMEMLIMIT`                 | `6GiB` |
 
 (See [`values.yaml`](../sources/otel-lgtm-stack/v1.0.8/values.yaml) for the
 full, authoritative list and inline comments.)

@@ -264,6 +264,38 @@ collectors:
     kubernetes-pods-slow: 5m
     ai-gateway-extproc: 30s
     airm-custom-metrics: 30s
+  # Extra environment variables per collector group. Keys mirror
+  # collectors.resources.* so a group's env and its resources sit together.
+  #
+  # GOMEMLIMIT tells the Go runtime roughly where its memory ceiling is. Without
+  # it Go is blind to the cgroup: it collects at GOGC=100, i.e. when the heap
+  # reaches ~2x live data, with no idea a container limit exists. It is a SOFT
+  # limit -- as the heap approaches it the runtime collects harder; it does not
+  # refuse work and it cannot shrink genuinely live data, so the container limit
+  # is still the real backstop.
+  #
+  # It is set on the k8s metrics collector because that is the only container
+  # here that has ever been OOMKilled (epycenv 2026-09-04, workload-dev
+  # 2026-09-11, both at an 8Gi limit from a 1-2 GiB steady state) and nothing
+  # currently bounds its heap: it has no GOMEMLIMIT, and its memory_limiter has
+  # never refused a single point (otelcol_processor_refused_metric_points has
+  # never even been initialised on int-test).
+  #
+  # 6GiB is 75% of the 8Gi limit. If you change that limit, change this too --
+  # a GOMEMLIMIT above the container limit is inert, and one below the working
+  # set makes the runtime collect continuously at normal load. Measured steady
+  # state is 0.9-2.2 GiB, and GC currently costs ~0.001% of wall time, so there
+  # is no performance downside at this value -- and no performance UPSIDE
+  # either: this buys reliability, not speed.
+  #
+  # NOT set on the other groups: their limits are 1Gi, none of them has ever
+  # been OOMKilled, and they run at 50-329 MiB.
+  extraEnv:
+    metrics:
+      GOMEMLIMIT: "6GiB"
+    metricsRest: {}
+    logs: {}
+    logsEvents: {}
   # memory_limiter processor settings applied to every collector's pipeline.
   # This is the collector's built-in OOM guard: when in-use memory approaches
   # `limitPercentage` of the container memory limit, the collector refuses
