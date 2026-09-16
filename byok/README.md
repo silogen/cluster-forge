@@ -406,4 +406,7 @@ notes: |
 - [The aiwb-demo slide](docs/slide-aiwb-demo.md)
 - [The minimal install slide](docs/slide-minimal-install.md)
 - [Test plan: byok on a GPU node](docs/test-plan-gpu.md)
+- [Test plan: spur-silo on Kaytoo VMs](docs/test-plan-kaytoo.md)
+- [spur-silo test findings](docs/spur-silo-findings.md)
+- [Set up one node for byok with Spur](docs/spur-node-setup.md)
 - [Future work](docs/future-work.md)
