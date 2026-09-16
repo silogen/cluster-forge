@@ -22,7 +22,9 @@ spec:
     prometheus.io/port: "8888"
   resources:
     limits:
+{{- if .Values.collectors.resources.logs.limits.cpu }}
       cpu: {{ .Values.collectors.resources.logs.limits.cpu | quote }}
+{{- end }}
       memory: {{ .Values.collectors.resources.logs.limits.memory }}
     requests:
       cpu: {{ .Values.collectors.resources.logs.requests.cpu | quote }}
@@ -239,6 +241,15 @@ metadata:
 spec:
   image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
   mode: deployment
+  resources:
+    limits:
+{{- if .Values.collectors.resources.logsEvents.limits.cpu }}
+      cpu: {{ .Values.collectors.resources.logsEvents.limits.cpu | quote }}
+{{- end }}
+      memory: {{ .Values.collectors.resources.logsEvents.limits.memory }}
+    requests:
+      cpu: {{ .Values.collectors.resources.logsEvents.requests.cpu | quote }}
+      memory: {{ .Values.collectors.resources.logsEvents.requests.memory }}
   serviceAccount: otel-collector
   config: 
     receivers:
@@ -360,7 +371,9 @@ spec:
     prometheus.io/port: "8888"
   resources:
     limits:
+{{- if .Values.collectors.resources.metrics.limits.cpu }}
       cpu: {{ .Values.collectors.resources.metrics.limits.cpu | quote }}
+{{- end }}
       memory: {{ .Values.collectors.resources.metrics.limits.memory }}
     requests:
       cpu: {{ .Values.collectors.resources.metrics.requests.cpu | quote }}
@@ -812,7 +825,9 @@ spec:
     prometheus.io/port: "8888"
   resources:
     limits:
+{{- if .Values.collectors.resources.logs.limits.cpu }}
       cpu: {{ .Values.collectors.resources.logs.limits.cpu | quote }}
+{{- end }}
       memory: {{ .Values.collectors.resources.logs.limits.memory }}
     requests:
       cpu: {{ .Values.collectors.resources.logs.requests.cpu | quote }}

@@ -12,11 +12,13 @@ spec:
   replicas: 1
   resources:
     limits:
-      cpu: {{ .Values.collectors.resources.metrics.limits.cpu | quote }}
-      memory: {{ .Values.collectors.resources.metrics.limits.memory }}
+{{- if .Values.collectors.resources.metricsRest.limits.cpu }}
+      cpu: {{ .Values.collectors.resources.metricsRest.limits.cpu | quote }}
+{{- end }}
+      memory: {{ .Values.collectors.resources.metricsRest.limits.memory }}
     requests:
-      cpu: {{ .Values.collectors.resources.metrics.requests.cpu | quote }}
-      memory: {{ .Values.collectors.resources.metrics.requests.memory }}
+      cpu: {{ .Values.collectors.resources.metricsRest.requests.cpu | quote }}
+      memory: {{ .Values.collectors.resources.metricsRest.requests.memory }}
   serviceAccount: otel-collector
   config:
     exporters:
@@ -149,11 +151,13 @@ spec:
   replicas: 1
   resources:
     limits:
-      cpu: {{ .Values.collectors.resources.metrics.limits.cpu | quote }}
-      memory: {{ .Values.collectors.resources.metrics.limits.memory }}
+{{- if .Values.collectors.resources.metricsRest.limits.cpu }}
+      cpu: {{ .Values.collectors.resources.metricsRest.limits.cpu | quote }}
+{{- end }}
+      memory: {{ .Values.collectors.resources.metricsRest.limits.memory }}
     requests:
-      cpu: {{ .Values.collectors.resources.metrics.requests.cpu | quote }}
-      memory: {{ .Values.collectors.resources.metrics.requests.memory }}
+      cpu: {{ .Values.collectors.resources.metricsRest.requests.cpu | quote }}
+      memory: {{ .Values.collectors.resources.metricsRest.requests.memory }}
   serviceAccount: otel-collector
   config:
     exporters:
@@ -222,11 +226,13 @@ spec:
   replicas: 1
   resources:
     limits:
-      cpu: {{ .Values.collectors.resources.metrics.limits.cpu | quote }}
-      memory: {{ .Values.collectors.resources.metrics.limits.memory }}
+{{- if .Values.collectors.resources.metricsRest.limits.cpu }}
+      cpu: {{ .Values.collectors.resources.metricsRest.limits.cpu | quote }}
+{{- end }}
+      memory: {{ .Values.collectors.resources.metricsRest.limits.memory }}
     requests:
-      cpu: {{ .Values.collectors.resources.metrics.requests.cpu | quote }}
-      memory: {{ .Values.collectors.resources.metrics.requests.memory }}
+      cpu: {{ .Values.collectors.resources.metricsRest.requests.cpu | quote }}
+      memory: {{ .Values.collectors.resources.metricsRest.requests.memory }}
   serviceAccount: otel-collector
   config:
     exporters:

@@ -299,6 +299,15 @@ spec:
               value: http://localhost:3000/api/admin/provisioning/dashboards/reload
             - name: REQ_METHOD
               value: POST
+          resources:
+            limits:
+{{- if .Values.lgtm.scDashboardResources.limits.cpu }}
+              cpu: {{ .Values.lgtm.scDashboardResources.limits.cpu | quote }}
+{{- end }}
+              memory: {{ .Values.lgtm.scDashboardResources.limits.memory }}
+            requests:
+              cpu: {{ .Values.lgtm.scDashboardResources.requests.cpu | quote }}
+              memory: {{ .Values.lgtm.scDashboardResources.requests.memory }}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

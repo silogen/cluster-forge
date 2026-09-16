@@ -77,6 +77,44 @@ apps:
         name: default-bucket
         namespace: demo
 
+  # Cluster size tier: LARGE -- multi-node clusters (3 control planes, 3-20 nodes).
+  #
+  # Only two components scale with cluster size (EAI-8713 measurements,
+  # 2026-09-15/16): lgtm memory, and the k8s metrics collector, both driven by
+  # control-plane count rather than node count. Every other container measured
+  # flat across all seven clusters and therefore inherits the chart default,
+  # which is the small/medium tier.
+  otel-lgtm-stack:
+    valuesObject:
+      lgtm:
+        # Measured 3.0-5.6 GiB on 3-CP clusters running v1.0.8. production
+        # reads 9.2 GiB but is on v1.0.7 with no retention, so that number is
+        # not a valid sizing input. production and app-dev already run a 16Gi
+        # limit as a per-cluster patch -- this makes it the tier default.
+        resources:
+          limits:
+            memory: 16Gi
+          requests:
+            cpu: 750m
+            memory: 4Gi
+        storage:
+          # 100Gi rather than small/medium's 50Gi. Retention (168h) is what
+          # actually bounds Loki, but large clusters ingest more and this is
+          # the PVC that has needed expanding in the past -- and PVCs can be
+          # expanded, never shrunk, so the cost of starting too small is a
+          # manual migration.
+          loki: 100Gi
+      collectors:
+        resources:
+          # otel-collector-metrics-k8s. Measured 0.9-2.2 GiB. Raised to 16Gi
+          # because workload-dev OOMKilled at 8Gi on 2026-09-11 and the spike
+          # is still unexplained; large clusters have the capacity to absorb it.
+          metrics:
+            limits:
+              memory: 16Gi
+            requests:
+              cpu: 750m
+              memory: 4Gi
   openbao:
     valuesObject:
       server:

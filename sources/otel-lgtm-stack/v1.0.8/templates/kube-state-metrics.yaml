@@ -271,6 +271,15 @@ spec:
         - --resources=certificatesigningrequests,configmaps,cronjobs,daemonsets,deployments,endpoints,horizontalpodautoscalers,ingresses,jobs,leases,limitranges,mutatingwebhookconfigurations,namespaces,networkpolicies,nodes,persistentvolumeclaims,persistentvolumes,poddisruptionbudgets,pods,replicasets,replicationcontrollers,resourcequotas,secrets,services,statefulsets,storageclasses,validatingwebhookconfigurations,volumeattachments
         imagePullPolicy: IfNotPresent
         image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.15.0
+        resources:
+          limits:
+{{- if .Values.kubeStateMetrics.resources.limits.cpu }}
+            cpu: {{ .Values.kubeStateMetrics.resources.limits.cpu | quote }}
+{{- end }}
+            memory: {{ .Values.kubeStateMetrics.resources.limits.memory }}
+          requests:
+            cpu: {{ .Values.kubeStateMetrics.resources.requests.cpu | quote }}
+            memory: {{ .Values.kubeStateMetrics.resources.requests.memory }}
         ports:
         - containerPort: 8080
           name: "http"

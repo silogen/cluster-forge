@@ -231,12 +231,25 @@ lgtm:
     GF_AUTH_BASIC_ENABLED: "true"
 
   # LGTM stack main deployment resources
+  # Memory request is 25% of the limit (see docs/otel_lgtm_stack_tuning.md,
+  # "Cluster size tiers"). CPU request is set close to measured usage; there is
+  # deliberately NO CPU limit -- lgtm is a latency-sensitive Go monolith and
+  # throttling it costs more than it protects. Measured 3.0-5.6 GiB and
+  # 0.29-1.42 CPU across the fleet on 2026-09-15/16.
   resources:
     limits:
       memory: 8Gi
     requests:
       memory: 2Gi
-      cpu: '1'
+      cpu: 500m
+  # grafana-sc-dashboard sidecar in the lgtm pod. Measured 81-86 MiB.
+  # Had no requests or limits before 2026-09-16.
+  scDashboardResources:
+    limits:
+      memory: 256Mi
+    requests:
+      memory: 64Mi
+      cpu: 10m
   
 # OpenTelemetry Collectors resource configuration  
 collectors:
@@ -308,22 +321,46 @@ collectors:
     limitPercentage: 80
     spikeLimitPercentage: 25
   resources:
-    # Metrics collector (deployment mode) - original values
+    # otel-collector-metrics-k8s ONLY -- the collector that runs the
+    # kubernetes-apiservers / nodes / cadvisor / pods scrapes. It is the one
+    # component here that has ever been OOMKilled (epycenv 2026-09-04,
+    # workload-dev 2026-09-11, both at an 8Gi limit while sitting at 1-2 GiB),
+    # so its memory limit is deliberately large. No CPU limit: CPU is
+    # compressible, and a 30s scrape of ~400k samples is exactly the bursty
+    # shape that CFS quota punishes.
     metrics:
       limits:
         memory: 8Gi
-        cpu: '2'
       requests:
+        memory: 2Gi
+        cpu: 750m
+    # otel-collector-metrics-{rest,airm,chrony} -- three small scrape
+    # collectors, measured at 50-139 MiB and under 0.01 CPU on every cluster.
+    # They shared the `metrics` block until 2026-09-16, which gave each of them
+    # an 8Gi limit and a 1Gi request for ~100 MiB of actual use.
+    metricsRest:
+      limits:
         memory: 1Gi
-        cpu: 500m
-    # Logs collector (daemonset mode) - original conservative values  
+      requests:
+        memory: 256Mi
+        cpu: 10m
+    # otel-collector-logs-collector and otel-collector-metrics-kubelet, both
+    # daemonsets. Measured 53-329 MiB and 0.002-0.167 CPU per pod, flat across
+    # every cluster regardless of size -- so these are NOT tier-dependent.
     logs:
       limits:
-        memory: 2Gi
-        cpu: '1'
+        memory: 1Gi
       requests:
-        memory: 400Mi  # Conservative default
-        cpu: 200m    # Conservative default
+        memory: 256Mi
+        cpu: 100m
+    # otel-collector-logs-events -- single deployment watching k8s events.
+    # Measured 62-93 MiB. Had no requests or limits at all before 2026-09-16.
+    logsEvents:
+      limits:
+        memory: 1Gi
+      requests:
+        memory: 256Mi
+        cpu: 10m
 
 # Service configuration
 services:
@@ -358,6 +395,31 @@ dashboards:
 
 nodeExporter:
   enabled: true
+  # Measured 16-41 MiB, under 0.021 CPU. Had no requests or limits before
+  # 2026-09-16.
+  resources:
+    limits:
+      memory: 128Mi
+    requests:
+      memory: 32Mi
+      cpu: 25m
+  # chrony-exporter daemonset. Its resources were hardcoded in the template
+  # until 2026-09-16, including a 100m CPU limit that throttled 18% of periods
+  # on workload-dev -- the highest measured anywhere in this stack.
+  chrony:
+    resources:
+      limits:
+        memory: 128Mi
+      requests:
+        memory: 32Mi
+        cpu: 10m
 
 kubeStateMetrics:
   enabled: true
+  # Measured 26-61 MiB. Had no requests or limits before 2026-09-16.
+  resources:
+    limits:
+      memory: 512Mi
+    requests:
+      memory: 128Mi
+      cpu: 10m

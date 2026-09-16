@@ -198,6 +198,65 @@ you genuinely need a ten-minute look.
 
 ---
 
+## Cluster size tiers
+
+`values_small.yaml`, `values_medium.yaml` and `values_large.yaml` in `root/`.
+**small and medium are identical for this app** and match the chart defaults;
+`values_large.yaml` raises exactly three values.
+
+### Why the tiers split on control planes, not nodes
+
+Measured across all seven multi-node clusters (2026-09-15/16, EAI-8713), only
+one thing structurally drives the cost of this stack: **control-plane count**.
+A 1-CP cluster produces ~137k apiserver samples and ~237k series; a 3-CP cluster
+produces ~300-390k and ~400-490k. Node count barely matters, because the
+`kubernetes-apiservers` job scrapes every API server and is 85% of all samples.
+
+Every other container -- both daemonsets, the three small collectors,
+kube-state-metrics, node-exporter -- measured **flat** across all seven clusters
+regardless of size. They inherit the chart default at every tier. Making them
+differ would invent variation the measurements do not show.
+
+So in practice: single-node cluster -> `small` or `medium`; multi-node
+(3 control planes) -> `large`.
+
+### What differs
+
+| | small = medium | large |
+| --- | --- | --- |
+| `lgtm.resources.limits.memory` | 8Gi | **16Gi** |
+| `lgtm.resources.requests` | 500m / 2Gi | **750m / 4Gi** |
+| `collectors.resources.metrics.limits.memory` | 8Gi | **16Gi** |
+| `collectors.resources.metrics.requests` | 750m / 2Gi | **750m / 4Gi** |
+| `lgtm.storage.loki` | 50Gi | **100Gi** |
+
+### The rules behind the numbers
+
+- **Memory request = 25% of the limit.** The limit is the protection boundary;
+  the request is the scheduling reservation. They answer different questions.
+- **CPU request is set close to measured usage.** Requests are now the only
+  lever the scheduler has, so they need to be real.
+- **No CPU limits anywhere.** CPU is compressible -- contention degrades a
+  workload, it does not kill it -- so a CPU limit mostly buys throttling. It was
+  costing us: chrony-exporter was throttled 18% of periods at its 0.1 CPU limit,
+  logs-collector 4% at 1 CPU, both for workloads using milliCPU. Memory limits
+  stay, because memory is *not* compressible and exceeding one is an OOMKill.
+- **`collectors.resources.metrics` keeps a large memory limit deliberately.**
+  That collector runs the apiserver scrape and has been OOMKilled twice
+  (epycenv 2026-09-04, workload-dev 2026-09-11) from a 1-2 GiB steady state. The
+  spike is not yet characterised, so the limit is headroom, not a fitted value.
+  Note its `memory_limiter` (80% / 5s) did **not** engage before either kill --
+  so if you are tuning this, `collectors.memoryLimiter.checkInterval` is a more
+  promising lever than the limit itself.
+
+### Do not pin resources in `root/values.yaml`
+
+Values there win over the chart defaults for every tier, which silently
+neutralises the size files. `root/values.yaml` sets only `metricFilters` and
+storage for this app; resources live in the chart and the three size files.
+
+---
+
 ## Quick reference: current defaults
 
 | Key                                        | Default |
