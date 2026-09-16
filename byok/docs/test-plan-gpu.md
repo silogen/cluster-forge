@@ -111,8 +111,8 @@ the manual install works. The capability name `gpu.amd` is already reserved in
 
 ## Phase 4: aim-engine only, on GPU
 
-A new profile `byok/profiles/scalable-inference-gpu.yaml` that extends
-`scalable-inference`:
+A new profile `byok/profiles/inference-gpu.yaml` that extends
+`inference`:
 
 - `aim-catalog` with `hardwareFamilies: [instinct]` in place of `epyc`.
 - `aim-engine` with `acceleratorDetector.enable: true`. The GPU operator brings
@@ -125,10 +125,10 @@ Install from a checkout on the node, because the profile is not pushed:
 ```bash
 tar czf /tmp/cf.tgz byok sources root && scp /tmp/cf.tgz ubuntu@10.0.0.163:
 ssh ubuntu@10.0.0.163 'mkdir -p cf && tar xzf cf.tgz -C cf'
-ssh ubuntu@10.0.0.163 'cf/byok/spur/spur-silo install scalable-inference-gpu'
+ssh ubuntu@10.0.0.163 'cf/byok/spur/spur-silo install inference-gpu'
 ```
 
-`install scalable-inference` selects the GPU profile by itself when a node
+`install inference` selects the GPU profile by itself when a node
 reports an AMD Instinct GPU to Spur; the name above asks for it directly.
 
 The AIM images are public on Docker Hub. Give `--pull-secret <docker-config>`
@@ -141,28 +141,28 @@ steps stay the same: wait for `Ready`, port-forward the predictor Service, and
 send a `/v1/chat/completions` request.
 
 Measure the footprint with `footprint/footprint.sh` and write
-`docs/footprint-scalable-inference-gpu.md`.
+`docs/footprint-inference-gpu.md`.
 
 Gate: the model answers from the GPU. Write every finding in
 [Future work](future-work.md).
 
 A larger model on 8 GPUs comes only after the 8B model answers.
 
-## Phase 5: the aiwb-demo profile
+## Phase 5: the inference-demo profile
 
 Two possible ways. The first way is also a test result.
 
-1. Install `aiwb-demo` on top of the same cluster. The risk is known: the
+1. Install `inference-demo` on top of the same cluster. The risk is known: the
    `aiwb` chart and the `aim-engine` chart make the same
-   `AIMClusterRuntimeConfig default` object, and the `scalable-inference`
+   `AIMClusterRuntimeConfig default` object, and the `inference`
    profile gives that object to `aim-engine`. If Helm refuses, that is a
    finding for [Future work](future-work.md).
-2. If way 1 fails: `spur k8s down`, `spur k8s up`, then `aiwb-demo` alone.
+2. If way 1 fails: `spur k8s down`, `spur k8s up`, then `inference-demo` alone.
 
 The node has no load balancer and no public DNS name, so:
 
 ```bash
-cf/byok/spur/spur-silo install aiwb-demo \
+cf/byok/spur/spur-silo install inference-demo \
   --var domain=10.0.0.163.nip.io \
   --var gatewayServiceType=ClusterIP \
   --var gatewayExternalIP=10.0.0.163
@@ -193,5 +193,5 @@ Ask before this phase starts.
 ## Out of scope
 
 - More than one node, and high availability.
-- S3. The `seaweedfs` packages stay comments in the `aiwb-demo` profile.
+- S3. The `seaweedfs` packages stay comments in the `inference-demo` profile.
 - AIRM, Kaiwo and Kueue. They are not part of the byok path.

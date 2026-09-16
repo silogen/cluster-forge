@@ -1,7 +1,7 @@
 # The reference profile. It gives one model endpoint served by aim-engine and
 # KServe. The list order is the install order. The values block merges on top
 # of the package values.yaml.
-name: scalable-inference
+name: inference
 packages:
   # aim-engine 0.2.5 asks for ReadWriteMany cache volumes. A cluster whose
   # default StorageClass gives ReadWriteOnce only, for example

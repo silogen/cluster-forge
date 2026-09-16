@@ -4,4 +4,4 @@ provides:
   - auth.oidc
 requires:
   - gateway.https
-  - secrets.aiwb-demo
+  - secrets.inference-demo

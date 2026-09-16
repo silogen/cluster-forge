@@ -6,15 +6,15 @@ Gitea or OpenBao.
 
 There are three profiles:
 
-- `scalable-inference` gives one model endpoint that aim-engine and KServe
+- `inference` gives one model endpoint that aim-engine and KServe
   serve. It does not install AIRM, AIWB, Dex, Kaiwo, Kueue, a gateway or
   a UI.
-- `scalable-inference-gpu` gives the same on AMD Instinct GPUs: it adds the
+- `inference-gpu` gives the same on AMD Instinct GPUs: it adds the
   AMD GPU operator, turns the accelerator detector on and takes the Instinct
   family of the catalog.
-- `aiwb-demo` extends `scalable-inference` with a gateway, one PostgreSQL Pod,
+- `inference-demo` extends `inference` with a gateway, one PostgreSQL Pod,
   Dex as the OIDC issuer and AIWB. It is a reference demo installation, not a
-  production installation. See [The aiwb-demo profile](#the-aiwb-demo-profile).
+  production installation. See [The inference-demo profile](#the-inference-demo-profile).
 
 This path runs beside the ArgoCD path in `root/`. It does not replace it.
 
@@ -28,7 +28,7 @@ This path runs beside the ArgoCD path in `root/`. It does not replace it.
 
 Skip this section when you have a cluster. A stock k3s cluster serves the byok
 packages, but Traefik takes port 443 and the ServiceLB controller answers every
-`LoadBalancer` Service. Both collide with the Envoy gateway of the `aiwb-demo`
+`LoadBalancer` Service. Both collide with the Envoy gateway of the `inference-demo`
 profile, so leave them out:
 
 ```bash
@@ -56,7 +56,7 @@ no autoscaling. If a profile needs autoscaling, the cluster must give it.
 
 ```bash
 export KUBECONFIG=/path/to/admin.kubeconfig
-byok/bootstrap.sh install --profile byok/profiles/scalable-inference.yaml
+byok/bootstrap.sh install --profile byok/profiles/inference.yaml
 ```
 
 To install from a git ref instead of your checkout:
@@ -65,7 +65,7 @@ To install from a git ref instead of your checkout:
 byok/bootstrap.sh install --profile <file> --source github:<tag-or-branch>
 ```
 
-## The aiwb-demo profile
+## The inference-demo profile
 
 The demo shows the whole path: log in through Dex, deploy a model from
 the catalog with the AIWB UI, and chat with the model on CPU. AIWB runs in
@@ -73,7 +73,7 @@ standalone mode, so it needs no AIRM and no Kueue.
 
 ```bash
 export KUBECONFIG=/path/to/admin.kubeconfig
-byok/bootstrap.sh install --profile byok/profiles/aiwb-demo.yaml \
+byok/bootstrap.sh install --profile byok/profiles/inference-demo.yaml \
   --var domain=demo.example.com
 ```
 
@@ -81,7 +81,7 @@ On a cluster without a load balancer, give the node address to the gateway and
 use a `nip.io` name:
 
 ```bash
-byok/bootstrap.sh install --profile byok/profiles/aiwb-demo.yaml \
+byok/bootstrap.sh install --profile byok/profiles/inference-demo.yaml \
   --var domain=10.0.255.181.nip.io \
   --var gatewayServiceType=ClusterIP \
   --var gatewayExternalIP=10.0.255.181
@@ -144,7 +144,7 @@ under `helm template` and under ArgoCD, so the package works with
 `bootstrap.sh` only.
 
 This is the package to replace with your own secret management. The
-`secrets.aiwb-demo` capability probe looks for the Secrets themselves, so when
+`secrets.inference-demo` capability probe looks for the Secrets themselves, so when
 they already exist the package can leave the profile.
 
 ## Install on a Spur k0s cluster
@@ -172,8 +172,8 @@ byok/spur-silo` (see `spur-silo/README.md`) and copy it to the node:
 ```bash
 scp byok/spur-silo/spur-silo ubuntu@<node>:
 ssh ubuntu@<node> 'sudo install -m 755 spur-silo /usr/local/bin/spur-silo'
-ssh ubuntu@<node> 'spur silo install scalable-inference'
-ssh ubuntu@<node> 'spur silo install aiwb-demo --var domain=<node-ip>.nip.io \
+ssh ubuntu@<node> 'spur silo install inference'
+ssh ubuntu@<node> 'spur silo install inference-demo --var domain=<node-ip>.nip.io \
   --var gatewayServiceType=ClusterIP --var gatewayExternalIP=<node-ip>'
 ```
 
@@ -196,22 +196,22 @@ uses that checkout, which is the way to try a change that is not pushed yet:
 ```bash
 tar czf /tmp/cf.tgz byok sources root && scp /tmp/cf.tgz ubuntu@<node>:
 ssh ubuntu@<node> 'mkdir -p cf && tar xzf cf.tgz -C cf'
-ssh ubuntu@<node> 'cf/byok/spur/spur-silo install aiwb-demo --var domain=...'
+ssh ubuntu@<node> 'cf/byok/spur/spur-silo install inference-demo --var domain=...'
 ```
 
-There is no auto-fill for a profile variable: `install aiwb-demo` without
+There is no auto-fill for a profile variable: `install inference-demo` without
 `--var domain=` stops with the error of `bootstrap.sh`. On a k0s cluster that
 has no load balancer, give all three variables as in the example above.
 
-`install scalable-inference` asks Spur for the node GRES. When a node reports
-an AMD Instinct GPU, the plugin installs `scalable-inference-gpu` instead and
+`install inference` asks Spur for the node GRES. When a node reports
+an AMD Instinct GPU, the plugin installs `inference-gpu` instead and
 says so. `--no-gpu` keeps the CPU profile. A Radeon GPU is never selected
 automatically, the GPU profile supports Instinct only.
 
 Every install writes the profile, the ref, the time and the variables into the
 ConfigMap `install-record` in the namespace `silo-system`. `uninstall` reads
 it: a package that another recorded profile also holds stays on the cluster,
-so `uninstall aiwb-demo` on a cluster that also has `scalable-inference` keeps
+so `uninstall inference-demo` on a cluster that also has `inference` keeps
 the base packages.
 
 Spur's k0s gives local-path-provisioner as the default StorageClass. The
@@ -230,8 +230,8 @@ used.
 ## Validate
 
 ```bash
-byok/bootstrap.sh validate --profile byok/profiles/scalable-inference.yaml
-byok/bootstrap.sh validate --profile byok/profiles/aiwb-demo.yaml \
+byok/bootstrap.sh validate --profile byok/profiles/inference.yaml
+byok/bootstrap.sh validate --profile byok/profiles/inference-demo.yaml \
   --var domain=demo.example.com
 ```
 
@@ -249,7 +249,7 @@ capability and the packages that give it.
 byok/bootstrap.sh remove seaweedfs                    # keeps the CRDs and the PVCs
 byok/bootstrap.sh remove seaweedfs --purge            # also removes them
 byok/bootstrap.sh remove seaweedfs-operator --purge   # the CRDs live here
-byok/bootstrap.sh remove --profile byok/profiles/aiwb-demo.yaml --purge
+byok/bootstrap.sh remove --profile byok/profiles/inference-demo.yaml --purge
 ```
 
 `remove --profile` removes the packages of the profile in reverse install
@@ -269,28 +269,28 @@ Run `install` again with the same profile. The command is idempotent.
 
 ```bash
 byok/tests/smoke.sh                   # the core serves a model
-NAMESPACE=workbench byok/tests/smoke.sh   # the same on an aiwb-demo cluster
+NAMESPACE=workbench byok/tests/smoke.sh   # the same on an inference-demo cluster
 AIM_OBJECT=byok/tests/aimservice-gpu.yaml \
   byok/tests/smoke.sh                 # a real model on a GPU cluster
 byok/tests/smoke-ui.sh                # login, API, deploy and chat
 byok/tests/optional-package-cycle.sh  # add, re-install and purge seaweedfs
-                                      # (a scalable-inference cluster only)
+                                      # (a inference cluster only)
 byok/tests/check-version-drift.sh     # pins agree with root/values.yaml
 byok/tests/validate-negative.sh       # validation stops a bad profile
 byok/tests/install-record.sh          # remove --profile follows the install record
 ```
 
-`smoke-ui.sh` and `NAMESPACE=workbench smoke.sh` need an `aiwb-demo` cluster.
+`smoke-ui.sh` and `NAMESPACE=workbench smoke.sh` need an `inference-demo` cluster.
 `AIM_OBJECT` takes any AIMService object. `aimservice-gpu.yaml` holds a model
-image of `amdenterpriseai` and needs a `scalable-inference-gpu` cluster. The
+image of `amdenterpriseai` and needs a `inference-gpu` cluster. The
 image is public, so `PULL_SECRET_JSON` is optional: it lifts the Docker Hub
 rate limit of an anonymous pull.
 `check-version-drift.sh`, `validate-negative.sh` and `install-record.sh` need
 no cluster.
 `smoke.sh` without the variable and `optional-package-cycle.sh` need a
-`scalable-inference` cluster: the cycle test installs that profile, and its
+`inference` cluster: the cycle test installs that profile, and its
 aim-engine package takes the `AIMClusterRuntimeConfig` that the aiwb release
-owns on an `aiwb-demo` cluster.
+owns on an `inference-demo` cluster.
 
 ## Measure the footprint
 
@@ -298,9 +298,9 @@ owns on an `aiwb-demo` cluster.
 byok/footprint/footprint.sh idle > /tmp/footprint.md
 NAMESPACES="kyverno cert-manager kserve-system aim-system envoy-gateway-system \
   opentelemetry-operator-system postgres dex aiwb" \
-  byok/footprint/footprint.sh idle          # the aiwb-demo namespaces
+  byok/footprint/footprint.sh idle          # the inference-demo namespaces
 NAMESPACES="kyverno cert-manager kserve-system aim-system kube-amd-gpu" \
-  byok/footprint/footprint.sh idle          # the scalable-inference-gpu namespaces
+  byok/footprint/footprint.sh idle          # the inference-gpu namespaces
 ```
 
 The script prints markdown: pods, requests and limits per namespace, live usage
@@ -332,12 +332,12 @@ config JSON before you run it.
 | selfsigned-tls | envoy-gateway-system | tls.cluster-cert | certificates.cert-manager |
 | envoy-gateway-config | envoy-gateway-system | gateway.https | gateway.api, tls.cluster-cert |
 | opentelemetry-crds | opentelemetry-operator-system | telemetry.otel.crds | (none) |
-| aiwb-demo-secrets | aiwb | secrets.aiwb-demo | (none) |
-| postgres | postgres | database.postgres | storage.default-class, secrets.aiwb-demo |
-| dex | dex | auth.oidc | gateway.https, secrets.aiwb-demo |
-| aiwb | aiwb | workbench.ui | auth.oidc, database.postgres, gateway.https, inference.aim, policy.kyverno, telemetry.otel.crds, secrets.aiwb-demo |
+| aiwb-demo-secrets | aiwb | secrets.inference-demo | (none) |
+| postgres | postgres | database.postgres | storage.default-class, secrets.inference-demo |
+| dex | dex | auth.oidc | gateway.https, secrets.inference-demo |
+| aiwb | aiwb | workbench.ui | auth.oidc, database.postgres, gateway.https, inference.aim, policy.kyverno, telemetry.otel.crds, secrets.inference-demo |
 
-The last nine rows belong to the `aiwb-demo` profile.
+The last nine rows belong to the `inference-demo` profile.
 
 Several components ship their CRDs in one chart and objects of those CRDs in
 another. Helm builds the whole release manifest before it applies anything, so
@@ -381,7 +381,7 @@ profile declares stops the run.
 
 ```yaml
 name: my-profile
-extends: scalable-inference
+extends: inference
 vars:
   domain:
 packages:
@@ -400,10 +400,10 @@ notes: |
 
 ## Documents
 
-- [Footprint of scalable-inference](docs/footprint-scalable-inference.md)
-- [Footprint of scalable-inference-gpu](docs/footprint-scalable-inference-gpu.md)
-- [Footprint of aiwb-demo](docs/footprint-aiwb-demo.md)
-- [The aiwb-demo slide](docs/slide-aiwb-demo.md)
+- [Footprint of inference](docs/footprint-inference.md)
+- [Footprint of inference-gpu](docs/footprint-inference-gpu.md)
+- [Footprint of inference-demo](docs/footprint-inference-demo.md)
+- [The inference-demo slide](docs/slide-inference-demo.md)
 - [The minimal install slide](docs/slide-minimal-install.md)
 - [Test plan: byok on a GPU node](docs/test-plan-gpu.md)
 - [Test plan: spur-silo on Kaytoo VMs](docs/test-plan-kaytoo.md)

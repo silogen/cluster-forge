@@ -1,11 +1,11 @@
 # The reference profile on AMD Instinct GPUs. It gives one model endpoint
 # served by aim-engine and KServe, with the AMD GPU operator under it.
 #
-# It does not extend scalable-inference: the list order is the install order,
+# It does not extend inference: the list order is the install order,
 # and a package that a child profile adds goes last. The GPU operator must
 # install before aim-engine, because the accelerator detector of aim-engine
 # reads the node labels that node-feature-discovery writes.
-name: scalable-inference-gpu
+name: inference-gpu
 packages:
   # aim-engine 0.2.5 asks for ReadWriteMany cache volumes. A cluster whose
   # default StorageClass gives ReadWriteOnce only, for example

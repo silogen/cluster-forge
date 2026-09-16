@@ -5,7 +5,7 @@ Installation of the Enterprise AI stack onto a Kubernetes cluster that already e
 ## Language
 
 **Profile**:
-A named, ordered list of packages installed together, such as `scalable-inference` or `aiwb-demo`. A profile is the unit a user installs or uninstalls.
+A named, ordered list of packages installed together, such as `inference` or `inference-demo`. A profile is the unit a user installs or uninstalls.
 _Avoid_: level, tier, taso, byok-profile
 
 **Package**:

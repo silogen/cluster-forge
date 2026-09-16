@@ -29,14 +29,14 @@ make build REF=v1.2.3
 
 ```sh
 spur silo list
-spur silo install scalable-inference
-spur silo install aiwb-demo --var domain=example.com \
+spur silo install inference
+spur silo install inference-demo --var domain=example.com \
   --var gatewayServiceType=LoadBalancer --var gatewayExternalIP=10.0.0.10
 spur silo status
-spur silo uninstall aiwb-demo
+spur silo uninstall inference-demo
 ```
 
-`spur silo install` selects `scalable-inference-gpu` on a cluster that has AMD
+`spur silo install` selects `inference-gpu` on a cluster that has AMD
 Instinct GPUs, unless `--no-gpu` is given. A Radeon GPU is never auto-selected.
 
 The binary writes an install record into the ConfigMap `install-record` of the

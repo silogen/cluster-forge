@@ -238,11 +238,11 @@ cmd_install() { # <profile>
   file="$(profile_file "$wanted")"
   name="$(yq -r '.name // ""' "$file")"
 
-  if [ "$name" = scalable-inference ] && [ "$NO_GPU" = no ]; then
+  if [ "$name" = inference ] && [ "$NO_GPU" = no ]; then
     local nodes; nodes="$(instinct_nodes | tr '\n' ' ')"
     if [ -n "${nodes// /}" ]; then
-      info "detected AMD GPUs on nodes ${nodes% }, using profile scalable-inference-gpu"
-      file="$(profile_file scalable-inference-gpu)"
+      info "detected AMD GPUs on nodes ${nodes% }, using profile inference-gpu"
+      file="$(profile_file inference-gpu)"
     fi
   fi
 
@@ -251,10 +251,10 @@ cmd_install() { # <profile>
   [ "$SMOKE" = no ] || smoke_test "$(yq -r '.name // ""' "$file")"
 }
 
-# The aiwb-demo profile serves the model in the workbench namespace and adds
+# The inference-demo profile serves the model in the workbench namespace and adds
 # the UI test.
 smoke_test() { # <profile name>
-  if [ "$1" = aiwb-demo ]; then
+  if [ "$1" = inference-demo ]; then
     info "run the smoke tests"
     NAMESPACE=workbench "$BYOK_DIR/tests/smoke.sh"
     "$BYOK_DIR/tests/smoke-ui.sh"
