@@ -275,11 +275,11 @@ collectors:
   # is still the real backstop.
   #
   # It is set on the k8s metrics collector because that is the only container
-  # here that has ever been OOMKilled (epycenv 2026-09-04, workload-dev
-  # 2026-09-11, both at an 8Gi limit from a 1-2 GiB steady state) and nothing
+  # here that has ever been OOMKilled (twice, on separate clusters, both at
+  # an 8Gi limit from a 1-2 GiB steady state) and nothing
   # currently bounds its heap: it has no GOMEMLIMIT, and its memory_limiter has
   # never refused a single point (otelcol_processor_refused_metric_points has
-  # never even been initialised on int-test).
+  # never even been initialised).
   #
   # 6GiB is 75% of the 8Gi limit. If you change that limit, change this too --
   # a GOMEMLIMIT above the container limit is inert, and one below the working
@@ -306,8 +306,8 @@ collectors:
   # clusters may want a lower limitPercentage to trigger backpressure earlier.
   # Metric filtering for the kubernetes-apiservers scrape job.
   #
-  # That single job is the dominant cost in this stack. Measured on int-test
-  # (3 control planes, 2026-09-16): 397k of 466k samples per scrape, and 71%
+  # That single job is the dominant cost in this stack. Measured on a
+  # 3-control-plane cluster (2026-09-16): 397k of 466k samples per scrape, and 71%
   # of every series in the cluster is one of its histogram buckets. Nothing
   # this chart ships queries them -- the three bundled dashboards reference no
   # apiserver_* or etcd_* metric, and the chart ships no alerting rules.
@@ -355,8 +355,8 @@ collectors:
   resources:
     # otel-collector-metrics-k8s ONLY -- the collector that runs the
     # kubernetes-apiservers / nodes / cadvisor / pods scrapes. It is the one
-    # component here that has ever been OOMKilled (epycenv 2026-09-04,
-    # workload-dev 2026-09-11, both at an 8Gi limit while sitting at 1-2 GiB),
+    # component here that has ever been OOMKilled (twice, on separate
+    # clusters, both at an 8Gi limit while sitting at 1-2 GiB),
     # so its memory limit is deliberately large. No CPU limit: CPU is
     # compressible, and a 30s scrape of ~400k samples is exactly the bursty
     # shape that CFS quota punishes.
@@ -437,7 +437,7 @@ nodeExporter:
       cpu: 25m
   # chrony-exporter daemonset. Its resources were hardcoded in the template
   # until 2026-09-16, including a 100m CPU limit that throttled 18% of periods
-  # on workload-dev -- the highest measured anywhere in this stack.
+  # on one cluster -- the highest measured anywhere in this stack.
   chrony:
     resources:
       limits:

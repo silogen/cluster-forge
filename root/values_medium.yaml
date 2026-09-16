@@ -183,14 +183,14 @@ apps:
             memory: 2Gi
         storage:
           # Loki has never exceeded 1 GiB on a cluster with working retention
-          # (v1.0.8, 168h). 50Gi is already ~50x headroom; the production PVC
-          # that had to be expanded twice was on v1.0.7, which has no retention.
+          # (v1.0.8, 168h). 50Gi is already ~50x headroom; the PVCs that have
+          # had to be expanded were on v1.0.7, which has no retention.
           loki: 50Gi
       collectors:
         resources:
           # otel-collector-metrics-k8s. Measured 1.4 GiB on a 1-CP cluster.
           # The 8Gi limit is deliberate: this collector has been OOMKilled at
-          # 8Gi twice (epycenv 2026-09-04, workload-dev 2026-09-11) from a
+          # 8Gi twice, on separate clusters, from a
           # ~2 GiB steady state, and the spike is not yet characterised.
           metrics:
             limits:

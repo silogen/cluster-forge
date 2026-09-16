@@ -87,10 +87,10 @@ apps:
   otel-lgtm-stack:
     valuesObject:
       lgtm:
-        # Measured 3.0-5.6 GiB on 3-CP clusters running v1.0.8. production
-        # reads 9.2 GiB but is on v1.0.7 with no retention, so that number is
-        # not a valid sizing input. production and app-dev already run a 16Gi
-        # limit as a per-cluster patch -- this makes it the tier default.
+        # Measured 3.0-5.6 GiB on 3-CP clusters running v1.0.8. Clusters on
+        # v1.0.7 read higher (~9 GiB) but have no retention, so those numbers
+        # are not a valid sizing input. Some clusters already run a 16Gi limit
+        # as a per-cluster patch -- this makes it the tier default.
         resources:
           limits:
             memory: 16Gi
@@ -107,7 +107,7 @@ apps:
       collectors:
         resources:
           # otel-collector-metrics-k8s. Measured 0.9-2.2 GiB. Raised to 16Gi
-          # because workload-dev OOMKilled at 8Gi on 2026-09-11 and the spike
+          # because this collector has OOMKilled at 8Gi and the spike
           # is still unexplained; large clusters have the capacity to absorb it.
           metrics:
             limits:

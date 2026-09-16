@@ -115,7 +115,7 @@ The same applies to `otelcolConfig` (the OpenTelemetry Collector config).
 ### What is dropped, and why
 
 The `kubernetes-apiservers` scrape job is the dominant cost in this stack.
-Measured on int-test (3 control planes, 2026-09-16):
+Measured on a 3-control-plane cluster (2026-09-16):
 
 | | |
 | --- | --- |
@@ -243,8 +243,8 @@ So in practice: single-node cluster -> `small` or `medium`; multi-node
   logs-collector 4% at 1 CPU, both for workloads using milliCPU. Memory limits
   stay, because memory is *not* compressible and exceeding one is an OOMKill.
 - **`collectors.resources.metrics` keeps a large memory limit deliberately.**
-  That collector runs the apiserver scrape and has been OOMKilled twice
-  (epycenv 2026-09-04, workload-dev 2026-09-11) from a 1-2 GiB steady state. The
+  That collector runs the apiserver scrape and has been OOMKilled twice on
+  separate clusters, both from a 1-2 GiB steady state. The
   spike is not yet characterised, so the limit is headroom, not a fitted value.
   Note its `memory_limiter` (80% / 5s) did **not** engage before either kill --
   so if you are tuning this, `collectors.memoryLimiter.checkInterval` is a more
@@ -262,15 +262,15 @@ storage for this app; resources live in the chart and the three size files.
 
 `collectors.extraEnv.metrics.GOMEMLIMIT` is `6GiB` -- 75% of that collector's
 8Gi limit. It exists because that container is the only one here that has ever
-been OOMKilled (epycenv 2026-09-04, workload-dev 2026-09-11, both from a 1-2 GiB
-steady state), and until now **nothing bounded its heap at all**: no GOMEMLIMIT,
+been OOMKilled (twice, on separate clusters, both from a 1-2 GiB steady
+state), and until now **nothing bounded its heap at all**: no GOMEMLIMIT,
 and its `memory_limiter` has never refused a single point
 (`otelcol_processor_refused_metric_points` has never been initialised). Without
 GOMEMLIMIT the Go runtime collects at GOGC=100 -- roughly 2x live heap -- with no
 knowledge that a cgroup limit exists.
 
 What it does NOT do is make anything faster. It is a ceiling: as the heap nears
-it, GC runs harder. Measured on int-test, GC already costs about **0.001% of wall
+it, GC runs harder. In measurement, GC already costs about **0.001% of wall
 time** (Prometheus: one cycle every ~14s, pause rate 0.00001 s/s), so there is no
 performance to reclaim by tuning GC either way. This buys reliability, not speed.
 The knob that trades memory for speed is `GOGC`, which is not set here.
