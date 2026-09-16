@@ -152,15 +152,15 @@ Gate: `sudo k0s kubectl get nodes` shows the node `Ready`, and
 
 ```bash
 spur silo list
-spur silo install scalable-inference --smoke-test
+spur silo install inference --smoke-test
 spur silo status
 ```
 
 Every command but `list` takes `--kubeconfig <path>`, which wins over the
 lookup chain.
 
-`install scalable-inference` asks Spur for the node GRES. A node with an AMD
-Instinct GPU gets `scalable-inference-gpu`, which adds the AMD GPU operator.
+`install inference` asks Spur for the node GRES. A node with an AMD
+Instinct GPU gets `inference-gpu`, which adds the AMD GPU operator.
 `--no-gpu` keeps the CPU profile. The GPU operator uses the ROCm driver of the
 host, so the host needs that driver; `amd-smi list` shows it.
 

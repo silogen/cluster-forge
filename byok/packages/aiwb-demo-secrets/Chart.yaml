@@ -1,6 +1,6 @@
 apiVersion: v2
 name: aiwb-demo-secrets
-description: Every Secret of the aiwb-demo profile
+description: Every Secret of the inference-demo profile
 type: application
 version: 0.1.0
 dependencies:

@@ -9,4 +9,4 @@ requires:
   - inference.aim
   - policy.kyverno
   - telemetry.otel.crds
-  - secrets.aiwb-demo
+  - secrets.inference-demo

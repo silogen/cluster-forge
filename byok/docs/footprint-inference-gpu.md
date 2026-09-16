@@ -1,9 +1,9 @@
-# Footprint of the scalable-inference-gpu profile
+# Footprint of the inference-gpu profile
 
 Measured on 2026-09-15 on the node `useocpm2m-silogen-014`, one bare-metal
 machine with 112 vCPU, 2015 GiB memory and 8 AMD Instinct MI300X GPUs, with
-Kubernetes from `spur k8s up`. The profile is `scalable-inference-gpu`, which
-is `scalable-inference` plus the AMD GPU operator. The Go build of `spur-silo`
+Kubernetes from `spur k8s up`. The profile is `inference-gpu`, which
+is `inference` plus the AMD GPU operator. The Go build of `spur-silo`
 installed it and selected the profile from the node GRES.
 
 This document holds idle numbers only. No model was served during the
@@ -14,7 +14,7 @@ measurement; the smoke test object was removed first.
 | date | 2026-09-15 |
 | kubernetes | v1.36.2+k0s.0, one node |
 | node shape | 112 vCPU, 2015 GiB memory, 8x MI300X (gfx942) |
-| profile | scalable-inference-gpu, 11 packages |
+| profile | inference-gpu, 11 packages |
 | install wall-clock time | 3 min 24 s, of which the smoke test is 31 s |
 | uninstall wall-clock time | 2 min 51 s |
 | images of the profile | 10.86 GiB over 17 digests |

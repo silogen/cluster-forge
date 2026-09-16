@@ -31,7 +31,7 @@ inference.aim:
   probe: kubectl get crd aimservices.aim.eai.amd.com >/dev/null 2>&1 && kubectl get deployments -A -o name | grep -q aim-engine-controller-manager
 catalog.aim:
   probe: kubectl get aimclustermodelsources.aim.eai.amd.com -o name 2>/dev/null | grep -q .
-secrets.aiwb-demo:
+secrets.inference-demo:
   # A customer who replaces the aiwb-demo-secrets package with their own
   # secret management makes the same Secrets. Then this probe passes and the
   # package can leave the profile.

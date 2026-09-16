@@ -4,4 +4,4 @@ provides:
   - database.postgres
 requires:
   - storage.default-class
-  - secrets.aiwb-demo
+  - secrets.inference-demo

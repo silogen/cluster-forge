@@ -58,19 +58,19 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
    stops as soon as the object reports `Failed`, with the conditions that hold
    it back. The smoke test then passed on itg1 in 31 seconds.
 7. **A second profile could go on top of a profile it shares packages with.**
-   `install scalable-inference --no-gpu` on a node that already had
-   `scalable-inference-gpu` installed both profiles: the record held both
+   `install inference --no-gpu` on a node that already had
+   `inference-gpu` installed both profiles: the record held both
    names, and the CPU values went over the charts of the GPU install. An
    install now stops when another recorded profile shares packages with it. An
    install of the same profile is an upgrade, and a profile that says `extends`
-   the recorded one, as `aiwb-demo` does, is the documented way to add to it.
+   the recorded one, as `inference-demo` does, is the documented way to add to it.
 8. **The API server deprecation warning came once per request.** The client
    now prints one line per warning.
 
 ## Found on the second Kaytoo round and fixed
 
 - **An uninstall took CRDs that a package of another profile owns.** After
-  `uninstall aiwb-demo` the log said `keep gateway-api-crds, another installed
+  `uninstall inference-demo` the log said `keep gateway-api-crds, another installed
   profile holds it` and the release was still there, but `gateway.api.crds`
   probed `no`: the `envoy-gateway` chart ships the Gateway API CRDs in a
   subchart `crds/` directory, so the purge of `envoy-gateway` deleted the names
@@ -83,13 +83,13 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
   pod that cannot start for a reason a retry does not change
   (`CreateContainerConfigError`, `ImagePullBackOff`, `CrashLoopBackOff` and
   the like) and stops with that pod, its reason and its message.
-- **A failed install left its packages with no record.** `aiwb-demo` left 10
-  releases behind and `status` named only `scalable-inference`. The install now
+- **A failed install left its packages with no record.** `inference-demo` left 10
+  releases behind and `status` named only `inference`. The install now
   writes the record of the packages that did go on and marks it partial, and
   `status` says that the install stopped and which command removes them.
 
 - **A profile whose install stopped could not be removed.** The partial record
-  of `aiwb-demo` ended at the last package that went on, so `aiwb` was never a
+  of `inference-demo` ended at the last package that went on, so `aiwb` was never a
   removal target, but the failed helm install had left the release `aiwb/aiwb`.
   `refuseWhenNeeded` then saw `aiwb` installed, saw `dex` giving it
   `auth.oidc`, and refused at the first package: `error: aiwb is installed and
@@ -101,12 +101,12 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
 ## Open
 
 9. **The `aiwb` chart 2.0.0 asks for the Secret `aiwb-ui-keycloak-secret`,
-   which the `aiwb-demo` profile does not make.** The `aiwb-demo-secrets`
+   which the `inference-demo` profile does not make.** The `aiwb-demo-secrets`
    package makes `aiwb-oidc-client-secret`, and the chart reads the name from
    `keycloak.secretName`, whose default is `aiwb-ui-keycloak-secret`. Both
    `aiwb-api` and `aiwb-ui` stay in `CreateContainerConfigError` with
    `secret "aiwb-ui-keycloak-secret" not found`, so the install of the
-   `aiwb-demo` profile never finishes. The change from Keycloak to Dex did not
+   `inference-demo` profile never finishes. The change from Keycloak to Dex did not
    follow the name through.
 
    The `aiwb` package values already give the whole `oidc` block
@@ -137,13 +137,13 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
    **Proved on Kaytoo, 2026-09-16.** A chart packaged from the two branches
    merged (`aiwb-chart-2.1.0-oidc-openbao`), with the images
    `silogenai/aiwb-{api,ui}:EAI-8694-feat-generic-oidc`, installed the
-   `aiwb-demo` profile twice on a two-node k0s cluster. Both times the install
+   `inference-demo` profile twice on a two-node k0s cluster. Both times the install
    said `install finished` and `aiwb-api` and `aiwb-ui` came to `1/1 Running`;
    the second round took 37 seconds for the two pods. No Deployment names
    `aiwb-ui-keycloak-secret` any more: the UI takes `OIDC_CLIENT_SECRET` from
    `aiwb-oidc-client-secret/value`, the API takes no client secret, and
    `OPENBAO_ADDR` is empty. The UI reads the Dex discovery document and the API
-   reads the Dex JWKS (1 key) from inside the cluster. `uninstall aiwb-demo`
+   reads the Dex JWKS (1 key) from inside the cluster. `uninstall inference-demo`
    then removed the profile in 1 minute 25 seconds. The images are in the
    private `silogenai` repository, so the test needed a pull secret; the
    released chart takes the images from `amdenterpriseai`.
@@ -160,12 +160,12 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
    build now cancels the helm operation on `SIGINT` and `SIGTERM` of its own
    process, which covers Ctrl-C in a terminal.
 13. **The `envoy-gateway` values carry a cluster-bloom node selector.**
-   `install aiwb-demo` warns `cannot overwrite table with non table for
+   `install inference-demo` warns `cannot overwrite table with non table for
    envoy-gateway-config.envoy-gateway-config.envoyProxy.nodeSelector
    (map[cluster-bloom/first-node:true])`. No k0s cluster has that label, and
    the profile cannot override the value.
 14. **Two namespaces stay after every uninstall.** `aims-test` comes from
-   `--smoke-test` and `workbench` from the `aiwb-demo` install. Both are empty.
+   `--smoke-test` and `workbench` from the `inference-demo` install. Both are empty.
    Neither is the namespace of a package, so the purge does not reach them.
 15. **The skill command `spur admin raft status` does not exist.** The spur
    CLI of `main` at `467d521` has no `admin` command, so the Raft health check
@@ -184,27 +184,27 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
 
 ## Proven
 
-- `install scalable-inference` from the control-plane node: 93 seconds, the
+- `install inference` from the control-plane node: 93 seconds, the
   install record written, every capability probe `yes`.
 - `status` from the control-plane node (kubeconfig from `k0s`) and from the
   driver node (kubeconfig from Spur over gRPC under sudo).
-- `uninstall aiwb-demo` with both profiles recorded keeps every package of
-  `scalable-inference` and removes only the packages of the demo.
-- `uninstall scalable-inference` empties the install record.
-- The last Kaytoo round, with every fix in: `uninstall aiwb-demo` after a
+- `uninstall inference-demo` with both profiles recorded keeps every package of
+  `inference` and removes only the packages of the demo.
+- `uninstall inference` empties the install record.
+- The last Kaytoo round, with every fix in: `uninstall inference-demo` after a
   failed install removes the failed `aiwb` release first, keeps all nine
-  packages of `scalable-inference` and twenty CRDs, and takes 20 seconds. The
+  packages of `inference` and twenty CRDs, and takes 20 seconds. The
   `aiwb` failure itself reports in 10 min 53 s and names the pod and the
   missing Secret. The end state holds no CRD, no record and only the namespace
   `aims-test` of the smoke test.
-- On two Kaytoo VMs with the Go build: `install scalable-inference` 1 min 41 s,
-  `uninstall scalable-inference` 51 s with no CRD and no namespace left,
-  `install scalable-inference --smoke-test` 3 min 04 s with the smoke test
+- On two Kaytoo VMs with the Go build: `install inference` 1 min 41 s,
+  `uninstall inference` 51 s with no CRD and no namespace left,
+  `install inference --smoke-test` 3 min 04 s with the smoke test
   passed, `status` from both the control-plane node and the worker, and the
   error paths (a missing `--var`, an unknown profile, `--no-gpu` on a CPU
   cluster).
-- On itg1, one MI300X node with 8 GPUs: `uninstall scalable-inference-gpu` in
-  2 min 51 s with no CRD and no namespace left, `install scalable-inference
+- On itg1, one MI300X node with 8 GPUs: `uninstall inference-gpu` in
+  2 min 51 s with no CRD and no namespace left, `install inference
   --smoke-test` in 3 min 24 s with the GPU profile selected by the node GRES,
   every capability `yes`, `amd.com/gpu: 8` allocatable and the smoke test
   passed.

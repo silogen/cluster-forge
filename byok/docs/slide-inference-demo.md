@@ -1,6 +1,6 @@
-# BYOK: AIWB Demo Installation
+# BYOK: Inference Demo Installation
 
-**Bring-your-own-Kubernetes — aiwb-demo profile**
+**Bring-your-own-Kubernetes — inference-demo profile**
 
 A reference demo of the AI Workbench on an existing cluster, with `helm upgrade --install` only. Log in through Dex, deploy a model from the catalog in the UI, chat with the model on CPU. Not a production installation.
 
@@ -10,7 +10,7 @@ A reference demo of the AI Workbench on an existing cluster, with `helm upgrade 
 
 | Package | Purpose |
 |---|---|
-| everything in `scalable-inference` ¹ | Model serving with aim-engine and KServe |
+| everything in `inference` ¹ | Model serving with aim-engine and KServe |
 | envoy-gateway + envoy-gateway-config | Ingress: GatewayClass and the `https` Gateway |
 | selfsigned-tls | Self-signed `*.<domain>` certificate through cert-manager |
 | opentelemetry-crds | The `OpenTelemetryCollector` CRD, no operator |
@@ -34,7 +34,7 @@ A reference demo of the AI Workbench on an existing cluster, with `helm upgrade 
 ## Install
 
 ```bash
-byok/bootstrap.sh install --profile byok/profiles/aiwb-demo.yaml \
+byok/bootstrap.sh install --profile byok/profiles/inference-demo.yaml \
   --var domain=demo.example.com
 ```
 
@@ -80,4 +80,4 @@ Measured 2026-09-10, k3s v1.36.4, 16 vCPU / 94 GiB VM.
 | Container images | 39 images, 19 GiB |
 | Install time (cold / warm) | 5 min 46 s / 33 s |
 
-See [footprint-aiwb-demo.md](footprint-aiwb-demo.md) for the numbers per namespace.
+See [footprint-inference-demo.md](footprint-inference-demo.md) for the numbers per namespace.
