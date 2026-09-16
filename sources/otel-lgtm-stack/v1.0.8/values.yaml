@@ -259,6 +259,50 @@ collectors:
   # Percentages are of each collector's own container memory limit
   # (collectors.resources.*.limits.memory). Tune per-cluster: under-specced
   # clusters may want a lower limitPercentage to trigger backpressure earlier.
+  # Metric filtering for the kubernetes-apiservers scrape job.
+  #
+  # That single job is the dominant cost in this stack. Measured on int-test
+  # (3 control planes, 2026-09-16): 397k of 466k samples per scrape, and 71%
+  # of every series in the cluster is one of its histogram buckets. Nothing
+  # this chart ships queries them -- the three bundled dashboards reference no
+  # apiserver_* or etcd_* metric, and the chart ships no alerting rules.
+  #
+  # Filtering happens at scrape time (metric_relabel_configs on the collector's
+  # prometheus receiver), so it shrinks BOTH the collector's working set -- the
+  # component that has been OOMKilled at its 8Gi limit -- and the Prometheus
+  # TSDB behind it.
+  #
+  # IMPORTANT: dropped samples are never written anywhere. Raising the profile
+  # restores the metrics from that moment on; it cannot recover history. See
+  # "Re-enabling dropped metrics" in docs/otel_lgtm_stack_tuning.md.
+  metricFilters:
+    # full     - no filtering; every metric the API server exposes is kept.
+    # standard - drop what nothing on the platform queries, and thin the two
+    #            latency histograms down to `keepBuckets`. histogram_quantile()
+    #            still works. Cuts total series roughly 60%.
+    # minimal  - standard, plus every remaining histogram bucket on this job.
+    #            No quantiles at all; _count/_sum keep rate, errors and mean
+    #            latency working. Cuts total series roughly 71%.
+    profile: standard
+    # Escape hatch, independent of the profile: keep every apiserver/etcd
+    # histogram bucket even under standard/minimal. This is the one-line switch
+    # for debugging an API server incident -- flip it, let ArgoCD sync, and
+    # buckets reappear within one scrape interval.
+    keepAllBuckets: false
+    # Boundaries the `standard` profile keeps for apiserver_request_duration_
+    # seconds and etcd_request_duration_seconds. The API server exposes 24; six
+    # cuts those two families by ~75% while keeping histogram_quantile() usable
+    # and preserving le="1", the boundary the Kubernetes API SLI is defined on.
+    #
+    # Values must match the exposition format exactly ("1", not "1.0"). This is
+    # a LIST: an override replaces it wholesale rather than merging.
+    keepBuckets:
+      - "0.1"
+      - "0.4"
+      - "1"
+      - "2"
+      - "5"
+      - "+Inf"
   memoryLimiter:
     checkInterval: 5s
     limitPercentage: 80

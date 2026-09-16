@@ -21,6 +21,7 @@ This refactor exposes the knobs needed to deal with that **from
 | Per-job scrape interval            | `collectors.scrapeIntervalOverrides.<job>`       | ✅ one line                  |
 | Collector memory guard             | `collectors.memoryLimiter.*`                     | ✅ one line each             |
 | Collector CPU / memory resources   | `collectors.resources.*`                         | ✅ partial (only what you set)|
+| **Apiserver metric filtering**     | `collectors.metricFilters.*`                     | ✅ one line                  |
 | **Loki retention / any Loki cfg**  | `lgtm.configOverrides.lokiConfig`                | ❌ **paste whole ~70-line blob** |
 | **OpenTelemetry collector config** | `lgtm.configOverrides.otelcolConfig`             | ❌ **paste whole ~100-line blob** |
 
@@ -108,6 +109,95 @@ The same applies to `otelcolConfig` (the OpenTelemetry Collector config).
 
 ---
 
+## Metric filtering, and re-enabling dropped metrics
+
+### What is dropped, and why
+
+The `kubernetes-apiservers` scrape job is the dominant cost in this stack.
+Measured on int-test (3 control planes, 2026-09-16):
+
+| | |
+| --- | --- |
+| samples per scrape, whole cluster | 466,000 |
+| ...from `kubernetes-apiservers` | **397,000 (85%)** |
+| total active series | 470,261 |
+| ...that are apiserver histogram buckets | **333,661 (71%)** |
+
+Nothing this chart ships queries them: the three bundled dashboards reference no
+`apiserver_*` or `etcd_*` metric, and the chart ships no alerting rules.
+
+Filtering is applied as `metric_relabel_configs` on the collector's prometheus
+receiver, i.e. **at scrape time**. That shrinks both the
+`otel-collector-metrics-k8s` working set (the component that has been OOMKilled
+at its 8Gi limit) and the Prometheus TSDB behind it.
+
+| Profile | What it does | Series cut |
+| --- | --- | --- |
+| `full` | Nothing is dropped. | 0% |
+| `standard` *(default)* | Drops `apiserver_request_sli_duration_seconds*`, `apiserver_request_body_size_bytes*`, `apiserver_response_sizes*` and the three `apiserver_watch_*` families. Thins `apiserver_request_duration_seconds` and `etcd_request_duration_seconds` from 24 histogram boundaries to the six in `keepBuckets`. | ~60% |
+| `minimal` | `standard`, plus every remaining histogram bucket on the job. | ~71% |
+
+Under `standard`, `histogram_quantile()` still works on both latency
+histograms — coarsely, and `le="1"` (the boundary the Kubernetes API SLI is
+defined on) is retained. Under `minimal` there are no quantiles at all;
+`_count` / `_sum` survive, so request rate, error ratio and *mean* latency keep
+working.
+
+### ⚠️ Dropped samples are never stored
+
+This is the one thing to understand before tuning it. A `metric_relabel_configs`
+drop happens **before the sample is written**, so re-enabling a metric restores
+it **from that moment forward — it cannot recover history.**
+
+- Debugging a *live* problem: fine. Flip the switch, data flows within one
+  scrape interval, watch it happen.
+- Post-mortem of something that already ended: those buckets are gone. What
+  survives is `_count` / `_sum`, so history still shows *that* latency was
+  elevated, just not the shape of the distribution.
+
+### How to re-enable (the one-line switch)
+
+In this cluster's `cluster-values.yaml` in gitea:
+
+```yaml
+apps:
+  otel-lgtm-stack:
+    valuesObject:
+      collectors:
+        metricFilters:
+          keepAllBuckets: true    # keep every apiserver/etcd histogram bucket
+```
+
+or, to turn filtering off entirely:
+
+```yaml
+        metricFilters:
+          profile: full
+```
+
+ArgoCD picks up the change, the OpenTelemetry operator rolls the
+`otel-collector-metrics-k8s` deployment, and the metrics reappear within one
+scrape interval. Roughly two minutes end to end. The restart is cheap: the
+prometheus receiver is stateless and counter values come from the targets, so
+nothing resets.
+
+**Do not `kubectl edit` the OpenTelemetryCollector CR to do this.** ArgoCD
+selfHeal reverts it within minutes. Use the overlay, or pause auto-sync first if
+you genuinely need a ten-minute look.
+
+### Two gotchas
+
+- **Queries spanning the change show gaps.** Old blocks have no buckets, new
+  ones do. `histogram_quantile()` over that range returns a partial result
+  rather than an error — which is the confusing kind of wrong. Expect the
+  boundary to wash out after one retention window (7 days by default).
+- **`keepBuckets` is a list, so an override replaces it wholesale** rather than
+  merging — that is deliberate (you are choosing your own boundaries), but it
+  means you must write the full list, not just the extra values you want. The
+  values must also match the exposition format exactly: `"1"`, not `"1.0"`.
+
+---
+
 ## Quick reference: current defaults
 
 | Key                                        | Default |
@@ -119,6 +209,8 @@ The same applies to `otelcolConfig` (the OpenTelemetry Collector config).
 | `collectors.memoryLimiter.limitPercentage` | `80`    |
 | `collectors.memoryLimiter.spikeLimitPercentage` | `25` |
 | Loki `retention_period`                    | `168h`  |
+| `collectors.metricFilters.profile`         | `standard` |
+| `collectors.metricFilters.keepAllBuckets`  | `false` |
 
 (See [`values.yaml`](../sources/otel-lgtm-stack/v1.0.8/values.yaml) for the
 full, authoritative list and inline comments.)
@@ -141,5 +233,6 @@ full, authoritative list and inline comments.)
   `collectors.memoryLimiter.*`). It applies **backpressure** — refusing incoming
   data as memory approaches the limit — which is the primary OOM guard for
   collectors. That's why no `GOMEMLIMIT` is set on the collectors.
-- **Metric / log filtering** (dropping high-cardinality series, namespace/
-  severity log filters) is **not** part of this change — it's tracked separately.
+- **Log filtering** (namespace / severity filters on the logs pipeline) is still
+  **not** part of this chart — tracked separately. Metric filtering for the
+  `kubernetes-apiservers` job now exists: see *Re-enabling dropped metrics* above.

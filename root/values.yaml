@@ -971,6 +971,13 @@ apps:
       cluster:
         name: # to be filled by cluster-forge app based on domain
       collectors:
+        # Drops apiserver metrics nothing on the platform queries and thins the
+        # two latency histograms. Set to "full" (or keepAllBuckets: true) in a
+        # cluster's own cluster-values.yaml to get everything back -- from that
+        # point forward only; dropped samples are never stored.
+        # See docs/otel_lgtm_stack_tuning.md.
+        metricFilters:
+          profile: standard
         resources:
           logs:
             limits:
