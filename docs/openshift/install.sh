@@ -731,11 +731,17 @@ export CF_ROUTER_CERT
 # ============================================================================
 # app_field <app> <yaml path> : print a field for an app, or empty when absent.
 #
-# Reads values-openshift.yaml first and falls back to root/values.yaml only when
-# the app is marked root-inherited. That is the whole of the inheritance rule:
-# the release states an app's defaults, this file overrides what OpenShift needs
-# differently, and an app that root/values.yaml has never heard of (every extra/
-# manifest, every custom step) sets root-inherited: false and stands alone.
+# values-openshift.yaml is the reference wherever it states a field. Anything it
+# leaves out comes from root/values.yaml when that file describes the same app,
+# so a step wanting the release's chart version just omits path: and inherits it,
+# and only a real OpenShift difference has to be written down in both files.
+#
+# An app root/values.yaml has never heard of -- every extra/ manifest, every
+# custom step -- finds nothing to inherit and stands alone, no flag needed: yq
+# answers empty for an absent app exactly as it does for an absent field.
+#
+# root-inherited: still gates the valuesObject and helmParameters blocks, which
+# are whole chart configurations rather than one field; see render_chart.
 app_field() {
   local app="$1" path="$2" v
   v=$(yq ".apps.\"${app}\".${path} // \"\"" "${CF_OPENSHIFT_VALUES}")
@@ -743,11 +749,9 @@ app_field() {
     printf '%s' "${v}"
     return 0
   fi
-  if [ "$(yq ".apps.\"${app}\".root-inherited // false" "${CF_OPENSHIFT_VALUES}")" = "true" ]; then
-    v=$(yq ".apps.\"${app}\".${path} // \"\"" "${CF_ROOT_VALUES}")
-    [ "${v}" = "null" ] && v=""
-    printf '%s' "${v}"
-  fi
+  v=$(yq ".apps.\"${app}\".${path} // \"\"" "${CF_ROOT_VALUES}")
+  [ "${v}" = "null" ] && v=""
+  printf '%s' "${v}"
 }
 
 # app_namespace <app> : the app's namespace, with ${VAR} expanded.
@@ -1746,6 +1750,13 @@ render_chart() {
   # first, then the root block, then the local one, so an OpenShift override
   # deep-merges into the shared configuration rather than replacing all of it.
   # --set wins over all three regardless of where it appears.
+  #
+  # Still behind root-inherited:, unlike the single fields app_field resolves. A
+  # missing field has one obvious answer to inherit, whereas this block is a
+  # whole configuration whose keys the entry here never mentions and so cannot
+  # opt out of one at a time: seaweedfs-config asks for its chart's 25Gi volume
+  # by saying nothing, and inheriting root's block unasked would silently make
+  # that 250Gi. An app wanting the shared configuration marks itself inherited.
   values_object_root="${CF_WORK_DIR}/${app}.values-root.yaml"
   values_object_local="${CF_WORK_DIR}/${app}.values-openshift.yaml"
   if [ "$(yq ".apps.\"${app}\".root-inherited // false" "${CF_OPENSHIFT_VALUES}")" = "true" ] &&
