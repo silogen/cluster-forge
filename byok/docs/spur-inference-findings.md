@@ -189,6 +189,11 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
    private `silogenai` repository, so the test needed a pull secret; the
    released chart takes the images from `amdenterpriseai`.
 
+   **Closed on 2026-09-17**, with a chart packaged from core#4643 at
+   `7c5eab912` (it holds core#4642, which is merged). The `demo` install
+   finished, and a browser login through Dex gave a session and a token the
+   API accepts. See the round of 2026-09-17 with that chart.
+
 10. **aim-catalog never collects the pods of its discovery Jobs.** Ten minutes
    after the install, `aim-system` held 160 `Succeeded`
    `discover-amdenterpriseai-aim-*` pods, and new bursts follow. They hold no
@@ -255,6 +260,94 @@ driver node `useocpm2m-silogen-petrus-uuxd3p`. Binary built from
 - `uninstall` from a pipe without `--yes` refuses before it connects.
 - The test-s3 cycle, the smoke tests and the Radeon warning did not run.
 
+
+## Kaytoo round of 2026-09-17, with the aiwb chart of core#4643
+
+Two Kaytoo VMs, the same evening as the round above. Spur 0.12.0 from
+`feat/cli-plugins` (6fad5b9), k0s v1.36.2+k0s.0, control plane
+`useocpm2m-silogen-petrus-cn54bb` (10.0.255.200), worker and driver node
+`useocpm2m-silogen-petrus-y2rm5z` (10.0.255.6). The binary holds the chart
+`aiwb-chart-2.1.0-oidc`, packaged from core#4643 at `7c5eab912`, with the
+images `silogenai/aiwb-{api,ui}:EAI-8694-feat-generic-oidc` and the pull
+secret `aiwb-pull`. core#4642 is merged, so the branch alone gives both
+changes.
+
+### Item 9 is closed: AIWB logs in through Dex
+
+`install demo --no-gpu` put all 18 packages on in 3 min 27 s. `aiwb-api` and
+`aiwb-ui` came to `1/1 Running`. No object names `aiwb-ui-keycloak-secret`.
+The API takes no client secret, the UI takes `OIDC_CLIENT_SECRET` from
+`aiwb-oidc-client-secret/value`, `OPENBAO_ADDR` has no value, and the OIDC
+environment holds `OIDC_ISSUER=https://auth.<domain>`,
+`OIDC_ISSUER_INTERNAL_URL=http://dex.dex.svc.cluster.local:5556`,
+`OIDC_JWKS_URL=.../keys`, `OIDC_CLIENT_ID=aiwb` and `OIDC_AUDIENCE=aiwb`.
+
+The login was tested end to end through the gateway, not only from the
+manifests:
+
+- The UI answers `307` to `/api/auth/signin?callbackUrl=%2F`, and its only
+  provider is `oidc`.
+- The Dex discovery document answers on the public domain and names the
+  issuer, the authorization endpoint and the JWKS URL.
+- A `curl` login (CSRF token, NextAuth signin, the Dex form, the callback)
+  ends with a session for `devuser@<domain>`.
+- The API answers `401` to `/v1/inference/models` with no token and `200`
+  with an `id_token` that Dex issued for the client `aiwb`.
+
+### The smoke test and the test-s3 cycle, which were open
+
+- `install --no-gpu --smoke-test`: 6 min 22 s, the smoke test passed. The
+  Secret `aim-pull` is not in `aims-test`, so the reference goes off the
+  dummy object, as item 6 describes.
+- The test-s3 cycle by hand: `install default-cpu` 2 min 25 s, `install
+  test-s3` 1 min 21 s, the five seaweedfs pods `Ready`, `storage.s3` and
+  `storage.s3.operator` both `yes`. `uninstall test-s3 --yes` took 18 s, kept
+  the nine packages of `default-cpu` and removed only the two seaweedfs
+  packages and their namespaces. The idempotence step of
+  `tests/optional-package-cycle.sh` did not run, because the VMs hold no helm
+  and no yq.
+
+### The rest of the round
+
+- `validate` prints the no-GPU warning, `validate --no-gpu` and `validate
+  demo --no-gpu` pass with no warning. `spur show node` prints no `Gres=`
+  line.
+- The error paths answer as they must: a missing `--var`, an unknown
+  profile, `install default-cpu --no-gpu`, and `uninstall` from a pipe with
+  no `--yes`.
+- `install default` over an installed `default-cpu` refuses and names the
+  nine shared packages.
+- `spur plugin list` marks a `spur-nodes` binary as shadowed, and the
+  built-in `nodes` wins.
+- `uninstall demo-cpu --yes`: 20 s, every package of `default-cpu` kept, and
+  the Gateway API and Envoy CRDs kept because a package that stays ships the
+  same names (item 16).
+- `uninstall` on a terminal: after `n` nothing went away and the record still
+  held `default-cpu`; after `y` the profile was gone. The end state holds no
+  profile, no PVC, and only the five CRDs of k0s itself. The namespaces
+  `aims-test` and `inference-system` stay, as item 14 describes.
+- Item 13 is still there: the `envoy-gateway-config` values carry the
+  cluster-bloom node selector and the install warns about it.
+
+### 18. The admin kubeconfig over RPC is now off by default
+
+`sudo -n spur k8s kubeconfig --admin` on the worker answers `serving the
+cluster-admin kubeconfig over RPC is disabled ([cluster]
+allow_admin_kubeconfig = false)`. The lookup order of item 2 then has nothing
+left on a worker, because a worker holds no `/var/lib/k0s/pki/admin.conf`, so
+every plugin command fails there. Put `allow_admin_kubeconfig = true` in the
+`[cluster]` section of `/etc/spur/spur.conf` on every node before `spurctld`
+starts, or drive the test from the control-plane node. With the option set,
+the plugin reports `admin kubeconfig from sudo -n /usr/local/bin/spur k8s
+kubeconfig --admin` and every command works from the worker.
+
+### 19. A `pkill -f "spurd --controller"` over SSH kills the caller
+
+The pattern matches the remote shell command itself, so the restart of a
+`spurd` that failed with `not the Raft leader` kills the SSH command before
+it starts the daemon again, and the log keeps its old content. Use `pkill -x
+spurd`. The registration of the second node needed two tries in this round
+too.
 ## Proven
 
 - `install inference` (now `default-cpu`) from the control-plane node: 93

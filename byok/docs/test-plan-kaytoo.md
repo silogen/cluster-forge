@@ -22,6 +22,11 @@ Points that cost time when they are missed:
   `/var/lib/k0s/manifests/kuberouter/kube-router.yaml` on the control-plane
   node. Without it OCI drops pod-to-pod packets between the nodes and the
   install stops in unrelated places.
+- Put `allow_admin_kubeconfig = true` in the `[cluster]` section of
+  `/etc/spur/spur.conf` on every node, before `spurctld` starts. The newer
+  Spur builds refuse `spur k8s kubeconfig --admin` over RPC without it, and
+  the worker holds no `k0s` admin file, so every plugin command fails on the
+  driver node. See finding 18.
 - A `spurd` that starts against a follower can end with `registration failed:
   not the Raft leader`. It does not retry. Start it again; the second try
   registers. Check with `spur nodes` that both hostnames are there before
