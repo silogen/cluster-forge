@@ -17,18 +17,13 @@ packages:
   - name: aim-engine
     values:
       aim-engine-chart:
-        # The CPU detector reads /proc/cpuinfo and writes the accelerator of
-        # every node as a node-feature-discovery label, for example
-        # feature.node.kubernetes.io/aim-accelerator.EPYC_9004=1. Its image is
-        # public on Docker Hub, so no pull secret is needed. Make the aim-pull
-        # Secret only to lift the Docker Hub rate limit, and give it here:
-        #   kubectl create secret docker-registry aim-pull -n aim-system \
-        #     --docker-server=docker.io --docker-username=<user> \
-        #     --docker-password=<token>
+        # No detector on CPU. The CPU detector writes its result into the
+        # node-feature-discovery feature file of the node, and NFD comes with
+        # the AMD GPU operator, which this profile does not hold. So the label
+        # never reaches the node, and the pod would only cost a 1.8 GiB image
+        # pull. The dummy model serves without the label.
         acceleratorDetector:
-          enable: true
-          cpu:
-            enable: true
+          enable: false
   - name: aim-catalog
     values:
       aim-cluster-model-source:

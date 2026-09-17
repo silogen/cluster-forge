@@ -75,15 +75,9 @@ Checks of the round:
   fills the disk, see the findings. If it ran, remove it again before the
   CPU round, and `spur k8s down --reset` then `spur k8s up` when the disk is
   full.
-- After `install demo --no-gpu`, the CPU detector runs: the DaemonSet whose
-  name ends with `-accelerator-detector-cpu` in `aim-system` is ready, and
-  the node holds the file
-  `/etc/kubernetes/node-feature-discovery/features.d/aim-accelerator-cpu`
-  with `feature.node.kubernetes.io/aim-accelerator.CPU=1`. The node gets no
-  label from it, because the `-cpu` profiles hold no node-feature-discovery;
-  see the findings. If the DaemonSet does not come up, set
-  `acceleratorDetector.enable: false` in both `-cpu` profiles and write the
-  finding down.
+- After `install demo --no-gpu`, `aim-system` holds no accelerator detector
+  DaemonSet: the `-cpu` profiles turn it off, because they hold no
+  node-feature-discovery to read its result. See the findings.
 - `install demo --no-gpu` stops at `aiwb` with `secret
   "aiwb-ui-keycloak-secret" not found` until the aiwb chart of core#4643 is
   vendored (finding 9). The 17 packages before it are the test of the
