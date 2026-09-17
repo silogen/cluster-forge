@@ -50,8 +50,13 @@ jobs:
       - name: Check version drift
         run: byok/tests/check-version-drift.sh
 
-      - name: Validation stops a bad profile
-        run: byok/tests/validate-negative.sh
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: byok/spur-inference/go.mod
+
+      - name: Test the spur-inference plugin
+        run: make -C byok/spur-inference assets test
 
   install-script-checks:
     runs-on: ubuntu-latest

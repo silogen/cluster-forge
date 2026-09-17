@@ -1,0 +1,68 @@
+# spur-inference
+
+`spur-inference` installs an AMD Enterprise AI profile on the Kubernetes
+cluster that Spur manages. Spur finds it on PATH and runs it as
+`spur inference ...`.
+
+The binary holds every Helm chart of the release, the profiles, the package
+metadata and the capability probes. At run time it needs no helm, kubectl, yq,
+jq or git, and no access to GitHub. There is one network need left: the cluster
+pulls the container images.
+
+## Build
+
+```sh
+make assets    # needs helm and the network once, it resolves chart dependencies
+make build     # needs neither
+```
+
+`make assets` copies `byok/capabilities.yaml`, `byok/profiles`, `byok/packages`
+and the smoke-test object into `assets/`. That directory is a copy, so it is not
+in git. `make all` does both steps.
+
+The version string comes from `REF`, which defaults to the current branch:
+
+```sh
+make build REF=v1.2.3
+```
+
+## Use
+
+```sh
+spur inference list
+spur inference install                  # the default profile, on AMD Instinct GPUs
+spur inference install --no-gpu         # default-cpu, on a cluster with no GPU
+spur inference install demo --var domain=example.com \
+  --var gatewayServiceType=LoadBalancer --var gatewayExternalIP=10.0.0.10
+spur inference status
+spur inference uninstall demo
+```
+
+A blank profile name is `default`. `--no-gpu` adds `-cpu` to the name, so
+`install --no-gpu` installs `default-cpu` and `install demo --no-gpu` installs
+`demo-cpu`. The binary never selects a profile on its own. It asks Spur for the
+GPU of every node and gives a warning when the profile and the GPUs do not go
+together: a `-cpu` profile on Instinct nodes, a GPU profile on a cluster with
+no GPU, or a GPU that is not Instinct.
+
+The binary writes an install record into the ConfigMap `install-record` of the
+namespace `inference-system`, one entry per profile. `uninstall` reads it and
+keeps every package that another recorded profile holds.
+
+Without `--kubeconfig` and without `KUBECONFIG` the binary asks `spur k8s
+kubeconfig --admin`, then the same command under `sudo -n`, then `sudo -n k0s
+kubeconfig admin`.
+
+## Test
+
+```sh
+make assets    # most tests read the embedded assets
+make test
+```
+
+The tests hold the Go probes to the capabilities that `capabilities.yaml`
+declares, load every profile and chart, check the variable rules, the profile
+format and the install record arithmetic, and hold every `-cpu` profile to its
+GPU twin. `byok/tests/optional-package-cycle.sh` needs a cluster and the built
+binary. `byok/docs/spur-inference-findings.md` keeps the results of the
+cluster tests.

@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	recordNamespace = "silo-system"
+	recordNamespace = "inference-system"
 	recordName      = "install-record"
 )
 

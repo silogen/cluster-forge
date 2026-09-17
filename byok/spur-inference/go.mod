@@ -1,4 +1,4 @@
-module github.com/silogen/cluster-forge/byok/spur-silo
+module github.com/silogen/cluster-forge/byok/spur-inference
 
 go 1.26.2
 

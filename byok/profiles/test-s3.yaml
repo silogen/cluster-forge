@@ -1,0 +1,10 @@
+# A profile for tests/optional-package-cycle.sh only. It puts the optional
+# seaweedfs packages on top of default-cpu, so that the test can install them,
+# remove them with the data, and prove that the base stays. No demo needs S3:
+# AIWB works without it, and only datasets, artifacts and S3-backed models
+# answer "storage unavailable".
+name: test-s3
+extends: default-cpu
+packages:
+  - name: seaweedfs-operator
+  - name: seaweedfs
