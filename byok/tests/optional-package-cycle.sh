@@ -5,7 +5,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BYOK="$HERE/.."
-PROFILE="${PROFILE:-$BYOK/profiles/inference.yaml}"
+PROFILE="${PROFILE:-$BYOK/profiles/default-cpu.yaml}"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 ok() { echo "ok: $*"; }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Smoke test for the inference profile. Run it against the cluster
+# Smoke test for the default profiles. Run it against the cluster
 # after bootstrap.sh install. Set KEEP=1 to keep the test namespace.
-# On an inference-demo cluster run it with NAMESPACE=workbench: routing is on
+# On a demo cluster run it with NAMESPACE=workbench: routing is on
 # there, and an AIMService in a namespace without the project-id label gets
 # no workload-id label and a routing error.
 # The dummy image is public. Set PULL_SECRET_JSON to a docker config

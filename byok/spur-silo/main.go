@@ -59,11 +59,22 @@ func run(ctx context.Context, args []string) error {
 		return err
 	}
 
+	// A blank name is the default profile, and --no-gpu names its CPU twin.
+	// Both rules apply here, so that install and validate agree on the name.
+	if command == "install" || command == "validate" {
+		if target == "" {
+			target = "default"
+		}
+		if opts.noGPU {
+			if strings.HasSuffix(target, "-cpu") {
+				return fmt.Errorf("profile %s already ends with -cpu, --no-gpu is not needed", target)
+			}
+			target += "-cpu"
+		}
+	}
+
 	switch command {
 	case "install":
-		if target == "" {
-			return fmt.Errorf("a profile name is needed")
-		}
 		return cmdInstall(ctx, target, opts)
 	case "uninstall":
 		if target == "" {
@@ -71,9 +82,6 @@ func run(ctx context.Context, args []string) error {
 		}
 		return cmdUninstall(ctx, target, opts)
 	case "validate":
-		if target == "" {
-			return fmt.Errorf("a profile name is needed")
-		}
 		return cmdValidate(ctx, target, opts)
 	case "status":
 		return cmdStatus(ctx, opts)
@@ -163,8 +171,9 @@ Options:
                        aim-pull in the namespace aim-system from it. The
                        images are public; a secret only lifts the Docker Hub
                        rate limit.
-  --no-gpu             Do not select the GPU profile on a cluster that has
-                       AMD Instinct GPUs.
+  --no-gpu             Add -cpu to the profile name: install and validate
+                       then use the profile with no AMD GPU operator. A
+                       cluster with no GPU needs it.
   --smoke-test         Run the smoke test of the profile after the install.
   --keep-data          Keep the PVCs and the CRDs of the profile.
 
@@ -238,7 +247,43 @@ func cmdValidate(ctx context.Context, name string, opts options) error {
 	if err != nil {
 		return err
 	}
+	warnAboutGPUs(p.Name)
 	return validateProfile(context.Background(), c, p)
+}
+
+// warnAboutGPUs tells the operator when the profile name and the GPUs that
+// Spur reports do not go together. It never changes the name and never stops
+// the command: the operator can know more than the scan, for example a node
+// that Spur has not registered yet.
+func warnAboutGPUs(name string) {
+	nodes, err := gpuNodes()
+	if err != nil {
+		infof("no GPU check: %v", err)
+		return
+	}
+	cpuProfile := strings.HasSuffix(name, "-cpu")
+	var instinct []string
+	for _, n := range nodes {
+		switch classifyGPU(n.Type) {
+		case gpuInstinct:
+			instinct = append(instinct, n.Node)
+		case gpuOtherAMD:
+			infof("warning: node %s has the GPU %s, which is not an AMD Instinct GPU.\n"+
+				"  The GPU profile supports Instinct only; the -cpu profile is the supported choice on this node.\n"+
+				"  The node-feature-discovery rule of the GPU operator labels this node as an AMD GPU node too,\n"+
+				"  so on the GPU profile the Instinct detector schedules onto it, and what it reports there is untested.",
+				n.Node, n.Type)
+		}
+	}
+	switch {
+	case cpuProfile && len(instinct) > 0:
+		infof("warning: profile %s does not use the AMD Instinct GPUs of nodes %s",
+			name, strings.Join(instinct, ","))
+	case !cpuProfile && len(nodes) == 0:
+		infof("warning: Spur reports no GPU on this cluster, and profile %s installs the AMD GPU operator\n"+
+			"  and the GPU detector. A cluster with no GPU needs --no-gpu, which selects profile %s-cpu.",
+			name, name)
+	}
 }
 
 // validateProfile holds every `requires` of a package to an earlier package of
@@ -298,18 +343,11 @@ func cmdInstall(ctx context.Context, name string, opts options) error {
 	}
 	defer c.close()
 
-	if name == "inference" && !opts.noGPU {
-		if nodes := instinctNodes(); len(nodes) > 0 {
-			infof("detected AMD GPUs on nodes %s, using profile inference-gpu",
-				strings.Join(nodes, ","))
-			name = "inference-gpu"
-		}
-	}
-
 	p, err := loadProfile(name, opts.vars)
 	if err != nil {
 		return err
 	}
+	warnAboutGPUs(p.Name)
 	if err := refuseOverlappingProfile(ctx, c, p); err != nil {
 		return err
 	}

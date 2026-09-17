@@ -113,18 +113,25 @@ func findKubeconfig(given string) (string, bool, error) {
 		"or run this on the control-plane node")
 }
 
-// instinctNodes asks Spur which nodes report an AMD Instinct GPU. Radeon is
-// never selected: the GPU profile supports Instinct only.
-func instinctNodes() []string {
+// gpuNode is one GPU entry of the Gres line of `spur show node`: the node
+// name and the GPU type string as Spur names it.
+type gpuNode struct {
+	Node string
+	Type string
+}
+
+// gpuNodes asks Spur for the GPU of every node. A node with two GPU entries
+// gives two items.
+func gpuNodes() ([]gpuNode, error) {
 	spur := os.Getenv("SPUR_BIN")
 	if spur == "" {
 		spur = "spur"
 	}
 	out, err := exec.Command(spur, "show", "node").Output()
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("%s show node: %w", spur, err)
 	}
-	var nodes []string
+	var nodes []gpuNode
 	var current string
 	for _, line := range strings.Split(string(out), "\n") {
 		trimmed := strings.TrimSpace(line)
@@ -133,25 +140,48 @@ func instinctNodes() []string {
 			continue
 		}
 		if gres, ok := strings.CutPrefix(trimmed, "Gres="); ok && current != "" {
-			if hasInstinct(gres) {
-				nodes = append(nodes, current)
+			for _, typ := range gpuTypesOf(gres) {
+				nodes = append(nodes, gpuNode{Node: current, Type: typ})
 			}
 		}
 	}
-	return nodes
+	return nodes, nil
 }
 
-// A Spur GPU type of an Instinct card is mi<digits>, for example mi300x.
-func hasInstinct(gres string) bool {
+// gpuTypesOf reads the GPU types out of one Gres line, whose entries are
+// gpu:<type>:<count> separated by commas.
+func gpuTypesOf(gres string) []string {
+	var types []string
 	for _, entry := range strings.Split(gres, ",") {
-		parts := strings.Split(entry, ":")
-		if len(parts) < 2 || parts[0] != "gpu" {
+		parts := strings.Split(strings.TrimSpace(entry), ":")
+		if len(parts) < 2 || parts[0] != "gpu" || parts[1] == "" {
 			continue
 		}
-		model := strings.ToLower(parts[1])
-		if rest, ok := strings.CutPrefix(model, "mi"); ok && rest != "" && rest[0] >= '0' && rest[0] <= '9' {
-			return true
-		}
+		types = append(types, parts[1])
 	}
-	return false
+	return types
+}
+
+type gpuKind int
+
+const (
+	gpuNone gpuKind = iota
+	gpuInstinct
+	gpuOtherAMD
+)
+
+// classifyGPU sorts a Spur GPU type string. Spur names an Instinct card mi
+// plus digits, for example mi300x. Every other type is an AMD GPU that is
+// not Instinct: rx9070xt, amdgpu-0x1234, or a product name with hyphens. The
+// rule is the negative one so that it also covers cards Spur does not know
+// yet.
+func classifyGPU(typ string) gpuKind {
+	model := strings.ToLower(strings.TrimSpace(typ))
+	if model == "" {
+		return gpuNone
+	}
+	if rest, ok := strings.CutPrefix(model, "mi"); ok && rest != "" && rest[0] >= '0' && rest[0] <= '9' {
+		return gpuInstinct
+	}
+	return gpuOtherAMD
 }

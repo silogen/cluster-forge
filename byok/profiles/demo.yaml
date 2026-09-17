@@ -1,9 +1,9 @@
-# A reference demo installation: log in through Dex, deploy a model from the
-# catalog with the AIWB UI, and chat with it on CPU. It is not a production
-# installation. It extends inference, so it also holds every package
-# of that profile.
-name: inference-demo
-extends: inference
+# A reference demo installation on AMD Instinct GPUs: log in through Dex,
+# deploy a model from the catalog with the AIWB UI, and chat with it. It is
+# not a production installation. It extends default, so it also holds every
+# package of that profile.
+name: demo
+extends: default
 vars:
   # The DNS name under which the cluster answers. Required. Use a nip.io name
   # such as 203.0.113.10.nip.io when there is no real DNS name.

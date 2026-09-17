@@ -67,7 +67,7 @@ var probes = map[string]func(context.Context, *cluster) bool{
 	"catalog.aim": func(ctx context.Context, c *cluster) bool {
 		return c.any(ctx, gvr("aim.eai.amd.com", "v1alpha1", "aimclustermodelsources"))
 	},
-	"secrets.inference-demo": func(ctx context.Context, c *cluster) bool {
+	"secrets.demo": func(ctx context.Context, c *cluster) bool {
 		return c.secretsExist(ctx, "aiwb", "aiwb-cnpg-user", "aiwb-oidc-client-secret",
 			"aiwb-nextauth-secret", "minio-credentials", "cluster-auth-admin-token") &&
 			c.secretsExist(ctx, "dex", "dex-credentials") &&

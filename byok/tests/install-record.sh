@@ -72,7 +72,7 @@ record_of() { # <profile>... -> a ConfigMap json whose data holds those profiles
 
 profile_packages_json() { # <profile> -> the package names, extends resolved
   local p="$1"
-  if [ "$p" = inference-demo ]; then
+  if [ "$p" = demo ]; then
     printf '%s %s' "$base_packages" "$demo_only" | tr ' ' '\n' | jq -Rc -s 'split("\n") | map(select(length > 0))'
   else
     printf '%s' "$base_packages" | tr ' ' '\n' | jq -Rc -s 'split("\n") | map(select(length > 0))'
@@ -82,23 +82,23 @@ profile_packages_json() { # <profile> -> the package names, extends resolved
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 # 1. Both profiles recorded: the shared base stays.
-reset_state "$(record_of inference-demo inference)"
-"$HERE/../bootstrap.sh" remove --profile "$HERE/../profiles/inference-demo.yaml" --purge >/dev/null
+reset_state "$(record_of demo default)"
+"$HERE/../bootstrap.sh" remove --profile "$HERE/../profiles/demo.yaml" --purge >/dev/null
 
 for pkg in $demo_only; do
-  grep -qx "$pkg" "$tmp/uninstalled" || fail "$pkg of inference-demo was not removed"
+  grep -qx "$pkg" "$tmp/uninstalled" || fail "$pkg of demo was not removed"
 done
 for pkg in $base_packages; do
-  grep -qx "$pkg" "$tmp/uninstalled" && fail "$pkg is still needed by inference, but it was removed"
+  grep -qx "$pkg" "$tmp/uninstalled" && fail "$pkg is still needed by default, but it was removed"
 done
 [ "$(head -n1 "$tmp/uninstalled")" = aiwb ] \
   || fail "the removal did not start from the last package of the profile, it started from $(head -n1 "$tmp/uninstalled")"
-grep -q '"inference-demo":null' "$tmp/patches" || fail "the install record still holds inference-demo"
+grep -q '"demo":null' "$tmp/patches" || fail "the install record still holds demo"
 echo "ok: a package that another recorded profile holds stays"
 
-# 2. Only inference-demo recorded: the base goes too, in reverse install order.
-reset_state "$(record_of inference-demo)"
-"$HERE/../bootstrap.sh" remove --profile "$HERE/../profiles/inference-demo.yaml" --purge >/dev/null
+# 2. Only demo recorded: the base goes too, in reverse install order.
+reset_state "$(record_of demo)"
+"$HERE/../bootstrap.sh" remove --profile "$HERE/../profiles/demo.yaml" --purge >/dev/null
 
 for pkg in $base_packages $demo_only; do
   grep -qx "$pkg" "$tmp/uninstalled" || fail "$pkg was not removed"
@@ -110,7 +110,7 @@ echo "ok: the whole profile goes when no other profile holds its packages"
 
 # 3. Nothing recorded: the profile file gives the package list.
 reset_state '{}' "$base_packages"
-"$HERE/../bootstrap.sh" remove --profile "$HERE/../profiles/inference.yaml" >/dev/null
+"$HERE/../bootstrap.sh" remove --profile "$HERE/../profiles/default-cpu.yaml" >/dev/null
 for pkg in $base_packages; do
   grep -qx "$pkg" "$tmp/uninstalled" || fail "$pkg was not removed without an install record"
 done
@@ -118,15 +118,15 @@ grep -q 'delete namespace' "$tmp/deletes" && fail "a remove without --purge dele
 echo "ok: without an install record the profile file gives the packages"
 
 # 4. A package that is not installed is skipped, not an error.
-reset_state "$(record_of inference)" ""
+reset_state "$(record_of default-cpu)" ""
 
-"$HERE/../bootstrap.sh" remove --profile "$HERE/../profiles/inference.yaml" >/dev/null
+"$HERE/../bootstrap.sh" remove --profile "$HERE/../profiles/default-cpu.yaml" >/dev/null
 [ ! -s "$tmp/uninstalled" ] || fail "an uninstall ran for a package that is not installed"
 echo "ok: a package that is not installed is skipped"
 
 # 5. An installed package outside the record still guards its capability.
 reset_state '{}'
-out="$("$HERE/../bootstrap.sh" remove --profile "$HERE/../profiles/inference.yaml" 2>&1)" \
+out="$("$HERE/../bootstrap.sh" remove --profile "$HERE/../profiles/default-cpu.yaml" 2>&1)" \
   && fail "the base profile went away under an installed aiwb"
 grep -q 'aiwb is installed and needs' <<<"$out" \
   || fail "the message does not name the package that still needs the capability: $out"

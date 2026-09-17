@@ -77,12 +77,12 @@ func TestProfilesLoadAndNameEveryPackage(t *testing.T) {
 	}
 }
 
-func TestInferenceDemoExtendsInferenceInOrder(t *testing.T) {
-	base, err := loadProfile("inference", nil)
+func TestDemoExtendsDefaultInOrder(t *testing.T) {
+	base, err := loadProfile("default", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	demo, err := loadProfile("inference-demo", map[string]string{
+	demo, err := loadProfile("demo", map[string]string{
 		"domain": "example.com", "gatewayServiceType": "ClusterIP", "gatewayExternalIP": "10.0.0.1",
 	})
 	if err != nil {
@@ -90,48 +90,33 @@ func TestInferenceDemoExtendsInferenceInOrder(t *testing.T) {
 	}
 	for i, entry := range base.Packages {
 		if demo.Packages[i].Name != entry.Name {
-			t.Fatalf("package %d of inference-demo is %s, the base has %s",
+			t.Fatalf("package %d of demo is %s, the base has %s",
 				i, demo.Packages[i].Name, entry.Name)
 		}
 	}
 	if len(demo.Packages) <= len(base.Packages) {
-		t.Fatal("inference-demo adds no package of its own")
+		t.Fatal("demo adds no package of its own")
 	}
 }
 
 func TestARequiredVariableWithoutAValueStops(t *testing.T) {
-	if _, err := loadProfile("inference-demo", nil); err == nil {
-		t.Fatal("inference-demo loaded without the domain variable")
+	if _, err := loadProfile("demo", nil); err == nil {
+		t.Fatal("demo loaded without the domain variable")
 	}
 }
 
 func TestAnUndeclaredVariableStops(t *testing.T) {
-	if _, err := loadProfile("inference", map[string]string{"nowhere": "x"}); err == nil {
+	if _, err := loadProfile("default", map[string]string{"nowhere": "x"}); err == nil {
 		t.Fatal("a variable that the profile does not declare was accepted")
-	}
-}
-
-func TestInstinctDetection(t *testing.T) {
-	cases := map[string]bool{
-		"gpu:mi300x:1,gpu:mi300x:1": true,
-		"gpu:mi250x:1":              true,
-		"gpu:rx9070:1":              false,
-		"gpu:amdgpu-0x1234:1":       false,
-		"":                          false,
-	}
-	for gres, want := range cases {
-		if got := hasInstinct(gres); got != want {
-			t.Errorf("hasInstinct(%q) = %v, want %v", gres, got, want)
-		}
 	}
 }
 
 func TestPackagesOfOtherProfiles(t *testing.T) {
 	record := map[string]recordEntry{
-		"inference": {Packages: []string{"kyverno", "kserve"}},
-		"inference-demo":          {Packages: []string{"kyverno", "kserve", "aiwb"}},
+		"default": {Packages: []string{"kyverno", "kserve"}},
+		"demo":    {Packages: []string{"kyverno", "kserve", "aiwb"}},
 	}
-	keep := packagesOfOtherProfiles(record, "inference-demo")
+	keep := packagesOfOtherProfiles(record, "demo")
 	if !keep["kyverno"] || !keep["kserve"] {
 		t.Error("a package of another recorded profile was not kept")
 	}
@@ -159,18 +144,18 @@ metadata:
 
 func TestOverlappingProfile(t *testing.T) {
 	base := []string{"kyverno", "kserve"}
-	record := map[string]recordEntry{"inference": {Packages: base}}
+	record := map[string]recordEntry{"default": {Packages: base}}
 
-	if other, _ := overlappingProfile(record, "inference", "", base); other != "" {
+	if other, _ := overlappingProfile(record, "default", "", base); other != "" {
 		t.Error("an install of the same profile is an upgrade, not an overlap")
 	}
-	if other, _ := overlappingProfile(record, "inference-demo", "inference",
+	if other, _ := overlappingProfile(record, "demo", "default",
 		[]string{"kyverno", "kserve", "aiwb"}); other != "" {
 		t.Error("a profile that extends the installed one is not an overlap")
 	}
-	other, shared := overlappingProfile(record, "inference-gpu", "",
-		[]string{"kyverno", "kserve", "amd-gpu-operator"})
-	if other != "inference" || len(shared) != 2 {
+	other, shared := overlappingProfile(record, "default-cpu", "",
+		[]string{"kyverno", "kserve", "aim-catalog"})
+	if other != "default" || len(shared) != 2 {
 		t.Errorf("two profiles over the same packages gave %q %v", other, shared)
 	}
 	if other, _ := overlappingProfile(record, "other", "", []string{"nothing"}); other != "" {
@@ -179,21 +164,21 @@ func TestOverlappingProfile(t *testing.T) {
 }
 
 func TestLoadProfileKeepsExtends(t *testing.T) {
-	p, err := loadProfile("inference-demo", map[string]string{
+	p, err := loadProfile("demo", map[string]string{
 		"domain": "example.com", "gatewayServiceType": "ClusterIP", "gatewayExternalIP": "10.0.0.1",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Extends != "inference" {
-		t.Errorf("inference-demo extends %q", p.Extends)
+	if p.Extends != "default" {
+		t.Errorf("demo extends %q", p.Extends)
 	}
 }
 
 func TestASharedCRDOfAKeptPackageIsProtected(t *testing.T) {
-	// envoy-gateway of inference-demo ships the Gateway API CRDs in a subchart, and
-	// gateway-api-crds of inference ships the same names. The
-	// uninstall of inference-demo must leave them to the profile that stays.
+	// envoy-gateway of demo ships the Gateway API CRDs in a subchart, and
+	// gateway-api-crds of default ships the same names. The uninstall of demo
+	// must leave them to the profile that stays.
 	base := chartCRDNames("gateway-api-crds")
 	if len(base) == 0 {
 		t.Fatal("gateway-api-crds ships no CRD, the fixture is wrong")
