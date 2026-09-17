@@ -1,12 +1,12 @@
-# Test plan: spur-silo on Kaytoo VMs
+# Test plan: spur-inference on Kaytoo VMs
 
-The repeatable CPU test round of the `spur silo` plugin. It needs no GPU and no
+The repeatable CPU test round of the `spur inference` plugin. It needs no GPU and no
 cluster-bloom. The GPU path has its own plan in
 [Test plan: byok on a GPU node](test-plan-gpu.md), and the results of both are
-in [spur-silo test findings](spur-silo-findings.md).
+in [spur-inference test findings](spur-inference-findings.md).
 
 The cluster itself comes from the `spur-kaytoo-cluster` skill. This page adds
-only what the `spur-silo` test needs on top of it.
+only what the `spur-inference` test needs on top of it.
 
 ## 1. The cluster
 
@@ -26,44 +26,71 @@ Points that cost time when they are missed:
   not the Raft leader`. It does not retry. Start it again; the second try
   registers. Check with `spur nodes` that both hostnames are there before
   `spur k8s up`.
-- The VMs hold no `kubectl`. `spur silo` does not need one, but a test that
+- The VMs hold no `kubectl`. `spur inference` does not need one, but a test that
   looks at pods does. Install it on the driver node, or read the cluster from
   the control-plane node with `sudo k0s kubectl`.
 
 ## 2. The binary
 
-Build `spur-silo` from the branch under test and copy it to the driver node:
+Build `spur-inference` from the branch under test and copy it to the driver
+node:
 
 ```bash
-make -C byok/spur-silo all REF=<branch>
-scp byok/spur-silo/spur-silo ubuntu@<driver public ip>:/tmp/
-ssh ubuntu@<driver public ip> 'sudo install -m755 /tmp/spur-silo /usr/local/bin/'
+make -C byok/spur-inference all REF=<branch>
+scp byok/spur-inference/spur-inference ubuntu@<driver public ip>:/tmp/
+ssh ubuntu@<driver public ip> 'sudo install -m755 /tmp/spur-inference /usr/local/bin/'
 ```
 
-`spur silo version` must answer with the ref that `REF` gave.
+`spur inference version` must answer with the ref that `REF` gave.
 
 ## 3. The round
 
+The VMs have no GPU, so the round uses the `-cpu` profiles through `--no-gpu`.
+
 ```bash
-spur silo list
-spur silo validate  inference --var domain=<ip>.nip.io
-spur silo install   inference --smoke-test --var ...
-spur silo status
-spur silo install   inference-demo --var domain=<ip>.nip.io \
+spur inference list
+spur inference install                  # warns: no GPU, the default profile installs the GPU operator
+spur inference uninstall --yes
+spur inference validate --no-gpu        # validates default-cpu
+spur inference validate demo --no-gpu --var domain=<ip>.nip.io   # validates demo-cpu
+spur inference install --no-gpu --smoke-test
+spur inference status
+spur inference install demo --no-gpu --var domain=<ip>.nip.io \
                     --var gatewayServiceType=ClusterIP --var gatewayExternalIP=<node ip>
-spur silo uninstall inference-demo      # the base profile and its CRDs must stay
-spur silo uninstall inference
+spur inference uninstall demo-cpu --yes     # the base profile and its CRDs must stay
+spur inference uninstall                    # shows the plan and asks; answer n, then y
+spur inference status                       # no profile is recorded
 ```
 
 With no load balancer, give `gatewayServiceType=ClusterIP` and
 `gatewayExternalIP=<node private ip>`. The domain only has to resolve for a
 browser test; `<private ip>.nip.io` is enough for an install.
 
-`uninstall` has no `--yes`: it asks nothing and removes at once.
+Checks of the round:
+
+- `install` with no name and no `--no-gpu` prints the warning that Spur
+  reports no GPU and that the profile installs the GPU operator. Remove it
+  again before the CPU round.
+- After `install demo --no-gpu`, the CPU detector runs: the DaemonSet whose
+  name ends with `-accelerator-detector-cpu` in `aim-system` is ready, and the
+  node holds a label `feature.node.kubernetes.io/aim-accelerator.EPYC_*`. If
+  it does not, set `acceleratorDetector.enable: false` in both `-cpu`
+  profiles and write the finding down.
+- `uninstall` with no name and no `--yes` shows the plan and asks. After `n`
+  nothing went away; after `y`, `status` reports no profile.
+- On a node with a Radeon card, when one is available: `spur show node` shows
+  a `gpu:` type that is not `mi` plus digits, and both `validate` and
+  `validate --no-gpu` print the warning that names the node and the type.
+  When no such node is available, the table test of `kube_test.go` is the
+  only check, and the findings say so.
+
+`uninstall` asks `Remove? [y/N]` on a terminal. `--yes` skips the question,
+and a run whose stdin is not a terminal needs it.
 
 Error paths to try in the same round: a missing `--var`, an unknown profile,
-`--no-gpu` over a profile that is already installed (it must refuse and name
-the shared packages), and `spur plugin list` with a shadowing binary.
+`install --no-gpu` over an installed `default` (it must refuse and name the
+shared packages), `install default-cpu --no-gpu` (refused, the name already
+ends with `-cpu`), and `spur plugin list` with a shadowing binary.
 
 ## 4. A chart that is not released yet
 
@@ -94,7 +121,7 @@ Then build the assets by hand, because `make assets` runs `helm dependency
 build`, which tries to pull the vendored chart from the registry again:
 
 ```bash
-cd /tmp/silo-test/byok/spur-silo
+cd /tmp/silo-test/byok/spur-inference
 rm -rf assets && mkdir -p assets/tests
 cp ../capabilities.yaml assets/ && cp -r ../profiles assets/profiles && cp -r ../packages assets/packages
 cp ../tests/aimservice-dummy.yaml assets/tests/

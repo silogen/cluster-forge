@@ -68,8 +68,8 @@ Copy `spurctld`, `spurd` and `spur` to `/usr/local/bin` of the node.
 - `cluster_name` at the top level. The daemon does not start without it.
 - `[controller] node_id = 1` and `peers` with the own address only.
 - `[cluster] enabled = true` before `spurctld` starts, and
-  `allow_admin_kubeconfig = true`, because `byok/spur/spur-silo` asks Spur for
-  the admin kubeconfig.
+  `allow_admin_kubeconfig = true`, because `spur-inference` asks Spur for the
+  admin kubeconfig.
 - One `[[partitions]]` block with the hostname of the node.
 
 Open the k0s CIDRs in the host firewall, `10.244.0.0/16` and `10.96.0.0/12`.
@@ -111,8 +111,9 @@ the manual install works. The capability name `gpu.amd` is already reserved in
 
 ## Phase 4: aim-engine only, on GPU
 
-A new profile `byok/profiles/inference-gpu.yaml` that extends
-`inference`:
+The profile `byok/profiles/default.yaml`, the GPU twin of `default-cpu`. It
+was planned as `inference-gpu`, an extends child of `inference`, and became a
+full copy because the GPU operator must install before aim-engine:
 
 - `aim-catalog` with `hardwareFamilies: [instinct]` in place of `epyc`.
 - `aim-engine` with `acceleratorDetector.enable: true`. The GPU operator brings
@@ -120,16 +121,18 @@ A new profile `byok/profiles/inference-gpu.yaml` that extends
 - `kyverno` and `kyverno-policies-storage-local-path` stay, because local-path
   gives ReadWriteOnce only.
 
-Install from a checkout on the node, because the profile is not pushed:
+Build the binary from the branch under test and copy it to the node, as
+[Set up one node for byok with Spur](spur-node-setup.md) shows:
 
 ```bash
-tar czf /tmp/cf.tgz byok sources root && scp /tmp/cf.tgz ubuntu@10.0.0.163:
-ssh ubuntu@10.0.0.163 'mkdir -p cf && tar xzf cf.tgz -C cf'
-ssh ubuntu@10.0.0.163 'cf/byok/spur/spur-silo install inference-gpu'
+make -C byok/spur-inference assets build REF=<branch>
+scp byok/spur-inference/spur-inference ubuntu@10.0.0.163:/tmp/
+ssh ubuntu@10.0.0.163 'sudo install -m755 /tmp/spur-inference /usr/local/bin/ && spur inference install'
 ```
 
-`install inference` selects the GPU profile by itself when a node
-reports an AMD Instinct GPU to Spur; the name above asks for it directly.
+`install` with no name is `default`, the GPU profile. The plugin asks Spur for
+the GPU of every node and warns when the profile and the GPUs do not go
+together; `--no-gpu` installs `default-cpu` instead.
 
 The AIM images are public on Docker Hub. Give `--pull-secret <docker-config>`
 only to lift the rate limit of an anonymous pull.
@@ -141,28 +144,28 @@ steps stay the same: wait for `Ready`, port-forward the predictor Service, and
 send a `/v1/chat/completions` request.
 
 Measure the footprint with `footprint/footprint.sh` and write
-`docs/footprint-inference-gpu.md`.
+`docs/footprint-default.md`.
 
 Gate: the model answers from the GPU. Write every finding in
 [Future work](future-work.md).
 
 A larger model on 8 GPUs comes only after the 8B model answers.
 
-## Phase 5: the inference-demo profile
+## Phase 5: the demo profile
 
 Two possible ways. The first way is also a test result.
 
-1. Install `inference-demo` on top of the same cluster. The risk is known: the
+1. Install `demo` on top of the same cluster. The risk is known: the
    `aiwb` chart and the `aim-engine` chart make the same
-   `AIMClusterRuntimeConfig default` object, and the `inference`
+   `AIMClusterRuntimeConfig default` object, and the `default`
    profile gives that object to `aim-engine`. If Helm refuses, that is a
    finding for [Future work](future-work.md).
-2. If way 1 fails: `spur k8s down`, `spur k8s up`, then `inference-demo` alone.
+2. If way 1 fails: `spur k8s down`, `spur k8s up`, then `demo` alone.
 
 The node has no load balancer and no public DNS name, so:
 
 ```bash
-cf/byok/spur/spur-silo install inference-demo \
+spur inference install demo \
   --var domain=10.0.0.163.nip.io \
   --var gatewayServiceType=ClusterIP \
   --var gatewayExternalIP=10.0.0.163
@@ -193,5 +196,5 @@ Ask before this phase starts.
 ## Out of scope
 
 - More than one node, and high availability.
-- S3. The `seaweedfs` packages stay comments in the `inference-demo` profile.
+- S3. The `seaweedfs` packages stay comments in the `demo` profile.
 - AIRM, Kaiwo and Kueue. They are not part of the byok path.
