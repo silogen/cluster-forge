@@ -16,17 +16,13 @@ vars:
   gatewayExternalIP: ""
 packages:
   # Replaces the entry of the base profile as a whole, so it restates the
-  # detector values of default-cpu and adds three keys. The aiwb chart owns
+  # detector value of default-cpu and adds three keys. The aiwb chart owns
   # the AIMClusterRuntimeConfig default object, so aim-engine must not make it.
-  # The detector stays on: without it the model gets no accelerator, and the
-  # fault shows only when somebody deploys a model.
   - name: aim-engine
     values:
       aim-engine-chart:
         acceleratorDetector:
-          enable: true
-          cpu:
-            enable: true
+          enable: false
         crd:
           enable: false
         clusterRuntimeConfig:
