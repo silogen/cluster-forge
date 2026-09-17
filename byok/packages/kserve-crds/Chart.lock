@@ -1,0 +1,6 @@
+dependencies:
+- name: kserve-crd
+  repository: file://../../../sources/kserve-crds/v0.16.0
+  version: v0.16.0
+digest: sha256:7974f9ac95338c6010964630b746a2a532de8e85c073a94cc705c28cf73c138c
+generated: "2026-09-09T15:37:54.468186137+03:00"

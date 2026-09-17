@@ -1,0 +1,53 @@
+# The reference profile on AMD Instinct GPUs. It gives one model endpoint
+# served by aim-engine and KServe, with the AMD GPU operator under it.
+#
+# The default-cpu profile is a copy of this list with no GPU packages, not an
+# extends child: the list order is the install order, and a package that a
+# child profile adds goes last. The GPU operator must install before
+# aim-engine, because the accelerator detector of aim-engine reads the node
+# labels that node-feature-discovery writes.
+name: default
+packages:
+  # aim-engine 0.2.5 asks for ReadWriteMany cache volumes. A cluster whose
+  # default StorageClass gives ReadWriteOnce only, for example
+  # local-path-provisioner, needs this admission mutation. Take both packages
+  # out when your default StorageClass gives ReadWriteMany.
+  - name: kyverno
+  - name: kyverno-policies-storage-local-path
+  - name: cert-manager
+  # The node keeps its own ROCm driver: the DeviceConfig of the package holds
+  # driver.enable false.
+  - name: amd-gpu-operator
+  - name: amd-gpu-operator-config
+    values:
+      amd-gpu-operator-config:
+        # k0s keeps the kubelet root under /var/lib/k0s, and the metrics
+        # exporter does not start when the pod-resources path is wrong. Take
+        # this value out on a cluster that keeps the kubelet in the usual
+        # place, such as RKE2, k3s or vanilla Kubernetes.
+        podResourceAPISocketPath: /var/lib/k0s/kubelet/pod-resources
+  - name: kserve-crds
+  - name: kserve
+  - name: gateway-api-crds
+  - name: aim-engine-crds
+  - name: aim-engine
+    values:
+      aim-engine-chart:
+        # The detector reads the node-feature-discovery labels of the GPU
+        # operator and writes the accelerator of every node. Its image is
+        # public on Docker Hub, so no pull secret is needed. Make the aim-pull
+        # Secret only to lift the Docker Hub rate limit, and give it here:
+        #   kubectl create secret docker-registry aim-pull -n aim-system \
+        #     --docker-server=docker.io --docker-username=<user> \
+        #     --docker-password=<token>
+        acceleratorDetector:
+          enable: true
+          # The CPU detector has no node affinity, so it also runs on a GPU
+          # node. There it reports model=CPU count=1 and its startup probe
+          # never passes. A GPU profile does not need it.
+          cpu:
+            enable: false
+  - name: aim-catalog
+    values:
+      aim-cluster-model-source:
+        hardwareFamilies: [instinct]

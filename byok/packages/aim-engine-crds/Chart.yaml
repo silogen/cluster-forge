@@ -1,0 +1,9 @@
+apiVersion: v2
+name: aim-engine-crds
+description: AIM engine custom resource definitions
+type: application
+version: 0.1.0
+dependencies:
+  - name: aim-engine-crds-chart
+    version: 0.2.5
+    repository: oci://registry-1.docker.io/amdenterpriseai

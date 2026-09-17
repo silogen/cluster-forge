@@ -1,0 +1,6 @@
+name: kyverno-policies-storage-local-path
+namespace: kyverno
+provides:
+  - storage.access-mode-mutation
+requires:
+  - policy.kyverno

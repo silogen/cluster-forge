@@ -1,0 +1,34 @@
+# GPU smoke-test service for the default profile. The image is
+# public on Docker Hub. PULL_SECRET_JSON is optional: it lifts the Docker Hub
+# rate limit of an anonymous pull.
+#
+# The AIM image holds the recipe, but the auto-made template asks for no GPU,
+# and then the runtime finds no GPU and no compatible profile. spec.resources
+# gives the GPU to the predictor.
+#
+# The tag is 0.11.1 and not the 0.8.5 of the first test: the amdsmi library of
+# the 0.8.5 image fails amdsmi_get_gpu_activity with AMDSMI_STATUS_UNEXPECTED_DATA
+# against the amdgpu driver 6.19.14 of the host, and the detector of the runtime
+# then reports "Detected GPU: NONE" and finds no profile.
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMService
+metadata:
+  name: aim-llama-3-1-8b
+  namespace: aims-test
+spec:
+  replicas: 1
+  # local-path-provisioner gives ReadWriteOnce only, and Shared mode asks for
+  # ReadWriteMany.
+  caching:
+    mode: Dedicated
+  template:
+    allowUnoptimized: true
+  resources:
+    requests:
+      amd.com/gpu: "1"
+    limits:
+      amd.com/gpu: "1"
+  imagePullSecrets:
+    - name: aim-pull
+  model:
+    image: docker.io/amdenterpriseai/aim-meta-llama-llama-3-1-8b-instruct:0.11.1

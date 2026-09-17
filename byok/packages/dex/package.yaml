@@ -1,0 +1,7 @@
+name: dex
+namespace: dex
+provides:
+  - auth.oidc
+requires:
+  - gateway.https
+  - secrets.demo
