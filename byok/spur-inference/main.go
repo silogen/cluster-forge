@@ -1,8 +1,8 @@
-// spur-silo installs an AMD Enterprise AI profile on the Kubernetes cluster
-// that Spur manages. Spur runs it as `spur silo ...` when it is on PATH; it
-// also works when it is called directly. Every chart it installs is inside the
-// binary, so it needs no helm, kubectl, yq, jq or git, and no network access to
-// GitHub.
+// spur-inference installs an AMD Enterprise AI profile on the Kubernetes cluster
+// that Spur manages. Spur runs it as `spur inference ...` when it is on PATH;
+// it also works when it is called directly. Every chart it installs is inside
+// the binary, so it needs no helm, kubectl, yq, jq or git, and no network access
+// to GitHub.
 package main
 
 import (
@@ -88,7 +88,7 @@ func run(ctx context.Context, args []string) error {
 	case "list":
 		return cmdList()
 	case "version":
-		fmt.Printf("spur-silo %s\n", version)
+		fmt.Printf("spur-inference %s\n", version)
 		return nil
 	case "help", "-h", "--help":
 		usage(os.Stdout)
@@ -152,13 +152,15 @@ func parseArgs(args []string) (string, options, error) {
 
 func usage(w *os.File) {
 	fmt.Fprint(w, `Usage:
-  spur silo install   <profile> [--var name=value]... [--kubeconfig <path>]
-                      [--pull-secret <docker-config.json>] [--no-gpu] [--smoke-test]
-  spur silo uninstall <profile> [--keep-data] [--kubeconfig <path>]
-  spur silo status    [--kubeconfig <path>]
-  spur silo list
-  spur silo validate  <profile> [--var name=value]... [--kubeconfig <path>]
-  spur silo version
+  spur inference install   [<profile>] [--var name=value]... [--kubeconfig <path>]
+                           [--pull-secret <docker-config.json>] [--no-gpu] [--smoke-test]
+  spur inference uninstall <profile> [--keep-data] [--kubeconfig <path>]
+  spur inference status    [--kubeconfig <path>]
+  spur inference list
+  spur inference validate  [<profile>] [--var name=value]... [--kubeconfig <path>]
+  spur inference version
+
+A blank profile name is default, the profile on AMD Instinct GPUs.
 
 Options:
   --var name=value     Fill a variable that the profile declares. Repeat it
@@ -248,7 +250,19 @@ func cmdValidate(ctx context.Context, name string, opts options) error {
 		return err
 	}
 	warnAboutGPUs(p.Name)
-	return validateProfile(context.Background(), c, p)
+	return validateProfile(p, c.probe(ctx))
+}
+
+// probe gives the capability check of this cluster as a function, so that a
+// test can pass one that never asks a cluster.
+func (c *cluster) probe(ctx context.Context) func(capability string) bool {
+	return func(capability string) bool { return probe(ctx, c, capability) }
+}
+
+// installed says whether the release of a package is on this cluster.
+func (c *cluster) installed(pkg string) bool {
+	meta, err := loadPackageMeta(pkg)
+	return err == nil && isInstalled(c, meta.Name, meta.Namespace)
 }
 
 // warnAboutGPUs tells the operator when the profile name and the GPUs that
@@ -287,8 +301,8 @@ func warnAboutGPUs(name string) {
 }
 
 // validateProfile holds every `requires` of a package to an earlier package of
-// the profile or to a live cluster probe.
-func validateProfile(ctx context.Context, c *cluster, p *profile) error {
+// the profile or to the cluster probe.
+func validateProfile(p *profile, probe func(capability string) bool) error {
 	provided := map[string]bool{}
 	for _, entry := range p.Packages {
 		meta, err := loadPackageMeta(entry.Name)
@@ -296,7 +310,7 @@ func validateProfile(ctx context.Context, c *cluster, p *profile) error {
 			return err
 		}
 		for _, capability := range meta.Requires {
-			if provided[capability] || probe(ctx, c, capability) {
+			if provided[capability] || probe(capability) {
 				continue
 			}
 			providers, err := providersOf(capability)
@@ -351,7 +365,7 @@ func cmdInstall(ctx context.Context, name string, opts options) error {
 	if err := refuseOverlappingProfile(ctx, c, p); err != nil {
 		return err
 	}
-	if err := validateProfile(ctx, c, p); err != nil {
+	if err := validateProfile(p, c.probe(ctx)); err != nil {
 		return err
 	}
 	if err := ensurePullSecret(ctx, c, opts); err != nil {
@@ -409,7 +423,52 @@ func cmdUninstall(ctx context.Context, name string, opts options) error {
 	if err != nil {
 		return err
 	}
+	purge := !opts.keepData
+	plan, err := planRemoval(record, p, purge, c.installed, packagesOfRun(record, p))
+	if err != nil {
+		return err
+	}
+	return executeRemoval(ctx, c, plan, purge)
+}
 
+// removal is what the uninstall of one profile takes off the cluster, and
+// what it leaves there.
+type removal struct {
+	Profile string
+	// Remove holds the packages in removal order: the last package first.
+	Remove []string
+	// Keep holds the packages that stay because another recorded profile
+	// holds them.
+	Keep []string
+	// Skip holds the packages of the profile that are not installed.
+	Skip []string
+	// Namespaces holds the namespaces that the purge deletes, in order.
+	Namespaces []string
+}
+
+// packagesOfRun gives every package that this uninstall run owns: what the
+// profile declares and what its record names. Everything in it goes away in
+// this run, so one of these packages never holds another one back. A failed
+// install leaves a release that the record does not name, and without this
+// the profile could not be removed at all.
+func packagesOfRun(record map[string]recordEntry, profiles ...*profile) map[string]bool {
+	mine := map[string]bool{}
+	for _, p := range profiles {
+		for _, entry := range p.Packages {
+			mine[entry.Name] = true
+		}
+		for _, pkg := range record[p.Name].Packages {
+			mine[pkg] = true
+		}
+	}
+	return mine
+}
+
+// planRemoval decides what the uninstall of one profile takes off the cluster.
+// installed says whether the release of a package is on the cluster, and mine
+// holds the packages of every profile of this run.
+func planRemoval(record map[string]recordEntry, p *profile, purge bool,
+	installed func(pkg string) bool, mine map[string]bool) (*removal, error) {
 	// What the install recorded wins: it is what really went onto the cluster.
 	// After an install that stopped in the middle, the profile wins instead:
 	// the failed package can have left objects that the record does not name,
@@ -422,30 +481,58 @@ func cmdUninstall(ctx context.Context, name string, opts options) error {
 		}
 	}
 	keep := packagesOfOtherProfiles(record, p.Name)
-	purge := !opts.keepData
 
-	// Everything the profile declares goes away in this run, so one of its own
-	// packages never holds another one back. A failed install leaves a release
-	// that the record does not name, and without this the profile could not be
-	// removed at all.
-	mine := map[string]bool{}
-	for _, entry := range p.Packages {
-		mine[entry.Name] = true
+	plan := &removal{Profile: p.Name}
+	stays := map[string]bool{}
+	var emptied []string
+	for i := len(packages) - 1; i >= 0; i-- {
+		pkg := packages[i]
+		meta, err := loadPackageMeta(pkg)
+		if err != nil {
+			return nil, err
+		}
+		if keep[pkg] {
+			plan.Keep = append(plan.Keep, pkg)
+			stays[meta.Namespace] = true
+			continue
+		}
+		if !installed(pkg) {
+			plan.Skip = append(plan.Skip, pkg)
+			continue
+		}
+		if err := refuseWhenNeeded(meta, mine, installed); err != nil {
+			return nil, err
+		}
+		plan.Remove = append(plan.Remove, pkg)
+		emptied = append(emptied, meta.Namespace)
 	}
-	for _, pkg := range packages {
-		mine[pkg] = true
+	if purge {
+		done := map[string]bool{}
+		for _, namespace := range emptied {
+			if done[namespace] || stays[namespace] {
+				continue
+			}
+			done[namespace] = true
+			plan.Namespaces = append(plan.Namespaces, namespace)
+		}
+	}
+	return plan, nil
+}
+
+func executeRemoval(ctx context.Context, c *cluster, plan *removal, purge bool) error {
+	for _, pkg := range plan.Keep {
+		infof("keep %s, another installed profile holds it", pkg)
+	}
+	for _, pkg := range plan.Skip {
+		infof("skip %s, it is not installed", pkg)
 	}
 
 	// A chart can ship a CRD that a package of another profile ships too. That
 	// CRD must stay, or the profile that stays loses a capability.
 	protected := map[string]bool{}
 	if purge {
-		stay := make([]string, 0, len(keep))
-		for pkg := range keep {
-			stay = append(stay, pkg)
-		}
-		protected = protectedCRDNames(stay)
-		for _, pkg := range stay {
+		protected = protectedCRDNames(plan.Keep)
+		for _, pkg := range plan.Keep {
 			meta, err := loadPackageMeta(pkg)
 			if err != nil {
 				continue
@@ -456,48 +543,24 @@ func cmdUninstall(ctx context.Context, name string, opts options) error {
 		}
 	}
 
-	var emptied []string
-	stays := map[string]bool{}
-	for i := len(packages) - 1; i >= 0; i-- {
-		pkg := packages[i]
+	for _, pkg := range plan.Remove {
 		meta, err := loadPackageMeta(pkg)
 		if err != nil {
-			return err
-		}
-		if keep[pkg] {
-			infof("keep %s, another installed profile holds it", pkg)
-			stays[meta.Namespace] = true
-			continue
-		}
-		if !isInstalled(c, meta.Name, meta.Namespace) {
-			infof("skip %s, it is not installed", pkg)
-			continue
-		}
-		if err := refuseWhenNeeded(ctx, c, meta, mine); err != nil {
 			return err
 		}
 		if err := removePackage(ctx, c, meta.Name, meta.Namespace, purge, protected); err != nil {
 			return err
 		}
-		emptied = append(emptied, meta.Namespace)
 	}
-
-	if purge {
-		done := map[string]bool{}
-		for _, namespace := range emptied {
-			if done[namespace] || stays[namespace] {
-				continue
-			}
-			done[namespace] = true
-			if err := purgeNamespace(ctx, c, namespace); err != nil {
-				return err
-			}
+	for _, namespace := range plan.Namespaces {
+		if err := purgeNamespace(ctx, c, namespace); err != nil {
+			return err
 		}
 	}
-	if err := forgetRecord(ctx, c, p.Name); err != nil {
+	if err := forgetRecord(ctx, c, plan.Profile); err != nil {
 		return err
 	}
-	infof("profile %s removed", p.Name)
+	infof("profile %s removed", plan.Profile)
 	return nil
 }
 
@@ -557,7 +620,7 @@ func overlappingProfile(record map[string]recordEntry, name, extends string, pac
 // refuseWhenNeeded stops a removal that would take a capability away from a
 // package that is still installed. A package of the profile that goes away is
 // not one of those: it goes away in the same run.
-func refuseWhenNeeded(ctx context.Context, c *cluster, meta *packageMeta, mine map[string]bool) error {
+func refuseWhenNeeded(meta *packageMeta, mine map[string]bool, installed func(pkg string) bool) error {
 	if len(meta.Provides) == 0 {
 		return nil
 	}
@@ -577,7 +640,7 @@ func refuseWhenNeeded(ctx context.Context, c *cluster, meta *packageMeta, mine m
 			if !contains(otherMeta.Requires, capability) {
 				continue
 			}
-			if isInstalled(c, otherMeta.Name, otherMeta.Namespace) {
+			if installed(other) {
 				return fmt.Errorf("%s is installed and needs %s from %s",
 					otherMeta.Name, capability, meta.Name)
 			}

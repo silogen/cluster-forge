@@ -1,4 +1,4 @@
-# Builds the spur-silo binary with every chart of the release inside it.
+# Builds the spur-inference binary with every chart of the release inside it.
 #
 # `make assets` needs helm and network access once: it resolves the chart
 # dependencies of every package. `make build` needs neither, and the binary
@@ -26,12 +26,13 @@ assets:
 	cp $(BYOK)/tests/aimservice-dummy.yaml $(ASSETS)/tests/
 	find $(ASSETS)/packages -name 'Chart.lock' -delete
 	find $(ASSETS)/packages -name 'tmpcharts*' -prune -exec rm -rf {} +
+	touch $(ASSETS)/.gitkeep
 
 build:
-	go build $(GOFLAGS) -ldflags "-X main.version=$(REF)" -o spur-silo .
+	go build $(GOFLAGS) -ldflags "-X main.version=$(REF)" -o spur-inference .
 
 test:
 	go test ./...
 
 clean:
-	rm -rf $(ASSETS) spur-silo
+	rm -rf $(ASSETS) spur-inference

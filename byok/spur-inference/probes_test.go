@@ -7,9 +7,9 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// The yaml keeps the shell probes for bootstrap.sh and this file keeps the Go
+// The yaml keeps the shell form of every probe and this file keeps the Go
 // probes. A capability that only one of them knows is a capability that the
-// two paths disagree about.
+// two forms disagree about.
 func TestEveryCapabilityOfTheYamlHasAGoProbe(t *testing.T) {
 	raw, err := assets.ReadFile("assets/capabilities.yaml")
 	if err != nil {

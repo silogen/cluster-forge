@@ -1,20 +1,24 @@
 #!/usr/bin/env bash
-# Installs the optional seaweedfs package on top of the profile, re-runs the
-# install, then removes seaweedfs with --purge and proves that nothing stays.
+# Installs the optional seaweedfs packages on top of default-cpu with the
+# test-s3 profile, re-runs the install, then removes test-s3 with the data and
+# proves that nothing of seaweedfs stays and that the base still works.
+# Needs a cluster, helm and kubectl, and the spur-inference binary.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BYOK="$HERE/.."
-PROFILE="${PROFILE:-$BYOK/profiles/default-cpu.yaml}"
+SPUR_INFERENCE="${SPUR_INFERENCE:-$BYOK/spur-inference/spur-inference}"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 ok() { echo "ok: $*"; }
 
+[ -x "$SPUR_INFERENCE" ] || fail "no binary at $SPUR_INFERENCE, run make -C $BYOK/spur-inference assets build"
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-yq '.packages += [{"name": "seaweedfs-operator"}, {"name": "seaweedfs"}]' "$PROFILE" > "$tmp/with-seaweedfs.yaml"
 
-echo "== 1. install the profile with seaweedfs"
-"$BYOK/bootstrap.sh" install --profile "$tmp/with-seaweedfs.yaml"
+echo "== 1. install default-cpu, then the seaweedfs packages on top of it"
+"$SPUR_INFERENCE" install default-cpu
+"$SPUR_INFERENCE" install test-s3
 
 echo "== 2. seaweedfs is up"
 bash -c "$(yq -r '.["storage.s3"].probe' "$BYOK/capabilities.yaml")" \
@@ -33,14 +37,13 @@ release_state() {
   done
 }
 release_state > "$tmp/before.txt"
-"$BYOK/bootstrap.sh" install --profile "$tmp/with-seaweedfs.yaml"
+"$SPUR_INFERENCE" install test-s3
 release_state > "$tmp/after.txt"
 diff "$tmp/before.txt" "$tmp/after.txt" || fail "the rendered manifests changed on the second install"
 ok "no change on the second install"
 
-echo "== 4. remove seaweedfs"
-"$BYOK/bootstrap.sh" remove seaweedfs --purge
-"$BYOK/bootstrap.sh" remove seaweedfs-operator --purge
+echo "== 4. remove test-s3 with the data"
+"$SPUR_INFERENCE" uninstall test-s3
 
 echo "== 5. nothing of seaweedfs stays"
 helm status seaweedfs --namespace seaweedfs-instance >/dev/null 2>&1 \

@@ -13,8 +13,9 @@ import (
 var listAll = metav1.ListOptions{}
 
 // Every capability of assets/capabilities.yaml, as a live check against the
-// cluster. The yaml keeps the shell form for bootstrap.sh; this map is the form
-// the binary uses, and a test holds the two lists to the same names.
+// cluster. The yaml keeps a shell form of every probe, which documents what
+// this map does and lets a test script run one by hand; a test holds the two
+// lists to the same names.
 var probes = map[string]func(context.Context, *cluster) bool{
 	"gateway.api.crds": func(ctx context.Context, c *cluster) bool {
 		return c.crdExists(ctx, "gateways.gateway.networking.k8s.io")
