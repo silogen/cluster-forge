@@ -611,7 +611,11 @@ func planRemoval(record map[string]recordEntry, p *profile, purge bool,
 			continue
 		}
 		if !installed(pkg) {
+			// An uninstall that stopped part way has removed the release but
+			// not yet the namespace, so the namespace of a skipped package goes
+			// with the purge too. A namespace that is not there is no error.
 			plan.Skip = append(plan.Skip, pkg)
+			emptied = append(emptied, meta.Namespace)
 			continue
 		}
 		if err := refuseWhenNeeded(meta, mine, installed); err != nil {
