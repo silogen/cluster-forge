@@ -1,214 +1,298 @@
-# AIM model catalog lifecycle
+# AIM model management
 
-Reference for how AIM model catalog sources are packaged, extended, and retired on
-Enterprise AI reference stack clusters. This guide is for **cluster operators** who
-need to understand catalog behaviour and manage models over the life of a cluster.
+Step-by-step guide for cluster operators who need to add, replace, or remove AIM
+container images in the AI Workbench model catalog.
 
-It is **not tied to the Cluster Forge release cadence**. Use it whenever you
-need to add, replace, or remove catalog entries: private builds, early access
-tags, bespoke models, or housekeeping after a platform upgrade.
+For packaged baseline behaviour, version policy, and lifecycle rules, see
+[AIM catalog lifecycle](aim_catalog_lifecycle.md).
 
-For step-by-step procedures (Gitea manifests, Argo CD sync, verification), see
-[Adding AIM catalog models](adding_aim_catalog_models.md).
+Validated with Cluster Forge >= v2.2.2 and AIM Engine 0.2.5.
 
-## Overview
+## Table of contents
 
-The catalog has two complementary layers:
+- [Before you start](#before-you-start)
+- [One-time setup](#one-time-setup)
+- [Add a model](#add-a-model)
+  - [1. Create the manifest in Gitea](#1-create-the-manifest-in-gitea)
+  - [2. Sync and verify](#2-sync-and-verify)
+- [Add a base image](#add-a-base-image)
+- [Replace or remove a source](#replace-or-remove-a-source)
+- [Disable the additional application](#disable-the-additional-application)
+- [Before a platform upgrade](#before-a-platform-upgrade)
+  - [1. Incoming packaged source names](#1-incoming-packaged-source-names)
+  - [2. Additional sources on the cluster](#2-additional-sources-on-the-cluster)
+  - [3. Confirm the model is not in use](#3-confirm-the-model-is-not-in-use)
+  - [4. Prune duplicates, then upgrade](#4-prune-duplicates-then-upgrade)
+- [Troubleshooting](#troubleshooting)
 
-| Layer | Mechanism | Typical use |
-|-------|-----------|-------------|
-| **Packaged baseline** | `aim-cluster-model-source` Helm chart (Argo CD) | Default AMD catalog for the cluster hardware family; refreshed when you upgrade Cluster Forge |
-| **Cluster-managed additions** | Gitea `cluster-values` + `aim-cluster-model-source-additional` | Any extra model or base images you choose to expose — RCs, private builds, site-specific tags, or images not yet in the packaged chart |
+## Before you start
 
-Cluster-managed additions do not replace the packaged baseline that ships with the
-cluster; the baseline keeps arriving and updating through Cluster Forge releases.
-Additions are an **operator-controlled extension** on top of it, available at any
-time.
+You need:
 
-## Packaged baseline catalog
+- cluster administrator access;
+- Gitea and Argo CD web access;
+- `kubectl` access for validation;
+- an image AIM Engine can inspect (valid AIM metadata); and
+- registry reachability from AIM Engine (namespace `aim-system`).
 
-Cluster Forge installs the in-tree Helm chart `sources/aim-cluster-model-source`.
-`AIMClusterModelSource` resources are selected by `hardwareFamilies`, which
-cluster-bloom sets from `AIM_HARDWARE_FAMILY`.
+Use images that match the cluster's hardware family. Listing images for other
+accelerators creates catalog entries that AI Workbench marks as not deployable.
+Active families:
 
-| `hardwareFamilies` | Template | Result |
-|--------------------|----------|--------|
-| Non-empty list (`instinct`, `epyc`, `cpu`, `radeon`) | `templates/profiles.yaml` | Only listed families. The Instinct profile includes generic `amd-aim-release-*` sources (0.8.5–0.11.0) plus Instinct 0.11.1+. `cpu` is a placeholder and renders no sources. |
-| Empty list (`[]`, chart default) | `templates/unfiltered.yaml` | Instinct **0.11.1, 0.12.0, 0.13.0** plus mixed base images (`aim-base`, `aim-epyc-base`, `aim-radeon-base`). |
-
-`AIM_HARDWARE_FAMILY` has no default. cluster-bloom injects `hardwareFamilies`
-only when the install sets it, so an install that leaves it unset takes the
-**unfiltered** path. Set `AIM_HARDWARE_FAMILY` in `bloom.yaml` to get a
-family-filtered catalog:
-
-```yaml
-AIM_HARDWARE_FAMILY: "instinct"
+```bash
+kubectl get application -n argocd aim-cluster-model-source -o go-template='{{ index (fromYaml .spec.source.helm.values) "hardwareFamilies" }}{{ println }}'
 ```
 
-Clearing `hardwareFamilies` to `[]` in Gitea on an existing cluster switches it
-back to **unfiltered**; it does not fail chart rendering. See the
-[aim-cluster-model-source README](../sources/aim-cluster-model-source/README.md).
+...also in Gitea **cluster-values** → `values.yaml` → `apps.aim-cluster-model-source.valuesObject.hardwareFamilies`.
+An empty list there selects `templates/unfiltered.yaml` (Instinct 0.11.1+ plus mixed
+bases).
 
-### Model release sources vs base catalog sources
+For private registries, set `spec.imagePullSecrets` on the source to a secret in
+`aim-system`. Do not commit credentials to Gitea.
 
-| Kind | Purpose | Example source name | Example images it lists |
-|------|---------|---------------------|-------------------------|
-| **Model release source** | Version-pinned model-specific images for a hardware family | `amd-aim-instinct-0.12.0` | `amdenterpriseai/aim-google-gemma-3-1b-it:0.12.0`, `amdenterpriseai/aim-zai-org-glm-4-7:0.12.0` |
-| **Model release source** | Same, EPYC family | `amd-aim-epyc-0.13.0` | `amdenterpriseai/aim-epyc-qwen-qwen3-8b:0.13.0` |
-| **Base catalog source** | Generic base images for AI Workbench custom model onboarding (runtime AIM ID) | `aim-base-models` | `amdenterpriseai/aim-base:0.13.1`, `amdenterpriseai/aim-epyc-base:0.13`, `amdenterpriseai/aim-radeon-base:0.12` |
+## One-time setup
 
-Source names such as `amd-aim-instinct-0.12.0` are `AIMClusterModelSource`
-resource names, not image references. The images each source lists are fully
-qualified `repository/name:tag` values, as in the last column.
+Skip this section if the additional application already exists:
 
-Model release sources list **model-specific** images. Base catalog sources list
-**base** images only.
+```bash
+kubectl get application -n argocd aim-cluster-model-source-additional
+```
 
-Bases are split **by hardware family** in the packaged chart so AI Workbench
-does not show large numbers of not-deployable entries on clusters without
-matching hardware.
+Edit `cluster-org/cluster-values` → `values.yaml` in Gitea:
 
-Each family profile installs only its own base images: Instinct → `aim-base`,
-EPYC → `aim-epyc-base`, Radeon → `aim-radeon-base`. The `unfiltered` template is
-the one exception — it installs all three, because it has no family to filter
-on.
+```yaml
+enabledApps:
+  # Existing applications remain here.
+  - aim-cluster-model-source
+  - aim-cluster-model-source-additional
 
-### Source of truth
+apps:
+  # Existing application definitions remain here.
 
-Canonical model source and base-image lists live in an AMD-internal repository
-that operators cannot access. There is no automated feed from it into a
-cluster. Those lists are copied into
-`sources/aim-cluster-model-source/templates/` by hand when a Cluster Forge
-release is prepared. The chart templates in a given release are therefore a
-**point-in-time snapshot**, not a live mirror: an AIM version published after
-that release does not appear in the packaged baseline until a later Cluster
-Forge release picks it up.
+  aim-cluster-model-source-additional:
+    repoURL: http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git
+    repoVersion: main
+    path: "."
+    namespace: kaiwo-system
+    syncWave: -20
+    directory:
+      include: "{cpu-*.yaml,epyc-*.yaml,instinct-*.yaml,radeon-*.yaml}"
+```
 
-For a cluster, the operator-visible source of truth is
-`sources/aim-cluster-model-source/` in the Cluster Forge release you installed.
-To read the catalog it will install before you deploy, render the chart:
+Commit to `main`, then refresh or sync the `cluster-forge` parent application in
+Argo CD.
+
+## Add a model
+
+### 1. Create the manifest in Gitea
+
+1. Open `cluster-org/cluster-values`.
+2. **New File** at the repository root.
+3. Name the file `{family}-{model}-{version}.yaml`, for example
+   `epyc-qwen3-8b-0-13-0.yaml`.
+4. Paste a manifest like:
+
+```yaml
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterModelSource
+metadata:
+  name: epyc-qwen3-8b-0-13-0
+spec:
+  registry: docker.io
+  filters:
+    - image: amdenterpriseai/aim-epyc-qwen-qwen3-8b:0.13.0
+  maxModels: 10
+  syncInterval: 15m
+```
+
+5. Commit to `main`.
+
+Use immutable names with hardware family, model, and version. Avoid names like
+`latest`.
+
+Filename prefixes:
+
+```text
+cpu-<model>-<version>.yaml
+epyc-<model>-<version>.yaml
+instinct-<model>-<version>.yaml
+radeon-<model>-<version>.yaml
+```
+
+### 2. Sync and verify
+
+Refresh `aim-cluster-model-source-additional` in Argo CD if it does not sync
+automatically.
+
+```bash
+kubectl get application -n argocd aim-cluster-model-source-additional
+kubectl get aimclsrc epyc-qwen3-8b-0-13-0 --watch
+kubectl get aimclmdl -o custom-columns=NAME:.metadata.name,IMAGE:.spec.image,STATUS:.status.status,AIM:.status.imageMetadata.model.canonicalName
+```
+
+`aimclsrc` / `aimclmdl` / `aimsvc` are the AIM Engine short names for
+`AIMClusterModelSource`, `AIMClusterModel`, and `AIMService`.
+
+Refresh the AI Workbench catalog (or wait at least 30 seconds).
+
+## Add a base image
+
+Same workflow as a model-specific image. Example for an Instinct base tag not
+yet in the packaged catalog:
+
+```yaml
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterModelSource
+metadata:
+  name: instinct-base-0-13-1
+spec:
+  registry: docker.io
+  filters:
+    - image: amdenterpriseai/aim-base:0.13.1
+  maxModels: 10
+  syncInterval: 1h
+```
+
+Save as `instinct-base-0-13-1.yaml`. Base additions should stay
+family-specific (`aim-base` on Instinct, `aim-epyc-base` on EPYC, and so on).
+
+## Replace or remove a source
+
+**Do not** remove entries by narrowing filters on an existing source — discovery
+is append-only. The image stays in the catalog as an `AIMClusterModel` until the
+source itself is deleted. Emptying `spec.filters` is not a workaround: the CRD
+requires at least one filter or image.
+
+Deleting the source **is** how models leave the catalog, and it is a breaking
+change for anything still using them: Argo CD prune removes the
+`AIMClusterModelSource`, then Kubernetes garbage-collects its owned
+`AIMClusterModel` resources. Confirm no `AIMService` still selects those
+images before you prune (see the in-use check under
+[Before a platform upgrade](#before-a-platform-upgrade)). See
+[Filter removal vs source removal](aim_catalog_lifecycle.md#filter-removal-vs-source-removal).
+
+**Replace:**
+
+1. Add the new manifest; delete the old one in the same commit.
+2. Sync `aim-cluster-model-source-additional` with **prune** enabled.
+3. Confirm the old `AIMClusterModelSource` and its models are gone.
+
+**Remove only:**
+
+1. Delete the manifest.
+2. Sync with prune enabled.
+3. Verify cleanup before disabling the additional application.
+
+```bash
+kubectl get aimclsrc <source-name>
+kubectl get aimclmdl -o jsonpath='{range .items[*]}{.metadata.ownerReferences[0].name}{"\t"}{.metadata.name}{"\t"}{.spec.image}{"\n"}{end}' | grep '^<source-name>'$'\t' || true
+```
+
+## Disable the additional application
+
+Only after all additional sources are removed and pruned:
+
+1. Delete every `{family}-*.yaml` catalog manifest from Gitea.
+2. Sync `aim-cluster-model-source-additional` with prune enabled.
+3. Confirm no additional `AIMClusterModelSource` resources remain:
+   `kubectl get aimclsrc -l argocd.argoproj.io/instance=aim-cluster-model-source-additional`
+4. Remove `aim-cluster-model-source-additional` from `enabledApps`.
+5. Sync the `cluster-forge` parent with prune enabled.
+
+Removing the application first leaves orphaned sources in the cluster.
+
+## Before a platform upgrade
+
+Deleting an additional source garbage-collects every `AIMClusterModel` it owns
+and **breaks** any `AIMService` still bound to those models. Finish this
+checklist **before** you change `global.targetRevision` (or otherwise sync the
+incoming Cluster Forge chart).
+
+### 1. Incoming packaged source names
+
+On a checkout of the Cluster Forge revision you are upgrading **to**, render
+the chart for this cluster's `hardwareFamilies` (same list as
+[Before you start](#before-you-start)):
 
 ```bash
 helm template aim-cluster-model-source sources/aim-cluster-model-source \
-  --set-json 'hardwareFamilies=["instinct"]' | grep -E '^  name:'
+  --set-json 'hardwareFamilies=["instinct"]' \
+  | awk '/^kind: AIMClusterModelSource/{want=1; next} want && /^  name:/{print $2; want=0}'
 ```
 
-If you need an AIM version sooner than the next Cluster Forge release, use
-[cluster-managed additions](#cluster-managed-catalog-additions) — that is the
-only path that does not wait on packaging.
+Images those sources will list:
 
-Environment-specific CI snapshots are not packaged in Cluster Forge.
+```bash
+helm template aim-cluster-model-source sources/aim-cluster-model-source \
+  --set-json 'hardwareFamilies=["instinct"]' \
+  | awk '/^  name:/{n=$2} /^    - image:/{print n, $NF} /^  - amdenterpriseai/{print n, $2}'
+```
 
-## Version policy
+### 2. Additional sources on the cluster
 
-| Scenario | Policy |
-|----------|--------|
-| **New installation, `AIM_HARDWARE_FAMILY` set** | Injects a non-empty list → **profiles** branch. The Instinct profile installs generic `amd-aim-release-*` 0.8.5–0.11.0 alongside `amd-aim-instinct-*` 0.11.1, 0.12.0, 0.13.0, so such an install starts with all of them. |
-| **New installation, `AIM_HARDWARE_FAMILY` unset** | Nothing is injected → chart default `[]` → **unfiltered** catalog. |
-| **Empty `hardwareFamilies` in Gitea** | **unfiltered** catalog: Instinct 0.11.1+ only (no generic 0.8.x–0.11.0 sources). |
-| **Platform upgrade** | New AIM versions are **added**. Older versions are **not** removed automatically. |
-| **Catalog cleanup** | Manual. The cluster operator removes deprecated sources; nothing expires on its own. |
+```bash
+kubectl get aimclsrc -l argocd.argoproj.io/instance=aim-cluster-model-source-additional \
+  -o custom-columns=NAME:.metadata.name,STATUS:.status.status,MODELS:.status.discoveredModels
+kubectl get aimclsrc -l argocd.argoproj.io/instance=aim-cluster-model-source-additional \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{range .spec.filters[*]}  {.image}{"\n"}{end}{range .spec.images[*]}  {.}{"\n"}{end}{end}'
+```
 
-There is no automated deprecation schedule. An older AIM version stays in the
-catalog until its `AIMClusterModelSource` is deleted. Narrowing a filter is not
-enough — see [Filter removal vs source removal](#filter-removal-vs-source-removal).
+Delete a Gitea `{family}-*.yaml` only when its image(s) already appear in the
+incoming `helm template` output (duplicate of a newly packaged model or base).
+Leave additional sources whose images are **not** in that list.
 
-This applies to cluster-managed additions. Packaged baseline sources are owned
-by the `aim-cluster-model-source` chart and are restored by the next Argo CD
-sync if deleted in the cluster. The chart's only selector is `hardwareFamilies`,
-which switches whole family profiles; it cannot drop an individual packaged
-version. Packaged source names (`amd-aim-instinct-0.12.0`,
-`amd-aim-epyc-0.13.0`, and so on) are therefore a **stable API**: a Cluster
-Forge release adds tracks; it does not delete source names from the chart.
+### 3. Confirm the model is not in use
 
-## Cluster-managed catalog additions
+List every `AIMService` and how it selects a model:
 
-Cluster operators add or remove sources through Gitea and Argo CD; see
-[Adding AIM catalog models](adding_aim_catalog_models.md).
+```bash
+kubectl get aimsvc -A \
+  -o custom-columns=NS:.metadata.namespace,NAME:.metadata.name,STATUS:.status.status,SPEC_NAME:.spec.model.name,SPEC_IMAGE:.spec.model.image,RESOLVED:.status.resolvedModel.name
+```
 
-`aim-cluster-model-source-additional` is not shipped in Cluster Forge. The
-operator defines it once in Gitea `cluster-values` (`enabledApps` plus an `apps`
-entry) before this path is available — see
-[One-time setup](adding_aim_catalog_models.md#one-time-setup).
+`SPEC_NAME` is `spec.model.name` (an `AIMClusterModel` / `AIMModel` object
+name). `SPEC_IMAGE` is `spec.model.image`. `RESOLVED` is
+`status.resolvedModel.name`. Exactly one of `name` / `image` / `custom` is set
+on each service.
 
-Typical lifecycle, once it is enabled:
+Models owned by one additional source (replace `SRC`):
 
-1. Gitea stores `AIMClusterModelSource` manifests in `cluster-values`.
-2. The `cluster-forge` parent application creates `aim-cluster-model-source-additional`.
-3. AIM Engine discovers images and creates `AIMClusterModel` resources.
-4. AI Workbench refreshes its catalog periodically.
+```bash
+SRC=epyc-qwen3-8b-0-13-0
+kubectl get aimclmdl -o jsonpath='{range .items[*]}{.metadata.ownerReferences[0].name}{"\t"}{.metadata.name}{"\t"}{.spec.image}{"\n"}{end}' | grep "^${SRC}"$'\t'
+```
 
-Use this path whenever the packaged baseline does not include the image you
-need — regardless of whether a Cluster Forge upgrade is planned.
+Fail the prune if that image (or cluster-model object name) is still selected
+by any service — **empty grep means not in use**:
 
-### Hardware family and catalog UX
+```bash
+kubectl get aimsvc -A \
+  -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name}{"\t"}{.spec.model.name}{"\t"}{.spec.model.image}{"\t"}{.status.resolvedModel.name}{"\n"}{end}' \
+  | grep -F -- 'amdenterpriseai/aim-epyc-qwen-qwen3-8b:0.13.0'
+```
 
-The packaged baseline is family-filtered when `hardwareFamilies` is non-empty.
-Cluster-managed additions can list any image, but entries for the wrong
-accelerator appear as **not deployable** in AI Workbench. Prefer family-matched
-images and the `{family}-*.yaml` filename convention described in
-[Add a model](adding_aim_catalog_models.md#add-a-model).
+Do not delete the additional source while this grep prints rows. Stopping
+discovery without tearing down running services means **leave the source
+name in Gitea**; narrowing filters does not remove already-discovered models.
 
-## Filter removal vs source removal
+### 4. Prune duplicates, then upgrade
 
-AIM Engine discovery is append-only. Two edits that look similar in YAML have
-opposite runtime effects:
+1. Delete the duplicate additional manifests in Gitea (`cluster-values`).
+2. Sync `aim-cluster-model-source-additional` in Argo CD with **prune** enabled.
+3. Re-run the `aimclsrc` list in step 2 — intended duplicates should be gone.
+4. Upgrade Cluster Forge only after that list has no leftover packaged
+   duplicates.
 
-| Action | What happens | Running deployments |
-|--------|--------------|---------------------|
-| Drop an image from `spec.filters` (or `spec.images`) on an existing source | Already-discovered `AIMClusterModel` resources **stay**. The catalog can keep showing the old image. | Unaffected |
-| Delete the `AIMClusterModelSource` (Gitea manifest + Argo CD prune, or drop the source **name** from the packaged chart) | The CR is deleted. Kubernetes garbage-collects every `AIMClusterModel` it owned. | **Can break** workloads that still use those models |
+## Troubleshooting
 
-A “hollow shell” — keep the source CR but empty the filter list — **does not
-work**. The `AIMClusterModelSource` CRD requires at least one entry in
-`spec.filters` or `spec.images` (`MinItems=1`), so empty filters fail
-validation.
+| Symptom | Check |
+| --------- | -------- |
+| Additional app missing | `kubectl get application -n argocd aim-cluster-model-source-additional`; `enabledApps` + `apps` in Gitea; parent `cluster-forge` synced |
+| Model remains after app removed | Source was not pruned first — `kubectl delete aimclsrc <name>` (breaks in-use `AIMService`s) |
+| Filter removed but model remains | Append-only discovery — delete and replace the source |
+| Registry/discovery error | Image tag, reachability, pull secret; `kubectl logs -n aim-system -l control-plane=controller-manager --tail=100` |
+| Model in K8s but not AI Workbench | `kubectl get aimclmdl`; refresh catalog; wait 30s |
+| Many not-deployable entries | Additional images for wrong hardware family — fix or remove manifests |
+| Unsure if a model is live | In-use `aimsvc` grep in [Before a platform upgrade](#before-a-platform-upgrade) |
 
-**To retire a model you actually want gone**, delete the source (and sync with
-prune), as in
-[Replace or remove a source](adding_aim_catalog_models.md#replace-or-remove-a-source).
-You do not delete `AIMClusterModel` resources separately.
-
-**To keep running deployments** while stopping new discoveries of an image,
-leave the source name in place and stop listing that image. Expect catalog
-clutter until a later source deletion.
-
-**Do not delete packaged source names** from `sources/aim-cluster-model-source`
-between Cluster Forge releases. Retire a track by adding a new source; leaving
-the old name is what keeps existing clusters from having their models
-garbage-collected on the next chart sync.
-
-## Lifecycle constraints
-
-- **Discovery is additive** — adding a filter can create another
-  `AIMClusterModel`.
-- **Removing a filter does not remove discovered models** — see above.
-- **Removing the additional Argo CD Application does not delete its resources**
-  — child apps lack a cascading-resources finalizer.
-- **Deleting an `AIMClusterModelSource` garbage-collects its owned models.**
-
-Remove or replace source manifests while the additional application still
-exists. Disable the application only after sources are pruned.
-
-When upgrading Cluster Forge, review the incoming packaged catalog and remove
-cluster-managed manifests that duplicate newly packaged models or bases before
-syncing — see
-[Before a platform upgrade](adding_aim_catalog_models.md#before-a-platform-upgrade).
-
-## Responsibilities
-
-| Responsibility | Owner |
-|----------------|-------|
-| Packaged baseline catalog (what a new cluster gets) | The Cluster Forge release you installed |
-| Choosing `AIM_HARDWARE_FAMILY` at install | Whoever runs cluster-bloom |
-| Cluster-managed catalog additions and removals | Cluster operator |
-| Removing deprecated catalog entries | Cluster operator |
-
-## Related documentation
-
-- [Adding AIM catalog models](adding_aim_catalog_models.md) — procedural guide
-  for cluster operators
-- [aim-cluster-model-source README](../sources/aim-cluster-model-source/README.md)
-  — Helm chart reference
-- [Values inheritance pattern](values_inheritance_pattern.md) — how
-  `hardwareFamilies` reaches the chart
+See [AIM catalog lifecycle](aim_catalog_lifecycle.md) for full lifecycle rules.
