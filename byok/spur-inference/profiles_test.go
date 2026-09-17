@@ -40,21 +40,26 @@ func TestACPUProfileIsItsGPUTwinWithoutTheGPUPackages(t *testing.T) {
 				pair[0], gpuNames, pair[1], packageNames(cpu))
 		}
 
+		// The GPU profile runs the Instinct detector and not the CPU one. The
+		// CPU profile runs no detector, because it has no node-feature-discovery
+		// to read the result.
 		gpuLeaves, cpuLeaves := valueLeaves(gpu), valueLeaves(cpu)
-		want := map[string]interface{}{
+		gpuWant := map[string]interface{}{
 			"aim-catalog/aim-cluster-model-source.hardwareFamilies":            []interface{}{"instinct"},
 			"aim-engine/" + aimEngineChart + ".acceleratorDetector.enable":     true,
 			"aim-engine/" + aimEngineChart + ".acceleratorDetector.cpu.enable": false,
 		}
-		for key, value := range want {
+		for key, value := range gpuWant {
 			if !reflect.DeepEqual(gpuLeaves[key], value) {
 				t.Errorf("%s: %s is %v, want %v", pair[0], key, gpuLeaves[key], value)
 			}
 			delete(gpuLeaves, key)
 		}
-		want["aim-catalog/aim-cluster-model-source.hardwareFamilies"] = []interface{}{"epyc"}
-		want["aim-engine/"+aimEngineChart+".acceleratorDetector.cpu.enable"] = true
-		for key, value := range want {
+		cpuWant := map[string]interface{}{
+			"aim-catalog/aim-cluster-model-source.hardwareFamilies":        []interface{}{"epyc"},
+			"aim-engine/" + aimEngineChart + ".acceleratorDetector.enable": false,
+		}
+		for key, value := range cpuWant {
 			if !reflect.DeepEqual(cpuLeaves[key], value) {
 				t.Errorf("%s: %s is %v, want %v", pair[1], key, cpuLeaves[key], value)
 			}

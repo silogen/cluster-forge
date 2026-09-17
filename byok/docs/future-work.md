@@ -34,6 +34,9 @@ These items are out of scope for the first byok release.
   cluster to Running or Succeeded, so a GPU cluster fails the step while any
   Pod of `kube-amd-gpu` is not ready, although steps 1 to 7 pass. Give the
   step a namespace list, or run it only for the minimal core.
+- Node-feature-discovery for the `-cpu` profiles, so that the CPU detector
+  of aim-engine can label the node. Today the `-cpu` profiles run no
+  detector: the result would go into a feature file that nothing reads.
 - Blueprints on top of the default profile.
 - An AIRM package. The `demo` profile holds AIWB without AIRM.
 - Autoscaling as a capability that the cluster gives, `autoscaling.keda`, with

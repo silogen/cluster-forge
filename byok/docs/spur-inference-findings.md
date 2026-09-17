@@ -120,9 +120,9 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
   the node, not an `EPYC_*` label. Nothing reads that file: node-feature-
   discovery comes with the AMD GPU operator, which the `-cpu` profiles do not
   hold, so the node never gets the label. The dummy model served without the
-  label in every earlier round. The profiles keep the detector on, because the
-  fallback of the rename plan was for a detector that does not come up; the
-  decision whether a 1.8 GiB pod that labels nothing stays on is open.
+  label in every earlier round. Decided on 2026-09-17: the `-cpu` profiles
+  turn the detector off again, as the profiles before the rename did. A `-cpu`
+  profile with node-feature-discovery is future work.
 - **A `default` install on a cluster with no GPU fills the disk.** The
   warning of `install` is right, but it does not say what follows: the
   catalog of the `default` profile discovers every Instinct model, and each

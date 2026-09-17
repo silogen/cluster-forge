@@ -11,8 +11,8 @@ There are four profiles:
   Instinct GPUs. It holds the AMD GPU operator, turns the accelerator detector
   on and takes the Instinct family of the catalog. It does not install AIRM,
   AIWB, Dex, Kaiwo, Kueue, a gateway or a UI.
-- `default-cpu` gives the same on a cluster with no GPU: no GPU operator, the
-  CPU detector on, and the EPYC family of the catalog.
+- `default-cpu` gives the same on a cluster with no GPU: no GPU operator, no
+  accelerator detector, and the EPYC family of the catalog.
 - `demo` extends `default` with a gateway, one PostgreSQL Pod, Dex as the OIDC
   issuer and AIWB. It is a reference demo installation, not a production
   installation. See [The demo profile](#the-demo-profile).
@@ -381,8 +381,8 @@ to keep.
 A `-cpu` profile is a full copy of its GPU twin, not an extends child: extends
 cannot take a package out of the base list, and the GPU operator must install
 before aim-engine. The test `profiles_test.go` holds the copies to exactly
-three differences: the two GPU packages, the catalog family, and the CPU
-detector.
+three differences: the two GPU packages, the catalog family, and the
+accelerator detector.
 
 `vars` declares the inputs. `--var name=value` fills one. A variable that the
 profile declares as null needs a value and stops the run without one. A
