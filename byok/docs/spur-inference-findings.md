@@ -110,10 +110,36 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
   replaced the Instinct auto-selection with a warning for a GPU that is not
   Instinct, from the `gpu:` type of `spur show node`. No node with a Radeon
   card was available, so the table test of `kube_test.go` is the only check.
-- **The CPU detector of the `-cpu` profiles is untested on a node.** The
-  `default-cpu` and `demo-cpu` profiles turn the accelerator detector on with
-  the CPU detector, which no recorded test has run. The Kaytoo test plan holds
-  the check and the fallback.
+- **The CPU detector of the `-cpu` profiles runs, but its labels reach no
+  node.** On the Kaytoo round of 2026-09-17 the DaemonSet
+  `aim-engine-aim-engine-chart-accelerator-detector-cpu` came to 1/1 in
+  `aim-system`, from the image `amdenterpriseai/aim-epyc-base:0.11` (1.8 GiB).
+  It reports `type=CPU model=CPU count=1` and writes
+  `feature.node.kubernetes.io/aim-accelerator.CPU=1` to
+  `/etc/kubernetes/node-feature-discovery/features.d/aim-accelerator-cpu` on
+  the node, not an `EPYC_*` label. Nothing reads that file: node-feature-
+  discovery comes with the AMD GPU operator, which the `-cpu` profiles do not
+  hold, so the node never gets the label. The dummy model served without the
+  label in every earlier round. The profiles keep the detector on, because the
+  fallback of the rename plan was for a detector that does not come up; the
+  decision whether a 1.8 GiB pod that labels nothing stays on is open.
+- **A `default` install on a cluster with no GPU fills the disk.** The
+  warning of `install` is right, but it does not say what follows: the
+  catalog of the `default` profile discovers every Instinct model, and each
+  discovery pod pulls a model image of about 10 GiB. On a Kaytoo VM with a
+  96 GiB disk the worker pulled about 80 GiB in 25 minutes, the I/O pressure
+  of the node stayed above 50 %, and the kubelet could stop no pod sandbox.
+  The blank-name `uninstall --yes` then timed out after 10 minutes in the
+  pre-delete hook Job of `amd-gpu-operator`, whose finished pod could not be
+  stopped. A restart of the k0s worker, a force delete of the terminating
+  discovery pods and a `ctr leases rm --sync` freed the disk, and the retried
+  uninstall resumed in 47 seconds: it skipped the seven packages that the
+  first run had removed and purged the rest. Two things to do: the warning
+  should name the image pulls, and the discovery pods of the catalog should
+  not pull an image at all on a node with no GPU (item 10 is related).
+- **An uninstall that stopped part way left the namespaces of the packages
+  it had removed.** Fixed on 2026-09-17: the purge now deletes the namespace
+  of a skipped package too, unless a package that stays holds it.
 
 9. **The `aiwb` chart 2.0.0 asks for the Secret `aiwb-ui-keycloak-secret`,
    which the `inference-demo` profile does not make.** The `aiwb-demo-secrets`
@@ -196,6 +222,38 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
 17. **`--ref` defaults to `main`, which holds no `byok/` directory.** Every
    command needs `--ref EAI-8560-byok` until the branch merges. The error
    message names the cause: `no byok/bootstrap.sh under ...`.
+
+## Kaytoo round of 2026-09-17, after the rename
+
+Two Kaytoo VMs, Spur 0.12.0 from `feat/cli-plugins` (6fad5b9), k0s
+v1.36.2+k0s.0, control plane `useocpm2m-silogen-petrus-3k9y7q`, worker and
+driver node `useocpm2m-silogen-petrus-uuxd3p`. Binary built from
+`EAI-8560-byok` at the rename.
+
+- `spur inference version` and `spur inference list` answer through the
+  plugin mechanism; `list` shows `default`, `default-cpu`, `demo`, `demo-cpu`
+  and `test-s3`.
+- `spur show node` on the VMs prints no `Gres=` line at all. `validate`,
+  `validate --no-gpu` and `validate demo --no-gpu` pass; the first prints the
+  warning that Spur reports no GPU and that `default` installs the GPU
+  operator, the two `-cpu` runs print no warning.
+- `install` with no name went on in 2 min 06 s with the warning first, the
+  GPU operator included, on a cluster with no GPU. The disk finding above
+  followed; the retried blank-name `uninstall --yes` took 47 s.
+- After `spur k8s down --reset` and `spur k8s up`: `install demo --no-gpu`
+  with the three variables put 17 of 18 packages on in about 3 minutes and
+  stopped at `aiwb` after 10 min 53 s with the message
+  `pod aiwb/aiwb-api-... is in CreateContainerConfigError: secret
+  "aiwb-ui-keycloak-secret" not found`. That is item 9: core#4642 is merged,
+  core#4643 is still open, so the vendored chart is still 2.0.0. `status`
+  reports the partial record and names the command that removes it.
+- `uninstall` with no name on a terminal printed the plan of `demo-cpu`, 17
+  packages with the failed `aiwb` release first and ten namespaces, and asked
+  `Remove? [y/N]`. After `n` nothing went away and the record still held the
+  profile. After `y` the profile was gone in 86 s: no profile recorded, no
+  CRD, no PVC, and only the empty namespace `inference-system` left.
+- `uninstall` from a pipe without `--yes` refuses before it connects.
+- The test-s3 cycle, the smoke tests and the Radeon warning did not run.
 
 ## Proven
 

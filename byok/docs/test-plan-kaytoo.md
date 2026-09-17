@@ -69,13 +69,25 @@ browser test; `<private ip>.nip.io` is enough for an install.
 Checks of the round:
 
 - `install` with no name and no `--no-gpu` prints the warning that Spur
-  reports no GPU and that the profile installs the GPU operator. Remove it
-  again before the CPU round.
+  reports no GPU and that the profile installs the GPU operator. Prefer
+  `validate` for this check: an install of `default` on a VM pulls about
+  80 GiB of Instinct model images through the catalog discovery pods and
+  fills the disk, see the findings. If it ran, remove it again before the
+  CPU round, and `spur k8s down --reset` then `spur k8s up` when the disk is
+  full.
 - After `install demo --no-gpu`, the CPU detector runs: the DaemonSet whose
-  name ends with `-accelerator-detector-cpu` in `aim-system` is ready, and the
-  node holds a label `feature.node.kubernetes.io/aim-accelerator.EPYC_*`. If
-  it does not, set `acceleratorDetector.enable: false` in both `-cpu`
-  profiles and write the finding down.
+  name ends with `-accelerator-detector-cpu` in `aim-system` is ready, and
+  the node holds the file
+  `/etc/kubernetes/node-feature-discovery/features.d/aim-accelerator-cpu`
+  with `feature.node.kubernetes.io/aim-accelerator.CPU=1`. The node gets no
+  label from it, because the `-cpu` profiles hold no node-feature-discovery;
+  see the findings. If the DaemonSet does not come up, set
+  `acceleratorDetector.enable: false` in both `-cpu` profiles and write the
+  finding down.
+- `install demo --no-gpu` stops at `aiwb` with `secret
+  "aiwb-ui-keycloak-secret" not found` until the aiwb chart of core#4643 is
+  vendored (finding 9). The 17 packages before it are the test of the
+  profile until then.
 - `uninstall` with no name and no `--yes` shows the plan and asks. After `n`
   nothing went away; after `y`, `status` reports no profile.
 - On a node with a Radeon card, when one is available: `spur show node` shows
