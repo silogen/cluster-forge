@@ -169,3 +169,43 @@ func TestAnInstalledPackageOutsideTheRecordKeepsItsProvider(t *testing.T) {
 		t.Errorf("refuseWhenNeeded held aim-engine back with no aiwb installed: %v", err)
 	}
 }
+
+func TestARecordedChildGoesBeforeItsBase(t *testing.T) {
+	record := recordOf(map[string][]string{
+		"default":     basePackages,
+		"demo":        concat(basePackages, demoOnly),
+		"default-cpu": basePackages,
+	})
+	order, err := removalOrder(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"demo", "default", "default-cpu"}
+	if !reflect.DeepEqual(order, want) {
+		t.Errorf("the removal order is %v, want %v", order, want)
+	}
+}
+
+func TestTheSecondProfileOfARunTakesTheBaseWithIt(t *testing.T) {
+	all := concat(basePackages, demoOnly)
+	record := recordOf(map[string][]string{"demo": all, "default": basePackages})
+	demo, base := mustLoadForRemoval(t, "demo"), mustLoadForRemoval(t, "default")
+	mine := packagesOfRun(record, demo, base)
+	installed := installedSet(all...)
+
+	first, err := planRemoval(record, demo, true, installed, mine)
+	if err != nil {
+		t.Fatal(err)
+	}
+	delete(record, "demo")
+	second, err := planRemoval(record, base, true, installed, mine)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(first.Remove, reversed(demoOnly)) || len(first.Keep) != len(basePackages) {
+		t.Errorf("the first plan removes %v and keeps %v", first.Remove, first.Keep)
+	}
+	if !reflect.DeepEqual(second.Remove, reversed(basePackages)) || len(second.Keep) != 0 {
+		t.Errorf("the second plan removes %v and keeps %v", second.Remove, second.Keep)
+	}
+}
