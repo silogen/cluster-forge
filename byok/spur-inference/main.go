@@ -6,8 +6,10 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"sort"
@@ -36,6 +38,7 @@ type options struct {
 	noGPU      bool
 	keepData   bool
 	smokeTest  bool
+	yes        bool
 }
 
 func main() {
@@ -77,9 +80,6 @@ func run(ctx context.Context, args []string) error {
 	case "install":
 		return cmdInstall(ctx, target, opts)
 	case "uninstall":
-		if target == "" {
-			return fmt.Errorf("a profile name is needed")
-		}
 		return cmdUninstall(ctx, target, opts)
 	case "validate":
 		return cmdValidate(ctx, target, opts)
@@ -129,6 +129,8 @@ func parseArgs(args []string) (string, options, error) {
 			opts.noGPU = true
 		case "--keep-data":
 			opts.keepData = true
+		case "--yes":
+			opts.yes = true
 		case "--smoke-test":
 			opts.smokeTest = true
 		case "-h", "--help":
@@ -154,13 +156,15 @@ func usage(w *os.File) {
 	fmt.Fprint(w, `Usage:
   spur inference install   [<profile>] [--var name=value]... [--kubeconfig <path>]
                            [--pull-secret <docker-config.json>] [--no-gpu] [--smoke-test]
-  spur inference uninstall <profile> [--keep-data] [--kubeconfig <path>]
+  spur inference uninstall [<profile>] [--keep-data] [--yes] [--kubeconfig <path>]
   spur inference status    [--kubeconfig <path>]
   spur inference list
   spur inference validate  [<profile>] [--var name=value]... [--kubeconfig <path>]
   spur inference version
 
-A blank profile name is default, the profile on AMD Instinct GPUs.
+A blank profile name is default, the profile on AMD Instinct GPUs. For
+uninstall a blank name is every recorded profile. An uninstall shows what
+goes and asks before it removes anything.
 
 Options:
   --var name=value     Fill a variable that the profile declares. Repeat it
@@ -178,6 +182,8 @@ Options:
                        cluster with no GPU needs it.
   --smoke-test         Run the smoke test of the profile after the install.
   --keep-data          Keep the PVCs and the CRDs of the profile.
+  --yes                Remove without the question. An uninstall whose stdin
+                       is not a terminal needs it.
 
 The charts of this release are inside the binary. An upgrade is an install
 from a newer binary; there is no upgrade command and no --ref.
@@ -408,27 +414,135 @@ func cmdInstall(ctx context.Context, name string, opts options) error {
 }
 
 func cmdUninstall(ctx context.Context, name string, opts options) error {
+	// A pipe is never a yes: a script gives --yes. Say so before any work.
+	if !opts.yes && !stdinIsTerminal() {
+		return fmt.Errorf("stdin is not a terminal, give --yes to remove without the question")
+	}
 	c, err := connect(opts.kubeconfig)
 	if err != nil {
 		return err
 	}
 	defer c.close()
 
-	// The package names need no variable value, so an uninstall asks for none.
-	p, err := loadProfileForRemoval(name)
-	if err != nil {
-		return err
-	}
 	record, err := readRecord(ctx, c)
 	if err != nil {
 		return err
 	}
+	names := []string{name}
+	if name == "" {
+		if len(record) == 0 {
+			fmt.Println("No profile is recorded on this cluster.")
+			return nil
+		}
+		names, err = removalOrder(record)
+		if err != nil {
+			return err
+		}
+	}
+
+	// The package names need no variable value, so an uninstall asks for none.
+	profiles := make([]*profile, 0, len(names))
+	for _, name := range names {
+		p, err := loadProfileForRemoval(name)
+		if err != nil {
+			return err
+		}
+		profiles = append(profiles, p)
+	}
+
+	// Every profile of the run is planned before the first removal, so that
+	// the question shows the whole run. The record loses each profile as it
+	// is planned, or a base would keep every package of the child that goes
+	// before it.
 	purge := !opts.keepData
-	plan, err := planRemoval(record, p, purge, c.installed, packagesOfRun(record, p))
-	if err != nil {
+	mine := packagesOfRun(record, profiles...)
+	planned := map[string]recordEntry{}
+	for name, entry := range record {
+		planned[name] = entry
+	}
+	plans := make([]*removal, 0, len(profiles))
+	for _, p := range profiles {
+		plan, err := planRemoval(planned, p, purge, c.installed, mine)
+		if err != nil {
+			return err
+		}
+		delete(planned, p.Name)
+		plans = append(plans, plan)
+	}
+
+	printRemoval(os.Stdout, plans)
+	if err := confirm(opts.yes); err != nil {
 		return err
 	}
-	return executeRemoval(ctx, c, plan, purge)
+	for _, plan := range plans {
+		if err := executeRemoval(ctx, c, plan, purge); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// removalOrder gives every recorded profile, a profile that extends another
+// recorded profile before its base.
+func removalOrder(record map[string]recordEntry) ([]string, error) {
+	var children, rest []string
+	for _, name := range recordedProfileNames(record) {
+		p, err := loadProfileForRemoval(name)
+		if err != nil {
+			return nil, err
+		}
+		if _, recorded := record[p.Extends]; p.Extends != "" && recorded {
+			children = append(children, name)
+			continue
+		}
+		rest = append(rest, name)
+	}
+	return append(children, rest...), nil
+}
+
+func printRemoval(w io.Writer, plans []*removal) {
+	for _, plan := range plans {
+		fmt.Fprintf(w, "Profile %s\n", plan.Profile)
+		fmt.Fprintf(w, "  remove:     %s\n", listOrNone(plan.Remove))
+		if len(plan.Keep) > 0 {
+			fmt.Fprintf(w, "  keep:       %s (another installed profile holds them)\n", strings.Join(plan.Keep, " "))
+		}
+		if len(plan.Skip) > 0 {
+			fmt.Fprintf(w, "  skip:       %s (not installed)\n", strings.Join(plan.Skip, " "))
+		}
+		if len(plan.Namespaces) > 0 {
+			fmt.Fprintf(w, "  namespaces: %s (the purge deletes them with their PVCs)\n", strings.Join(plan.Namespaces, " "))
+		}
+	}
+}
+
+func listOrNone(list []string) string {
+	if len(list) == 0 {
+		return "nothing"
+	}
+	return strings.Join(list, " ")
+}
+
+// confirm asks `Remove? [y/N]` on the terminal.
+func confirm(yes bool) error {
+	if yes {
+		return nil
+	}
+	fmt.Print("Remove? [y/N] ")
+	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	if err != nil && line == "" {
+		return fmt.Errorf("no answer, nothing was removed")
+	}
+	switch strings.ToLower(strings.TrimSpace(line)) {
+	case "y", "yes":
+		return nil
+	}
+	return fmt.Errorf("nothing was removed")
+}
+
+func stdinIsTerminal() bool {
+	info, err := os.Stdin.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
 // removal is what the uninstall of one profile takes off the cluster, and
@@ -520,13 +634,6 @@ func planRemoval(record map[string]recordEntry, p *profile, purge bool,
 }
 
 func executeRemoval(ctx context.Context, c *cluster, plan *removal, purge bool) error {
-	for _, pkg := range plan.Keep {
-		infof("keep %s, another installed profile holds it", pkg)
-	}
-	for _, pkg := range plan.Skip {
-		infof("skip %s, it is not installed", pkg)
-	}
-
 	// A chart can ship a CRD that a package of another profile ships too. That
 	// CRD must stay, or the profile that stays loses a capability.
 	protected := map[string]bool{}
