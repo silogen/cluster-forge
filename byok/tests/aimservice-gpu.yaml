@@ -1,4 +1,4 @@
-# GPU smoke-test service for the inference-gpu profile. The image is
+# GPU smoke-test service for the default profile. The image is
 # public on Docker Hub. PULL_SECRET_JSON is optional: it lifts the Docker Hub
 # rate limit of an anonymous pull.
 #
