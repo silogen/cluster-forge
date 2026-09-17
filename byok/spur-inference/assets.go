@@ -41,8 +41,20 @@ type packageMeta struct {
 	Requires  []string `json:"requires"`
 }
 
+// profileFiles holds the profile yaml files, one per profile name. It is the
+// embedded directory; a test replaces it with files of its own.
+var profileFiles fs.FS = mustSub(assets, "assets/profiles")
+
+func mustSub(f fs.FS, dir string) fs.FS {
+	sub, err := fs.Sub(f, dir)
+	if err != nil {
+		panic(err)
+	}
+	return sub
+}
+
 func profileNames() ([]string, error) {
-	entries, err := fs.ReadDir(assets, "assets/profiles")
+	entries, err := fs.ReadDir(profileFiles, ".")
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +114,7 @@ func readProfile(name string) ([]byte, error) {
 	if !validName(name) {
 		return nil, fmt.Errorf("no such profile: %s", name)
 	}
-	b, err := assets.ReadFile(path.Join("assets/profiles", name+".yaml"))
+	b, err := fs.ReadFile(profileFiles, name+".yaml")
 	if err != nil {
 		return nil, fmt.Errorf("no such profile: %s", name)
 	}

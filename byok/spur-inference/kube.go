@@ -93,7 +93,7 @@ func findKubeconfig(given string) (string, bool, error) {
 		if err != nil || !strings.Contains(string(out), "server:") {
 			continue
 		}
-		f, err := os.CreateTemp("", "spur-silo-kubeconfig-*")
+		f, err := os.CreateTemp("", "spur-inference-kubeconfig-*")
 		if err != nil {
 			return "", false, err
 		}
