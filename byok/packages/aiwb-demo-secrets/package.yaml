@@ -1,5 +1,5 @@
 name: aiwb-demo-secrets
 namespace: aiwb
 provides:
-  - secrets.inference-demo
+  - secrets.demo
 requires: []

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test for the inference-demo profile. It gets a token from Dex with a
+# Smoke test for the demo profile. It gets a token from Dex with a
 # password grant, calls the AIWB API, deploys the dummy AIMService into the
 # workbench namespace and calls the model through the gateway. Set KEEP=1 to
 # keep the AIMService. curl -k, because the demo certificate is self-signed.
