@@ -1,8 +1,8 @@
 # BYOK: Minimal Installation
 
-**Bring-your-own-Kubernetes — inference profile**
+**Bring-your-own-Kubernetes, the default-cpu profile**
 
-Installs a model-serving stack on an existing cluster using `helm upgrade --install` only. No ArgoCD, Gitea or OpenBao.
+Installs a model-serving stack on an existing cluster with the `spur inference` plugin, one Helm release per package. No ArgoCD, Gitea or OpenBao. The `default` profile adds the AMD GPU operator for AMD Instinct GPUs.
 
 ---
 
@@ -50,4 +50,4 @@ Measured 2026-09-09, Spur k0s v1.36.2, 16 vCPU / 94 GiB VM.
 | Container images | 96 images, 14 GiB |
 | Install time (warm) | ~3 min |
 
-See [footprint-inference.md](footprint-inference.md) for three-node numbers.
+See [footprint-default-cpu.md](footprint-default-cpu.md) for three-node numbers.
