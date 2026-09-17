@@ -297,7 +297,14 @@ spec:
           successThreshold: 1
           timeoutSeconds: 5
         resources:
-          {}
+          limits:
+{{- if .Values.kubeStateMetrics.resources.limits.cpu }}
+            cpu: {{ .Values.kubeStateMetrics.resources.limits.cpu | quote }}
+{{- end }}
+            memory: {{ .Values.kubeStateMetrics.resources.limits.memory }}
+          requests:
+            cpu: {{ .Values.kubeStateMetrics.resources.requests.cpu | quote }}
+            memory: {{ .Values.kubeStateMetrics.resources.requests.memory }}
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

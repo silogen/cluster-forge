@@ -157,22 +157,47 @@ apps:
           requests:
             cpu: "125m"
             memory: "512Mi"
+  # Cluster size tier: SMALL / MEDIUM -- single-node clusters (1 control plane).
+  #
+  # small and medium are deliberately IDENTICAL for this app. The measurements
+  # behind the tiers (2026-09-15/16, EAI-8713) found only one structural driver
+  # of observability cost: control-plane count, not node count. A 1-CP cluster
+  # produces ~137k apiserver samples / 237k series; a 3-CP cluster produces
+  # ~300-390k / 400-490k. Everything else -- all daemonsets, all small
+  # collectors -- measured flat across all seven clusters.
+  #
+  # Keep this block in sync with values_medium.yaml.
+  #
+  # These values match the chart defaults; they are written out explicitly so
+  # the tier is readable here rather than inferred from the chart.
   otel-lgtm-stack:
     valuesObject:
+      lgtm:
+        # Measured 3.0-3.5 GiB on 1-CP clusters. Memory request is 25% of the
+        # limit; no CPU limit (see docs/otel_lgtm_stack_tuning.md).
+        resources:
+          limits:
+            memory: 8Gi
+          requests:
+            cpu: 500m
+            memory: 2Gi
+        storage:
+          # Loki has never exceeded 1 GiB on a cluster with working retention
+          # (v1.0.8, 168h). 50Gi is already ~50x headroom; the PVCs that have
+          # had to be expanded were on v1.0.7, which has no retention.
+          loki: 50Gi
       collectors:
         resources:
+          # otel-collector-metrics-k8s. Measured 1.4 GiB on a 1-CP cluster.
+          # The 8Gi limit is deliberate: this collector has been OOMKilled at
+          # 8Gi twice, on separate clusters, from a
+          # ~2 GiB steady state, and the spike is not yet characterised.
           metrics:
-            requests:
-              cpu: 500m
-              memory: 1Gi
             limits:
-              memory: 4Gi
-          logs:
+              memory: 8Gi
             requests:
-              cpu: 250m
-              memory: 256Mi
-            limits:
-              memory: 1Gi
+              cpu: 750m
+              memory: 2Gi
   prometheus:
     valuesObject:
       prometheus:

@@ -971,32 +971,22 @@ apps:
       cluster:
         name: # to be filled by cluster-forge app based on domain
       collectors:
-        resources:
-          logs:
-            limits:
-              cpu: "1"
-              memory: 2Gi
-            requests:
-              cpu: 200m
-              memory: 400Mi
-          metrics:
-            limits:
-              cpu: "2"
-              memory: 8Gi
-            requests:
-              cpu: 500m
-              memory: 1Gi
+        # Drops apiserver metrics nothing on the platform queries and thins the
+        # two latency histograms. Set to "full" (or keepAllBuckets: true) in a
+        # cluster's own cluster-values.yaml to get everything back -- from that
+        # point forward only; dropped samples are never stored.
+        # See docs/otel_lgtm_stack_tuning.md.
+        metricFilters:
+          profile: standard
+        # Collector resources are NOT pinned here. They come from the chart
+        # defaults (= the small/medium tier), and values_large.yaml raises the
+        # two components that scale with control-plane count. Pinning them here
+        # would silently win over the chart and re-introduce the CPU limits we
+        # removed -- see docs/otel_lgtm_stack_tuning.md, "Cluster size tiers".
       kubeStateMetrics:
         enabled: true
       lgtm:
-        resources:
-          limits:
-            memory: 8Gi
-          requests:
-            cpu: "1"
-            memory: 2Gi
         storage:
-          extra: 50Gi
           grafana: 10Gi
           loki: 50Gi
           mimir: 50Gi
