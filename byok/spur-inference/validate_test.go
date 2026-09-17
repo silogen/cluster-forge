@@ -129,4 +129,9 @@ notes: |
 	if values["domain"] != "example.com" {
 		t.Errorf("the values do not hold the variable value: %v", values)
 	}
+	// An optional variable with an empty value must stay an empty string, not
+	// become null: helm drops a null key and the chart default takes over.
+	if extra, ok := values["extra"].(string); !ok || extra != "" {
+		t.Errorf("the empty optional variable is %#v, want an empty string", values["extra"])
+	}
 }

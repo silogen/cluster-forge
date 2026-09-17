@@ -91,6 +91,12 @@ func loadProfile(name string, vars map[string]string) (*profile, error) {
 		if baseProfile.Extends != "" {
 			return nil, fmt.Errorf("profile %s itself extends another profile, one level only", head.Extends)
 		}
+		// The variables go in before the merge. The merge marshals the child
+		// again and drops the quotes of a scalar, so an empty value that goes
+		// in after it leaves an empty unquoted scalar, which is null.
+		if raw, err = substituteVars(raw, vars); err != nil {
+			return nil, fmt.Errorf("profile %s: %w", name, err)
+		}
 		raw, err = mergeProfiles(base, raw)
 		if err != nil {
 			return nil, err
