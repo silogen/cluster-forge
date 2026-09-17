@@ -138,8 +138,31 @@ func TestAPackageThatIsNotInstalledIsSkipped(t *testing.T) {
 	if !reflect.DeepEqual(plan.Skip, reversed(basePackages)) {
 		t.Errorf("the plan skips %v, want every recorded package", plan.Skip)
 	}
-	if len(plan.Namespaces) != 0 {
-		t.Errorf("the purge deletes namespaces %v of packages that are not installed", plan.Namespaces)
+	// An uninstall that stopped part way has removed the releases but not the
+	// namespaces, so the purge still deletes the namespaces of skipped packages.
+	for _, namespace := range []string{"aim-system", "kserve-system", "kyverno"} {
+		if !contains(plan.Namespaces, namespace) {
+			t.Errorf("the purge does not delete namespace %s of a skipped package: %v", namespace, plan.Namespaces)
+		}
+	}
+}
+
+func TestANamespaceOfAKeptPackageStaysWhenAnotherPackageIsSkipped(t *testing.T) {
+	// kyverno and kyverno-policies-storage-local-path share the namespace
+	// kyverno. When another profile holds kyverno, a skipped policies package
+	// must not take the namespace away.
+	record := recordOf(map[string][]string{
+		"default-cpu": basePackages,
+		"other":       {"kyverno"},
+	})
+	p := mustLoadForRemoval(t, "default-cpu")
+
+	plan, err := planRemoval(record, p, true, installedSet("kyverno"), packagesOfRun(record, p))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if contains(plan.Namespaces, "kyverno") {
+		t.Errorf("the purge deletes namespace kyverno, which a kept package holds: %v", plan.Namespaces)
 	}
 }
 
