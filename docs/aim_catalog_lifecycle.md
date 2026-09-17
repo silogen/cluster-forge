@@ -11,6 +11,20 @@ tags, bespoke models, or housekeeping after a platform upgrade.
 For step-by-step procedures (Gitea manifests, Argo CD sync, verification), see
 [AIM model management](aim_model_management.md).
 
+## Table of contents
+
+- [Overview](#overview)
+- [Packaged baseline catalog](#packaged-baseline-catalog)
+  - [Model release sources vs base catalog sources](#model-release-sources-vs-base-catalog-sources)
+  - [Source of truth](#source-of-truth)
+- [Version policy](#version-policy)
+- [Cluster-managed catalog additions](#cluster-managed-catalog-additions)
+  - [Hardware family and catalog UX](#hardware-family-and-catalog-ux)
+- [Filter removal vs source removal](#filter-removal-vs-source-removal)
+- [Lifecycle constraints](#lifecycle-constraints)
+- [Responsibilities](#responsibilities)
+- [Related documentation](#related-documentation)
+
 ## Overview
 
 The catalog has two complementary layers:
@@ -73,6 +87,12 @@ EPYC → `aim-epyc-base`, Radeon → `aim-radeon-base`. The `unfiltered` templat
 the one exception — it installs all three, because it has no family to filter
 on.
 
+Every family block in `templates/profiles.yaml` uses the same source name
+`aim-base-models`. A `hardwareFamilies` list with more than one of `instinct`,
+`epyc`, or `radeon` therefore renders that name twice (visible in
+`helm template`). A typical install sets a single family via
+`AIM_HARDWARE_FAMILY`.
+
 ### Source of truth
 
 Canonical model source and base-image lists live in an AMD-internal repository
@@ -90,7 +110,8 @@ To read the catalog it will install before you deploy, render the chart:
 
 ```bash
 helm template aim-cluster-model-source sources/aim-cluster-model-source \
-  --set-json 'hardwareFamilies=["instinct"]' | grep -E '^  name:'
+  --set-json 'hardwareFamilies=["instinct"]' \
+  | awk '/^kind: AIMClusterModelSource/{want=1; next} want && /^  name:/{print $2; want=0}'
 ```
 
 If you need an AIM version sooner than the next Cluster Forge release, use
