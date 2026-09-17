@@ -1,0 +1,72 @@
+# Per-API-key TOKEN quota for semantic-router. Requires the
+# envoy-ai-gateway-ratelimit service and its Redis, which install.sh installs;
+# without them this loads and is silently unenforced. AI Gateway's controller
+# fails open when the ratelimit service is unreachable
+# (quotaRateLimitFailureModeDeny: false, chart default) — meaning a missing
+# ratelimit service does not block requests, it just never throttles anyone.
+# Verify it is actually working (see the README's verification section) rather
+# than assuming a 429 will tell you if it is missing.
+#
+# shadowMode: true to start. In shadow mode every request is evaluated and
+# counted (so you can watch real spend accumulate against the limit below
+# before anyone is throttled) but nothing is ever denied. Flip individual
+# bucketRules' shadowMode to false only once you have confirmed real usage
+# against real limits looks right, AND you are running an AI Gateway image that
+# carries the fix described below.
+#
+# KNOWN DEFECT on the UPSTREAM AI Gateway images (including the
+# 8007dfd481f7d1225bcaf9d059cb15b61d4d28e0 pin that values/envoy-ai-gateway.yaml
+# defaults to): the counter QuotaPolicy CHECKS increments by 1 per request, but
+# the counter it CHARGES token cost to is a different, shared-across-all-keys
+# counter that fires after the stream already ended and can never deny. Net
+# effect: `limit` behaves as REQUESTS per duration per key, not tokens — real
+# token spend is measured (and visible in the access log and in this policy's
+# shadow-mode counters) but not enforced, and one tenant's spend is not
+# distinguishable from another's.
+#
+# Fix: theagentrouter/agent-router#2664, open and unreleased. Build it and set
+# AIGW_CONTROLLER_IMAGE — see "Build the patched AI Gateway image" in the
+# README. Do not turn shadowMode off and rely on `limit` as a token budget
+# before then.
+#
+# `mode: Shared` is not a choice — the installed CRD's `mode` enum has exactly
+# one value. Its OR semantics mean ANY defaultBucket masks every exhausted
+# per-key bucketRule, so there is deliberately no defaultBucket here. Do not
+# add one "to be safe" — it defeats every limit below it.
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: QuotaPolicy
+metadata:
+  name: semantic-router
+  namespace: semantic-router
+spec:
+  targetRefs:
+    - group: aigateway.envoyproxy.io
+      kind: AIServiceBackend
+      # TODO: one entry per AIServiceBackend defined in gateway-routing.yaml
+      # that you want quota enforcement on. If you add more than one, each
+      # one needs its own perModelQuotas entry below too, or its traffic
+      # bleeds into another model's bucket instead of going unmetered.
+      name: TODO-your-model-backend
+  perModelQuotas:
+    # TODO: modelName must match a rule's x-selected-model value in
+    # gateway-routing.yaml's AIGatewayRoute — not the backend name.
+    - modelName: TODO-your-model
+      quota:
+        mode: Shared
+        bucketRules:
+          - shadowMode: true
+            clientSelectors:
+              # Distinct -> one bucket per unique x-api-key-id value, with no
+              # key named in this policy. x-api-key-id is set by
+              # gateway-routing.yaml's SecurityPolicy (forwardClientIDHeader),
+              # to the Secret key name that authenticated the request — so
+              # onboarding a new client is "add a Secret entry", never a quota
+              # edit here.
+              - headers:
+                  - name: x-api-key-id
+                    type: Distinct
+            quota:
+              # TODO: tokens per duration, per key. duration accepts only
+              # "1s", "1m", "1h", or "1d" — no arbitrary multiples.
+              limit: 100000
+              duration: 1h

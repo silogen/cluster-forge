@@ -1,0 +1,52 @@
+# Dedicated Envoy data plane for semantic-router.
+#
+# The listener is plain HTTP and carries no certificate: this blueprint installs
+# no edge Gateway and terminates no TLS. Clients reach it through the ClusterIP
+# Service in sr-gateway-service.yaml (port-forward, or whatever ingress you put
+# in front of it yourself). Anything internet-facing needs TLS terminated
+# upstream of this — see the README's "Reaching it".
+#
+# Existing on its own gateway — rather than as a route on some shared gateway —
+# is what makes semantic-router's catch-all the ONLY catch-all AI Gateway
+# resolves against. A route-scoped SecurityPolicy on a Gateway that carries
+# other apps' routes too gets evaluated against Envoy's pre-rerouted first
+# catch-all route (chosen by route creation time, not by the model the
+# request actually resolves to) before the router's own re-route has taken
+# effect — on a multi-route gateway that can let a request through the wrong
+# policy, or none. A dedicated single-route Gateway removes the ambiguity.
+#
+# No hostname restriction: AIGatewayRoute (gateway-routing.yaml) matches on
+# headers only, never on hostname.
+#
+# NOTE: `sr-gateway` living in the `semantic-router` namespace while the AI
+# Gateway controller lives in `envoy-ai-gateway-system` is a multi-namespace
+# Gateway topology that a past AI Gateway controller version crashed on ("found
+# gateway-labeled objects in multiple namespaces"). Fixed upstream, and the
+# image pinned in values/envoy-ai-gateway.yaml includes the fix — but reconfirm
+# the extProc sidecar is injected on your cluster before relying on this, and
+# again after any AI Gateway image bump.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: sr-gateway
+  namespace: semantic-router
+  annotations:
+    # Must name a GatewayConfig in THIS namespace -- GatewayConfig is
+    # namespace-scoped. sr-gateway-config.yaml creates it.
+    aigateway.envoyproxy.io/gateway-config: sr-extproc
+spec:
+  gatewayClassName: envoy-gateway
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      # Also namespace-scoped and also needs its own copy -- see
+      # sr-gateway-proxy-config.yaml.
+      name: sr-gateway-proxy-config
+  listeners:
+    - allowedRoutes:
+        namespaces:
+          from: Same
+      name: http
+      port: 8080
+      protocol: HTTP
