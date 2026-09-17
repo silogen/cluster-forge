@@ -1,8 +1,8 @@
 # BYOK: Inference Demo Installation
 
-**Bring-your-own-Kubernetes — inference-demo profile**
+**Bring-your-own-Kubernetes, the demo profile**
 
-A reference demo of the AI Workbench on an existing cluster, with `helm upgrade --install` only. Log in through Dex, deploy a model from the catalog in the UI, chat with the model on CPU. Not a production installation.
+A reference demo of the AI Workbench on an existing cluster, installed by the `spur inference` plugin. Log in through Dex, deploy a model from the catalog in the UI, chat with the model. `demo` runs on AMD Instinct GPUs, `demo-cpu` on a cluster with no GPU. Not a production installation.
 
 ---
 
@@ -10,7 +10,7 @@ A reference demo of the AI Workbench on an existing cluster, with `helm upgrade 
 
 | Package | Purpose |
 |---|---|
-| everything in `inference` ¹ | Model serving with aim-engine and KServe |
+| everything in `default` ¹ | Model serving with aim-engine and KServe, the AMD GPU operator |
 | envoy-gateway + envoy-gateway-config | Ingress: GatewayClass and the `https` Gateway |
 | selfsigned-tls | Self-signed `*.<domain>` certificate through cert-manager |
 | opentelemetry-crds | The `OpenTelemetryCollector` CRD, no operator |
@@ -19,7 +19,7 @@ A reference demo of the AI Workbench on an existing cluster, with `helm upgrade 
 | dex | Dex as the OIDC issuer: one demo user, one client, state in memory |
 | aiwb | AI Workbench API and UI in standalone mode |
 
-¹ cert-manager, KServe, aim-engine, the AIM catalog and the Kyverno storage policy.
+¹ cert-manager, the AMD GPU operator, KServe, aim-engine, the AIM catalog and the Kyverno storage policy. `demo-cpu` holds the same without the GPU operator.
 
 ---
 
@@ -34,8 +34,8 @@ A reference demo of the AI Workbench on an existing cluster, with `helm upgrade 
 ## Install
 
 ```bash
-byok/bootstrap.sh install --profile byok/profiles/inference-demo.yaml \
-  --var domain=demo.example.com
+spur inference install demo --var domain=demo.example.com
+spur inference install demo --no-gpu --var domain=demo.example.com   # demo-cpu
 ```
 
 | Variable | Meaning |
@@ -80,4 +80,4 @@ Measured 2026-09-10, k3s v1.36.4, 16 vCPU / 94 GiB VM.
 | Container images | 39 images, 19 GiB |
 | Install time (cold / warm) | 5 min 46 s / 33 s |
 
-See [footprint-inference-demo.md](footprint-inference-demo.md) for the numbers per namespace.
+See [footprint-demo.md](footprint-demo.md) for the numbers per namespace.

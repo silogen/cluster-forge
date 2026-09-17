@@ -1,8 +1,14 @@
-# spur-silo test findings
+# spur-inference test findings
 
-What the tests of the `spur silo` plugin found. Each item says where it was
-found and what the state is. The Go rewrite of the plugin keeps this list as
-its input.
+What the tests of the `spur inference` plugin found. Each item says where it
+was found and what the state is. The Go rewrite of the plugin keeps this list
+as its input.
+
+The tests ran before the rename of 2026-09-17, when the plugin was `spur silo`
+and the profiles were `inference`, `inference-gpu` and `inference-demo`. The
+results keep the names of their time. The new names are `spur inference`,
+`default-cpu`, `default` and `demo`, and a result that names a profile gives
+the new name in brackets. `bootstrap.sh`, the bash path, is gone.
 
 ## Test setup
 
@@ -58,8 +64,8 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
    stops as soon as the object reports `Failed`, with the conditions that hold
    it back. The smoke test then passed on itg1 in 31 seconds.
 7. **A second profile could go on top of a profile it shares packages with.**
-   `install inference --no-gpu` on a node that already had
-   `inference-gpu` installed both profiles: the record held both
+   `install inference --no-gpu` (now `install --no-gpu`) on a node that
+   already had `inference-gpu` (now `default`) installed both profiles: the record held both
    names, and the CPU values went over the charts of the GPU install. An
    install now stops when another recorded profile shares packages with it. An
    install of the same profile is an upgrade, and a profile that says `extends`
@@ -99,6 +105,15 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
   the profile.
 
 ## Open
+
+- **The Radeon warning is untested on a node.** The rename of 2026-09-17
+  replaced the Instinct auto-selection with a warning for a GPU that is not
+  Instinct, from the `gpu:` type of `spur show node`. No node with a Radeon
+  card was available, so the table test of `kube_test.go` is the only check.
+- **The CPU detector of the `-cpu` profiles is untested on a node.** The
+  `default-cpu` and `demo-cpu` profiles turn the accelerator detector on with
+  the CPU detector, which no recorded test has run. The Kaytoo test plan holds
+  the check and the fallback.
 
 9. **The `aiwb` chart 2.0.0 asks for the Secret `aiwb-ui-keycloak-secret`,
    which the `inference-demo` profile does not make.** The `aiwb-demo-secrets`
@@ -184,29 +199,32 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
 
 ## Proven
 
-- `install inference` from the control-plane node: 93 seconds, the
-  install record written, every capability probe `yes`.
+- `install inference` (now `default-cpu`) from the control-plane node: 93
+  seconds, the install record written, every capability probe `yes`.
 - `status` from the control-plane node (kubeconfig from `k0s`) and from the
   driver node (kubeconfig from Spur over gRPC under sudo).
-- `uninstall inference-demo` with both profiles recorded keeps every package of
-  `inference` and removes only the packages of the demo.
-- `uninstall inference` empties the install record.
-- The last Kaytoo round, with every fix in: `uninstall inference-demo` after a
-  failed install removes the failed `aiwb` release first, keeps all nine
-  packages of `inference` and twenty CRDs, and takes 20 seconds. The
+- `uninstall inference-demo` (now `demo-cpu`) with both profiles recorded keeps
+  every package of `inference` (now `default-cpu`) and removes only the
+  packages of the demo.
+- `uninstall inference` (now `default-cpu`) empties the install record.
+- The last Kaytoo round, with every fix in: `uninstall inference-demo` (now
+  `demo-cpu`) after a failed install removes the failed `aiwb` release first,
+  keeps all nine packages of `inference` (now `default-cpu`) and twenty CRDs,
+  and takes 20 seconds. The
   `aiwb` failure itself reports in 10 min 53 s and names the pod and the
   missing Secret. The end state holds no CRD, no record and only the namespace
   `aims-test` of the smoke test.
-- On two Kaytoo VMs with the Go build: `install inference` 1 min 41 s,
-  `uninstall inference` 51 s with no CRD and no namespace left,
-  `install inference --smoke-test` 3 min 04 s with the smoke test
-  passed, `status` from both the control-plane node and the worker, and the
-  error paths (a missing `--var`, an unknown profile, `--no-gpu` on a CPU
+- On two Kaytoo VMs with the Go build: `install inference` (now
+  `default-cpu`) 1 min 41 s, `uninstall inference` 51 s with no CRD and no
+  namespace left, `install inference --smoke-test` 3 min 04 s with the smoke
+  test passed, `status` from both the control-plane node and the worker, and
+  the error paths (a missing `--var`, an unknown profile, `--no-gpu` on a CPU
   cluster).
-- On itg1, one MI300X node with 8 GPUs: `uninstall inference-gpu` in
-  2 min 51 s with no CRD and no namespace left, `install inference
-  --smoke-test` in 3 min 24 s with the GPU profile selected by the node GRES,
-  every capability `yes`, `amd.com/gpu: 8` allocatable and the smoke test
-  passed.
+- On itg1, one MI300X node with 8 GPUs: `uninstall inference-gpu` (now
+  `default`) in 2 min 51 s with no CRD and no namespace left, `install
+  inference --smoke-test` in 3 min 24 s with the GPU profile selected by the
+  node GRES (the plugin no longer selects a profile; `default` is the GPU
+  profile), every capability `yes`, `amd.com/gpu: 8` allocatable and the
+  smoke test passed.
 - `spur plugin list` marks a plugin that shadows a built-in command, and the
   built-in command wins.

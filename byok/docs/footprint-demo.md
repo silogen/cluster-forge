@@ -1,9 +1,9 @@
-# Footprint of the inference-demo profile
+# Footprint of the demo profile
 
 Measured on 2026-09-11 on one Kaytoo VM, OCI, 16 vCPU and 94 GiB memory, with
 a single-node Spur k0s cluster, k0s v1.36.2, and its local-path StorageClass.
-The profile is `inference-demo`, which holds every package of
-`inference` and adds the gateway, PostgreSQL, Dex and AIWB. The
+The profile is `inference-demo` (now `demo-cpu`), which holds every package of
+`inference` (now `default-cpu`) and adds the gateway, PostgreSQL, Dex and AIWB. The
 gateway is a `ClusterIP` Service with the node address in `externalIPs`, so
 the cluster needs no load balancer.
 
@@ -20,9 +20,9 @@ cluster-forge install.
 | date | 2026-09-11 |
 | kubernetes | v1.36.2+k0s, one node |
 | VM shape | 16 vCPU, 94 GiB memory, 96 GiB boot disk |
-| profile | inference-demo |
+| profile | inference-demo (now demo-cpu) |
 | domain | `<node-ip>.nip.io`, self-signed certificate |
-| install of the demo layer on top of `inference` | 1 min 17 s |
+| install of the demo layer on top of `inference` (now `default-cpu`) | 1 min 17 s |
 | second install wall-clock time | 29 s |
 | container images on the node | 119 images, 19 GiB in `/var/lib/k0s/containerd` |
 

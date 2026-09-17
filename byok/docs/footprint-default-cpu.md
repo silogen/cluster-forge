@@ -1,7 +1,7 @@
-# Footprint of the inference profile
+# Footprint of the default-cpu profile
 
 Measured on 2026-09-09 on one Kaytoo VM, OCI, 16 vCPU and 94 GiB memory, with
-Kubernetes from `spur k8s up`. The profile is `inference` with the
+Kubernetes from `spur k8s up`. The profile is `inference` (now `default-cpu`) with the
 `kyverno` and `kyverno-policies-storage-local-path` packages, which the
 local-path StorageClass makes necessary.
 
@@ -13,7 +13,7 @@ cluster-forge install.
 | date | 2026-09-09 |
 | kubernetes | v1.36.2+k0s, one node |
 | VM shape | 16 vCPU, 94 GiB memory, 96 GiB boot disk |
-| profile | inference |
+| profile | inference (now default-cpu) |
 | install wall-clock time | 2 min 58 s |
 | container images on the node | 96 images, 14 GiB in /var/lib/k0s/containerd |
 
@@ -50,7 +50,8 @@ cache PVC is 1 GiB, ReadWriteOnce after the Kyverno mutation.
 
 Measured on 2026-09-09 on a three-node Spur k0s cluster on Kaytoo VMs of the
 same shape. Spur makes one node the control plane and two nodes workers. The
-same profile was installed with `byok/spur/spur-silo` from a worker node.
+same profile was installed with the bash build of the plugin, `byok/spur/spur-silo`
+(removed since), from a worker node.
 The requests and limits are the same as on one node. The six pods spread over
 the two workers. Live usage from `kubectl top`: 11 mCPU and 227 MiB together.
 The node that ran the measurement holds 60 images and 13 GiB in

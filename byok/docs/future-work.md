@@ -19,8 +19,8 @@ These items are out of scope for the first byok release.
 - The CPU accelerator detector of the aim-engine chart has no node affinity,
   although its values comment says it targets nodes without a GPU. On an
   MI300X node it reports `model=CPU count=1` and its startup probe never
-  passes, so the DaemonSet stays 0/1. The `inference-gpu` profile
-  turns it off. Ask the aim-engine team for the node affinity.
+  passes, so the DaemonSet stays 0/1. The `default` profile turns it off.
+  Ask the aim-engine team for the node affinity.
 - The accelerator detector images live in `amdenterpriseai` and the chart
   ships an empty `imagePullSecrets`. The images are public today, so a pull
   Secret only lifts the rate limit of an anonymous pull. A byok package that
@@ -34,8 +34,8 @@ These items are out of scope for the first byok release.
   cluster to Running or Succeeded, so a GPU cluster fails the step while any
   Pod of `kube-amd-gpu` is not ready, although steps 1 to 7 pass. Give the
   step a namespace list, or run it only for the minimal core.
-- Blueprints on top of the inference profile.
-- An AIRM package. The `inference-demo` profile holds AIWB without AIRM.
+- Blueprints on top of the default profile.
+- An AIRM package. The `demo` profile holds AIWB without AIRM.
 - Autoscaling as a capability that the cluster gives, `autoscaling.keda`, with
   a probe.
 - The EPYC llama-3.2-1b model as a more realistic smoke test, after the CPU
@@ -46,7 +46,7 @@ These items are out of scope for the first byok release.
   Today `tests/check-version-drift.sh` compares them.
 - Add `byok/` to the release tarball.
 - An air-gapped install with vendored charts.
-- A profile override file for `bootstrap.sh`, `--values <file>`.
+- A profile override file for the plugin, `--values <file>`.
 - An upgrade test with two published chart versions.
 - byok on more than one node, and high availability. The three-node Spur test
   on OCI needed kube-router in full overlay mode, because an OCI VNIC drops a
@@ -71,7 +71,7 @@ These items are out of scope for the first byok release.
   object. Then the `opentelemetry-crds` package can go away.
 - The `AIMClusterRuntimeConfig default` object: both the aim-engine chart and
   the aiwb chart make it under the same name, so only one release can own it.
-  In `inference-demo` the aiwb chart owns it, and it sets `pvcHeadroomPercent: 100`
+  In `demo` the aiwb chart owns it, and it sets `pvcHeadroomPercent: 100`
   where the CRD default is 10, so a model volume is about two times the model
   size.
 - Ask the AIWB team to make the `cluster-auth-admin-token` and

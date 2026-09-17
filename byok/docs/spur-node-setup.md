@@ -5,7 +5,7 @@ profile that serves a model. This is the path the GPU test of
 `useocpm2m-silogen-014` took, step by step. A multi-node cluster adds only the
 peer list of step 3 and a `spurd` on every node.
 
-The node needs no helm, kubectl, yq, jq or git: the Go build of `spur-silo`
+The node needs no helm, kubectl, yq, jq or git: the `spur-inference` binary
 holds the charts. It does need to reach the container registries.
 
 ## 1. Build the binaries
@@ -16,26 +16,26 @@ Spur, from a checkout of the spur repository:
 cargo build --release --bin spurctld --bin spurd --bin spur
 ```
 
-`spur-silo`, from a checkout of cluster-forge. `make assets` needs helm and the
+`spur-inference`, from a checkout of cluster-forge. `make assets` needs helm and the
 network once, `make build` needs neither:
 
 ```bash
-make -C byok/spur-silo assets build REF=<branch-or-tag>
+make -C byok/spur-inference assets build REF=<branch-or-tag>
 ```
 
 ## 2. Copy them to the node
 
 ```bash
 scp -C target/release/{spurctld,spurd,spur} ubuntu@<node>:/tmp/
-scp -C byok/spur-silo/spur-silo ubuntu@<node>:/tmp/
-ssh ubuntu@<node> 'sudo install -m755 /tmp/{spurctld,spurd,spur,spur-silo} /usr/local/bin/'
+scp -C byok/spur-inference/spur-inference ubuntu@<node>:/tmp/
+ssh ubuntu@<node> 'sudo install -m755 /tmp/{spurctld,spurd,spur,spur-inference} /usr/local/bin/'
 ```
 
 Check the size of every file on the node against the source. A copy that stops
 in the middle gives a binary that starts and prints nothing, with no error.
 
-`spur silo ...` works when the `spur` build holds the plugin mechanism.
-`spur-silo ...` works with any build.
+`spur inference ...` works when the `spur` build holds the plugin mechanism.
+`spur-inference ...` works with any build.
 
 ## 3. Write /etc/spur/spur.conf
 
@@ -84,7 +84,7 @@ Four settings whose absence costs the most time:
 - `[cluster] enabled = true` must be there **before** `spurctld` starts. The
   reconcile loop only runs when it is set, and `spur k8s up` then stays in
   `provisioning` for ever.
-- `allow_admin_kubeconfig = true` lets `spur-silo` ask Spur for the admin
+- `allow_admin_kubeconfig = true` lets `spur-inference` ask Spur for the admin
   kubeconfig. Without it the plugin falls back to `sudo -n k0s kubeconfig
   admin`, which works on a control-plane node only.
 - `local_path_dir` puts the volumes of the default StorageClass on the big
@@ -151,27 +151,28 @@ Gate: `sudo k0s kubectl get nodes` shows the node `Ready`, and
 ## 8. Install a profile
 
 ```bash
-spur silo list
-spur silo install inference --smoke-test
-spur silo status
+spur inference list
+spur inference install --smoke-test          # the default profile
+spur inference status
 ```
 
 Every command but `list` takes `--kubeconfig <path>`, which wins over the
 lookup chain.
 
-`install inference` asks Spur for the node GRES. A node with an AMD
-Instinct GPU gets `inference-gpu`, which adds the AMD GPU operator.
-`--no-gpu` keeps the CPU profile. The GPU operator uses the ROCm driver of the
-host, so the host needs that driver; `amd-smi list` shows it.
+`install` with no name installs `default`, which holds the AMD GPU operator.
+`--no-gpu` installs `default-cpu` instead. The plugin asks Spur for the GPU of
+every node and prints a warning when the profile and the GPUs do not go
+together, but it never changes the name. The GPU operator uses the ROCm
+driver of the host, so the host needs that driver; `amd-smi list` shows it.
 
-Gate: every capability of the profile reads `yes` in `spur silo status`, the
+Gate: every capability of the profile reads `yes` in `spur inference status`, the
 node shows `amd.com/gpu: <count>` in its allocatable resources, and the smoke
 test says `smoke test passed`.
 
 ## 9. Take it down again
 
 ```bash
-spur silo uninstall <profile>          # or --keep-data to keep the PVCs and CRDs
+spur inference uninstall --yes         # every profile; --keep-data keeps the PVCs and CRDs
 sudo spur k8s down --reset             # --reset wipes the k0s state as well
 # `down` only files the request: spurctld drives spurd, which does the work.
 # Wait for the unit to go before the daemons go, or the request is lost.
@@ -186,5 +187,5 @@ sudo umount /var/lib/k0s
 k0s unit on startup` and leaves the cluster as it is. `k0s reset` by hand is
 not needed, `--reset` of `down` does it.
 
-`uninstall` leaves the namespace `silo-system` of the install record, and the
+`uninstall` leaves the namespace `inference-system` of the install record, and the
 namespace `aims-test` when the smoke test ran. Both are empty.

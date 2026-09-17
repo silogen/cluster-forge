@@ -1,11 +1,11 @@
-# Spur CLI plugins, with `spur silo` as the first one
+# Spur CLI plugins, with `spur inference` as the first one
 
 | Item | Value |
 |---|---|
 | Status | Implemented and tested. Not merged to the Spur main branch. |
 | Author | Marc Dillon, Petrus Repo, AMD Silo AI, Enterprise AI |
 | Date | 2026-09-16 |
-| Tickets | EAI-8560 (byok and `spur-silo`) |
+| Tickets | EAI-8560 (byok and `spur-inference`) |
 | Approval | Open. This document goes to a second team for review. |
 | Audience | Teams that build tools on top of Spur, and teams that ship a product on a Spur cluster. |
 
@@ -17,9 +17,9 @@ built-in command, Spur runs the executable `spur-<name>` from `PATH`. A team
 then adds a command to the Spur command line without a change to Spur, without
 a Spur release, and without its product names in a public repository.
 
-`spur silo` is the first plugin. It installs the selected AMD Enterprise AI Reference
-Stack on a Spur cluster with one command, and it holds every Helm chart inside its own
-binary.
+`spur inference` is the first plugin. It installs the selected AMD Enterprise AI
+Reference Stack on a Spur cluster with one command, and it holds every Helm
+chart inside its own binary.
 
 ## Background
 
@@ -28,7 +28,7 @@ a Kubernetes cluster. An operator who has a Spur cluster and wants the AMD
 Enterprise AI Reference Stack on it had to leave the Spur command line, find another
 installer, and give that installer a kubeconfig.
 
-The obvious answer, a built-in `spur silo` command, has two problems. Spur is
+The obvious answer, a built-in `spur inference` command, has two problems. Spur is
 public and vendor-neutral; the AMD product names, the Helm dependencies and the
 install order of the AI stack do not belong in it. And the release cadences
 differ: a new profile of the AI stack would need a new Spur release.
@@ -40,7 +40,7 @@ who knows `kubectl krew` recognizes it at once.
 Two decisions came out of the work, and this document records them:
 
 1. Spur gets a generic plugin mechanism. The product code stays outside Spur.
-2. The plugin `spur-silo` is one Go binary with the charts embedded in it, not
+2. The plugin `spur-inference` is one Go binary with the charts embedded in it, not
    a script that needs tools on the node.
 
 ## Goals
@@ -80,9 +80,9 @@ When `spur <name> ...` matches no built-in command, Spur searches `PATH` for
 
 ```mermaid
 flowchart TD
-    A["spur silo install demo"] --> B{"Built-in command?"}
+    A["spur inference install demo"] --> B{"Built-in command?"}
     B -- yes --> C["Spur runs it"]
-    B -- no --> D["Search PATH, longest name first:\nspur-silo-install-demo\nspur-silo-install\nspur-silo"]
+    B -- no --> D["Search PATH, longest name first:\nspur-inference-install-demo\nspur-inference-install\nspur-inference"]
     D -- found --> E["exec the plugin\nwith the rest as arguments\nand SPUR_* in the environment"]
     D -- none --> F["error: unknown command"]
 ```
@@ -107,7 +107,7 @@ Spur exports five variables and nothing else:
 | `SPUR_CONF` | Path of the configuration file in use |
 | `SPUR_BIN` | Absolute path of the running `spur` binary |
 | `SPUR_VERSION` | Version of that binary |
-| `SPUR_PLUGIN_NAME` | The resolved name, for example `silo` |
+| `SPUR_PLUGIN_NAME` | The resolved name, for example `inference` |
 
 **No user identity and no token go to a plugin.** A plugin that needs cluster
 access asks Spur for it, for example with `$SPUR_BIN k8s kubeconfig --admin`,
@@ -117,9 +117,9 @@ operator; the mechanism adds no rights and hands over no credential. This is
 the one-way door of the design: a token in the environment would be impossible
 to take back later.
 
-### `spur silo`, the first plugin
+### `spur inference`, the first plugin
 
-`spur-silo` is one Go binary. `go:embed` puts the profiles, the package
+`spur-inference` is one Go binary. `go:embed` puts the profiles, the package
 metadata, the capability list and every Helm chart inside it. Helm itself is
 inside it too, as the Helm Go library, not as the `helm` command: the binary
 installs, upgrades and removes releases in its own process, and talks to the
@@ -131,7 +131,7 @@ the other reads the resources of the node.
 ```mermaid
 flowchart LR
     subgraph Node
-      S["spur"] -->|exec, SPUR_* env| P["spur-silo"]
+      S["spur"] -->|exec, SPUR_* env| P["spur-inference"]
       P -->|"$SPUR_BIN k8s kubeconfig --admin"| S
     end
     P -->|Helm SDK + client-go| K["Kubernetes API of the Spur cluster"]
@@ -148,18 +148,20 @@ A **package** is one Helm chart plus the metadata that says which namespace it
 goes in, which capabilities it gives (`provides`) and which it needs
 (`requires`). A **profile** is an ordered list of packages with the values that
 bind them together, and it can extend another profile. Today there are 21
-packages and 3 profiles, from a CPU inference stack to a full demo with an
-OIDC issuer, a database and the workbench user interface.
+packages and 4 profiles, from an inference stack on AMD Instinct GPUs or on
+CPU to a full demo with an OIDC issuer, a database and the workbench user
+interface. The default profile holds the GPU operator; `--no-gpu` selects the
+`-cpu` twin of a profile.
 
 The command surface is small on purpose:
 
 ```
-spur silo list
-spur silo validate  <profile> [--var name=value]...
-spur silo install   <profile> [--var name=value]... [--smoke-test] [--no-gpu]
-spur silo status
-spur silo uninstall <profile> [--keep-data]
-spur silo version
+spur inference list
+spur inference validate  [<profile>] [--var name=value]... [--no-gpu]
+spur inference install   [<profile>] [--var name=value]... [--smoke-test] [--no-gpu]
+spur inference status
+spur inference uninstall [<profile>] [--keep-data] [--yes]
+spur inference version
 ```
 
 Four behaviours are worth naming, because each answers a failure we saw on a
@@ -176,7 +178,8 @@ real cluster:
 - **A removal that respects other profiles.** An uninstall keeps every release,
   namespace and custom resource definition that a package of another installed
   profile owns, and it takes finalizers off custom resources before it removes
-  their definition, while the controller still runs.
+  their definition, while the controller still runs. It shows what goes and
+  asks before the first removal; a script gives `--yes`.
 - **A failure that names its cause.** When a package does not become ready, the
   binary names the pod, its reason and its message, instead of the Helm
   timeout.
@@ -195,13 +198,12 @@ On a two-node Kubernetes cluster that Spur made:
 | Remove the profile, with no namespace and no definition left | 54 s |
 | Remove one profile while a second one stays | 20 s, the nine shared packages stay |
 
-On a node with 8 AMD Instinct GPUs, the same binary selected the GPU profile
-from the resources that Spur reports, gave the workload `amd.com/gpu: 8`, and
-passed the smoke test in 3 min 24 s.
+On a node with 8 AMD Instinct GPUs, the same binary installed the GPU profile,
+gave the workload `amd.com/gpu: 8`, and passed the smoke test in 3 min 24 s.
 
 ## Alternatives
 
-- **A built-in `spur silo` subcommand.** Rejected: it puts product names and
+- **A built-in `spur inference` subcommand.** Rejected: it puts product names and
   Helm dependencies into a public scheduler, and every new profile then needs a
   Spur release.
 - **A generic `spur install <chart>` that wraps Helm.** Rejected: the install
