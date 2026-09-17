@@ -35,7 +35,8 @@ spur inference install --no-gpu         # default-cpu, on a cluster with no GPU
 spur inference install demo --var domain=example.com \
   --var gatewayServiceType=LoadBalancer --var gatewayExternalIP=10.0.0.10
 spur inference status
-spur inference uninstall demo
+spur inference uninstall demo --yes
+spur inference uninstall                # every recorded profile, after a question
 ```
 
 A blank profile name is `default`. `--no-gpu` adds `-cpu` to the name, so
@@ -44,6 +45,12 @@ A blank profile name is `default`. `--no-gpu` adds `-cpu` to the name, so
 GPU of every node and gives a warning when the profile and the GPUs do not go
 together: a `-cpu` profile on Instinct nodes, a GPU profile on a cluster with
 no GPU, or a GPU that is not Instinct.
+
+`uninstall` shows what goes, what stays and which namespaces the purge
+deletes, then asks `Remove? [y/N]`. `--yes` skips the question. When stdin is
+not a terminal and `--yes` is absent, the command refuses before it touches
+the cluster. Without a name it removes every recorded profile, a profile that
+extends another recorded profile before its base.
 
 The binary writes an install record into the ConfigMap `install-record` of the
 namespace `inference-system`, one entry per profile. `uninstall` reads it and

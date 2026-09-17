@@ -43,7 +43,7 @@ diff "$tmp/before.txt" "$tmp/after.txt" || fail "the rendered manifests changed 
 ok "no change on the second install"
 
 echo "== 4. remove test-s3 with the data"
-"$SPUR_INFERENCE" uninstall test-s3
+"$SPUR_INFERENCE" uninstall test-s3 --yes
 
 echo "== 5. nothing of seaweedfs stays"
 helm status seaweedfs --namespace seaweedfs-instance >/dev/null 2>&1 \
