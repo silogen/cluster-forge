@@ -31,10 +31,29 @@ spec:
     targetRevision: {{ .Values.clusterForge.targetRevision }}
     path: root
     helm:
-      {{- if .Values.clusterForge.targetRevision }}
+      # Every value bloom passed with --set when it first rendered this file
+      # must be repeated here. ArgoCD renders this same chart again to manage
+      # the app-of-apps, and that render sees only the valueFiles below, so a
+      # value that is not a parameter is lost on the first sync and the root
+      # app overwrites its own spec without it. global.domain went missing
+      # this way: envoy-gateway-config then wrote a CoreDNS rewrite of
+      # `.*\.` and every name in the cluster resolved to the gateway.
+      # externalValues.enabled carries these in cluster-values/values.yaml
+      # instead, which is why only the small path was affected.
+      {{- if or .Values.clusterForge.targetRevision .Values.global.domain .Values.global.clusterSize }}
       parameters:
+        {{- if .Values.clusterForge.targetRevision }}
         - name: clusterForge.targetRevision
           value: {{ .Values.clusterForge.targetRevision | quote }}
+        {{- end }}
+        {{- if .Values.global.domain }}
+        - name: global.domain
+          value: {{ .Values.global.domain | quote }}
+        {{- end }}
+        {{- if .Values.global.clusterSize }}
+        - name: global.clusterSize
+          value: {{ .Values.global.clusterSize | quote }}
+        {{- end }}
       {{- end }}
       valueFiles:
         - {{ .Values.clusterForge.valuesFile }}

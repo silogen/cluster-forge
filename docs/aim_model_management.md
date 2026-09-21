@@ -44,7 +44,7 @@ kubectl get application -n argocd aim-cluster-model-source -o go-template='{{ in
 ```
 
 ...also in Gitea **cluster-values** → `values.yaml` → `apps.aim-cluster-model-source.valuesObject.hardwareFamilies`.
-An empty list there selects `templates/legacy.yaml` (Instinct 0.11.1, 0.12.0,
+An empty list there selects `templates/unfiltered.yaml` (Instinct 0.11.1, 0.12.0,
 0.13.0 plus mixed bases, including `aim-base:2026.9.0` and `aim-base:2026.9.1`).
 The Instinct 2026.9.0 model source is only on the `profiles.yaml` / `instinct`
 path.

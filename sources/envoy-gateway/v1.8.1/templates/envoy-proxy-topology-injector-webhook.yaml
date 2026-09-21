@@ -20,6 +20,12 @@ metadata:
   name: 'envoy-gateway-topology-injector.{{ include "eg.namespace" . }}'
   annotations:
     "helm.sh/hook": pre-install, pre-upgrade
+    # ArgoCD deletes a hook that has no delete policy before it makes the
+    # hook again, and it does that on each resume of the operation. The
+    # certgen job needs more time than the interval between two resumes,
+    # so the job never started and envoy-gateway stayed at PreSync. Keep
+    # the hook until it succeeds.
+    "helm.sh/hook-delete-policy": hook-succeeded
     "helm.sh/hook-weight": "-1"
   {{- if .Values.topologyInjector.annotations }}
     {{- toYaml .Values.topologyInjector.annotations | nindent 4 -}}

@@ -19,11 +19,6 @@ kind: HTTPRoute
 metadata:
   name: semantic-router
   namespace: semantic-router
-  # Uncomment to require cluster-auth group membership on this route. Without
-  # it, requests to sr.<domain> pass through unauthenticated — see the README's
-  # "Reaching the router" section for why.
-  # annotations:
-  #   cluster-auth/allowed-group: TODO-your-group
 spec:
   # The shared Gateway every app on a bloomed cluster routes through. Its
   # listener is a `*.<domain>` wildcard open to all namespaces, so this attaches
@@ -126,6 +121,37 @@ spec:
       # Router unreachable -> requests skip it and take the catch-all rule,
       # instead of the whole hostname returning 5xx.
       failOpen: true
+
+# Requiring a client API key on sr.<domain> — not enabled by default.
+# apiKeyAuth checks the Authorization header against a Secret's values;
+# sanitize: true strips it again before the request reaches the router or
+# backend. Same namespace as the HTTPRoute is required for both the policy
+# and the Secret. Create the Secret directly on the cluster, not the overlay
+# repo:
+#
+#   kubectl -n semantic-router create secret generic semantic-router-client-keys \
+#     --from-literal=TODO-your-client-name="$(openssl rand -hex 32)"
+#
+# ---
+# apiVersion: gateway.envoyproxy.io/v1alpha1
+# kind: SecurityPolicy
+# metadata:
+#   name: semantic-router-apikey
+#   namespace: semantic-router
+# spec:
+#   targetRefs:
+#     - group: gateway.networking.k8s.io
+#       kind: HTTPRoute
+#       name: semantic-router
+#   apiKeyAuth:
+#     credentialRefs:
+#       - group: ""
+#         kind: Secret
+#         name: semantic-router-client-keys
+#     extractFrom:
+#       - headers:
+#           - Authorization
+#     sanitize: true
 
 # Retries for transient connection failures (a backend pod restarting mid-
 # rollout, a dropped connection) — not enabled by default. Envoy's HTTP retry

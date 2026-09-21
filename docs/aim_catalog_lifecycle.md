@@ -48,11 +48,11 @@ cluster-bloom sets from `AIM_HARDWARE_FAMILY`.
 | `hardwareFamilies` | Template | Result |
 |--------------------|----------|--------|
 | Non-empty list (`instinct`, `epyc`, `cpu`, `radeon`) | `templates/profiles.yaml` | Only listed families. The Instinct profile includes generic `amd-aim-release-*` sources (0.8.5–0.11.0) plus Instinct **0.11.1, 0.12.0, 0.13.0, 2026.9.0**. `cpu` is a placeholder and renders no sources. |
-| Empty list (`[]`, chart default) | `templates/legacy.yaml` | Instinct **0.11.1, 0.12.0, 0.13.0** plus mixed base images (`aim-base` including **2026.9.0** and **2026.9.1**, `aim-epyc-base`, `aim-radeon-base`). The Instinct **2026.9.0** model source (`amd-aim-instinct-2026.9.0`) is **not** on this path. |
+| Empty list (`[]`, chart default) | `templates/unfiltered.yaml` | Instinct **0.11.1, 0.12.0, 0.13.0** plus mixed base images (`aim-base` including **2026.9.0** and **2026.9.1**, `aim-epyc-base`, `aim-radeon-base`). The Instinct **2026.9.0** model source (`amd-aim-instinct-2026.9.0`) is **not** on this path. |
 
 `AIM_HARDWARE_FAMILY` has no default. cluster-bloom injects `hardwareFamilies`
 only when the install sets it, so an install that leaves it unset takes the
-**legacy** path. Set `AIM_HARDWARE_FAMILY` in `bloom.yaml` to get a
+**unfiltered** path. Set `AIM_HARDWARE_FAMILY` in `bloom.yaml` to get a
 family-filtered catalog:
 
 ```yaml
@@ -60,7 +60,7 @@ AIM_HARDWARE_FAMILY: "instinct"
 ```
 
 Clearing `hardwareFamilies` to `[]` in Gitea on an existing cluster switches it
-back to **legacy**; it does not fail chart rendering. See the
+back to **unfiltered**; it does not fail chart rendering. See the
 [aim-cluster-model-source README](../sources/aim-cluster-model-source/README.md).
 
 ### Model release sources vs base catalog sources
@@ -84,7 +84,7 @@ does not show large numbers of not-deployable entries on clusters without
 matching hardware.
 
 Each family profile installs only its own base images: Instinct → `aim-base`,
-EPYC → `aim-epyc-base`, Radeon → `aim-radeon-base`. The `legacy` template is
+EPYC → `aim-epyc-base`, Radeon → `aim-radeon-base`. The `unfiltered` template is
 the one exception — it installs all three, because it has no family to filter
 on.
 
@@ -126,8 +126,8 @@ Environment-specific CI snapshots are not packaged in Cluster Forge.
 | Scenario | Policy |
 |----------|--------|
 | **New installation, `AIM_HARDWARE_FAMILY` set** | Injects a non-empty list → **profiles** branch. The Instinct profile installs generic `amd-aim-release-*` 0.8.5–0.11.0 alongside `amd-aim-instinct-*` 0.11.1, 0.12.0, 0.13.0, **2026.9.0**, so such an install starts with all of them. |
-| **New installation, `AIM_HARDWARE_FAMILY` unset** | Nothing is injected → chart default `[]` → **legacy** catalog. |
-| **Empty `hardwareFamilies` in Gitea** | **legacy** catalog: Instinct 0.11.1, 0.12.0, 0.13.0 plus mixed bases (including `aim-base:2026.9.0` / `2026.9.1`). No generic 0.8.x–0.11.0 sources and no `amd-aim-instinct-2026.9.0` model source. |
+| **New installation, `AIM_HARDWARE_FAMILY` unset** | Nothing is injected → chart default `[]` → **unfiltered** catalog. |
+| **Empty `hardwareFamilies` in Gitea** | **unfiltered** catalog: Instinct 0.11.1, 0.12.0, 0.13.0 plus mixed bases (including `aim-base:2026.9.0` / `2026.9.1`). No generic 0.8.x–0.11.0 sources and no `amd-aim-instinct-2026.9.0` model source. |
 | **Platform upgrade** | New AIM versions are **added**. Older versions are **not** removed automatically. |
 | **Catalog cleanup** | Manual. The cluster operator removes deprecated sources; nothing expires on its own. |
 
