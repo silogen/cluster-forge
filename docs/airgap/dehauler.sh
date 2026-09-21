@@ -782,7 +782,7 @@ create_cluster_tls() {
 # envoy-gateway-system to the hauled tag.
 patch_envoy_proxy_images() {
   local ns=envoy-gateway-system
-  local img="${LOCAL_REG}/envoyproxy/envoy:distroless-v1.38.1"
+  local img="${LOCAL_REG}/envoyproxy/envoy:distroless-v1.38.4"
   echo "==> 4.4.23a EnvoyProxy data-plane image ${img}"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     return 0
@@ -853,7 +853,7 @@ apply_envoy_certgen() {
   # they already exist.
   local hooks
   hooks=$(helm template envoy-gateway "oci://${LOCAL_REG}/hauler/gateway-helm" \
-    --version v1.8.1 --plain-http --namespace "$ns" \
+    --version v1.8.4 --plain-http --namespace "$ns" \
     | python3 -c '
 import re, sys
 for doc in re.split(r"(?m)^---\s*$", sys.stdin.read()):
@@ -1135,8 +1135,8 @@ fi
 # global.images.envoyProxy.image is what the controller uses for data-plane
 # pods; helm template of this chart does not emit those Deployments.
 if should_run 21; then
-  apply_chart 4.4.21 envoy-gateway gateway-helm v1.8.1 envoy-gateway-system \
-    --set "global.images.envoyProxy.image=${LOCAL_REG}/envoyproxy/envoy:distroless-v1.38.1"
+  apply_chart 4.4.21 envoy-gateway gateway-helm v1.8.4 envoy-gateway-system \
+    --set "global.images.envoyProxy.image=${LOCAL_REG}/envoyproxy/envoy:distroless-v1.38.4"
 fi
 
 # 4.4.22 Envoy AI Gateway

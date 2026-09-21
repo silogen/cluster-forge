@@ -201,8 +201,8 @@ hauler store add chart haul/cluster-forge/sources/external-secrets/0.19.2 --repo
 # Pods name oci.external-secrets.io, not docker.io; keep that host in the store.
 hauler store add image oci.external-secrets.io/external-secrets/external-secrets:v0.19.2 --platform linux/amd64 --store "$EAI_STORE"
 
-# 3.11 Gateway API and Envoy Gateway CRDs (source bundle is v1.8.1)
-hauler store add chart haul/cluster-forge/sources/envoy-gateway/v1.8.1/charts/crds --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
+# 3.11 Gateway API and Envoy Gateway CRDs (source bundle is v1.8.4)
+hauler store add chart haul/cluster-forge/sources/envoy-gateway/v1.8.4/charts/crds --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
 
 # 3.12 OpenBao
 hauler store add chart haul/cluster-forge/sources/openbao/0.18.2 --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
@@ -239,9 +239,9 @@ hauler store add chart haul/cluster-forge/sources/inference-extension-crds/v1.5.
 hauler store add chart haul/cluster-forge/sources/envoy-ai-gateway-crds/v1.0.0 --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
 
 # 3.21 Envoy Gateway
-hauler store add chart haul/cluster-forge/sources/envoy-gateway/v1.8.1 --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
+hauler store add chart haul/cluster-forge/sources/envoy-gateway/v1.8.4 --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
 # Data-plane pods are created by the controller, not by helm template --add-images.
-hauler store add image docker.io/envoyproxy/envoy:distroless-v1.38.1 --platform linux/amd64 --store "$EAI_STORE"
+hauler store add image docker.io/envoyproxy/envoy:distroless-v1.38.4 --platform linux/amd64 --store "$EAI_STORE"
 
 # 3.22 Envoy AI Gateway
 hauler store add chart haul/cluster-forge/sources/envoy-ai-gateway/v1.0.0 --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"

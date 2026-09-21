@@ -306,12 +306,12 @@ hauler store add image oci.external-secrets.io/external-secrets/external-secrets
 
 ### 3.11 Gateway API and Envoy Gateway CRDs
 
-The current upstream OpenShift values mention `envoy-gateway/v1.7.1`,
-but this source bundle contains `v1.8.1`. Its CRD subchart carries both
-the Gateway API CRDs and generated Envoy Gateway CRDs, so add it once.
+The source bundle and OpenShift values use `v1.8.4`. Its CRD subchart
+carries both the Gateway API CRDs and generated Envoy Gateway CRDs, so
+add it once.
 
 ```bash
-hauler store add chart haul/cluster-forge/sources/envoy-gateway/v1.8.1/charts/crds --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
+hauler store add chart haul/cluster-forge/sources/envoy-gateway/v1.8.4/charts/crds --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
 ```
 
 ### 3.12 OpenBao
@@ -381,12 +381,12 @@ hauler store add chart haul/cluster-forge/sources/envoy-ai-gateway-crds/v1.0.0 -
 ### 3.21 Envoy Gateway
 
 ```bash
-hauler store add chart haul/cluster-forge/sources/envoy-gateway/v1.8.1 --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
-hauler store add image docker.io/envoyproxy/envoy:distroless-v1.38.1 --platform linux/amd64 --store "$EAI_STORE"
+hauler store add chart haul/cluster-forge/sources/envoy-gateway/v1.8.4 --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
+hauler store add image docker.io/envoyproxy/envoy:distroless-v1.38.4 --platform linux/amd64 --store "$EAI_STORE"
 ```
 
 `--add-images` hauls the **controller**. Data-plane pods are created later
-from `docker.io/envoyproxy/envoy:distroless-v1.38.1`. Pack that tag
+from `docker.io/envoyproxy/envoy:distroless-v1.38.4`. Pack that tag
 explicitly; 4.4.21 also `--set global.images.envoyProxy.image` and 4.4.23a
 patches EnvoyProxy CRs.
 
@@ -1165,7 +1165,7 @@ nothing is applied twice.
 
 ```bash
 helm template envoy-gateway oci://127.0.0.1:5000/hauler/gateway-helm \
-  --version v1.8.1 --plain-http --namespace envoy-gateway-system \
+  --version v1.8.4 --plain-http --namespace envoy-gateway-system \
 | sed -E '/^Pulled:/d;/^Digest:/d;s#(quay\.io/|docker\.io/|ghcr\.io/)#127.0.0.1:5000/#g' \
 | python3 -c '
 import re, sys
@@ -1198,7 +1198,7 @@ what the controller uses for data-plane pods; `helm template` of this
 chart does not emit those Deployments.
 
 ```bash
-helm template envoy-gateway oci://127.0.0.1:5000/hauler/gateway-helm --version v1.8.1 --plain-http --include-crds --no-hooks --namespace envoy-gateway-system --set global.images.envoyProxy.image=127.0.0.1:5000/envoyproxy/envoy:distroless-v1.38.1 | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n envoy-gateway-system --server-side --force-conflicts -f -
+helm template envoy-gateway oci://127.0.0.1:5000/hauler/gateway-helm --version v1.8.4 --plain-http --include-crds --no-hooks --namespace envoy-gateway-system --set global.images.envoyProxy.image=127.0.0.1:5000/envoyproxy/envoy:distroless-v1.38.4 | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n envoy-gateway-system --server-side --force-conflicts -f -
 ```
 
 #### 4.4.22 Envoy AI Gateway
@@ -1221,7 +1221,7 @@ EnvoyProxy CRs created by 4.4.23 can still keep `docker.io` unless they
 merge the helm default. Patch every EnvoyProxy in `envoy-gateway-system`:
 
 ```bash
-img=127.0.0.1:5000/envoyproxy/envoy:distroless-v1.38.1
+img=127.0.0.1:5000/envoyproxy/envoy:distroless-v1.38.4
 for name in $(kubectl -n envoy-gateway-system get envoyproxy -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'); do
   kubectl -n envoy-gateway-system patch envoyproxy "$name" --type merge \
     -p "{\"spec\":{\"provider\":{\"type\":\"Kubernetes\",\"kubernetes\":{\"envoyDeployment\":{\"container\":{\"image\":\"${img}\"}}}}}}"
