@@ -31,11 +31,11 @@ The catalog has two complementary layers:
 
 | Layer | Mechanism | Typical use |
 |-------|-----------|-------------|
-| **Packaged baseline** | `aim-cluster-model-source` Helm chart (Argo CD) | Default AMD catalog for the cluster hardware family; refreshed when you upgrade Cluster Forge |
+| **Packaged baseline** | `aim-cluster-model-source` Helm chart (Argo CD) | Default AMD catalog for the cluster hardware family; refreshed when you upgrade the Enterprise AI reference stack |
 | **Cluster-managed additions** | Gitea `cluster-values` + `aim-cluster-model-source-additional` | Any extra model or base images you choose to expose — RCs, private builds, site-specific tags, or images not yet in the packaged chart |
 
 Cluster-managed additions do not replace the packaged baseline that ships with the
-cluster; the baseline keeps arriving and updating through Cluster Forge releases.
+cluster; the baseline keeps arriving and updating through Cluster Forge chart releases.
 Additions are an **operator-controlled extension** on top of it, available at any
 time.
 
@@ -47,12 +47,12 @@ cluster-bloom sets from `AIM_HARDWARE_FAMILY`.
 
 | `hardwareFamilies` | Template | Result |
 |--------------------|----------|--------|
-| Non-empty list (`instinct`, `epyc`, `cpu`, `radeon`) | `templates/profiles.yaml` | Only listed families. The Instinct profile includes generic `amd-aim-release-*` sources (0.8.5–0.11.0) plus Instinct 0.11.1+. `cpu` is a placeholder and renders no sources. |
-| Empty list (`[]`, chart default) | `templates/unfiltered.yaml` | Instinct **0.11.1, 0.12.0, 0.13.0** plus mixed base images (`aim-base`, `aim-epyc-base`, `aim-radeon-base`). |
+| Non-empty list (`instinct`, `epyc`, `cpu`, `radeon`) | `templates/profiles.yaml` | Only listed families. The Instinct profile includes generic `amd-aim-release-*` sources (0.8.5–0.11.0) plus Instinct **0.11.1, 0.12.0, 0.13.0, 2026.9.0**. `cpu` is a placeholder and renders no sources. |
+| Empty list (`[]`, chart default) | `templates/legacy.yaml` | Instinct **0.11.1, 0.12.0, 0.13.0** plus mixed base images (`aim-base` including **2026.9.0** and **2026.9.1**, `aim-epyc-base`, `aim-radeon-base`). The Instinct **2026.9.0** model source (`amd-aim-instinct-2026.9.0`) is **not** on this path. |
 
 `AIM_HARDWARE_FAMILY` has no default. cluster-bloom injects `hardwareFamilies`
 only when the install sets it, so an install that leaves it unset takes the
-**unfiltered** path. Set `AIM_HARDWARE_FAMILY` in `bloom.yaml` to get a
+**legacy** path. Set `AIM_HARDWARE_FAMILY` in `bloom.yaml` to get a
 family-filtered catalog:
 
 ```yaml
@@ -60,7 +60,7 @@ AIM_HARDWARE_FAMILY: "instinct"
 ```
 
 Clearing `hardwareFamilies` to `[]` in Gitea on an existing cluster switches it
-back to **unfiltered**; it does not fail chart rendering. See the
+back to **legacy**; it does not fail chart rendering. See the
 [aim-cluster-model-source README](../sources/aim-cluster-model-source/README.md).
 
 ### Model release sources vs base catalog sources
@@ -68,8 +68,9 @@ back to **unfiltered**; it does not fail chart rendering. See the
 | Kind | Purpose | Example source name | Example images it lists |
 |------|---------|---------------------|-------------------------|
 | **Model release source** | Version-pinned model-specific images for a hardware family | `amd-aim-instinct-0.12.0` | `amdenterpriseai/aim-google-gemma-3-1b-it:0.12.0`, `amdenterpriseai/aim-zai-org-glm-4-7:0.12.0` |
+| **Model release source** | Same, Instinct 2026.9.0 track (profiles / `instinct` only) | `amd-aim-instinct-2026.9.0` | `amdenterpriseai/aim-minimaxai-minimax-m3:2026.9.0`, `amdenterpriseai/aim-zai-org-glm-5-2:2026.9.0` |
 | **Model release source** | Same, EPYC family | `amd-aim-epyc-0.13.0` | `amdenterpriseai/aim-epyc-qwen-qwen3-8b:0.13.0` |
-| **Base catalog source** | Generic base images for AI Workbench custom model onboarding (runtime AIM ID) | `aim-base-models` | `amdenterpriseai/aim-base:0.13.1`, `amdenterpriseai/aim-epyc-base:0.13`, `amdenterpriseai/aim-radeon-base:0.12` |
+| **Base catalog source** | Generic base images for AI Workbench custom model onboarding (runtime AIM ID) | `aim-base-models` | `amdenterpriseai/aim-base:0.13.1`, `amdenterpriseai/aim-base:2026.9.0`, `amdenterpriseai/aim-base:2026.9.1`, `amdenterpriseai/aim-epyc-base:0.13`, `amdenterpriseai/aim-radeon-base:0.12` |
 
 Source names such as `amd-aim-instinct-0.12.0` are `AIMClusterModelSource`
 resource names, not image references. The images each source lists are fully
@@ -83,7 +84,7 @@ does not show large numbers of not-deployable entries on clusters without
 matching hardware.
 
 Each family profile installs only its own base images: Instinct → `aim-base`,
-EPYC → `aim-epyc-base`, Radeon → `aim-radeon-base`. The `unfiltered` template is
+EPYC → `aim-epyc-base`, Radeon → `aim-radeon-base`. The `legacy` template is
 the one exception — it installs all three, because it has no family to filter
 on.
 
@@ -124,9 +125,9 @@ Environment-specific CI snapshots are not packaged in Cluster Forge.
 
 | Scenario | Policy |
 |----------|--------|
-| **New installation, `AIM_HARDWARE_FAMILY` set** | Injects a non-empty list → **profiles** branch. The Instinct profile installs generic `amd-aim-release-*` 0.8.5–0.11.0 alongside `amd-aim-instinct-*` 0.11.1, 0.12.0, 0.13.0, so such an install starts with all of them. |
-| **New installation, `AIM_HARDWARE_FAMILY` unset** | Nothing is injected → chart default `[]` → **unfiltered** catalog. |
-| **Empty `hardwareFamilies` in Gitea** | **unfiltered** catalog: Instinct 0.11.1+ only (no generic 0.8.x–0.11.0 sources). |
+| **New installation, `AIM_HARDWARE_FAMILY` set** | Injects a non-empty list → **profiles** branch. The Instinct profile installs generic `amd-aim-release-*` 0.8.5–0.11.0 alongside `amd-aim-instinct-*` 0.11.1, 0.12.0, 0.13.0, **2026.9.0**, so such an install starts with all of them. |
+| **New installation, `AIM_HARDWARE_FAMILY` unset** | Nothing is injected → chart default `[]` → **legacy** catalog. |
+| **Empty `hardwareFamilies` in Gitea** | **legacy** catalog: Instinct 0.11.1, 0.12.0, 0.13.0 plus mixed bases (including `aim-base:2026.9.0` / `2026.9.1`). No generic 0.8.x–0.11.0 sources and no `amd-aim-instinct-2026.9.0` model source. |
 | **Platform upgrade** | New AIM versions are **added**. Older versions are **not** removed automatically. |
 | **Catalog cleanup** | Manual. The cluster operator removes deprecated sources; nothing expires on its own. |
 
@@ -160,7 +161,7 @@ Typical lifecycle, once it is enabled:
 4. AI Workbench refreshes its catalog periodically.
 
 Use this path whenever the packaged baseline does not include the image you
-need — regardless of whether a Cluster Forge upgrade is planned.
+need — regardless of whether a platform upgrade is planned.
 
 ### Hardware family and catalog UX
 
@@ -211,7 +212,7 @@ garbage-collected on the next chart sync.
 Remove or replace source manifests while the additional application still
 exists. Disable the application only after sources are pruned.
 
-When upgrading Cluster Forge, review the incoming packaged catalog and remove
+When upgrading the Enterprise AI reference stack, review the incoming packaged catalog and remove
 cluster-managed manifests that duplicate newly packaged models or bases before
 syncing — see
 [Before a platform upgrade](aim_model_management.md#before-a-platform-upgrade).

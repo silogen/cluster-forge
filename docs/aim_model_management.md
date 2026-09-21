@@ -44,8 +44,10 @@ kubectl get application -n argocd aim-cluster-model-source -o go-template='{{ in
 ```
 
 ...also in Gitea **cluster-values** → `values.yaml` → `apps.aim-cluster-model-source.valuesObject.hardwareFamilies`.
-An empty list there selects `templates/unfiltered.yaml` (Instinct 0.11.1+ plus mixed
-bases).
+An empty list there selects `templates/legacy.yaml` (Instinct 0.11.1, 0.12.0,
+0.13.0 plus mixed bases, including `aim-base:2026.9.0` and `aim-base:2026.9.1`).
+The Instinct 2026.9.0 model source is only on the `profiles.yaml` / `instinct`
+path.
 
 For private registries, set `spec.imagePullSecrets` on the source to a secret in
 `aim-system`. Do not commit credentials to Gitea.
@@ -280,7 +282,7 @@ name in Gitea**; narrowing filters does not remove already-discovered models.
 1. Delete the duplicate additional manifests in Gitea (`cluster-values`).
 2. Sync `aim-cluster-model-source-additional` in Argo CD with **prune** enabled.
 3. Re-run the `aimclsrc` list in step 2 — intended duplicates should be gone.
-4. Upgrade Cluster Forge only after that list has no leftover packaged
+4. Upgrade the Enterprise AI reference stack only after that list has no leftover packaged
    duplicates.
 
 ## Troubleshooting

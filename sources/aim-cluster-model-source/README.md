@@ -9,12 +9,15 @@ SPDX-License-Identifier: MIT
 Helm chart that installs `AIMClusterModelSource` resources. It renders one of
 two mutually exclusive branches, selected by `hardwareFamilies`:
 
-- **Legacy (default):** when `hardwareFamilies` is empty, the chart installs the
-  full set of generic `amd-aim-release-*` model sources (versions 0.8.5, 0.9.0,
-  0.10.0, 0.11.0), unchanged from the pre-chart directory app.
-- **Per-hardware-family profiles:** when `hardwareFamilies` is non-empty, the
-  chart installs only the `AIMClusterModelSource` resources for the listed
-  families. The legacy generic sources are not installed.
+- **Legacy (default):** when `hardwareFamilies` is empty, `templates/legacy.yaml`
+  installs Instinct model sources **0.11.1, 0.12.0, 0.13.0** plus mixed base
+  images (`aim-base` including **2026.9.0** and **2026.9.1**, `aim-epyc-base`,
+  `aim-radeon-base`). It does **not** install generic `amd-aim-release-*`
+  sources or `amd-aim-instinct-2026.9.0`.
+- **Per-hardware-family profiles:** when `hardwareFamilies` is non-empty,
+  `templates/profiles.yaml` installs only the listed families. The Instinct
+  profile includes generic `amd-aim-release-*` (0.8.5–0.11.0) plus Instinct
+  **0.11.1, 0.12.0, 0.13.0, 2026.9.0**.
 
 ## `hardwareFamilies`
 
@@ -28,17 +31,15 @@ hardwareFamilies:
   - instinct
 ```
 
-| Family | Source name | Registry | Notes |
+| Family | Packaged source names | Registry | Notes |
 |---|---|---|---|
-| `instinct` | `amd-aim-instinct-0.12.0` | docker.io | works today |
-| `epyc` | `amd-aim-epyc-0.11.0` | docker.io | works today |
-| `cpu` | `amd-aim-cpu-0.12.0-rc1` | docker.io | `silogenai/*` RC images; optional `dockerhub-regcred` if pulls are private |
-| `radeon` | `amd-aim-radeon-0.12.0-rc1` | docker.io | `silogenai/aim-radeon-*` RC tags; optional `dockerhub-regcred` if pulls are private |
+| `instinct` | `amd-aim-release-*` 0.8.5–0.11.0, `amd-aim-instinct-0.11.1`, `0.12.0`, `0.13.0`, `2026.9.0` | docker.io | `amdenterpriseai/*`. The 2026.9.0 model source is profiles-only. |
+| `epyc` | `amd-aim-epyc-0.11.0`, `amd-aim-epyc-0.13.0` | docker.io | `amdenterpriseai/aim-epyc-*` |
+| `cpu` | *(none)* | — | Placeholder; renders no sources. |
+| `radeon` | `amd-aim-radeon-0.12.0` | docker.io | `amdenterpriseai/aim-radeon-*` |
 
 `instinct` and `radeon` are GPU families; `cpu` and `epyc` are CPU inference
-targets. `cpu` and `radeon` use Docker Hub (`docker.io`) under the `silogenai`
-org. When the registry requires auth, the chart references `dockerhub-regcred`
-in those namespaces; omit or replace that secret if images are public.
+targets. Images are on Docker Hub (`docker.io`) under `amdenterpriseai`.
 
 ## Installing
 
