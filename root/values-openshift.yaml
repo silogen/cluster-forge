@@ -516,20 +516,12 @@ apps:
     helmParameters:
       - name: cluster.name
         value: ${DOMAIN}
-      - name: collectors.resources.metrics.requests.cpu
-        value: 500m
-      - name: collectors.resources.metrics.requests.memory
-        value: 1Gi
-      - name: collectors.resources.metrics.limits.memory
-        value: 4Gi
-      - name: collectors.resources.logs.requests.cpu
-        value: 250m
-      - name: collectors.resources.logs.requests.memory
-        value: 256Mi
-      - name: collectors.resources.logs.limits.cpu
-        value: "1"
-      - name: collectors.resources.logs.limits.memory
-        value: 1Gi
+      # Collector and lgtm resources are deliberately NOT pinned here.
+      # helmParameters are --set values, the highest precedence in Helm, so any
+      # value listed here wins over the chart defaults permanently. They used to
+      # hold a 4Gi limit on the k8s metrics collector (which OOMKills at 8Gi on
+      # non-OpenShift clusters) and a 1 CPU limit on the logs collector. See
+      # docs/otel_lgtm_stack_tuning.md, "Cluster size tiers".
       - name: dashboards.enabled
         value: "true"
       - name: kubeStateMetrics.enabled
@@ -538,12 +530,6 @@ apps:
         value: "true"
       - name: services.nodeExporter.metrics
         value: "9110"
-      - name: lgtm.resources.requests.cpu
-        value: "1"
-      - name: lgtm.resources.requests.memory
-        value: 2Gi
-      - name: lgtm.resources.limits.memory
-        value: 8Gi
       - name: lgtm.storage.grafana
         value: 10Gi
       - name: lgtm.storage.loki
@@ -551,8 +537,6 @@ apps:
       - name: lgtm.storage.mimir
         value: 50Gi
       - name: lgtm.storage.tempo
-        value: 50Gi
-      - name: lgtm.storage.extra
         value: 50Gi
     substitutions:
       - from: external-secrets.io/v1beta1

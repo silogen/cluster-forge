@@ -12,6 +12,12 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: spec.nodeName
+{{- with .Values.collectors.extraEnv.logs }}
+    {{- range $k, $v := . }}
+    - name: {{ $k }}
+      value: {{ $v | quote }}
+    {{- end }}
+{{- end }}
   tolerations:
         - effect: NoSchedule
           key: exampleKey1
@@ -22,7 +28,9 @@ spec:
     prometheus.io/port: "8888"
   resources:
     limits:
+{{- if .Values.collectors.resources.logs.limits.cpu }}
       cpu: {{ .Values.collectors.resources.logs.limits.cpu | quote }}
+{{- end }}
       memory: {{ .Values.collectors.resources.logs.limits.memory }}
     requests:
       cpu: {{ .Values.collectors.resources.logs.requests.cpu | quote }}
@@ -239,6 +247,22 @@ metadata:
 spec:
   image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0
   mode: deployment
+{{- with .Values.collectors.extraEnv.logsEvents }}
+  env:
+    {{- range $k, $v := . }}
+    - name: {{ $k }}
+      value: {{ $v | quote }}
+    {{- end }}
+{{- end }}
+  resources:
+    limits:
+{{- if .Values.collectors.resources.logsEvents.limits.cpu }}
+      cpu: {{ .Values.collectors.resources.logsEvents.limits.cpu | quote }}
+{{- end }}
+      memory: {{ .Values.collectors.resources.logsEvents.limits.memory }}
+    requests:
+      cpu: {{ .Values.collectors.resources.logsEvents.requests.cpu | quote }}
+      memory: {{ .Values.collectors.resources.logsEvents.requests.memory }}
   serviceAccount: otel-collector
   config: 
     receivers:
@@ -353,6 +377,13 @@ metadata:
 spec:
   mode: deployment
   serviceAccount: otel-collector
+{{- with .Values.collectors.extraEnv.metrics }}
+  env:
+    {{- range $k, $v := . }}
+    - name: {{ $k }}
+      value: {{ $v | quote }}
+    {{- end }}
+{{- end }}
   image: "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.113.0"
   replicas: 1
   podAnnotations:
@@ -360,7 +391,9 @@ spec:
     prometheus.io/port: "8888"
   resources:
     limits:
+{{- if .Values.collectors.resources.metrics.limits.cpu }}
       cpu: {{ .Values.collectors.resources.metrics.limits.cpu | quote }}
+{{- end }}
       memory: {{ .Values.collectors.resources.metrics.limits.memory }}
     requests:
       cpu: {{ .Values.collectors.resources.metrics.requests.cpu | quote }}
@@ -387,6 +420,54 @@ spec:
               tls_config:
                 ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
                 insecure_skip_verify: true
+{{- $mf := .Values.collectors.metricFilters }}
+{{- if ne $mf.profile "full" }}
+{{- $bkt := list }}
+{{- range $mf.keepBuckets }}{{ $bkt = append $bkt (regexQuoteMeta (toString .)) }}{{- end }}
+              # Metric filtering for this job -- see collectors.metricFilters in
+              # values.yaml and "Re-enabling dropped metrics" in
+              # docs/otel_lgtm_stack_tuning.md. Dropped samples are never stored:
+              # raising the profile restores them going forward, not in history.
+              metric_relabel_configs:
+              # apiserver_request_sli_duration_seconds is the SLO-accounting twin of
+              # apiserver_request_duration_seconds (same labels, same boundaries; it
+              # excludes API Priority & Fairness queue wait). It only matters if you
+              # run the kubernetes-mixin burn-rate rules, which this chart does not.
+              - action: drop
+                source_labels: [__name__]
+                regex: apiserver_request_sli_duration_seconds.*
+              # Request/response payload sizes and watch-cache internals. No
+              # dashboard or rule in this repo queries any of them.
+              - action: drop
+                source_labels: [__name__]
+                regex: apiserver_(request_body_size_bytes|response_sizes|watch_list_duration_seconds|watch_cache_read_wait_seconds|watch_events_sizes)_.*
+{{- if not $mf.keepAllBuckets }}
+{{- if eq $mf.profile "minimal" }}
+              # minimal: no histogram buckets survive this job at all, so
+              # histogram_quantile() is unavailable. _count/_sum stay, so request
+              # rate, error ratio and MEAN latency still work.
+              - action: drop
+                source_labels: [__name__]
+                regex: .*_bucket
+{{- else }}
+              # standard: keep only the boundaries in
+              # collectors.metricFilters.keepBuckets. Two steps because RE2 has no
+              # negative lookahead -- mark the keepers with a temporary label, then
+              # drop every bucket of these two families that was not marked. Labels
+              # starting with __ are removed automatically after relabeling.
+              - action: replace
+                source_labels: [__name__, le]
+                separator: ;
+                regex: (apiserver_request_duration_seconds_bucket|etcd_request_duration_seconds_bucket);({{ join "|" $bkt }})
+                target_label: __tmp_keep_bucket
+                replacement: "yes"
+              - action: drop
+                source_labels: [__name__, __tmp_keep_bucket]
+                separator: ;
+                regex: (apiserver_request_duration_seconds_bucket|etcd_request_duration_seconds_bucket);
+{{- end }}
+{{- end }}
+{{- end }}
             - bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
               job_name: kubernetes-nodes
               kubernetes_sd_configs:
@@ -759,12 +840,20 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: spec.nodeName
+{{- with .Values.collectors.extraEnv.logs }}
+    {{- range $k, $v := . }}
+    - name: {{ $k }}
+      value: {{ $v | quote }}
+    {{- end }}
+{{- end }}
   podAnnotations:
     prometheus.io/scrape: "true"
     prometheus.io/port: "8888"
   resources:
     limits:
+{{- if .Values.collectors.resources.logs.limits.cpu }}
       cpu: {{ .Values.collectors.resources.logs.limits.cpu | quote }}
+{{- end }}
       memory: {{ .Values.collectors.resources.logs.limits.memory }}
     requests:
       cpu: {{ .Values.collectors.resources.logs.requests.cpu | quote }}
