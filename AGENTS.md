@@ -82,5 +82,14 @@ The pipeline always makes a prerelease.
 - Keep `enabledApps` in alphabetical order. It stays a list, thus an overlay
   that overrides it must write the full list. Helm replaces lists, but merges
   maps.
-- To use a new version of an upstream chart, add a new version directory in
-  `sources/`. Do not change the contents of the existing directory.
+
+## Updating a Helm chart in sources/
+
+A directory in `sources/` holds either a Helm chart or plain Kubernetes
+manifests. Upstream content is pinned in a version subdirectory, for example
+`sources/argocd/8.3.5`. An in-house chart has no version subdirectory, for
+example `sources/keycloak-config`.
+
+To move to a new upstream version, add a subdirectory for the new version and
+point `apps.<name>.path` in `root/values.yaml` to it. Keep the subdirectory of
+the previous version: do not change it and do not delete it.
