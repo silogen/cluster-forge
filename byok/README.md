@@ -403,8 +403,6 @@ packages:
       aim-engine-chart:
         acceleratorDetector:
           enable: true
-          cpu:
-            enable: false
         clusterRuntimeConfig:
           enable: true
   - name: selfsigned-tls

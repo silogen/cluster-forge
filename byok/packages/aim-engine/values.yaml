@@ -11,6 +11,12 @@ aim-engine-chart:
   # Needs Node Feature Discovery, which the minimal core does not install.
   acceleratorDetector:
     enable: false
+    # The chart default is true. The CPU detector has no node affinity, so it
+    # also runs on a GPU node. There it reports model=CPU count=1 and its
+    # startup probe never passes. No profile needs it: the GPU profiles use
+    # the GPU detector, and the -cpu profiles turn the whole detector off.
+    cpu:
+      enable: false
   scaleFromZero:
     # Makes an OpenTelemetryCollector object. The minimal core has no OTel operator.
     gatewayMetricsCollector:
