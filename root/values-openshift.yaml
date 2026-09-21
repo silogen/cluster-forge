@@ -507,7 +507,6 @@ apps:
     name: OTEL LGTM stack (Grafana/Loki/Tempo/Prometheus)
     mode: core
     root-inherited: true
-    path: otel-lgtm-stack/v1.0.8
     deleteBefore:
       - resource: daemonset
         name: nodeexporter-prometheus-node-exporter
