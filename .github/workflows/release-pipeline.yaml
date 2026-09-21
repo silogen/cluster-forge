@@ -7,11 +7,6 @@ on:
         description: 'Override version (leave empty to auto-calculate). Use this to publish any tag, including backports.'
         required: false
         type: string
-      mark_as_latest:
-        description: 'Mark this GitHub release as Latest. Leave false so an arbitrary/backport tag does not replace the current Latest release.'
-        required: false
-        type: boolean
-        default: false
 
 jobs:
   release:
@@ -56,18 +51,12 @@ jobs:
           # Prepare release artifact
           tar -zcvf "release-enterprise-ai-${VERSION}.tar.gz" --transform 's,^,cluster-forge/,' root/ scripts/ sources
           
-          # Create a full release (not a prerelease). --latest=false keeps
-          # version_override / backport tags from becoming GitHub Latest;
-          # set the mark_as_latest input when this run should own Latest.
-          LATEST_FLAG="--latest=false"
-          if [[ "${{ github.event.inputs.mark_as_latest }}" == "true" ]]; then
-            LATEST_FLAG="--latest"
-          fi
+          # Prerelease so an arbitrary/backport tag never becomes GitHub Latest.
           gh release create "$VERSION" "release-enterprise-ai-${VERSION}.tar.gz#ClusterForge Enterprise AI Package" \
             --title="ClusterForge Release $VERSION" \
             --target ${{ github.sha }} \
             --generate-notes \
-            "$LATEST_FLAG" || true # Ignore if release already exists
+            --prerelease || true # Ignore if release already exists
 
   sbom:
     needs: [release]
