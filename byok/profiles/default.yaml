@@ -42,11 +42,6 @@ packages:
         #     --docker-password=<token>
         acceleratorDetector:
           enable: true
-          # The CPU detector has no node affinity, so it also runs on a GPU
-          # node. There it reports model=CPU count=1 and its startup probe
-          # never passes. A GPU profile does not need it.
-          cpu:
-            enable: false
   - name: aim-catalog
     values:
       aim-cluster-model-source:

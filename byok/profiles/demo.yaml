@@ -25,8 +25,6 @@ packages:
       aim-engine-chart:
         acceleratorDetector:
           enable: true
-          cpu:
-            enable: false
         crd:
           enable: false
         clusterRuntimeConfig:
