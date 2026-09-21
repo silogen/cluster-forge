@@ -1,16 +1,16 @@
 # AGENTS.md
 
-This file gives agents guidance for work in this repository.
+This file tells agents how to work in this repository.
 
 ## What this repo is
 
-Cluster-Forge is not an application, it is a GitOps payload. It holds Helm
-charts and an app-of-apps chart that ArgoCD renders inside a cluster. There is
-no binary to build and no bootstrap script here: cluster-bloom's
-`deploy_clusterforge` role bootstraps ArgoCD and Gitea, pushes this repo into
-the in-cluster Gitea, and injects the runtime values (`global.domain`,
+Cluster-Forge is a GitOps payload. It holds Helm charts and an app-of-apps
+chart that ArgoCD renders inside a cluster. There is no binary to build and no
+bootstrap script here. cluster-bloom does that part. Its
+`deploy_clusterforge` role installs ArgoCD and Gitea, pushes this repository
+into the in-cluster Gitea, and sets the runtime values (`global.domain`,
 `global.clusterSize`, `clusterForge.targetRevision`, image repositories).
-Changes ship as a tagged release that cluster-bloom consumes.
+cluster-bloom reads this repository at a release tag.
 
 ## Architecture
 
@@ -27,17 +27,16 @@ Changes ship as a tagged release that cluster-bloom consumes.
 - An app that is declared under `apps:` but is absent from every `enabledApps`
   list renders nothing. This is the mechanism for opt-in apps, for example
   `envoy-ai-gateway-ratelimit`. Enable such an app from the overlay, not here.
-- `sources/<app>/` holds the chart that the Application points to. There are
-  two shapes: vendored upstream charts that are pinned in a version
-  subdirectory (`sources/argocd/8.3.5`, `sources/envoy-gateway/v1.8.1`), and
-  in-house charts at the top level (`sources/keycloak-config`,
-  `sources/kyverno-policies/base`). Many apps are not here at all and pull an
-  OCI chart through `repoURL` and `chart`.
-- `root-extras/` is a separate app-of-apps for user-supplied extra components,
-  and reads `extra-apps-values.yaml` from the overlay repository. It is
-  separate on purpose: Helm renders a chart all-or-nothing, so a malformed
-  extra component cannot break the core Applications. Do not add user
-  components to `root/values.yaml`.
+- `sources/<app>/` holds the chart that the Application points to. A vendored
+  upstream chart sits in a version subdirectory (`sources/argocd/8.3.5`,
+  `sources/envoy-gateway/v1.8.1`). An in-house chart sits at the top level
+  (`sources/keycloak-config`, `sources/kyverno-policies/base`). Many apps are
+  not here at all and pull an OCI chart through `repoURL` and `chart`.
+- `root-extras/` is a second app-of-apps for extra components that a user
+  supplies, and it reads `extra-apps-values.yaml` from the overlay repository.
+  It is separate on purpose. Helm renders a chart all-or-nothing, so a
+  malformed extra component cannot break the core Applications. Do not add
+  user components to `root/values.yaml`.
 - `sbom/components.yaml` mirrors `root/values.yaml` for SBOM generation. CI
   fails if the two files drift apart.
 
@@ -47,7 +46,7 @@ Related documents: `docs/values_inheritance_pattern.md`,
 
 ## Commands
 
-Each CI check can be run locally with `helm`, `yq` and `kyverno`.
+You can run each CI check locally with `helm`, `yq` and `kyverno`.
 
 ```bash
 # Root chart. This must pass for each sizing file.
@@ -67,8 +66,8 @@ kyverno test . --detailed-results
 cd sbom && ./validate-sync.sh
 ```
 
-A release is made manually: Actions, then Release Pipeline, then Run workflow.
-The pipeline always makes a prerelease.
+Cut a release by hand from Actions, Release Pipeline, Run workflow. The
+pipeline always makes a prerelease.
 
 ## Conventions that CI enforces
 
@@ -79,17 +78,17 @@ The pipeline always makes a prerelease.
   and an entry in the matrix in `.github/workflows/helm-chart-checks.yaml`.
 - If you add a configuration variable, write it in
   `docs/configuration-reference.md`.
-- Keep `enabledApps` in alphabetical order. It stays a list, thus an overlay
+- Keep `enabledApps` in alphabetical order. It stays a list, so an overlay
   that overrides it must write the full list. Helm replaces lists, but merges
   maps.
 
 ## Updating a Helm chart in sources/
 
 A directory in `sources/` holds either a Helm chart or plain Kubernetes
-manifests. Upstream content is pinned in a version subdirectory, for example
-`sources/argocd/8.3.5`. An in-house chart has no version subdirectory, for
-example `sources/keycloak-config`.
+manifests. A vendored upstream chart sits in a version subdirectory, for
+example `sources/argocd/8.3.5`. An in-house chart has no version
+subdirectory, for example `sources/keycloak-config`.
 
 To move to a new upstream version, add a subdirectory for the new version and
 point `apps.<name>.path` in `root/values.yaml` to it. Keep the subdirectory of
-the previous version: do not change it and do not delete it.
+the previous version. Do not change it and do not delete it.
