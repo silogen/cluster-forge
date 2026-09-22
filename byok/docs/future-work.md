@@ -77,11 +77,9 @@ These items are out of scope for the first byok release.
   In `demo` the aiwb chart owns it, and it sets `pvcHeadroomPercent: 100`
   where the CRD default is 10, so a model volume is about two times the model
   size.
-- Ask the AIWB team to make the `cluster-auth-admin-token` and
+- Ask the AIWB team to make the `aiwb-openbao-token` and
   `minio-credentials` references optional. Today the demo makes both Secrets
   with dummy values, because a `secretKeyRef` is not optional.
-- Move the aiwb-chart pin from 2.0.0 to 2.0.1 in the ArgoCD path and in byok
-  together.
 - `extends` of more than one level, and removal of a base package, when a
   third profile needs them.
 - Ask the aim-engine team for a value that stops the controller from watching

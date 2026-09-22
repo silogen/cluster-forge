@@ -59,7 +59,7 @@ else
 fi
 
 echo "== 6. wait for the service"
-# aim-engine 0.2.5 sets ModelReady, TemplateReady, RuntimeConfigReady,
+# aim-engine 0.2.6 sets ModelReady, TemplateReady, RuntimeConfigReady,
 # CacheReady, InferenceServiceReady and Ready. There is no RuntimeReady.
 for cond in InferenceServiceReady Ready; do
   if ! kubectl wait --for=condition=$cond aimservice/$NAME --namespace "$NS" \

@@ -8,7 +8,7 @@
 # labels that node-feature-discovery writes.
 name: default
 packages:
-  # aim-engine 0.2.5 asks for ReadWriteMany cache volumes. A cluster whose
+  # aim-engine 0.2.6 asks for ReadWriteMany cache volumes. A cluster whose
   # default StorageClass gives ReadWriteOnce only, for example
   # local-path-provisioner, needs this admission mutation. Take both packages
   # out when your default StorageClass gives ReadWriteMany.

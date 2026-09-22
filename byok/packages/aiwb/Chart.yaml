@@ -5,5 +5,5 @@ type: application
 version: 0.1.0
 dependencies:
   - name: aiwb-chart
-    version: 2.0.0
+    version: 2.0.3
     repository: oci://registry-1.docker.io/amdenterpriseai

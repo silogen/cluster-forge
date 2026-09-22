@@ -23,7 +23,7 @@ var gpuPackages = map[string]bool{"amd-gpu-operator": true, "amd-gpu-operator-co
 var demoOnlyKeys = map[string]interface{}{
 	aimEngineChart + ".crd.enable":                                   false,
 	aimEngineChart + ".clusterRuntimeConfig.enable":                  false,
-	aimEngineChart + ".scaleFromZero.gatewayMetricsCollector.enable": false,
+	aimEngineChart + ".scaleFromZero.gatewayMetricsCollector.management": "external",
 }
 
 func TestACPUProfileIsItsGPUTwinWithoutTheGPUPackages(t *testing.T) {

@@ -31,7 +31,7 @@ packages:
           enable: false
         scaleFromZero:
           gatewayMetricsCollector:
-            enable: false
+            management: external
   - name: envoy-gateway
   - name: selfsigned-tls
     values:

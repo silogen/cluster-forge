@@ -16,12 +16,9 @@ aiwb-chart:
     clientId: aiwb
     secretName: aiwb-oidc-client-secret
     audience: aiwb
-  # Neither cluster-auth nor OpenBao is in the demo. The chart then renders
-  # no OpenBao token reference and hides the API-key page. The API-key
-  # endpoints answer with an error.
-  clusterAuth:
-    enabled: false
-  openBao:
+  # OpenBao is not in the demo, so the API-key page is hidden. The chart still
+  # reads the token Secret, which aiwb-demo-secrets makes with a dummy value.
+  apiKeysManagement:
     enabled: false
   # There is no ai-gateway in the demo.
   aiGateway:
