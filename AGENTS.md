@@ -74,6 +74,14 @@ pipeline always makes a prerelease.
 Write all documentation, commit messages and plan files using
 ASD-STE100 Simplified Technical English.
 
+Use conventional commits: feat, docs, fix, chore. After the type, start the
+description with a capitalized verb in present tense, for example
+"feat: Remove something from somewhere" or "fix: Prevent X from doing Y".
+Keep the title at 72 characters or less, and each body line at 80 or less.
+A commit that changes only tests is a chore. For a breaking change, append
+"!" to the type, such as "feat!" or "fix!", and start the body with the
+paragraph "BREAKING CHANGE: <what breaks and why>".
+
 ## Conventions that CI enforces
 
 - If you change `root/values.yaml` (versions, new apps, `enabledApps`), update
