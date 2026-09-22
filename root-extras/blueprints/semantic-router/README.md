@@ -13,8 +13,9 @@ Files fetched into your cluster-values overlay repo:
 | `extraApps.yaml` | `extra-apps-values.yaml` | the ArgoCD Application envelope |
 | `values.yaml` | `extra-apps/semantic-router/values.yaml` | the chart config you edit |
 | `manifests/gateway-routing.yaml` | `extra-apps/semantic-router/manifests/gateway-routing.yaml` | the routes and backends you edit |
-| `manifests/sr-gateway*.yaml` | same directory | a dedicated Envoy data plane for the router — not edited per deployment, see "Routing traffic through the router" |
-| `manifests/quota.yaml` | same directory | per-API-key token quota — optional, see "Quota" |
+| `manifests/aigw-extras/sr-gateway*.yaml` | `extra-apps/semantic-router/manifests/` (flattened, no `aigw-extras/`) | a dedicated Envoy data plane for the router — not edited per deployment, see "Routing traffic through the router" |
+| `manifests/aigw-extras/quota.yaml` | `extra-apps/semantic-router/manifests/` (flattened) | per-API-key token quota — optional, see "Quota" |
+| `manifests/gateway-routing-direct-envoy.yaml` | *(fallback, not fetched by default)* | no-AI-Gateway version, see "No AI Gateway? Direct-Envoy fallback" — if used, skip the `aigw-extras/` row above entirely |
 
 ## Prerequisites
 
@@ -24,7 +25,7 @@ Files fetched into your cluster-values overlay repo:
 - A reachable vLLM backend serving the model you want to route to. The router
   deploys fine without one, it just has nothing to route to.
 - A default StorageClass, or a real class name set in `values.yaml` (see below).
-- **For token quota enforcement (`manifests/quota.yaml`) only:** the
+- **For token quota enforcement (`manifests/aigw-extras/quota.yaml`) only:** the
   `envoy-ai-gateway-ratelimit` app — optional, opt-in, cluster-forge core, not
   installed by default. Add `envoy-ai-gateway-ratelimit` to your cluster
   overlay's `enabledApps`. Without it, `QuotaPolicy` still loads and every
@@ -60,13 +61,19 @@ Files fetched into your cluster-values overlay repo:
 
    mkdir -p extra-apps/semantic-router/manifests
    curl -fsSL "$BLUEPRINT/values.yaml" -o extra-apps/semantic-router/values.yaml
-   for f in gateway-routing.yaml sr-gateway.yaml sr-gateway-config.yaml \
+   curl -fsSL "$BLUEPRINT/manifests/gateway-routing.yaml" \
+       -o extra-apps/semantic-router/manifests/gateway-routing.yaml
+   for f in sr-gateway.yaml sr-gateway-config.yaml \
             sr-gateway-proxy-config.yaml sr-gateway-service.yaml \
             sr-gateway-extproc.yaml quota.yaml; do
-     curl -fsSL "$BLUEPRINT/manifests/$f" \
+     curl -fsSL "$BLUEPRINT/manifests/aigw-extras/$f" \
          -o "extra-apps/semantic-router/manifests/$f"
    done
    ```
+
+   The `aigw-extras/` directory only exists in this blueprint's own source —
+   ArgoCD reads a flat `manifests/` directory, so every file above lands in
+   `extra-apps/semantic-router/manifests/` directly, no subdirectory.
 
    The `sr-gateway*.yaml` files stand up a dedicated Envoy data plane for the
    router — you don't edit them per deployment, just fetch them as-is (see
@@ -453,7 +460,7 @@ or any backend.
 
 ## Quota
 
-`manifests/quota.yaml` is optional — delete it if you don't want per-API-key
+`manifests/aigw-extras/quota.yaml` is optional — delete it if you don't want per-API-key
 token budgets. If you keep it, it needs the `envoy-ai-gateway-ratelimit` app
 (see "Prerequisites") and the Secret from "Reaching the router" above, since
 quota buckets key on the same `x-api-key-id` the API-key policy forwards.
@@ -542,6 +549,24 @@ token spend is still measured and visible (in the access log and this policy's
 own counters), just not enforced as a token limit yet. `quota.yaml`'s own
 comments carry the full detail; confirm this is fixed upstream before trusting
 `limit` as tokens rather than requests.
+
+## No AI Gateway? Direct-Envoy fallback
+
+Everything above assumes the AI Gateway CRDs (`AIGatewayRoute`,
+`AIServiceBackend`, `QuotaPolicy`) are on the cluster. If they are not,
+`manifests/gateway-routing.yaml` will not deploy. Use
+`manifests/gateway-routing-direct-envoy.yaml` instead — copy it in as
+`gateway-routing.yaml`, not alongside the AI Gateway version, and drop
+`manifests/aigw-extras/quota.yaml` and `manifests/aigw-extras/sr-gateway*.yaml`, none of which apply.
+
+It gives up two things: per-key token quota (the plain HTTPRoute path emits
+no cost descriptors for `QuotaPolicy` to charge against, at all, not just
+unenforced), and per-model `AIServiceBackend`/schema translation (external
+providers need a `URLRewrite` filter instead — see the file's own comments).
+Client API-key auth is still mandatory, same as the AI Gateway version.
+
+Treat this as the reduced-features fallback, not an equal alternative — pick
+it only when the AI Gateway CRDs are genuinely unavailable.
 
 ## Timeouts, retries, and failover
 
