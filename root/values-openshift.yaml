@@ -566,11 +566,57 @@ apps:
         to: ${CF_AMD_GPU_NS}
       - from: '^\( *\)regex: gpu-operator-metrics-exporter\.\*$'
         to: '\1regex: .*metrics-exporter.*'
+    # The chart mounts the data dirs upstream added for OpenShift in
+    # grafana/docker-otel-lgtm#133, but otel-lgtm 0.29.2 writes three more
+    # paths OpenShift forbids creating: Pyroscope's /data/pyroscope, Tempo
+    # v3's /var/tempo shutdown marker, and /etc/lgtm for MCP helper files.
+    # Without the first two, those processes exit, check-ps.sh reports them
+    # missing and the liveness probe restarts the container every few minutes.
+    patches:
+      - stage: post
+        resource: deployment
+        name: lgtm
+        namespace: otel-lgtm-stack
+        type: strategic
+        patch: |
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: lgtm
+                    volumeMounts:
+                      - name: pyroscope-data
+                        mountPath: /data/pyroscope
+                      - name: tempo-run
+                        mountPath: /var/tempo
+                      - name: lgtm-etc
+                        mountPath: /etc/lgtm
+                volumes:
+                  - name: pyroscope-data
+                    emptyDir:
+                      sizeLimit: 10Gi
+                  - name: tempo-run
+                    emptyDir:
+                      sizeLimit: 1Gi
+                  - name: lgtm-etc
+                    emptyDir: {}
     verify:
       - resource: deployment
         name: lgtm
         condition: available
         timeout: 300s
+      - resource: deployment
+        name: lgtm
+        jsonPath: '{.spec.template.spec.volumes[*].name}'
+        contains: pyroscope-data
+      - resource: deployment
+        name: lgtm
+        jsonPath: '{.spec.template.spec.volumes[*].name}'
+        contains: tempo-run
+      - resource: deployment
+        name: lgtm
+        jsonPath: '{.spec.template.spec.volumes[*].name}'
+        contains: lgtm-etc
       - resource: deployment
         name: my-kube-state-metrics
         condition: available
