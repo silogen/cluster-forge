@@ -69,6 +69,11 @@ cd sbom && ./validate-sync.sh
 Cut a release by hand from Actions, Release Pipeline, Run workflow. The
 pipeline always makes a prerelease.
 
+## Conventions
+
+Write all documentation, commit messages and plan files using
+ASD-STE100 Simplified Technical English.
+
 ## Conventions that CI enforces
 
 - If you change `root/values.yaml` (versions, new apps, `enabledApps`), update
