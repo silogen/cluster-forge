@@ -68,7 +68,7 @@ Copy `spurctld`, `spurd` and `spur` to `/usr/local/bin` of the node.
 - `cluster_name` at the top level. The daemon does not start without it.
 - `[controller] node_id = 1` and `peers` with the own address only.
 - `[cluster] enabled = true` before `spurctld` starts, and
-  `allow_admin_kubeconfig = true`, because `spur-inference` asks Spur for the
+  `allow_admin_kubeconfig = true`, because `spur-aims` asks Spur for the
   admin kubeconfig.
 - One `[[partitions]]` block with the hostname of the node.
 
@@ -125,9 +125,9 @@ Build the binary from the branch under test and copy it to the node, as
 [Set up one node for byok with Spur](spur-node-setup.md) shows:
 
 ```bash
-make -C byok/spur-inference assets build REF=<branch>
-scp byok/spur-inference/spur-inference ubuntu@10.0.0.163:/tmp/
-ssh ubuntu@10.0.0.163 'sudo install -m755 /tmp/spur-inference /usr/local/bin/ && spur inference install'
+make -C byok/spur-aims assets build REF=<branch>
+scp byok/spur-aims/spur-aims ubuntu@10.0.0.163:/tmp/
+ssh ubuntu@10.0.0.163 'sudo install -m755 /tmp/spur-aims /usr/local/bin/ && spur aims install'
 ```
 
 `install` with no name is `default`, the GPU profile. The plugin asks Spur for
@@ -165,7 +165,7 @@ Two possible ways. The first way is also a test result.
 The node has no load balancer and no public DNS name, so:
 
 ```bash
-spur inference install demo \
+spur aims install demo \
   --var domain=10.0.0.163.nip.io \
   --var gatewayServiceType=ClusterIP \
   --var gatewayExternalIP=10.0.0.163

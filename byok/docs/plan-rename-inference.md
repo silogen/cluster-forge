@@ -1,5 +1,8 @@
 # Plan: rename the spur-silo plugin to spur-inference
 
+Superseded in part: the plugin is now named `aims`, not `inference`. Read
+`inference` as `aims` and `spur inference` as `spur aims` everywhere below.
+
 Status: agreed with the user on 2026-09-17, reviewed and corrected the same
 day. Not started.
 Branch: EAI-8560-byok. Worktree:

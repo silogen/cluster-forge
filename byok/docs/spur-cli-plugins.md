@@ -1,11 +1,11 @@
-# Spur CLI plugins, with `spur inference` as the first one
+# Spur CLI plugins, with `spur aims` as the first one
 
 | Item | Value |
 |---|---|
 | Status | Implemented and tested. Not merged to the Spur main branch. |
 | Author | Marc Dillon, Petrus Repo, AMD Silo AI, Enterprise AI |
 | Date | 2026-09-16 |
-| Tickets | EAI-8560 (byok and `spur-inference`) |
+| Tickets | EAI-8560 (byok and `spur-aims`) |
 | Approval | Open. This document goes to a second team for review. |
 | Audience | Teams that build tools on top of Spur, and teams that ship a product on a Spur cluster. |
 
@@ -17,7 +17,7 @@ built-in command, Spur runs the executable `spur-<name>` from `PATH`. A team
 then adds a command to the Spur command line without a change to Spur, without
 a Spur release, and without its product names in a public repository.
 
-`spur inference` is the first plugin. It installs the selected AMD Enterprise AI
+`spur aims` is the first plugin. It installs the selected AMD Enterprise AI
 Reference Stack on a Spur cluster with one command, and it holds every Helm
 chart inside its own binary.
 
@@ -28,7 +28,7 @@ a Kubernetes cluster. An operator who has a Spur cluster and wants the AMD
 Enterprise AI Reference Stack on it had to leave the Spur command line, find another
 installer, and give that installer a kubeconfig.
 
-The obvious answer, a built-in `spur inference` command, has two problems. Spur is
+The obvious answer, a built-in `spur aims` command, has two problems. Spur is
 public and vendor-neutral; the AMD product names, the Helm dependencies and the
 install order of the AI stack do not belong in it. And the release cadences
 differ: a new profile of the AI stack would need a new Spur release.
@@ -40,7 +40,7 @@ who knows `kubectl krew` recognizes it at once.
 Two decisions came out of the work, and this document records them:
 
 1. Spur gets a generic plugin mechanism. The product code stays outside Spur.
-2. The plugin `spur-inference` is one Go binary with the charts embedded in it, not
+2. The plugin `spur-aims` is one Go binary with the charts embedded in it, not
    a script that needs tools on the node.
 
 ## Goals
@@ -80,9 +80,9 @@ When `spur <name> ...` matches no built-in command, Spur searches `PATH` for
 
 ```mermaid
 flowchart TD
-    A["spur inference install demo"] --> B{"Built-in command?"}
+    A["spur aims install demo"] --> B{"Built-in command?"}
     B -- yes --> C["Spur runs it"]
-    B -- no --> D["Search PATH, longest name first:\nspur-inference-install-demo\nspur-inference-install\nspur-inference"]
+    B -- no --> D["Search PATH, longest name first:\nspur-aims-install-demo\nspur-aims-install\nspur-aims"]
     D -- found --> E["exec the plugin\nwith the rest as arguments\nand SPUR_* in the environment"]
     D -- none --> F["error: unknown command"]
 ```
@@ -107,7 +107,7 @@ Spur exports five variables and nothing else:
 | `SPUR_CONF` | Path of the configuration file in use |
 | `SPUR_BIN` | Absolute path of the running `spur` binary |
 | `SPUR_VERSION` | Version of that binary |
-| `SPUR_PLUGIN_NAME` | The resolved name, for example `inference` |
+| `SPUR_PLUGIN_NAME` | The resolved name, for example `aims` |
 
 **No user identity and no token go to a plugin.** A plugin that needs cluster
 access asks Spur for it, for example with `$SPUR_BIN k8s kubeconfig --admin`,
@@ -117,9 +117,9 @@ operator; the mechanism adds no rights and hands over no credential. This is
 the one-way door of the design: a token in the environment would be impossible
 to take back later.
 
-### `spur inference`, the first plugin
+### `spur aims`, the first plugin
 
-`spur-inference` is one Go binary. `go:embed` puts the profiles, the package
+`spur-aims` is one Go binary. `go:embed` puts the profiles, the package
 metadata, the capability list and every Helm chart inside it. Helm itself is
 inside it too, as the Helm Go library, not as the `helm` command: the binary
 installs, upgrades and removes releases in its own process, and talks to the
@@ -131,7 +131,7 @@ the other reads the resources of the node.
 ```mermaid
 flowchart LR
     subgraph Node
-      S["spur"] -->|exec, SPUR_* env| P["spur-inference"]
+      S["spur"] -->|exec, SPUR_* env| P["spur-aims"]
       P -->|"$SPUR_BIN k8s kubeconfig --admin"| S
     end
     P -->|Helm SDK + client-go| K["Kubernetes API of the Spur cluster"]
@@ -156,12 +156,12 @@ interface. The default profile holds the GPU operator; `--no-gpu` selects the
 The command surface is small on purpose:
 
 ```
-spur inference list
-spur inference validate  [<profile>] [--var name=value]... [--no-gpu]
-spur inference install   [<profile>] [--var name=value]... [--smoke-test] [--no-gpu]
-spur inference status
-spur inference uninstall [<profile>] [--keep-data] [--yes]
-spur inference version
+spur aims list
+spur aims validate  [<profile>] [--var name=value]... [--no-gpu]
+spur aims install   [<profile>] [--var name=value]... [--smoke-test] [--no-gpu]
+spur aims status
+spur aims uninstall [<profile>] [--keep-data] [--yes]
+spur aims version
 ```
 
 Four behaviours are worth naming, because each answers a failure we saw on a
@@ -203,7 +203,7 @@ gave the workload `amd.com/gpu: 8`, and passed the smoke test in 3 min 24 s.
 
 ## Alternatives
 
-- **A built-in `spur inference` subcommand.** Rejected: it puts product names and
+- **A built-in `spur aims` subcommand.** Rejected: it puts product names and
   Helm dependencies into a public scheduler, and every new profile then needs a
   Spur release.
 - **A generic `spur install <chart>` that wraps Helm.** Rejected: the install

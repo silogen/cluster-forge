@@ -1,6 +1,6 @@
 # BYOK
 
-Installation of the Enterprise AI stack onto a Kubernetes cluster that already exists. Also the home of the `spur-inference` plugin.
+Installation of the Enterprise AI stack onto a Kubernetes cluster that already exists. Also the home of the `spur-aims` plugin.
 
 ## Language
 
@@ -21,12 +21,12 @@ A `key=value` input a profile declares, such as `domain`. Given on the command l
 _Avoid_: parameter, option, setting
 
 **Target cluster**:
-The Kubernetes cluster a profile is installed on. For `spur-inference` this is the k0s cluster that Spur manages.
+The Kubernetes cluster a profile is installed on. For `spur-aims` this is the k0s cluster that Spur manages.
 _Avoid_: customer cluster, spur cluster
 
-**Inference plugin**:
-The `spur-inference` executable, run as `spur inference`. It obtains the target cluster's admin kubeconfig from Spur and installs a profile with the Helm library, from the charts inside itself.
-_Avoid_: silo plugin, inference command, forge plugin
+**AIMs plugin**:
+The `spur-aims` executable, run as `spur aims`. It obtains the target cluster's admin kubeconfig from Spur and installs a profile with the Helm library, from the charts inside itself.
+_Avoid_: silo plugin, inference plugin, forge plugin
 
 **Install record**:
 The list of profiles installed on the target cluster, with the source ref of each. `uninstall` removes only packages that no other recorded profile needs.

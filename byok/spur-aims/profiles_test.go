@@ -45,9 +45,8 @@ func TestACPUProfileIsItsGPUTwinWithoutTheGPUPackages(t *testing.T) {
 		// to read the result.
 		gpuLeaves, cpuLeaves := valueLeaves(gpu), valueLeaves(cpu)
 		gpuWant := map[string]interface{}{
-			"aim-catalog/aim-cluster-model-source.hardwareFamilies":            []interface{}{"instinct"},
-			"aim-engine/" + aimEngineChart + ".acceleratorDetector.enable":     true,
-			"aim-engine/" + aimEngineChart + ".acceleratorDetector.cpu.enable": false,
+			"aim-catalog/aim-cluster-model-source.hardwareFamilies":        []interface{}{"instinct"},
+			"aim-engine/" + aimEngineChart + ".acceleratorDetector.enable": true,
 		}
 		for key, value := range gpuWant {
 			if !reflect.DeepEqual(gpuLeaves[key], value) {

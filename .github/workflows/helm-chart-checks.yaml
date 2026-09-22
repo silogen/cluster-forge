@@ -53,10 +53,10 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: byok/spur-inference/go.mod
+          go-version-file: byok/spur-aims/go.mod
 
-      - name: Test the spur-inference plugin
-        run: make -C byok/spur-inference assets test
+      - name: Test the spur-aims plugin
+        run: make -C byok/spur-aims assets test
 
   install-script-checks:
     runs-on: ubuntu-latest

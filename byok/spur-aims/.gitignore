@@ -2,4 +2,4 @@
 # they stay out of git; the release build makes them.
 /assets/*
 !/assets/.gitkeep
-/spur-inference
+/spur-aims

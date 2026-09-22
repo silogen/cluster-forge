@@ -4,7 +4,7 @@ Measured on 2026-09-15 on the node `useocpm2m-silogen-014`, one bare-metal
 machine with 112 vCPU, 2015 GiB memory and 8 AMD Instinct MI300X GPUs, with
 Kubernetes from `spur k8s up`. The profile is `inference-gpu` (now `default`),
 which is `inference` (now `default-cpu`) plus the AMD GPU operator. The Go
-build of `spur-silo` (now `spur-inference`) installed it and selected the
+build of `spur-silo` (now `spur-aims`) installed it and selected the
 profile from the node GRES, which the plugin no longer does.
 
 This document holds idle numbers only. No model was served during the
@@ -82,7 +82,7 @@ image, about 630 MiB together.
   does not see them. Their live usage is about 4m CPU and 103Mi memory.
 - `aim-catalog` leaves the pods of its discovery Jobs behind in `Succeeded`.
   They hold no resources, but a `kubectl get pods -n aim-system` shows
-  hundreds of them. See `spur-inference-findings.md`.
+  hundreds of them. See `spur-aims-findings.md`.
 - The containerd directory of the node held 268 GiB over 400 images at the
   time of the measurement. That is the result of earlier test rounds on the
   same node, not the footprint of this profile.

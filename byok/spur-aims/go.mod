@@ -1,4 +1,4 @@
-module github.com/silogen/cluster-forge/byok/spur-inference
+module github.com/silogen/cluster-forge/byok/spur-aims
 
 go 1.26.2
 
