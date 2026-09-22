@@ -82,6 +82,10 @@ A commit that changes only tests is a chore. For a breaking change, append
 "!" to the type, such as "feat!" or "fix!", and start the body with the
 paragraph "BREAKING CHANGE: <what breaks and why>".
 
+Title each pull request "EAI-NNNN Verb ...".
+EAI-NNNN is the Jira ticket number, and the word after it is a verb with a
+capital first letter. Ask me for the ticket number if you do not have it.
+
 ## Conventions that CI enforces
 
 - If you change `root/values.yaml` (versions, new apps, `enabledApps`), update
