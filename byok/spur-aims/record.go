@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	recordNamespace = "inference-system"
+	recordNamespace = "aims-system"
 	recordName      = "install-record"
 )
 

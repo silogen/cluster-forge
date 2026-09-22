@@ -1,12 +1,12 @@
-# spur-inference test findings
+# spur-aims test findings
 
-What the tests of the `spur inference` plugin found. Each item says where it
+What the tests of the `spur aims` plugin found. Each item says where it
 was found and what the state is. The Go rewrite of the plugin keeps this list
 as its input.
 
 The tests ran before the rename of 2026-09-17, when the plugin was `spur silo`
 and the profiles were `inference`, `inference-gpu` and `inference-demo`. The
-results keep the names of their time. The new names are `spur inference`,
+results keep the names of their time. The new names are `spur aims`,
 `default-cpu`, `default` and `demo`, and a result that names a profile gives
 the new name in brackets. `bootstrap.sh`, the bash path, is gone.
 
@@ -235,7 +235,7 @@ v1.36.2+k0s.0, control plane `useocpm2m-silogen-petrus-3k9y7q`, worker and
 driver node `useocpm2m-silogen-petrus-uuxd3p`. Binary built from
 `EAI-8560-byok` at the rename.
 
-- `spur inference version` and `spur inference list` answer through the
+- `spur aims version` and `spur aims list` answer through the
   plugin mechanism; `list` shows `default`, `default-cpu`, `demo`, `demo-cpu`
   and `test-s3`.
 - `spur show node` on the VMs prints no `Gres=` line at all. `validate`,
@@ -256,7 +256,7 @@ driver node `useocpm2m-silogen-petrus-uuxd3p`. Binary built from
   packages with the failed `aiwb` release first and ten namespaces, and asked
   `Remove? [y/N]`. After `n` nothing went away and the record still held the
   profile. After `y` the profile was gone in 86 s: no profile recorded, no
-  CRD, no PVC, and only the empty namespace `inference-system` left.
+  CRD, no PVC, and only the empty namespace `aims-system` left.
 - `uninstall` from a pipe without `--yes` refuses before it connects.
 - The test-s3 cycle, the smoke tests and the Radeon warning did not run.
 
@@ -325,7 +325,7 @@ manifests:
 - `uninstall` on a terminal: after `n` nothing went away and the record still
   held `default-cpu`; after `y` the profile was gone. The end state holds no
   profile, no PVC, and only the five CRDs of k0s itself. The namespaces
-  `aims-test` and `inference-system` stay, as item 14 describes.
+  `aims-test` and `aims-system` stay, as item 14 describes.
 - Item 13 is still there: the `envoy-gateway-config` values carry the
   cluster-bloom node selector and the install warns about it.
 

@@ -1,8 +1,8 @@
-# BYOK: Inference Demo Installation
+# BYOK: AIMs Demo Installation
 
 **Bring-your-own-Kubernetes, the demo profile**
 
-A reference demo of the AI Workbench on an existing cluster, installed by the `spur inference` plugin. Log in through Dex, deploy a model from the catalog in the UI, chat with the model. `demo` runs on AMD Instinct GPUs, `demo-cpu` on a cluster with no GPU. Not a production installation.
+A reference demo of the AI Workbench on an existing cluster, installed by the `spur aims` plugin. Log in through Dex, deploy a model from the catalog in the UI, chat with the model. `demo` runs on AMD Instinct GPUs, `demo-cpu` on a cluster with no GPU. Not a production installation.
 
 ---
 
@@ -34,8 +34,8 @@ A reference demo of the AI Workbench on an existing cluster, installed by the `s
 ## Install
 
 ```bash
-spur inference install demo --var domain=demo.example.com
-spur inference install demo --no-gpu --var domain=demo.example.com   # demo-cpu
+spur aims install demo --var domain=demo.example.com
+spur aims install demo --no-gpu --var domain=demo.example.com   # demo-cpu
 ```
 
 | Variable | Meaning |

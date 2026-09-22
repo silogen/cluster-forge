@@ -1,5 +1,5 @@
-// spur-inference installs an AMD Enterprise AI profile on the Kubernetes cluster
-// that Spur manages. Spur runs it as `spur inference ...` when it is on PATH;
+// spur-aims installs an AMD Enterprise AI profile on the Kubernetes cluster
+// that Spur manages. Spur runs it as `spur aims ...` when it is on PATH;
 // it also works when it is called directly. Every chart it installs is inside
 // the binary, so it needs no helm, kubectl, yq, jq or git, and no network access
 // to GitHub.
@@ -88,7 +88,7 @@ func run(ctx context.Context, args []string) error {
 	case "list":
 		return cmdList()
 	case "version":
-		fmt.Printf("spur-inference %s\n", version)
+		fmt.Printf("spur-aims %s\n", version)
 		return nil
 	case "help", "-h", "--help":
 		usage(os.Stdout)
@@ -154,13 +154,13 @@ func parseArgs(args []string) (string, options, error) {
 
 func usage(w *os.File) {
 	fmt.Fprint(w, `Usage:
-  spur inference install   [<profile>] [--var name=value]... [--kubeconfig <path>]
+  spur aims install   [<profile>] [--var name=value]... [--kubeconfig <path>]
                            [--pull-secret <docker-config.json>] [--no-gpu] [--smoke-test]
-  spur inference uninstall [<profile>] [--keep-data] [--yes] [--kubeconfig <path>]
-  spur inference status    [--kubeconfig <path>]
-  spur inference list
-  spur inference validate  [<profile>] [--var name=value]... [--kubeconfig <path>]
-  spur inference version
+  spur aims uninstall [<profile>] [--keep-data] [--yes] [--kubeconfig <path>]
+  spur aims status    [--kubeconfig <path>]
+  spur aims list
+  spur aims validate  [<profile>] [--var name=value]... [--kubeconfig <path>]
+  spur aims version
 
 A blank profile name is default, the profile on AMD Instinct GPUs. For
 uninstall a blank name is every recorded profile. An uninstall shows what

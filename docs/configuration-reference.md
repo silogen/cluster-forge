@@ -81,12 +81,12 @@ Post-handoff cluster checks. See [`scripts/platform-gates/README.md`](../scripts
 
 Webhook gate env vars are inherited from `ai-gateway-webhook-health.sh`.
 
-## `byok/spur-inference` (the Spur CLI plugin)
+## `byok/spur-aims` (the Spur CLI plugin)
 
 Installs a byok profile on a Spur k0s cluster, as the Spur CLI plugin
-`spur inference`. Every chart of the release is inside the binary, so it takes
+`spur aims`. Every chart of the release is inside the binary, so it takes
 no ref and needs no tool on the node. See
-[`byok/spur-inference/README.md`](../byok/spur-inference/README.md).
+[`byok/spur-aims/README.md`](../byok/spur-aims/README.md).
 
 | Flag or variable | Command | Default | Meaning |
 |---|---|---|---|

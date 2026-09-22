@@ -1,8 +1,8 @@
-# spur-inference
+# spur-aims
 
-`spur-inference` installs an AMD Enterprise AI profile on the Kubernetes
+`spur-aims` installs an AMD Enterprise AI profile on the Kubernetes
 cluster that Spur manages. Spur finds it on PATH and runs it as
-`spur inference ...`.
+`spur aims ...`.
 
 The binary holds every Helm chart of the release, the profiles, the package
 metadata and the capability probes. At run time it needs no helm, kubectl, yq,
@@ -29,14 +29,14 @@ make build REF=v1.2.3
 ## Use
 
 ```sh
-spur inference list
-spur inference install                  # the default profile, on AMD Instinct GPUs
-spur inference install --no-gpu         # default-cpu, on a cluster with no GPU
-spur inference install demo --var domain=example.com \
+spur aims list
+spur aims install                  # the default profile, on AMD Instinct GPUs
+spur aims install --no-gpu         # default-cpu, on a cluster with no GPU
+spur aims install demo --var domain=example.com \
   --var gatewayServiceType=LoadBalancer --var gatewayExternalIP=10.0.0.10
-spur inference status
-spur inference uninstall demo --yes
-spur inference uninstall                # every recorded profile, after a question
+spur aims status
+spur aims uninstall demo --yes
+spur aims uninstall                # every recorded profile, after a question
 ```
 
 A blank profile name is `default`. `--no-gpu` adds `-cpu` to the name, so
@@ -53,7 +53,7 @@ the cluster. Without a name it removes every recorded profile, a profile that
 extends another recorded profile before its base.
 
 The binary writes an install record into the ConfigMap `install-record` of the
-namespace `inference-system`, one entry per profile. `uninstall` reads it and
+namespace `aims-system`, one entry per profile. `uninstall` reads it and
 keeps every package that another recorded profile holds.
 
 Without `--kubeconfig` and without `KUBECONFIG` the binary asks `spur k8s
@@ -71,5 +71,5 @@ The tests hold the Go probes to the capabilities that `capabilities.yaml`
 declares, load every profile and chart, check the variable rules, the profile
 format and the install record arithmetic, and hold every `-cpu` profile to its
 GPU twin. `byok/tests/optional-package-cycle.sh` needs a cluster and the built
-binary. `byok/docs/spur-inference-findings.md` keeps the results of the
+binary. `byok/docs/spur-aims-findings.md` keeps the results of the
 cluster tests.

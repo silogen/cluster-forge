@@ -1,7 +1,7 @@
 # byok: bring your own Kubernetes
 
 byok installs a minimal cluster-forge on a Kubernetes cluster that already
-exists. The `spur inference` plugin does the install: one Helm release per
+exists. The `spur aims` plugin does the install: one Helm release per
 package, with the Helm library, from the charts inside the binary. It does not
 install ArgoCD, Gitea or OpenBao.
 
@@ -61,21 +61,21 @@ no autoscaling. If a profile needs autoscaling, the cluster must give it.
 
 ## Install
 
-Build the binary once, see [spur-inference/README.md](spur-inference/README.md):
+Build the binary once, see [spur-aims/README.md](spur-aims/README.md):
 
 ```bash
-make -C byok/spur-inference assets build
+make -C byok/spur-aims assets build
 ```
 
 Then, on any cluster:
 
 ```bash
 export KUBECONFIG=/path/to/admin.kubeconfig
-byok/spur-inference/spur-inference install            # default, on AMD Instinct GPUs
-byok/spur-inference/spur-inference install --no-gpu   # default-cpu
+byok/spur-aims/spur-aims install            # default, on AMD Instinct GPUs
+byok/spur-aims/spur-aims install --no-gpu   # default-cpu
 ```
 
-On a Spur cluster, `spur inference install` does the same and finds the
+On a Spur cluster, `spur aims install` does the same and finds the
 kubeconfig itself. See [Install on a Spur k0s cluster](#install-on-a-spur-k0s-cluster).
 
 ## The demo profile
@@ -86,14 +86,14 @@ mode, so it needs no AIRM and no Kueue.
 
 ```bash
 export KUBECONFIG=/path/to/admin.kubeconfig
-byok/spur-inference/spur-inference install demo --var domain=demo.example.com
+byok/spur-aims/spur-aims install demo --var domain=demo.example.com
 ```
 
 On a cluster without a load balancer, give the node address to the gateway and
 use a `nip.io` name. On a cluster with no GPU, add `--no-gpu`:
 
 ```bash
-byok/spur-inference/spur-inference install demo --no-gpu \
+byok/spur-aims/spur-aims install demo --no-gpu \
   --var domain=10.0.255.181.nip.io \
   --var gatewayServiceType=ClusterIP \
   --var gatewayExternalIP=10.0.255.181
@@ -165,30 +165,30 @@ already exist the package can leave the profile.
 from a node that runs nothing to a profile that serves a model. The rest of
 this section is the plugin itself.
 
-`spur inference` does the whole install on a Spur cluster that runs Kubernetes
+`spur aims` does the whole install on a Spur cluster that runs Kubernetes
 from `spur k8s up`. It is a Spur CLI plugin: put it on `PATH` under the name
-`spur-inference` and `spur inference ...` runs it. It also works when it is
+`spur-aims` and `spur aims ...` runs it. It also works when it is
 called directly.
 
 The binary holds every chart, profile and capability probe of its release, so
 the node needs no tool and no access to GitHub. Build it with `make -C
-byok/spur-inference` (see `spur-inference/README.md`) and copy it to the node:
+byok/spur-aims` (see `spur-aims/README.md`) and copy it to the node:
 
 ```bash
-scp byok/spur-inference/spur-inference ubuntu@<node>:
-ssh ubuntu@<node> 'sudo install -m 755 spur-inference /usr/local/bin/spur-inference'
-ssh ubuntu@<node> 'spur inference install'
-ssh ubuntu@<node> 'spur inference install demo --var domain=<node-ip>.nip.io \
+scp byok/spur-aims/spur-aims ubuntu@<node>:
+ssh ubuntu@<node> 'sudo install -m 755 spur-aims /usr/local/bin/spur-aims'
+ssh ubuntu@<node> 'spur aims install'
+ssh ubuntu@<node> 'spur aims install demo --var domain=<node-ip>.nip.io \
   --var gatewayServiceType=ClusterIP --var gatewayExternalIP=<node-ip>'
 ```
 
 | Command | What it does |
 |---|---|
-| `spur inference list` | The profiles of this plugin release. |
-| `spur inference install [<profile>]` | Install the profile, `default` when the name is blank. `--var name=value` per profile variable. `--no-gpu` adds `-cpu` to the name. |
-| `spur inference validate [<profile>]` | The capability check of `install`, with nothing installed. Takes the same name rules and variables. |
-| `spur inference status` | The install record and the live capability probes. |
-| `spur inference uninstall [<profile>]` | Show what goes, ask, then remove the packages of the profile. A blank name is every recorded profile. `--yes` skips the question, `--keep-data` keeps the PVCs and the CRDs. |
+| `spur aims list` | The profiles of this plugin release. |
+| `spur aims install [<profile>]` | Install the profile, `default` when the name is blank. `--var name=value` per profile variable. `--no-gpu` adds `-cpu` to the name. |
+| `spur aims validate [<profile>]` | The capability check of `install`, with nothing installed. Takes the same name rules and variables. |
+| `spur aims status` | The install record and the live capability probes. |
+| `spur aims uninstall [<profile>]` | Show what goes, ask, then remove the packages of the profile. A blank name is every recorded profile. `--yes` skips the question, `--keep-data` keeps the PVCs and the CRDs. |
 
 There is no `upgrade`. An upgrade is an `install` from a newer build.
 
@@ -205,7 +205,7 @@ The GPU profile supports Instinct only; on a node with another AMD GPU the
 and never stops the command.
 
 Every install writes the profile, the ref, the time and the variables into the
-ConfigMap `install-record` in the namespace `inference-system`. `uninstall`
+ConfigMap `install-record` in the namespace `aims-system`. `uninstall`
 reads it: a package that another recorded profile also holds stays on the
 cluster, so `uninstall demo` on a cluster that also has `default` keeps the
 base packages.
@@ -226,9 +226,9 @@ used.
 ## Validate
 
 ```bash
-spur inference validate                     # default
-spur inference validate --no-gpu            # default-cpu
-spur inference validate demo --var domain=demo.example.com
+spur aims validate                     # default
+spur aims validate --no-gpu            # default-cpu
+spur aims validate demo --var domain=demo.example.com
 ```
 
 `validate` needs the same `--var` values as `install`, so a missing variable
@@ -242,9 +242,9 @@ capability and the packages that give it.
 ## Remove
 
 ```bash
-spur inference uninstall demo               # shows the plan, asks, keeps the CRDs of default
-spur inference uninstall demo --keep-data   # also keeps the PVCs and the CRDs of demo
-spur inference uninstall --yes              # every recorded profile, no question
+spur aims uninstall demo               # shows the plan, asks, keeps the CRDs of default
+spur aims uninstall demo --keep-data   # also keeps the PVCs and the CRDs of demo
+spur aims uninstall --yes              # every recorded profile, no question
 ```
 
 `uninstall` removes the packages of the profile in reverse install order. It
@@ -272,7 +272,7 @@ Run `install` again with the same profile. The command is idempotent.
 ## Test
 
 ```bash
-make -C byok/spur-inference assets test     # no cluster: the profile rules,
+make -C byok/spur-aims assets test     # no cluster: the profile rules,
                                             # the drift of the -cpu copies,
                                             # the removal plan and the probes
 byok/tests/smoke.sh                   # the core serves a model
@@ -364,7 +364,7 @@ A package is a directory under `packages/` with four files:
 One package installs as one Helm release in one namespace. Add a new
 capability name to `capabilities.yaml` together with a probe that tells if the
 cluster already gives it, and the same probe as Go code in
-`spur-inference/probes.go`.
+`spur-aims/probes.go`.
 
 ### How to write a profile
 
@@ -421,8 +421,8 @@ notes: |
 - [The demo slide](docs/slide-demo.md)
 - [The minimal install slide](docs/slide-minimal-install.md)
 - [Test plan: byok on a GPU node](docs/test-plan-gpu.md)
-- [Test plan: spur-inference on Kaytoo VMs](docs/test-plan-kaytoo.md)
-- [spur-inference test findings](docs/spur-inference-findings.md)
+- [Test plan: spur-aims on Kaytoo VMs](docs/test-plan-kaytoo.md)
+- [spur-aims test findings](docs/spur-aims-findings.md)
 - [Set up one node for byok with Spur](docs/spur-node-setup.md)
 - [Spur CLI plugins](docs/spur-cli-plugins.md)
 - [Future work](docs/future-work.md)

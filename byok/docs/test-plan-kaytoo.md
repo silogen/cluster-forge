@@ -1,12 +1,12 @@
-# Test plan: spur-inference on Kaytoo VMs
+# Test plan: spur-aims on Kaytoo VMs
 
-The repeatable CPU test round of the `spur inference` plugin. It needs no GPU and no
+The repeatable CPU test round of the `spur aims` plugin. It needs no GPU and no
 cluster-bloom. The GPU path has its own plan in
 [Test plan: byok on a GPU node](test-plan-gpu.md), and the results of both are
-in [spur-inference test findings](spur-inference-findings.md).
+in [spur-aims test findings](spur-aims-findings.md).
 
 The cluster itself comes from the `spur-kaytoo-cluster` skill. This page adds
-only what the `spur-inference` test needs on top of it.
+only what the `spur-aims` test needs on top of it.
 
 ## 1. The cluster
 
@@ -31,40 +31,40 @@ Points that cost time when they are missed:
   not the Raft leader`. It does not retry. Start it again; the second try
   registers. Check with `spur nodes` that both hostnames are there before
   `spur k8s up`.
-- The VMs hold no `kubectl`. `spur inference` does not need one, but a test that
+- The VMs hold no `kubectl`. `spur aims` does not need one, but a test that
   looks at pods does. Install it on the driver node, or read the cluster from
   the control-plane node with `sudo k0s kubectl`.
 
 ## 2. The binary
 
-Build `spur-inference` from the branch under test and copy it to the driver
+Build `spur-aims` from the branch under test and copy it to the driver
 node:
 
 ```bash
-make -C byok/spur-inference all REF=<branch>
-scp byok/spur-inference/spur-inference ubuntu@<driver public ip>:/tmp/
-ssh ubuntu@<driver public ip> 'sudo install -m755 /tmp/spur-inference /usr/local/bin/'
+make -C byok/spur-aims all REF=<branch>
+scp byok/spur-aims/spur-aims ubuntu@<driver public ip>:/tmp/
+ssh ubuntu@<driver public ip> 'sudo install -m755 /tmp/spur-aims /usr/local/bin/'
 ```
 
-`spur inference version` must answer with the ref that `REF` gave.
+`spur aims version` must answer with the ref that `REF` gave.
 
 ## 3. The round
 
 The VMs have no GPU, so the round uses the `-cpu` profiles through `--no-gpu`.
 
 ```bash
-spur inference list
-spur inference install                  # warns: no GPU, the default profile installs the GPU operator
-spur inference uninstall --yes
-spur inference validate --no-gpu        # validates default-cpu
-spur inference validate demo --no-gpu --var domain=<ip>.nip.io   # validates demo-cpu
-spur inference install --no-gpu --smoke-test
-spur inference status
-spur inference install demo --no-gpu --var domain=<ip>.nip.io \
+spur aims list
+spur aims install                  # warns: no GPU, the default profile installs the GPU operator
+spur aims uninstall --yes
+spur aims validate --no-gpu        # validates default-cpu
+spur aims validate demo --no-gpu --var domain=<ip>.nip.io   # validates demo-cpu
+spur aims install --no-gpu --smoke-test
+spur aims status
+spur aims install demo --no-gpu --var domain=<ip>.nip.io \
                     --var gatewayServiceType=ClusterIP --var gatewayExternalIP=<node ip>
-spur inference uninstall demo-cpu --yes     # the base profile and its CRDs must stay
-spur inference uninstall                    # shows the plan and asks; answer n, then y
-spur inference status                       # no profile is recorded
+spur aims uninstall demo-cpu --yes     # the base profile and its CRDs must stay
+spur aims uninstall                    # shows the plan and asks; answer n, then y
+spur aims status                       # no profile is recorded
 ```
 
 With no load balancer, give `gatewayServiceType=ClusterIP` and
@@ -132,7 +132,7 @@ Then build the assets by hand, because `make assets` runs `helm dependency
 build`, which tries to pull the vendored chart from the registry again:
 
 ```bash
-cd /tmp/silo-test/byok/spur-inference
+cd /tmp/silo-test/byok/spur-aims
 rm -rf assets && mkdir -p assets/tests
 cp ../capabilities.yaml assets/ && cp -r ../profiles assets/profiles && cp -r ../packages assets/packages
 cp ../tests/aimservice-dummy.yaml assets/tests/

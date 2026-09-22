@@ -2,23 +2,23 @@
 # Installs the optional seaweedfs packages on top of default-cpu with the
 # test-s3 profile, re-runs the install, then removes test-s3 with the data and
 # proves that nothing of seaweedfs stays and that the base still works.
-# Needs a cluster, helm and kubectl, and the spur-inference binary.
+# Needs a cluster, helm and kubectl, and the spur-aims binary.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BYOK="$HERE/.."
-SPUR_INFERENCE="${SPUR_INFERENCE:-$BYOK/spur-inference/spur-inference}"
+SPUR_AIMS="${SPUR_AIMS:-$BYOK/spur-aims/spur-aims}"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 ok() { echo "ok: $*"; }
 
-[ -x "$SPUR_INFERENCE" ] || fail "no binary at $SPUR_INFERENCE, run make -C $BYOK/spur-inference assets build"
+[ -x "$SPUR_AIMS" ] || fail "no binary at $SPUR_AIMS, run make -C $BYOK/spur-aims assets build"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 echo "== 1. install default-cpu, then the seaweedfs packages on top of it"
-"$SPUR_INFERENCE" install default-cpu
-"$SPUR_INFERENCE" install test-s3
+"$SPUR_AIMS" install default-cpu
+"$SPUR_AIMS" install test-s3
 
 echo "== 2. seaweedfs is up"
 bash -c "$(yq -r '.["storage.s3"].probe' "$BYOK/capabilities.yaml")" \
@@ -37,13 +37,13 @@ release_state() {
   done
 }
 release_state > "$tmp/before.txt"
-"$SPUR_INFERENCE" install test-s3
+"$SPUR_AIMS" install test-s3
 release_state > "$tmp/after.txt"
 diff "$tmp/before.txt" "$tmp/after.txt" || fail "the rendered manifests changed on the second install"
 ok "no change on the second install"
 
 echo "== 4. remove test-s3 with the data"
-"$SPUR_INFERENCE" uninstall test-s3 --yes
+"$SPUR_AIMS" uninstall test-s3 --yes
 
 echo "== 5. nothing of seaweedfs stays"
 helm status seaweedfs --namespace seaweedfs-instance >/dev/null 2>&1 \

@@ -1,4 +1,4 @@
-# Builds the spur-inference binary with every chart of the release inside it.
+# Builds the spur-aims binary with every chart of the release inside it.
 #
 # `make assets` needs helm and network access once: it resolves the chart
 # dependencies of every package. `make build` needs neither, and the binary
@@ -29,10 +29,10 @@ assets:
 	touch $(ASSETS)/.gitkeep
 
 build:
-	go build $(GOFLAGS) -ldflags "-X main.version=$(REF)" -o spur-inference .
+	go build $(GOFLAGS) -ldflags "-X main.version=$(REF)" -o spur-aims .
 
 test:
 	go test ./...
 
 clean:
-	rm -rf $(ASSETS) spur-inference
+	rm -rf $(ASSETS) spur-aims
