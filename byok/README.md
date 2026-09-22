@@ -50,7 +50,7 @@ local-path-provisioner, which gives ReadWriteOnce only.
 
 ### Storage and routing
 
-aim-engine 0.2.5 asks for ReadWriteMany cache volumes. If your default
+aim-engine 0.2.6 asks for ReadWriteMany cache volumes. If your default
 StorageClass gives ReadWriteOnce only, as local-path-provisioner does, keep the
 `kyverno` and `kyverno-policies-storage-local-path` packages in the profile.
 They rewrite the access mode at admission time. Take them out when the cluster

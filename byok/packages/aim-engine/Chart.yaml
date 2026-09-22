@@ -5,5 +5,5 @@ type: application
 version: 0.1.0
 dependencies:
   - name: aim-engine-chart
-    version: 0.2.5
+    version: 0.2.6
     repository: oci://registry-1.docker.io/amdenterpriseai

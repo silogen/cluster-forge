@@ -20,4 +20,4 @@ aim-engine-chart:
   scaleFromZero:
     # Makes an OpenTelemetryCollector object. The minimal core has no OTel operator.
     gatewayMetricsCollector:
-      enable: false
+      management: external
