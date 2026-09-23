@@ -373,8 +373,7 @@ apps:
     mode: core
     render: manifests
     root-inherited: false
-    path: envoy-gateway/v1.7.1/crds
-    recursive: true
+    path: envoy-gateway/v1.8.4/charts/crds/crds
     skipInstallWhenExists:
       resource: crd
       name: httproutes.gateway.networking.k8s.io
@@ -468,6 +467,12 @@ apps:
     root-inherited: false
     path: openbao-init-job/0.1.0
     namespace: cf-openbao
+    # A Job's pod template is immutable. Recreate it on every reconcile so a
+    # changed domain, chart or API default cannot block a re-run.
+    deleteBefore:
+      - resource: job
+        name: openbao-init-job
+        namespace: cf-openbao
     helmParameters:
       - name: domain
         value: ${DOMAIN}
@@ -545,11 +550,57 @@ apps:
         to: ${CF_AMD_GPU_NS}
       - from: '^\( *\)regex: gpu-operator-metrics-exporter\.\*$'
         to: '\1regex: .*metrics-exporter.*'
+    # The chart mounts the data dirs upstream added for OpenShift in
+    # grafana/docker-otel-lgtm#133, but otel-lgtm 0.29.2 writes three more
+    # paths OpenShift forbids creating: Pyroscope's /data/pyroscope, Tempo
+    # v3's /var/tempo shutdown marker, and /etc/lgtm for MCP helper files.
+    # Without the first two, those processes exit, check-ps.sh reports them
+    # missing and the liveness probe restarts the container every few minutes.
+    patches:
+      - stage: post
+        resource: deployment
+        name: lgtm
+        namespace: otel-lgtm-stack
+        type: strategic
+        patch: |
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: lgtm
+                    volumeMounts:
+                      - name: pyroscope-data
+                        mountPath: /data/pyroscope
+                      - name: tempo-run
+                        mountPath: /var/tempo
+                      - name: lgtm-etc
+                        mountPath: /etc/lgtm
+                volumes:
+                  - name: pyroscope-data
+                    emptyDir:
+                      sizeLimit: 10Gi
+                  - name: tempo-run
+                    emptyDir:
+                      sizeLimit: 1Gi
+                  - name: lgtm-etc
+                    emptyDir: {}
     verify:
       - resource: deployment
         name: lgtm
         condition: available
         timeout: 300s
+      - resource: deployment
+        name: lgtm
+        jsonPath: '{.spec.template.spec.volumes[*].name}'
+        contains: pyroscope-data
+      - resource: deployment
+        name: lgtm
+        jsonPath: '{.spec.template.spec.volumes[*].name}'
+        contains: tempo-run
+      - resource: deployment
+        name: lgtm
+        jsonPath: '{.spec.template.spec.volumes[*].name}'
+        contains: lgtm-etc
       - resource: deployment
         name: my-kube-state-metrics
         condition: available
@@ -705,7 +756,7 @@ apps:
     name: Envoy Gateway CRDs
     mode: core
     render: manifests
-    path: envoy-gateway/v1.7.1/crds/generated
+    path: envoy-gateway/v1.8.4/charts/crds/crds/generated
     root-inherited: false
     verify:
       - resource: crd
@@ -754,6 +805,9 @@ apps:
     name: Envoy Gateway control plane
     mode: core
     root-inherited: true
+    # OpenShift Ingress Operator owns Gateway API CRDs and omits ListenerSet.
+    # EG v1.8.1 crash-loops watching that kind; v1.8.4 skips the absent CRD.
+    path: envoy-gateway/v1.8.4
     verify:
       - resource: secret
         name: envoy-gateway
@@ -812,7 +866,7 @@ apps:
       - templates/ai-gateway.yaml
       - templates/ai-gateway-proxy-config.yaml
       - templates/ai-gateway-service.yaml
-      - templates/envoy-extension-policy-model-header.yaml
+      - templates/envoy-extension-policy-backend-sanitize.yaml
     helmParameters:
       - name: domain
         value: ${DOMAIN}
@@ -1097,6 +1151,22 @@ apps:
     name: AIM Engine (controller)
     mode: external
     root-inherited: true
+    # OpenShift labels hostPath mounts so UID 0 alone cannot chmod NFD's
+    # features.d directory. This init container is admitted by the dedicated,
+    # service-account-scoped cf-aim-engine-detector-scc.
+    patches:
+      - resource: daemonset
+        name: aim-engine-aim-engine-chart-accelerator-detector-cpu
+        namespace: aim-system
+        type: strategic
+        patch: |
+          spec:
+            template:
+              spec:
+                initContainers:
+                  - name: prep-features-dir
+                    securityContext:
+                      privileged: true
     valuesObject:
       clusterRuntimeConfig:
         enable: true
@@ -1121,6 +1191,11 @@ apps:
         name: aim-engine-kgateway-metrics-collector
         condition: available
         timeout: 180s
+      - resource: daemonset
+        name: aim-engine-aim-engine-chart-accelerator-detector-cpu
+        jsonPath: '{.status.numberReady}'
+        equals: "1"
+        timeout: 300s
       - resource: node
         selector: feature.node.kubernetes.io/aim-accelerator.GPU
         minCount: 1
@@ -1695,34 +1770,44 @@ apps:
         jsonPath: '{.subsets[*].addresses[*].ip}'
         notEmpty: true
 
-  # Pinned to 0.1.13, the only version the release tarball ships. Keep it in step
-  # with the operator below, which is written against the schema it shipped with.
+  # SeaweedFS 0.1.36 keeps its CRDs in the operator chart's templates rather than
+  # the deprecated seaweedfs-crds/0.1.36 directory. Render only that template here
+  # so the CRDs are established before the operator and instance are installed.
   seaweedfs-crds:
     name: SeaweedFS CRDs
     mode: core
-    render: manifests
-    root-inherited: true
-    path: seaweedfs-crds/0.1.13
+    root-inherited: false
+    path: seaweedfs-operator/0.1.36
+    namespace: seaweedfs-operator
     skipWhen: PLUGGABLE_S3=true
+    templates:
+      - templates/crd-seaweed.yaml
+    helmParameters:
+      - name: crds.create
+        value: "true"
     verify:
       - resource: crd
-        name: seaweeds.seaweed.seaweedfs.com
+        names:
+          - seaweeds.seaweed.seaweedfs.com
+          - buckets.seaweed.seaweedfs.com
         condition: established
         timeout: 60s
 
-  # The copy of the CRD in the chart's crds/ is deliberately not rendered: the step
-  # above owns that object.
+  # The preceding step owns the CRDs, so suppress the same template here.
   seaweedfs-operator:
     name: SeaweedFS operator
     mode: core
-    root-inherited: true
-    path: seaweedfs-operator/0.1.13
+    root-inherited: false
+    path: seaweedfs-operator/0.1.36
+    namespace: seaweedfs-operator
     skipWhen: PLUGGABLE_S3=true
     helmParameters:
       - name: domain
         value: ${DOMAIN}
       - name: webhook.enabled
         value: false
+      - name: crds.create
+        value: "false"
     verify:
       - resource: deployment
         name: seaweedfs-operator
@@ -1802,29 +1887,14 @@ apps:
         value: ${DOMAIN}
       - name: seaweed.storageClassName
         value: ${CF_STORAGE_CLASS}
-      - name: initJob.buckets[0].name
-        value: default-bucket
-      - name: initJob.buckets[1].name
-        value: models
-      - name: initJob.buckets[2].name
-        value: datasets
-    substitutions:
-      - from: '^          command: \["/bin/bash", "-c"\]'
-        to: '          env:\n            - name: HOME\n              value: "/tmp"\n          command: ["/bin/bash", "-c"]'
     verify:
       - resource: endpoints
         name: filer-s3
         jsonPath: '{.subsets[*].addresses[*].ip}'
         notEmpty: true
         timeout: 300s
-      - resource: job
-        name: seaweedfs-init-job
-        condition: complete
-        timeout: 300s
-      - resource: job
-        name: seaweedfs-init-job
-        jsonPath: '{.spec.template.spec.containers[?(@.name=="seaweedfs-init")].env[?(@.name=="HOME")].value}'
-        equals: /tmp
+      - resource: bucket
+        name: default-bucket
       - resource: statefulset
         names:
           - seaweed-master
