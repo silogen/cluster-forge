@@ -6,7 +6,7 @@ For the most detailed and up-to-date documentation please visit our Instinct Doc
 
 ## Introduction
 
-AMD GPU Operator simplifies the deployment and management of AMD Instinct GPU accelerators within Kubernetes clusters. This project enables seamless configuration and operation of GPU-accelerated workloads, including machine learning, Generative AI, and other GPU-intensive applications.
+AMD GPU Operator simplifies the deployment and management of AMD Instinct™ and AMD Radeon™ GPU accelerators within Kubernetes clusters. This project enables seamless configuration and operation of GPU-accelerated workloads, including machine learning, Generative AI, and other GPU-intensive applications.
 
 ## Components
 
@@ -124,7 +124,7 @@ For bugs and feature requests, please file an issue on our [GitHub Issues](https
 The AMD GPU Operator is licensed under the [Apache License 2.0](LICENSE).
 # gpu-operator-charts
 
-![Version: v1.5.1-beta.0](https://img.shields.io/badge/Version-v1.5.1--beta.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.5.1-beta.0](https://img.shields.io/badge/AppVersion-v1.5.1--beta.0-informational?style=flat-square)
+![Version: v1.5.1](https://img.shields.io/badge/Version-v1.5.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.5.1](https://img.shields.io/badge/AppVersion-v1.5.1-informational?style=flat-square)
 
 AMD GPU Operator simplifies the deployment and management of AMD Instinct GPU accelerators within Kubernetes clusters.
 
@@ -157,7 +157,7 @@ Kubernetes: `>= 1.29.0-0`
 | global.imagePullSecrets | list | `[]` | Global image pull secret(s) applied to all component pods and subcharts. If specified, these secrets will be used by: - GPU operator controller manager deployment - Remediation workflow controller - All helm hooks (pre-upgrade, pre-delete, post-delete) - DeviceConfig-managed components (via commonConfig.imageRegistrySecrets) - KMM controller and webhook pods (automatically inherited) - KMM builder/signer/worker pods (automatically uses first secret as fallback)  Format: [{"name": "myGlobalSecret"}] or [{"name": "secret1"}, {"name": "secret2"}]  Note: For NFD subchart, you must manually set the field to match global secrets:   node-feature-discovery.imagePullSecrets: [{"name": "myGlobalSecret"}] |
 | controllerManager.affinity | object | `{"nodeAffinity":{"preferredDuringSchedulingIgnoredDuringExecution":[{"preference":{"matchExpressions":[{"key":"node-role.kubernetes.io/control-plane","operator":"Exists"}]},"weight":1}]}}` | Deployment affinity configs for controller manager |
 | controllerManager.manager.image.repository | string | `"docker.io/rocm/gpu-operator"` | AMD GPU operator controller manager image repository |
-| controllerManager.manager.image.tag | string | `"v1.5.1-beta.0"` | AMD GPU operator controller manager image tag |
+| controllerManager.manager.image.tag | string | `"v1.5.1"` | AMD GPU operator controller manager image tag |
 | controllerManager.manager.imagePullPolicy | string | `"Always"` | Image pull policy for AMD GPU operator controller manager pod |
 | controllerManager.manager.imagePullSecrets | string | `""` | Image pull secret name for pulling AMD GPU operator controller manager image if registry needs credential to pull image |
 | controllerManager.nodeSelector | object | `{}` | Node selector for AMD GPU operator controller manager deployment |
@@ -173,7 +173,7 @@ Kubernetes: `>= 1.29.0-0`
 | deviceConfig.spec.configManager.config | object | `{}` | config map for config manager, e.g. {"name": "myConfigMap"} |
 | deviceConfig.spec.configManager.configManagerTolerations | list | `[]` | config manager tolerations |
 | deviceConfig.spec.configManager.enable | bool | `false` | enable/disable the config manager  |
-| deviceConfig.spec.configManager.image | string | `"docker.io/rocm/device-config-manager:v1.5.1-beta.0"` | config manager image |
+| deviceConfig.spec.configManager.image | string | `"docker.io/rocm/device-config-manager:v1.5.1"` | config manager image |
 | deviceConfig.spec.configManager.imagePullPolicy | string | `"IfNotPresent"` | image pull policy for config manager image |
 | deviceConfig.spec.configManager.imageRegistrySecret | object | `{}` | image pull secret for config manager image, e.g. {"name": "myPullSecret"} |
 | deviceConfig.spec.configManager.selector | object | `{}` | node selector for config manager, if not specified it will reuse spec.selector |
@@ -228,7 +228,7 @@ Kubernetes: `>= 1.29.0-0`
 | deviceConfig.spec.metricsExporter.config | object | `{}` | name of the metrics exporter config map, e.g. {"name": "metricConfigMapName"} |
 | deviceConfig.spec.metricsExporter.enable | bool | `true` | enable / disable device metrics exporter |
 | deviceConfig.spec.metricsExporter.hostNetwork | bool | `false` | specify whether to use host network for metrics exporter daemonset |
-| deviceConfig.spec.metricsExporter.image | string | `"docker.io/rocm/device-metrics-exporter:v1.5.1-beta.0"` | metrics exporter image |
+| deviceConfig.spec.metricsExporter.image | string | `"docker.io/rocm/device-metrics-exporter:v1.5.1"` | metrics exporter image |
 | deviceConfig.spec.metricsExporter.imagePullPolicy | string | `"IfNotPresent"` | metrics exporter image pull policy |
 | deviceConfig.spec.metricsExporter.imageRegistrySecret | object | `{}` | metrics exporter image pull secret, e.g. {"name": "pullSecretName"} |
 | deviceConfig.spec.metricsExporter.nodePort | int | `32500` | external port for pulling metrics from outside the cluster for NodePort service, in the range 30000-32767 (assigned automatically by default) |
@@ -264,12 +264,12 @@ Kubernetes: `>= 1.29.0-0`
 | deviceConfig.spec.remediationWorkflow.nodeRemediationLabels | object | `{}` | Labels to apply to nodes during remediation |
 | deviceConfig.spec.remediationWorkflow.nodeRemediationTaints | list | `[]` | Taints to apply to nodes during remediation |
 | deviceConfig.spec.remediationWorkflow.rebootTimeout | string | `"15m"` | Duration to wait for the node to reboot and remain Ready before timing out. Accepts duration strings like "30s", "4h", "24h". By default, it is set to 15m. |
-| deviceConfig.spec.remediationWorkflow.testerImage | string | `"docker.io/rocm/test-runner:v1.5.1-beta.0"` | Container image used for testing during remediation |
+| deviceConfig.spec.remediationWorkflow.testerImage | string | `"docker.io/rocm/test-runner:v1.5.1"` | Container image used for testing during remediation |
 | deviceConfig.spec.remediationWorkflow.ttlForFailedWorkflows | string | `"24h"` | Time-to-live duration for failed workflows before cleanup (e.g., 1h, 24h) |
 | deviceConfig.spec.selector | object | `{"feature.node.kubernetes.io/amd-gpu":"true"}` | Set node selector for the default DeviceConfig |
 | deviceConfig.spec.testRunner.config | object | `{}` | test runner config map, e.g. {"name": "myConfigMap"} |
 | deviceConfig.spec.testRunner.enable | bool | `false` | enable / disable test runner |
-| deviceConfig.spec.testRunner.image | string | `"docker.io/rocm/test-runner:v1.5.1-beta.0"` | test runner image |
+| deviceConfig.spec.testRunner.image | string | `"docker.io/rocm/test-runner:v1.5.1"` | test runner image |
 | deviceConfig.spec.testRunner.imagePullPolicy | string | `"IfNotPresent"` | test runner image pull policy |
 | deviceConfig.spec.testRunner.imageRegistrySecret | object | `{}` | test runner image pull secret |
 | deviceConfig.spec.testRunner.logsLocation.hostPath | string | `"/var/log/amd-test-runner"` | host directory to save test run logs |
@@ -297,12 +297,12 @@ Kubernetes: `>= 1.29.0-0`
 | kmm.controller.manager.containerSecurityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kmm.controller.manager.env.relatedImageBuild | string | `"gcr.io/kaniko-project/executor:v1.23.2"` | KMM kaniko builder image for building driver image within cluster |
 | kmm.controller.manager.env.relatedImageBuildPullSecret | string | `""` | Image pull secret name for pulling KMM kaniko builder image if registry needs credential to pull image |
-| kmm.controller.manager.env.relatedImageSign | string | `"docker.io/rocm/kernel-module-management-signimage:v1.5.1-beta.0"` | KMM signer image for signing driver image's kernel module with given key pairs within cluster |
+| kmm.controller.manager.env.relatedImageSign | string | `"docker.io/rocm/kernel-module-management-signimage:v1.5.1"` | KMM signer image for signing driver image's kernel module with given key pairs within cluster |
 | kmm.controller.manager.env.relatedImageSignPullSecret | string | `""` | Image pull secret name for pulling KMM signer image if registry needs credential to pull image. If not set and global.imagePullSecrets is configured, the first global secret will be used automatically. |
-| kmm.controller.manager.env.relatedImageWorker | string | `"docker.io/rocm/kernel-module-management-worker:v1.5.1-beta.0"` | KMM worker image for loading / unloading driver kernel module on worker nodes |
+| kmm.controller.manager.env.relatedImageWorker | string | `"docker.io/rocm/kernel-module-management-worker:v1.5.1"` | KMM worker image for loading / unloading driver kernel module on worker nodes |
 | kmm.controller.manager.env.relatedImageWorkerPullSecret | string | `""` | Image pull secret name for pulling KMM worker image if registry needs credential to pull image. If not set and global.imagePullSecrets is configured, the first global secret will be used automatically. |
 | kmm.controller.manager.image.repository | string | `"docker.io/rocm/kernel-module-management-operator"` | KMM controller manager image repository |
-| kmm.controller.manager.image.tag | string | `"v1.5.1-beta.0"` | KMM controller manager image tag |
+| kmm.controller.manager.image.tag | string | `"v1.5.1"` | KMM controller manager image tag |
 | kmm.controller.manager.imagePullPolicy | string | `"Always"` | Image pull policy for KMM controller manager pod |
 | kmm.controller.manager.imagePullSecrets | string | `""` | Image pull secret name for pulling KMM controller manager image if registry needs credential to pull image |
 | kmm.controller.manager.resources.limits.cpu | string | `"500m"` |  |
@@ -336,7 +336,7 @@ Kubernetes: `>= 1.29.0-0`
 | kmm.webhookServer.webhookServer.args[3] | string | `"--enable-preflightvalidation"` |  |
 | kmm.webhookServer.webhookServer.containerSecurityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kmm.webhookServer.webhookServer.image.repository | string | `"docker.io/rocm/kernel-module-management-webhook-server"` | KMM webhook image repository |
-| kmm.webhookServer.webhookServer.image.tag | string | `"v1.5.1-beta.0"` | KMM webhook image tag |
+| kmm.webhookServer.webhookServer.image.tag | string | `"v1.5.1"` | KMM webhook image tag |
 | kmm.webhookServer.webhookServer.imagePullPolicy | string | `"Always"` | Image pull policy for KMM webhook pod |
 | kmm.webhookServer.webhookServer.imagePullSecrets | string | `""` | Image pull secret name for pulling KMM webhook image if registry needs credential to pull image |
 | kmm.webhookServer.webhookServer.resources.limits.cpu | string | `"500m"` |  |
