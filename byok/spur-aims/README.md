@@ -20,6 +20,27 @@ make build     # needs neither
 and the smoke-test object into `assets/`. That directory is a copy, so it is not
 in git. `make all` does both steps.
 
+### Windows WSL
+
+If the WSL PATH includes the Rancher Desktop `bin` directory, helm finds
+`docker-credential-secretservice` and uses it. WSL has no Secret Service
+daemon, so `make assets` stops before it pulls the OCI charts. Tell helm to
+use the Windows credential helper:
+
+```sh
+sudo apt install libsecret-1-0
+jq '.credsStore = "wincred.exe"' ~/.config/helm/registry/config.json > /tmp/h.json && mv /tmp/h.json ~/.config/helm/registry/config.json
+```
+
+Then `~/.config/helm/registry/config.json` contains:
+
+```json
+{
+  "auths": {},
+  "credsStore": "wincred.exe"
+}
+```
+
 The version string comes from `REF`, which defaults to the current branch:
 
 ```sh

@@ -64,6 +64,7 @@ no autoscaling. If a profile needs autoscaling, the cluster must give it.
 Build the binary once, see [spur-aims/README.md](spur-aims/README.md):
 
 ```bash
+# See spur-aims/README.md for troubleshooting if errors are encountered
 make -C byok/spur-aims assets build
 ```
 
