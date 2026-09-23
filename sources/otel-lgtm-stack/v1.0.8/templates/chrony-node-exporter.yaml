@@ -34,11 +34,13 @@ spec:
               name: chronyd-socket
           resources:
             limits:
-              cpu: "100m"
-              memory: 128Mi
+{{- if .Values.nodeExporter.chrony.resources.limits.cpu }}
+              cpu: {{ .Values.nodeExporter.chrony.resources.limits.cpu | quote }}
+{{- end }}
+              memory: {{ .Values.nodeExporter.chrony.resources.limits.memory }}
             requests:
-              cpu: "50m"
-              memory: 64Mi
+              cpu: {{ .Values.nodeExporter.chrony.resources.requests.cpu | quote }}
+              memory: {{ .Values.nodeExporter.chrony.resources.requests.memory }}
       volumes:
         - name: chronyd-socket
           hostPath:

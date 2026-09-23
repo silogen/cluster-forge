@@ -27,7 +27,7 @@ ociRegistry:
 apps:
   ai-gateway-discovery:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.3"
     chart: "ai-gateway-discovery-chart"
     namespace: ai-gateway-system
     valuesFile: values.yaml
@@ -42,17 +42,21 @@ apps:
         value: "{{ .Values.global.aiGateway.bodyAuthMaxRequestBytes | int64 }}"
   aim-engine:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "0.2.5"
+    repoVersion: "0.2.6"
     chart: "aim-engine-chart"
     namespace: aim-system
     valuesFile: values.yaml
     syncWave: 0
     helmParameters:
+      - name: manager.image.repository
+        value: amdenterpriseai/aim-engine
+      - name: manager.artifactDownloaderImage
+        value: docker.io/amdenterpriseai/aim-artifact-downloader:v0.2.6
       - name: clusterRuntimeConfig.enable
-        value: false
+        value: 'false'
   aim-engine-crds:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "0.2.5"
+    repoVersion: "0.2.6"
     chart: "aim-engine-crds-chart"
     namespace: aim-system
     syncWave: 0
@@ -68,7 +72,7 @@ apps:
       hardwareFamilies: []
   airm:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.3"
     chart: "airm-chart"
     namespace: airm
     syncWave: 0
@@ -85,7 +89,7 @@ apps:
         kind: ClusterPolicy
   aiwb:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.3"
     chart: "aiwb-chart"
     namespace: aiwb
     valuesFile: values.yaml
@@ -100,14 +104,14 @@ apps:
           - /spec/rules/*/skipBackgroundRequests
   airm-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.3"
     chart: "airm-cnpg-chart"
     namespace: airm
     syncWave: -10
     valuesFile: values.yaml
   airm-infra-external-secrets:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.3"
     chart: "airm-external-secrets-chart"
     namespace: airm
     syncWave: -20
@@ -121,21 +125,21 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
   airm-infra-rabbitmq:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.3"
     chart: "airm-rabbitmq-chart"
     namespace: airm
     syncWave: -5
     valuesFile: values.yaml
   aiwb-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.3"
     chart: "aiwb-cnpg-chart"
     namespace: aiwb
     syncWave: -10
     valuesFile: values.yaml
   aiwb-infra-external-secrets:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.3"
     chart: "aiwb-external-secrets-chart"
     namespace: aiwb
     syncWave: -20
@@ -971,32 +975,22 @@ apps:
       cluster:
         name: # to be filled by cluster-forge app based on domain
       collectors:
-        resources:
-          logs:
-            limits:
-              cpu: "1"
-              memory: 2Gi
-            requests:
-              cpu: 200m
-              memory: 400Mi
-          metrics:
-            limits:
-              cpu: "2"
-              memory: 8Gi
-            requests:
-              cpu: 500m
-              memory: 1Gi
+        # Drops apiserver metrics nothing on the platform queries and thins the
+        # two latency histograms. Set to "full" (or keepAllBuckets: true) in a
+        # cluster's own cluster-values.yaml to get everything back -- from that
+        # point forward only; dropped samples are never stored.
+        # See docs/otel_lgtm_stack_tuning.md.
+        metricFilters:
+          profile: standard
+        # Collector resources are NOT pinned here. They come from the chart
+        # defaults (= the small/medium tier), and values_large.yaml raises the
+        # two components that scale with control-plane count. Pinning them here
+        # would silently win over the chart and re-introduce the CPU limits we
+        # removed -- see docs/otel_lgtm_stack_tuning.md, "Cluster size tiers".
       kubeStateMetrics:
         enabled: true
       lgtm:
-        resources:
-          limits:
-            memory: 8Gi
-          requests:
-            cpu: "1"
-            memory: 2Gi
         storage:
-          extra: 50Gi
           grafana: 10Gi
           loki: 50Gi
           mimir: 50Gi

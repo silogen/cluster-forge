@@ -1,15 +1,37 @@
 # Configuration reference
 
-Cluster-Forge configuration variables used outside Helm chart `values.yaml` files:
-root Argo CD `helmParameters`, install scripts, and platform gate helpers.
+Cluster Forge configuration variables: root Argo CD `helmParameters`, selected
+root `global` keys, install scripts, and platform gate helpers.
 
 ## Root chart Argo CD helmParameters
 
 | Application | Parameter | Default (root) | Purpose |
 |-------------|-----------|----------------|---------|
-| `aim-engine` | `clusterRuntimeConfig.enable` | `false` | When `false`, the aim-engine chart does not render `AIMClusterRuntimeConfig`. Set `true` for OpenShift/manual installs that need aim-engine-managed routing (see `docs/openshift/install.sh` and `docs/manual_helm_install/scripts/install_base.sh`). |
+| `aim-engine` | `clusterRuntimeConfig.enable` | `'false'` | Quoted string so Argo CD / Helm pass a boolean-looking value without YAML converting it to a boolean. When `'false'`, the aim-engine chart does not render `AIMClusterRuntimeConfig`. Set `'true'` for OpenShift/manual installs that need aim-engine-managed routing (see `docs/openshift/install.sh` and `docs/manual_helm_install/scripts/install_base.sh`). |
+| `aim-engine` | `manager.image.repository` | `amdenterpriseai/aim-engine` | aim-engine controller image repository (tag comes from the chart / `repoVersion`). |
+| `aim-engine` | `manager.artifactDownloaderImage` | `docker.io/amdenterpriseai/aim-artifact-downloader:v0.2.6` | Full image reference for the artifact-downloader sidecar. The tag includes the `v` prefix. |
+| `ai-gateway-discovery` | `controller.bodyAuthMaxRequestBytes` | `4194304` (from `global.aiGateway.bodyAuthMaxRequestBytes`) | Per-model catch-all SecurityPolicy body-authz ceiling. Must match `envoy-gateway-config`'s `aiGateway.bodyAuthMaxRequestBytes`. |
+| `envoy-gateway-config` | `aiGateway.bodyAuthMaxRequestBytes` | `4194304` (from `global.aiGateway.bodyAuthMaxRequestBytes`) | Gateway-scoped `ai-gateway-default-deny` `bodyToExtAuth.maxRequestBytes`. See [AI Gateway body-authz request size](#ai-gateway-body-authz-request-size). |
 
 Defined in `root/values.yaml` under `apps.<app>.helmParameters`.
+
+## AI Gateway body-authz request size
+
+`global.aiGateway.bodyAuthMaxRequestBytes` (default `4194304`, 4MiB) is the
+shared ceiling for the body-aware extAuth filter on the header-less
+(model-in-body) path. A body over this value returns HTTP 413 and skips
+authorization (this precedence holds even over `failOpen`). Tune it per
+environment in the cluster-values overlay; keep it a positive integer (Helm
+renders it through `int64` so a float/scientific-notation value does not
+publish `maxRequestBytes: 0`).
+
+`root/values.yaml` wires the same value into both
+`controller.bodyAuthMaxRequestBytes` (ai-gateway-discovery) and
+`aiGateway.bodyAuthMaxRequestBytes` (envoy-gateway-config). Discovery's
+rule-scoped policies override the gateway-scoped one per route, so the two
+must stay in step. The chart-local default in
+`sources/envoy-gateway-config/values.yaml` is the same number and applies
+only if the root helmParameter is omitted.
 
 ## AI Gateway webhook TLS (prevention vs heal)
 

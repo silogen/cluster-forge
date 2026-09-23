@@ -19,8 +19,6 @@ lgtm:
     grafana: 10Gi
     # Mimir/Prometheus storage for metrics
     mimir: 50Gi
-    # Loki additional storage
-    extra: 50Gi
 
   # Config file overrides for the LGTM image (ghcr.io/silogen/docker-otel-lgtm).
   # These full-file contents are mounted (via subPath) over the image's embedded
@@ -233,12 +231,25 @@ lgtm:
     GF_AUTH_BASIC_ENABLED: "true"
 
   # LGTM stack main deployment resources
+  # Memory request is 25% of the limit (see docs/otel_lgtm_stack_tuning.md,
+  # "Cluster size tiers"). CPU request is set close to measured usage; there is
+  # deliberately NO CPU limit -- lgtm is a latency-sensitive Go monolith and
+  # throttling it costs more than it protects. Measured 3.0-5.6 GiB and
+  # 0.29-1.42 CPU across the fleet on 2026-09-15/16.
   resources:
     limits:
       memory: 8Gi
     requests:
       memory: 2Gi
-      cpu: '1'
+      cpu: 500m
+  # grafana-sc-dashboard sidecar in the lgtm pod. Measured 81-86 MiB.
+  # Had no requests or limits before 2026-09-16.
+  scDashboardResources:
+    limits:
+      memory: 256Mi
+    requests:
+      memory: 64Mi
+      cpu: 10m
   
 # OpenTelemetry Collectors resource configuration  
 collectors:
@@ -253,6 +264,38 @@ collectors:
     kubernetes-pods-slow: 5m
     ai-gateway-extproc: 30s
     airm-custom-metrics: 30s
+  # Extra environment variables per collector group. Keys mirror
+  # collectors.resources.* so a group's env and its resources sit together.
+  #
+  # GOMEMLIMIT tells the Go runtime roughly where its memory ceiling is. Without
+  # it Go is blind to the cgroup: it collects at GOGC=100, i.e. when the heap
+  # reaches ~2x live data, with no idea a container limit exists. It is a SOFT
+  # limit -- as the heap approaches it the runtime collects harder; it does not
+  # refuse work and it cannot shrink genuinely live data, so the container limit
+  # is still the real backstop.
+  #
+  # It is set on the k8s metrics collector because that is the only container
+  # here that has ever been OOMKilled (twice, on separate clusters, both at
+  # an 8Gi limit from a 1-2 GiB steady state) and nothing
+  # currently bounds its heap: it has no GOMEMLIMIT, and its memory_limiter has
+  # never refused a single point (otelcol_processor_refused_metric_points has
+  # never even been initialised).
+  #
+  # 6GiB is 75% of the 8Gi limit. If you change that limit, change this too --
+  # a GOMEMLIMIT above the container limit is inert, and one below the working
+  # set makes the runtime collect continuously at normal load. Measured steady
+  # state is 0.9-2.2 GiB, and GC currently costs ~0.001% of wall time, so there
+  # is no performance downside at this value -- and no performance UPSIDE
+  # either: this buys reliability, not speed.
+  #
+  # NOT set on the other groups: their limits are 1Gi, none of them has ever
+  # been OOMKilled, and they run at 50-329 MiB.
+  extraEnv:
+    metrics:
+      GOMEMLIMIT: "6GiB"
+    metricsRest: {}
+    logs: {}
+    logsEvents: {}
   # memory_limiter processor settings applied to every collector's pipeline.
   # This is the collector's built-in OOM guard: when in-use memory approaches
   # `limitPercentage` of the container memory limit, the collector refuses
@@ -261,27 +304,95 @@ collectors:
   # Percentages are of each collector's own container memory limit
   # (collectors.resources.*.limits.memory). Tune per-cluster: under-specced
   # clusters may want a lower limitPercentage to trigger backpressure earlier.
+  # Metric filtering for the kubernetes-apiservers scrape job.
+  #
+  # That single job is the dominant cost in this stack. Measured on a
+  # 3-control-plane cluster (2026-09-16): 397k of 466k samples per scrape, and 71%
+  # of every series in the cluster is one of its histogram buckets. Nothing
+  # this chart ships queries them -- the three bundled dashboards reference no
+  # apiserver_* or etcd_* metric, and the chart ships no alerting rules.
+  #
+  # Filtering happens at scrape time (metric_relabel_configs on the collector's
+  # prometheus receiver), so it shrinks BOTH the collector's working set -- the
+  # component that has been OOMKilled at its 8Gi limit -- and the Prometheus
+  # TSDB behind it.
+  #
+  # IMPORTANT: dropped samples are never written anywhere. Raising the profile
+  # restores the metrics from that moment on; it cannot recover history. See
+  # "Re-enabling dropped metrics" in docs/otel_lgtm_stack_tuning.md.
+  metricFilters:
+    # full     - no filtering; every metric the API server exposes is kept.
+    # standard - drop what nothing on the platform queries, and thin the two
+    #            latency histograms down to `keepBuckets`. histogram_quantile()
+    #            still works. Cuts total series roughly 60%.
+    # minimal  - standard, plus every remaining histogram bucket on this job.
+    #            No quantiles at all; _count/_sum keep rate, errors and mean
+    #            latency working. Cuts total series roughly 71%.
+    profile: standard
+    # Escape hatch, independent of the profile: keep every apiserver/etcd
+    # histogram bucket even under standard/minimal. This is the one-line switch
+    # for debugging an API server incident -- flip it, let ArgoCD sync, and
+    # buckets reappear within one scrape interval.
+    keepAllBuckets: false
+    # Boundaries the `standard` profile keeps for apiserver_request_duration_
+    # seconds and etcd_request_duration_seconds. The API server exposes 24; six
+    # cuts those two families by ~75% while keeping histogram_quantile() usable
+    # and preserving le="1", the boundary the Kubernetes API SLI is defined on.
+    #
+    # Values must match the exposition format exactly ("1", not "1.0"). This is
+    # a LIST: an override replaces it wholesale rather than merging.
+    keepBuckets:
+      - "0.1"
+      - "0.4"
+      - "1"
+      - "2"
+      - "5"
+      - "+Inf"
   memoryLimiter:
     checkInterval: 5s
     limitPercentage: 80
     spikeLimitPercentage: 25
   resources:
-    # Metrics collector (deployment mode) - original values
+    # otel-collector-metrics-k8s ONLY -- the collector that runs the
+    # kubernetes-apiservers / nodes / cadvisor / pods scrapes. It is the one
+    # component here that has ever been OOMKilled (twice, on separate
+    # clusters, both at an 8Gi limit while sitting at 1-2 GiB),
+    # so its memory limit is deliberately large. No CPU limit: CPU is
+    # compressible, and a 30s scrape of ~400k samples is exactly the bursty
+    # shape that CFS quota punishes.
     metrics:
       limits:
         memory: 8Gi
-        cpu: '2'
       requests:
+        memory: 2Gi
+        cpu: 750m
+    # otel-collector-metrics-{rest,airm,chrony} -- three small scrape
+    # collectors, measured at 50-139 MiB and under 0.01 CPU on every cluster.
+    # They shared the `metrics` block until 2026-09-16, which gave each of them
+    # an 8Gi limit and a 1Gi request for ~100 MiB of actual use.
+    metricsRest:
+      limits:
         memory: 1Gi
-        cpu: 500m
-    # Logs collector (daemonset mode) - original conservative values  
+      requests:
+        memory: 256Mi
+        cpu: 10m
+    # otel-collector-logs-collector and otel-collector-metrics-kubelet, both
+    # daemonsets. Measured 53-329 MiB and 0.002-0.167 CPU per pod, flat across
+    # every cluster regardless of size -- so these are NOT tier-dependent.
     logs:
       limits:
-        memory: 2Gi
-        cpu: '1'
+        memory: 1Gi
       requests:
-        memory: 400Mi  # Conservative default
-        cpu: 200m    # Conservative default
+        memory: 256Mi
+        cpu: 100m
+    # otel-collector-logs-events -- single deployment watching k8s events.
+    # Measured 62-93 MiB. Had no requests or limits at all before 2026-09-16.
+    logsEvents:
+      limits:
+        memory: 1Gi
+      requests:
+        memory: 256Mi
+        cpu: 10m
 
 # Service configuration
 services:
@@ -316,6 +427,31 @@ dashboards:
 
 nodeExporter:
   enabled: true
+  # Measured 16-41 MiB, under 0.021 CPU. Had no requests or limits before
+  # 2026-09-16.
+  resources:
+    limits:
+      memory: 128Mi
+    requests:
+      memory: 32Mi
+      cpu: 25m
+  # chrony-exporter daemonset. Its resources were hardcoded in the template
+  # until 2026-09-16, including a 100m CPU limit that throttled 18% of periods
+  # on one cluster -- the highest measured anywhere in this stack.
+  chrony:
+    resources:
+      limits:
+        memory: 128Mi
+      requests:
+        memory: 32Mi
+        cpu: 10m
 
 kubeStateMetrics:
   enabled: true
+  # Measured 26-61 MiB. Had no requests or limits before 2026-09-16.
+  resources:
+    limits:
+      memory: 512Mi
+    requests:
+      memory: 128Mi
+      cpu: 10m
