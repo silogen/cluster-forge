@@ -162,13 +162,27 @@ already exist the package can leave the profile.
 ## Install on a Spur k0s cluster
 
 [Set up one node for byok with Spur](docs/spur-node-setup.md) holds every step
-from a node that runs nothing to a profile that serves a model. The rest of
-this section is the plugin itself.
+from a node that runs nothing to a profile that serves a model. In short:
+
+1. Build `spurctld`, `spurd`, `spur` and `spur-aims`, and install them in
+   `/usr/local/bin` on the node.
+2. Write `/etc/spur/spur.conf` with `cluster_name`, a `[[partitions]]` block
+   and a `[cluster]` block that has `enabled = true`,
+   `allow_admin_kubeconfig = true` and a `local_path_dir` on the big disk.
+3. Let the k0s pod and service networks through the host firewall.
+4. Bind-mount a k0s data directory on the big disk to `/var/lib/k0s`.
+5. Start `spurctld`, then `spurd --address <node private ip>`.
+6. As root: `spur k8s install-k0s`, then `spur k8s up`. Wait until the node is
+   `Ready` and `local-path` is the default StorageClass.
+7. `spur aims install --smoke-test`.
+
+The rest of this section is the plugin itself.
 
 `spur aims` does the whole install on a Spur cluster that runs Kubernetes
 from `spur k8s up`. It is a Spur CLI plugin: put it on `PATH` under the name
-`spur-aims` and `spur aims ...` runs it. It also works when it is
-called directly.
+`spur-aims` and `spur aims ...` runs it. `spur aims` needs a `spur` build that
+has the plugin mechanism, see [Spur CLI plugins](docs/spur-cli-plugins.md).
+`spur-aims ...` works with every `spur` build.
 
 The binary holds every chart, profile and capability probe of its release, so
 the node needs no tool and no access to GitHub. Build it with `make -C
@@ -185,7 +199,7 @@ ssh ubuntu@<node> 'spur aims install demo --var domain=<node-ip>.nip.io \
 | Command | What it does |
 |---|---|
 | `spur aims list` | The profiles of this plugin release. |
-| `spur aims install [<profile>]` | Install the profile, `default` when the name is blank. `--var name=value` per profile variable. `--no-gpu` adds `-cpu` to the name. |
+| `spur aims install [<profile>]` | Install the profile, `default` when the name is blank. `--var name=value` per profile variable. `--no-gpu` adds `-cpu` to the name. `--smoke-test` deploys a test model after the install. `--pull-secret <file>` makes the image pull Secret from a docker config JSON. |
 | `spur aims validate [<profile>]` | The capability check of `install`, with nothing installed. Takes the same name rules and variables. |
 | `spur aims status` | The install record and the live capability probes. |
 | `spur aims uninstall [<profile>]` | Show what goes, ask, then remove the packages of the profile. A blank name is every recorded profile. `--yes` skips the question, `--keep-data` keeps the PVCs and the CRDs. |
