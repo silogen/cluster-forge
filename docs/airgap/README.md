@@ -204,7 +204,31 @@ export EAI_STORE=haul/eai-store
 ls haul/cluster-forge/sources/kuberay-operator/1.4.2/Chart.yaml
 ```
 
-Skip the clone if `haul/cluster-forge` already exists. The application
+Skip the clone if `haul/cluster-forge` already exists. To pack from a
+branch that is not `main`, pass `--branch`. To pack a byok profile
+(`default`, `default-cpu`, `demo`, `demo-cpu`) instead of the full
+OpenShift stack, pass `--profile` as well:
+
+```bash
+./hauler.sh --profile demo --branch EAI-8560-byok none-model-images --skip-transfer
+```
+
+The store and the two archives live under `docs/airgap/haul/` and are
+tens of gigabytes. Put the clone on a large volume for that host, for
+example `/mnt/disk0`, never the 96 GB root disk. See the Demo section.
+
+`--profile` reads `byok/profiles/<name>.yaml` on that branch, including
+`extends`, and hauls only those packages. It also writes
+`haul-manifest.yaml` and `haul-manifest.json` into the store and into
+`eai-airgap.tar`. `dehauler.sh` uses that file to apply only the packed
+packages:
+
+```bash
+sudo env PATH="/usr/local/bin:/var/lib/rancher/rke2/bin:$PATH" \
+  KUBECONFIG=/etc/rancher/rke2/rke2.yaml \
+  CF_DOMAIN=spur-iro.silogen.ai \
+  ./dehauler.sh /path/to/eai-airgap.tar --confirm
+``` The application
 order below follows
 [`root/values-openshift.yaml`](https://github.com/silogen/cluster-forge/blob/main/root/values-openshift.yaml),
 but excludes the OpenShift-only SCC, OpenShift Kyverno, and Route steps.
@@ -597,7 +621,8 @@ hauler store add image amdenterpriseai/aim-qwen-qwen3-32b:0.13.0 --platform linu
 ```
 
 `hauler.sh` accepts the same names: `./hauler.sh all-model-images` or
-`./hauler.sh none-model-images [image …]`.
+`./hauler.sh none-model-images [image …]`. Add `--profile` and
+`--branch` to pack a byok profile from a feature branch.
 
 
 ### 3.44 Steps that are not charts or images
@@ -1540,6 +1565,9 @@ export PATH="/var/lib/rancher/rke2/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
 export KUBECONFIG="$HOME/.kube/config"
 
 ./hauler.sh none-model-images --skip-transfer
+
+# Testing with profiles
+./hauler.sh --profile default-cpu --branch EAI-8560-byok none-model-images --skip-transfer
 ```
 
 #### 5.1 Transfer the binary
@@ -1554,5 +1582,12 @@ export KUBECONFIG="$HOME/.kube/config"
 
 ```bash
 cd /mnt/disk0/demo
-sudo env PATH="/usr/local/bin:/var/lib/rancher/rke2/bin:$PATH" KUBECONFIG=/etc/rancher/rke2/rke2.yaml CF_DOMAIN=MY-HAULER-DOMAIN ./dehauler.sh --confirm
+sudo env PATH="/usr/local/bin:/var/lib/rancher/rke2/bin:$PATH" KUBECONFIG=/etc/rancher/rke2/rke2.yaml CF_DOMAIN=MY-HAULER-DOMAIN ./dehauler.sh /mnt/disk0/demo/eai-airgap.tar --confirm
+```
+
+#### 5.3 Somke test
+
+
+```bash
+./haul/cluster-forge/byok/tests/smoke.sh
 ```
