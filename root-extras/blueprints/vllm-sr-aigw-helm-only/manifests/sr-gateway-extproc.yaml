@@ -1,0 +1,46 @@
+# One gateway-scoped EnvoyExtensionPolicy carrying BOTH the metric-hygiene Lua
+# and semantic-router's own ext_proc. Gateway-scoped rather than route-scoped
+# because sr-gateway carries exactly one route and Envoy Gateway allows only one
+# EnvoyExtensionPolicy per target.
+#
+# The `filterOrder` in sr-gateway-proxy-config.yaml runs the Lua before both
+# api_key_auth and ext_proc, so a bogus x-ai-eg-backend never reaches either.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyExtensionPolicy
+metadata:
+  name: sr-gateway-extproc
+  namespace: semantic-router
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: sr-gateway
+  lua:
+    - type: Inline
+      inline: |
+        function envoy_on_request(request_handle)
+          local be = request_handle:headers():get("x-ai-eg-backend")
+          if be ~= nil and be:match("^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$") == nil then
+            request_handle:headers():remove("x-ai-eg-backend")
+          end
+        end
+  extProc:
+    - backendRefs:
+        # Same namespace as this policy, so no ReferenceGrant is needed.
+        - kind: Service
+          name: semantic-router
+          port: 50051
+      processingMode:
+        request:
+          # The router classifies on the prompt, so it needs the body. Without
+          # this it is sent headers only and every request takes the catch-all.
+          body: Buffered
+        # Response processing deliberately left off: body: Buffered here would
+        # hold the whole completion before returning it, breaking token
+        # streaming.
+      # Budget covers buffering the request body and running classification, not
+      # just a network hop.
+      messageTimeout: 300s
+      # Router unreachable -> requests skip it and take the catch-all rule,
+      # instead of every request returning 5xx.
+      failOpen: true
