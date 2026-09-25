@@ -11,12 +11,13 @@ cd "$SCRIPT_DIR"
 
 # Project layout: dehauler.sh is above haul/. Wrapper layout: dehauler.sh is
 # beside eai-stack.tar.zst. Both work without environment variables.
+USER_HAUL_ROOT="${HAUL_ROOT:-}"
 if [[ -d "$SCRIPT_DIR/haul/eai-store" || -f "$SCRIPT_DIR/haul/eai-stack.tar.zst" ]]; then
   DEFAULT_HAUL_ROOT="$SCRIPT_DIR/haul"
 else
   DEFAULT_HAUL_ROOT="$SCRIPT_DIR"
 fi
-HAUL_ROOT="${HAUL_ROOT:-$DEFAULT_HAUL_ROOT}"
+HAUL_ROOT="${USER_HAUL_ROOT:-$DEFAULT_HAUL_ROOT}"
 EAI_STORE="${EAI_STORE:-$HAUL_ROOT/eai-store}"
 TMPDIR="${TMPDIR:-$HAUL_ROOT/tmp}"
 export TMPDIR
@@ -34,6 +35,7 @@ export PATH
 FROM_STEP=1
 DRY_RUN=0
 CONFIRM="${CONFIRM:-0}"
+HAUL_ARCHIVE=""
 
 # Deployment shape, and the credentials the inline object steps carry. Names,
 # defaults and skipWhen semantics are install.sh's, so the same environment
@@ -94,14 +96,20 @@ CLUSTER_TLS_KEY="${CLUSTER_TLS_KEY:-}"
 
 usage() {
   cat <<'EOF'
-Usage: sudo ./dehauler.sh [--from N] [--confirm] [--dry-run]
+Usage: sudo ./dehauler.sh [eai-airgap.tar] [--from N] [--confirm] [--dry-run]
 
   Complete disconnected-side workflow:
     1. Use the existing store, or load eai-stack.tar.zst when absent.
     2. Start the Hauler registry with nohup and wait for /v2/.
     3. Write the RKE2 localhost HTTP mirror, restart RKE2 when changed,
        and wait for the node to become Ready.
-    4. Apply hauled charts and files in Cluster-Forge order.
+    4. Apply hauled charts. When the archive (or HAUL_ROOT) holds
+       haul-manifest.json from a --profile pack, only those packages
+       are applied. Otherwise the full OpenShift EAI stack is applied.
+
+  eai-airgap.tar
+              Optional wrapper from hauler.sh. Extracted into HAUL_ROOT
+              (the directory of the tar, unless HAUL_ROOT is already set).
 
   Each step waits for that namespace's workloads to roll out before the next
   one, so webhook-backed charts (cert-manager, Kyverno) are serving when a
@@ -157,10 +165,19 @@ while [[ $# -gt 0 ]]; do
       CONFIRM=1
       shift
       ;;
-    *)
+    -*)
       echo "unknown option: $1" >&2
       usage >&2
       exit 1
+      ;;
+    *)
+      if [[ -n "$HAUL_ARCHIVE" ]]; then
+        echo "unexpected argument: $1" >&2
+        usage >&2
+        exit 1
+      fi
+      HAUL_ARCHIVE="$1"
+      shift
       ;;
   esac
 done
@@ -659,6 +676,74 @@ apply_file() {
   pause_between "$ns"
 }
 
+unpack_haul_archive() {
+  [[ -z "$HAUL_ARCHIVE" ]] && return 0
+  [[ -f "$HAUL_ARCHIVE" ]] || die "archive not found: $HAUL_ARCHIVE"
+  HAUL_ARCHIVE="$(readlink -f "$HAUL_ARCHIVE")"
+  if [[ -z "$USER_HAUL_ROOT" ]]; then
+    HAUL_ROOT="$(dirname "$HAUL_ARCHIVE")"
+    EAI_STORE="$HAUL_ROOT/eai-store"
+    TMPDIR="$HAUL_ROOT/tmp"
+    EXTRACT_DIR="$HAUL_ROOT/extracted"
+    export TMPDIR
+  fi
+  echo "==> extracting $(basename "$HAUL_ARCHIVE") into ${HAUL_ROOT}"
+  tar -xf "$HAUL_ARCHIVE" -C "$HAUL_ROOT"
+}
+
+find_haul_manifest() {
+  if [[ -f "$HAUL_ROOT/haul-manifest.json" ]]; then
+    printf '%s' "$HAUL_ROOT/haul-manifest.json"
+    return 0
+  fi
+  local f=""
+  f=$(store_file haul-manifest.json 2>/dev/null || true)
+  if [[ -n "$f" ]]; then
+    printf '%s' "$f"
+    return 0
+  fi
+  return 1
+}
+
+apply_haul_manifest() {
+  local manifest=$1
+  local profile
+  profile="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("profile",""))' "$manifest")"
+  echo "==> applying profile ${profile:-unknown} from ${manifest}"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    python3 -c 'import json,sys
+m=json.load(open(sys.argv[1]))
+for p in m.get("packages") or []:
+    print("    {name} chart={chart}:{version} ns={namespace}".format(**p))
+' "$manifest"
+    return 0
+  fi
+  local step name ns chart version values vf
+  while IFS='|' read -r step name ns chart version values; do
+    [[ -z "$name" ]] && continue
+    local extra=()
+    if [[ -n "$values" ]]; then
+      vf=$(store_file "$values") || die "values file missing: ${values}"
+      extra=(--values "$vf")
+    fi
+    # The ClusterServingRuntime objects in this chart are validated by a
+    # webhook the same chart installs. Apply the controller first, wait, then
+    # the CRs, the same split as 4.4.25 / 4.4.25b.
+    if [[ "$chart" == kserve ]]; then
+      CHART_KINDS="exclude ClusterServingRuntime"
+      apply_chart "manifest/${step}" "$name" "$chart" "$version" "$ns" "${extra[@]+"${extra[@]}"}"
+      CHART_KINDS="only ClusterServingRuntime"
+      apply_chart "manifest/${step}b" "$name" "$chart" "$version" "$ns" "${extra[@]+"${extra[@]}"}"
+    else
+      apply_chart "manifest/${step}" "$name" "$chart" "$version" "$ns" "${extra[@]+"${extra[@]}"}"
+    fi
+  done < <(python3 -c 'import json,sys
+m=json.load(open(sys.argv[1]))
+for i,p in enumerate(m.get("packages") or [], 1):
+    print("|".join([str(i), p["name"], p["namespace"], p["chart"], str(p["version"]), p.get("values","")]))
+' "$manifest")
+}
+
 # The extraObjects steps, hauled as files by hauler.sh with their ${VAR}
 # references left in. Same as apply_file but for the expansion, which cannot
 # happen at pack time because the values are the deployment's, not the haul's.
@@ -920,8 +1005,21 @@ NAMESPACES=(
   kaiwo-system
 )
 
+unpack_haul_archive
+
 if [[ "$DRY_RUN" -eq 0 ]]; then
   prepare_host
+fi
+
+HAUL_MANIFEST=""
+HAUL_MANIFEST="$(find_haul_manifest || true)"
+if [[ -n "$HAUL_MANIFEST" ]]; then
+  apply_haul_manifest "$HAUL_MANIFEST"
+  echo "done"
+  exit 0
+fi
+
+if [[ "$DRY_RUN" -eq 0 ]]; then
   echo "==> creating namespaces"
   for ns in "${NAMESPACES[@]}"; do
     kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f - >/dev/null

@@ -1,0 +1,25 @@
+aiwb-chart:
+  # One namespace, no AIRM. The chart makes the namespace, its Kyverno
+  # policy and its project-id label.
+  standAloneMode: true
+  postgresql:
+    host: postgres.postgres.svc.cluster.local
+    port: 5432
+    database: aiwb
+    username: aiwb_user
+    userSecretName: aiwb-cnpg-user
+  # Dex is the OIDC issuer. The profile sets the issuer, because it holds the
+  # domain. The aiwb-demo-secrets package makes the client secret.
+  oidc:
+    internalUrl: http://dex.dex.svc.cluster.local:5556
+    jwksUrl: http://dex.dex.svc.cluster.local:5556/keys
+    clientId: aiwb
+    secretName: aiwb-oidc-client-secret
+    audience: aiwb
+  # OpenBao is not in the demo, so the API-key page is hidden. The chart still
+  # reads the token Secret, which aiwb-demo-secrets makes with a dummy value.
+  apiKeysManagement:
+    enabled: false
+  # There is no ai-gateway in the demo.
+  aiGateway:
+    enabled: false

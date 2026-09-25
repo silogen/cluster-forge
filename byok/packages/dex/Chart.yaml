@@ -1,0 +1,9 @@
+apiVersion: v2
+name: dex
+description: Dex, a small OIDC issuer for the demo
+type: application
+version: 0.1.0
+dependencies:
+  - name: dex
+    version: 0.24.1
+    repository: file://../../../sources/dex/0.24.1

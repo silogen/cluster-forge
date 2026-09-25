@@ -1,0 +1,9 @@
+apiVersion: v2
+name: envoy-gateway-config
+description: GatewayClass, apps gateway and Envoy data plane configuration
+type: application
+version: 0.1.0
+dependencies:
+  - name: envoy-gateway-config
+    version: 0.1.0
+    repository: file://../../../sources/envoy-gateway-config

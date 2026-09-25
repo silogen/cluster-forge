@@ -1,0 +1,7 @@
+name: amd-gpu-operator-config
+namespace: kube-amd-gpu
+provides:
+  - gpu.amd
+requires:
+  # The DeviceConfig CRD comes from the operator chart.
+  - gpu.amd.operator

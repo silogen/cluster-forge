@@ -1,0 +1,5 @@
+name: seaweedfs-operator
+namespace: seaweedfs-operator
+provides:
+  - storage.s3.operator
+requires: []

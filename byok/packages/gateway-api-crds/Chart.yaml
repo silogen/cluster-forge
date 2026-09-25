@@ -1,0 +1,9 @@
+apiVersion: v2
+name: gateway-api-crds
+description: Gateway API custom resource definitions, no gateway implementation
+type: application
+version: 0.1.0
+dependencies:
+  - name: crds
+    version: 0.0.0
+    repository: file://../../../sources/envoy-gateway/v1.8.1/charts/crds

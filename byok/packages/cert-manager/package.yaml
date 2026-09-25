@@ -1,0 +1,5 @@
+name: cert-manager
+namespace: cert-manager
+provides:
+  - certificates.cert-manager
+requires: []

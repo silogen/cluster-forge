@@ -1,0 +1,7 @@
+# Same values the ArgoCD path sets in root/values.yaml for the
+# amd-gpu-operator-config app. An empty family resolves to instinct, and an
+# empty driverVersion takes the family default. The DeviceConfig keeps
+# driver.enable false, so the node uses the ROCm driver of the host.
+amd-gpu-operator-config:
+  gpuStackFamily: ""
+  driverVersion: ""

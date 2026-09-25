@@ -87,6 +87,12 @@ spec:
   metricsExporter:
     # To enable/disable the metrics exporter, disabled by default
     enable: true
+{{- with .Values.podResourceAPISocketPath }}
+
+    # Host path of the kubelet pod-resources socket. The exporter does not
+    # start when the path does not exist on the node.
+    podResourceAPISocketPath: {{ . | quote }}
+{{- end }}
 
     # configure a node selector for metrics exporter
     # if not specified metrics exporter will use the node selector from spec.selector by default

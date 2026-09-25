@@ -1,0 +1,9 @@
+apiVersion: v2
+name: postgres
+description: One PostgreSQL Pod for the demo databases
+type: application
+version: 0.1.0
+dependencies:
+  - name: postgres
+    version: 0.1.0
+    repository: file://../../../sources/postgres

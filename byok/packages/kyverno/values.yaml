@@ -1,0 +1,9 @@
+kyverno:
+  # The core uses one admission-time mutation only, so the controllers that do
+  # background scans, reports and cleanup are not needed.
+  backgroundController:
+    enabled: false
+  cleanupController:
+    enabled: false
+  reportsController:
+    enabled: false
