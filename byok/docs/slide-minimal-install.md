@@ -25,7 +25,7 @@ Installs a model-serving stack on an existing cluster with the `spur aims` plugi
 
 - ArgoCD, Gitea, OpenBao
 - UI, gateway / ingress, autoscaling
-- AIRM, AIWB, Keycloak, Kaiwo, Kueue
+- AIRM, AIWB, Dex, Kaiwo, Kueue
 
 ---
 
@@ -33,7 +33,7 @@ Installs a model-serving stack on an existing cluster with the `spur aims` plugi
 
 - Kubernetes cluster with a cluster-admin kubeconfig
 - Default StorageClass with dynamic provisioning
-- `helm` ≥ 3.8, `kubectl`, `yq` v4, `jq`, `git` on PATH
+- Nothing on the node: the `spur-aims` binary holds the charts and Helm
 
 ---
 
@@ -47,7 +47,7 @@ Measured 2026-09-09, Spur k0s v1.36.2, 16 vCPU / 94 GiB VM.
 | CPU requests | 400 m |
 | Memory requests | 984 MiB |
 | Live CPU / memory | 10 mCPU / 217 MiB |
-| Container images | 96 images, 14 GiB |
-| Install time (warm) | ~3 min |
+| Container images on the node, k0s included | 96 images, 14 GiB |
+| Install time (warm) | 2 min 58 s |
 
 See [footprint-default-cpu.md](footprint-default-cpu.md) for three-node numbers.

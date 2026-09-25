@@ -28,6 +28,11 @@ goes into the Spur repository.
   `SPUR_CONTROLLER_ADDR`, `SPUR_CONF`, `SPUR_BIN`, `SPUR_VERSION` and
   `SPUR_PLUGIN_NAME` to a plugin. A plugin gets the cluster kubeconfig itself
   with `$SPUR_BIN k8s kubeconfig --admin`.
+- No user identity and no token go to a plugin. A plugin runs with the rights
+  of the operator who installed it, and every cluster access it needs goes
+  through Spur, which applies its authorization rules at that moment. This is
+  a one-way door: a token in the environment could not be taken back later.
+  The Spur repository records this in its plugins user guide.
 - A new profile ships with a new `spur-aims` release, not a new Spur
   release.
 - The Spur side and the cluster-forge side can be released and tested

@@ -102,7 +102,7 @@ no ref and needs no tool on the node. See
 | `KUBECONFIG` | all but `list` | none | Used when `--kubeconfig` is not given. |
 | `PULL_SECRET_JSON` | `install` | empty | Same content as `--pull-secret`, as a string. |
 | `SPUR_BIN` | `install`, `validate`, `status`, and every command that needs a kubeconfig | `spur` | The Spur binary to ask for a kubeconfig and for the node GRES. |
-| `REF` (build time) | `make build` | the current branch | The version string that `version` prints and the install record keeps. |
+| `ref` (build time) | `just build <ref>` | the current branch | The version string that `version` prints and the install record keeps. |
 
 ## `byok/tests/smoke.sh`
 

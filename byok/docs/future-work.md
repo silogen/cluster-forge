@@ -2,10 +2,11 @@
 
 These items are out of scope for the first byok release.
 
-- The kserve package fails on a cold single node: `helm_install_retry` gives
-  three attempts 20 seconds apart, and the webhook of the release needs longer
-  when the image still pulls. A second run of the installer passes. Make the
-  retry wait for the webhook Deployment instead of a fixed sleep.
+- The kserve package fails on a cold single node: the install retry of
+  `helmops.go` gives three attempts 20 seconds apart, and the webhook of the
+  release needs longer when the image still pulls. A second run of the
+  installer passes. Make the retry wait for the webhook Deployment instead of
+  a fixed sleep.
 - The AIM images of the 0.8.5 release do not run on a host whose amdgpu
   driver is older than their ROCm. On `useocpm2m-silogen-014`, driver
   6.19.14 with the ROCm 7.0.2 amdsmi of the image, `amdsmi_get_gpu_activity`
@@ -26,10 +27,6 @@ These items are out of scope for the first byok release.
   Secret only lifts the rate limit of an anonymous pull. A byok package that
   makes registry Secrets from one place would remove the manual step when a
   registry does need credentials.
-- `footprint/footprint.sh` stops with a jq error when a container writes a
-  memory value without the binary suffix, for example `4G` in place of `4Gi`.
-  The GPU footprint is therefore not measured yet. Read the quantity with a
-  suffix table instead of `tonumber`.
 - The `absence of components` step of `tests/smoke.sh` holds every Pod of the
   cluster to Running or Succeeded, so a GPU cluster fails the step while any
   Pod of `kube-amd-gpu` is not ready, although steps 1 to 7 pass. Give the

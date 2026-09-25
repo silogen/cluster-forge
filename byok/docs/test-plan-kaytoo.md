@@ -1,9 +1,9 @@
 # Test plan: spur-aims on Kaytoo VMs
 
 The repeatable CPU test round of the `spur aims` plugin. It needs no GPU and no
-cluster-bloom. The GPU path has its own plan in
-[Test plan: byok on a GPU node](test-plan-gpu.md), and the results of both are
-in [spur-aims test findings](spur-aims-findings.md).
+cluster-bloom. The GPU path is in
+[Set up one node for byok with Spur](spur-node-setup.md), and the results of
+both are in [spur-aims test findings](spur-aims-findings.md).
 
 The cluster itself comes from the `spur-kaytoo-cluster` skill. This page adds
 only what the `spur-aims` test needs on top of it.
@@ -83,10 +83,6 @@ Checks of the round:
 - After `install demo --no-gpu`, `aim-system` holds no accelerator detector
   DaemonSet: the `-cpu` profiles turn it off, because they hold no
   node-feature-discovery to read its result. See the findings.
-- `install demo --no-gpu` stops at `aiwb` with `secret
-  "aiwb-ui-keycloak-secret" not found` until the aiwb chart of core#4643 is
-  vendored (finding 9). The 17 packages before it are the test of the
-  profile until then.
 - `uninstall` with no name and no `--yes` shows the plan and asks. After `n`
   nothing went away; after `y`, `status` reports no profile.
 - On a node with a Radeon card, when one is available: `spur show node` shows

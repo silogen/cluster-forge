@@ -69,15 +69,15 @@ their own `cluster-tls` Secret.
 
 ## Footprint (idle, one node)
 
-Measured 2026-09-10, k3s v1.36.4, 16 vCPU / 94 GiB VM.
+Measured 2026-09-11, Spur k0s v1.36.2, 16 vCPU / 94 GiB VM, `demo-cpu`.
 
 | | Value |
 |---|---|
 | Pods at idle | 12 |
-| CPU requests | 1560 m |
-| Memory requests | 3192 MiB |
-| Live CPU / memory of the node | 784 mCPU / 4240 MiB |
-| Container images | 39 images, 19 GiB |
-| Install time (cold / warm) | 5 min 46 s / 33 s |
+| CPU requests | 1330 m |
+| Memory requests | 3128 MiB |
+| Live CPU / memory of the whole node, k0s included | 681 mCPU / 3539 MiB |
+| Container images on the node, k0s included | 119 images, 19 GiB |
+| Install time of the demo layer on top of `default-cpu` (first / second run) | 1 min 17 s / 29 s |
 
 See [footprint-demo.md](footprint-demo.md) for the numbers per namespace.

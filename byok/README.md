@@ -438,7 +438,7 @@ notes: |
 - [Footprint of demo](docs/footprint-demo.md)
 - [The demo slide](docs/slide-demo.md)
 - [The minimal install slide](docs/slide-minimal-install.md)
-- [Test plan: byok on a GPU node](docs/test-plan-gpu.md)
+- [Architecture decision records](docs/adr/)
 - [Test plan: spur-aims on Kaytoo VMs](docs/test-plan-kaytoo.md)
 - [spur-aims test findings](docs/spur-aims-findings.md)
 - [Set up one node for byok with Spur](docs/spur-node-setup.md)
