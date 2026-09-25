@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: v1.5.1-beta.0
+appVersion: v1.5.1
 dependencies:
 - condition: node-feature-discovery.enabled
   name: node-feature-discovery
@@ -33,4 +33,4 @@ name: gpu-operator-charts
 sources:
 - https://github.com/ROCm/gpu-operator
 type: application
-version: v1.5.1-beta.0
+version: v1.5.1
