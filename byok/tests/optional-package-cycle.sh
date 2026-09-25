@@ -11,7 +11,7 @@ SPUR_AIMS="${SPUR_AIMS:-$BYOK/spur-aims/spur-aims}"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 ok() { echo "ok: $*"; }
 
-[ -x "$SPUR_AIMS" ] || fail "no binary at $SPUR_AIMS, run make -C $BYOK/spur-aims assets build"
+[ -x "$SPUR_AIMS" ] || fail "no binary at $SPUR_AIMS, run just $BYOK/all"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT

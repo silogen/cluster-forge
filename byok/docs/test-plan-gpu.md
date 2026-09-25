@@ -125,7 +125,7 @@ Build the binary from the branch under test and copy it to the node, as
 [Set up one node for byok with Spur](spur-node-setup.md) shows:
 
 ```bash
-make -C byok/spur-aims assets build REF=<branch>
+just byok/all <branch>
 scp byok/spur-aims/spur-aims ubuntu@10.0.0.163:/tmp/
 ssh ubuntu@10.0.0.163 'sudo install -m755 /tmp/spur-aims /usr/local/bin/ && spur aims install'
 ```

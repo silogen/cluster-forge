@@ -1,0 +1,79 @@
+# Recipes for the byok path. Every recipe runs in the byok directory.
+set positional-arguments
+
+ref := `git rev-parse --abbrev-ref HEAD 2>/dev/null || echo dev`
+bin := "spur-aims/spur-aims"
+assets := "spur-aims/assets"
+
+default:
+    @just --list
+
+# Install a k3s test cluster without Traefik and ServiceLB.
+k3s:
+    curl -sfL https://get.k3s.io | sudo INSTALL_K3S_VERSION=v1.36.4+k3s1 \
+      INSTALL_K3S_EXEC="--disable traefik --disable servicelb --write-kubeconfig-mode 644" sh -
+
+# The file:// dependencies of a package point at byok/../sources, so the
+# archives are built in place and copied after.
+[doc("Copy the charts, profiles and probes into spur-aims/assets. Needs helm and the network.")]
+assets:
+    for dir in packages/*/; do helm dependency build "$dir" >/dev/null || exit 1; done
+    rm -rf {{ assets }}
+    mkdir -p {{ assets }}/tests
+    cp capabilities.yaml {{ assets }}/
+    cp -r profiles packages {{ assets }}/
+    cp tests/aimservice-dummy.yaml {{ assets }}/tests/
+    find {{ assets }}/packages -name 'Chart.lock' -delete
+    find {{ assets }}/packages -name 'tmpcharts*' -prune -exec rm -rf {} +
+    touch {{ assets }}/.gitkeep
+
+# Build the spur-aims binary from the assets. Needs no helm and no network.
+build ref=ref:
+    cd spur-aims && go build ${GOFLAGS:-} -ldflags "-X main.version={{ ref }}" -o spur-aims .
+
+# Make the assets, then build the binary.
+all ref=ref: assets (build ref)
+
+# Run the Go tests. Needs no cluster.
+test: assets
+    cd spur-aims && go test ./...
+
+clean:
+    rm -rf {{ assets }} {{ bin }}
+
+# Install a profile on the cluster of KUBECONFIG, for example: just install demo --no-gpu --var domain=x
+install *args:
+    {{ bin }} install "$@"
+
+# Copy the binary to a Spur node and install it on PATH, for example: just node-install ubuntu@10.0.0.10
+node-install node:
+    scp {{ bin }} {{ node }}:
+    ssh {{ node }} 'sudo install -m 755 spur-aims /usr/local/bin/spur-aims'
+
+# The core serves a model. Set NAMESPACE, AIM_OBJECT or PULL_SECRET_JSON to change the test.
+smoke:
+    tests/smoke.sh
+
+# The same smoke test on a demo cluster.
+smoke-demo:
+    NAMESPACE=workbench tests/smoke.sh
+
+# A real model on a GPU cluster with the default profile.
+smoke-gpu:
+    AIM_OBJECT=tests/aimservice-gpu.yaml tests/smoke.sh
+
+# Login, API, deploy and chat on a demo cluster.
+smoke-ui:
+    tests/smoke-ui.sh
+
+# Add, re-install and purge seaweedfs through the test-s3 profile.
+package-cycle:
+    tests/optional-package-cycle.sh
+
+# The pins agree with root/values.yaml.
+version-drift:
+    tests/check-version-drift.sh
+
+# Print a markdown footprint report. Set NAMESPACES to measure other namespaces.
+footprint label="idle":
+    footprint/footprint.sh "$1"

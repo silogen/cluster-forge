@@ -27,8 +27,8 @@ const (
 	pullSecretNamespace = "aim-system"
 )
 
-// version is the cluster-forge ref the binary was built from. The Makefile
-// sets it.
+// version is the cluster-forge ref the binary was built from. The build
+// recipe of byok/justfile sets it.
 var version = "dev"
 
 type options struct {

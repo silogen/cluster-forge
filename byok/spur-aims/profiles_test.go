@@ -13,7 +13,7 @@ import (
 // the GPU operator must install before aim-engine and extends cannot take a
 // package out of the base list. The copies can drift apart, and the drift
 // shows only at install time. These tests read the source files in
-// ../profiles, so they need no `make assets`.
+// ../profiles, so they need no `just assets`.
 
 const aimEngineChart = "aim-engine-chart"
 

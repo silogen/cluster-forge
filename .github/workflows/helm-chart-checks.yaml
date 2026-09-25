@@ -55,8 +55,11 @@ jobs:
         with:
           go-version-file: byok/spur-aims/go.mod
 
+      - name: Setup just
+        uses: extractions/setup-just@v3
+
       - name: Test the spur-aims plugin
-        run: make -C byok/spur-aims assets test
+        run: just byok/test
 
   install-script-checks:
     runs-on: ubuntu-latest

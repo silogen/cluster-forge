@@ -41,12 +41,12 @@ Build `spur-aims` from the branch under test and copy it to the driver
 node:
 
 ```bash
-make -C byok/spur-aims all REF=<branch>
+just byok/all <branch>
 scp byok/spur-aims/spur-aims ubuntu@<driver public ip>:/tmp/
 ssh ubuntu@<driver public ip> 'sudo install -m755 /tmp/spur-aims /usr/local/bin/'
 ```
 
-`spur aims version` must answer with the ref that `REF` gave.
+`spur aims version` must answer with the ref that `all` got.
 
 ## 3. The round
 
@@ -128,7 +128,7 @@ rm /tmp/silo-test/byok/packages/<name>/charts/<old>.tgz
 yq -i '.dependencies[0].version = "<ver>"' /tmp/silo-test/byok/packages/<name>/{Chart.yaml,Chart.lock}
 ```
 
-Then build the assets by hand, because `make assets` runs `helm dependency
+Then build the assets by hand, because `just assets` runs `helm dependency
 build`, which tries to pull the vendored chart from the registry again:
 
 ```bash
@@ -137,7 +137,7 @@ rm -rf assets && mkdir -p assets/tests
 cp ../capabilities.yaml assets/ && cp -r ../profiles assets/profiles && cp -r ../packages assets/packages
 cp ../tests/aimservice-dummy.yaml assets/tests/
 find assets/packages -name Chart.lock -delete
-make build REF=<label>
+just build <label>
 ```
 
 Render the chart once with `helm template` before the cluster round. It costs

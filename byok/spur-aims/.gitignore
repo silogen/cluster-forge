@@ -1,4 +1,4 @@
-# `make assets` copies the charts here from byok/packages. They are a copy, so
+# `just assets` copies the charts here from byok/packages. They are a copy, so
 # they stay out of git; the release build makes them.
 /assets/*
 !/assets/.gitkeep

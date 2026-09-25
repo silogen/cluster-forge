@@ -16,11 +16,11 @@ Spur, from a checkout of the spur repository:
 cargo build --release --bin spurctld --bin spurd --bin spur
 ```
 
-`spur-aims`, from a checkout of cluster-forge. `make assets` needs helm and the
-network once, `make build` needs neither:
+`spur-aims`, from a checkout of cluster-forge. `just byok/assets` needs helm and
+the network once, `just byok/build` needs neither:
 
 ```bash
-make -C byok/spur-aims assets build REF=<branch-or-tag>
+just byok/all <branch-or-tag>
 ```
 
 ## 2. Copy them to the node

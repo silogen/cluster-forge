@@ -28,8 +28,13 @@ This path runs beside the ArgoCD path in `root/`. It does not replace it.
 - A Kubernetes cluster and a cluster-admin kubeconfig, or a Spur cluster that
   gives one.
 - A default StorageClass with dynamic provisioning.
-- Nothing on the node. The build of the binary needs `go` and, once, `helm`
-  with the network. The test scripts need `kubectl`, `helm`, `yq` v4 and `jq`.
+- Nothing on the node. The build of the binary needs `just`, `go` and, once,
+  `helm` with the network. The test scripts need `kubectl`, `helm`, `yq` v4
+  and `jq`.
+
+The `just` commands in this document run in the `byok` directory. From the
+root of the repository, use `just byok/<command>`. `just --list` shows every
+command.
 
 ### A k3s test cluster
 
@@ -39,8 +44,7 @@ packages, but Traefik takes port 443 and the ServiceLB controller answers every
 profiles, so leave them out:
 
 ```bash
-curl -sfL https://get.k3s.io | sudo INSTALL_K3S_VERSION=v1.36.4+k3s1 \
-  INSTALL_K3S_EXEC="--disable traefik --disable servicelb --write-kubeconfig-mode 644" sh -
+just k3s
 ```
 
 The version pin is needed, because the install script reads the channel from
@@ -65,15 +69,15 @@ Build the binary once, see [spur-aims/README.md](spur-aims/README.md):
 
 ```bash
 # See spur-aims/README.md for troubleshooting if errors are encountered
-make -C byok/spur-aims assets build
+just all
 ```
 
 Then, on any cluster:
 
 ```bash
 export KUBECONFIG=/path/to/admin.kubeconfig
-byok/spur-aims/spur-aims install            # default, on AMD Instinct GPUs
-byok/spur-aims/spur-aims install --no-gpu   # default-cpu
+just install            # default, on AMD Instinct GPUs
+just install --no-gpu   # default-cpu
 ```
 
 On a Spur cluster, `spur aims install` does the same and finds the
@@ -87,14 +91,14 @@ mode, so it needs no AIRM and no Kueue.
 
 ```bash
 export KUBECONFIG=/path/to/admin.kubeconfig
-byok/spur-aims/spur-aims install demo --var domain=demo.example.com
+just install demo --var domain=demo.example.com
 ```
 
 On a cluster without a load balancer, give the node address to the gateway and
 use a `nip.io` name. On a cluster with no GPU, add `--no-gpu`:
 
 ```bash
-byok/spur-aims/spur-aims install demo --no-gpu \
+just install demo --no-gpu \
   --var domain=10.0.255.181.nip.io \
   --var gatewayServiceType=ClusterIP \
   --var gatewayExternalIP=10.0.255.181
@@ -186,12 +190,11 @@ has the plugin mechanism, see [Spur CLI plugins](docs/spur-cli-plugins.md).
 `spur-aims ...` works with every `spur` build.
 
 The binary holds every chart, profile and capability probe of its release, so
-the node needs no tool and no access to GitHub. Build it with `make -C
-byok/spur-aims` (see `spur-aims/README.md`) and copy it to the node:
+the node needs no tool and no access to GitHub. Build it with `just all`
+(see `spur-aims/README.md`) and copy it to the node:
 
 ```bash
-scp byok/spur-aims/spur-aims ubuntu@<node>:
-ssh ubuntu@<node> 'sudo install -m 755 spur-aims /usr/local/bin/spur-aims'
+just node-install ubuntu@<node>
 ssh ubuntu@<node> 'spur aims install'
 ssh ubuntu@<node> 'spur aims install demo --var domain=<node-ip>.nip.io \
   --var gatewayServiceType=ClusterIP --var gatewayExternalIP=<node-ip>'
@@ -287,25 +290,25 @@ Run `install` again with the same profile. The command is idempotent.
 ## Test
 
 ```bash
-make -C byok/spur-aims assets test     # no cluster: the profile rules,
-                                            # the drift of the -cpu copies,
-                                            # the removal plan and the probes
-byok/tests/smoke.sh                   # the core serves a model
-NAMESPACE=workbench byok/tests/smoke.sh   # the same on a demo cluster
-AIM_OBJECT=byok/tests/aimservice-gpu.yaml \
-  byok/tests/smoke.sh                 # a real model on a GPU cluster
-byok/tests/smoke-ui.sh                # login, API, deploy and chat
-byok/tests/optional-package-cycle.sh  # add, re-install and purge seaweedfs
-                                      # through the test-s3 profile
-byok/tests/check-version-drift.sh     # pins agree with root/values.yaml
+just test            # no cluster: the profile rules, the drift of the
+                     # -cpu copies, the removal plan and the probes
+just smoke           # the core serves a model
+just smoke-demo      # the same on a demo cluster
+just smoke-gpu       # a real model on a GPU cluster
+just smoke-ui        # login, API, deploy and chat
+just package-cycle   # add, re-install and purge seaweedfs through the
+                     # test-s3 profile
+just version-drift   # pins agree with root/values.yaml
 ```
 
-`smoke-ui.sh` and `NAMESPACE=workbench smoke.sh` need a `demo` cluster.
-`AIM_OBJECT` takes any AIMService object. `aimservice-gpu.yaml` holds a model
+`smoke-ui` and `smoke-demo` need a `demo` cluster. `just smoke` takes the
+variables `NAMESPACE`, `AIM_OBJECT` and `PULL_SECRET_JSON`. `AIM_OBJECT` takes
+the absolute path of any AIMService object. `smoke-gpu` uses
+`tests/aimservice-gpu.yaml`, which holds a model
 image of `amdenterpriseai` and needs a `default` cluster. The image is public,
 so `PULL_SECRET_JSON` is optional: it lifts the Docker Hub rate limit of an
-anonymous pull. `check-version-drift.sh` and the Go tests need no cluster.
-`smoke.sh` without the variable and `optional-package-cycle.sh` need a
+anonymous pull. `version-drift` and `test` need no cluster.
+`smoke` and `package-cycle` need a
 `default-cpu` cluster: the cycle test installs that profile and `test-s3` on
 top of it, and its aim-engine package takes the `AIMClusterRuntimeConfig`
 that the aiwb release owns on a `demo` cluster.
@@ -313,19 +316,19 @@ that the aiwb release owns on a `demo` cluster.
 ## Measure the footprint
 
 ```bash
-byok/footprint/footprint.sh idle > /tmp/footprint.md
+just footprint > /tmp/footprint.md
 NAMESPACES="kyverno cert-manager kserve-system aim-system envoy-gateway-system \
   opentelemetry-operator-system postgres dex aiwb" \
-  byok/footprint/footprint.sh idle          # the demo namespaces
+  just footprint          # the demo namespaces
 NAMESPACES="kyverno cert-manager kserve-system aim-system kube-amd-gpu" \
-  byok/footprint/footprint.sh idle          # the default namespaces
+  just footprint          # the default namespaces
 ```
 
 The script prints markdown: pods, requests and limits per namespace, live usage
 from `kubectl top`, the volume claims, and the image size on the node. Run it on
 a node to get the image size.
 
-`smoke.sh` pulls `ghcr.io/silogen/aim-dummy`. The image is public. If your
+`just smoke` pulls `ghcr.io/silogen/aim-dummy`. The image is public. If your
 cluster needs credentials for ghcr.io, set `PULL_SECRET_JSON` to a docker
 config JSON before you run it.
 

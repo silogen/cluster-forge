@@ -39,7 +39,7 @@ install means that one of them decays without anybody seeing it.
 
 - There is no `--ref`. An upgrade is an install from a newer binary. A change
   that is not released yet needs a binary built from that branch.
-- The binary is about 105 MB, and `make assets` needs helm and the network once
+- The binary is about 105 MB, and `just assets` needs helm and the network once
   at build time to resolve the chart dependencies.
 - A capability probe exists twice: as a shell command in `capabilities.yaml`,
   which documents the probe and lets a test script run one by hand, and as Go

@@ -11,20 +11,23 @@ pulls the container images.
 
 ## Build
 
+The recipes are in `byok/justfile`. `just` finds that file from this directory
+too.
+
 ```sh
-make assets    # needs helm and the network once, it resolves chart dependencies
-make build     # needs neither
+just assets    # needs helm and the network once, it resolves chart dependencies
+just build     # needs neither
 ```
 
-`make assets` copies `byok/capabilities.yaml`, `byok/profiles`, `byok/packages`
+`just assets` copies `byok/capabilities.yaml`, `byok/profiles`, `byok/packages`
 and the smoke-test object into `assets/`. That directory is a copy, so it is not
-in git. `make all` does both steps.
+in git. `just all` does both steps.
 
 ### Windows WSL
 
 If the WSL PATH includes the Rancher Desktop `bin` directory, helm finds
 `docker-credential-secretservice` and uses it. WSL has no Secret Service
-daemon, so `make assets` stops before it pulls the OCI charts. Tell helm to
+daemon, so `just assets` stops before it pulls the OCI charts. Tell helm to
 use the Windows credential helper:
 
 ```sh
@@ -41,10 +44,11 @@ Then `~/.config/helm/registry/config.json` contains:
 }
 ```
 
-The version string comes from `REF`, which defaults to the current branch:
+The version string is the argument of `build`, which defaults to the current
+branch:
 
 ```sh
-make build REF=v1.2.3
+just build v1.2.3
 ```
 
 ## Use
@@ -84,8 +88,7 @@ kubeconfig admin`.
 ## Test
 
 ```sh
-make assets    # most tests read the embedded assets
-make test
+just test      # makes the assets first, most tests read them
 ```
 
 The tests hold the Go probes to the capabilities that `capabilities.yaml`
