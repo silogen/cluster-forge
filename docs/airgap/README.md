@@ -205,7 +205,7 @@ ls haul/cluster-forge/sources/kuberay-operator/1.4.2/Chart.yaml
 ```
 
 Skip the clone if `haul/cluster-forge` already exists. To pack from a
-branch that is not `main`, pass `--branch`. To pack a byok profile
+branch that is not `main`, pass `--branch`. To pack a Spur profile
 (`default`, `default-cpu`, `demo`, `demo-cpu`) instead of the full
 OpenShift stack, pass `--profile` as well:
 
@@ -217,7 +217,7 @@ The store and the two archives live under `docs/airgap/haul/` and are
 tens of gigabytes. Put the clone on a large volume for that host, for
 example `/mnt/disk0`, never the 96 GB root disk. See the Demo section.
 
-`--profile` reads `byok/profiles/<name>.yaml` on that branch, including
+`--profile` reads `spur/profiles/<name>.yaml` on that branch, including
 `extends`, and hauls only those packages. It also writes
 `haul-manifest.yaml` and `haul-manifest.json` into the store and into
 `eai-airgap.tar`. `dehauler.sh` uses that file to apply only the packed
@@ -622,7 +622,7 @@ hauler store add image amdenterpriseai/aim-qwen-qwen3-32b:0.13.0 --platform linu
 
 `hauler.sh` accepts the same names: `./hauler.sh all-model-images` or
 `./hauler.sh none-model-images [image …]`. Add `--profile` and
-`--branch` to pack a byok profile from a feature branch.
+`--branch` to pack a Spur profile from a feature branch.
 
 
 ### 3.44 Steps that are not charts or images
@@ -1589,5 +1589,5 @@ sudo env PATH="/usr/local/bin:/var/lib/rancher/rke2/bin:$PATH" KUBECONFIG=/etc/r
 
 
 ```bash
-./haul/cluster-forge/byok/tests/smoke.sh
+./haul/cluster-forge/spur/tests/smoke.sh
 ```

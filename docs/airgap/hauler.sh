@@ -34,8 +34,8 @@ Usage: hauler.sh [all-model-images|none-model-images] [--profile NAME]
                      model images (--add-images). This is the README path.
   none-model-images  3.43: pack the AIM catalog chart only. Extra arguments
                      are hauled with hauler store add image (nothing else).
-  --profile NAME     Pack only a byok profile (default, default-cpu, demo,
-                     demo-cpu) from byok/profiles/<NAME>.yaml. Without this
+  --profile NAME     Pack only a Spur profile (default, default-cpu, demo,
+                     demo-cpu) from spur/profiles/<NAME>.yaml. Without this
                      flag the script packs the full OpenShift EAI stack.
   --branch NAME      Clone or check out silogen/cluster-forge at NAME into
                      haul/cluster-forge. Use this when the profile and its
@@ -170,7 +170,7 @@ ensure_cluster_forge_branch() {
   fi
 }
 
-# Profile packs read byok/profiles from haul/cluster-forge, or from this
+# Profile packs read spur/profiles from haul/cluster-forge, or from this
 # repository when --branch is absent and the files are already here.
 resolve_cf_root() {
   if [[ -n "$BRANCH" ]]; then
@@ -178,17 +178,17 @@ resolve_cf_root() {
     CF_ROOT="haul/cluster-forge"
     return 0
   fi
-  if [[ -f "${CF_ROOT}/byok/profiles/${PROFILE}.yaml" ]]; then
+  if [[ -f "${CF_ROOT}/spur/profiles/${PROFILE}.yaml" ]]; then
     return 0
   fi
   local here
   here="$(cd ../.. && pwd)"
-  if [[ -f "${here}/byok/profiles/${PROFILE}.yaml" ]]; then
+  if [[ -f "${here}/spur/profiles/${PROFILE}.yaml" ]]; then
     CF_ROOT="$here"
     echo "using cluster-forge checkout ${CF_ROOT}"
     return 0
   fi
-  echo "no cluster-forge checkout with byok/profiles/${PROFILE}.yaml; pass --branch" >&2
+  echo "no cluster-forge checkout with spur/profiles/${PROFILE}.yaml; pass --branch" >&2
   exit 1
 }
 
@@ -197,7 +197,7 @@ resolve_cf_root() {
 # last. A commented entry (seaweedfs in demo) is not a package.
 load_profile_packages() {
   local name="$1"
-  local file="${CF_ROOT}/byok/profiles/${name}.yaml"
+  local file="${CF_ROOT}/spur/profiles/${name}.yaml"
   if [[ ! -f "$file" ]]; then
     echo "profile file not found: ${file}" >&2
     exit 1
@@ -241,7 +241,7 @@ add_image() {
 # the chart defaults rather than the images this profile installs.
 write_dep_values() {
   local pkg="$1" dep_name="$2" out="$3"
-  local pkg_values="${CF_ROOT}/byok/packages/${pkg}/values.yaml"
+  local pkg_values="${CF_ROOT}/spur/packages/${pkg}/values.yaml"
   local profile_values="${VALUES_DIR}/${pkg}.profile.yaml"
   if [[ ! -f "$pkg_values" ]]; then
     pkg_values="${VALUES_DIR}/empty.yaml"
@@ -262,16 +262,16 @@ write_dep_values() {
   done
 }
 
-haul_byok_package() {
+haul_spur_package() {
   local pkg="$1"
-  local chart_yaml="${CF_ROOT}/byok/packages/${pkg}/Chart.yaml"
+  local chart_yaml="${CF_ROOT}/spur/packages/${pkg}/Chart.yaml"
   if [[ ! -f "$chart_yaml" ]]; then
-    echo "byok package Chart.yaml not found: ${chart_yaml}" >&2
+    echo "Spur package Chart.yaml not found: ${chart_yaml}" >&2
     exit 1
   fi
-  echo "hauling byok package ${pkg}"
+  echo "hauling Spur package ${pkg}"
   local ns
-  ns="$(yq -r '.namespace' "${CF_ROOT}/byok/packages/${pkg}/package.yaml")"
+  ns="$(yq -r '.namespace' "${CF_ROOT}/spur/packages/${pkg}/package.yaml")"
   local dep_name dep_ver dep_repo chart_path dep_values add_args values_name
   while IFS=$'\t' read -r dep_name dep_ver dep_repo; do
     [[ -z "$dep_name" ]] && continue
@@ -323,7 +323,7 @@ haul_byok_package() {
   fi
 }
 
-pack_byok_profile() {
+pack_spur_profile() {
   ensure_yq
   resolve_cf_root
   profile_packages=()
@@ -341,7 +341,7 @@ EOF
   echo "profile ${PROFILE} packages: ${profile_packages[*]}"
   local pkg
   for pkg in "${profile_packages[@]}"; do
-    haul_byok_package "$pkg"
+    haul_spur_package "$pkg"
   done
   yq -o=json '.' haul/haul-manifest.yaml >haul/haul-manifest.json
   hauler store add file haul/haul-manifest.yaml --name haul-manifest.yaml --store "$EAI_STORE"
@@ -637,7 +637,7 @@ if [[ -n "$BRANCH" && -z "$PROFILE" ]]; then
 fi
 
 if [[ -n "$PROFILE" ]]; then
-  pack_byok_profile
+  pack_spur_profile
 else
   pack_full_stack
 fi
