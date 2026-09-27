@@ -1,6 +1,6 @@
-# byok future work
+# Future work for AIMs in a Spur Kubernetes cluster
 
-These items are out of scope for the first byok release.
+These items are out of scope for the first release of AIMs in a Spur Kubernetes cluster.
 
 - The kserve package fails on a cold single node: the install retry of
   `helmops.go` gives three attempts 20 seconds apart, and the webhook of the
@@ -24,7 +24,7 @@ These items are out of scope for the first byok release.
   Ask the aim-engine team for the node affinity.
 - The accelerator detector images live in `amdenterpriseai` and the chart
   ships an empty `imagePullSecrets`. The images are public today, so a pull
-  Secret only lifts the rate limit of an anonymous pull. A byok package that
+  Secret only lifts the rate limit of an anonymous pull. A Spur package that
   makes registry Secrets from one place would remove the manual step when a
   registry does need credentials.
 - The `absence of components` step of `tests/smoke.sh` holds every Pod of the
@@ -42,13 +42,13 @@ These items are out of scope for the first byok release.
   features of the test VM are confirmed.
 - Copy `ghcr.io/silogen/aim-dummy` to `amdenterpriseai`, so that the smoke test
   does not depend on a silogen image. The image is public today.
-- One source of truth for the versions of the ArgoCD path and the byok path.
+- One source of truth for the versions of the ArgoCD path and the Spur path.
   Today `tests/check-version-drift.sh` compares them.
-- Add `byok/` to the release tarball.
+- Add `spur/` to the release tarball.
 - An air-gapped install with vendored charts.
 - A profile override file for the plugin, `--values <file>`.
 - An upgrade test with two published chart versions.
-- byok on more than one node, and high availability. The three-node Spur test
+- A Spur Kubernetes cluster on more than one node, and high availability. The three-node Spur test
   on OCI needed kube-router in full overlay mode, because an OCI VNIC drops a
   packet whose source address is a pod address. The workaround was this edit on
   the control-plane node, which k0s applies within a minute:

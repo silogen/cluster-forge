@@ -2,7 +2,7 @@
 
 The repeatable CPU test round of the `spur aims` plugin. It needs no GPU and no
 cluster-bloom. The GPU path is in
-[Set up one node for byok with Spur](spur-node-setup.md), and the results of
+[Set up one node for a Spur Kubernetes cluster](spur-node-setup.md), and the results of
 both are in [spur-aims test findings](spur-aims-findings.md).
 
 The cluster itself comes from the `spur-kaytoo-cluster` skill. This page adds
@@ -41,8 +41,8 @@ Build `spur-aims` from the branch under test and copy it to the driver
 node:
 
 ```bash
-just byok/all <branch>
-scp byok/spur-aims/spur-aims ubuntu@<driver public ip>:/tmp/
+just spur/all <branch>
+scp spur/spur-aims/spur-aims ubuntu@<driver public ip>:/tmp/
 ssh ubuntu@<driver public ip> 'sudo install -m755 /tmp/spur-aims /usr/local/bin/'
 ```
 
@@ -102,8 +102,8 @@ ends with `-cpu`), and `spur plugin list` with a shadowing binary.
 ## 4. A chart that is not released yet
 
 The binary holds the charts, so a chart fix in silogen/core reaches a test only
-after the chart is packaged into `byok/packages/<name>/charts/`. Do this in a
-copy of `byok/`, never in the branch, unless the chart is a released one.
+after the chart is packaged into `spur/packages/<name>/charts/`. Do this in a
+copy of `spur/`, never in the branch, unless the chart is a released one.
 
 ```bash
 # 1. A worktree of core with the branches of the pull requests merged.
@@ -117,18 +117,18 @@ yq -i '(.. | select(tag == "!!map" and has("tag") and .tag == "")) |= .tag = "<i
 yq -i '.name = .name + "-chart"' Chart.yaml
 helm package .
 
-# 3. Vendor it into a copy of byok, with the dependency version of the package.
-cp -r byok /tmp/silo-test/byok
-cp /tmp/pkg/<chart>-<ver>.tgz /tmp/silo-test/byok/packages/<name>/charts/
-rm /tmp/silo-test/byok/packages/<name>/charts/<old>.tgz
-yq -i '.dependencies[0].version = "<ver>"' /tmp/silo-test/byok/packages/<name>/{Chart.yaml,Chart.lock}
+# 3. Vendor it into a copy of spur, with the dependency version of the package.
+cp -r spur /tmp/silo-test/spur
+cp /tmp/pkg/<chart>-<ver>.tgz /tmp/silo-test/spur/packages/<name>/charts/
+rm /tmp/silo-test/spur/packages/<name>/charts/<old>.tgz
+yq -i '.dependencies[0].version = "<ver>"' /tmp/silo-test/spur/packages/<name>/{Chart.yaml,Chart.lock}
 ```
 
 Then build the assets by hand, because `just assets` runs `helm dependency
 build`, which tries to pull the vendored chart from the registry again:
 
 ```bash
-cd /tmp/silo-test/byok/spur-aims
+cd /tmp/silo-test/spur/spur-aims
 rm -rf assets && mkdir -p assets/tests
 cp ../capabilities.yaml assets/ && cp -r ../profiles assets/profiles && cp -r ../packages assets/packages
 cp ../tests/aimservice-dummy.yaml assets/tests/

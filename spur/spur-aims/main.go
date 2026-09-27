@@ -28,7 +28,7 @@ const (
 )
 
 // version is the cluster-forge ref the binary was built from. The build
-// recipe of byok/justfile sets it.
+// recipe of spur/justfile sets it.
 var version = "dev"
 
 type options struct {

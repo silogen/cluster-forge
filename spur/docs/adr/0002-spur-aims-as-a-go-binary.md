@@ -12,7 +12,7 @@ proxy, or a node with no package manager access, cannot do either. The tool
 check and `--install-tools` were the answer, and they made the first minutes of
 an install a tool install.
 
-`spur-aims` is a Go binary in `byok/spur-aims/`. `go:embed` puts the
+`spur-aims` is a Go binary in `spur/spur-aims/`. `go:embed` puts the
 profiles, the package metadata, the capability list and every Helm chart of the
 release inside it. It installs with the Helm SDK and talks to the cluster with
 client-go, so the node needs no tool and no access to GitHub. The only network

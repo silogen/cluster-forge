@@ -20,7 +20,7 @@ const (
 // smokeTest deploys the dummy model of the release and waits until aim-engine
 // reports it ready. It proves the whole serving path: the admission mutation,
 // the CRDs, the aim-engine controller and KServe. The chat request of
-// byok/tests/smoke.sh needs a port-forward and stays in that script.
+// spur/tests/smoke.sh needs a port-forward and stays in that script.
 func smokeTest(ctx context.Context, c *cluster, profileName string) error {
 	raw, err := assets.ReadFile("assets/tests/aimservice-dummy.yaml")
 	if err != nil {

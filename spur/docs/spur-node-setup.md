@@ -1,4 +1,4 @@
-# Set up one node for byok with Spur
+# Set up one node for a Spur Kubernetes cluster
 
 Every step of a single-node install, from a node that runs nothing to a
 profile that serves a model. This is the path the GPU test of
@@ -16,18 +16,18 @@ Spur, from a checkout of the spur repository:
 cargo build --release --bin spurctld --bin spurd --bin spur
 ```
 
-`spur-aims`, from a checkout of cluster-forge. `just byok/assets` needs helm and
-the network once, `just byok/build` needs neither:
+`spur-aims`, from a checkout of cluster-forge. `just spur/assets` needs helm and
+the network once, `just spur/build` needs neither:
 
 ```bash
-just byok/all <branch-or-tag>
+just spur/all <branch-or-tag>
 ```
 
 ## 2. Copy them to the node
 
 ```bash
 scp -C target/release/{spurctld,spurd,spur} ubuntu@<node>:/tmp/
-scp -C byok/spur-aims/spur-aims ubuntu@<node>:/tmp/
+scp -C spur/spur-aims/spur-aims ubuntu@<node>:/tmp/
 ssh ubuntu@<node> 'sudo install -m755 /tmp/{spurctld,spurd,spur,spur-aims} /usr/local/bin/'
 ```
 

@@ -58,7 +58,7 @@ Control plane `useocpm2m-silogen-petrus-u7pjc4`, worker (the driver node)
    failed.** The dummy AIMService names the Secret `aim-pull`, and aim-engine
    fails the model when that Secret is not in the namespace
    (`SecretNotFound: imagePullSecret "aim-pull" not found in namespace
-   "aims-test"`). `byok/tests/smoke.sh` takes the reference off the object in
+   "aims-test"`). `spur/tests/smoke.sh` takes the reference off the object in
    that case; the Go build did not. It now copies the Secret from `aim-system`
    when the install made one, takes the reference off when there is none, and
    stops as soon as the object reports `Failed`, with the conditions that hold

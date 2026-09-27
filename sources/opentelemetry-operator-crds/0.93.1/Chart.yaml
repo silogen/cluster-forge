@@ -4,7 +4,7 @@ description: |
   The OpenTelemetryCollector CRD alone, for a cluster that holds
   OpenTelemetryCollector objects but runs no OpenTelemetry operator. The file
   under crds/ is the render of the same CRD from
-  sources/opentelemetry-operator/0.93.1. byok/tests/check-version-drift.sh
+  sources/opentelemetry-operator/0.93.1. spur/tests/check-version-drift.sh
   renders it again and compares.
 type: application
 version: 0.93.1

@@ -6,12 +6,12 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BYOK="$HERE/.."
-SPUR_AIMS="${SPUR_AIMS:-$BYOK/spur-aims/spur-aims}"
+SPUR_DIR="$HERE/.."
+SPUR_AIMS="${SPUR_AIMS:-$SPUR_DIR/spur-aims/spur-aims}"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 ok() { echo "ok: $*"; }
 
-[ -x "$SPUR_AIMS" ] || fail "no binary at $SPUR_AIMS, run just $BYOK/all"
+[ -x "$SPUR_AIMS" ] || fail "no binary at $SPUR_AIMS, run just $SPUR_DIR/all"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -21,7 +21,7 @@ echo "== 1. install default-cpu, then the seaweedfs packages on top of it"
 "$SPUR_AIMS" install test-s3
 
 echo "== 2. seaweedfs is up"
-bash -c "$(yq -r '.["storage.s3"].probe' "$BYOK/capabilities.yaml")" \
+bash -c "$(yq -r '.["storage.s3"].probe' "$SPUR_DIR/capabilities.yaml")" \
   || fail "the storage.s3 probe failed"
 kubectl wait --for=condition=Ready pod --all --namespace seaweedfs-instance --timeout=10m >/dev/null \
   || fail "seaweedfs pods are not ready"

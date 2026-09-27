@@ -5,7 +5,7 @@
 | Status | Implemented and tested. Not merged to the Spur main branch. |
 | Author | Marc Dillon, Petrus Repo, AMD Silo AI, Enterprise AI |
 | Date | 2026-09-16 |
-| Tickets | EAI-8560 (byok and `spur-aims`) |
+| Tickets | EAI-8560 (AIMs in a Spur Kubernetes cluster and `spur-aims`) |
 | Approval | Open. This document goes to a second team for review. |
 | Audience | Teams that build tools on top of Spur, and teams that ship a product on a Spur cluster. |
 

@@ -19,7 +19,7 @@ The two files differ in exactly three things:
    into a node-feature-discovery file that nothing reads on a cluster without
    the GPU operator.
 
-`profiles_test.go` reads the four files from `byok/profiles` and fails when
+`profiles_test.go` reads the four files from `spur/profiles` and fails when
 the pairs differ in anything else. The same test holds `demo` to the
 `aim-engine` values of `default` plus the keys that the aiwb chart makes
 unnecessary, because `extends` replaces a package entry as a whole and a

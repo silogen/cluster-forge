@@ -15,7 +15,7 @@ import (
 )
 
 // The packages, the profiles and the capability list of one release. `make
-// assets` fills the directory from byok/ and runs `helm dependency build`, so
+// assets` fills the directory from spur/ and runs `helm dependency build`, so
 // every chart the binary installs is inside it.
 //
 //go:embed all:assets

@@ -81,12 +81,12 @@ Post-handoff cluster checks. See [`scripts/platform-gates/README.md`](../scripts
 
 Webhook gate env vars are inherited from `ai-gateway-webhook-health.sh`.
 
-## `byok/spur-aims` (the Spur CLI plugin)
+## `spur/spur-aims` (the Spur CLI plugin)
 
-Installs a byok profile on a Spur k0s cluster, as the Spur CLI plugin
+Installs a Spur profile on a Spur Kubernetes cluster, as the Spur CLI plugin
 `spur aims`. Every chart of the release is inside the binary, so it takes
 no ref and needs no tool on the node. See
-[`byok/spur-aims/README.md`](../byok/spur-aims/README.md).
+[`spur/spur-aims/README.md`](../spur/spur-aims/README.md).
 
 | Flag or variable | Command | Default | Meaning |
 |---|---|---|---|
@@ -104,7 +104,7 @@ no ref and needs no tool on the node. See
 | `SPUR_BIN` | `install`, `validate`, `status`, and every command that needs a kubeconfig | `spur` | The Spur binary to ask for a kubeconfig and for the node GRES. |
 | `ref` (build time) | `just build <ref>` | the current branch | The version string that `version` prints and the install record keeps. |
 
-## `byok/tests/smoke.sh`
+## `spur/tests/smoke.sh`
 
 | Variable | Default | Meaning |
 |---|---|---|
@@ -112,7 +112,7 @@ no ref and needs no tool on the node. See
 | `AIM_TIMEOUT` | `15m` | How long to wait for the AIMService conditions. |
 | `KEEP` | `0` | `1` keeps the `aims-test` namespace after the test. |
 
-## `byok/footprint/footprint.sh`
+## `spur/footprint/footprint.sh`
 
 | Variable | Default | Meaning |
 |---|---|---|

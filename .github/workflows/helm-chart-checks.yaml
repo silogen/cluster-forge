@@ -29,7 +29,7 @@ jobs:
       - name: Helm template
         run: helm template ./root -f ${{ matrix.values }}
 
-  byok-packages:
+  spur-packages:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -40,26 +40,26 @@ jobs:
 
       - name: Lint and template every package
         run: |
-          for pkg in byok/packages/*/; do
+          for pkg in spur/packages/*/; do
             echo "== $pkg"
             helm dependency build "$pkg"
             helm lint "$pkg"
-            helm template byok "$pkg" > /dev/null
+            helm template spur "$pkg" > /dev/null
           done
 
       - name: Check version drift
-        run: byok/tests/check-version-drift.sh
+        run: spur/tests/check-version-drift.sh
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: byok/spur-aims/go.mod
+          go-version-file: spur/spur-aims/go.mod
 
       - name: Setup just
         uses: extractions/setup-just@v3
 
       - name: Test the spur-aims plugin
-        run: just byok/test
+        run: just spur/test
 
   install-script-checks:
     runs-on: ubuntu-latest

@@ -11,7 +11,7 @@ pulls the container images.
 
 ## Build
 
-The recipes are in `byok/justfile`. `just` finds that file from this directory
+The recipes are in `spur/justfile`. `just` finds that file from this directory
 too.
 
 ```sh
@@ -19,7 +19,7 @@ just assets    # needs helm and the network once, it resolves chart dependencies
 just build     # needs neither
 ```
 
-`just assets` copies `byok/capabilities.yaml`, `byok/profiles`, `byok/packages`
+`just assets` copies `spur/capabilities.yaml`, `spur/profiles`, `spur/packages`
 and the smoke-test object into `assets/`. That directory is a copy, so it is not
 in git. `just all` does both steps.
 
@@ -94,6 +94,6 @@ just test      # makes the assets first, most tests read them
 The tests hold the Go probes to the capabilities that `capabilities.yaml`
 declares, load every profile and chart, check the variable rules, the profile
 format and the install record arithmetic, and hold every `-cpu` profile to its
-GPU twin. `byok/tests/optional-package-cycle.sh` needs a cluster and the built
-binary. `byok/docs/spur-aims-findings.md` keeps the results of the
+GPU twin. `spur/tests/optional-package-cycle.sh` needs a cluster and the built
+binary. `spur/docs/spur-aims-findings.md` keeps the results of the
 cluster tests.

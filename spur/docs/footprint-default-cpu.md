@@ -63,7 +63,7 @@ The three-node cluster on OCI needs kube-router in full overlay mode. See
 Reproduce with:
 
 ```bash
-byok/footprint/footprint.sh idle
+spur/footprint/footprint.sh idle
 NAMESPACES="kyverno cert-manager kserve-system aim-system aims-test" \
-  byok/footprint/footprint.sh "with the dummy service"
+  spur/footprint/footprint.sh "with the dummy service"
 ```

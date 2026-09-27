@@ -1,6 +1,6 @@
-# BYOK: Minimal Installation
+# Spur: Minimal Installation
 
-**Bring-your-own-Kubernetes, the default-cpu profile**
+**AIMs in a Spur k0s Kubernetes cluster, the default-cpu profile**
 
 Installs a model-serving stack on an existing cluster with the `spur aims` plugin, one Helm release per package. No ArgoCD, Gitea or OpenBao. The `default` profile adds the AMD GPU operator for AMD Instinct GPUs.
 

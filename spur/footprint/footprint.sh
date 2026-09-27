@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prints a markdown footprint report for the installed byok profile.
+# Prints a markdown footprint report for the installed Spur profile.
 # Usage: footprint.sh [label]
 set -euo pipefail
 

@@ -35,12 +35,12 @@ For end-to-end installation instructions, follow the official AMD Enterprise AI 
 
 **➡️ [On-Premises Installation Guide](https://enterprise-ai.docs.amd.com/en/latest/platform-infrastructure/on-premises-installation.html)**
 
-### Minimal install on a cluster that already exists
+### AIMs in a Spur k0s Kubernetes cluster
 
-`byok/` gives a second, parallel install path for a Kubernetes cluster that
-already exists. It uses `helm upgrade --install` only, with no ArgoCD, Gitea or
-OpenBao, and installs a minimal core that serves one AIM model. See
-[byok/README.md](byok/README.md).
+`spur/` gives a second, parallel install path: AIMs in a Spur k0s Kubernetes
+cluster, or in another Kubernetes cluster that already exists. It uses
+`helm upgrade --install` only, with no ArgoCD, Gitea or OpenBao, and installs
+a minimal core that serves one AIM model. See [spur/README.md](spur/README.md).
 
 ## 📋 Architecture
 
@@ -176,7 +176,7 @@ Comprehensive documentation is available in the `/docs` folder:
 | Topic | Documentation |
 |-------|---------------|
 | **Getting Started** | [On-Premises Installation Guide](https://enterprise-ai.docs.amd.com/en/latest/platform-infrastructure/on-premises-installation.html) |
-| **Minimal install** | [byok: bring your own Kubernetes](byok/README.md) |
+| **Minimal install** | [AIMs in a Spur k0s Kubernetes cluster](spur/README.md) |
 | **Configuration** | [Cluster Size Configuration](docs/cluster_size_configuration.md) · [Configuration Reference](docs/configuration-reference.md) |
 | **Architecture** | [Values Inheritance Pattern](docs/values_inheritance_pattern.md) (includes optional/opt-in apps) |
 | **AIM Catalog** | [AIM catalog lifecycle](docs/aim_catalog_lifecycle.md) · [AIM model management](docs/aim_model_management.md) |

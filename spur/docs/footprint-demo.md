@@ -80,13 +80,13 @@ size, because the AIWB chart sets `pvcHeadroomPercent: 100`.
 
 ## What the measurement covers
 
-`byok/tests/smoke-ui.sh` passed on this installation: the OIDC discovery
+`spur/tests/smoke-ui.sh` passed on this installation: the OIDC discovery
 document of Dex answers, a password grant gives a token, the AIWB API lists
 the model catalog, the UI answers and sends the login to Dex, the dummy
 AIMService becomes Ready in the `workbench` namespace, the API lists it, and
 a chat completion answers through
 `https://workloads.<domain>/workbench/<workload-id>/v1/chat/completions`.
-`NAMESPACE=workbench byok/tests/smoke.sh` passed as well.
+`NAMESPACE=workbench spur/tests/smoke.sh` passed as well.
 
 The browser login was driven with curl on the node: the UI sends the browser
 to `https://auth.<domain>/auth`, Dex shows its login form, the callback of

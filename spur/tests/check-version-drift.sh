@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Compares the byok package pins with root/values.yaml. Needs no cluster.
+# Compares the Spur package pins with root/values.yaml. Needs no cluster.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -16,7 +16,7 @@ dep_field() { # <package> <dependency> <field>
 
 # sources/cert-manager-config has no ArgoCD app, so the selfsigned-tls package
 # has no row here. The dex package has no ArgoCD app either.
-# In-repo charts: the byok dependency must point at the same sources/ directory
+# In-repo charts: the Spur dependency must point at the same sources/ directory
 # that the ArgoCD app uses. There is no seaweedfs-crds row: that ArgoCD app is
 # deprecated and the seaweedfs-operator chart ships the CRDs itself.
 # package:dependency:app
@@ -46,7 +46,7 @@ got="$(dep_field gateway-api-crds crds repository)"
 got="${got#file://../../../sources/}"
 [ "$got" = "$want" ] || report "package gateway-api-crds uses sources/$got, root/values.yaml uses $want"
 
-# OCI charts: the byok dependency version must match the ArgoCD repoVersion.
+# OCI charts: the Spur dependency version must match the ArgoCD repoVersion.
 # package:dependency:app
 for row in \
   "aim-engine:aim-engine-chart:aim-engine" \

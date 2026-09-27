@@ -3,14 +3,14 @@ status: accepted
 date: 2026-09-15
 ---
 
-# Install BYOK profiles through a Spur CLI plugin, not a built-in command
+# Install Spur profiles through a Spur CLI plugin, not a built-in command
 
-An operator with a Spur cluster wants to install a BYOK profile with one
+An operator with a Spur cluster wants to install a Spur profile with one
 command, `spur aims install [<profile>]`. Spur is a public open-source
 project, and cluster-forge holds every Helm chart and profile. We decided that
 Spur gets only a generic plugin mechanism in the kubectl style (`spur <name>`
 runs `spur-<name>` from `PATH`), and that the `spur-aims` executable
-lives in cluster-forge, in `byok/spur-aims/`. No Silo, AIM or AIWB code
+lives in cluster-forge, in `spur/spur-aims/`. No Silo, AIM or AIWB code
 goes into the Spur repository.
 
 ## Considered options
@@ -19,7 +19,7 @@ goes into the Spur repository.
   puts AMD product names and Helm dependencies into a public scheduler, and
   every new profile would need a Spur release.
 - A generic `spur install <chart>` command that wraps Helm. Rejected: the
-  install order, capability checks and the install record are BYOK logic and
+  install order, capability checks and the install record are Spur install logic and
   belong next to the packages they describe.
 
 ## Consequences

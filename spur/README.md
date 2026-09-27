@@ -1,6 +1,7 @@
-# byok: bring your own Kubernetes
+# AIMs in a Spur k0s Kubernetes cluster
 
-byok installs a minimal cluster-forge on a Kubernetes cluster that already
+This path installs a minimal cluster-forge on a Spur Kubernetes cluster, the
+k0s cluster that Spur manages, or on another Kubernetes cluster that already
 exists. The `spur aims` plugin does the install: one Helm release per
 package, with the Helm library, from the charts inside the binary. It does not
 install ArgoCD, Gitea or OpenBao.
@@ -32,13 +33,13 @@ This path runs beside the ArgoCD path in `root/`. It does not replace it.
   `helm` with the network. The test scripts need `kubectl`, `helm`, `yq` v4
   and `jq`.
 
-The `just` commands in this document run in the `byok` directory. From the
-root of the repository, use `just byok/<command>`. `just --list` shows every
+The `just` commands in this document run in the `spur` directory. From the
+root of the repository, use `just spur/<command>`. `just --list` shows every
 command.
 
 ### A k3s test cluster
 
-Skip this section when you have a cluster. A stock k3s cluster serves the byok
+Skip this section when you have a cluster. A stock k3s cluster serves the Spur
 packages, but Traefik takes port 443 and the ServiceLB controller answers every
 `LoadBalancer` Service. Both collide with the Envoy gateway of the `demo`
 profiles, so leave them out:
@@ -166,7 +167,7 @@ already exist the package can leave the profile.
 
 ## Install on a Spur k0s cluster
 
-[Set up one node for byok with Spur](docs/spur-node-setup.md) holds every step
+[Set up one node for a Spur Kubernetes cluster](docs/spur-node-setup.md) holds every step
 from a node that runs nothing to a profile that serves a model. In short:
 
 1. Build `spurctld`, `spurd`, `spur` and `spur-aims`, and install them in
@@ -441,6 +442,6 @@ notes: |
 - [Architecture decision records](docs/adr/)
 - [Test plan: spur-aims on Kaytoo VMs](docs/test-plan-kaytoo.md)
 - [spur-aims test findings](docs/spur-aims-findings.md)
-- [Set up one node for byok with Spur](docs/spur-node-setup.md)
+- [Set up one node for a Spur Kubernetes cluster](docs/spur-node-setup.md)
 - [Spur CLI plugins](docs/spur-cli-plugins.md)
 - [Future work](docs/future-work.md)

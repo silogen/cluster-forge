@@ -1,4 +1,4 @@
-module github.com/silogen/cluster-forge/byok/spur-aims
+module github.com/silogen/cluster-forge/spur/spur-aims
 
 go 1.26.2
 

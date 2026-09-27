@@ -64,5 +64,5 @@ node_modules/
 # tasks.json
 # tasks/ 
 
-# byok package chart dependencies are built, not committed
-byok/packages/*/charts/
+# Spur package chart dependencies are built, not committed
+spur/packages/*/charts/

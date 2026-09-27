@@ -1,12 +1,16 @@
-# BYOK
+# Spur Kubernetes cluster
 
-Installation of the Enterprise AI stack onto a Kubernetes cluster that already exists. Also the home of the `spur-aims` plugin.
+Installation of AIMs and the Enterprise AI stack onto a Spur Kubernetes cluster. Also the home of the `spur-aims` plugin.
 
 ## Language
 
+**Spur Kubernetes cluster**:
+The k0s Kubernetes cluster that Spur manages. The install path of this directory puts AIMs in a Spur k0s Kubernetes cluster.
+_Avoid_: byok, bring your own Kubernetes
+
 **Profile**:
 A named, ordered list of packages installed together, such as `default` or `demo`. A `-cpu` profile is the same profile on a cluster with no GPU. A profile is the unit a user installs or uninstalls.
-_Avoid_: level, tier, taso, byok-profile
+_Avoid_: level, tier, taso, byok profile
 
 **Package**:
 One umbrella Helm chart installed as one Helm release into its own namespace. A package declares the capabilities it provides and requires.
@@ -21,8 +25,8 @@ A `key=value` input a profile declares, such as `domain`. Given on the command l
 _Avoid_: parameter, option, setting
 
 **Target cluster**:
-The Kubernetes cluster a profile is installed on. For `spur-aims` this is the k0s cluster that Spur manages.
-_Avoid_: customer cluster, spur cluster
+The Kubernetes cluster a profile is installed on. For `spur-aims` this is the Spur Kubernetes cluster.
+_Avoid_: customer cluster
 
 **AIMs plugin**:
 The `spur-aims` executable, run as `spur aims`. It obtains the target cluster's admin kubeconfig from Spur and installs a profile with the Helm library, from the charts inside itself.
