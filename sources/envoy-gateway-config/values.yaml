@@ -8,6 +8,10 @@ ports:
 # on the same :443 VIP by SNI. No separate tls-passthrough gateway.
 appsGateway:
   serviceType: LoadBalancer
+  nodeSelector:
+    cluster-bloom/first-node: "true"
+  envoyServiceAnnotations:
+  envoyServicePatch:
 
 # Stable ClusterIP `https` selecting the apps-gateway data plane, used by CoreDNS for the
 # *.domain rewrite (in-cluster resolution).
@@ -38,6 +42,8 @@ aiGateway:
   # Stable ClusterIP `ai-gateway` (CoreDNS target / passthrough backend).
   dnsService:
     enabled: true
+  nodeSelector:
+    cluster-bloom/first-node: "true"
   # Max request-body bytes the body-aware extAuth filter buffers before calling
   # ai-gateway-discovery. Over this Envoy returns 413 and skips auth (overriding failOpen), so it
   # is a hard request-size ceiling on the header-less (model-in-body) path standard
@@ -48,3 +54,8 @@ aiGateway:
   # catch-all policies are rule-scoped and override this one per route, so the lower value wins.
   # root/values.yaml drives both from global.aiGateway.bodyAuthMaxRequestBytes. (EAI-8489.)
   bodyAuthMaxRequestBytes: 4194304
+
+# Configure RKE2 CoreDNS for Wilcdcard Domain Routing by making *.domain resolve to
+# envoy-gateway service
+rkeCoreDNS:
+  enabled: true

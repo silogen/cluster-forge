@@ -51,8 +51,10 @@ spec:
         type: ClusterIP
       envoyDeployment:
         pod:
+          {{- if .Values.aiGateway.nodeSelector }}
           nodeSelector:
-            cluster-bloom/first-node: "true"
+            {{- toYaml .Values.aiGateway.nodeSelector | nindent 12 }}
+          {{- end }}
           priorityClassName: "system-cluster-critical"
         # Override EG's derived terminationGracePeriodSeconds (= drainTimeout + 5m) back to the 360s
         # default, decoupling the long running-pod churn drain (shutdown.drainTimeout, above) from pod
