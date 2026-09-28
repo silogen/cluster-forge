@@ -75,7 +75,7 @@ components:
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   aiwb:
     path: null
-    repoVersion: 2.0.3
+    repoVersion: 2.0.4-rc.1
     type: helm
     valuesFile: values.yaml
     sourceUrl: oci://registry-1.docker.io/amdenterpriseai/aiwb-chart
