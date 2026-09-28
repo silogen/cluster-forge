@@ -23,3 +23,12 @@ aiwb-chart:
   # There is no ai-gateway in the demo.
   aiGateway:
     enabled: false
+# A token of the OIDC issuer on the model routes of workloads.<domain>. Get
+# one with `just token`. Envoy reads the keys from the issuer Service in the
+# cluster, not through auth.<domain>, whose certificate is self-signed.
+workloadsJwt:
+  enabled: true
+  jwksService:
+    name: dex
+    namespace: dex
+    port: 5556

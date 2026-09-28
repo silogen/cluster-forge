@@ -83,6 +83,9 @@ Checks of the round:
 - After `install demo --no-gpu`, `aim-system` holds no accelerator detector
   DaemonSet: the `-cpu` profiles turn it off, because they hold no
   node-feature-discovery to read its result. See the findings.
+- After `install demo --no-gpu`, `just smoke-ui` passes. Its step 8 checks
+  that a model route gives 401 without a token. `just token` prints a token
+  and a curl example, and that curl gives HTTP 200 on a deployed model.
 - `uninstall` with no name and no `--yes` shows the plan and asks. After `n`
   nothing went away; after `y`, `status` reports no profile.
 - On a node with a Radeon card, when one is available: `spur show node` shows

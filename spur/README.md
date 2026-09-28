@@ -125,6 +125,32 @@ password and the client secret. AIWB logs in through any OIDC issuer: the
 and the JWKS URL. Replace the `dex` package with your own issuer and set that
 block in the profile.
 
+### Call a model from outside the cluster
+
+AIM makes a route for each model on `workloads.<domain>`. The aiwb chart puts
+no access control on these routes, so the aiwb package adds a `SecurityPolicy`
+that asks for a token of the OIDC issuer on each of them. A request without a
+token gets 401. The UI chat calls the model inside the cluster, so it does not
+need the token.
+
+Get a token and a curl example:
+
+```bash
+just token
+```
+
+The recipe uses the password grant of Dex for `devuser@<domain>`. The token
+is valid for 7 days, the `expiry.idTokens` value of the `dex` package. Dex
+keeps its signing keys in memory, so a restart of the Dex Pod makes every
+token invalid. Then run `just token` again. Envoy reads the new keys within
+one minute.
+
+Any user who can log in to Dex can call every model. There are no keys for
+each model, and a token cannot be revoked before it expires. For API keys
+for each model, use the full cluster-forge installation. To turn the check
+off, set `workloadsJwt.enabled: false` in the values of the aiwb package, and
+do that only on a cluster that is not open to the internet.
+
 ### How traffic reaches the gateway
 
 - **A cloud load balancer or MetalLB**: keep the default
@@ -139,7 +165,8 @@ block in the profile.
 ### What the demo does not do
 
 - The API-key page is hidden and its endpoints answer 503. There is no
-  cluster-auth and no OpenBao.
+  OpenBao and no ai-gateway-discovery. The model routes ask for a Dex token
+  instead, see [Call a model from outside the cluster](#call-a-model-from-outside-the-cluster).
 - Datasets, artifacts and models that need S3 answer "storage unavailable".
   There is no S3 in the profile. The `seaweedfs-operator` and `seaweedfs`
   packages are in the profile as comments.
@@ -296,7 +323,7 @@ just test            # no cluster: the profile rules, the drift of the
 just smoke           # the core serves a model
 just smoke-demo      # the same on a demo cluster
 just smoke-gpu       # a real model on a GPU cluster
-just smoke-ui        # login, API, deploy and chat
+just smoke-ui        # login, API, deploy, chat with a token, 401 without
 just package-cycle   # add, re-install and purge seaweedfs through the
                      # test-s3 profile
 just version-drift   # pins agree with root/values.yaml

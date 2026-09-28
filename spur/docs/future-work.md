@@ -38,6 +38,18 @@ on a real cluster. The last items are requests to other teams.
     `aiwb-openbao-token` and `minio-credentials`, and the rename of the
     `keycloak` values block to `oidc`.
 11. A profile override file for the plugin, `--values <file>`.
+12. Tell the core team that ai-gateway-discovery closes the model routes of
+    a namespace only in the last step of its reconcile. When an earlier step
+    fails, for example the `InferencePool` or the `AIGatewayRoute`, the
+    `workloads-extauth` policy is not made and the routes stay open. See
+    [ADR 0007](adr/0007-dex-token-on-the-model-routes-of-the-demo.md).
+13. Document the Spur node settings for a node with a public address, and
+    use ROCm/spur-toolkit for the node install. `spurctld` and `spurd` listen
+    on every interface, and `docs/spur-node-setup.md` sets
+    `[auth] plugin = "none"`, so any host that reaches ports 6817, 6818 and
+    6821 can run work as root. The toolkit gives systemd units and native
+    auth with `spur_auth_mode: required`, but no listen address and no
+    firewall. Ask upstream for a listen address variable.
 
 ## Open items
 
@@ -95,6 +107,9 @@ on a real cluster. The last items are requests to other teams.
 - High availability of the Spur controller. The raft pull requests of
   `spurctld` are open: ROCm/spur#806, #810, #843, #844 and #785.
 - Remove `docs/manual_helm_install`. EAI-8674 tracks this.
+- Persistent storage for Dex, so that a restart of the Dex Pod does not make
+  every token of `just token` invalid. The `kubernetes` storage of Dex needs
+  cluster-scoped RBAC for its CRDs.
 - A branded Dex login page for the demo. Today the demo shows the stock Dex
   page.
 - Rename the `keycloak` values block of the aiwb chart to `oidc` in one
@@ -124,6 +139,12 @@ on a real cluster. The last items are requests to other teams.
 
 ## Done
 
+- The model routes of the demo ask for a Dex token, see
+  [ADR 0007](adr/0007-dex-token-on-the-model-routes-of-the-demo.md).
+  Before this change, the routes on `workloads.<domain>` answered without a
+  token. `just token` prints a token that is valid for 7 days, and a curl
+  example. Tested on a GPU node on 2026-09-28: 401 without a token or with a
+  wrong token, 200 with a token, and `just smoke-ui` passes.
 - Pod traffic between the nodes of a Spur Kubernetes cluster on OCI. An OCI
   VNIC drops a packet whose source address is a pod address, so kube-router
   must run in full overlay mode. ROCm/spur#861, merged on 2026-09-18, makes

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Smoke test for the demo profile. It gets a token from Dex with a
 # password grant, calls the AIWB API, deploys the dummy AIMService into the
-# workbench namespace and calls the model through the gateway. Set KEEP=1 to
-# keep the AIMService. curl -k, because the demo certificate is self-signed.
+# workbench namespace and calls the model through the gateway with the token.
+# A call without the token must get 401. Set KEEP=1 to keep the AIMService.
+# curl -k, because the demo certificate is self-signed.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -102,7 +103,7 @@ workload="$(kubectl get aimservice aim-dummy --namespace "$NS" \
 url="https://workloads.$DOMAIN/$NS/$workload/v1/chat/completions"
 body=""
 for _ in $(seq 1 30); do
-  body="$(curl -sk -X POST "$url" -H 'Content-Type: application/json' \
+  body="$(api -X POST "$url" -H 'Content-Type: application/json' \
     -d '{"model":"sshleifer/tiny-gpt2","messages":[{"role":"user","content":"hi"}],"max_tokens":4}')"
   echo "$body" | jq -e '.choices | length > 0' >/dev/null 2>&1 && break
   sleep 5
@@ -110,5 +111,10 @@ done
 echo "$body" | jq -e '.choices | length > 0' >/dev/null \
   || { echo "$body" | head -c 500 >&2; fail "no chat completion through $url"; }
 ok "chat completion through the gateway"
+
+echo "== 8. the model route refuses a request without a token"
+code="$(curl -sk -o /dev/null -w '%{http_code}' -X POST "$url" -H 'Content-Type: application/json' -d '{}')"
+[ "$code" = 401 ] || fail "a request without a token got HTTP $code, want 401"
+ok "401 without a token"
 
 echo "UI SMOKE TEST PASSED"
