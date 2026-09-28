@@ -1,5 +1,5 @@
 config:
-  issuer: https://my-issuer.com
+  issuer: https://my-issuer.example.com
 
   storage:
     type: memory

@@ -23,7 +23,7 @@ You can pass configuration to Dex using Helm values:
 ```yaml
 config:
   # Set it to a valid URL
-  issuer: http://my-issuer-url.com
+  issuer: http://my-issuer.example.com
 
   # See https://dexidp.io/docs/storage/ for more options
   storage:
@@ -42,7 +42,7 @@ ingress:
   enabled: true
 
   hosts:
-    - host: my-issuer-url.com
+    - host: my-issuer.example.com
       paths:
         - path: /
 ```
@@ -96,13 +96,13 @@ ingress:
     cert-manager.io/cluster-issuer: acme
 
   hosts:
-    - host: my-issuer-url.com
+    - host: my-issuer.example.com
       paths:
         - path: /
 
   tls:
     - hosts:
-        - my-issuer-url.com
+        - my-issuer.example.com
       secretName: dex-cert
 ```
 
