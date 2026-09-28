@@ -162,7 +162,7 @@ deviceConfig:
       # -- external port for pulling metrics from outside the cluster for NodePort service, in the range 30000-32767 (assigned automatically by default)
       nodePort: 32500
       # -- metrics exporter image
-      image: docker.io/rocm/device-metrics-exporter:v1.5.1-beta.0
+      image: docker.io/rocm/device-metrics-exporter:v1.5.1
       # -- metrics exporter image pull policy
       imagePullPolicy: "IfNotPresent"
       # -- name of the metrics exporter config map, e.g. {"name": "metricConfigMapName"}
@@ -222,7 +222,7 @@ deviceConfig:
       # -- enable / disable test runner
       enable: false
       # -- test runner image
-      image: docker.io/rocm/test-runner:v1.5.1-beta.0
+      image: docker.io/rocm/test-runner:v1.5.1
       # -- test runner image pull policy
       imagePullPolicy: "IfNotPresent"
       # -- test runner config map, e.g. {"name": "myConfigMap"}
@@ -249,7 +249,7 @@ deviceConfig:
       # -- enable/disable the config manager 
       enable: false
       # -- config manager image
-      image: docker.io/rocm/device-config-manager:v1.5.1-beta.0
+      image: docker.io/rocm/device-config-manager:v1.5.1
       # -- image pull policy for config manager image
       imagePullPolicy: IfNotPresent
       # -- image pull secret for config manager image, e.g. {"name": "myPullSecret"}
@@ -293,7 +293,7 @@ deviceConfig:
       # -- Time-to-live duration for failed workflows before cleanup (e.g., 1h, 24h)
       ttlForFailedWorkflows: "24h"
       # -- Container image used for testing during remediation
-      testerImage: "docker.io/rocm/test-runner:v1.5.1-beta.0"
+      testerImage: "docker.io/rocm/test-runner:v1.5.1"
       # -- Set maximum number of remediation workflows that can run in parallel. Default is 0 which means no limit
       maxParallelWorkflows: 0
       # -- Labels to apply to nodes during remediation
@@ -319,7 +319,7 @@ controllerManager:
       # -- AMD GPU operator controller manager image repository
       repository: docker.io/rocm/gpu-operator
       # -- AMD GPU operator controller manager image tag
-      tag: v1.5.1-beta.0
+      tag: v1.5.1
     # -- Image pull policy for AMD GPU operator controller manager pod
     imagePullPolicy: Always
     # -- Image pull secret name for pulling AMD GPU operator controller manager image if registry needs credential to pull image

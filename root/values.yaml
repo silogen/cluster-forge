@@ -153,7 +153,7 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
   amd-gpu-operator:
     namespace: kube-amd-gpu
-    path: amd-gpu-operator/v1.4.1
+    path: amd-gpu-operator/v1.5.1
     syncWave: -10
     valuesObject:
       crds:
@@ -161,7 +161,7 @@ apps:
           install: false
   amd-gpu-operator-config:
     namespace: kube-amd-gpu
-    path: amd-gpu-operator-config/v1.4.1
+    path: amd-gpu-operator-config/v1.5.1
     syncWave: 0
     valuesObject:
       # GPU stack family driving the DeviceConfig ROCm pins (radeon | instinct).

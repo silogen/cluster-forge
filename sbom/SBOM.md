@@ -15,7 +15,7 @@
 | 9 | aiwb | [2.0.0](oci://registry-1.docker.io/amdenterpriseai/aiwb-chart) | https://github.com/silogen/aiwb | [Apache License 2.0](https://github.com/silogen/aiwb/blob/main/LICENSE) |
 | 10 | aiwb-infra-cnpg | [2.0.0](https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-cnpg) | https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-cnpg | [Apache License 2.0](https://github.com/silogen/cluster-forge/blob/main/LICENSE) |
 | 11 | aiwb-infra-external-secrets | [2.0.0](https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-external-secrets) | https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-external-secrets | [Apache License 2.0](https://github.com/silogen/cluster-forge/blob/main/LICENSE) |
-| 12 | amd-gpu-operator | [1.4.1](https://rocm.github.io/gpu-operator) | https://github.com/ROCm/ROCm | [MIT License](https://github.com/ROCm/ROCm/blob/develop/LICENSE) |
+| 12 | amd-gpu-operator | [1.5.1](https://rocm.github.io/gpu-operator) | https://github.com/ROCm/ROCm | [MIT License](https://github.com/ROCm/ROCm/blob/develop/LICENSE) |
 | 13 | appwrapper | [1.1.2](https://github.com/project-codeflare/appwrapper/releases/download/v1.1.2/install.yaml) | https://github.com/project-codeflare/appwrapper | [Apache License 2.0](https://github.com/project-codeflare/appwrapper/blob/main/LICENSE) |
 | 14 | argocd | [8.3.5](https://argoproj.github.io/argo-helm) | https://github.com/argoproj/argo-cd | [Apache License 2.0](https://github.com/argoproj/argo-cd/blob/master/LICENSE) |
 | 15 | cert-manager | [1.18.2](oci://quay.io/jetstack/charts/cert-manager) | https://github.com/cert-manager/cert-manager | [Apache License 2.0](https://github.com/cert-manager/cert-manager/blob/master/LICENSE) |
@@ -62,7 +62,7 @@
 | 9 | aiwb | [2.0.0](oci://registry-1.docker.io/amdenterpriseai/aiwb-chart) | https://github.com/silogen/aiwb | [Apache License 2.0](https://github.com/silogen/aiwb/blob/main/LICENSE) |
 | 10 | aiwb-infra-cnpg | [2.0.0](https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-cnpg) | https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-cnpg | [Apache License 2.0](https://github.com/silogen/cluster-forge/blob/main/LICENSE) |
 | 11 | aiwb-infra-external-secrets | [2.0.0](https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-external-secrets) | https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-external-secrets | [Apache License 2.0](https://github.com/silogen/cluster-forge/blob/main/LICENSE) |
-| 12 | amd-gpu-operator | [1.4.1](https://rocm.github.io/gpu-operator) | https://github.com/ROCm/ROCm | [MIT License](https://github.com/ROCm/ROCm/blob/develop/LICENSE) |
+| 12 | amd-gpu-operator | [1.5.1](https://rocm.github.io/gpu-operator) | https://github.com/ROCm/ROCm | [MIT License](https://github.com/ROCm/ROCm/blob/develop/LICENSE) |
 | 13 | argocd | [8.3.5](https://argoproj.github.io/argo-helm) | https://github.com/argoproj/argo-cd | [Apache License 2.0](https://github.com/argoproj/argo-cd/blob/master/LICENSE) |
 | 14 | cert-manager | [1.18.2](oci://quay.io/jetstack/charts/cert-manager) | https://github.com/cert-manager/cert-manager | [Apache License 2.0](https://github.com/cert-manager/cert-manager/blob/master/LICENSE) |
 | 15 | cnpg-operator | [0.26.0](https://cloudnative-pg.github.io/charts) | https://github.com/cloudnative-pg/cloudnative-pg | [Apache License 2.0](https://github.com/cloudnative-pg/cloudnative-pg/blob/main/LICENSE) |
