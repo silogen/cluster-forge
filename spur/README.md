@@ -443,5 +443,6 @@ notes: |
 - [Test plan: spur-aims on Kaytoo VMs](docs/test-plan-kaytoo.md)
 - [spur-aims test findings](docs/spur-aims-findings.md)
 - [Set up one node for a Spur Kubernetes cluster](docs/spur-node-setup.md)
+- [Manual steps of a single-node GPU test](docs/manual-steps-single-node-gpu.md)
 - [Spur CLI plugins](docs/spur-cli-plugins.md)
 - [Future work](docs/future-work.md)
