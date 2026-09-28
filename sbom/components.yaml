@@ -39,7 +39,7 @@ components:
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   airm:
     path: null
-    repoVersion: 2.0.3
+    repoVersion: 2.0.4-rc.1
     type: helm
     valuesFile: values.yaml
     sourceUrl: oci://registry-1.docker.io/amdenterpriseai/airm-chart
@@ -48,7 +48,7 @@ components:
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   airm-infra-cnpg:
     path: null
-    repoVersion: 2.0.3
+    repoVersion: 2.0.4-rc.1
     type: helm
     valuesFile: values.yaml
     sourceUrl: oci://registry-1.docker.io/amdenterpriseai/airm-cnpg-chart
@@ -57,7 +57,7 @@ components:
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   airm-infra-external-secrets:
     path: null
-    repoVersion: 2.0.3
+    repoVersion: 2.0.4-rc.1
     type: helm
     valuesFile: values.yaml
     sourceUrl: oci://registry-1.docker.io/amdenterpriseai/airm-external-secrets-chart
@@ -66,7 +66,7 @@ components:
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   airm-infra-rabbitmq:
     path: null
-    repoVersion: 2.0.3
+    repoVersion: 2.0.4-rc.1
     type: helm
     valuesFile: values.yaml
     sourceUrl: oci://registry-1.docker.io/amdenterpriseai/airm-rabbitmq-chart
@@ -84,7 +84,7 @@ components:
     licenseUrl: https://github.com/silogen/aiwb/blob/main/LICENSE
   aiwb-infra-cnpg:
     path: null
-    repoVersion: 2.0.3
+    repoVersion: 2.0.4-rc.1
     type: helm
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-cnpg
@@ -93,7 +93,7 @@ components:
     licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   aiwb-infra-external-secrets:
     path: null
-    repoVersion: 2.0.3
+    repoVersion: 2.0.4-rc.1
     type: helm
     valuesFile: values.yaml
     sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/aiwb-external-secrets
