@@ -10,7 +10,7 @@ on a real cluster. The last items are requests to other teams.
 1. Merge the Spur plugin mechanism, ROCm/spur#925. `spur aims` works only
    with a `spur` build from the `feat/cli-plugins` branch. Until the merge,
    the user must run `spur-aims` directly.
-2. Test the branch again on Kaytoo and on itg1. The last rounds ran on
+2. Test the branch again on a CPU-only node and on itg1. The last rounds ran on
    2026-09-17, before the move to aim-engine 0.2.6 and aiwb-chart 2.0.3 and
    before the rename of `byok/` to `spur/`. Use a Spur build that includes
    ROCm/spur#861, and a three-node cluster without the kube-router edit.

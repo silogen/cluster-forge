@@ -1,6 +1,6 @@
 # Footprint of the default-cpu profile
 
-Measured on 2026-09-09 on one Kaytoo VM, OCI, 16 vCPU and 94 GiB memory, with
+Measured on 2026-09-09 on one CPU-only node, an OCI VM, 16 vCPU and 94 GiB memory, with
 Kubernetes from `spur k8s up`. The profile is `inference` (now `default-cpu`) with the
 `kyverno` and `kyverno-policies-storage-local-path` packages, which the
 local-path StorageClass makes necessary.
@@ -48,7 +48,7 @@ cache PVC is 1 GiB, ReadWriteOnce after the Kyverno mutation.
 
 ## Three nodes, idle
 
-Measured on 2026-09-09 on a three-node Spur k0s cluster on Kaytoo VMs of the
+Measured on 2026-09-09 on a three-node Spur k0s cluster on CPU-only nodes of the
 same shape. Spur makes one node the control plane and two nodes workers. The
 same profile was installed with the bash build of the plugin, `byok/spur/spur-silo`
 (removed since), from a worker node.

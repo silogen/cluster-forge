@@ -18,7 +18,7 @@ branch, and the released chart 2.0.3 holds the block.
 ## Considered options
 
 - Keep Keycloak. Rejected: it is the largest part of a demo that exists to be
-  small. On the Kaytoo VM of 2026-09-11, Keycloak requested 250 mCPU and
+  small. On the CPU-only node of 2026-09-11, Keycloak requested 250 mCPU and
   512 MiB where Dex requests 20 mCPU and 64 MiB, used 837 MiB of memory, and
   needed a second PostgreSQL database. Its image is about 470 MiB where the
   Dex image is 44 MiB.

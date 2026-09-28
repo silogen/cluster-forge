@@ -1,27 +1,30 @@
-# Test plan: spur-aims on Kaytoo VMs
+# Test plan: spur-aims on CPU-only nodes
 
-The repeatable CPU test round of the `spur aims` plugin. It needs no GPU and no
+The repeatable CPU test round of the `spur aims` plugin. It applies to any
+node with no GPU: a cloud VM, a bare-metal server or a local VM. It needs no
 cluster-bloom. The GPU path is in
 [Set up one node for a Spur Kubernetes cluster](spur-node-setup.md), and the results of
 both are in [spur-aims test findings](spur-aims-findings.md).
 
-The cluster itself comes from the `spur-kaytoo-cluster` skill. This page adds
-only what the `spur-aims` test needs on top of it.
+Any Spur cluster with k0s is sufficient. On Kaytoo VMs, the
+`spur-kaytoo-cluster` skill makes one. This page adds only what the
+`spur-aims` test needs on top of the cluster.
 
 ## 1. The cluster
 
-Two VMs are enough: one becomes the k0s control plane, the other the worker.
+Two nodes are enough: one becomes the k0s control plane, the other the worker.
 Run the test from the **worker**, because that is the node that must find the
 admin kubeconfig through `sudo -n spur k8s kubeconfig --admin`.
 
 Points that cost time when they are missed:
 
-- Open the firewall on both VMs before the daemons start. The OCI image rejects
-  everything but SSH.
-- After `spur k8s up`, set `--overlay-type=full` and `--enable-overlay=true` in
+- Open the firewall between the nodes before the daemons start. For example,
+  the OCI image rejects everything but SSH.
+- On a cloud network that drops packets with pod addresses, such as OCI, set
+  `--overlay-type=full` and `--enable-overlay=true` in
   `/var/lib/k0s/manifests/kuberouter/kube-router.yaml` on the control-plane
-  node. Without it OCI drops pod-to-pod packets between the nodes and the
-  install stops in unrelated places.
+  node after `spur k8s up`. Without it, pod-to-pod packets between the nodes
+  are lost and the install stops in unrelated places.
 - Put `allow_admin_kubeconfig = true` in the `[cluster]` section of
   `/etc/spur/spur.conf` on every node, before `spurctld` starts. The newer
   Spur builds refuse `spur k8s kubeconfig --admin` over RPC without it, and
@@ -31,7 +34,7 @@ Points that cost time when they are missed:
   not the Raft leader`. It does not retry. Start it again; the second try
   registers. Check with `spur nodes` that both hostnames are there before
   `spur k8s up`.
-- The VMs hold no `kubectl`. `spur aims` does not need one, but a test that
+- A fresh node may hold no `kubectl`. `spur aims` does not need one, but a test that
   looks at pods does. Install it on the driver node, or read the cluster from
   the control-plane node with `sudo k0s kubectl`.
 
@@ -42,15 +45,15 @@ node:
 
 ```bash
 just spur/all <branch>
-scp spur/spur-aims/spur-aims ubuntu@<driver public ip>:/tmp/
-ssh ubuntu@<driver public ip> 'sudo install -m755 /tmp/spur-aims /usr/local/bin/'
+scp spur/spur-aims/spur-aims <user>@<driver node>:/tmp/
+ssh <user>@<driver node> 'sudo install -m755 /tmp/spur-aims /usr/local/bin/'
 ```
 
 `spur aims version` must answer with the ref that `all` got.
 
 ## 3. The round
 
-The VMs have no GPU, so the round uses the `-cpu` profiles through `--no-gpu`.
+The nodes have no GPU, so the round uses the `-cpu` profiles through `--no-gpu`.
 
 ```bash
 spur aims list
@@ -75,7 +78,7 @@ Checks of the round:
 
 - `install` with no name and no `--no-gpu` prints the warning that Spur
   reports no GPU and that the profile installs the GPU operator. Prefer
-  `validate` for this check: an install of `default` on a VM pulls about
+  `validate` for this check: an install of `default` on a CPU node pulls about
   80 GiB of Instinct model images through the catalog discovery pods and
   fills the disk, see the findings. If it ran, remove it again before the
   CPU round, and `spur k8s down --reset` then `spur k8s up` when the disk is
@@ -162,5 +165,6 @@ node that cluster-bloom installed. Never print them.
 
 ## 5. Clean up
 
-Delete the VMs with the Kaytoo tool when the round ends. Delete every copy of a
+Release the nodes when the round ends, for example delete Kaytoo VMs with the
+Kaytoo tool. Delete every copy of a
 registry token too.

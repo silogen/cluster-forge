@@ -2,7 +2,7 @@
 # HTTPS smoke: AI Workbench UI via the apps Envoy Gateway.
 #
 # Uses the gateway LoadBalancer IP with curl --resolve so the check works from
-# the cluster head (Kaytoo/int-test) where hairpin NAT to the public VIP often fails.
+# the cluster head (CPU-only node/int-test) where hairpin NAT to the public VIP often fails.
 set -euo pipefail
 
 DOMAIN="${PLATFORM_DOMAIN:?PLATFORM_DOMAIN is required}"

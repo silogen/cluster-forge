@@ -1,6 +1,6 @@
 # Footprint of the demo profile
 
-Measured on 2026-09-11 on one Kaytoo VM, OCI, 16 vCPU and 94 GiB memory, with
+Measured on 2026-09-11 on one CPU-only node, an OCI VM, 16 vCPU and 94 GiB memory, with
 a single-node Spur k0s cluster, k0s v1.36.2, and its local-path StorageClass.
 The profile is `inference-demo` (now `demo-cpu`), which holds every package of
 `inference` (now `default-cpu`) and adds the gateway, PostgreSQL, Dex and AIWB. The
