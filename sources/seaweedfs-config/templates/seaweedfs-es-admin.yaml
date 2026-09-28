@@ -4,7 +4,7 @@ metadata:
   name: seaweed-admin-es-secret
   namespace: seaweedfs-instance
   annotations:
-    argocd.argoproj.io/hook: PreSync
+    # Not a PreSync hook: Argo does not track hooks, so selfHeal cannot restore them.
     argocd.argoproj.io/sync-wave: "-1"
 spec:
   secretStoreRef:

@@ -7,6 +7,12 @@ database: "aiwb"
 username: "aiwb_user"
 image: "ghcr.io/cloudnative-pg/postgresql:17.2"
 instances: 3
+# Spread instances across distinct nodes. "preferred" schedules them apart when
+# nodes allow it and falls back to co-scheduling otherwise, so a cluster with
+# fewer nodes than instances still comes up. Set "required" to make the spread
+# binding, which leaves surplus instances Pending until nodes are added.
+podAntiAffinityType: "preferred"
+topologyKey: "kubernetes.io/hostname"
 userSecretName: "aiwb-cnpg-user"
 superuserSecretName: "aiwb-cnpg-superuser"
 sharedBuffers: "256MB"

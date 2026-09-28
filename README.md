@@ -4,7 +4,15 @@
 
 ### A Kubernetes platform automation tool that deploys [AMD Enterprise AI reference stack](https://enterprise-ai.docs.amd.com/en/latest/) with complete GitOps infrastructure.
 
+## Table of Contents
 
+- [Overview](#overview)
+- [Quick Start](#-quick-start)
+- [Architecture](#-architecture)
+- [Components](#-components)
+- [Configuration](#-configuration)
+- [Documentation](#-documentation)
+- [License](#-license)
 
 ## Overview
 
@@ -161,14 +169,17 @@ Comprehensive documentation is available in the `/docs` folder:
 | Topic | Documentation |
 |-------|---------------|
 | **Getting Started** | [On-Premises Installation Guide](https://enterprise-ai.docs.amd.com/en/latest/platform-infrastructure/on-premises-installation.html) |
-| **Configuration** | [Cluster Size Configuration](docs/cluster_size_configuration.md) |
-| **Architecture** | [Values Inheritance Pattern](docs/values_inheritance_pattern.md) |
+| **Configuration** | [Cluster Size Configuration](docs/cluster_size_configuration.md) · [Configuration Reference](docs/configuration-reference.md) |
+| **Architecture** | [Values Inheritance Pattern](docs/values_inheritance_pattern.md) (includes optional/opt-in apps) |
+| **AIM Catalog** | [AIM catalog lifecycle](docs/aim_catalog_lifecycle.md) · [AIM model management](docs/aim_model_management.md) |
 | **Policy System** | [Kyverno Modular Design](docs/kyverno_modular_design.md) |
 | **Storage Policies** | [Kyverno Access Mode Policy](docs/kyverno_access_mode_policy.md) |
 | **Operations** | [Backup and Restore](docs/backup_and_restore.md) |
 | **CI/CD** | [Workflow Documentation](.github/workflows/README.md) |
 
 Additional documentation:
+- **Configuration reference**: [docs/configuration-reference.md](docs/configuration-reference.md) — Root helmParameters, script env vars, platform gates
+- **Install helpers**: [scripts/README.md](scripts/README.md)
 - **SBOM**: See `/sbom` folder for software bill of materials generation and validation
 
 ## 📝 License

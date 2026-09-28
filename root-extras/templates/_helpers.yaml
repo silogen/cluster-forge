@@ -1,0 +1,16 @@
+{{/*
+Renders a value that contains template.
+Usage:
+{{ include "common.tplvalues.render" ( dict "value" .Values.path.to.the.Value "context" $) }}
+
+Duplicated from root/templates/_helpers.yaml by design: root-extras keeps its
+own copy so a malformed user-supplied extraApps entry can only break this
+chart's render, never the core stack's.
+*/}}
+{{- define "common.tplvalues.render" -}}
+    {{- if typeIs "string" .value }}
+        {{- tpl .value .context }}
+    {{- else }}
+        {{- tpl (.value | toYaml) .context }}
+    {{- end }}
+{{- end -}}

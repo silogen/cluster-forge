@@ -6,9 +6,8 @@
 # Reached on the single :443 VIP: the apps gateway TLS-passes-through the AI hostname (by SNI)
 # to this gateway, which TERMINATES its own TLS (cluster-tls) — end-to-end encrypted, and a
 # one-line switch to its own LoadBalancer IP later for full isolation. Carries the ai-extproc
-# annotation + its own EnvoyProxy (ClusterIP, lua-before-ext_authz) so the AI auth chain runs
-# here. AI routes land here once ai-gateway-discovery targets this gateway
-# (GATEWAY_NAME=ai-gateway, in silogen/core).
+# annotation + its own EnvoyProxy (ClusterIP) so the AI auth chain runs here. AI routes land
+# here once ai-gateway-discovery targets this gateway (GATEWAY_NAME=ai-gateway, in silogen/core).
 # Do not use mergeGateways — Envoy AI Gateway does not support it (envoyproxy/ai-gateway#1638).
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway

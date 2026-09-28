@@ -96,6 +96,15 @@ spec:
             - --path.rootfs=/host/root
             - --path.udev.data=/host/root/run/udev/data
             - --web.listen-address=[$(HOST_IP)]:{{ .Values.services.nodeExporter.metrics }}
+          resources:
+            limits:
+{{- if .Values.nodeExporter.resources.limits.cpu }}
+              cpu: {{ .Values.nodeExporter.resources.limits.cpu | quote }}
+{{- end }}
+              memory: {{ .Values.nodeExporter.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.nodeExporter.resources.requests.cpu | quote }}
+              memory: {{ .Values.nodeExporter.resources.requests.memory }}
           securityContext:
             readOnlyRootFilesystem: true
           env:

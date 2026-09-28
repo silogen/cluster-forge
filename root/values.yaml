@@ -4,11 +4,20 @@ clusterForge:
 externalValues:
   enabled: true
   path: values.yaml
+  # Dedicated file (in the same cluster-values overlay repo) for extraApps
+  # entries, kept separate from values.yaml so it doesn't bloat as extras grow.
+  extraAppsPath: extra-apps-values.yaml
   repoUrl: "http://gitea-http.cf-gitea.svc:3000/cluster-org/cluster-values.git"
   targetRevision: main
 global:
   clusterSize:    # injected via scripts/bootstrap.sh
   domain:         # injected via scripts/bootstrap.sh
+  aiGateway:
+    # Body-authz request-body ceiling, shared by envoy-gateway-config (gateway-scoped policy) and
+    # ai-gateway-discovery (per-model catch-all policies). The catch-all policies are rule-scoped
+    # and override the gateway one per route, so both must carry the same value. Rendered through
+    # int64 below: a bare number here is a float64 and would otherwise emit 4.194304e+06.
+    bodyAuthMaxRequestBytes: 4194304
 localHelmValues:
   enabled: false
 ociRegistry:
@@ -18,7 +27,7 @@ ociRegistry:
 apps:
   ai-gateway-discovery:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.3"
     chart: "ai-gateway-discovery-chart"
     namespace: ai-gateway-system
     valuesFile: values.yaml
@@ -28,16 +37,26 @@ apps:
         value: "ai.{{ .Values.global.domain }}"
       - name: controller.gateway.name
         value: ai-gateway
+      # Same ceiling envoy-gateway-config renders into the gateway-scoped policy.
+      - name: controller.bodyAuthMaxRequestBytes
+        value: "{{ .Values.global.aiGateway.bodyAuthMaxRequestBytes | int64 }}"
   aim-engine:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "0.2.5"
+    repoVersion: "0.2.6"
     chart: "aim-engine-chart"
     namespace: aim-system
     valuesFile: values.yaml
     syncWave: 0
+    helmParameters:
+      - name: manager.image.repository
+        value: amdenterpriseai/aim-engine
+      - name: manager.artifactDownloaderImage
+        value: docker.io/amdenterpriseai/aim-artifact-downloader:v0.2.6
+      - name: clusterRuntimeConfig.enable
+        value: 'false'
   aim-engine-crds:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "0.2.5"
+    repoVersion: "0.2.6"
     chart: "aim-engine-crds-chart"
     namespace: aim-system
     syncWave: 0
@@ -47,12 +66,13 @@ apps:
     syncWave: -20
     valuesObject:
       # Hardware families to install (cpu,epyc,instinct,radeon).
-      # Empty = legacy (install all generic model sources). cluster-bloom
-      # injects the selected families as a YAML list at deploy time.
+      # Empty = unfiltered catalog (templates/unfiltered.yaml). cluster-bloom
+      # injects the selected families as a YAML list at deploy time, and only
+      # when AIM_HARDWARE_FAMILY is set.
       hardwareFamilies: []
   airm:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.3"
     chart: "airm-chart"
     namespace: airm
     syncWave: 0
@@ -69,7 +89,7 @@ apps:
         kind: ClusterPolicy
   aiwb:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.3"
     chart: "aiwb-chart"
     namespace: aiwb
     valuesFile: values.yaml
@@ -84,14 +104,14 @@ apps:
           - /spec/rules/*/skipBackgroundRequests
   airm-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.3"
     chart: "airm-cnpg-chart"
     namespace: airm
     syncWave: -10
     valuesFile: values.yaml
   airm-infra-external-secrets:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.3"
     chart: "airm-external-secrets-chart"
     namespace: airm
     syncWave: -20
@@ -105,21 +125,21 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
   airm-infra-rabbitmq:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.3"
     chart: "airm-rabbitmq-chart"
     namespace: airm
     syncWave: -5
     valuesFile: values.yaml
   aiwb-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.3"
     chart: "aiwb-cnpg-chart"
     namespace: aiwb
     syncWave: -10
     valuesFile: values.yaml
   aiwb-infra-external-secrets:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.0"
+    repoVersion: "2.0.3"
     chart: "aiwb-external-secrets-chart"
     namespace: aiwb
     syncWave: -20
@@ -315,22 +335,6 @@ apps:
     syncWave: -40
     valuesObject:
       installCRDs: true
-  cluster-auth:
-    namespace: cluster-auth
-    path: cluster-auth/0.5.9
-    syncWave: -25
-    valuesFile: values.yaml
-  cluster-auth-config:
-    ignoreDifferences:
-      - group: external-secrets.io
-        jqPathExpressions:
-          - ".spec.data[].remoteRef.conversionStrategy"
-          - ".spec.data[].remoteRef.decodingStrategy"
-          - ".spec.data[].remoteRef.metadataPolicy"
-        kind: ExternalSecret
-    namespace: cluster-auth
-    path: cluster-auth-config
-    syncWave: -20
   cnpg-operator:
     namespace: cnpg-system
     path: cnpg-operator/0.26.0
@@ -604,7 +608,7 @@ apps:
           memory: "512Mi"
   envoy-gateway:
     namespace: envoy-gateway-system
-    path: envoy-gateway/v1.7.1
+    path: envoy-gateway/v1.8.1
     syncWave: -30
     valuesObject:
       kubernetesClusterDomain: cluster.local
@@ -660,26 +664,77 @@ apps:
       - name: domain
         value: "{{ .Values.global.domain }}"
       - name: aiGateway.enabled
-        value: "true"  
+        value: "true"
       - name: aiGateway.routeHostname
         value: "ai.{{ .Values.global.domain }}"
+      # Point the body-aware extAuth backendRef + ReferenceGrant at wherever the
+      # ai-gateway-discovery app is declared, so they never drift from it.
+      # index (not dot access) because the app key contains dashes.
+      - name: aiGateway.discoveryNamespace
+        value: '{{ index .Values.apps "ai-gateway-discovery" "namespace" }}'
+      - name: aiGateway.bodyAuthMaxRequestBytes
+        value: "{{ .Values.global.aiGateway.bodyAuthMaxRequestBytes | int64 }}"
     namespace: envoy-gateway-system
     path: envoy-gateway-config
     syncWave: -15
     valuesFile: values.yaml
   envoy-ai-gateway-crds:
     namespace: envoy-ai-gateway-system
-    path: envoy-ai-gateway-crds/v0.6.0
+    path: envoy-ai-gateway-crds/v1.0.0
     syncWave: -10
   envoy-ai-gateway:
     namespace: envoy-ai-gateway-system
-    path: envoy-ai-gateway/v0.6.0
+    path: envoy-ai-gateway/v1.0.0
     syncWave: -5
     valuesObject:
+      # TEMP: v1.0.0's controller crashes its gateway reconcile when the Gateway
+      # lives in the Envoy Gateway namespace (envoy-gateway-system) with
+      # "found gateway-labeled objects in multiple namespaces", which blocks
+      # extproc filter-config generation and prevents the ai-gateway proxy from
+      # rolling. Fixed upstream by https://github.com/envoyproxy/ai-gateway/pull/2304
+      # (dedup candidate namespaces in getObjectsForGateway), not yet in a release.
+      # Pin controller + extProc to a main build that includes it (v1.0.0 + 11
+      # commits). Remove this override once a release past v1.0.0 ships #2304.
       controller:
+        image:
+          tag: 8007dfd481f7d1225bcaf9d059cb15b61d4d28e0
         mcp:
           sessionEncryption:
             seed: "cluster-forge-default-seed-override-in-production"
+        mutatingWebhook:
+          # Issue the webhook serving cert via cert-manager instead of the chart's
+          # built-in Helm genCA path, which upstream's own values.yaml calls "not
+          # recommended for production use".
+          #
+          # The genCA path guards regeneration with `lookup "v1" "Secret" ...`, and
+          # lookup returns empty whenever Helm renders without a live cluster — which
+          # is exactly how ArgoCD renders. So every sync mints a fresh CA and rewrites
+          # the MutatingWebhookConfiguration caBundle, while the running controller
+          # keeps serving the cert it loaded at startup. The two drift apart and pod
+          # admission fails with "x509: certificate signed by unknown authority".
+          # Because failurePolicy is Fail, the ai-gateway proxy ReplicaSet can then no
+          # longer create pods, so the extproc sidecar is never injected and every
+          # inference request dies with an empty 500 (seen on int-test).
+          #
+          # With cert-manager the Certificate and Issuer are declarative and ca-injector
+          # keeps the caBundle in sync with the issued cert, so a re-render cannot
+          # desynchronise them. cert-manager is already installed at syncWave -40, well
+          # ahead of this app at -5.
+          certManager:
+            enable: true
+      extProc:
+        image:
+          tag: 8007dfd481f7d1225bcaf9d059cb15b61d4d28e0
+  # Optional, opt-in: the envoyproxy/ratelimit binary + Redis that AI Gateway's
+  # QuotaPolicy needs in order to enforce anything. Declared here so it can be
+  # referenced, but deliberately left out of every values_small/medium/large.yaml
+  # enabledApps list -- add the name to your own overlay's enabledApps to install
+  # it. See sources/envoy-ai-gateway-ratelimit/0.1.0/values.yaml for why its
+  # Service name and namespace are fixed rather than configurable.
+  envoy-ai-gateway-ratelimit:
+    namespace: envoy-gateway-system
+    path: envoy-ai-gateway-ratelimit/0.1.0
+    syncWave: -4
   inference-extension-crds:
     namespace: envoy-ai-gateway-system
     path: inference-extension-crds/v1.5.0
@@ -816,6 +871,14 @@ apps:
     syncWave: -1
   seaweedfs-config:
     ignoreDifferences:
+      - group: external-secrets.io
+        kind: ExternalSecret
+        jqPathExpressions:
+          # The CRD defaults these inside spec.data[]; Argo's predicted live
+          # state drops them, so the app never converges without this.
+          - .spec.data[].remoteRef.conversionStrategy
+          - .spec.data[].remoteRef.decodingStrategy
+          - .spec.data[].remoteRef.metadataPolicy
       - group: gateway.networking.k8s.io
         kind: HTTPRoute
         jqPathExpressions:
@@ -912,32 +975,22 @@ apps:
       cluster:
         name: # to be filled by cluster-forge app based on domain
       collectors:
-        resources:
-          logs:
-            limits:
-              cpu: "1"
-              memory: 2Gi
-            requests:
-              cpu: 200m
-              memory: 400Mi
-          metrics:
-            limits:
-              cpu: "2"
-              memory: 8Gi
-            requests:
-              cpu: 500m
-              memory: 1Gi
+        # Drops apiserver metrics nothing on the platform queries and thins the
+        # two latency histograms. Set to "full" (or keepAllBuckets: true) in a
+        # cluster's own cluster-values.yaml to get everything back -- from that
+        # point forward only; dropped samples are never stored.
+        # See docs/otel_lgtm_stack_tuning.md.
+        metricFilters:
+          profile: standard
+        # Collector resources are NOT pinned here. They come from the chart
+        # defaults (= the small/medium tier), and values_large.yaml raises the
+        # two components that scale with control-plane count. Pinning them here
+        # would silently win over the chart and re-introduce the CPU limits we
+        # removed -- see docs/otel_lgtm_stack_tuning.md, "Cluster size tiers".
       kubeStateMetrics:
         enabled: true
       lgtm:
-        resources:
-          limits:
-            memory: 8Gi
-          requests:
-            cpu: "1"
-            memory: 2Gi
         storage:
-          extra: 50Gi
           grafana: 10Gi
           loki: 50Gi
           mimir: 50Gi

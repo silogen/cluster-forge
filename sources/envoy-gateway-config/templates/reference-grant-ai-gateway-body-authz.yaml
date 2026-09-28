@@ -1,0 +1,20 @@
+{{- if .Values.aiGateway.enabled }}
+# Cross-namespace grant for the body-aware ext_authz backendRef: the ai-gateway-default-deny
+# SecurityPolicy lives in envoy-gateway-system, but the ai-gateway-discovery ext_authz Service it
+# calls lives in the discovery app's namespace. Gateway API requires a ReferenceGrant in the
+# target (Service) namespace, which tracks .Values.aiGateway.discoveryNamespace.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: ai-gateway-body-authz-grant
+  namespace: {{ .Values.aiGateway.discoveryNamespace }}  # ai-gateway-discovery Service namespace
+spec:
+  from:
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: envoy-gateway-system  # SecurityPolicy namespace
+  to:
+    - group: ""
+      kind: Service
+      name: ai-gateway-discovery  # ext_authz Service (discovery authz port)
+{{- end }}

@@ -8,7 +8,7 @@ This directory contains CI/CD workflows for cluster-forge.
 |---|---|---|
 | `helm-chart-checks.yaml` | `pull_request` | Validates Helm charts and Kyverno policy test coverage. |
 | `pr-component-validation.yaml` | `pull_request` (path-filtered), `workflow_dispatch` | Validates SBOM/component sync when key files change. |
-| `release-pipeline.yaml` | `workflow_dispatch` | Calculates release version, creates prerelease artifact, and publishes SBOM. |
+| `release-pipeline.yaml` | `workflow_dispatch` | Calculates or overrides a release version, creates a GitHub **prerelease**, and publishes SBOM. |
 
 ## Workflow details
 
@@ -32,12 +32,12 @@ This directory contains CI/CD workflows for cluster-forge.
 
 ### `release-pipeline.yaml`
 
-- Manual workflow with optional input: `version_override`.
+- Manual workflow with optional input: `version_override` (leave empty to auto-calculate the next semver tag, or set any tag including a backport).
 - Job `release`:
   - Checks out full history.
-  - Computes next semantic version (`ietf-tools/semver-action`) unless overridden.
+  - Computes next semantic version (`ietf-tools/semver-action`) unless `version_override` is set.
   - Packages `root/`, `scripts/`, and `sources/` into `release-enterprise-ai-<version>.tar.gz`.
-  - Creates a GitHub prerelease with generated notes.
+  - Creates a GitHub **prerelease** (`--prerelease`) with generated notes. Prereleases do not become GitHub Latest, so arbitrary tags from this workflow cannot replace the current Latest release.
 - Job `sbom` (depends on `release`):
   - Generates SBOM via `sbom/generate-sbom.sh`.
   - Renames output to `sbom-<version>-<short-sha>.md`.
@@ -47,4 +47,4 @@ This directory contains CI/CD workflows for cluster-forge.
 
 - PR workflows perform validation only and do not publish releases.
 - Use **Actions -> Release Pipeline -> Run workflow** to cut a release.
-- Set `version_override` when you need a specific tag.
+- Set `version_override` when you need a specific tag. The result is still a prerelease.

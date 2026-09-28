@@ -7,6 +7,15 @@ hostname: ""
 cnpg:
   enabled: true
   instances: 1
+  # PodDisruptionBudget for the primary. Left unset, it follows instances:
+  # off for a single instance, on for two or more. A single-instance PDB
+  # protects nothing, because there is no second replica to keep serving,
+  # and it blocks `kubectl drain` on the node the pod happens to sit on,
+  # so node maintenance stalls until someone disables it by hand.
+  # Set true or false to override.
+  enablePDB: null
+  podAntiAffinityType: "preferred"
+  topologyKey: "kubernetes.io/hostname"
   storage:
     storageClassName: "default"
 

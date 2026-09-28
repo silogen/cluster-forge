@@ -1,0 +1,48 @@
+---
+{{- if and (not .Values.localHelmValues.enabled) .Values.externalValues.enabled }}
+# Renders a single, static child Application that owns the "extras" app-of-apps.
+# Unlike cluster-apps.yaml, this is NOT a loop over user-supplied entries: it is
+# the one thing core commits to, so a malformed extraApps entry in the
+# cluster-values overlay can only break the root-extras chart's own render,
+# never the core stack's Applications.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cluster-forge-extras
+  namespace: argocd
+spec:
+  project: default
+  sources:
+  - repoURL: {{ .Values.clusterForge.repoUrl }}
+    targetRevision: {{ .Values.clusterForge.targetRevision | quote }}
+    path: root-extras
+    helm:
+      # Forwarded from core's already-resolved values, so extras use the SAME
+      # domain/registry/size as the core app-of-apps (single source of truth).
+      # Quoted so version-like scalars (2.0, 1.10) survive as strings.
+      values: |
+        global:
+          domain: {{ .Values.global.domain | quote }}
+          clusterSize: {{ .Values.global.clusterSize | quote }}
+        ociRegistry:
+          dockerHub: {{ .Values.ociRegistry.dockerHub | quote }}
+          ghcr: {{ .Values.ociRegistry.ghcr | quote }}
+        clusterForge:
+          repoUrl: {{ .Values.clusterForge.repoUrl | quote }}
+          targetRevision: {{ .Values.clusterForge.targetRevision | quote }}
+        externalValues:
+          repoUrl: {{ .Values.externalValues.repoUrl | quote }}
+          targetRevision: {{ .Values.externalValues.targetRevision | quote }}
+      valueFiles:
+        - $cluster-values/{{ .Values.externalValues.extraAppsPath }}
+  - repoURL: {{ .Values.externalValues.repoUrl }}
+    targetRevision: {{ .Values.externalValues.targetRevision | quote }}
+    ref: cluster-values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+{{- end }}

@@ -1,0 +1,18 @@
+{{/*
+Each extraApps entry is the literal ArgoCD Application `spec:` block, exactly
+as it would be written by hand. No schema, no source-type detection: it is
+tpl-rendered as a whole (so any {{ .Values... }} reference resolves, including
+inside nested maps/lists) and wrapped with just enough metadata to make it an
+Application. See docs/adding_extra_components.md.
+*/}}
+{{- $root := . }}
+{{- range $name, $spec := .Values.extraApps }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ $name | quote }}
+  namespace: argocd
+spec:
+{{ include "common.tplvalues.render" ( dict "value" $spec "context" $root ) | indent 2 }}
+{{- end }}

@@ -401,6 +401,24 @@ data:
         "branch": "main"
       }' || echo "Failed to create values.yaml file"
 
+    echo "Step 8: Creating empty extra-apps-values.yaml in cluster-values repo..."
+
+    # cluster-forge-extras always references $cluster-values/extra-apps-values.yaml
+    # (see root/values.yaml's externalValues.extraAppsPath) - Helm's -f fails hard
+    # on a missing file, so this must exist even with no extraApps defined yet.
+    cat > /tmp/extra-apps-values.yaml << 'EOF'
+    extraApps: {}
+    EOF
+
+    curl -X POST "${GITEA_URL}/api/v1/repos/cluster-org/cluster-values/contents/extra-apps-values.yaml" \
+      -H "Authorization: token ${GITEA_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "message": "Initialize empty extra-apps-values.yaml",
+        "content": "'$(base64 -w 0 < /tmp/extra-apps-values.yaml)'",
+        "branch": "main"
+      }' || echo "Failed to create extra-apps-values.yaml file"
+
 
 
     echo "Setup completed successfully!"

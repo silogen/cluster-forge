@@ -1,0 +1,43 @@
+# vLLM Semantic Router — this file is extra-apps-values.yaml for a cluster with
+# no other extra components. If you already run some, add the `semantic-router:`
+# block below under your existing `extraApps:` key instead of replacing the file.
+# The chart config and gateway wiring it references live in two more files that
+# go in the same repo — see the README next to this one for ready-made commands.
+
+extraApps:
+  semantic-router:
+    project: default
+    sources:
+      - repoURL: https://github.com/vllm-project/semantic-router.git
+        path: deploy/helm/semantic-router
+        # Pinned to a revision we have tested end-to-end. Bump deliberately
+        # after re-validating, never track a branch.
+        targetRevision: "e79e43859ebae63ea4c935eab373cd11e3027745"
+        helm:
+          valueFiles:
+            - $cluster-values/extra-apps/semantic-router/values.yaml
+      # Gateway wiring (HTTPRoute + EnvoyExtensionPolicy), applied by this same
+      # Application so it syncs and prunes with the chart. Drop this source if
+      # you do not want the router in the request path — but if you keep it, the
+      # directory must exist and be non-empty in the overlay repo or ArgoCD
+      # fails the whole Application and the chart goes down with it.
+      - repoURL: "{{ .Values.externalValues.repoUrl }}"
+        targetRevision: "{{ .Values.externalValues.targetRevision }}"
+        path: extra-apps/semantic-router/manifests
+        directory:
+          recurse: true
+      # The overlay repo the $cluster-values alias above resolves against.
+      # externalValues is forwarded by cluster-forge-extras, so this needs no
+      # editing.
+      - repoURL: "{{ .Values.externalValues.repoUrl }}"
+        targetRevision: "{{ .Values.externalValues.targetRevision }}"
+        ref: cluster-values
+    destination:
+      server: https://kubernetes.default.svc
+      namespace: semantic-router
+    syncPolicy:
+      automated:
+        prune: true
+        selfHeal: true
+      syncOptions:
+        - CreateNamespace=true

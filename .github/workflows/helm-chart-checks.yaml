@@ -29,6 +29,20 @@ jobs:
       - name: Helm template
         run: helm template ./root -f ${{ matrix.values }}
 
+  install-script-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4.3.0
+
+      - name: Run install helper tests
+        run: |
+          chmod +x scripts/ai-gateway-webhook-health.sh scripts/platform-gates/*.sh scripts/test/run-tests.sh
+          scripts/test/run-tests.sh
+
   kyverno-policies:
     runs-on: ubuntu-latest
     strategy:

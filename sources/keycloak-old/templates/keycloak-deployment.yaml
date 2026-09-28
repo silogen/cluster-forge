@@ -61,6 +61,20 @@ spec:
               value: "false"
             - name: KC_PROXY_HEADERS
               value: xforwarded
+            # Ubuntu 26.04 has a kernel that does not list the memory controller
+            # in /proc/cgroups. JDK 21 reads that file to know whether it runs in
+            # a container, finds no entry, and sizes the heap from the memory of
+            # the host. It then passes the limit below and the kernel kills it.
+            # MaxRAM gives the JVM the limit of this container. Remove both
+            # entries when the image carries JDK 21.0.11 or later.
+            - name: MEM_LIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: keycloak
+                  resource: limits.memory
+                  divisor: "1"
+            - name: JAVA_OPTS_APPEND
+              value: "-XX:MaxRAM=$(MEM_LIMIT)"
           image: quay.io/keycloak/keycloak:26.0.0
           name: keycloak
           ports:

@@ -36,7 +36,7 @@ spec:
           value: /var/run/secrets/kubernetes.io/serviceaccount/config
       containers:
       - name: seaweedfs-admin
-        image: chrislusf/seaweedfs:latest
+        image: chrislusf/seaweedfs:4.40
         imagePullPolicy: Always
         env:
         - name: SEAWEEDFS_ADMIN_PASSWORD

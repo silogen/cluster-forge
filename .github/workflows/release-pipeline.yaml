@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version_override:
-        description: 'Override version (leave empty to auto-calculate)'
+        description: 'Override version (leave empty to auto-calculate). Use this to publish any tag, including backports.'
         required: false
         type: string
 
@@ -22,6 +22,7 @@ jobs:
 
       - name: Calculate Next Version
         id: calculate_version
+        if: ${{ github.event.inputs.version_override == '' }}
         uses: ietf-tools/semver-action@v1
         with:
           branch: ${{ github.ref_name }}
@@ -50,7 +51,7 @@ jobs:
           # Prepare release artifact
           tar -zcvf "release-enterprise-ai-${VERSION}.tar.gz" --transform 's,^,cluster-forge/,' root/ scripts/ sources
           
-          # Create release
+          # Prerelease so an arbitrary/backport tag never becomes GitHub Latest.
           gh release create "$VERSION" "release-enterprise-ai-${VERSION}.tar.gz#ClusterForge Enterprise AI Package" \
             --title="ClusterForge Release $VERSION" \
             --target ${{ github.sha }} \

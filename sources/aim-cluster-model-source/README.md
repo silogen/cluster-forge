@@ -6,21 +6,23 @@ SPDX-License-Identifier: MIT
 
 # aim-cluster-model-source
 
-Helm chart that installs `AIMClusterModelSource` resources. It renders one of
-two mutually exclusive branches, selected by `hardwareFamilies`:
+Helm chart that installs `AIMClusterModelSource` resources. Two mutually
+exclusive branches, selected by `hardwareFamilies`:
 
-- **Legacy (default):** when `hardwareFamilies` is empty, the chart installs the
-  full set of generic `amd-aim-release-*` model sources (versions 0.8.5, 0.9.0,
-  0.10.0, 0.11.0), unchanged from the pre-chart directory app.
-- **Per-hardware-family profiles:** when `hardwareFamilies` is non-empty, the
-  chart installs only the `AIMClusterModelSource` resources for the listed
-  families. The legacy generic sources are not installed.
+| `hardwareFamilies` | Template | What is installed |
+|---|---|---|
+| Empty (`[]`, chart default) | `templates/unfiltered.yaml` | Instinct model sources **0.11.1, 0.12.0, 0.13.0** plus mixed bases (`aim-base` including **2026.9.0** and **2026.9.1**, `aim-epyc-base`, `aim-radeon-base`). Does **not** install generic `amd-aim-release-*` or `amd-aim-instinct-2026.9.0`. |
+| Non-empty list | `templates/profiles.yaml` | Only the listed families (see table below). Instinct includes generic `amd-aim-release-*` (0.8.5–0.11.0) plus Instinct **0.11.1, 0.12.0, 0.13.0, 2026.9.0**. |
+
+cluster-bloom injects a YAML list at install from `AIM_HARDWARE_FAMILY`. That
+setting has no default and is injected only when set, so an install that leaves
+it unset falls through to the chart default `[]` and takes the **unfiltered**
+path. Clearing the list to `[]` in Gitea also selects `unfiltered.yaml`.
 
 ## `hardwareFamilies`
 
 A YAML list (the primary form) or a comma-separated string. Allowed values:
-`cpu`, `epyc`, `instinct`, `radeon`. Empty (the default) selects the legacy
-branch.
+`cpu`, `epyc`, `instinct`, `radeon`.
 
 ```yaml
 hardwareFamilies:
@@ -28,24 +30,22 @@ hardwareFamilies:
   - instinct
 ```
 
-| Family | Source name | Registry | Notes |
+| Family | Model sources | Base images | Notes |
 |---|---|---|---|
-| `instinct` | `amd-aim-instinct-0.12.0` | docker.io | works today |
-| `epyc` | `amd-aim-epyc-0.11.0` | docker.io | works today |
-| `cpu` | `amd-aim-cpu-0.12.0-rc1` | docker.io | `silogenai/*` RC images; optional `dockerhub-regcred` if pulls are private |
-| `radeon` | `amd-aim-radeon-0.12.0-rc1` | docker.io | `silogenai/aim-radeon-*` RC tags; optional `dockerhub-regcred` if pulls are private |
+| `instinct` | `amd-aim-release-0.8.5` … `0.11.0`, `amd-aim-instinct-0.11.1`, `0.12.0`, `0.13.0`, `2026.9.0` | `aim-base` 0.11–0.13.1, **2026.9.0**, **2026.9.1** | Generic `amd-aim-release-*` and `amd-aim-instinct-2026.9.0` are part of the Instinct profile, not the unfiltered catalog |
+| `epyc` | `amd-aim-epyc-0.11.0`, `amd-aim-epyc-0.13.0` | `aim-epyc-base` 0.11, 0.13 | |
+| `radeon` | `amd-aim-radeon-0.12.0` | `aim-radeon-base` 0.12 | Preview tags |
+| `cpu` | — | — | Placeholder only; no `AIMClusterModelSource` is rendered |
 
 `instinct` and `radeon` are GPU families; `cpu` and `epyc` are CPU inference
-targets. `cpu` and `radeon` use Docker Hub (`docker.io`) under the `silogenai`
-org. When the registry requires auth, the chart references `dockerhub-regcred`
-in those namespaces; omit or replace that secret if images are public.
+targets. Registry is `docker.io` (`amdenterpriseai`).
 
 ## Installing
 
 This chart is normally driven by cluster-bloom via the `AIM_HARDWARE_FAMILY`
 install flag, which injects the selected families as a YAML list into
 `apps.aim-cluster-model-source.valuesObject.hardwareFamilies` (see the
-cluster-forge `root` chart). No comma parsing is involved on that path, the
+cluster-forge `root` chart). No comma parsing is involved on that path — the
 value travels as a structured list.
 
 For a manual `helm` install, prefer a values file or pass a JSON list. A

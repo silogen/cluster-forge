@@ -48,8 +48,8 @@ spec:
         mode: Passthrough
 {{- if and .Values.aiGateway.enabled .Values.aiGateway.routeHostname }}
     # <ai-host> -> ai-gateway, raw TLS passthrough so ai-gateway terminates its own TLS and
-    # runs the full AI auth chain (model-header -> ext_authz) + EPP on its isolated data plane.
-    # More-specific SNI beats *.<domain>. Mirrors the k8s-passthrough pattern.
+    # runs the full AI auth chain (native apiKeyAuth + body-aware ext_authz) + EPP on its
+    # isolated data plane. More-specific SNI beats *.<domain>. Mirrors the k8s-passthrough pattern.
     - allowedRoutes:
         kinds:
           - group: gateway.networking.k8s.io

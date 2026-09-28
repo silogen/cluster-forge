@@ -1,0 +1,49 @@
+# Optional, opt-in app: the generic envoyproxy/ratelimit binary that AI
+# Gateway's QuotaPolicy needs to enforce anything, and that nothing else in
+# sources/ deploys. Not declared in any values_small/medium/large.yaml
+# enabledApps list -- add the app name to your own overlay's enabledApps to
+# install it. One instance serves every gateway on the cluster; see this
+# chart's templates/ for why its Service name and namespace are fixed rather
+# than configurable.
+
+ratelimit:
+  replicas: 1
+  image:
+    repository: envoyproxy/ratelimit
+    # Tracks the envoy-ai-gateway controller pin
+    # (root/values.yaml apps.envoy-ai-gateway.valuesObject.controller.image.tag)
+    # -- bump together. Both images need ociRegistry mirroring.
+    tag: 60d8e81b
+  logLevel: info
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+
+redis:
+  # Single-instance, no HA, no operator. Counter loss on restart (persistence
+  # disabled, the default) is at most one window of unmetered spend -- the
+  # same exposure the controller's fail-open default
+  # (quotaRateLimitFailureModeDeny: false) already accepts. Set to false and
+  # provide `url` to point at a shared/HA Redis instead.
+  enabled: true
+  image:
+    repository: redis
+    tag: 8.2.4-alpine3.22
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+  # Only read when redis.enabled is false. host:port, no scheme.
+  url: ""
+  auth:
+    # Applies whether redis is bundled here or external (`url` above): the
+    # bundled redis is started with --requirepass, and ratelimit always gets
+    # REDIS_AUTH from the same secret.
+    enabled: false
+    existingSecret: "" # required when enabled: Secret name holding the password
+    existingSecretPasswordKey: password
+  persistence:
+    enabled: false
+    size: 1Gi
+    storageClassName: "" # empty = cluster default

@@ -35,19 +35,6 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: loki-storage-pvc
-  namespace: {{ .Release.Namespace }}
-spec:
-  storageClassName: default
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: {{ .Values.lgtm.storage.extra }}
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
   name: grafana-pvc
   namespace: {{ .Release.Namespace }}
 spec:
@@ -312,6 +299,15 @@ spec:
               value: http://localhost:3000/api/admin/provisioning/dashboards/reload
             - name: REQ_METHOD
               value: POST
+          resources:
+            limits:
+{{- if .Values.lgtm.scDashboardResources.limits.cpu }}
+              cpu: {{ .Values.lgtm.scDashboardResources.limits.cpu | quote }}
+{{- end }}
+              memory: {{ .Values.lgtm.scDashboardResources.limits.memory }}
+            requests:
+              cpu: {{ .Values.lgtm.scDashboardResources.requests.cpu | quote }}
+              memory: {{ .Values.lgtm.scDashboardResources.requests.memory }}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -393,8 +389,6 @@ spec:
               mountPath: /data/grafana
             - name: loki-data
               mountPath: /data/loki
-            - name: loki-storage
-              mountPath: /loki
             - name: p8s-storage
               mountPath: /data/prometheus
             - name: sc-dashboard-volume ##
@@ -425,9 +419,6 @@ spec:
         - name: grafana-data
           persistentVolumeClaim:
             claimName: grafana-pvc
-        - name: loki-storage
-          persistentVolumeClaim:
-            claimName: loki-storage-pvc
         - name: p8s-storage
           persistentVolumeClaim:
             claimName: p8s-pvc
