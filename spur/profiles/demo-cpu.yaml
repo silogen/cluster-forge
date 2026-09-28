@@ -85,6 +85,6 @@ notes: |
                -o jsonpath='{.data.password}' | base64 -d; echo
 
   Model API: the routes on https://workloads.${domain} ask for a token.
-             Run `just token` in the spur directory of cluster-forge.
+             Run `just show-token-demo` in the spur directory of cluster-forge.
 
   The certificate is self-signed, so the browser shows a warning.

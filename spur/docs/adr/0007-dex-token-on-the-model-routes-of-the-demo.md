@@ -10,8 +10,8 @@ every model route of `workloads.<domain>`. The policy asks for a JWT of the
 OIDC issuer, Dex in the demo, with the audience `aiwb`. A request without a
 valid token gets 401. The aiwb package makes the policy and a
 `ReferenceGrant`, so that Envoy reads the keys from the Dex Service in the
-cluster. `just token` gets a token with the password grant of Dex and prints
-a curl example. A token is valid for 7 days.
+cluster. `just show-token-demo` gets a token with the password grant of Dex and
+prints a curl example. A token is valid for 7 days.
 
 The aiwb chart has put no access control on the model routes since
 silogen/core#4288 removed cluster-auth. The full cluster-forge installation

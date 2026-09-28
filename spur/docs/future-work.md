@@ -34,9 +34,9 @@ on a real cluster. The last items are requests to other teams.
    that stops the Gateway and HTTPRoute watch, and a cache access mode that
    follows `caching.mode: Dedicated`.
 10. Send the requests to the AIWB team as one issue: a switch that stops the
-    `OpenTelemetryCollector` object, optional references to
-    `aiwb-openbao-token` and `minio-credentials`, and the rename of the
-    `keycloak` values block to `oidc`.
+    `OpenTelemetryCollector` object, an optional reference to
+    `minio-credentials`, and the rename of the `keycloak` values block to
+    `oidc`.
 11. A profile override file for the plugin, `--values <file>`.
 12. Tell the core team that ai-gateway-discovery closes the model routes of
     a namespace only in the last step of its reconcile. When an earlier step
@@ -108,8 +108,8 @@ on a real cluster. The last items are requests to other teams.
   `spurctld` are open: ROCm/spur#806, #810, #843, #844 and #785.
 - Remove `docs/manual_helm_install`. EAI-8674 tracks this.
 - Persistent storage for Dex, so that a restart of the Dex Pod does not make
-  every token of `just token` invalid. The `kubernetes` storage of Dex needs
-  cluster-scoped RBAC for its CRDs.
+  every token of `just show-token-demo` invalid. The `kubernetes` storage of Dex
+  needs cluster-scoped RBAC for its CRDs.
 - A branded Dex login page for the demo. Today the demo shows the stock Dex
   page.
 - Rename the `keycloak` values block of the aiwb chart to `oidc` in one
@@ -124,9 +124,9 @@ on a real cluster. The last items are requests to other teams.
   In `demo` the aiwb chart owns it, and it sets `pvcHeadroomPercent: 100`
   where the CRD default is 10, so a model volume is about two times the model
   size.
-- Ask the AIWB team to make the `aiwb-openbao-token` and
-  `minio-credentials` references optional. Today the demo makes both Secrets
-  with dummy values, because a `secretKeyRef` is not optional.
+- Ask the AIWB team to make the `minio-credentials` reference optional.
+  Today the demo makes the Secret with empty values, because a
+  `secretKeyRef` is not optional.
 - `extends` of more than one level, and removal of a base package, when a
   third profile needs them.
 - Ask the aim-engine team for a value that stops the controller from watching
@@ -139,12 +139,17 @@ on a real cluster. The last items are requests to other teams.
 
 ## Done
 
+- The demo sets `openBao.enabled: false` of aiwb-chart 2.0.4-rc.1 and makes
+  no `aiwb-openbao-token` Secret. The Go probe of `secrets.demo` looked for
+  `cluster-auth-admin-token`, a Secret that nothing makes, so it never passed
+  and a profile without the `aiwb-demo-secrets` package failed validation.
+  A test now holds the probe to the Secrets that the package renders.
 - The model routes of the demo ask for a Dex token, see
   [ADR 0007](adr/0007-dex-token-on-the-model-routes-of-the-demo.md).
   Before this change, the routes on `workloads.<domain>` answered without a
-  token. `just token` prints a token that is valid for 7 days, and a curl
-  example. Tested on a GPU node on 2026-09-28: 401 without a token or with a
-  wrong token, 200 with a token, and `just smoke-ui` passes.
+  token. `just show-token-demo` prints a token that is valid for 7 days, and
+  a curl example. Tested on a GPU node on 2026-09-28: 401 without a token or
+  with a wrong token, 200 with a token, and `just smoke-ui` passes.
 - Pod traffic between the nodes of a Spur Kubernetes cluster on OCI. An OCI
   VNIC drops a packet whose source address is a pod address, so kube-router
   must run in full overlay mode. ROCm/spur#861, merged on 2026-09-18, makes

@@ -16,16 +16,17 @@ aiwb-chart:
     clientId: aiwb
     secretName: aiwb-oidc-client-secret
     audience: aiwb
-  # OpenBao is not in the demo, so the API-key page is hidden. The chart still
-  # reads the token Secret, which aiwb-demo-secrets makes with a dummy value.
-  apiKeysManagement:
+  # OpenBao is not in the demo. With this value the chart reads no token
+  # Secret and hides the API-key page.
+  openBao:
     enabled: false
   # There is no ai-gateway in the demo.
   aiGateway:
     enabled: false
 # A token of the OIDC issuer on the model routes of workloads.<domain>. Get
-# one with `just token`. Envoy reads the keys from the issuer Service in the
-# cluster, not through auth.<domain>, whose certificate is self-signed.
+# one with `just show-token-demo`. Envoy reads the keys from the issuer
+# Service in the cluster, not through auth.<domain>, whose certificate is
+# self-signed.
 workloadsJwt:
   enabled: true
   jwksService:

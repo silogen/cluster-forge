@@ -136,14 +136,14 @@ need the token.
 Get a token and a curl example:
 
 ```bash
-just token
+just show-token-demo
 ```
 
 The recipe uses the password grant of Dex for `devuser@<domain>`. The token
 is valid for 7 days, the `expiry.idTokens` value of the `dex` package. Dex
 keeps its signing keys in memory, so a restart of the Dex Pod makes every
-token invalid. Then run `just token` again. Envoy reads the new keys within
-one minute.
+token invalid. Then run `just show-token-demo` again. Envoy reads the new
+keys within one minute.
 
 Any user who can log in to Dex can call every model. There are no keys for
 each model, and a token cannot be revoked before it expires. For API keys

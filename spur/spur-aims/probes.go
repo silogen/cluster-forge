@@ -12,6 +12,14 @@ import (
 
 var listAll = metav1.ListOptions{}
 
+// The Secrets that the aiwb-demo-secrets package makes, by namespace. A test
+// holds this list to the rendered chart and to capabilities.yaml.
+var demoSecrets = map[string][]string{
+	"aiwb":     {"aiwb-cnpg-user", "aiwb-nextauth-secret", "aiwb-oidc-client-secret", "minio-credentials"},
+	"dex":      {"dex-credentials"},
+	"postgres": {"aiwb-db-user", "postgres-superuser"},
+}
+
 // Every capability of assets/capabilities.yaml, as a live check against the
 // cluster. The yaml keeps a shell form of every probe, which documents what
 // this map does and lets a test script run one by hand; a test holds the two
@@ -69,10 +77,12 @@ var probes = map[string]func(context.Context, *cluster) bool{
 		return c.any(ctx, gvr("aim.eai.amd.com", "v1alpha1", "aimclustermodelsources"))
 	},
 	"secrets.demo": func(ctx context.Context, c *cluster) bool {
-		return c.secretsExist(ctx, "aiwb", "aiwb-cnpg-user", "aiwb-oidc-client-secret",
-			"aiwb-nextauth-secret", "minio-credentials", "cluster-auth-admin-token") &&
-			c.secretsExist(ctx, "dex", "dex-credentials") &&
-			c.secretsExist(ctx, "postgres", "postgres-superuser", "aiwb-db-user")
+		for namespace, names := range demoSecrets {
+			if !c.secretsExist(ctx, namespace, names...) {
+				return false
+			}
+		}
+		return true
 	},
 	"database.postgres": func(ctx context.Context, c *cluster) bool {
 		return c.serviceExists(ctx, "postgres", "postgres")

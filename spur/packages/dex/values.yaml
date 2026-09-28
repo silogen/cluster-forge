@@ -20,10 +20,10 @@ dex:
       responseTypes:
         - code
     expiry:
-      # The token of `just token` for the model routes. The AIWB UI keeps its
-      # own 8h session. Dex keeps an old signing key until the tokens that it
-      # signed expire, but a restart of the Pod makes new keys, so every
-      # token stops working then.
+      # The token of `just show-token-demo` for the model routes. The AIWB UI
+      # keeps its own 8h session. Dex keeps an old signing key until the
+      # tokens that it signed expire, but a restart of the Pod makes new keys,
+      # so every token stops working then.
       idTokens: 168h
     enablePasswordDB: true
   envVars:
