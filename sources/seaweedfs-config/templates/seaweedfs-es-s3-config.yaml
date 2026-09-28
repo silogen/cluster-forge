@@ -1,4 +1,4 @@
-{{- if not .Values.standalone }}
+{{- if .Values.externalSecrets.enabled }}
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:

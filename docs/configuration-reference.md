@@ -33,6 +33,16 @@ must stay in step. The chart-local default in
 `sources/envoy-gateway-config/values.yaml` is the same number and applies
 only if the root helmParameter is omitted.
 
+## `seaweedfs-config` integrations
+
+| Value | Default | Purpose |
+|-------|---------|---------|
+| `externalSecrets.enabled` | `true` | Get the S3 and admin credentials from OpenBao through external-secrets. If `false`, the chart makes the two Secrets itself and keeps their values on upgrade. |
+| `httpRoute.enabled` | `true` | Make the Gateway API HTTPRoutes for the S3 API and the admin UI. |
+
+The Spur `seaweedfs` package sets both values to `false`, because the minimal
+core has no OpenBao, no external-secrets and no gateway.
+
 ## AI Gateway webhook TLS (prevention vs heal)
 
 Mainline clusters issue the envoy-ai-gateway mutating webhook serving cert via
