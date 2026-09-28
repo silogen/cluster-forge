@@ -8,11 +8,6 @@ assets := "spur-aims/assets"
 default:
     @just --list
 
-# Install a k3s test cluster without Traefik and ServiceLB.
-k3s:
-    curl -sfL https://get.k3s.io | sudo INSTALL_K3S_VERSION=v1.36.4+k3s1 \
-      INSTALL_K3S_EXEC="--disable traefik --disable servicelb --write-kubeconfig-mode 644" sh -
-
 # The file:// dependencies of a package point at spur/../sources, so the
 # archives are built in place and copied after.
 [doc("Copy the charts, profiles and probes into spur-aims/assets. Needs helm and the network.")]

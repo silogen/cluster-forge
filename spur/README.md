@@ -37,22 +37,6 @@ The `just` commands in this document run in the `spur` directory. From the
 root of the repository, use `just spur/<command>`. `just --list` shows every
 command.
 
-### A k3s test cluster
-
-Skip this section when you have a cluster. A stock k3s cluster serves the Spur
-packages, but Traefik takes port 443 and the ServiceLB controller answers every
-`LoadBalancer` Service. Both collide with the Envoy gateway of the `demo`
-profiles, so leave them out:
-
-```bash
-just k3s
-```
-
-The version pin is needed, because the install script reads the channel from
-`update.k3s.io`, which answers with a certificate that no client trusts. The
-kubeconfig is `/etc/rancher/k3s/k3s.yaml`, and the default StorageClass is
-local-path-provisioner, which gives ReadWriteOnce only.
-
 ### Storage and routing
 
 aim-engine 0.2.6 asks for ReadWriteMany cache volumes. If your default
@@ -161,6 +145,11 @@ do that only on a cluster that is not open to the internet.
   `externalIPs`, so the node answers on port 443.
 - **Neither works**: use `--var gatewayServiceType=NodePort` and the port that
   the Service gets.
+
+The Envoy gateway of the `demo` profiles uses port 443 on the node. An ingress
+controller of the cluster that already holds port 443, for example Traefik or
+ingress-nginx, collides with it. Disable that ingress controller, or use
+`gatewayServiceType=NodePort`.
 
 ### What the demo does not do
 
