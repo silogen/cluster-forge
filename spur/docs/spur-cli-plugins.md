@@ -228,7 +228,7 @@ gave the workload `amd.com/gpu: 8`, and passed the smoke test in 3 min 24 s.
   install from a newer binary.
 - The build of the binary needs the `helm` command line and the network once,
   to resolve the chart dependencies into the files that go inside the binary.
-  At install time no dependecies are needed.
+  At install time no dependencies are needed.
 - Spur and the plugin are tested and released on their own timelines. The Spur
   side is about 300 lines and has no product dependency.
 

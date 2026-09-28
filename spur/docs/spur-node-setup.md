@@ -77,7 +77,7 @@ One node needs no `node_id` and no `peers`: a single controller wins its own
 election. A second controller needs both, and the ids must follow the order of
 `peers`.
 
-Four settings whose absence costs the most time:
+Five settings whose absence costs the most time:
 
 - `cluster_name` is mandatory and sits at the top level. Without it `spurctld`
   exits with `missing field cluster_name`.

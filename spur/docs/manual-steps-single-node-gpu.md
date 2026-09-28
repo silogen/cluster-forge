@@ -166,7 +166,7 @@ After the test, these ports answered on the public address of the node:
 | Port | Process | Access |
 |---|---|---|
 | 22 | sshd | Key login |
-| 443 | Envoy gateway | The AIWB UI and API need a login. The model routes on `workloads.<domain>` need no login. |
+| 443 | Envoy gateway | The AIWB UI and API need a login. The model routes on `workloads.<domain>` need a Dex token. |
 | 6443 | kube-apiserver | Client certificate |
 | 10250 | kubelet | Client certificate |
 | 179 | kube-router BGP | Configured peers only |
@@ -174,5 +174,6 @@ After the test, these ports answered on the public address of the node:
 | 8080, 20244 | kube-router | Health and metrics |
 | 10249, 10256 | kube-proxy | Metrics and health |
 
-Close all ports except 22 and 443 with a cloud firewall, and limit 443 to
-known addresses when the model must not be public.
+Close all ports except 22 and 443 with a cloud firewall. Every user who can
+log in to Dex can call the models, so limit 443 to known addresses when that
+is too wide.

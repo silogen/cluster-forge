@@ -20,16 +20,16 @@ Points that cost time when they are missed:
 
 - Open the firewall between the nodes before the daemons start. For example,
   the OCI image rejects everything but SSH.
-- On a cloud network that drops packets with pod addresses, such as OCI, set
-  `--overlay-type=full` and `--enable-overlay=true` in
-  `/var/lib/k0s/manifests/kuberouter/kube-router.yaml` on the control-plane
-  node after `spur k8s up`. Without it, pod-to-pod packets between the nodes
-  are lost and the install stops in unrelated places.
+- On a cloud network that drops packets with pod addresses, such as OCI,
+  kube-router must run in full overlay mode. Spur does this since
+  ROCm/spur#861. With an older Spur build, edit the kube-router manifest, see
+  [Future work](future-work.md#done). Without it, pod-to-pod packets between
+  the nodes are lost and the install stops in unrelated places.
 - Put `allow_admin_kubeconfig = true` in the `[cluster]` section of
   `/etc/spur/spur.conf` on every node, before `spurctld` starts. The newer
   Spur builds refuse `spur k8s kubeconfig --admin` over RPC without it, and
   the worker holds no `k0s` admin file, so every plugin command fails on the
-  driver node. See finding 18.
+  driver node.
 - A `spurd` that starts against a follower can end with `registration failed:
   not the Raft leader`. It does not retry. Start it again; the second try
   registers. Check with `spur nodes` that both hostnames are there before
@@ -80,12 +80,13 @@ Checks of the round:
   reports no GPU and that the profile installs the GPU operator. Prefer
   `validate` for this check: an install of `default` on a CPU node pulls about
   80 GiB of Instinct model images through the catalog discovery pods and
-  fills the disk, see the findings. If it ran, remove it again before the
+  fills the disk, see [Open items](future-work.md#open-items). If it ran, remove it again before the
   CPU round, and `spur k8s down --reset` then `spur k8s up` when the disk is
   full.
 - After `install demo --no-gpu`, `aim-system` holds no accelerator detector
   DaemonSet: the `-cpu` profiles turn it off, because they hold no
-  node-feature-discovery to read its result. See the findings.
+  node-feature-discovery to read its result. See
+  [Open items](future-work.md#open-items).
 - After `install demo --no-gpu`, `just smoke-ui` passes. Its step 8 checks
   that a model route gives 401 without a token. `just show-token-demo`
   prints a token and a curl example, and that curl gives HTTP 200 on a
@@ -96,7 +97,7 @@ Checks of the round:
   a `gpu:` type that is not `mi` plus digits, and both `validate` and
   `validate --no-gpu` print the warning that names the node and the type.
   When no such node is available, the table test of `kube_test.go` is the
-  only check, and the findings say so.
+  only check, and [Open items](future-work.md#open-items) says so.
 
 `uninstall` asks `Remove? [y/N]` on a terminal. `--yes` skips the question,
 and a run whose stdin is not a terminal needs it.

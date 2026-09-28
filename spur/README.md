@@ -29,7 +29,7 @@ This path runs beside the ArgoCD path in `root/`. It does not replace it.
 - A Kubernetes cluster and a cluster-admin kubeconfig, or a Spur cluster that
   gives one.
 - A default StorageClass with dynamic provisioning.
-- Nothing on the node. The build of the binary needs `just`, `go` and, once,
+- No tool on the node. The build of the binary needs `just`, `go` and, once,
   `helm` with the network. The test scripts need `kubectl`, `helm`, `yq` v4
   and `jq`.
 
@@ -45,8 +45,9 @@ StorageClass gives ReadWriteOnce only, as local-path-provisioner does, keep the
 They rewrite the access mode at admission time. Take them out when the cluster
 gives ReadWriteMany.
 
-The core does no routing. Use a port-forward to reach the model. The core adds
-no autoscaling. If a profile needs autoscaling, the cluster must give it.
+The `default` profiles do no routing. Use a port-forward to reach the model.
+They add no autoscaling. If a profile needs autoscaling, the cluster must give
+it.
 
 ## Install
 
@@ -104,10 +105,10 @@ The install prints the URLs and the login of the demo user at the end.
 Dex is the OIDC issuer of the demo: one Pod, one static user
 `devuser@<domain>`, one client `aiwb`, and its state in memory, so a restart
 of the Pod ends every session. The `aiwb-demo-secrets` package makes the
-password and the client secret. AIWB logs in through any OIDC issuer: the
-`oidc` block of the aiwb chart holds the issuer, the internal URL, the client
-and the JWKS URL. Replace the `dex` package with your own issuer and set that
-block in the profile.
+password and the client secret. AIWB can log in through any OIDC issuer. The
+`oidc` block of the aiwb chart sets the issuer, the internal URL, the client
+and the JWKS URL. To use your own issuer, replace the `dex` package and set
+that block in the profile.
 
 ### Call a model from outside the cluster
 
@@ -137,13 +138,13 @@ do that only on a cluster that is not open to the internet.
 
 ### How traffic reaches the gateway
 
-- **A cloud load balancer or MetalLB**: keep the default
+- **A cloud load balancer or MetalLB.** Keep the default
   `gatewayServiceType=LoadBalancer`. Point `*.<domain>` at the address of the
   Service.
-- **No load balancer**: use `--var gatewayServiceType=ClusterIP --var
+- **No load balancer.** Use `--var gatewayServiceType=ClusterIP --var
   gatewayExternalIP=<node-ip>`. The Service keeps the node address in
   `externalIPs`, so the node answers on port 443.
-- **Neither works**: use `--var gatewayServiceType=NodePort` and the port that
+- **Neither works.** Use `--var gatewayServiceType=NodePort` and the port that
   the Service gets.
 
 The Envoy gateway of the `demo` profiles uses port 443 on the node. An ingress
@@ -183,7 +184,7 @@ already exist the package can leave the profile.
 
 ## Install on a Spur k0s cluster
 
-[Set up one node for a Spur Kubernetes cluster](docs/spur-node-setup.md) holds every step
+[Set up one node for a Spur Kubernetes cluster](docs/spur-node-setup.md) gives every step
 from a node that runs nothing to a profile that serves a model. In short:
 
 1. Build `spurctld`, `spurd`, `spur` and `spur-aims`, and install them in
@@ -198,16 +199,16 @@ from a node that runs nothing to a profile that serves a model. In short:
    `Ready` and `local-path` is the default StorageClass.
 7. `spur aims install --smoke-test`.
 
-The rest of this section is the plugin itself.
+The rest of this section describes the plugin.
 
 `spur aims` does the whole install on a Spur cluster that runs Kubernetes
-from `spur k8s up`. It is a Spur CLI plugin: put it on `PATH` under the name
-`spur-aims` and `spur aims ...` runs it. `spur aims` needs a `spur` build that
+from `spur k8s up`. It is a Spur CLI plugin. Put it on `PATH` under the name
+`spur-aims`, and `spur aims ...` runs it. `spur aims` needs a `spur` build that
 has the plugin mechanism, see [Spur CLI plugins](docs/spur-cli-plugins.md).
 `spur-aims ...` works with every `spur` build.
 
-The binary holds every chart, profile and capability probe of its release, so
-the node needs no tool and no access to GitHub. Build it with `just all`
+The binary contains every chart, profile and capability probe of its release,
+so the node needs no tool and no access to GitHub. Build it with `just all`
 (see `spur-aims/README.md`) and copy it to the node:
 
 ```bash
@@ -224,10 +225,11 @@ ssh ubuntu@<node> 'spur aims install demo --var domain=<node-ip>.nip.io \
 | `spur aims validate [<profile>]` | The capability check of `install`, with nothing installed. Takes the same name rules and variables. |
 | `spur aims status` | The install record and the live capability probes. |
 | `spur aims uninstall [<profile>]` | Show what goes, ask, then remove the packages of the profile. A blank name is every recorded profile. `--yes` skips the question, `--keep-data` keeps the PVCs and the CRDs. |
+| `spur aims version` | The ref that the binary was built from. |
 
 There is no `upgrade`. An upgrade is an `install` from a newer build.
 
-There is no auto-fill for a profile variable: `install demo` without
+The plugin does not fill in a profile variable. `install demo` without
 `--var domain=` stops with an error. On a k0s cluster that has no load
 balancer, give all three variables as in the example above.
 
@@ -235,15 +237,15 @@ The plugin never selects a profile on its own. `install` and `validate` ask
 Spur for the GPU of every node and print a warning when the profile and the
 GPUs do not go together: a `-cpu` profile on a cluster with AMD Instinct
 GPUs, a GPU profile on a cluster with no GPU, or a GPU that is not Instinct.
-The GPU profile supports Instinct only; on a node with another AMD GPU the
-`-cpu` profile is the supported choice. The warning never changes the name
-and never stops the command.
+The GPU profile supports Instinct only. On a node with another AMD GPU, use
+the `-cpu` profile. The warning never changes the name and never stops the
+command.
 
 Every install writes the profile, the ref, the time and the variables into the
 ConfigMap `install-record` in the namespace `aims-system`. `uninstall`
-reads it: a package that another recorded profile also holds stays on the
-cluster, so `uninstall demo` on a cluster that also has `default` keeps the
-base packages.
+reads it. When another recorded profile also contains a package, the package
+stays on the cluster. So `uninstall demo` on a cluster that also has `default`
+keeps the base packages.
 
 Spur's k0s gives local-path-provisioner as the default StorageClass. The
 default `spur k8s kubeconfig` is namespace-scoped, so it is not enough. The
@@ -269,9 +271,9 @@ spur aims validate demo --var domain=demo.example.com
 `validate` needs the same `--var` values as `install`, so a missing variable
 shows before anything installs.
 
-Validation runs before every install. Each `requires` entry of a package must
-be satisfied by a package earlier in the profile, or by a cluster probe of
-`capabilities.yaml`. The plugin stops at the first miss and names the
+Validation runs before every install. For each `requires` entry of a package,
+a package earlier in the profile or a cluster probe of `capabilities.yaml` must
+give the capability. The plugin stops at the first miss and names the
 capability and the packages that give it.
 
 ## Remove
@@ -283,8 +285,8 @@ spur aims uninstall --yes              # every recorded profile, no question
 ```
 
 `uninstall` removes the packages of the profile in reverse install order. It
-reads the install record: a package that another recorded profile also holds
-stays on the cluster, and so does every CRD that such a package ships. Before
+reads the install record. When another recorded profile also contains a
+package, the package and every CRD that it ships stay on the cluster. Before
 the first removal it prints, for every profile of the run, what goes, what
 stays, what is not installed, and the namespaces that the purge deletes with
 their PVCs. Then it asks `Remove? [y/N]`. `--yes` skips the question. When
@@ -296,8 +298,8 @@ recorded profile before its base.
 `uninstall` refuses to remove a package that another installed package needs.
 An install run never removes anything. A package that you take out of the
 profile stays installed until you call `uninstall`. The plugin removes
-profiles, not single packages: to add and remove an optional package, put it
-in a profile that extends the installed one, as `test-s3` does, and uninstall
+profiles, not single packages. To add and remove an optional package, put it
+in a profile that extends the installed one, as `test-s3` does. Then uninstall
 that profile.
 
 ## Upgrade
@@ -318,17 +320,25 @@ just package-cycle   # add, re-install and purge seaweedfs through the
 just version-drift   # pins agree with root/values.yaml
 ```
 
-`smoke-ui` and `smoke-demo` need a `demo` cluster. `just smoke` takes the
-variables `NAMESPACE`, `AIM_OBJECT` and `PULL_SECRET_JSON`. `AIM_OBJECT` takes
-the absolute path of any AIMService object. `smoke-gpu` uses
-`tests/aimservice-gpu.yaml`, which holds a model
-image of `amdenterpriseai` and needs a `default` cluster. The image is public,
-so `PULL_SECRET_JSON` is optional: it lifts the Docker Hub rate limit of an
-anonymous pull. `version-drift` and `test` need no cluster.
-`smoke` and `package-cycle` need a
-`default-cpu` cluster: the cycle test installs that profile and `test-s3` on
-top of it, and its aim-engine package takes the `AIMClusterRuntimeConfig`
-that the aiwb release owns on a `demo` cluster.
+Each test needs a different cluster:
+
+- `test` and `version-drift` need no cluster.
+- `smoke` and `package-cycle` need a `default-cpu` cluster. The cycle test
+  installs `default-cpu` and `test-s3` on top of it. Its aim-engine package
+  takes the `AIMClusterRuntimeConfig`, which the aiwb release owns on a `demo`
+  cluster.
+- `smoke-gpu` needs a `default` cluster.
+- `smoke-demo` and `smoke-ui` need a `demo` cluster.
+
+`just smoke` takes the variables `NAMESPACE`, `AIM_OBJECT` and
+`PULL_SECRET_JSON`. `AIM_OBJECT` is the path of an AIMService object.
+`smoke-gpu` uses `tests/aimservice-gpu.yaml`, a public model image of
+`amdenterpriseai`. `PULL_SECRET_JSON` is optional for it. It lifts the Docker
+Hub rate limit of an anonymous pull.
+
+`just smoke` pulls `ghcr.io/silogen/aim-dummy`. The image is public. If your
+cluster needs credentials for ghcr.io, set `PULL_SECRET_JSON` to a docker
+config JSON before you run it.
 
 ## Measure the footprint
 
@@ -344,10 +354,6 @@ NAMESPACES="kyverno cert-manager kserve-system aim-system kube-amd-gpu" \
 The script prints markdown: pods, requests and limits per namespace, live usage
 from `kubectl top`, the volume claims, and the image size on the node. Run it on
 a node to get the image size.
-
-`just smoke` pulls `ghcr.io/silogen/aim-dummy`. The image is public. If your
-cluster needs credentials for ghcr.io, set `PULL_SECRET_JSON` to a docker
-config JSON before you run it.
 
 ## Packages
 
@@ -413,11 +419,11 @@ must not extend a third profile. An entry that replaces a base entry replaces
 it as a whole, so it must restate every value of the base entry that it wants
 to keep.
 
-A `-cpu` profile is a full copy of its GPU twin, not an extends child: extends
-cannot take a package out of the base list, and the GPU operator must install
-before aim-engine. The test `profiles_test.go` holds the copies to exactly
-three differences: the two GPU packages, the catalog family, and the
-accelerator detector.
+A `-cpu` profile is a full copy of its GPU twin, not an `extends` child.
+`extends` cannot take a package out of the base list, and the GPU operator must
+install before aim-engine. The test `profiles_test.go` checks that the copies
+have exactly three differences: the two GPU packages, the catalog family, and
+the accelerator detector.
 
 `vars` declares the inputs. `--var name=value` fills one. A variable that the
 profile declares as null needs a value and stops the run without one. A

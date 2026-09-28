@@ -60,6 +60,7 @@ their own `cluster-tls` Secret.
 ## Known limits
 
 - The API-key page answers 503. There is no cluster-auth.
+- A model route asks for a Dex token. There are no API keys for each model.
 - Datasets, artifacts and S3-backed models answer "storage unavailable".
 - The metrics panels stay empty. There is no Prometheus.
 - The browser warns about the self-signed certificate.
