@@ -86,6 +86,31 @@ on a real cluster. The last items are requests to other teams.
 - Node-feature-discovery for the `-cpu` profiles, so that the CPU detector
   of aim-engine can label the node. Today the `-cpu` profiles run no
   detector, because the result would go into a feature file that nothing reads.
+- A `default` install on a cluster with no GPU fills the disk. The catalog
+  of `default` discovers every Instinct model, and each discovery pod pulls a
+  model image of about 10 GiB. On a CPU-only node with a 96 GiB disk the worker
+  pulled about 80 GiB in 25 minutes, and the uninstall then timed out in the
+  pre-delete hook of `amd-gpu-operator`. The `install` warning must name the
+  image pulls, and the discovery pods must not pull an image on a node with
+  no GPU.
+- `aim-catalog` does not remove the pods of its discovery Jobs. Ten minutes
+  after an install, `aim-system` held 160 `Succeeded` pods. Ask the
+  aim-engine team for `ttlSecondsAfterFinished` on the Job.
+- The cert-manager pods declare no requests and no limits, so the scheduler
+  does not see them.
+- The values of `envoy-gateway-config` set the node selector
+  `cluster-bloom/first-node: "true"`. No k0s cluster has that label, and
+  `install demo` warns `cannot overwrite table with non table for
+  ...envoyProxy.nodeSelector`. The profile cannot override the value.
+- Two empty namespaces stay after an uninstall: `aims-test` from
+  `--smoke-test` and `aims-system` from the `demo` install. Neither is the
+  namespace of a package, so the purge does not remove them.
+- An uninstall keeps more CRDs than necessary. It keeps a CRD when a package
+  that stays ships the same name in its chart, also when nothing that stays
+  uses the API group. The CRDs go later with the base profile. Make the
+  decision from the live owners, not from the chart names.
+- The warning for a GPU that is not Instinct is not tested on a node with a
+  Radeon card. Only the table test of `kube_test.go` checks it.
 - Blueprints on top of the default profile.
 - An AIRM package. The `demo` profile holds AIWB without AIRM.
 - Autoscaling as a capability that the cluster gives, `autoscaling.keda`, with

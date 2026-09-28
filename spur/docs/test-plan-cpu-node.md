@@ -3,8 +3,8 @@
 The repeatable CPU test round of the `spur aims` plugin. It applies to any
 node with no GPU: a cloud VM, a bare-metal server or a local VM. It needs no
 cluster-bloom. The GPU path is in
-[Set up one node for a Spur Kubernetes cluster](spur-node-setup.md), and the results of
-both are in [spur-aims test findings](spur-aims-findings.md).
+[Set up one node for a Spur Kubernetes cluster](spur-node-setup.md), and the open
+results of both are in [Future work](future-work.md).
 
 Any Spur cluster with k0s is sufficient. On Kaytoo VMs, the
 `spur-kaytoo-cluster` skill makes one. This page adds only what the

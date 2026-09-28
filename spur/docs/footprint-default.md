@@ -82,7 +82,7 @@ image, about 630 MiB together.
   does not see them. Their live usage is about 4m CPU and 103Mi memory.
 - `aim-catalog` leaves the pods of its discovery Jobs behind in `Succeeded`.
   They hold no resources, but a `kubectl get pods -n aim-system` shows
-  hundreds of them. See `spur-aims-findings.md`.
+  hundreds of them. See [Future work](future-work.md).
 - The containerd directory of the node held 268 GiB over 400 images at the
   time of the measurement. That is the result of earlier test rounds on the
   same node, not the footprint of this profile.

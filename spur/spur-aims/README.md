@@ -95,5 +95,5 @@ The tests hold the Go probes to the capabilities that `capabilities.yaml`
 declares, load every profile and chart, check the variable rules, the profile
 format and the install record arithmetic, and hold every `-cpu` profile to its
 GPU twin. `spur/tests/optional-package-cycle.sh` needs a cluster and the built
-binary. `spur/docs/spur-aims-findings.md` keeps the results of the
+binary. `spur/docs/future-work.md` keeps the open results of the
 cluster tests.

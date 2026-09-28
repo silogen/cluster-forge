@@ -468,7 +468,6 @@ notes: |
 - [The minimal install slide](docs/slide-minimal-install.md)
 - [Architecture decision records](docs/adr/)
 - [Test plan: spur-aims on CPU-only nodes](docs/test-plan-cpu-node.md)
-- [spur-aims test findings](docs/spur-aims-findings.md)
 - [Set up one node for a Spur Kubernetes cluster](docs/spur-node-setup.md)
 - [Manual steps of a single-node GPU test](docs/manual-steps-single-node-gpu.md)
 - [Spur CLI plugins](docs/spur-cli-plugins.md)
