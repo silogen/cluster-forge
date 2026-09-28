@@ -5,5 +5,5 @@ type: application
 version: 0.1.0
 dependencies:
   - name: gpu-operator-charts
-    version: v1.4.1
-    repository: file://../../../sources/amd-gpu-operator/v1.4.1
+    version: v1.5.1
+    repository: file://../../../sources/amd-gpu-operator/v1.5.1

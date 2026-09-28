@@ -6,4 +6,4 @@ version: 0.1.0
 dependencies:
   - name: amd-gpu-operator-config
     version: 0.1.0
-    repository: file://../../../sources/amd-gpu-operator-config/v1.4.1
+    repository: file://../../../sources/amd-gpu-operator-config/v1.5.1
