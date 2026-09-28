@@ -238,9 +238,9 @@ the control-plane node it falls back to `sudo k0s kubeconfig admin`.
 is: Spur, Spur under `sudo -n`, then `sudo -n k0s kubeconfig admin`.
 
 A Spur cluster with more than one node needs pod traffic between the nodes.
-On OCI the default kube-router mode does not give that. See
-[Future work](docs/future-work.md) for the workaround that the three-node test
-used.
+On OCI, kube-router must run in full overlay mode. Spur does this since
+ROCm/spur#861. For an older Spur build, see
+[Future work](docs/future-work.md#done) for the workaround.
 
 ## Validate
 

@@ -57,8 +57,8 @@ the two workers. Live usage from `kubectl top`: 11 mCPU and 227 MiB together.
 The node that ran the measurement holds 60 images and 13 GiB in
 `/var/lib/k0s/containerd`.
 
-The three-node cluster on OCI needs kube-router in full overlay mode. See
-[future work](future-work.md).
+The three-node cluster on OCI needs kube-router in full overlay mode. Spur
+does this since ROCm/spur#861. See [future work](future-work.md#done).
 
 Reproduce with:
 
