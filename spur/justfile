@@ -73,6 +73,10 @@ package-cycle:
 version-drift:
     tests/check-version-drift.sh
 
+# The DRA DeviceClass and DeviceConfigs of the gpu-sharing profile. Needs helm.
+gpu-sharing-render:
+    tests/check-gpu-sharing-render.sh
+
 # Print a markdown footprint report. Set NAMESPACES to measure other namespaces.
 footprint label="idle":
     footprint/footprint.sh "$1"

@@ -43,6 +43,20 @@ only if the root helmParameter is omitted.
 The Spur `seaweedfs` package sets both values to `false`, because the minimal
 core has no OpenBao, no external-secrets and no gateway.
 
+## `amd-gpu-operator-config` GPU sharing with Spur
+
+| Value | Default | Purpose |
+|-------|---------|---------|
+| `gpuSharing.enabled` | `false` | Add the DeviceConfig `gpu-operator-dra` (DRA driver on nodes with `spur.amd.com/gpu-sharing=true`) and the DeviceClass `gpu.amd.com` with `extendedResourceName: amd.com/gpu`. The device plugin then selects only nodes with `spur.amd.com/gpu-sharing=false`. |
+| `gpuSharing.draDriverImage` | `docker.io/rocm/k8s-gpu-dra-driver:v1.0.1` | The DRA driver image. Keep a fixed tag. |
+| `gpuSharing.metricsNodePort` | `32501` | Node port of the metrics exporter of `gpu-operator-dra`. |
+
+This chart is the one owner of the DeviceClass. The `amd-gpu-operator` app
+and the Spur `amd-gpu-operator` package set `draDriver.deviceClass.create`
+to `false`, so that the operator chart does not make a second class. The Spur
+profile `gpu-sharing` sets `gpuSharing.enabled`. See
+[`spur/docs/spur-gpu-sharing.md`](../spur/docs/spur-gpu-sharing.md).
+
 ## AI Gateway webhook TLS (prevention vs heal)
 
 Mainline clusters issue the envoy-ai-gateway mutating webhook serving cert via
