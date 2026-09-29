@@ -111,17 +111,19 @@ for ns in seaweedfs-instance keda opentelemetry-system; do
 done
 kubectl get crd -o name | grep -Eq 'keda\.sh$|opentelemetry\.io$|seaweed\.seaweedfs\.com$' \
   && fail "CRDs of an optional component exist"
-# Discovery pods appear and finish all the time, so give them a moment.
+# The catalog starts discovery Job pods all the time, so Job pods do not count.
+bad_pods() {
+  kubectl get pods --all-namespaces \
+    --field-selector=status.phase!=Running,status.phase!=Succeeded -o json \
+    | jq -r '.items[] | select(.metadata.ownerReferences[0].kind != "Job")
+             | "\(.metadata.namespace)/\(.metadata.name) \(.status.phase)"'
+}
 for _ in $(seq 1 6); do
-  bad="$(kubectl get pods --all-namespaces \
-    --field-selector=status.phase!=Running,status.phase!=Succeeded \
-    -o name | wc -l)"
-  [ "$bad" -eq 0 ] && break
+  bad="$(bad_pods)"
+  [ -z "$bad" ] && break
   sleep 10
 done
-[ "$bad" -eq 0 ] || { kubectl get pods --all-namespaces \
-  --field-selector=status.phase!=Running,status.phase!=Succeeded; \
-  fail "$bad pods are not Running or Succeeded"; }
+[ -z "$bad" ] || { echo "$bad" >&2; fail "pods are not Running or Succeeded"; }
 ok "no unexpected components"
 fi
 
