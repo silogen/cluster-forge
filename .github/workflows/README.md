@@ -9,6 +9,7 @@ This directory contains CI/CD workflows for cluster-forge.
 | `helm-chart-checks.yaml` | `pull_request` | Validates Helm charts and Kyverno policy test coverage. |
 | `pr-component-validation.yaml` | `pull_request` (path-filtered), `workflow_dispatch` | Validates SBOM/component sync when key files change. |
 | `release-pipeline.yaml` | `workflow_dispatch` | Calculates or overrides a release version, creates a GitHub **prerelease**, and publishes SBOM. |
+| `shellcheck.yaml` | `pull_request` | Runs ShellCheck on the shell scripts. |
 
 ## Workflow details
 
@@ -42,6 +43,12 @@ This directory contains CI/CD workflows for cluster-forge.
   - Generates SBOM via `sbom/generate-sbom.sh`.
   - Renames output to `sbom-<version>-<short-sha>.md`.
   - Uploads SBOM asset to the GitHub release with `--clobber`.
+
+### `shellcheck.yaml`
+
+- Runs on each PR to `main`, with no path filter, so that it can be a required status check.
+- Runs `shellcheck -S warning` on each `*.sh` file that git tracks, except the vendored charts in `sources/`.
+- Fails on findings at the `warning` and `error` levels. Findings at the `info` and `style` levels do not fail the job.
 
 ## Operating notes
 
