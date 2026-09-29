@@ -1237,7 +1237,7 @@ helm template envoy-ai-gateway oci://127.0.0.1:5000/hauler/ai-gateway-helm --ver
 #### 4.4.23 Envoy Gateway configuration
 
 ```bash
-helm template envoy-gateway-config oci://127.0.0.1:5000/hauler/envoy-gateway-config --version 0.1.0 --plain-http --include-crds --no-hooks --namespace envoy-gateway-system --set domain=MY-HAULER-DOMAIN --set aiGateway.enabled=true --set aiGateway.routeHostname=ai.MY-HAULER-DOMAIN --set aiGateway.discoveryNamespace=ai-gateway-system --set aiGateway.bodyAuthMaxRequestBytes=4194304 | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n envoy-gateway-system --server-side --force-conflicts -f -
+helm template envoy-gateway-config oci://127.0.0.1:5000/hauler/envoy-gateway-config --version 0.1.0 --plain-http --include-crds --no-hooks --namespace envoy-gateway-system --set domain=MY-HAULER-DOMAIN --set-string envoyProxy.nodeSelector.cluster-bloom/first-node=true --set aiGateway.enabled=true --set aiGateway.routeHostname=ai.MY-HAULER-DOMAIN --set aiGateway.discoveryNamespace=ai-gateway-system --set aiGateway.bodyAuthMaxRequestBytes=4194304 | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n envoy-gateway-system --server-side --force-conflicts -f -
 ```
 
 #### 4.4.23a EnvoyProxy data-plane image

@@ -1246,6 +1246,7 @@ fi
 if should_run 23; then
   apply_chart 4.4.23 envoy-gateway-config envoy-gateway-config 0.1.0 envoy-gateway-system \
     --set "domain=${CF_DOMAIN}" \
+    --set-string envoyProxy.nodeSelector.cluster-bloom/first-node=true \
     --set appsGateway.serviceType=LoadBalancer \
     --set aiGateway.enabled=true \
     --set "aiGateway.routeHostname=ai.${CF_DOMAIN}" \

@@ -133,10 +133,6 @@ This is the text of the issue for ROCm/spur. It is not open.
   aim-engine team for `ttlSecondsAfterFinished` on the Job.
 - The cert-manager pods declare no requests and no limits, so the scheduler
   does not see them.
-- The values of `envoy-gateway-config` set the node selector
-  `cluster-bloom/first-node: "true"`. No k0s cluster has that label, and
-  `install demo` warns `cannot overwrite table with non table for
-  ...envoyProxy.nodeSelector`. The profile cannot override the value.
 - Two empty namespaces stay after an uninstall: `aims-test` from
   `--smoke-test` and `aims-system` from the `demo` install. Neither is the
   namespace of a package, so the purge does not remove them.
