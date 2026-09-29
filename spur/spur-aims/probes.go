@@ -121,6 +121,23 @@ var probes = map[string]func(context.Context, *cluster) bool{
 		}
 		return false
 	},
+	"gpu.spur-sharing": func(ctx context.Context, c *cluster) bool {
+		// A node that Spur shares with Kubernetes runs the AMD DRA driver,
+		// not the device plugin. The node is ready when the driver publishes
+		// its GPUs.
+		nodes, err := c.typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: "spur.amd.com/gpu-sharing=true"})
+		if err != nil {
+			return false
+		}
+		slices := c.dynamic.Resource(gvr("resource.k8s.io", "v1", "resourceslices"))
+		for _, n := range nodes.Items {
+			list, err := slices.List(ctx, metav1.ListOptions{FieldSelector: "spec.driver=gpu.amd.com,spec.nodeName=" + n.Name})
+			if err == nil && len(list.Items) > 0 {
+				return true
+			}
+		}
+		return false
+	},
 }
 
 func capabilityNames() []string {
