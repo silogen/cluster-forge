@@ -1,0 +1,6 @@
+name: aim-catalog
+namespace: aim-system
+provides:
+  - catalog.aim
+requires:
+  - inference.aim

@@ -1,0 +1,6 @@
+dependencies:
+- name: seaweedfs-config
+  repository: file://../../../sources/seaweedfs-config
+  version: 0.1.0
+digest: sha256:08b4315a36105b19f2df7ac18654bc53caf83e68948ca1216655ee68d56a7a79
+generated: "2026-09-09T16:35:38.630709853+03:00"

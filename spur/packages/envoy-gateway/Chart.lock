@@ -1,0 +1,6 @@
+dependencies:
+- name: gateway-helm
+  repository: file://../../../sources/envoy-gateway/v1.8.1
+  version: v1.8.1
+digest: sha256:9359b89f3808573561e5eb06718d084dd3e57a278d17a1c36fda384c73b7da51
+generated: "2026-09-10T19:29:44.902445796+03:00"

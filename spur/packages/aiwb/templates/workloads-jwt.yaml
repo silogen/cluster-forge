@@ -1,0 +1,50 @@
+{{- if .Values.workloadsJwt.enabled }}
+{{- $chart := index .Values "aiwb-chart" }}
+{{- $jwks := .Values.workloadsJwt.jwksService }}
+# The aiwb chart puts no access control on the model routes of
+# workloads.<domain>. This policy asks for a token of the OIDC issuer on every
+# route that aim-engine makes. The UI chat calls the model inside the cluster
+# and does not go through the gateway.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: workloads-jwt
+  namespace: {{ $chart.defaultNamespace }}
+spec:
+  targetSelectors:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      matchExpressions:
+        - key: aim.eai.amd.com/service
+          operator: Exists
+  jwt:
+    providers:
+      - name: oidc
+        issuer: {{ $chart.oidc.issuer | default (printf "https://auth.%s" $chart.appDomain) | quote }}
+        audiences:
+          - {{ $chart.oidc.audience | quote }}
+        remoteJWKS:
+          uri: {{ $chart.oidc.jwksUrl | quote }}
+          # Dex keeps its keys in memory and makes new ones at each restart.
+          # With the default of 5 minutes, a new token gets 401 that long.
+          cacheDuration: 60s
+          backendRefs:
+            - name: {{ $jwks.name }}
+              namespace: {{ $jwks.namespace }}
+              port: {{ $jwks.port }}
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: workloads-jwt
+  namespace: {{ $jwks.namespace }}
+spec:
+  from:
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: {{ $chart.defaultNamespace }}
+  to:
+    - group: ""
+      kind: Service
+      name: {{ $jwks.name }}
+{{- end }}

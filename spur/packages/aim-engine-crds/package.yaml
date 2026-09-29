@@ -1,0 +1,5 @@
+name: aim-engine-crds
+namespace: aim-system
+provides:
+  - inference.aim.crds
+requires: []

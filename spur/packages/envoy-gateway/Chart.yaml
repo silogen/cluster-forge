@@ -1,0 +1,9 @@
+apiVersion: v2
+name: envoy-gateway
+description: Envoy Gateway control plane
+type: application
+version: 0.1.0
+dependencies:
+  - name: gateway-helm
+    version: v1.8.1
+    repository: file://../../../sources/envoy-gateway/v1.8.1

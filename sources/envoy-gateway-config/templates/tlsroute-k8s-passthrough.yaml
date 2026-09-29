@@ -1,3 +1,4 @@
+{{- if .Values.k8sPassthrough.enabled }}
 # SNI k8s.<domain> -> kubernetes API service (TLS passthrough via the apps gateway's
 # k8s-passthrough listener). In the `default` namespace alongside the `kubernetes` service,
 # so no ReferenceGrant is needed.
@@ -22,3 +23,4 @@ spec:
           name: kubernetes
           port: 443
           weight: 1
+{{- end }}

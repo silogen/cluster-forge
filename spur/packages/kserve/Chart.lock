@@ -1,0 +1,6 @@
+dependencies:
+- name: kserve
+  repository: file://../../../sources/kserve/v0.16.0
+  version: v0.16.0
+digest: sha256:d7dc387a04efe0423f53073cb6bd9fc3978602a6e93498dbbe23f8264c9b34ac
+generated: "2026-09-09T15:37:55.705371042+03:00"

@@ -1,0 +1,469 @@
+# AIMs in a Spur k0s Kubernetes cluster
+
+This path installs a minimal cluster-forge on a Spur Kubernetes cluster, the
+k0s cluster that Spur manages, or on another Kubernetes cluster that already
+exists. The `spur aims` plugin does the install: one Helm release per
+package, with the Helm library, from the charts inside the binary. It does not
+install ArgoCD, Gitea or OpenBao.
+
+There are four profiles:
+
+- `default` gives one model endpoint that aim-engine and KServe serve on AMD
+  Instinct GPUs. It holds the AMD GPU operator, turns the accelerator detector
+  on and takes the Instinct family of the catalog. It does not install AIRM,
+  AIWB, Dex, Kaiwo, Kueue, a gateway or a UI.
+- `default-cpu` gives the same on a cluster with no GPU: no GPU operator, no
+  accelerator detector, and the EPYC family of the catalog.
+- `demo` extends `default` with a gateway, one PostgreSQL Pod, Dex as the OIDC
+  issuer and AIWB. It is a reference demo installation, not a production
+  installation. See [The demo profile](#the-demo-profile).
+- `demo-cpu` is the same demo on top of `default-cpu`.
+
+A blank profile name is `default`. `--no-gpu` adds `-cpu` to the name. The
+profile `test-s3` exists for one test only, see [Test](#test).
+
+This path runs beside the ArgoCD path in `root/`. It does not replace it.
+
+## Prerequisites
+
+- A Kubernetes cluster and a cluster-admin kubeconfig, or a Spur cluster that
+  gives one.
+- A default StorageClass with dynamic provisioning.
+- No tool on the node. The build of the binary needs `just`, `go` and, once,
+  `helm` with the network. The test scripts need `kubectl`, `helm`, `yq` v4
+  and `jq`.
+
+The `just` commands in this document run in the `spur` directory. From the
+root of the repository, use `just spur/<command>`. `just --list` shows every
+command.
+
+### Storage and routing
+
+aim-engine 0.2.6 asks for ReadWriteMany cache volumes. If your default
+StorageClass gives ReadWriteOnce only, as local-path-provisioner does, keep the
+`kyverno` and `kyverno-policies-storage-local-path` packages in the profile.
+They rewrite the access mode at admission time. Take them out when the cluster
+gives ReadWriteMany.
+
+The `default` profiles do no routing. Use a port-forward to reach the model.
+They add no autoscaling. If a profile needs autoscaling, the cluster must give
+it.
+
+## Install
+
+Build the binary once, see [spur-aims/README.md](spur-aims/README.md):
+
+```bash
+# See spur-aims/README.md for troubleshooting if errors are encountered
+just all
+```
+
+Then, on any cluster:
+
+```bash
+export KUBECONFIG=/path/to/admin.kubeconfig
+just install            # default, on AMD Instinct GPUs
+just install --no-gpu   # default-cpu
+```
+
+On a Spur cluster, `spur aims install` does the same and finds the
+kubeconfig itself. See [Install on a Spur k0s cluster](#install-on-a-spur-k0s-cluster).
+
+## The demo profile
+
+The demo shows the whole path: log in through Dex, deploy a model from the
+catalog with the AIWB UI, and chat with the model. AIWB runs in standalone
+mode, so it needs no AIRM and no Kueue.
+
+```bash
+export KUBECONFIG=/path/to/admin.kubeconfig
+just install demo --var domain=demo.example.com
+```
+
+On a cluster without a load balancer, give the node address to the gateway and
+use a `nip.io` name. On a cluster with no GPU, add `--no-gpu`:
+
+```bash
+just install demo --no-gpu \
+  --var domain=10.0.255.181.nip.io \
+  --var gatewayServiceType=ClusterIP \
+  --var gatewayExternalIP=10.0.255.181
+```
+
+The profile declares three variables:
+
+| Variable | Meaning |
+|---|---|
+| `domain` | The DNS name under which the cluster answers. Required. Use a `nip.io` name such as `203.0.113.10.nip.io` when there is no real DNS name. |
+| `gatewayServiceType` | Service type of the Envoy data plane. Default `LoadBalancer`. |
+| `gatewayExternalIP` | Node address that a `ClusterIP` Service also answers on. Optional. |
+
+The install prints the URLs and the login of the demo user at the end.
+
+### The login
+
+Dex is the OIDC issuer of the demo: one Pod, one static user
+`devuser@<domain>`, one client `aiwb`, and its state in memory, so a restart
+of the Pod ends every session. The `aiwb-demo-secrets` package makes the
+password and the client secret. AIWB can log in through any OIDC issuer. The
+`oidc` block of the aiwb chart sets the issuer, the internal URL, the client
+and the JWKS URL. To use your own issuer, replace the `dex` package and set
+that block in the profile.
+
+### Call a model from outside the cluster
+
+AIM makes a route for each model on `workloads.<domain>`. The aiwb chart puts
+no access control on these routes, so the aiwb package adds a `SecurityPolicy`
+that asks for a token of the OIDC issuer on each of them. A request without a
+token gets 401. The UI chat calls the model inside the cluster, so it does not
+need the token.
+
+Get a token and a curl example:
+
+```bash
+just show-token-demo
+```
+
+The recipe uses the password grant of Dex for `devuser@<domain>`. The token
+is valid for 7 days, the `expiry.idTokens` value of the `dex` package. Dex
+keeps its signing keys in memory, so a restart of the Dex Pod makes every
+token invalid. Then run `just show-token-demo` again. Envoy reads the new
+keys within one minute.
+
+Any user who can log in to Dex can call every model. There are no keys for
+each model, and a token cannot be revoked before it expires. For API keys
+for each model, use the full cluster-forge installation. To turn the check
+off, set `workloadsJwt.enabled: false` in the values of the aiwb package, and
+do that only on a cluster that is not open to the internet.
+
+### How traffic reaches the gateway
+
+- **A cloud load balancer or MetalLB.** Keep the default
+  `gatewayServiceType=LoadBalancer`. Point `*.<domain>` at the address of the
+  Service.
+- **No load balancer.** Use `--var gatewayServiceType=ClusterIP --var
+  gatewayExternalIP=<node-ip>`. The Service keeps the node address in
+  `externalIPs`, so the node answers on port 443.
+- **Neither works.** Use `--var gatewayServiceType=NodePort` and the port that
+  the Service gets.
+
+The Envoy gateway of the `demo` profiles uses port 443 on the node. An ingress
+controller of the cluster that already holds port 443, for example Traefik or
+ingress-nginx, collides with it. Disable that ingress controller, or use
+`gatewayServiceType=NodePort`.
+
+### What the demo does not do
+
+- The API-key page is hidden and its endpoints answer 503. There is no
+  OpenBao and no ai-gateway-discovery. The model routes ask for a Dex token
+  instead, see [Call a model from outside the cluster](#call-a-model-from-outside-the-cluster).
+- Datasets, artifacts and models that need S3 answer "storage unavailable".
+  There is no S3 in the profile. The `seaweedfs-operator` and `seaweedfs`
+  packages are in the profile as comments.
+- The metrics panels stay empty. There is no Prometheus.
+- The browser shows a certificate warning, because the `selfsigned-tls`
+  package makes a self-signed certificate. Take that package out and bring
+  your own `cluster-tls` Secret in `envoy-gateway-system` to remove the
+  warning.
+- PostgreSQL is one Pod with one volume. There is no backup and no high
+  availability.
+- A model volume is about two times the model size, because the AIWB chart
+  sets `pvcHeadroomPercent: 100`.
+
+### The Secrets
+
+The `aiwb-demo-secrets` package makes every Secret that AIWB, Dex and
+PostgreSQL read. It makes each password once and reads it back with `lookup`
+on the next run, so an upgrade does not rotate it. `lookup` gives nothing
+under `helm template` and under ArgoCD, so the package works with the plugin
+only.
+
+This is the package to replace with your own secret management. The
+`secrets.demo` capability probe looks for the Secrets themselves, so when they
+already exist the package can leave the profile.
+
+## Install on a Spur k0s cluster
+
+[Set up one node for a Spur Kubernetes cluster](docs/spur-node-setup.md) gives every step
+from a node that runs nothing to a profile that serves a model. In short:
+
+1. Build `spurctld`, `spurd`, `spur` and `spur-aims`, and install them in
+   `/usr/local/bin` on the node.
+2. Write `/etc/spur/spur.conf` with `cluster_name`, a `[[partitions]]` block
+   and a `[cluster]` block that has `enabled = true`,
+   `allow_admin_kubeconfig = true` and a `local_path_dir` on the big disk.
+3. Let the k0s pod and service networks through the host firewall.
+4. Bind-mount a k0s data directory on the big disk to `/var/lib/k0s`.
+5. Start `spurctld`, then `spurd --address <node private ip>`.
+6. As root: `spur k8s install-k0s`, then `spur k8s up`. Wait until the node is
+   `Ready` and `local-path` is the default StorageClass.
+7. `spur aims install --smoke-test`.
+
+The rest of this section describes the plugin.
+
+`spur aims` does the whole install on a Spur cluster that runs Kubernetes
+from `spur k8s up`. It is a Spur CLI plugin. Put it on `PATH` under the name
+`spur-aims`, and `spur aims ...` runs it. `spur aims` needs a `spur` build that
+has the plugin mechanism, see [Spur CLI plugins](docs/spur-cli-plugins.md).
+`spur-aims ...` works with every `spur` build.
+
+The binary contains every chart, profile and capability probe of its release,
+so the node needs no tool and no access to GitHub. Build it with `just all`
+(see `spur-aims/README.md`) and copy it to the node:
+
+```bash
+just node-install ubuntu@<node>
+ssh ubuntu@<node> 'spur aims install'
+ssh ubuntu@<node> 'spur aims install demo --var domain=<node-ip>.nip.io \
+  --var gatewayServiceType=ClusterIP --var gatewayExternalIP=<node-ip>'
+```
+
+| Command | What it does |
+|---|---|
+| `spur aims list` | The profiles of this plugin release. |
+| `spur aims install [<profile>]` | Install the profile, `default` when the name is blank. `--var name=value` per profile variable. `--no-gpu` adds `-cpu` to the name. `--smoke-test` deploys a test model after the install. `--pull-secret <file>` makes the image pull Secret from a docker config JSON. |
+| `spur aims validate [<profile>]` | The capability check of `install`, with nothing installed. Takes the same name rules and variables. |
+| `spur aims status` | The install record and the live capability probes. |
+| `spur aims uninstall [<profile>]` | Show what goes, ask, then remove the packages of the profile. A blank name is every recorded profile. `--yes` skips the question, `--keep-data` keeps the PVCs and the CRDs. |
+| `spur aims version` | The ref that the binary was built from. |
+
+There is no `upgrade`. An upgrade is an `install` from a newer build.
+
+The plugin does not fill in a profile variable. `install demo` without
+`--var domain=` stops with an error. On a k0s cluster that has no load
+balancer, give all three variables as in the example above.
+
+The plugin never selects a profile on its own. `install` and `validate` ask
+Spur for the GPU of every node and print a warning when the profile and the
+GPUs do not go together: a `-cpu` profile on a cluster with AMD Instinct
+GPUs, a GPU profile on a cluster with no GPU, or a GPU that is not Instinct.
+The GPU profile supports Instinct only. On a node with another AMD GPU, use
+the `-cpu` profile. The warning never changes the name and never stops the
+command.
+
+Every install writes the profile, the ref, the time and the variables into the
+ConfigMap `install-record` in the namespace `aims-system`. `uninstall`
+reads it. When another recorded profile also contains a package, the package
+stays on the cluster. So `uninstall demo` on a cluster that also has `default`
+keeps the base packages.
+
+Spur's k0s gives local-path-provisioner as the default StorageClass. The
+default `spur k8s kubeconfig` is namespace-scoped, so it is not enough. The
+plugin asks Spur for the admin kubeconfig, which needs
+`allow_admin_kubeconfig = true` in the `[cluster]` section of `spur.conf`. On
+the control-plane node it falls back to `sudo k0s kubeconfig admin`.
+`--kubeconfig <path>` and `KUBECONFIG` win over both. Without them the order
+is: Spur, Spur under `sudo -n`, then `sudo -n k0s kubeconfig admin`.
+
+A Spur cluster with more than one node needs pod traffic between the nodes.
+On OCI, kube-router must run in full overlay mode. Spur does this since
+ROCm/spur#861. For an older Spur build, see
+[Future work](docs/future-work.md#done) for the workaround.
+
+## Validate
+
+```bash
+spur aims validate                     # default
+spur aims validate --no-gpu            # default-cpu
+spur aims validate demo --var domain=demo.example.com
+```
+
+`validate` needs the same `--var` values as `install`, so a missing variable
+shows before anything installs.
+
+Validation runs before every install. For each `requires` entry of a package,
+a package earlier in the profile or a cluster probe of `capabilities.yaml` must
+give the capability. The plugin stops at the first miss and names the
+capability and the packages that give it.
+
+## Remove
+
+```bash
+spur aims uninstall demo               # shows the plan, asks, keeps the CRDs of default
+spur aims uninstall demo --keep-data   # also keeps the PVCs and the CRDs of demo
+spur aims uninstall --yes              # every recorded profile, no question
+```
+
+`uninstall` removes the packages of the profile in reverse install order. It
+reads the install record. When another recorded profile also contains a
+package, the package and every CRD that it ships stay on the cluster. Before
+the first removal it prints, for every profile of the run, what goes, what
+stays, what is not installed, and the namespaces that the purge deletes with
+their PVCs. Then it asks `Remove? [y/N]`. `--yes` skips the question. When
+stdin is not a terminal and `--yes` is absent, the command refuses.
+
+A blank name removes every recorded profile, a profile that extends another
+recorded profile before its base.
+
+`uninstall` refuses to remove a package that another installed package needs.
+An install run never removes anything. A package that you take out of the
+profile stays installed until you call `uninstall`. The plugin removes
+profiles, not single packages. To add and remove an optional package, put it
+in a profile that extends the installed one, as `test-s3` does. Then uninstall
+that profile.
+
+## Upgrade
+
+Run `install` again with the same profile. The command is idempotent.
+
+## Test
+
+```bash
+just test            # no cluster: the profile rules, the drift of the
+                     # -cpu copies, the removal plan and the probes
+just smoke           # the core serves a model
+just smoke-demo      # the same on a demo cluster
+just smoke-gpu       # a real model on a GPU cluster
+just smoke-ui        # login, API, deploy, chat with a token, 401 without
+just package-cycle   # add, re-install and purge seaweedfs through the
+                     # test-s3 profile
+just version-drift   # pins agree with root/values.yaml
+```
+
+Each test needs a different cluster:
+
+- `test` and `version-drift` need no cluster.
+- `smoke` and `package-cycle` need a `default-cpu` cluster. The cycle test
+  installs `default-cpu` and `test-s3` on top of it. Its aim-engine package
+  takes the `AIMClusterRuntimeConfig`, which the aiwb release owns on a `demo`
+  cluster.
+- `smoke-gpu` needs a `default` cluster.
+- `smoke-demo` and `smoke-ui` need a `demo` cluster.
+
+`just smoke` takes the variables `NAMESPACE`, `AIM_OBJECT` and
+`PULL_SECRET_JSON`. `AIM_OBJECT` is the path of an AIMService object.
+`smoke-gpu` uses `tests/aimservice-gpu.yaml`, a public model image of
+`amdenterpriseai`. `PULL_SECRET_JSON` is optional for it. It lifts the Docker
+Hub rate limit of an anonymous pull.
+
+`just smoke` pulls `ghcr.io/silogen/aim-dummy`. The image is public. If your
+cluster needs credentials for ghcr.io, set `PULL_SECRET_JSON` to a docker
+config JSON before you run it.
+
+## Measure the footprint
+
+```bash
+just footprint > /tmp/footprint.md
+NAMESPACES="kyverno cert-manager kserve-system aim-system envoy-gateway-system \
+  opentelemetry-operator-system postgres dex aiwb" \
+  just footprint          # the demo namespaces
+NAMESPACES="kyverno cert-manager kserve-system aim-system kube-amd-gpu" \
+  just footprint          # the default namespaces
+```
+
+The script prints markdown: pods, requests and limits per namespace, live usage
+from `kubectl top`, the volume claims, and the image size on the node. Run it on
+a node to get the image size.
+
+## Packages
+
+| Package | Namespace | Provides | Requires |
+|---|---|---|---|
+| kyverno | kyverno | policy.kyverno | (none) |
+| kyverno-policies-storage-local-path | kyverno | storage.access-mode-mutation | policy.kyverno |
+| cert-manager | cert-manager | certificates.cert-manager | (none) |
+| amd-gpu-operator | kube-amd-gpu | gpu.amd.operator | certificates.cert-manager |
+| amd-gpu-operator-config | kube-amd-gpu | gpu.amd | gpu.amd.operator |
+| kserve-crds | kserve-system | serving.kserve.crds | (none) |
+| kserve | kserve-system | serving.kserve | serving.kserve.crds, certificates.cert-manager |
+| gateway-api-crds | gateway-api | gateway.api.crds | (none) |
+| aim-engine-crds | aim-system | inference.aim.crds | (none) |
+| aim-engine | aim-system | inference.aim | inference.aim.crds, gateway.api.crds, serving.kserve, storage.default-class |
+| aim-catalog | aim-system | catalog.aim | inference.aim |
+| seaweedfs-operator (optional) | seaweedfs-operator | storage.s3.operator | (none) |
+| seaweedfs (optional) | seaweedfs-instance | storage.s3 | storage.s3.operator, storage.default-class |
+| envoy-gateway | envoy-gateway-system | gateway.api | gateway.api.crds |
+| selfsigned-tls | envoy-gateway-system | tls.cluster-cert | certificates.cert-manager |
+| envoy-gateway-config | envoy-gateway-system | gateway.https | gateway.api, tls.cluster-cert |
+| opentelemetry-crds | opentelemetry-operator-system | telemetry.otel.crds | (none) |
+| aiwb-demo-secrets | aiwb | secrets.demo | (none) |
+| postgres | postgres | database.postgres | storage.default-class, secrets.demo |
+| dex | dex | auth.oidc | gateway.https, secrets.demo |
+| aiwb | aiwb | workbench.ui | auth.oidc, database.postgres, gateway.https, inference.aim, policy.kyverno, telemetry.otel.crds, secrets.demo |
+
+The last nine rows belong to the `demo` profiles. The two `amd-gpu-operator`
+rows belong to the GPU profiles only.
+
+Several components ship their CRDs in one chart and objects of those CRDs in
+another. Helm builds the whole release manifest before it applies anything, so
+one release cannot hold both. Such a component is two packages: `kserve-crds`
+and `kserve`, `aim-engine-crds` and `aim-engine`, `seaweedfs-operator` and
+`seaweedfs`.
+
+### How to write a package
+
+A package is a directory under `packages/` with four files:
+
+- `Chart.yaml`: an umbrella chart that pins its dependencies. Use
+  `file://../../../sources/<path>` for a chart that this repository holds, and
+  an `oci://` repository with an exact version for a chart that it does not.
+- `Chart.lock`: commit it. `helm dependency build` writes it.
+- `values.yaml`: the default values of the package.
+- `package.yaml`: the name, the namespace, and the `provides` and `requires`
+  capability lists.
+
+One package installs as one Helm release in one namespace. Add a new
+capability name to `capabilities.yaml` together with a probe that tells if the
+cluster already gives it, and the same probe as Go code in
+`spur-aims/probes.go`.
+
+### How to write a profile
+
+A profile is a name and an ordered package list. The list order is the install
+order. A `values` block merges on top of the package `values.yaml`.
+
+`extends: <name>` takes the packages of another profile in the same directory.
+The base packages come first, an entry with the same name replaces the base
+entry in place, and the entries that only the child has follow. A base profile
+must not extend a third profile. An entry that replaces a base entry replaces
+it as a whole, so it must restate every value of the base entry that it wants
+to keep.
+
+A `-cpu` profile is a full copy of its GPU twin, not an `extends` child.
+`extends` cannot take a package out of the base list, and the GPU operator must
+install before aim-engine. The test `profiles_test.go` checks that the copies
+have exactly three differences: the two GPU packages, the catalog family, and
+the accelerator detector.
+
+`vars` declares the inputs. `--var name=value` fills one. A variable that the
+profile declares as null needs a value and stops the run without one. A
+variable that the profile declares as an empty string is optional.
+`${name}` in the text of the profile takes the value. A `${name}` that no
+profile declares stops the run.
+
+`notes` is printed after a successful install, with the variables filled in.
+
+```yaml
+name: my-profile
+extends: default
+vars:
+  domain:
+packages:
+  - name: aim-engine
+    values:
+      aim-engine-chart:
+        acceleratorDetector:
+          enable: true
+        clusterRuntimeConfig:
+          enable: true
+  - name: selfsigned-tls
+    values:
+      cert-manager-config:
+        domain: ${domain}
+notes: |
+  The cluster answers under ${domain}.
+```
+
+## Documents
+
+- [Footprint of default-cpu](docs/footprint-default-cpu.md)
+- [Footprint of default](docs/footprint-default.md)
+- [Footprint of demo](docs/footprint-demo.md)
+- [The demo slide](docs/slide-demo.md)
+- [The minimal install slide](docs/slide-minimal-install.md)
+- [Architecture decision records](docs/adr/)
+- [Test plan: spur-aims on CPU-only nodes](docs/test-plan-cpu-node.md)
+- [Set up one node for a Spur Kubernetes cluster](docs/spur-node-setup.md)
+- [Manual steps of a single-node GPU test](docs/manual-steps-single-node-gpu.md)
+- [Spur CLI plugins](docs/spur-cli-plugins.md)
+- [Future work](docs/future-work.md)

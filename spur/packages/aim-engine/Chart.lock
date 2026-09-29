@@ -1,0 +1,6 @@
+dependencies:
+- name: aim-engine-chart
+  repository: oci://registry-1.docker.io/amdenterpriseai
+  version: 0.2.6
+digest: sha256:5bfd32acc4284df382ff939d94b6775a67e5d8d20c477b07ca2eb84b833d4707
+generated: "2026-09-22T14:52:01.980338606+03:00"

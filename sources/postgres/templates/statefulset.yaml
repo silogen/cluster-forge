@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: postgres
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+      annotations:
+        checksum/init: {{ include (print $.Template.BasePath "/init-configmap.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.image }}
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.superuserSecretName }}
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.superuserSecretName }}
+                  key: password
+            # The data directory must be a subdirectory of the mount point,
+            # because the volume root holds lost+found on some storage classes.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            {{- range .Values.databases }}
+            - name: DB_USER_{{ .name | upper }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secretName }}
+                  key: username
+            - name: DB_PASSWORD_{{ .name | upper }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secretName }}
+                  key: password
+            {{- end }}
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: init
+          configMap:
+            name: postgres-init
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.storage.storageClassName }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.storage.size }}

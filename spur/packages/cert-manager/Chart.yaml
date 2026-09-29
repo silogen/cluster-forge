@@ -1,0 +1,9 @@
+apiVersion: v2
+name: cert-manager
+description: Certificate controller for the KServe webhooks
+type: application
+version: 0.1.0
+dependencies:
+  - name: cert-manager
+    version: v1.18.2
+    repository: file://../../../sources/cert-manager/v1.18.2

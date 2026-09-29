@@ -1,0 +1,13 @@
+gateway-helm:
+  crds:
+    gatewayAPI:
+      # The gateway-api-crds package installs the same CRDs and renders the
+      # safe upgrade policy. A second copy of that policy fails the install.
+      safeUpgradePolicy:
+        enabled: false
+  # The certgen job is a pre-install hook that patches the CA bundle into the
+  # topology injector webhook. helm applies a hook before every other object,
+  # so the webhook does not exist yet and the job never ends. The injector
+  # only adds topology hints to an Envoy Pod, which a demo does not need.
+  topologyInjector:
+    enabled: false

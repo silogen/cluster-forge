@@ -33,6 +33,16 @@ must stay in step. The chart-local default in
 `sources/envoy-gateway-config/values.yaml` is the same number and applies
 only if the root helmParameter is omitted.
 
+## `seaweedfs-config` integrations
+
+| Value | Default | Purpose |
+|-------|---------|---------|
+| `externalSecrets.enabled` | `true` | Get the S3 and admin credentials from OpenBao through external-secrets. If `false`, the chart makes the two Secrets itself and keeps their values on upgrade. |
+| `httpRoute.enabled` | `true` | Make the Gateway API HTTPRoutes for the S3 API and the admin UI. |
+
+The Spur `seaweedfs` package sets both values to `false`, because the minimal
+core has no OpenBao, no external-secrets and no gateway.
+
 ## AI Gateway webhook TLS (prevention vs heal)
 
 Mainline clusters issue the envoy-ai-gateway mutating webhook serving cert via
@@ -80,3 +90,40 @@ Post-handoff cluster checks. See [`scripts/platform-gates/README.md`](../scripts
 | `AI_GATEWAY_NAME` | `ai-gateway` | AI Gateway name (skipped when absent) |
 
 Webhook gate env vars are inherited from `ai-gateway-webhook-health.sh`.
+
+## `spur/spur-aims` (the Spur CLI plugin)
+
+Installs a Spur profile on a Spur Kubernetes cluster, as the Spur CLI plugin
+`spur aims`. Every chart of the release is inside the binary, so it takes
+no ref and needs no tool on the node. See
+[`spur/spur-aims/README.md`](../spur/spur-aims/README.md).
+
+| Flag or variable | Command | Default | Meaning |
+|---|---|---|---|
+| `<profile>` | `install`, `validate` | `default` | The profile name. A blank name is `default`, the profile on AMD Instinct GPUs. |
+| `<profile>` | `uninstall` | every recorded profile | A blank name removes every recorded profile, a child before its base. |
+| `--var name=value` | `install`, `validate` | none | Fill a variable that the profile declares. Repeat per variable. |
+| `--kubeconfig <path>` | all but `list` | none | Use this kubeconfig instead of asking Spur for one. |
+| `--pull-secret <file>` | `install` | none | Docker config JSON for the Secret `aim-pull` in `aim-system`. |
+| `--no-gpu` | `install`, `validate` | off | Add `-cpu` to the profile name: `default-cpu` or `demo-cpu`, with no GPU operator. Refused when the name already ends with `-cpu`. |
+| `--smoke-test` | `install` | off | Deploy the dummy model after the install and wait until it is ready. |
+| `--keep-data` | `uninstall` | off | Keep the PVCs and the CRDs of the profile. |
+| `--yes` | `uninstall` | off | Remove without the `Remove? [y/N]` question. Needed when stdin is not a terminal. |
+| `KUBECONFIG` | all but `list` | none | Used when `--kubeconfig` is not given. |
+| `PULL_SECRET_JSON` | `install` | empty | Same content as `--pull-secret`, as a string. |
+| `SPUR_BIN` | `install`, `validate`, `status`, and every command that needs a kubeconfig | `spur` | The Spur binary to ask for a kubeconfig and for the node GRES. |
+| `ref` (build time) | `just build <ref>` | the current branch | The version string that `version` prints and the install record keeps. |
+
+## `spur/tests/smoke.sh`
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PULL_SECRET_JSON` | empty | Docker config JSON for the registry of the test image. The dummy image is public, so it is optional. The GPU test image needs the Docker Hub credentials. |
+| `AIM_TIMEOUT` | `15m` | How long to wait for the AIMService conditions. |
+| `KEEP` | `0` | `1` keeps the `aims-test` namespace after the test. |
+
+## `spur/footprint/footprint.sh`
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `NAMESPACES` | `kyverno cert-manager kserve-system aim-system` | Namespaces to measure. |
