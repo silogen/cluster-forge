@@ -31,7 +31,9 @@ func TestGPUTypesOfAGresLine(t *testing.T) {
 		gres string
 		want []string
 	}{
-		{"gpu:mi300x:1,gpu:mi300x:1", []string{"mi300x", "mi300x"}},
+		{"gpu:mi300x:1,gpu:mi300x:1", []string{"mi300x"}},
+		{"gpu:mi325x:1,gpu:mi325x:1,gpu:mi325x:1,gpu:mi325x:1,gpu:mi325x:1,gpu:mi325x:1,gpu:mi325x:1,gpu:mi325x:1", []string{"mi325x"}},
+		{"gpu:mi300x:1,gpu:rx9070xt:1,gpu:mi300x:1", []string{"mi300x", "rx9070xt"}},
 		{"gpu:rx9070xt:1", []string{"rx9070xt"}},
 		{"cpu:64,mem:512G", nil},
 		{"", nil},
