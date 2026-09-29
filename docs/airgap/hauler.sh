@@ -129,7 +129,8 @@ ensure_hauler() {
     return 0
   fi
   if [[ -x ./haul/hauler ]]; then
-    export PATH="$(pwd)/haul:${PATH}"
+    PATH="$(pwd)/haul:${PATH}"
+    export PATH
     echo "using bundled hauler $(command -v hauler)"
     return 0
   fi

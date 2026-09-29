@@ -63,6 +63,7 @@
 
 set -euo pipefail
 
+# shellcheck disable=SC2034 # the sourced install.sh reads it
 CF_START_EPOCH="$(date +%s)"
 
 # ============================================================================
@@ -196,6 +197,7 @@ done
 
 read -ra CF_SKIP <<< "${cf_skip_arg//,/ }"
 
+# shellcheck source=docs/openshift/install.sh
 CF_LIB_ONLY=true source "$(cf_locate_setup)"
 
 # The order to walk. Reversed once, here, so everything below reads forwards.
@@ -741,12 +743,12 @@ guard_is_ours() {
 # belong to a step, and are left to it so that re-running a step still checks it.
 drainable_types() {
   local -A declared=()
-  local crd name scope group kind version managers
+  local crd name _scope group kind version managers
   while IFS= read -r crd; do
     [ -n "${crd}" ] && declared["${crd}"]=1
   done < <(declared_crd_names)
 
-  while IFS='|' read -r name scope group kind version managers; do
+  while IFS='|' read -r name _scope group kind version managers; do
     [ -z "${name}" ] && continue
     [ -n "${declared["${name}"]:-}" ] || continue
     ours "${managers}" || continue
