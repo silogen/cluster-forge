@@ -18,7 +18,7 @@ appsGateway:
 coreDns:
   enabled: true
 
-# Envoy data plane pod placement.
+# Envoy data plane pod placement, for the apps gateway and the ai-gateway.
 # root/values.yaml sets the cluster-bloom first-node label for the ArgoCD install.
 # Spur install does not use the first-node label.
 envoyProxy:
