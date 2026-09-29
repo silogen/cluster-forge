@@ -548,8 +548,6 @@ apps:
         to: external-secrets.io/v1
       - from: kube-amd-gpu
         to: ${CF_AMD_GPU_NS}
-      - from: '^\( *\)regex: gpu-operator-metrics-exporter\.\*$'
-        to: '\1regex: .*metrics-exporter.*'
     # The chart mounts the data dirs upstream added for OpenShift in
     # grafana/docker-otel-lgtm#133, but otel-lgtm 0.29.2 writes three more
     # paths OpenShift forbids creating: Pyroscope's /data/pyroscope, Tempo
