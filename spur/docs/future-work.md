@@ -52,6 +52,39 @@ on a real cluster. The last items are requests to other teams.
     6821 can run work as root. The toolkit gives systemd units and native
     auth with `spur_auth_mode: required`, but no listen address and no
     firewall. Ask upstream for a listen address variable.
+14. Send the request for parallel image pulls to ROCm/spur as one issue. Do
+    not open it before the team agrees. See
+    [Request for parallel image pulls in k0s](#request-for-parallel-image-pulls-in-k0s).
+
+## Request for parallel image pulls in k0s
+
+This is the text of the issue for ROCm/spur. It is not open.
+
+> **Title:** Let `spur k8s up` set parallel image pulls in the k0s kubelet
+>
+> k0s keeps the kubelet default `serializeImagePulls: true`, so the kubelet
+> of a node pulls one image at a time. On a cold GPU node, the discovery pods
+> of an AIM catalog pull about 250 GB of model images. A small image that a
+> later package needs, for example `postgres:17-alpine`, waits behind that
+> queue for more than 10 minutes, and the install times out.
+>
+> Spur has no setting for the kubelet configuration of k0s
+> (`crates/spur-core/src/k0s.rs`, `config.rs`). Please add a setting in
+> `spur.conf`, for example:
+>
+> ```toml
+> [k8s.kubelet]
+> serialize_image_pulls = false
+> max_parallel_image_pulls = 4
+> ```
+>
+> `spurctld` writes the values into the worker profile of the k0s
+> configuration (`spec.workerProfiles[].values`), as the kubelet fields
+> `serializeImagePulls` and `maxParallelImagePulls`. Keep the kubelet
+> default when the setting is absent.
+>
+> spur-aims now waits while a pull makes progress, so the install passes
+> without this setting, but it takes longer.
 
 ## Open items
 
