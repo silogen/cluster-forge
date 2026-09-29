@@ -1,3 +1,7 @@
+# A DeviceConfig selects nodes by one set of labels. NFD labels a node that has
+# physical Instinct GPUs amd-gpu, and a node that has SR-IOV virtual functions,
+# for example a cloud VM, amd-vgpu. This one selects amd-gpu, and
+# deviceconfig-vf.yaml selects amd-vgpu.
 apiVersion: amd.com/v1alpha1
 kind: DeviceConfig
 metadata:
