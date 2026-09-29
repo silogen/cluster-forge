@@ -142,6 +142,12 @@ This is the text of the issue for ROCm/spur. It is not open.
   decision from the live owners, not from the chart names.
 - The warning for a GPU that is not Instinct is not tested on a node with a
   Radeon card. Only the table test of `kube_test.go` checks it.
+- `tests/aimservice-dummy.yaml` stays on the deprecated v1alpha1 AIMService.
+  v1alpha2 rejects `spec.template`, so it cannot set `allowUnoptimized`, and
+  the profile pipeline has no `model.custom` shortcut. The move needs a
+  base-image AIMModel for `aim-dummy`, a derived AIMModel with the
+  `tiny-gpt2` source, and an AIMService with `spec.model.name`. `smoke.go`
+  then applies three objects.
 - Blueprints on top of the default profile.
 - An AIRM package. The `demo` profile holds AIWB without AIRM.
 - Autoscaling as a capability that the cluster gives, `autoscaling.keda`, with

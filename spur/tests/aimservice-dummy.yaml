@@ -1,6 +1,12 @@
 # CPU-only smoke-test service. The image is public. smoke.sh removes the
 # imagePullSecrets entry when GHCR_PULL_SECRET_JSON is not set, because
 # aim-engine fails the model when the named secret does not exist.
+#
+# The object stays on v1alpha1, and aim-engine 0.2.6 warns that v1alpha1 is
+# deprecated. v1alpha2 rejects spec.template, so allowUnoptimized has no place,
+# and the custom model template is unoptimized. The v1alpha2 profile pipeline
+# has no model.custom shortcut: it needs a base-image AIMModel and a derived
+# AIMModel. See docs/future-work.md.
 apiVersion: aim.eai.amd.com/v1alpha1
 kind: AIMService
 metadata:
