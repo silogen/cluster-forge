@@ -23,5 +23,21 @@ profiles:
 # Empty keeps the operator default, /var/lib/kubelet/pod-resources, which is
 # right for vanilla Kubernetes, RKE2 and k3s. A distribution that moves the
 # kubelet root needs its own path, for example /var/lib/k0s/kubelet/pod-resources
-# on k0s.
+# on k0s. Both DeviceConfigs use it, also gpu-operator-dra on shared nodes.
 podResourceAPISocketPath: ""
+
+# GPU sharing with Spur. A node with the label spur.amd.com/gpu-sharing=true
+# gets the AMD DRA driver (gpu.amd.com) and no device plugin, so Spur and
+# Kubernetes can share its GPUs. The DeviceConfig selector matches labels by
+# equality only, and the operator rejects two DeviceConfigs over one node. So
+# when this is on, the device plugin goes only to GPU nodes with the label
+# spur.amd.com/gpu-sharing=false, and a GPU node with neither value gets no
+# GPU component. This chart then also owns the DeviceClass gpu.amd.com, which
+# maps amd.com/gpu requests to DRA.
+gpuSharing:
+  enabled: false
+  # The operator default is the latest tag. Keep a fixed release.
+  draDriverImage: docker.io/rocm/k8s-gpu-dra-driver:v1.0.1
+  # A second metrics exporter Service, so it cannot use the port of the
+  # device-plugin DeviceConfig.
+  metricsNodePort: 32501

@@ -18,6 +18,9 @@ There are four profiles:
   issuer and AIWB. It is a reference demo installation, not a production
   installation. See [The demo profile](#the-demo-profile).
 - `demo-cpu` is the same demo on top of `default-cpu`.
+- `gpu-sharing` extends `default` for nodes where Spur jobs and pods share the
+  GPUs. It runs the AMD DRA driver on the shared nodes. See
+  [Share the GPUs of a node](docs/spur-gpu-sharing.md).
 
 A blank profile name is `default`. `--no-gpu` adds `-cpu` to the name. The
 profile `test-s3` exists for one test only, see [Test](#test).
@@ -318,11 +321,14 @@ just smoke-ui        # login, API, deploy, chat with a token, 401 without
 just package-cycle   # add, re-install and purge seaweedfs through the
                      # test-s3 profile
 just version-drift   # pins agree with root/values.yaml
+just gpu-sharing-render  # the gpu-sharing profile renders one DeviceClass
+                         # with the amd.com/gpu mapping and disjoint
+                         # DeviceConfig selectors
 ```
 
 Each test needs a different cluster:
 
-- `test` and `version-drift` need no cluster.
+- `test`, `version-drift` and `gpu-sharing-render` need no cluster.
 - `smoke` and `package-cycle` need a `default-cpu` cluster. The cycle test
   installs `default-cpu` and `test-s3` on top of it. Its aim-engine package
   takes the `AIMClusterRuntimeConfig`, which the aiwb release owns on a `demo`
@@ -467,3 +473,4 @@ notes: |
 - [Manual steps of a single-node GPU test](docs/manual-steps-single-node-gpu.md)
 - [Spur CLI plugins](docs/spur-cli-plugins.md)
 - [Future work](docs/future-work.md)
+- [Share the GPUs of a node between Spur and Kubernetes](docs/spur-gpu-sharing.md)

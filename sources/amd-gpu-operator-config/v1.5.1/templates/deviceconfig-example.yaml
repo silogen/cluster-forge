@@ -197,3 +197,6 @@ spec:
 
   selector:
     feature.node.kubernetes.io/amd-gpu: "true"
+{{- if .Values.gpuSharing.enabled }}
+    spur.amd.com/gpu-sharing: "false"
+{{- end }}

@@ -57,3 +57,11 @@ gpu.amd:
   # The DeviceConfig alone is not enough, the device plugin must also publish
   # the GPUs of a node.
   probe: kubectl get nodes -o json | jq -e '[.items[] | select((.status.capacity["amd.com/gpu"] // "0") != "0")] | length > 0' >/dev/null
+gpu.spur-sharing:
+  # A node that Spur shares with Kubernetes runs the AMD DRA driver, not the
+  # device plugin. The node is ready when the driver publishes its GPUs.
+  probe: |
+    for node in $(kubectl get nodes -l spur.amd.com/gpu-sharing=true -o jsonpath='{.items[*].metadata.name}'); do
+      kubectl get resourceslices --field-selector spec.driver=gpu.amd.com,spec.nodeName="$node" -o name 2>/dev/null | grep -q . && exit 0
+    done
+    exit 1

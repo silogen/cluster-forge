@@ -1,0 +1,17 @@
+# The default profile on a Spur cluster where Spur jobs and Kubernetes pods
+# share the GPUs of a node. A node with the label
+# spur.amd.com/gpu-sharing=true gets the AMD DRA driver, and each other GPU
+# node needs the label value false to keep the device plugin. Pods keep their
+# amd.com/gpu requests: the DeviceClass gpu.amd.com maps them to DRA. See
+# docs/spur-gpu-sharing.md.
+name: gpu-sharing
+extends: default
+packages:
+  # Replaces the entry of the base profile as a whole, so it restates the
+  # pod-resources path of default.
+  - name: amd-gpu-operator-config
+    values:
+      amd-gpu-operator-config:
+        podResourceAPISocketPath: /var/lib/k0s/kubelet/pod-resources
+        gpuSharing:
+          enabled: true
