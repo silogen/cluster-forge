@@ -7,11 +7,29 @@ extensions that are commonly needed on top of that: a separate budget **per
 model**, and a higher limit for **one named client** without raising the limit
 for everyone else.
 
-This is config for `quota.yaml` itself — it replaces the entire file, not a
-sub-block. It pairs naturally with `complexity-routing-example.md`: the two
-models below reuse that example's `TODO-simple-model` / `TODO-complex-model`
-names, on the assumption you're also routing between them by complexity. Swap
-in your own model names if you're not.
+This replaces `quota.yaml`; do not append it as a partial block. Set each
+backendRef's `modelNameOverride` to the model name that backend accepts. Use the
+same value in `perModelQuotas[].modelName`. This example uses router model names
+as backend model names; change both fields if your backend uses other names.
+
+For example, add an override to each model rule in `gateway-routing.yaml`:
+
+```yaml
+rules:
+  - matches:
+      - headers:
+          - name: x-selected-model
+            value: TODO-simple-model
+    backendRefs:
+      - name: TODO-simple-model-backend
+        modelNameOverride: TODO-simple-backend-model
+    timeouts:
+      request: 300s
+      backendRequest: 300s
+```
+
+Set that quota entry's `modelName` to `TODO-simple-backend-model`, not the
+`x-selected-model` value, unless both names are identical.
 
 ## The config
 
@@ -33,10 +51,8 @@ spec:
       kind: AIServiceBackend
       name: TODO-complex-model-backend
   perModelQuotas:
-    # One block per model, each with its own independent bucketRules. A
-    # client's simple-model spend and complex-model spend are tracked and
-    # limited completely separately.
-    - modelName: TODO-simple-model
+    # Match modelName to the corresponding BackendRef.modelNameOverride.
+    - modelName: TODO-simple-backend-model
       quota:
         mode: Shared
         bucketRules:
@@ -59,7 +75,7 @@ spec:
             quota:
               limit: 50000
               duration: 1h
-    - modelName: TODO-complex-model
+    - modelName: TODO-complex-backend-model
       quota:
         mode: Shared
         bucketRules:
@@ -99,43 +115,81 @@ precedence."* Put together, that reads as: both buckets get charged, but the
 is why the `Exact` override is listed **before** the `Distinct` catch-all
 above. List order is significant here, not just readability.
 
-**UNVERIFIED against a live cluster**, unlike most of this blueprint's other
-CRD-behavior claims: whether a named client actually gets the raised 500000/
-100000 limit, or whether it's silently capped by also accumulating against the
-Distinct bucket's lower 50000/5000 limit underneath, has not been confirmed
-end-to-end the way the base `Distinct`-only setup in `quota.yaml` was. Before
-relying on this for a real tier, watch both counters (see "Verifying it")
-under real traffic from the premium key and confirm the higher limit is what
-actually gates it.
+The order has been verified on a live test build: the Exact rule's limit
+applied, while a different key used the Distinct rule. Keep Exact before
+Distinct. Test your deployed controller in shadow mode before enforcing tiers.
 
-## Every backend in `targetRefs` needs its own `perModelQuotas` entry
+## Add quota entries for each backend
 
-**Confirmed live**, unlike most of the caveats below: if an `AIServiceBackend`
-is listed in `targetRefs` but has no matching `perModelQuotas` entry, its
-traffic doesn't go unmetered — it bleeds into whichever `perModelQuotas`
-entry the controller falls back to, charging *another model's* bucket
-instead. Adding a third backend to `targetRefs` without also giving it its
-own `modelName` entry above will silently corrupt that other model's quota
-counters, not just leave the new backend unenforced. Always add both — the
-`targetRefs` entry and its `perModelQuotas` entry — in the same change.
+Add each metered `AIServiceBackend` to `targetRefs` and add a matching
+`perModelQuotas` entry. Match its `modelName` to the route's
+`modelNameOverride`. Do not assume an omitted entry is unmetered; test your
+controller's behavior before relying on that.
+## One budget across routed models
 
-## There's no router-wide/combined quota — don't use `serviceQuota`
+`serviceQuota` is not enforced by the controller build tested for this
+blueprint. To share one budget across models selected by semantic-router, add an
+outer AI Gateway before the existing `sr-gateway`:
 
-The CRD also has a top-level `spec.serviceQuota` field, advertised as "quota
-for all models served by AIServiceBackend(s)... overridden for specific
-models using perModelQuotas" — i.e. a single shared budget across every
-model in `targetRefs`. **Confirmed live: it's inert on this controller
-build.** No descriptor is ever emitted for it — zero tracking, zero
-enforcement, not even in shadow mode — matching the CRD schema's own
-disclosed caveat ("the rate limit configuration is properly set up, but the
-descriptor set is not being set in the Envoy Configuration"). Configuring it
-has no effect at all; don't rely on it.
+```yaml
+# Optional outer route: meter initial model before inner semantic-router.
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIGatewayRoute
+metadata:
+  name: router-quota
+  namespace: semantic-router
+spec:
+  parentRefs:
+    - name: router-quota-gateway
+  llmRequestCosts:
+    - metadataKey: llm_total_token
+      type: TotalToken
+  rules:
+    - backendRefs:
+        - name: router-quota-backend
+          modelNameOverride: auto
+      timeouts:
+        request: 300s
+        backendRequest: 300s
+---
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: QuotaPolicy
+metadata:
+  name: router-quota
+  namespace: semantic-router
+spec:
+  targetRefs:
+    - group: aigateway.envoyproxy.io
+      kind: AIServiceBackend
+      name: router-quota-backend
+  perModelQuotas:
+    - modelName: auto
+      quota:
+        mode: Shared
+        bucketRules:
+          - shadowMode: true
+            clientSelectors:
+              - headers:
+                  - name: x-api-key-id
+                    type: Distinct
+            quota:
+              limit: TODO
+              duration: 1h
+```
 
-There's currently no substitute, either: `perModelQuotas` buckets are
-independent, not summed, so two models each capped at `limit` bound total
-spend at `2 × limit`, not one shared `limit`. If you need a genuinely
-combined cap across models, it isn't achievable with this controller build —
-only N independent per-model caps.
+Define `router-quota-backend` as an OpenAI `AIServiceBackend` backed by an
+Envoy Gateway `Backend` for the inner `sr-gateway` Service. Add a separate
+outer Gateway, proxy Service, ReferenceGrant and public HTTPRoute. Add an outer
+SecurityPolicy that sets `x-api-key-id`. Keep its `sanitize: false` so the
+inner Gateway can authenticate the same key. Keep inner auth enabled until
+network policy restricts direct access to the inner Gateway. Direct callers of
+inner Gateway or vLLM backends bypass this outer quota.
+
+Live test confirmed catch-all `modelNameOverride: auto` rewrites explicit and
+missing model values. Semantic-router then selected either backend, while both
+requests charged the same `auto` bucket. PR #2664 fixes Distinct token charging;
+it is merged but not in a release yet. The live test used a test image. Keep
+shadow mode until deployed controller and ext_proc include the fix.
 
 ## Verifying it
 

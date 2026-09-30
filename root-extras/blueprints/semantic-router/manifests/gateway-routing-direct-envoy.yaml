@@ -13,10 +13,11 @@
 # NOT evaluated here, so the cluster domain has to be written out literally.
 #
 # What this does: puts semantic-router in the request path as an Envoy external
-# processor. A request to sr.<domain> reaches the shared `https` Gateway, Envoy
-# asks the router which model should serve it, the router answers by setting a
-# header, and Envoy re-runs its route matching and forwards to that model's
-# backend. The router never proxies the request itself.
+# processor. Envoy asks the router which model should serve each request, then
+# routes to the matching backend. The router never proxies the request itself.
+#
+# If the router is unavailable, requests fail instead of using a client-supplied
+# x-selected-model header to select a backend.
 #
 # The cluster's `ai-gateway` is deliberately untouched — see the README.
 
@@ -44,13 +45,8 @@ spec:
     # The router only ever names a model, never a backend address, so every model
     # it may pick needs a rule here or the request falls through to the catch-all.
     #
-    # TODO: one block like this per model, each pointing at that model's backend.
-    # `timeouts` below matches the EnvoyExtensionPolicy's messageTimeout further
-    # down — both budget for classification plus a full LLM completion, not a
-    # quick HTTP call. Envoy Gateway's own default (200ms) is far too short and
-    # would cut off every real request. Raise per-model if one model's expected
-    # completion time genuinely exceeds this — there's no per-model templating
-    # here, so just edit that rule's own timeouts block.
+    # Add one rule per model. These timeouts cover classification and completion.
+    # Raise a rule's values if its backend needs more than 300s.
     - matches:
         - headers:
             - name: x-selected-model
@@ -62,22 +58,9 @@ spec:
       timeouts:
         request: 300s
         backendRequest: 300s
-    # The catch-all is not optional, and it goes last. An external processor only
-    # runs once a route has already matched, so the request needs a rule that
-    # matches before the router has said anything — which is every request on
-    # arrival, since the header does not exist yet. Without it Envoy 404s and the
-    # router is never consulted. Last, because a rule with no matches would
-    # otherwise shadow the model rules above under first-match semantics.
-    #
-    # It doubles as where traffic lands while the router is down, because the
-    # policy below fails open — and, same as the aigw version, as the backend
-    # that answers for any unrecognised model name from an authenticated client.
-    # Point it at a real, intentional default.
-    #
-    # TODO: your default backend, for requests the router does not reroute.
-    # Same timeouts as the model rule above — this is a live traffic path too
-    # (where requests land while the router is down, per failOpen below), not
-    # just an error page.
+    # Keep a catch-all so Envoy has a matching route before ext_proc runs.
+    # With failOpen disabled, this is only used when the router returns without
+    # selecting a model. Choose an intentional default backend.
     - backendRefs:
         - name: TODO-your-vllm-service
           namespace: TODO-your-vllm-namespace
@@ -86,16 +69,9 @@ spec:
         request: 300s
         backendRequest: 300s
 ---
-# Calls the router on the gRPC port it is actually designed to be used through
-# (50051), rather than treating it as an HTTP backend. Port 8080 is the
-# management API — upstream binds it to localhost with `remote_exposure: false`
-# and it is not meant to receive chat completions.
-#
-# Targets the HTTPRoute above rather than a Gateway. Envoy Gateway allows only
-# one EnvoyExtensionPolicy per target and the cluster's `ai-gateway` already has
-# one, so a Gateway-scoped policy would mean building a second gateway. Route
-# scope avoids that entirely and is the smaller blast radius anyway: nothing
-# outside sr.<domain> is affected.
+# Call semantic-router's ext_proc service on gRPC port 50051. Port 8080 is its
+# management API, not a chat completions endpoint. Scope this policy to the
+# router HTTPRoute so other shared-Gateway routes are unaffected.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyExtensionPolicy
 metadata:
@@ -122,26 +98,12 @@ spec:
         # before returning it, which breaks token streaming. Turn it on only if
         # you want the router's response-side features (semantic cache, token
         # accounting) and can accept that.
-      # Upstream's own Envoy config uses message_timeout: 300s, because this
-      # budget covers buffering the request body and running classification, not
-      # just a network hop. The Envoy Gateway default of 200ms is far too short.
+      # Allow time to buffer the request and classify the prompt.
       messageTimeout: 300s
-      # Router unreachable -> requests skip it and take the catch-all rule,
-      # instead of the whole hostname returning 5xx.
-      failOpen: true
+      # Fail closed. A catch-all could trust a caller-supplied model header.
+      failOpen: false
 ---
-# Requiring a client API key on sr.<domain> — MANDATORY here, same reasoning as
-# the aigw version's SecurityPolicy: without this any client on the shared
-# `https` Gateway can name any model this route serves. apiKeyAuth checks the
-# Authorization header against a Secret's values; sanitize: true strips it
-# again before the request reaches the router or backend. Same namespace as
-# the HTTPRoute is required for both the policy and the Secret.
-#
-# This blueprint used to ship this commented out. Don't put it back that way —
-# see manifests/gateway-routing.yaml's own history for why "optional auth" on
-# a route living on the shared Gateway is a bypass waiting to happen.
-#
-# Create the Secret directly on the cluster, never in this overlay repo:
+# Require an API key. Store the Secret in the cluster, not in the overlay repo.
 #
 #   kubectl -n semantic-router create secret generic semantic-router-client-keys \
 #     --from-literal=TODO-your-client-name="$(openssl rand -hex 32)"
