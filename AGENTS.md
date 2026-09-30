@@ -62,6 +62,9 @@ helm template test-release .. > all-resources.yaml
 yq eval 'select(.apiVersion == "kyverno.io/v1")' all-resources.yaml > policy.yaml
 kyverno test . --detailed-results
 
+# ShellCheck for the shell scripts. sources/ holds vendored charts, CI skips it.
+git ls-files -z '*.sh' ':!:sources/' | xargs -0 shellcheck -S warning
+
 # SBOM sync check. Run it in sbom/, because the scripts call each other with ./
 cd sbom && ./validate-sync.sh
 ```
@@ -98,6 +101,9 @@ capital first letter. Ask me for the ticket number if you do not have it.
 - Keep `enabledApps` in alphabetical order. It stays a list, so an overlay
   that overrides it must write the full list. Helm replaces lists, but merges
   maps.
+- Each shell script outside `sources/` must pass `shellcheck -S warning`.
+  If a finding is a false positive, disable it on that line with a
+  `# shellcheck disable=SCnnnn` comment that gives the reason.
 
 ## Updating a Helm chart in sources/
 

@@ -40,14 +40,17 @@ fetch_github_license() {
         echo "  Fetching license info from GitHub API for $owner/$repo..." >&2
         
         # Fetch license information from GitHub API
-        local license_info=$(curl -s "https://api.github.com/repos/$owner/$repo/license" | jq -r '.')
+        local license_info
+        license_info=$(curl -s "https://api.github.com/repos/$owner/$repo/license" | jq -r '.')
         
         if [[ "$license_info" == "null" ]]; then
             echo "  No license detected for $owner/$repo" >&2
             return 1
         else
-            local license_name=$(echo "$license_info" | jq -r '.license.name // "Unknown"')
-            local license_html_url=$(echo "$license_info" | jq -r '.html_url // ""')
+            local license_name
+            license_name=$(echo "$license_info" | jq -r '.license.name // "Unknown"')
+            local license_html_url
+            license_html_url=$(echo "$license_info" | jq -r '.html_url // ""')
             
             if [[ -n "$license_html_url" && "$license_html_url" != "null" ]]; then
                 echo "  Found: $license_name - $license_html_url" >&2
@@ -77,12 +80,9 @@ while IFS=',' read -r component_name project_url current_license current_license
     echo "Processing component: $component_name"
     
     # Check if we should update (always update if license URL is a generic API URL)
-    should_update=false
     if [[ -z "$current_license" || -z "$current_license_url" ]]; then
-        should_update=true
         echo "  Empty license fields detected, will update"
     elif [[ "$current_license_url" =~ ^https://api\.github\.com/licenses/ ]]; then
-        should_update=true
         echo "  Generic API license URL detected, will update to actual repository URL"
     else
         echo "  License already populated with repository URL: $current_license"
