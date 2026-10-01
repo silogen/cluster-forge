@@ -68,8 +68,8 @@ show-token-demo:
     scripts/show-token-demo.sh
 
 # Add, re-install and purge seaweedfs through the test-s3 profile.
-package-cycle:
-    tests/optional-package-cycle.sh
+seaweedfs-cycle:
+    tests/seaweedfs-cycle.sh
 
 # The pins agree with root/values.yaml.
 version-drift:
