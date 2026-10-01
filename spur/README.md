@@ -302,6 +302,10 @@ profiles, not single packages. To add and remove an optional package, put it
 in a profile that extends the installed one, as `test-s3` does. Then uninstall
 that profile.
 
+`uninstall` does not remove the k0s cluster or Spur. To remove them, follow
+[Uninstalling Spur](https://github.com/ROCm/spur/blob/main/docs/deployment/uninstalling.rst#remove-the-spur-managed-k0s-cluster),
+and then delete the `spur-aims` binary.
+
 ## Upgrade
 
 Run `install` again with the same profile. The command is idempotent.
