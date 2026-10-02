@@ -10,12 +10,18 @@ import (
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage/driver"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 const helmTimeout = 10 * time.Minute
+
+// pullWaitLimit is the total time that one install waits on image pulls after
+// helmTimeout. On a cold node the kubelet pulls one image at a time, so a
+// small image can wait behind the model images of the catalog.
+const pullWaitLimit = 60 * time.Minute
 
 func helmConfig(c *cluster, namespace string) (*action.Configuration, error) {
 	cfg := new(action.Configuration)
@@ -57,6 +63,7 @@ func installPackage(ctx context.Context, c *cluster, name, namespace string, val
 		return err
 	}
 
+	pullDeadline := time.Now().Add(pullWaitLimit)
 	var lastErr error
 	for attempt := 1; attempt <= 3; attempt++ {
 		cfg, err := helmConfig(c, namespace)
@@ -87,6 +94,12 @@ func installPackage(ctx context.Context, c *cluster, name, namespace string, val
 		}
 		if reason := whyPodsFail(ctx, c, namespace); reason != "" {
 			return fmt.Errorf("install of %s failed: %w\n  %s", name, lastErr, reason)
+		}
+		// An uninstall and a new install put the pull at the end of the queue.
+		// Wait for it, and let the next attempt upgrade the failed release.
+		if waitForPulls(ctx, c, namespace, pullDeadline) {
+			attempt--
+			continue
 		}
 		if attempt == 3 || ctx.Err() != nil {
 			break
@@ -266,6 +279,73 @@ func clearCustomResources(ctx context.Context, c *cluster, crdName string) error
 		}
 	}
 	return nil
+}
+
+// waitForPulls waits while a pod of the namespace pulls an image, until the
+// deadline. It tells whether it waited.
+func waitForPulls(ctx context.Context, c *cluster, namespace string, deadline time.Time) bool {
+	waited := false
+	for time.Now().Before(deadline) && ctx.Err() == nil {
+		pods, err := c.typed.CoreV1().Pods(namespace).List(ctx, listAll)
+		if err != nil {
+			break
+		}
+		events, err := c.typed.CoreV1().Events(namespace).List(ctx, listAll)
+		if err != nil {
+			break
+		}
+		pull := pullInProgress(pods.Items, events.Items)
+		if pull == "" {
+			break
+		}
+		infof("%s, wait until %s", pull, deadline.Format(time.Kitchen))
+		time.Sleep(30 * time.Second)
+		waited = true
+	}
+	return waited
+}
+
+// pullInProgress names a pod in ContainerCreating that has a Pulling event for
+// an image and no Pulled or Failed event for the same image. It gives "" when
+// no pod pulls.
+func pullInProgress(pods []corev1.Pod, events []corev1.Event) string {
+	for i := range pods {
+		pod := &pods[i]
+		if !isCreating(pod) {
+			continue
+		}
+		var pulling []string
+		done := map[string]bool{}
+		for _, event := range events {
+			if event.InvolvedObject.UID != pod.UID {
+				continue
+			}
+			_, rest, _ := strings.Cut(event.Message, `"`)
+			image, _, _ := strings.Cut(rest, `"`)
+			switch event.Reason {
+			case "Pulling":
+				pulling = append(pulling, image)
+			case "Pulled", "Failed":
+				done[image] = true
+			}
+		}
+		for _, image := range pulling {
+			if !done[image] {
+				return fmt.Sprintf("pod %s/%s pulls %s", pod.Namespace, pod.Name, image)
+			}
+		}
+	}
+	return ""
+}
+
+func isCreating(pod *corev1.Pod) bool {
+	statuses := append(pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses...)
+	for _, status := range statuses {
+		if status.State.Waiting != nil && status.State.Waiting.Reason == "ContainerCreating" {
+			return true
+		}
+	}
+	return false
 }
 
 // crdNamesOf reads the CustomResourceDefinition names out of a release

@@ -18,11 +18,11 @@ appsGateway:
 coreDns:
   enabled: true
 
-# Envoy data plane pod placement. cluster-bloom labels the first node.
-# Set {} on a cluster that does not carry that label.
+# Envoy data plane pod placement, for the apps gateway and the ai-gateway.
+# root/values.yaml sets the cluster-bloom first-node label for the ArgoCD install.
+# Spur install does not use the first-node label.
 envoyProxy:
-  nodeSelector:
-    cluster-bloom/first-node: "true"
+  nodeSelector: {}
 
 # TLS passthrough of k8s.<domain> to the Kubernetes API service.
 k8sPassthrough:

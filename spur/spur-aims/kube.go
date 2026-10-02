@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -120,8 +121,8 @@ type gpuNode struct {
 	Type string
 }
 
-// gpuNodes asks Spur for the GPU of every node. A node with two GPU entries
-// gives two items.
+// gpuNodes asks Spur for the GPU types of every node. A node gives one item
+// for each GPU type, also when it has many GPUs of that type.
 func gpuNodes() ([]gpuNode, error) {
 	spur := os.Getenv("SPUR_BIN")
 	if spur == "" {
@@ -149,12 +150,13 @@ func gpuNodes() ([]gpuNode, error) {
 }
 
 // gpuTypesOf reads the GPU types out of one Gres line, whose entries are
-// gpu:<type>:<count> separated by commas.
+// gpu:<type>:<count> separated by commas. It gives each type once, in the
+// order of its first entry: Spur gives one entry for each GPU.
 func gpuTypesOf(gres string) []string {
 	var types []string
 	for _, entry := range strings.Split(gres, ",") {
 		parts := strings.Split(strings.TrimSpace(entry), ":")
-		if len(parts) < 2 || parts[0] != "gpu" || parts[1] == "" {
+		if len(parts) < 2 || parts[0] != "gpu" || parts[1] == "" || slices.Contains(types, parts[1]) {
 			continue
 		}
 		types = append(types, parts[1])

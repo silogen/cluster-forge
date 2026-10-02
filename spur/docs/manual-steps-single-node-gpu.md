@@ -116,23 +116,7 @@ spur-aims install demo --var domain=<public ip>.nip.io \
   --var gatewayServiceType=ClusterIP --var gatewayExternalIP=<public ip>
 ```
 
-## 9. Label a node that has MI325X virtual functions
-
-A DigitalOcean GPU node shows each MI325X as a virtual function, PCI ID
-`74b9`. The NFD rule of the GPU operator labels such a node
-`feature.node.kubernetes.io/amd-vgpu=true`, but the DeviceConfig selects
-`feature.node.kubernetes.io/amd-gpu=true` only. Without this label the node
-has no device plugin and no `amd.com/gpu`:
-
-```bash
-k0s kubectl label node <node> feature.node.kubernetes.io/amd-gpu=true
-k0s kubectl get node <node> -o jsonpath='{.status.allocatable.amd\.com/gpu}'
-```
-
-cluster-bloom sets the same label with its node-annotator CronJob, so the
-ArgoCD path does not need this step.
-
-## 10. Reach the cluster from a network with Zscaler
+## 9. Reach the cluster from a network with Zscaler
 
 Zscaler resets the connections to port 6443 and blocks `nip.io` names. Use SSH
 for both:
@@ -146,7 +130,7 @@ export KUBECONFIG=/tmp/node-tunnel.kubeconfig
 export ALL_PROXY=socks5h://127.0.0.1:11080   # curl only; kubectl uses the tunnel
 ```
 
-## 11. Run the smoke tests on a demo cluster
+## 10. Run the smoke tests on a demo cluster
 
 `just smoke-gpu` uses the namespace `aims-test`. On a `demo` cluster, routing
 is on, and the test must run in `workbench`:

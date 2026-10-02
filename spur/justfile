@@ -5,6 +5,7 @@ ref := `git rev-parse --abbrev-ref HEAD 2>/dev/null || echo dev`
 bin := "spur-aims/spur-aims"
 assets := "spur-aims/assets"
 
+[private]
 default:
     @just --list
 
@@ -33,6 +34,7 @@ all ref=ref: assets (build ref)
 test: assets
     cd spur-aims && go test ./...
 
+# Remove the assets and the binary. The cluster is not touched.
 clean:
     rm -rf {{ assets }} {{ bin }}
 
@@ -66,8 +68,8 @@ show-token-demo:
     scripts/show-token-demo.sh
 
 # Add, re-install and purge seaweedfs through the test-s3 profile.
-package-cycle:
-    tests/optional-package-cycle.sh
+seaweedfs-cycle:
+    tests/seaweedfs-cycle.sh
 
 # The pins agree with root/values.yaml.
 version-drift:

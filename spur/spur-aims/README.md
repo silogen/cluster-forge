@@ -94,6 +94,6 @@ just test      # makes the assets first, most tests read them
 The tests hold the Go probes to the capabilities that `capabilities.yaml`
 declares, load every profile and chart, check the variable rules, the profile
 format and the install record arithmetic, and hold every `-cpu` profile to its
-GPU twin. `spur/tests/optional-package-cycle.sh` needs a cluster and the built
+GPU twin. `spur/tests/seaweedfs-cycle.sh` needs a cluster and the built
 binary. `spur/docs/future-work.md` keeps the open results of the
 cluster tests.

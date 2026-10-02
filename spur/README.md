@@ -319,7 +319,7 @@ just smoke           # the core serves a model
 just smoke-demo      # the same on a demo cluster
 just smoke-gpu       # a real model on a GPU cluster
 just smoke-ui        # login, API, deploy, chat with a token, 401 without
-just package-cycle   # add, re-install and purge seaweedfs through the
+just seaweedfs-cycle # add, re-install and purge seaweedfs through the
                      # test-s3 profile
 just version-drift   # pins agree with root/values.yaml
 ```
@@ -327,7 +327,7 @@ just version-drift   # pins agree with root/values.yaml
 Each test needs a different cluster:
 
 - `test` and `version-drift` need no cluster.
-- `smoke` and `package-cycle` need a `default-cpu` cluster. The cycle test
+- `smoke` and `seaweedfs-cycle` need a `default-cpu` cluster. The cycle test
   installs `default-cpu` and `test-s3` on top of it. Its aim-engine package
   takes the `AIMClusterRuntimeConfig`, which the aiwb release owns on a `demo`
   cluster.

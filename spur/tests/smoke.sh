@@ -5,7 +5,8 @@
 # there, and an AIMService in a namespace without the project-id label gets
 # no workload-id label and a routing error.
 # The dummy image is public. Set PULL_SECRET_JSON to a docker config
-# JSON when the registry of the image needs credentials. Set AIM_OBJECT to
+# JSON when the registry of the image needs credentials. Set HF_TOKEN when
+# the model of AIM_OBJECT is gated on Hugging Face. Set AIM_OBJECT to
 # tests/aimservice-gpu.yaml for the GPU test.
 set -euo pipefail
 
@@ -47,6 +48,12 @@ if [ -n "${PULL_SECRET_JSON:-}" ]; then
 else
   echo "PULL_SECRET_JSON is not set, the image is pulled without credentials"
 fi
+if [ -n "${HF_TOKEN:-}" ]; then
+  kubectl create secret generic hf-token --namespace "$NS" \
+    --from-file=token=<(printf %s "$HF_TOKEN") \
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  ok "hf-token secret"
+fi
 
 echo "== 5. apply the dummy service"
 # aim-engine fails the model when a named pull secret does not exist, so the
@@ -59,8 +66,9 @@ else
 fi
 
 echo "== 6. wait for the service"
-# aim-engine 0.2.6 sets ModelReady, TemplateReady, RuntimeConfigReady,
-# CacheReady, InferenceServiceReady and Ready. There is no RuntimeReady.
+# aim-engine 0.2.6 sets InferenceServiceReady and Ready on both pipelines:
+# the v1alpha1 template pipeline of the dummy object and the v1alpha2 profile
+# pipeline of the GPU object. There is no RuntimeReady.
 for cond in InferenceServiceReady Ready; do
   if ! kubectl wait --for=condition=$cond aimservice/$NAME --namespace "$NS" \
       --timeout="$AIM_TIMEOUT" >/dev/null; then
@@ -103,17 +111,19 @@ for ns in seaweedfs-instance keda opentelemetry-system; do
 done
 kubectl get crd -o name | grep -Eq 'keda\.sh$|opentelemetry\.io$|seaweed\.seaweedfs\.com$' \
   && fail "CRDs of an optional component exist"
-# Discovery pods appear and finish all the time, so give them a moment.
+# The catalog starts discovery Job pods all the time, so Job pods do not count.
+bad_pods() {
+  kubectl get pods --all-namespaces \
+    --field-selector=status.phase!=Running,status.phase!=Succeeded -o json \
+    | jq -r '.items[] | select(.metadata.ownerReferences[0].kind != "Job")
+             | "\(.metadata.namespace)/\(.metadata.name) \(.status.phase)"'
+}
 for _ in $(seq 1 6); do
-  bad="$(kubectl get pods --all-namespaces \
-    --field-selector=status.phase!=Running,status.phase!=Succeeded \
-    -o name | wc -l)"
-  [ "$bad" -eq 0 ] && break
+  bad="$(bad_pods)"
+  [ -z "$bad" ] && break
   sleep 10
 done
-[ "$bad" -eq 0 ] || { kubectl get pods --all-namespaces \
-  --field-selector=status.phase!=Running,status.phase!=Succeeded; \
-  fail "$bad pods are not Running or Succeeded"; }
+[ -z "$bad" ] || { echo "$bad" >&2; fail "pods are not Running or Succeeded"; }
 ok "no unexpected components"
 fi
 

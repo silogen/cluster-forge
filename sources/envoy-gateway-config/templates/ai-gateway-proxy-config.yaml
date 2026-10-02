@@ -1,6 +1,6 @@
 {{- if .Values.aiGateway.enabled }}
 # EnvoyProxy for the ai-gateway: ClusterIP (it sits behind the apps gateway, which forwards
-# the AI hostname to it), first-node placement + AI access-log telemetry (EAI-6805).
+# the AI hostname to it), envoyProxy.nodeSelector placement + AI access-log telemetry (EAI-6805).
 # Header-less/body requests are authorized by ai-gateway-discovery's body-aware ext_authz
 # (see security-policy-ai-gateway-default-deny.yaml).
 apiVersion: gateway.envoyproxy.io/v1alpha1
@@ -51,8 +51,10 @@ spec:
         type: ClusterIP
       envoyDeployment:
         pod:
+          {{- with .Values.envoyProxy.nodeSelector }}
           nodeSelector:
-            cluster-bloom/first-node: "true"
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           priorityClassName: "system-cluster-critical"
         # Override EG's derived terminationGracePeriodSeconds (= drainTimeout + 5m) back to the 360s
         # default, decoupling the long running-pod churn drain (shutdown.drainTimeout, above) from pod
