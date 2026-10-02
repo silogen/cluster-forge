@@ -386,7 +386,7 @@ render_objects() {
     if [[ "$app" == cluster-auth-shim ]]; then
       kubectl create configmap cluster-auth-shim \
         --namespace cluster-auth \
-        --from-file=shim.py=haul/cluster-forge/docs/manual_helm_install/scripts/cluster-auth-shim.py \
+        --from-file=shim.py=haul/cluster-forge/docs/manual_helm_install/aiwb-standalone/scripts/cluster-auth-shim.py \
         --dry-run=client -o yaml >>"$out"
       echo '---' >>"$out"
     fi

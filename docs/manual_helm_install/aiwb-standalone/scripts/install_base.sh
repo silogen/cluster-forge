@@ -910,7 +910,7 @@ else
   # MinIO URL (e.g. aim-performance via BUCKET_STORAGE_HOST) reach the external
   # storage transparently. AIWB itself talks to the external endpoint directly
   # via --set minio.url below and does not depend on this redirect.
-  # See docs/manual_helm_install/EXTERNAL_FIXES.md "aim-performance hardcoded
+  # See docs/manual_helm_install/aiwb-standalone/EXTERNAL_FIXES.md "aim-performance hardcoded
   # BUCKET_STORAGE_HOST" for why this workaround is currently needed.
   echo "  📦 Creating in-cluster redirect Service for external MinIO..."
   echo "     target: ${MINIO_HOST_IP}:${MINIO_PORT}"
