@@ -314,7 +314,7 @@ REPO_RAW_BASE="https://raw.githubusercontent.com/silogen/cluster-forge/refs/head
 #
 # For the files a step needs verbatim and which are not manifests: currently the
 # cluster-auth shim's Python, which install-old.sh fetches the same way from
-# docs/manual_helm_install/. Fetched rather than copied into this repository twice,
+# docs/manual_helm_install/aiwb-standalone/. Fetched rather than copied into this repository twice,
 # because it is a program -- two copies of a program diverge quietly, and the symptom
 # is an API stub that answers one endpoint wrongly.
 ensure_repo_file() {

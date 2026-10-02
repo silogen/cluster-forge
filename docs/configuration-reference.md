@@ -7,7 +7,7 @@ root `global` keys, install scripts, and platform gate helpers.
 
 | Application | Parameter | Default (root) | Purpose |
 |-------------|-----------|----------------|---------|
-| `aim-engine` | `clusterRuntimeConfig.enable` | `'false'` | Quoted string so Argo CD / Helm pass a boolean-looking value without YAML converting it to a boolean. When `'false'`, the aim-engine chart does not render `AIMClusterRuntimeConfig`. Set `'true'` for OpenShift/manual installs that need aim-engine-managed routing (see `docs/openshift/install.sh` and `docs/manual_helm_install/scripts/install_base.sh`). |
+| `aim-engine` | `clusterRuntimeConfig.enable` | `'false'` | Quoted string so Argo CD / Helm pass a boolean-looking value without YAML converting it to a boolean. When `'false'`, the aim-engine chart does not render `AIMClusterRuntimeConfig`. Set `'true'` for OpenShift/manual installs that need aim-engine-managed routing (see `docs/openshift/install.sh` and `docs/manual_helm_install/aiwb-standalone/scripts/install_base.sh`). |
 | `aim-engine` | `manager.image.repository` | `amdenterpriseai/aim-engine` | aim-engine controller image repository (tag comes from the chart / `repoVersion`). |
 | `aim-engine` | `manager.artifactDownloaderImage` | `docker.io/amdenterpriseai/aim-artifact-downloader:v0.2.6` | Full image reference for the artifact-downloader sidecar. The tag includes the `v` prefix. |
 | `ai-gateway-discovery` | `controller.bodyAuthMaxRequestBytes` | `4194304` (from `global.aiGateway.bodyAuthMaxRequestBytes`) | Per-model catch-all SecurityPolicy body-authz ceiling. Must match `envoy-gateway-config`'s `aiGateway.bodyAuthMaxRequestBytes`. |
@@ -127,3 +127,33 @@ no ref and needs no tool on the node. See
 | Variable | Default | Meaning |
 |---|---|---|
 | `NAMESPACES` | `kyverno cert-manager kserve-system aim-system` | Namespaces to measure. |
+
+## `docs/manual_helm_install/full-platform/scripts/`
+
+These variables tune the manual Helm installation of the full platform
+(AIRM and AIWB). `docs/manual_helm_install/full-platform/INSTALL.md` gives the
+procedure that uses them. Each one is an environment variable that you export
+before you run a script.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `DOMAIN` | none, required | The DNS domain of the platform. `localhost` selects the HTTP test mode. |
+| `STORAGE_CLASS` | none, required | The StorageClass that each PersistentVolumeClaim uses. |
+| `TLS_CERT` | empty | Path to a certificate chain in PEM form. Empty makes a self-signed certificate. |
+| `TLS_KEY` | empty | Path to the private key of `TLS_CERT`. |
+| `CLUSTER_FORGE_DIR` | a temporary clone | Path to a Cluster Forge checkout. Set it to this repository, and the scripts clone nothing. |
+| `CLUSTER_FORGE_REF` | `main` | The git reference to clone when `CLUSTER_FORGE_DIR` is not set. |
+| `CHART_VERSION` | `2.0.3` | The AIRM and AIWB chart version to install. |
+| `CLUSTER_NAME` | `demo-cluster` | The cluster name that the GPU metrics carry. |
+| `DRIVER_VERSION` | `7.0` | The ROCm version that the DeviceConfig declares. The host driver must match it. |
+| `RWX_MUTATION` | `auto` | Apply the Kyverno policy that rewrites a ReadWriteMany claim to ReadWriteOnce. `auto` applies it for `rancher.io/local-path` only. `on` and `off` force the choice. |
+| `GPU_READY_TIMEOUT_SECONDS` | `600` | How long to wait for a node to advertise `amd.com/gpu`. |
+| `KSERVE_ATTEMPTS` | `3` | How many times to install KServe. Its webhook is not ready on the first attempt. |
+| `ENVOY_GATEWAY_ATTEMPTS` | `4` | How many times to install the Envoy Gateway. |
+| `KUBECTL_TIMEOUT` | `180s` | The timeout of each `kubectl wait`. |
+| `AIM_MODEL_IMAGES` | `amdenterpriseai/aim-openai-gpt-oss-20b:0.11.1` | The AIM model images to put in the catalogue. Separate two images with a space. |
+| `AIM_BASE_IMAGES` | `amdenterpriseai/aim-base:0.13.1` | The AIM base images to put in the catalogue. |
+| `AIM_CATALOG_REGISTRY` | `docker.io` | The registry that holds the AIM images. |
+| `AIM_CATALOG_MAX_MODELS` | `25` | The maximum number of models that discovery imports. |
+| `AIM_CATALOG_TIMEOUT_SECONDS` | `900` | How long to wait for the first AIMClusterModel to become Ready. |
+| `SHIM_PY` | the copy in `aiwb-standalone/scripts/` | Path to `cluster-auth-shim.py`. |

@@ -1265,7 +1265,7 @@ apps:
       metadata:
         name: cluster-auth
       ---
-      # The application secrets from docs/manual_helm_install/secrets/secrets-aiwb.yaml,
+      # The application secrets from docs/manual_helm_install/aiwb-standalone/secrets/secrets-aiwb.yaml,
       # which install-old.sh fetches from raw.githubusercontent at the release tag and
       # applies as a file. Written out here instead: an operator reading this file
       # cannot fetch a URL on an air-gapped cluster, and a secret whose value is
@@ -1532,7 +1532,7 @@ apps:
       - name: cluster-auth-shim
         files:
           - key: shim.py
-            path: docs/manual_helm_install/scripts/cluster-auth-shim.py
+            path: docs/manual_helm_install/aiwb-standalone/scripts/cluster-auth-shim.py
     extraObjects: |
       # A stock python image running the mounted script. No build, no registry, and
       # nothing to keep in sync with the operator's own image -- which is the reason a
