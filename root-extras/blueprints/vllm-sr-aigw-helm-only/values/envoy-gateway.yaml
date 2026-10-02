@@ -1,0 +1,51 @@
+# Envoy Gateway values, for the `gateway-helm` chart.
+#
+# Everything here exists for one reason: to register AI Gateway's controller as
+# an Envoy Gateway extension. Without this block Envoy Gateway installs fine and
+# AIGatewayRoute objects are accepted by the API server, but nothing ever
+# translates them into Envoy config -- requests 404 and no error is reported.
+#
+# Trimmed from cluster-forge's own envoy-gateway values (root/values.yaml). Two
+# things deliberately NOT carried over:
+#   - `backendResources: InferencePool` -- needs the Gateway API Inference
+#     Extension CRDs, which this blueprint does not install.
+#   - `extensionManager.failOpen: true` -- only needed on a cluster that also
+#     runs an L4 TLS-passthrough Gateway, where the AI extension errors on a TCP
+#     listener with no HTTPConnectionManager. Leaving it false here means an
+#     extension error surfaces as a failed translation instead of being silently
+#     tolerated, which is what you want when this is the only Gateway.
+kubernetesClusterDomain: cluster.local
+config:
+  envoyGateway:
+    extensionApis:
+      # The `Backend` CRD, which AIServiceBackend.spec.backendRef requires --
+      # plain Service refs are not supported (envoyproxy/ai-gateway#902).
+      enableBackend: true
+    extensionManager:
+      resources:
+        - group: aigateway.envoyproxy.io
+          version: v1beta1
+          kind: AIGatewayRoute
+        - group: aigateway.envoyproxy.io
+          version: v1beta1
+          kind: AIServiceBackend
+      hooks:
+        xdsTranslator:
+          translation:
+            listener:
+              includeAll: true
+            route:
+              includeAll: true
+            cluster:
+              includeAll: true
+            secret:
+              includeAll: true
+          post:
+            - Translation
+            - Cluster
+            - Route
+      # Where Envoy Gateway calls the AI Gateway controller's extension server.
+      # Must match the controller's install namespace and its 1063 service port.
+      service:
+        host: ai-gateway-controller.envoy-ai-gateway-system.svc.cluster.local
+        port: 1063
