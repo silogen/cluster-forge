@@ -97,7 +97,9 @@ func installPackage(ctx context.Context, c *cluster, name, namespace string, val
 		}
 		// An uninstall and a new install put the pull at the end of the queue.
 		// Wait for it, and let the next attempt upgrade the failed release.
-		if waitForPulls(ctx, c, namespace, pullDeadline) {
+		// Only a timeout can come from a slow pull; other errors fail now.
+		if strings.Contains(lastErr.Error(), "context deadline exceeded") &&
+			waitForPulls(ctx, c, namespace, pullDeadline) {
 			attempt--
 			continue
 		}
@@ -305,32 +307,36 @@ func waitForPulls(ctx context.Context, c *cluster, namespace string, deadline ti
 	return waited
 }
 
-// pullInProgress names a pod in ContainerCreating that has a Pulling event for
-// an image and no Pulled or Failed event for the same image. It gives "" when
-// no pod pulls.
+// pullInProgress names a pod in ContainerCreating whose latest pull event for
+// an image is Pulling. A Pulled or Failed event of an earlier pull of the
+// same image does not count. It gives "" when no pod pulls.
 func pullInProgress(pods []corev1.Pod, events []corev1.Event) string {
 	for i := range pods {
 		pod := &pods[i]
 		if !isCreating(pod) {
 			continue
 		}
-		var pulling []string
-		done := map[string]bool{}
+		var images []string
+		latest := map[string]corev1.Event{}
 		for _, event := range events {
 			if event.InvolvedObject.UID != pod.UID {
 				continue
 			}
+			if event.Reason != "Pulling" && event.Reason != "Pulled" && event.Reason != "Failed" {
+				continue
+			}
 			_, rest, _ := strings.Cut(event.Message, `"`)
 			image, _, _ := strings.Cut(rest, `"`)
-			switch event.Reason {
-			case "Pulling":
-				pulling = append(pulling, image)
-			case "Pulled", "Failed":
-				done[image] = true
+			prev, seen := latest[image]
+			if !seen {
+				images = append(images, image)
+			}
+			if !seen || !event.LastTimestamp.Before(&prev.LastTimestamp) {
+				latest[image] = event
 			}
 		}
-		for _, image := range pulling {
-			if !done[image] {
+		for _, image := range images {
+			if latest[image].Reason == "Pulling" {
 				return fmt.Sprintf("pod %s/%s pulls %s", pod.Namespace, pod.Name, image)
 			}
 		}
