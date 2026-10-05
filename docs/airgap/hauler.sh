@@ -250,16 +250,12 @@ write_dep_values() {
   [[ -f "$profile_values" ]] || printf '{}\n' >"$profile_values"
   yq eval-all '. as $item ireduce ({}; . * $item)' "$pkg_values" "$profile_values" |
     yq -r ".\"${dep_name}\" // {}" >"$out"
-  # A ${name} reference belongs to the deployment, not to the haul. A profile
-  # default is filled in here. An empty default stays as ${name} so dehauler
-  # can fill it from the environment. domain is the case that matters: the
-  # demo profiles leave it empty, and the cluster's DOMAIN is not known here.
-  local key value
-  for key in "${!profile_vars[@]}"; do
-    value="${profile_vars[$key]}"
-    [[ -n "$value" ]] || continue
-    sed -i "s|\${${key}}|${value}|g" "$out"
-  done
+  # ${name} references belong to the deployment, not to the haul. Keep every
+  # one intact, including variables with non-empty profile defaults. The
+  # defaults are recorded in haul-manifest.json below, and dehauler uses an
+  # environment value when present or that recorded default otherwise. This
+  # lets one haul choose ClusterIP on a bare node or LoadBalancer on a cluster
+  # that provides one.
 }
 
 haul_spur_package() {
@@ -336,8 +332,14 @@ pack_spur_profile() {
 apiVersion: cluster-forge.silogen.ai/v1
 kind: HaulManifest
 profile: ${PROFILE}
+vars: {}
 packages: []
 EOF
+  local key
+  for key in "${!profile_vars[@]}"; do
+    key="$key" value="${profile_vars[$key]}" \
+      yq -i '.vars[strenv(key)] = strenv(value)' haul/haul-manifest.yaml
+  done
   echo "profile ${PROFILE} packages: ${profile_packages[*]}"
   local pkg
   for pkg in "${profile_packages[@]}"; do

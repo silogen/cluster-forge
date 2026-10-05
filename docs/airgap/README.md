@@ -1568,6 +1568,19 @@ export KUBECONFIG="$HOME/.kube/config"
 
 # Testing with profiles
 ./hauler.sh --profile default-cpu --branch EAI-8560-byok none-model-images --skip-transfer
+
+# Profile demo-cpu, with the scripts taken from the branch
+sudo mkdir -p /mnt/disk0/airgap
+sudo chown ubuntu:ubuntu /mnt/disk0/airgap
+cd /mnt/disk0/airgap
+
+curl -fsSL -o hauler.sh \
+  https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/demo-cpu-profile-fix/docs/airgap/hauler.sh
+curl -fsSL -o dehauler.sh \
+  https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/demo-cpu-profile-fix/docs/airgap/dehauler.sh
+chmod +x hauler.sh dehauler.sh
+
+./hauler.sh --profile demo-cpu --branch demo-cpu-profile-fix none-model-images --skip-transfer
 ```
 
 #### 5.1 Transfer the binary
@@ -1583,6 +1596,17 @@ export KUBECONFIG="$HOME/.kube/config"
 ```bash
 cd /mnt/disk0/demo
 sudo env PATH="/usr/local/bin:/var/lib/rancher/rke2/bin:$PATH" KUBECONFIG=/etc/rancher/rke2/rke2.yaml CF_DOMAIN=MY-HAULER-DOMAIN ./dehauler.sh /mnt/disk0/demo/eai-airgap.tar --confirm
+
+# Profile demo-cpu, from the haul folder written by hauler.sh
+# gatewayExternalIP is the node private IP. With no load balancer on the node,
+# ClusterIP makes the gateway answer on that address on port 443.
+cd /mnt/disk0/airgap/haul
+sudo env \
+  DOMAIN=MY-HAULER-DOMAIN \
+  CF_DOMAIN=MY-HAULER-DOMAIN \
+  gatewayServiceType=ClusterIP \
+  gatewayExternalIP=MY-NODE-PRIVATE-IP \
+  ./dehauler.sh
 ```
 
 #### 5.3 Somke test

@@ -137,8 +137,12 @@ Environment:
   CONFIRM       set to 1 for the same pause as --confirm
   PLUGGABLE_DB  true when PostgreSQL lives outside the cluster (default false)
   PLUGGABLE_S3  true when the object store lives outside it (default false)
-  CLUSTER_TLS_CERT  PEM full chain for secret cluster-tls (optional; prompted if missing)
-  CLUSTER_TLS_KEY   PEM private key for that secret (optional; prompted if missing)
+  gatewayServiceType profile override: ClusterIP, LoadBalancer, or NodePort
+  gatewayExternalIP profile override: node address used with ClusterIP
+  CLUSTER_TLS_CERT  PEM full chain for secret cluster-tls. On a profile haul,
+                    supplying this and CLUSTER_TLS_KEY skips selfsigned-tls.
+                    An existing usable cluster-tls Secret also skips it.
+  CLUSTER_TLS_KEY   PEM private key for secret cluster-tls
 
   The object steps also read the credentials install.sh reads, under the same
   names and defaults: MINIO_API_ACCESS_KEY, KEYCLOAK_INITIAL_ADMIN_PASSWORD,
@@ -393,30 +397,31 @@ rewrite_images() {
     -e "s#^([[:space:]]*-?[[:space:]]*image:[[:space:]]*)([\"']?)([a-z0-9][a-z0-9._-]*:[A-Za-z0-9._-]+)\\2[[:space:]]*\$#\\1\\2${LOCAL_REG}/library/\\3\\2#"
 }
 
-# Profile values keep an empty profile var as ${name}. domain is filled from
-# DOMAIN (the same variable the full-stack path uses). Any other leftover
-# ${name} is filled from the environment when that variable is set, and from
-# nothing when it is not: gatewayExternalIP is empty on purpose.
+# Profile values keep ${name} until deployment. Prefer an environment override,
+# then the profile default recorded in the haul manifest. domain uses DOMAIN /
+# CF_DOMAIN for consistency with the full-stack path.
 expand_profile_vars() {
-  local src=$1 dest
+  local src=$1 manifest=$2 dest
   dest="$(mktemp)"
   python3 -c '
-import os, re, sys
-src, dest = sys.argv[1], sys.argv[2]
+import json, os, re, sys
+src, manifest, dest = sys.argv[1], sys.argv[2], sys.argv[3]
 text = open(src).read()
-domain = os.environ.get("DOMAIN") or os.environ.get("CF_DOMAIN") or ""
-if "${domain}" in text:
-    if not domain:
-        sys.exit("profile values contain ${domain}; set DOMAIN")
-    text = text.replace("${domain}", domain)
+defaults = json.load(open(manifest)).get("vars") or {}
 def fill(match):
     name = match.group(1)
     if name == "domain":
-        return domain
-    return os.environ.get(name, "")
+        value = os.environ.get("DOMAIN") or os.environ.get("CF_DOMAIN")
+    else:
+        value = os.environ.get(name) if name in os.environ else None
+    if value is None:
+        value = defaults.get(name, "")
+    if name == "domain" and not value:
+        sys.exit("profile values contain ${domain}; set DOMAIN")
+    return str(value)
 text = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", fill, text)
 open(dest, "w").write(text)
-' "$src" "$dest"
+' "$src" "$manifest" "$dest"
   printf '%s' "$dest"
 }
 
@@ -734,9 +739,14 @@ find_haul_manifest() {
 
 apply_haul_manifest() {
   local manifest=$1
-  local profile
+  local profile external_tls=0 preserve_tls=0
   profile="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("profile",""))' "$manifest")"
   echo "==> applying profile ${profile:-unknown} from ${manifest}"
+  if [[ -n "$CLUSTER_TLS_CERT" || -n "$CLUSTER_TLS_KEY" ]]; then
+    [[ -n "$CLUSTER_TLS_CERT" && -n "$CLUSTER_TLS_KEY" ]] \
+      || die "set both CLUSTER_TLS_CERT and CLUSTER_TLS_KEY"
+    external_tls=1
+  fi
   if [[ "$DRY_RUN" -eq 1 ]]; then
     python3 -c 'import json,sys
 m=json.load(open(sys.argv[1]))
@@ -745,13 +755,24 @@ for p in m.get("packages") or []:
 ' "$manifest"
     return 0
   fi
+  if [[ "$external_tls" -eq 1 ]]; then
+    prepare_profile_tls
+    preserve_tls=1
+  elif cluster_tls_ok; then
+    echo "==> using existing ${CLUSTER_TLS_NS}/${CLUSTER_TLS_NAME}"
+    preserve_tls=1
+  fi
   local step name ns chart version values vf
   while IFS='|' read -r step name ns chart version values; do
     [[ -z "$name" ]] && continue
+    if [[ "$preserve_tls" -eq 1 && "$name" == selfsigned-tls ]]; then
+      echo "==> manifest/${step} skip ${name} (${CLUSTER_TLS_NAME} already supplied)"
+      continue
+    fi
     local extra=()
     if [[ -n "$values" ]]; then
       vf=$(store_file "$values") || die "values file missing: ${values}"
-      vf=$(expand_profile_vars "$vf")
+      vf=$(expand_profile_vars "$vf" "$manifest")
       extra=(--values "$vf")
     fi
     # The ClusterServingRuntime objects in this chart are validated by a
@@ -895,6 +916,28 @@ create_cluster_tls() {
     | kubectl apply --server-side --force-conflicts -f -
   cluster_tls_ok || die "created ${CLUSTER_TLS_NS}/${CLUSTER_TLS_NAME} but it is not a usable TLS secret"
   echo "    created ${CLUSTER_TLS_NS}/${CLUSTER_TLS_NAME} from ${cert}"
+}
+
+# A profile normally includes selfsigned-tls. When the deployment supplies a
+# real certificate, remove any Certificate that reconciles the same Secret,
+# replace the Secret, and let apply_haul_manifest skip that package. This also
+# makes a rerun converge after an earlier self-signed deployment.
+prepare_profile_tls() {
+  [[ -r "$CLUSTER_TLS_CERT" ]] || die "cannot read CLUSTER_TLS_CERT=$CLUSTER_TLS_CERT"
+  [[ -r "$CLUSTER_TLS_KEY" ]] || die "cannot read CLUSTER_TLS_KEY=$CLUSTER_TLS_KEY"
+  ensure_ns "$CLUSTER_TLS_NS"
+
+  local cert_name secret_name
+  while IFS='|' read -r cert_name secret_name; do
+    [[ -n "$cert_name" && "$secret_name" == "$CLUSTER_TLS_NAME" ]] || continue
+    echo "    deleting Certificate/${cert_name} that manages ${CLUSTER_TLS_NAME}"
+    kubectl -n "$CLUSTER_TLS_NS" delete certificate "$cert_name" --ignore-not-found
+  done < <(kubectl -n "$CLUSTER_TLS_NS" get certificates \
+    -o jsonpath='{range .items[*]}{.metadata.name}{"|"}{.spec.secretName}{"\n"}{end}' \
+    2>/dev/null || true)
+
+  kubectl -n "$CLUSTER_TLS_NS" delete secret "$CLUSTER_TLS_NAME" --ignore-not-found
+  create_cluster_tls "$CLUSTER_TLS_CERT" "$CLUSTER_TLS_KEY"
 }
 
 # The Gateway controller creates Envoy Deployments from EnvoyProxy CRs. Those
