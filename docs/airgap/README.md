@@ -1377,7 +1377,7 @@ envsubst < "$HAUL_ROOT/extracted/objects-aiwb-infra-db-secrets.yaml" | kubectl a
 A stock python image running a mounted script, standing in for the cluster-auth
 operator. AIWB reads the admin token it serves, so it has to exist before
 4.4.35. The ConfigMap holding the script is rendered into the bundle at pack
-time, out of `docs/manual_helm_install/scripts/cluster-auth-shim.py`.
+time, out of `docs/manual_helm_install/aiwb-standalone/scripts/cluster-auth-shim.py`.
 
 The shim's image reference is a bare `python:3.11-slim`. `registries.yaml`
 mirrors only `127.0.0.1:5000`, so an unqualified reference is not redirected
