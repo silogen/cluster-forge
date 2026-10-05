@@ -245,8 +245,6 @@ The default list holds one model, `openai/gpt-oss-20b`. Change it with:
 export AIM_MODEL_IMAGES="amdenterpriseai/aim-openai-gpt-oss-20b:0.11.1 amdenterpriseai/aim-qwen-qwen3-32b:0.11.1"
 ```
 
-Each image starts a job that pulls several gigabytes. Keep the list short.
-
 **Choose a model with no gated source repository.** The `meta-llama` and the
 `google/gemma` models need an approved HuggingFace account and an access token.
 The download fails with `Access denied. This repository requires approval.` The
