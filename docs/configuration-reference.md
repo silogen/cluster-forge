@@ -119,6 +119,7 @@ no ref and needs no tool on the node. See
 | Variable | Default | Meaning |
 |---|---|---|
 | `PULL_SECRET_JSON` | empty | Docker config JSON for the registry of the test image. The dummy image is public, so it is optional. The GPU test image needs the Docker Hub credentials. |
+| `HF_TOKEN` | empty | Hugging Face token for a gated model. The test puts it in the Secret `hf-token` in the test namespace. The dummy model does not need it. |
 | `AIM_TIMEOUT` | `15m` | How long to wait for the AIMService conditions. |
 | `KEEP` | `0` | `1` keeps the `aims-test` namespace after the test. |
 
