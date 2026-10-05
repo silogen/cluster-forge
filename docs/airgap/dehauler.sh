@@ -393,6 +393,33 @@ rewrite_images() {
     -e "s#^([[:space:]]*-?[[:space:]]*image:[[:space:]]*)([\"']?)([a-z0-9][a-z0-9._-]*:[A-Za-z0-9._-]+)\\2[[:space:]]*\$#\\1\\2${LOCAL_REG}/library/\\3\\2#"
 }
 
+# Profile values keep an empty profile var as ${name}. domain is filled from
+# DOMAIN (the same variable the full-stack path uses). Any other leftover
+# ${name} is filled from the environment when that variable is set, and from
+# nothing when it is not: gatewayExternalIP is empty on purpose.
+expand_profile_vars() {
+  local src=$1 dest
+  dest="$(mktemp)"
+  python3 -c '
+import os, re, sys
+src, dest = sys.argv[1], sys.argv[2]
+text = open(src).read()
+domain = os.environ.get("DOMAIN") or os.environ.get("CF_DOMAIN") or ""
+if "${domain}" in text:
+    if not domain:
+        sys.exit("profile values contain ${domain}; set DOMAIN")
+    text = text.replace("${domain}", domain)
+def fill(match):
+    name = match.group(1)
+    if name == "domain":
+        return domain
+    return os.environ.get(name, "")
+text = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", fill, text)
+open(dest, "w").write(text)
+' "$src" "$dest"
+  printf '%s' "$dest"
+}
+
 # ${VAR} in a hauled object bundle, replaced from the environment. Unset or
 # empty is fatal rather than expanded to nothing, because what uses this is
 # domains and access keys: a Secret rendered with an empty one installs
@@ -724,11 +751,20 @@ for p in m.get("packages") or []:
     local extra=()
     if [[ -n "$values" ]]; then
       vf=$(store_file "$values") || die "values file missing: ${values}"
+      vf=$(expand_profile_vars "$vf")
       extra=(--values "$vf")
     fi
     # The ClusterServingRuntime objects in this chart are validated by a
     # webhook the same chart installs. Apply the controller first, wait, then
     # the CRs, the same split as 4.4.25 / 4.4.25b.
+    # gateway-helm's controller mounts Secret envoy-gateway, which only the
+    # certgen pre-install hook creates. apply_chart passes --no-hooks, so any
+    # profile that includes this chart would stay in ContainerCreating. The
+    # hauled values decide whether certgen also has to fill the topology
+    # injector webhook.
+    if [[ "$chart" == gateway-helm ]]; then
+      apply_envoy_certgen "$version" "${extra[@]+"${extra[@]}"}"
+    fi
     if [[ "$chart" == kserve ]]; then
       CHART_KINDS="exclude ClusterServingRuntime"
       apply_chart "manifest/${step}" "$name" "$chart" "$version" "$ns" "${extra[@]+"${extra[@]}"}"
@@ -925,9 +961,11 @@ ensure_cluster_tls() {
 # ttlSecondsAfterFinished: 30, so it can be garbage-collected before or during
 # a wait on its condition.
 apply_envoy_certgen() {
+  local version=$1
+  shift
   local ns=envoy-gateway-system
   local webhook="envoy-gateway-topology-injector.${ns}"
-  echo "==> 4.4.21a envoy-gateway certgen"
+  echo "==> envoy-gateway certgen (${version})"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     return 0
   fi
@@ -935,26 +973,29 @@ apply_envoy_certgen() {
 
   # Apply the hook objects other than the Job first. They are what certgen
   # needs in place to succeed, and server-side apply makes this a no-op when
-  # they already exist.
-  local hooks
+  # they already exist. With topologyInjector disabled the webhook is not
+  # rendered, and certgen only has to write the Secret.
+  local hooks need_ca=0
   hooks=$(helm template envoy-gateway "oci://${LOCAL_REG}/hauler/gateway-helm" \
-    --version v1.8.4 --plain-http --namespace "$ns" \
+    --version "$version" --plain-http --namespace "$ns" "$@" \
     | python3 -c '
 import re, sys
 for doc in re.split(r"(?m)^---\s*$", sys.stdin.read()):
     if doc.strip() and "helm.sh/hook" in doc:
         sys.stdout.write("---\n" + doc.strip("\n") + "\n")
 ')
+  [[ "$hooks" == *"envoy-gateway-topology-injector"* ]] && need_ca=1
   filter_kinds exclude Job <<<"$hooks" | rewrite_images | apply_stdin "$ns"
 
-  # certgen writes the Secrets and then patches the webhook caBundle, so both
-  # have to be there before this step is done. An empty caBundle means a
-  # previous run created the Secrets and failed on the missing webhook.
+  # certgen writes the Secrets and then, when the injector is enabled, patches
+  # the webhook caBundle. An empty caBundle means a previous run created the
+  # Secrets and failed on the missing webhook.
   local ca=""
   ca=$(kubectl get mutatingwebhookconfiguration "$webhook" \
     -o jsonpath='{.webhooks[0].clientConfig.caBundle}' 2>/dev/null || true)
-  if kubectl -n "$ns" get secret envoy-gateway >/dev/null 2>&1 && [[ -n "$ca" ]]; then
-    echo "    secret envoy-gateway and webhook caBundle are already in place"
+  if kubectl -n "$ns" get secret envoy-gateway >/dev/null 2>&1 \
+      && { [[ "$need_ca" -eq 0 ]] || [[ -n "$ca" ]]; }; then
+    echo "    secret envoy-gateway is in place"
     pause_between "$ns"
     return 0
   fi
@@ -973,12 +1014,13 @@ for doc in re.split(r"(?m)^---\s*$", sys.stdin.read()):
   # Success is the Secret and the caBundle, not the Job reporting complete:
   # the Job sets ttlSecondsAfterFinished: 30, so it can be garbage-collected
   # before or during a wait on its condition.
-  echo "    waiting for certgen to write secret envoy-gateway and the caBundle"
+  echo "    waiting for certgen to write secret envoy-gateway"
   local elapsed=0 limit="${WAIT_TIMEOUT%s}"
   while :; do
     ca=$(kubectl get mutatingwebhookconfiguration "$webhook" \
       -o jsonpath='{.webhooks[0].clientConfig.caBundle}' 2>/dev/null || true)
-    if kubectl -n "$ns" get secret envoy-gateway >/dev/null 2>&1 && [[ -n "$ca" ]]; then
+    if kubectl -n "$ns" get secret envoy-gateway >/dev/null 2>&1 \
+        && { [[ "$need_ca" -eq 0 ]] || [[ -n "$ca" ]]; }; then
       break
     fi
     if (( elapsed >= limit )); then
@@ -989,7 +1031,11 @@ for doc in re.split(r"(?m)^---\s*$", sys.stdin.read()):
     sleep 3
     elapsed=$((elapsed + 3))
   done
-  echo "    secret envoy-gateway and webhook caBundle are present"
+  if [[ "$need_ca" -eq 1 ]]; then
+    echo "    secret envoy-gateway and webhook caBundle are present"
+  else
+    echo "    secret envoy-gateway is present"
+  fi
   pause_between "$ns"
 }
 
@@ -1226,7 +1272,7 @@ fi
 # without --no-hooks, keep only the certgen objects, wait for the Job, then
 # install the rest of the chart as usual.
 if should_run 21; then
-  apply_envoy_certgen
+  apply_envoy_certgen v1.8.4
 fi
 
 # 4.4.21 Envoy Gateway
@@ -1246,7 +1292,6 @@ fi
 if should_run 23; then
   apply_chart 4.4.23 envoy-gateway-config envoy-gateway-config 0.1.0 envoy-gateway-system \
     --set "domain=${CF_DOMAIN}" \
-    --set-string envoyProxy.nodeSelector.cluster-bloom/first-node=true \
     --set appsGateway.serviceType=LoadBalancer \
     --set aiGateway.enabled=true \
     --set "aiGateway.routeHostname=ai.${CF_DOMAIN}" \

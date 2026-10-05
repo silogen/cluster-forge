@@ -129,8 +129,7 @@ ensure_hauler() {
     return 0
   fi
   if [[ -x ./haul/hauler ]]; then
-    PATH="$(pwd)/haul:${PATH}"
-    export PATH
+    export PATH="$(pwd)/haul:${PATH}"
     echo "using bundled hauler $(command -v hauler)"
     return 0
   fi
@@ -251,14 +250,14 @@ write_dep_values() {
   [[ -f "$profile_values" ]] || printf '{}\n' >"$profile_values"
   yq eval-all '. as $item ireduce ({}; . * $item)' "$pkg_values" "$profile_values" |
     yq -r ".\"${dep_name}\" // {}" >"$out"
-  # A ${name} reference belongs to the deployment, not to the haul. Rendering
-  # needs a value that parses, so each one takes the default of the profile.
+  # A ${name} reference belongs to the deployment, not to the haul. A profile
+  # default is filled in here. An empty default stays as ${name} so dehauler
+  # can fill it from the environment. domain is the case that matters: the
+  # demo profiles leave it empty, and the cluster's DOMAIN is not known here.
   local key value
   for key in "${!profile_vars[@]}"; do
     value="${profile_vars[$key]}"
-    if [[ -z "$value" && "$key" == domain ]]; then
-      value=example.com
-    fi
+    [[ -n "$value" ]] || continue
     sed -i "s|\${${key}}|${value}|g" "$out"
   done
 }
@@ -386,7 +385,7 @@ render_objects() {
     if [[ "$app" == cluster-auth-shim ]]; then
       kubectl create configmap cluster-auth-shim \
         --namespace cluster-auth \
-        --from-file=shim.py=haul/cluster-forge/docs/manual_helm_install/aiwb-standalone/scripts/cluster-auth-shim.py \
+        --from-file=shim.py=haul/cluster-forge/docs/manual_helm_install/scripts/cluster-auth-shim.py \
         --dry-run=client -o yaml >>"$out"
       echo '---' >>"$out"
     fi
