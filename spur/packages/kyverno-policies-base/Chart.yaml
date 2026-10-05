@@ -1,0 +1,9 @@
+apiVersion: v2
+name: kyverno-policies-base
+description: Creates a user PVC when a workspace asks for one
+type: application
+version: 0.1.0
+dependencies:
+  - name: kyverno-policies-base
+    version: 1.0.0
+    repository: file://../../../sources/kyverno-policies/base

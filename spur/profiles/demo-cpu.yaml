@@ -30,6 +30,10 @@ packages:
         scaleFromZero:
           gatewayMetricsCollector:
             management: external
+  # VS Code and MLflow annotate the pod with pvc.silogen.ai/user-pvc-auto-create.
+  # This policy creates pvc-<uid>. The base profile only installs the local-path
+  # access-mode rule, which rewrites the claim and does not create it.
+  - name: kyverno-policies-base
   - name: envoy-gateway
   - name: selfsigned-tls
     values:
