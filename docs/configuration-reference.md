@@ -33,6 +33,26 @@ must stay in step. The chart-local default in
 `sources/envoy-gateway-config/values.yaml` is the same number and applies
 only if the root helmParameter is omitted.
 
+## Envoy apps gateway load balancer
+
+The apps gateway Service is a LoadBalancer. A cloud load balancer controller
+often needs Service annotations. Some controllers, such as OpenStack CCM,
+still read `spec.loadBalancerIP`.
+
+Envoy Gateway 1.8.1 copies `envoyService.annotations` and
+`envoyService.loadBalancerIP` onto that Service. Set the chart values below
+from the cluster-values overlay, under
+`apps.envoy-gateway-config.valuesObject.appsGateway`.
+
+| Value | Default | Purpose |
+|-------|---------|---------|
+| `serviceAnnotations` | `{}` | Annotations Envoy Gateway copies onto the apps gateway Service. |
+| `loadBalancerIP` | `""` | Fixed load balancer IP. Envoy Gateway writes `spec.loadBalancerIP`. |
+
+An empty value leaves the Service field unset. `externalIP` still writes the
+`externalIPs` patch for a cluster that has no load balancer. The two settings
+can both be set: they write different Service fields.
+
 ## `seaweedfs-config` integrations
 
 | Value | Default | Purpose |
