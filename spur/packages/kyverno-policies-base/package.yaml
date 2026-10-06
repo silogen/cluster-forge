@@ -1,6 +1,0 @@
-name: kyverno-policies-base
-namespace: kyverno
-provides:
-  - policy.user-pvc
-requires:
-  - policy.kyverno
