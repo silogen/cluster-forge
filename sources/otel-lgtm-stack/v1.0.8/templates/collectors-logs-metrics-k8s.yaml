@@ -473,8 +473,24 @@ spec:
               kubernetes_sd_configs:
               - role: node
               relabel_configs:
+              # Keep a small, deliberate set of node labels instead of copying all of
+              # them. A labelmap of __meta_kubernetes_node_label_(.+) stamps every node
+              # label (90-148 on our clusters, mostly cpu_cpuid_* flags) onto EVERY
+              # sample, inflating each to 4-7KB. The resulting OTLP batches exceed
+              # Prometheus's ~32MiB decode limit, which 400s the whole request and drops
+              # unrelated metrics riding in the same batch (EAI-9140).
+              # The kept labels are the ones in live scheduling use plus the obvious
+              # future grouping axes; see the PR for the rationale.
+              - source_labels: [__meta_kubernetes_node_name]
+                target_label: node
               - action: labelmap
-                regex: __meta_kubernetes_node_label_(.+)
+                regex: __meta_kubernetes_node_label_(feature_node_kubernetes_io_(?:amd_gpu|amd_vgpu|aim_accelerator_.+))
+              - action: labelmap
+                regex: __meta_kubernetes_node_label_(cluster_bloom_.+)
+              - action: labelmap
+                regex: __meta_kubernetes_node_label_(node_role_kubernetes_io_.+)
+              - action: labelmap
+                regex: __meta_kubernetes_node_label_(kubernetes_io_(?:os|arch)|node_kubernetes_io_instance_type|topology_kubernetes_io_(?:zone|region))
               - replacement: kubernetes.default.svc:443
                 target_label: __address__
               - regex: (.+)
@@ -491,8 +507,24 @@ spec:
               kubernetes_sd_configs:
               - role: node
               relabel_configs:
+              # Keep a small, deliberate set of node labels instead of copying all of
+              # them. A labelmap of __meta_kubernetes_node_label_(.+) stamps every node
+              # label (90-148 on our clusters, mostly cpu_cpuid_* flags) onto EVERY
+              # sample, inflating each to 4-7KB. The resulting OTLP batches exceed
+              # Prometheus's ~32MiB decode limit, which 400s the whole request and drops
+              # unrelated metrics riding in the same batch (EAI-9140).
+              # The kept labels are the ones in live scheduling use plus the obvious
+              # future grouping axes; see the PR for the rationale.
+              - source_labels: [__meta_kubernetes_node_name]
+                target_label: node
               - action: labelmap
-                regex: __meta_kubernetes_node_label_(.+)
+                regex: __meta_kubernetes_node_label_(feature_node_kubernetes_io_(?:amd_gpu|amd_vgpu|aim_accelerator_.+))
+              - action: labelmap
+                regex: __meta_kubernetes_node_label_(cluster_bloom_.+)
+              - action: labelmap
+                regex: __meta_kubernetes_node_label_(node_role_kubernetes_io_.+)
+              - action: labelmap
+                regex: __meta_kubernetes_node_label_(kubernetes_io_(?:os|arch)|node_kubernetes_io_instance_type|topology_kubernetes_io_(?:zone|region))
               - replacement: kubernetes.default.svc:443
                 target_label: __address__
               - regex: (.+)
@@ -778,8 +810,9 @@ spec:
     processors:
       batch:
         send_batch_size: 2000
-          #send_batch_size: 1000  # Reduced from 10000
-          #send_batch_max_size: 1000  # Added explicit max size
+        # send_batch_size alone is a trigger threshold, not a ceiling: without a max
+        # a single batch can greatly exceed it. Matches main (EAI-8777, PR #849).
+        send_batch_max_size: 2000
         timeout: 10s
       memory_limiter:
         check_interval: {{ .Values.collectors.memoryLimiter.checkInterval }}
