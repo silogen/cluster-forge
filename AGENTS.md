@@ -85,6 +85,13 @@ A commit that changes only tests is a chore. For a breaking change, append
 "!" to the type, such as "feat!" or "fix!", and start the body with the
 paragraph "BREAKING CHANGE: <what breaks and why>".
 
+Name each branch so it matches `^[a-zA-Z0-9_-]+$`. GitHub rejects any other
+name on push. The pattern allows letters, digits, underscore and hyphen.
+`feat/my-change` fails because of the slash. Put the commit type in the
+commit title. Keep the branch name a single path segment. When you have a
+ticket, name the branch `EAI-NNNN-short-description`. With no ticket yet,
+use a short hyphenated name such as `feat-envoy-cloud-loadbalancer`.
+
 Title each pull request "EAI-NNNN Verb ...".
 EAI-NNNN is the Jira ticket number, and the word after it is a verb with a
 capital first letter. Ask me for the ticket number if you do not have it.
