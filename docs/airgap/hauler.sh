@@ -304,12 +304,11 @@ haul_spur_package() {
       haul/haul-manifest.yaml
   done < <(yq -r '.dependencies[] | [.name, .version, .repository] | @tsv' "$chart_yaml")
   if [[ "$pkg" == amd-gpu-operator-config ]]; then
-    local ver
-    ver="$(yq -r '.dependencies[0].version' "$chart_yaml")"
-    ver="v${ver#v}"
-    add_image "docker.io/rocm/device-metrics-exporter:${ver}"
-    add_image "docker.io/rocm/device-config-manager:${ver}"
-    add_image "docker.io/rocm/test-runner:${ver}"
+    # The chart version is 0.1.0. The DeviceConfig deploys these tags, the
+    # same ones the full-stack path adds.
+    add_image "docker.io/rocm/device-metrics-exporter:v1.4.1"
+    add_image "docker.io/rocm/device-config-manager:v1.4.1"
+    add_image "docker.io/rocm/test-runner:v1.4.1"
   fi
   if [[ "$pkg" == aim-catalog && "$MODEL_IMAGES" == none && ${#AIM_IMAGES[@]} -gt 0 ]]; then
     local img

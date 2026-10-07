@@ -1549,38 +1549,17 @@ NOTE: the expected binary will be around 50GB including several template apps an
 #### 5.1 Haul step
 
 ```bash
-mkdir -p ~/.kube
-sudo cat /etc/rancher/rke2/rke2.yaml > ~/.kube/config
-sudo chown ubuntu:ubuntu ~/.kube/config
-chmod 600 ~/.kube/config
-
-# Deploy on a dedicated folder where there is enough space to create the binary
-cd /mnt/disk0/demo
-
-mkdir -p haul
-git clone https://github.com/silogen/cluster-forge.git haul/cluster-forge
-ls haul/cluster-forge/root/values-openshift.yaml
-
-export PATH="/var/lib/rancher/rke2/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
-export KUBECONFIG="$HOME/.kube/config"
-
-./hauler.sh none-model-images --skip-transfer
-
-# Testing with profiles
-./hauler.sh --profile default-cpu --branch EAI-8560-byok none-model-images --skip-transfer
-
-# Profile demo-cpu, with the scripts taken from the branch
 sudo mkdir -p /mnt/disk0/airgap
 sudo chown ubuntu:ubuntu /mnt/disk0/airgap
 cd /mnt/disk0/airgap
 
-curl -fsSL -o hauler.sh \
-  https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/demo-cpu-profile-fix/docs/airgap/hauler.sh
-curl -fsSL -o dehauler.sh \
-  https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/demo-cpu-profile-fix/docs/airgap/dehauler.sh
+curl -fsSL -o hauler.sh https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/main/docs/airgap/hauler.sh
+curl -fsSL -o dehauler.sh https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/main/docs/airgap/dehauler.sh
 chmod +x hauler.sh dehauler.sh
 
-./hauler.sh --profile demo-cpu --branch demo-cpu-profile-fix none-model-images --skip-transfer
+./hauler.sh --profile demo-cpu --skip-transfer
+# If other branch needed, just pass as argument
+# ./hauler.sh --profile demo-cpu --branch main none-model-images --skip-transfer
 ```
 
 #### 5.2 Transfer the binary
