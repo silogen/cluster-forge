@@ -305,10 +305,13 @@ haul_spur_package() {
   done < <(yq -r '.dependencies[] | [.name, .version, .repository] | @tsv' "$chart_yaml")
   if [[ "$pkg" == amd-gpu-operator-config ]]; then
     # The chart version is 0.1.0. The DeviceConfig deploys these tags, the
-    # same ones the full-stack path adds.
+    # same ones the full-stack path adds. The device plugin fields are not
+    # named image:, so --add-images does not see them.
     add_image "docker.io/rocm/device-metrics-exporter:v1.4.1"
     add_image "docker.io/rocm/device-config-manager:v1.4.1"
     add_image "docker.io/rocm/test-runner:v1.4.1"
+    add_image "docker.io/rocm/k8s-device-plugin:latest"
+    add_image "docker.io/rocm/k8s-device-plugin:labeller-latest"
   fi
   if [[ "$pkg" == aim-catalog && "$MODEL_IMAGES" == none && ${#AIM_IMAGES[@]} -gt 0 ]]; then
     local img
