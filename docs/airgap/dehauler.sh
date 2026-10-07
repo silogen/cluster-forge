@@ -23,7 +23,9 @@ TMPDIR="${TMPDIR:-$HAUL_ROOT/tmp}"
 export TMPDIR
 EXTRACT_DIR="${EXTRACT_DIR:-$HAUL_ROOT/extracted}"
 LOCAL_REG="${LOCAL_REG:-127.0.0.1:5000}"
-CF_DOMAIN="${CF_DOMAIN:-hauler1.silogen.ai}"
+# One cluster domain. Older commands set CF_DOMAIN; that is used only when
+# DOMAIN is unset.
+export DOMAIN="${DOMAIN:-${CF_DOMAIN:-hauler1.silogen.ai}}"
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-300s}"
 REGISTRY_WAIT_TIMEOUT="${REGISTRY_WAIT_TIMEOUT:-300}"
 METALLB_IP_RANGE="${METALLB_IP_RANGE:-}"
@@ -48,7 +50,6 @@ HAUL_ARCHIVE=""
 PLUGGABLE_DB="${PLUGGABLE_DB:-false}"
 PLUGGABLE_S3="${PLUGGABLE_S3:-false}"
 
-export DOMAIN="${DOMAIN:-$CF_DOMAIN}"
 export MINIO_API_ACCESS_KEY="${MINIO_API_ACCESS_KEY:-placeholder}"
 export MINIO_API_SECRET_KEY="${MINIO_API_SECRET_KEY:-placeholder}"
 export MINIO_CONSOLE_ACCESS_KEY="${MINIO_CONSOLE_ACCESS_KEY:-placeholder}"
@@ -128,7 +129,8 @@ Environment:
   EAI_STORE     Hauler store path (default $HAUL_ROOT/eai-store)
   TMPDIR        scratch dir on the large volume (default $HAUL_ROOT/tmp)
   LOCAL_REG     registry host:port (default 127.0.0.1:5000)
-  CF_DOMAIN     cluster domain for charts that take --set domain (default hauler1.silogen.ai)
+  DOMAIN        cluster domain (default hauler1.silogen.ai). CF_DOMAIN is
+                read only when DOMAIN is unset.
   WAIT_TIMEOUT  per-workload rollout timeout (default 300s)
   REGISTRY_WAIT_TIMEOUT seconds to wait for registry /v2/ (default 300)
   METALLB_IP_RANGE  L2 pool range; defaults to the first-node InternalIP /32
@@ -398,8 +400,7 @@ rewrite_images() {
 }
 
 # Profile values keep ${name} until deployment. Prefer an environment override,
-# then the profile default recorded in the haul manifest. domain uses DOMAIN /
-# CF_DOMAIN for consistency with the full-stack path.
+# then the profile default recorded in the haul manifest. domain uses DOMAIN.
 expand_profile_vars() {
   local src=$1 manifest=$2 dest
   dest="$(mktemp)"
@@ -411,7 +412,7 @@ defaults = json.load(open(manifest)).get("vars") or {}
 def fill(match):
     name = match.group(1)
     if name == "domain":
-        value = os.environ.get("DOMAIN") or os.environ.get("CF_DOMAIN")
+        value = os.environ.get("DOMAIN")
     else:
         value = os.environ.get(name) if name in os.environ else None
     if value is None:
@@ -1248,7 +1249,7 @@ fi
 
 # 4.4.13 OpenBao configuration
 if should_run 13; then
-  apply_chart 4.4.13 openbao-config openbao-config 0.1.0 cf-openbao --set "domain=${CF_DOMAIN}" --set "minio.apiAccessKey=${MINIO_API_ACCESS_KEY}" --set "minio.consoleAccessKey=${MINIO_CONSOLE_ACCESS_KEY}"
+  apply_chart 4.4.13 openbao-config openbao-config 0.1.0 cf-openbao --set "domain=${DOMAIN}" --set "minio.apiAccessKey=${MINIO_API_ACCESS_KEY}" --set "minio.consoleAccessKey=${MINIO_CONSOLE_ACCESS_KEY}"
 fi
 
 # 4.4.13b OpenBao init ConfigMap aliases. The init job mounts the two
@@ -1265,7 +1266,7 @@ fi
 
 # 4.4.14 OpenBao initialization job
 if should_run 14; then
-  apply_chart 4.4.14 openbao-init-job openbao-init-job 0.1.0 cf-openbao --set "domain=${CF_DOMAIN}"
+  apply_chart 4.4.14 openbao-init-job openbao-init-job 0.1.0 cf-openbao --set "domain=${DOMAIN}"
 fi
 
 # 4.4.15 External Secrets configuration
@@ -1275,7 +1276,7 @@ fi
 
 # 4.4.16 OpenTelemetry LGTM stack (Chart.yaml version 1.0.8 even if packed from v1.0.7 dir)
 if should_run 16; then
-  apply_chart 4.4.16 otel-lgtm-stack otel-lgtm-stack 1.0.8 otel-lgtm-stack --set "cluster.name=${CF_DOMAIN}" --set collectors.resources.metrics.requests.cpu=500m --set collectors.resources.metrics.requests.memory=1Gi --set collectors.resources.metrics.limits.memory=4Gi --set collectors.resources.logs.requests.cpu=250m --set collectors.resources.logs.requests.memory=256Mi --set collectors.resources.logs.limits.cpu=1 --set collectors.resources.logs.limits.memory=1Gi --set dashboards.enabled=true --set kubeStateMetrics.enabled=true --set nodeExporter.enabled=true --set services.nodeExporter.metrics=9110 --set lgtm.resources.requests.cpu=1 --set lgtm.resources.requests.memory=2Gi --set lgtm.resources.limits.memory=8Gi --set lgtm.storage.grafana=10Gi --set lgtm.storage.loki=50Gi --set lgtm.storage.mimir=50Gi --set lgtm.storage.tempo=50Gi --set lgtm.storage.extra=50Gi
+  apply_chart 4.4.16 otel-lgtm-stack otel-lgtm-stack 1.0.8 otel-lgtm-stack --set "cluster.name=${DOMAIN}" --set collectors.resources.metrics.requests.cpu=500m --set collectors.resources.metrics.requests.memory=1Gi --set collectors.resources.metrics.limits.memory=4Gi --set collectors.resources.logs.requests.cpu=250m --set collectors.resources.logs.requests.memory=256Mi --set collectors.resources.logs.limits.cpu=1 --set collectors.resources.logs.limits.memory=1Gi --set dashboards.enabled=true --set kubeStateMetrics.enabled=true --set nodeExporter.enabled=true --set services.nodeExporter.metrics=9110 --set lgtm.resources.requests.cpu=1 --set lgtm.resources.requests.memory=2Gi --set lgtm.resources.limits.memory=8Gi --set lgtm.storage.grafana=10Gi --set lgtm.storage.loki=50Gi --set lgtm.storage.mimir=50Gi --set lgtm.storage.tempo=50Gi --set lgtm.storage.extra=50Gi
 fi
 
 # 4.4.17 KEDA
@@ -1334,10 +1335,10 @@ fi
 # 4.4.23 Envoy Gateway configuration
 if should_run 23; then
   apply_chart 4.4.23 envoy-gateway-config envoy-gateway-config 0.1.0 envoy-gateway-system \
-    --set "domain=${CF_DOMAIN}" \
+    --set "domain=${DOMAIN}" \
     --set appsGateway.serviceType=LoadBalancer \
     --set aiGateway.enabled=true \
-    --set "aiGateway.routeHostname=ai.${CF_DOMAIN}" \
+    --set "aiGateway.routeHostname=ai.${DOMAIN}" \
     --set aiGateway.discoveryNamespace=ai-gateway-system \
     --set aiGateway.bodyAuthMaxRequestBytes=4194304
   wait_gateway_address
@@ -1450,14 +1451,14 @@ fi
 
 # 4.4.31 Keycloak with its own CNPG database (PLUGGABLE_DB=false)
 if should_run 31 && [[ "$PLUGGABLE_DB" != true ]]; then
-  apply_chart 4.4.31 keycloak keycloak-old 0.2.0 keycloak --set "domain=${CF_DOMAIN}" --set "hostname=${KC_URL}" --set externalSecrets.enabled=false --set cnpg.enabled=true --set cnpg.instances=1 --set "cnpg.storage.storageClassName=${CF_STORAGE_CLASS}" --set "postgresql.username=${KEYCLOAK_DB_USER}"
+  apply_chart 4.4.31 keycloak keycloak-old 0.2.0 keycloak --set "domain=${DOMAIN}" --set "hostname=${KC_URL}" --set externalSecrets.enabled=false --set cnpg.enabled=true --set cnpg.instances=1 --set "cnpg.storage.storageClassName=${CF_STORAGE_CLASS}" --set "postgresql.username=${KEYCLOAK_DB_USER}"
 fi
 
 # 4.4.31b Keycloak against a database the cluster does not run
 # (PLUGGABLE_DB=true). Same chart and release as 4.4.31, so only one of the
 # two ever applies.
 if should_run 32 && [[ "$PLUGGABLE_DB" == true ]]; then
-  apply_chart 4.4.31b keycloak keycloak-old 0.2.0 keycloak --set "domain=${CF_DOMAIN}" --set "hostname=${KC_URL}" --set externalSecrets.enabled=false --set cnpg.enabled=false --set "postgresql.host=${POSTGRES_HOST}" --set "postgresql.port=${POSTGRES_PORT}" --set "postgresql.database=${KEYCLOAK_DB_NAME}" --set "postgresql.username=${KEYCLOAK_DB_USER}" --set postgresql.userSecretName=keycloak-db-user
+  apply_chart 4.4.31b keycloak keycloak-old 0.2.0 keycloak --set "domain=${DOMAIN}" --set "hostname=${KC_URL}" --set externalSecrets.enabled=false --set cnpg.enabled=false --set "postgresql.host=${POSTGRES_HOST}" --set "postgresql.port=${POSTGRES_PORT}" --set "postgresql.database=${KEYCLOAK_DB_NAME}" --set "postgresql.username=${KEYCLOAK_DB_USER}" --set postgresql.userSecretName=keycloak-db-user
 fi
 
 # 4.4.32 SeaweedFS CRDs come from the operator chart in 0.1.36 (crds.create),
@@ -1465,7 +1466,7 @@ fi
 
 # 4.4.33 SeaweedFS operator (PLUGGABLE_S3=false)
 if should_run 33 && [[ "$PLUGGABLE_S3" != true ]]; then
-  apply_chart 4.4.33 seaweedfs-operator seaweedfs-operator 0.1.36 seaweedfs-operator --set "domain=${CF_DOMAIN}" --set webhook.enabled=false
+  apply_chart 4.4.33 seaweedfs-operator seaweedfs-operator 0.1.36 seaweedfs-operator --set "domain=${DOMAIN}" --set webhook.enabled=false
 fi
 
 # 4.4.33b SeaweedFS S3 credentials. The Seaweed CR that 4.4.34 creates mounts
@@ -1476,7 +1477,7 @@ fi
 
 # 4.4.34 SeaweedFS configuration (PLUGGABLE_S3=false)
 if should_run 34 && [[ "$PLUGGABLE_S3" != true ]]; then
-  apply_chart 4.4.34 seaweedfs-config seaweedfs-config 0.1.0 seaweedfs-instance --set "domain=${CF_DOMAIN}" --set "seaweed.storageClassName=${CF_STORAGE_CLASS}" --set 'initJob.buckets[0].name=default-bucket' --set 'initJob.buckets[1].name=models' --set 'initJob.buckets[2].name=datasets'
+  apply_chart 4.4.34 seaweedfs-config seaweedfs-config 0.1.0 seaweedfs-instance --set "domain=${DOMAIN}" --set "seaweed.storageClassName=${CF_STORAGE_CLASS}" --set 'initJob.buckets[0].name=default-bucket' --set 'initJob.buckets[1].name=models' --set 'initJob.buckets[2].name=datasets'
 fi
 
 # 4.4.34b Redirect Service standing in for the in-cluster object store when one
@@ -1495,7 +1496,7 @@ fi
 if should_run 35; then
   aiwb_args=(
     --set standAloneMode=true
-    --set "appDomain=${CF_DOMAIN}"
+    --set "appDomain=${DOMAIN}"
     --set "backend.clusterHost=${AIWB_UI_URL}"
     --set "frontend.env.NEXTAUTH_URL=${AIWB_UI_URL}"
     --set "keycloak.url=${KC_URL}"
@@ -1519,7 +1520,7 @@ fi
 
 # 4.4.36 AI Gateway Discovery
 if should_run 36; then
-  apply_chart 4.4.36 ai-gateway-discovery ai-gateway-discovery-chart 2.0.0 ai-gateway-system --set "controller.gateway.routeHostname=ai.${CF_DOMAIN}" --set controller.gateway.name=ai-gateway --set controller.bodyAuthMaxRequestBytes=4194304
+  apply_chart 4.4.36 ai-gateway-discovery ai-gateway-discovery-chart 2.0.0 ai-gateway-system --set "controller.gateway.routeHostname=ai.${DOMAIN}" --set controller.gateway.name=ai-gateway --set controller.bodyAuthMaxRequestBytes=4194304
 fi
 
 # 4.4.37 RabbitMQ Cluster Operator

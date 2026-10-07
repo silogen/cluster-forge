@@ -226,7 +226,7 @@ packages:
 ```bash
 sudo env PATH="/usr/local/bin:/var/lib/rancher/rke2/bin:$PATH" \
   KUBECONFIG=/etc/rancher/rke2/rke2.yaml \
-  CF_DOMAIN=spur-iro.silogen.ai \
+  DOMAIN=spur-iro.silogen.ai \
   ./dehauler.sh /path/to/eai-airgap.tar --confirm
 ``` The application
 order below follows
@@ -832,7 +832,7 @@ export HAUL_ROOT=/mnt/disk0/haul-airgap
 export EAI_STORE="$HAUL_ROOT/store"
 export TMPDIR="$HAUL_ROOT/tmp"
 export LOCAL_REG=127.0.0.1:5000
-export CF_DOMAIN=MY-HAULER-DOMAIN
+export DOMAIN=MY-HAULER-DOMAIN
 # Optional: create cluster-tls from files if the secret is not already in
 # envoy-gateway-system. Otherwise dehauler.sh prompts for the paths.
 # export CLUSTER_TLS_CERT=/path/to/fullchain.pem
@@ -842,7 +842,7 @@ export CF_DOMAIN=MY-HAULER-DOMAIN
 `dehauler.sh` refuses to start the charts until Secret `cluster-tls`
 exists in `envoy-gateway-system`. That is the wildcard/domain
 certificate the Gateway listeners terminate TLS with (SANs must cover
-`*.${CF_DOMAIN}`). Cluster-Forge copies it from the OpenShift router
+`*.${DOMAIN}`). Cluster-Forge copies it from the OpenShift router
 cert; that branch does not run here. Create it before the script, or
 let the script prompt:
 
@@ -1546,7 +1546,7 @@ Demo to create a hauler binary with all images stored locally to be deployed on 
 
 NOTE: the expected binary will be around 50GB including several template apps and container images. So, that will affect the trasfer between the host where images can be pulled and packaing the whole binary (i.e. step 5.1) and the remote host that will allocate that file and then host all container images
 
-#### 5.1 Haul
+#### 5.1 Haul step
 
 ```bash
 mkdir -p ~/.kube
@@ -1583,34 +1583,31 @@ chmod +x hauler.sh dehauler.sh
 ./hauler.sh --profile demo-cpu --branch demo-cpu-profile-fix none-model-images --skip-transfer
 ```
 
-#### 5.1 Transfer the binary
+#### 5.2 Transfer the binary
 
 ```bash
 # Transfer the output file from previous script to the destination host that is running within an airgap condition
 ```
 
+#### 5.3 Dehaul step
 
-#### 5.2 Dehaul
+Depending on the profile used, user might need to add additional env variables for the demo profile because of the of the endpoints needed for the gateway.
 
+#### 5.3.1 default profiles
 
 ```bash
-cd /mnt/disk0/demo
-sudo env PATH="/usr/local/bin:/var/lib/rancher/rke2/bin:$PATH" KUBECONFIG=/etc/rancher/rke2/rke2.yaml CF_DOMAIN=MY-HAULER-DOMAIN ./dehauler.sh /mnt/disk0/demo/eai-airgap.tar --confirm
-
-# Profile demo-cpu, from the haul folder written by hauler.sh
-# gatewayExternalIP is the node private IP. With no load balancer on the node,
-# ClusterIP makes the gateway answer on that address on port 443.
 cd /mnt/disk0/airgap/haul
-sudo env \
-  DOMAIN=MY-HAULER-DOMAIN \
-  CF_DOMAIN=MY-HAULER-DOMAIN \
-  gatewayServiceType=ClusterIP \
-  gatewayExternalIP=MY-NODE-PRIVATE-IP \
-  ./dehauler.sh
+sudo env PATH="/usr/local/bin:/var/lib/rancher/rke2/bin:$PATH" KUBECONFIG=/etc/rancher/rke2/rke2.yaml ./dehauler.sh /mnt/disk0/demo/eai-airgap.tar
 ```
 
-#### 5.3 Somke test
+#### 5.3.2 demo profiles
 
+```bash
+cd /mnt/disk0/airgap/haul
+sudo env DOMAIN=MY-HAULER-DOMAIN gatewayServiceType=ClusterIP gatewayExternalIP=MY-NODE-PRIVATE-IP ./dehauler.sh /mnt/disk0/demo/eai-airgap.tar
+```
+
+#### 5.3 Smoke test
 
 ```bash
 ./haul/cluster-forge/spur/tests/smoke.sh
