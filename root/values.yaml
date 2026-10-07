@@ -973,6 +973,30 @@ apps:
     helmParameters:
       - name: cluster.name
         value: "{{ .Values.global.domain }}"
+    # PVC size is deliberately NOT reconciled. Clusters run different sizes for
+    # loki-data-pvc (50Gi, 100Gi, 150Gi after past expansions), and a PVC can
+    # only ever grow: the API server rejects any request below status.capacity
+    # with "Forbidden: field can not be less than status.capacity". Without this,
+    # every cluster whose PVC is larger than the size tier asks for would sit
+    # permanently OutOfSync on a patch that can never apply -- and ArgoCD pins
+    # the Application to that failing revision and retries it, so later commits
+    # stop being deployed at all.
+    #
+    # The chart value therefore provisions NEW clusters and is not compared
+    # against existing ones. Growing an existing PVC is a deliberate, manual
+    # action (see EAI-9149), not something an upgrade does on its own -- which
+    # also avoids the in-place Longhorn resize that deadlocked int-test on
+    # 2026-10-06.
+    #
+    # NOTE: root/templates/cluster-apps.yaml adds RespectIgnoreDifferences=true
+    # whenever ignoreDifferences is set. That is required: on its own,
+    # ignoreDifferences only affects the diff, and a sync would still apply the
+    # field and attempt the shrink.
+    ignoreDifferences:
+      - group: ""
+        kind: PersistentVolumeClaim
+        jsonPointers:
+          - /spec/resources/requests/storage
     namespace: otel-lgtm-stack
     path: otel-lgtm-stack/v1.0.8
     syncWave: -20
