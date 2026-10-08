@@ -1,0 +1,155 @@
+# Copyright © Advanced Micro Devices, Inc., or its affiliates.
+#
+# SPDX-License-Identifier: MIT
+#
+# Classification for each model repository. Helm reads this file while it
+# renders the chart. The values are not copied into AIMClusterModelSource.
+#
+# origin is the ISO 3166-1 alpha-2 code of the organization that trained the model.
+# parameterBillions is the published total parameter count, rounded to the
+# nearest integer. A mixture-of-experts model uses that total, not the active
+# count. Gemma E4B entries use the published total (about 8), not the
+# effective 4B figure in the name.
+
+models:
+  amdenterpriseai/aim-coherelabs-command-a-reasoning-08-2025:
+    origin: CA
+    parameterBillions: 111
+  amdenterpriseai/aim-deepseek-ai-deepseek-r1:
+    origin: CN
+    parameterBillions: 671
+  amdenterpriseai/aim-deepseek-ai-deepseek-r1-0528:
+    origin: CN
+    parameterBillions: 671
+  amdenterpriseai/aim-deepseek-ai-deepseek-v3-1:
+    origin: CN
+    parameterBillions: 671
+  amdenterpriseai/aim-deepseek-ai-deepseek-v3-1-terminus:
+    origin: CN
+    parameterBillions: 671
+  amdenterpriseai/aim-epyc-google-gemma-4-e4b-it:
+    origin: US
+    parameterBillions: 8
+  amdenterpriseai/aim-epyc-meta-llama-llama-3-1-8b-instruct:
+    origin: US
+    parameterBillions: 8
+  amdenterpriseai/aim-epyc-meta-llama-llama-3-2-1b-instruct:
+    origin: US
+    parameterBillions: 1
+  amdenterpriseai/aim-epyc-meta-llama-llama-3-2-3b-instruct:
+    origin: US
+    parameterBillions: 3
+  amdenterpriseai/aim-epyc-qwen-qwen3-30b-a3b:
+    origin: CN
+    parameterBillions: 30
+  amdenterpriseai/aim-epyc-qwen-qwen3-5-4b:
+    origin: CN
+    parameterBillions: 4
+  amdenterpriseai/aim-epyc-qwen-qwen3-5-9b:
+    origin: CN
+    parameterBillions: 9
+  amdenterpriseai/aim-epyc-qwen-qwen3-6-35b-a3b:
+    origin: CN
+    parameterBillions: 35
+  amdenterpriseai/aim-epyc-qwen-qwen3-8b:
+    origin: CN
+    parameterBillions: 8
+  amdenterpriseai/aim-epyc-unsloth-gpt-oss-20b-bf16:
+    origin: US
+    parameterBillions: 20
+  amdenterpriseai/aim-google-gemma-3-1b-it:
+    origin: US
+    parameterBillions: 1
+  amdenterpriseai/aim-google-gemma-3-27b-it:
+    origin: US
+    parameterBillions: 27
+  amdenterpriseai/aim-google-gemma-4-31b-it:
+    origin: US
+    parameterBillions: 31
+  amdenterpriseai/aim-google-medgemma-27b-it:
+    origin: US
+    parameterBillions: 27
+  amdenterpriseai/aim-meta-llama-llama-3-1-405b-instruct:
+    origin: US
+    parameterBillions: 405
+  amdenterpriseai/aim-meta-llama-llama-3-1-8b-instruct:
+    origin: US
+    parameterBillions: 8
+  amdenterpriseai/aim-meta-llama-llama-3-2-1b-instruct:
+    origin: US
+    parameterBillions: 1
+  amdenterpriseai/aim-meta-llama-llama-3-2-3b-instruct:
+    origin: US
+    parameterBillions: 3
+  amdenterpriseai/aim-meta-llama-llama-3-3-70b-instruct:
+    origin: US
+    parameterBillions: 70
+  amdenterpriseai/aim-minimaxai-minimax-m2-5:
+    origin: CN
+    parameterBillions: 230
+  amdenterpriseai/aim-minimaxai-minimax-m3:
+    origin: CN
+    parameterBillions: 428
+  amdenterpriseai/aim-mistralai-ministral-3-14b-instruct-2512:
+    origin: FR
+    parameterBillions: 14
+  amdenterpriseai/aim-mistralai-ministral-3-14b-reasoning-2512:
+    origin: FR
+    parameterBillions: 14
+  amdenterpriseai/aim-mistralai-mistral-large-3-675b-instruct-2512:
+    origin: FR
+    parameterBillions: 675
+  amdenterpriseai/aim-mistralai-mistral-small-24b-instruct-2501:
+    origin: FR
+    parameterBillions: 24
+  amdenterpriseai/aim-mistralai-mistral-small-3-2-24b-instruct-2506:
+    origin: FR
+    parameterBillions: 24
+  amdenterpriseai/aim-mistralai-mixtral-8x22b-instruct-v0-1:
+    origin: FR
+    parameterBillions: 141
+  amdenterpriseai/aim-mistralai-mixtral-8x7b-instruct-v0-1:
+    origin: FR
+    parameterBillions: 47
+  amdenterpriseai/aim-openai-gpt-oss-120b:
+    origin: US
+    parameterBillions: 120
+  amdenterpriseai/aim-openai-gpt-oss-20b:
+    origin: US
+    parameterBillions: 20
+  amdenterpriseai/aim-qwen-qwen3-235b-a22b:
+    origin: CN
+    parameterBillions: 235
+  amdenterpriseai/aim-qwen-qwen3-32b:
+    origin: CN
+    parameterBillions: 32
+  amdenterpriseai/aim-qwen-qwen3-coder-next:
+    origin: CN
+    parameterBillions: 80
+  amdenterpriseai/aim-qwen-qwen3-vl-235b-a22b-instruct:
+    origin: CN
+    parameterBillions: 235
+  amdenterpriseai/aim-qwen-qwen3-vl-235b-a22b-thinking:
+    origin: CN
+    parameterBillions: 235
+  amdenterpriseai/aim-radeon-google-gemma-3n-e4b-it:
+    origin: US
+    parameterBillions: 8
+  amdenterpriseai/aim-radeon-meta-llama-llama-3-1-8b-instruct:
+    origin: US
+    parameterBillions: 8
+  amdenterpriseai/aim-radeon-qwen-qwen3-5-9b:
+    origin: CN
+    parameterBillions: 9
+  amdenterpriseai/aim-radeon-qwen-qwen3-vl-8b-instruct:
+    origin: CN
+    parameterBillions: 8
+  amdenterpriseai/aim-radeon-zai-org-glm-4-7-flash:
+    origin: CN
+    parameterBillions: 30
+  amdenterpriseai/aim-zai-org-glm-4-7:
+    origin: CN
+    parameterBillions: 358
+  amdenterpriseai/aim-zai-org-glm-5-2:
+    origin: CN
+    parameterBillions: 753
