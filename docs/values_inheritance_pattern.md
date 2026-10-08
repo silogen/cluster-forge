@@ -179,6 +179,8 @@ When ArgoCD renders applications with multi-source:
    `sources/aim-cluster-model-source`). The value travels as a structured list,
    not a string, so no comma parsing is involved. The base `root/values.yaml`
    default is an empty list, which selects the legacy (install-all) branch.
+   `valuesObject.modelFilters` selects models by origin and total parameter
+   count. The default keeps every model.
 
    GPU stack family (ROCm + GPU Operator) is injected the same way, driven by
    cluster-bloom's `GPU_STACK_FAMILY`. Two child-app keys are set:

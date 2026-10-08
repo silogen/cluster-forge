@@ -70,6 +70,11 @@ apps:
       # injects the selected families as a YAML list at deploy time, and only
       # when AIM_HARDWARE_FAMILY is set.
       hardwareFamilies: []
+      # Render-time catalog filter. Empty origins and 0 keep every model.
+      # See sources/aim-cluster-model-source/README.md.
+      modelFilters:
+        excludedOrigins: []
+        maxParameterBillions: 0
   airm:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "2.0.4-rc.1"

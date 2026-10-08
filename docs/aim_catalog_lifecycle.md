@@ -137,11 +137,11 @@ enough — see [Filter removal vs source removal](#filter-removal-vs-source-remo
 
 This applies to cluster-managed additions. Packaged baseline sources are owned
 by the `aim-cluster-model-source` chart and are restored by the next Argo CD
-sync if deleted in the cluster. The chart's only selector is `hardwareFamilies`,
-which switches whole family profiles; it cannot drop an individual packaged
-version. Packaged source names (`amd-aim-instinct-0.12.0`,
-`amd-aim-epyc-0.13.0`, and so on) are therefore a **stable API**: a Cluster
-Forge release adds tracks; it does not delete source names from the chart.
+sync if deleted in the cluster. `hardwareFamilies` selects the family profile.
+`modelFilters` can omit individual images at render time, and Helm omits a
+source whose image list becomes empty. The default `modelFilters` keeps every
+image, so a release still adds tracks and does not delete source names from
+the chart. See the aim-cluster-model-source README.
 
 ## Cluster-managed catalog additions
 

@@ -91,6 +91,21 @@ Post-handoff cluster checks. See [`scripts/platform-gates/README.md`](../scripts
 
 Webhook gate env vars are inherited from `ai-gateway-webhook-health.sh`.
 
+## `aim-cluster-model-source` model filters
+
+Helm reads `modelFilters` while it renders `AIMClusterModelSource`. The
+object spec stays `image` only. Set the keys on the chart or under
+`apps.aim-cluster-model-source.valuesObject.modelFilters` in the cluster
+values. Classification of each repository is in
+`sources/aim-cluster-model-source/model-attributes.yaml`.
+
+| Value | Default | Purpose |
+|---|---|---|
+| `modelFilters.excludedOrigins` | `[]` | ISO 3166-1 alpha-2 codes to omit. An empty list keeps every origin. Known codes: `CA`, `CN`, `FR`, `US`. |
+| `modelFilters.maxParameterBillions` | `0` | Omit a model whose published total parameter count is greater than this integer. `0` disables the check. A mixture-of-experts model uses its total count. |
+
+Both checks apply together. A model stays only when its origin is allowed and its size is allowed. Helm omits a source that would have an empty `filters` list. `aim-base-models` is not filtered.
+
 ## `spur/spur-aims` (the Spur CLI plugin)
 
 Installs a Spur profile on a Spur Kubernetes cluster, as the Spur CLI plugin

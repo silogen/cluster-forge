@@ -40,6 +40,35 @@ hardwareFamilies:
 `instinct` and `radeon` are GPU families; `cpu` and `epyc` are CPU inference
 targets. Registry is `docker.io` (`amdenterpriseai`).
 
+## `modelFilters`
+
+Helm applies these values while it renders the chart. Each rendered filter
+keeps the `image` field only. The `AIMClusterModelSource` spec does not gain
+new fields.
+
+| Value | Default | Effect |
+|---|---|---|
+| `excludedOrigins` | `[]` | Drop a model whose `origin` is in this list. An empty list keeps every origin. |
+| `maxParameterBillions` | `0` | Drop a model whose total parameter count is greater than this number. `0` disables the check. |
+
+A model stays when it passes both checks. A count equal to `maxParameterBillions` stays. `parameterBillions` in `model-attributes.yaml` is the published total, rounded to the nearest integer. A mixture-of-experts model uses that total, not the active count. Gemma E4B entries use the published total (about 8).
+
+`origin` is an ISO 3166-1 alpha-2 code. Origins in the attribute file: `CA`, `CN`, `FR`, `US`.
+
+```yaml
+modelFilters:
+  excludedOrigins:
+    - CN
+  maxParameterBillions: 30
+```
+
+Helm omits an `AIMClusterModelSource` when every image in it is dropped. `spec.filters` must contain at least one image. Base sources named `aim-base-models` are outside this filter.
+
+Add a repository to `model-attributes.yaml` when you add its image to a template. `helm template` fails when an image has no entry.
+
+Cluster Forge passes the same keys through
+`apps.aim-cluster-model-source.valuesObject.modelFilters`.
+
 ## Installing
 
 This chart is normally driven by cluster-bloom via the `AIM_HARDWARE_FAMILY`
@@ -55,4 +84,17 @@ will silently drop a multi-value string, so use `--set-json` for the list form:
 
 ```bash
 helm install ... --set-json 'hardwareFamilies=["epyc","instinct"]'
+```
+
+## Demo
+
+```bash
+# All models for all families
+helm template aim-cluster-model-source sources/aim-cluster-model-source --set-json 'hardwareFamilies=["instinct","epyc","radeon"]'
+
+# All models for all families. Exclude CN & FR models
+helm template aim-cluster-model-source sources/aim-cluster-model-source --set-json 'hardwareFamilies=["instinct","epyc","radeon"]' --set-json 'modelFilters={"excludedOrigins":["CN","FR"]}'
+
+# All models for all families. Exclude CN & FR models and models bigger than 20b
+helm template aim-cluster-model-source sources/aim-cluster-model-source --set-json 'hardwareFamilies=["instinct","epyc","radeon"]' --set-json 'modelFilters={"excludedOrigins":["CN","FR"],"maxParameterBillions":20}'
 ```

@@ -5,3 +5,11 @@
 # Hardware families to install (string or list). Allowed: cpu, epyc, instinct, radeon.
 # Empty = unfiltered catalog (Instinct 0.11.1+ plus mixed bases).
 hardwareFamilies: []
+
+# Render-time model selection. The AIMClusterModelSource spec is unchanged.
+# Empty excludedOrigins and maxParameterBillions 0 keep every model image.
+modelFilters:
+  excludedOrigins: []
+  # Drop a model when its total parameter count is greater than this number.
+  # 0 disables the size check.
+  maxParameterBillions: 0
