@@ -1,0 +1,13 @@
+# The GatewayClass every Gateway in this blueprint binds to. On a cluster-forge
+# cluster this comes from the envoy-gateway-config chart; that whole chart is
+# not used here (it also installs a shared `https` Gateway, cluster TLS and a
+# cluster-wide default-deny SecurityPolicy, none of which this blueprint wants),
+# so its one required object is copied here instead.
+#
+# Harmless to apply on a cluster that already has it -- same name, same spec.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: envoy-gateway
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
