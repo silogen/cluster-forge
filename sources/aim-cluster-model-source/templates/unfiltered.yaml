@@ -88,4 +88,16 @@ spec:
   registry: docker.io
   syncInterval: 1h
 ---
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterModelSource
+metadata:
+  name: amd-aim-instinct-2026.11.0
+spec:
+  filters:
+    # DeepSeek-V4-Flash-0731: vLLM 0.28.0, built on aim-base:2026.11.0
+    # - image: amdenterpriseai/aim-base:2026.11.0
+    - image: amdenterpriseai/aim-deepseek-ai-deepseek-v4-flash-0731:2026.11.0
+  maxModels: 100
+  registry: docker.io
+  syncInterval: 1h
 {{- end }}
