@@ -100,8 +100,9 @@ apps:
     ignoreDifferences:
       - group: kyverno.io
         kind: ClusterPolicy
-        jsonPointers:
-          - /spec/rules/*/skipBackgroundRequests
+        jqPathExpressions:
+          # jsonPointers do not support wildcards; Kyverno sets these on rules.
+          - .spec.rules[].skipBackgroundRequests
   airm-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "2.1.0"
