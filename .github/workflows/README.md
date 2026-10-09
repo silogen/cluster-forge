@@ -36,12 +36,10 @@ This directory contains CI/CD workflows for cluster-forge.
 - Job `release`:
   - Checks out full history.
   - Computes next semantic version (`ietf-tools/semver-action`) unless `version_override` is set.
+  - Generates SBOM via `sbom/generate-sbom.sh` and renames it to `sbom-<version>-<short-sha>.md`.
   - Packages `root/`, `scripts/`, and `sources/` into `release-enterprise-ai-<version>.tar.gz`.
-  - Creates a GitHub **prerelease** (`--prerelease`) with generated notes. Prereleases do not become GitHub Latest, so arbitrary tags from this workflow cannot replace the current Latest release.
-- Job `sbom` (depends on `release`):
-  - Generates SBOM via `sbom/generate-sbom.sh`.
-  - Renames output to `sbom-<version>-<short-sha>.md`.
-  - Uploads SBOM asset to the GitHub release with `--clobber`.
+  - Creates a GitHub **prerelease** (`--prerelease`) with both assets on the same `gh release create` call. `gh` uploads the assets, then publishes. Immutable releases reject an asset added after publication.
+  - Prereleases do not become GitHub Latest, so arbitrary tags from this workflow cannot replace the current Latest release.
 
 ## Operating notes
 
