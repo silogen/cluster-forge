@@ -234,22 +234,37 @@ shown above, before any other script creates a volume.
 #### The model catalog
 
 The AIM engine does not know any model until you tell it where to look.
-`aim-catalog.sh` creates an `AIMClusterModelSource`, which lists the model
-images. The engine then runs one job for each image, reads the model metadata,
-and creates an `AIMClusterModel` and its profiles.
+`aim-catalog.sh` installs the chart `sources/aim-cluster-model-source` from
+this repository. The chart creates the `AIMClusterModelSource` objects. The
+engine then runs one job for each image, reads the model metadata, and creates
+an `AIMClusterModel` and its profiles.
 
-The default list holds one model, `openai/gpt-oss-20b`. Change it with:
+`AIM_HARDWARE_FAMILY` selects the catalog for the hardware in the cluster.
+Separate two families with a comma. The allowed values are `instinct`,
+`radeon`, `epyc` and `cpu`.
 
 ```bash
-export AIM_MODEL_IMAGES="amdenterpriseai/aim-openai-gpt-oss-20b:0.11.1 amdenterpriseai/aim-qwen-qwen3-32b:0.11.1"
+export AIM_HARDWARE_FAMILY=radeon
 ```
 
-Each image starts a job that pulls several gigabytes. Keep the list short.
+```bash
+export AIM_HARDWARE_FAMILY=epyc,instinct
+```
 
-**Choose a model with no gated source repository.** The `meta-llama` and the
-`google/gemma` models need an approved HuggingFace account and an access token.
-The download fails with `Access denied. This repository requires approval.` The
-`openai/gpt-oss` and the Qwen models need no token.
+Leave the variable unset to install the unfiltered catalog. That catalog holds
+Instinct models plus base images for Instinct, EPYC and Radeon. It does not
+hold the Radeon model images. A Radeon cluster needs `radeon`. An EPYC cluster
+needs `epyc`.
+
+`cpu` installs no model source.
+
+Each image starts a job that pulls several gigabytes. A family catalog holds
+many images. The first models appear minutes later.
+
+**Some models need an approved HuggingFace account.** The `meta-llama` and the
+`google/gemma` models fail with
+`Access denied. This repository requires approval.` The `openai/gpt-oss` and
+the Qwen models need no token.
 
 ### Step 4 — Install the two charts
 
@@ -454,19 +469,15 @@ token.
 
 Read these before you give this document to a customer.
 
-**It is not helm-only yet.** Three dependency scripts clone the cluster-forge
+**It is not helm-only yet.** Four dependency scripts clone the cluster-forge
 repository and install a chart from a path in it, because those charts are in no
-registry. Two more steps, the storage policy and the model catalog, write
-Kubernetes objects with `kubectl` for the same reason. A registry must hold
-these charts before this is a Helm-only procedure.
+registry. The storage policy writes a Kubernetes object with `kubectl` for the
+same reason. A registry must hold these charts before this is a Helm-only
+procedure.
 
-**The clone takes an unpinned branch.** The three scripts clone the `main`
+**The clone takes an unpinned branch.** The four scripts clone the `main`
 branch. Two installs on two days can therefore differ. Set `CLUSTER_FORGE_REF`
 to pin a tag.
 
 **One domain, one install.** The domain goes into the Keycloak realm. To change
 it, uninstall and install again.
-
-**The model catalog is a copy.** `aim-catalog.sh` holds a list of image names
-that AMD publishes elsewhere. The list goes out of date. Check for a newer tag
-before you install.

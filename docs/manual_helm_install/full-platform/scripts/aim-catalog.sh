@@ -1,62 +1,96 @@
 #!/usr/bin/env bash
 # The AIM model catalog.
 #
-# The AIM engine serves a model that an AIMClusterModel describes. The engine
-# creates no AIMClusterModel itself: an AIMClusterModelSource names the model
-# images, and the engine runs a discovery Job on each one. cluster-forge
-# installs these objects from the chart sources/aim-cluster-model-source. The
-# helm-only instructions do not install that chart, so the catalog stays empty
-# and AI Workbench offers no model.
+# Installs sources/aim-cluster-model-source from this repository. The chart
+# creates the AIMClusterModelSource objects for AIM_HARDWARE_FAMILY. An empty
+# value installs the unfiltered catalog. cpu installs no model source.
 #
-# AIM_MODEL_IMAGES gives the model images. AIM_BASE_IMAGES gives the base images
-# that AI Workbench uses to onboard a custom model. Each image starts one
-# discovery Job that pulls a large image, so the default list is short.
-#
-# A model with a gated source repository needs a HuggingFace token. The default
-# list holds models with no gate.
-#
-# Run this script after deps/compute.sh, which installs the AIM engine.
+# Run this script after compute.sh, which installs the AIM engine.
 set -euo pipefail
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-AIM_MODEL_IMAGES="${AIM_MODEL_IMAGES:-amdenterpriseai/aim-openai-gpt-oss-20b:0.11.1}"
-AIM_BASE_IMAGES="${AIM_BASE_IMAGES:-amdenterpriseai/aim-base:0.13.1}"
-AIM_CATALOG_REGISTRY="${AIM_CATALOG_REGISTRY:-docker.io}"
-AIM_CATALOG_MAX_MODELS="${AIM_CATALOG_MAX_MODELS:-25}"
-
-yaml_list() {
-  local prefix="$1" images="$2" item
-  for item in ${images}; do
-    printf '%s%s\n' "${prefix}" "${item}"
-  done
+trim() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "${value}"
 }
 
-kubectl apply --filename - <<EOF
-apiVersion: aim.eai.amd.com/v1alpha1
-kind: AIMClusterModelSource
-metadata:
-  name: aim-base-models
-spec:
-  images:
-$(yaml_list '  - ' "${AIM_BASE_IMAGES}")
-  maxModels: ${AIM_CATALOG_MAX_MODELS}
-  registry: ${AIM_CATALOG_REGISTRY}
-  syncInterval: 1h
-EOF
+# Writes a JSON array body, without the surrounding brackets, to stdout.
+# Fails when a token is empty or is not an allowed family.
+families_json() {
+  local raw="$1" token trimmed json="" rest
+  local -A seen=()
+  local -a parts=()
+  # Keep an empty field. `read` drops a trailing comma, and that comma is an error.
+  rest="${raw}"
+  while [[ "${rest}" == *","* ]]; do
+    parts+=("${rest%%,*}")
+    rest="${rest#*,}"
+  done
+  parts+=("${rest}")
+  if [[ ${#parts[@]} -eq 0 ]]; then
+    echo "AIM_HARDWARE_FAMILY has an empty family name." >&2
+    return 1
+  fi
+  for token in "${parts[@]}"; do
+    trimmed="$(trim "${token}")"
+    if [[ -z "${trimmed}" ]]; then
+      echo "AIM_HARDWARE_FAMILY has an empty family name." >&2
+      return 1
+    fi
+    case "${trimmed}" in
+      cpu|epyc|instinct|radeon) ;;
+      *)
+        echo "AIM_HARDWARE_FAMILY has unknown family ${trimmed}." >&2
+        echo "Allowed families: cpu, epyc, instinct, radeon." >&2
+        return 1
+        ;;
+    esac
+    [[ -n "${seen[${trimmed}]+x}" ]] && continue
+    seen["${trimmed}"]=1
+    if [[ -n "${json}" ]]; then
+      json+=","
+    fi
+    json+="\"${trimmed}\""
+  done
+  printf '%s' "${json}"
+}
 
-kubectl apply --filename - <<EOF
-apiVersion: aim.eai.amd.com/v1alpha1
-kind: AIMClusterModelSource
-metadata:
-  name: aim-models
-spec:
-  filters:
-$(yaml_list '    - image: ' "${AIM_MODEL_IMAGES}")
-  maxModels: ${AIM_CATALOG_MAX_MODELS}
-  registry: ${AIM_CATALOG_REGISTRY}
-  syncInterval: 1h
-EOF
+family="$(trim "${AIM_HARDWARE_FAMILY:-}")"
+json=""
+if [[ -n "${family}" ]]; then
+  json="$(families_json "${family}")"
+fi
+
+forge="$(forge_dir)"
+chart="${forge}/sources/aim-cluster-model-source"
+if [[ ! -f "${chart}/Chart.yaml" ]]; then
+  echo "The chart sources/aim-cluster-model-source is absent in ${forge}." >&2
+  exit 1
+fi
+
+helm_args=(
+  upgrade --install aim-cluster-model-source "${chart}"
+  --namespace aim-system --create-namespace
+)
+if [[ -n "${json}" ]]; then
+  helm_args+=(--set-json "hardwareFamilies=[${json}]")
+fi
+helm "${helm_args[@]}" --wait --timeout 5m
+
+if [[ "${json}" == '"cpu"' ]]; then
+  echo "the cpu family installs no model source"
+  exit 0
+fi
+
+sources="$(kubectl get aimclustermodelsource --no-headers 2>/dev/null | grep -c . || true)"
+if [[ "${sources}" -eq 0 ]]; then
+  echo "the catalog has no model source" >&2
+  echo "check: kubectl get aimclustermodelsource" >&2
+  exit 1
+fi
 
 # Discovery pulls each model image, so the first models appear minutes later.
 # Wait for one AIMClusterModel, which shows that the engine reads the source.

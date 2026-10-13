@@ -222,7 +222,7 @@ syncing — see
 | Responsibility | Owner |
 |----------------|-------|
 | Packaged baseline catalog (what a new cluster gets) | The Cluster Forge release you installed |
-| Choosing `AIM_HARDWARE_FAMILY` at install | Whoever runs cluster-bloom |
+| Choosing `AIM_HARDWARE_FAMILY` at install | Whoever runs cluster-bloom, or the full-platform Helm install |
 | Cluster-managed catalog additions and removals | Cluster operator |
 | Removing deprecated catalog entries | Cluster operator |
 

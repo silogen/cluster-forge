@@ -48,6 +48,10 @@ install flag, which injects the selected families as a YAML list into
 cluster-forge `root` chart). No comma parsing is involved on that path — the
 value travels as a structured list.
 
+The full-platform Helm install uses the same selection.
+`docs/manual_helm_install/full-platform/scripts/aim-catalog.sh` reads
+`AIM_HARDWARE_FAMILY` and passes it to `hardwareFamilies`.
+
 For a manual `helm` install, prefer a values file or pass a JSON list. A
 comma-separated string also works because the chart splits it, but note that
 Helm's `--set` and `--set-string` both treat a comma as a list separator and

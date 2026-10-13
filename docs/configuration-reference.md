@@ -151,8 +151,5 @@ before you run a script.
 | `KSERVE_ATTEMPTS` | `3` | How many times to install KServe. Its webhook is not ready on the first attempt. |
 | `ENVOY_GATEWAY_ATTEMPTS` | `4` | How many times to install the Envoy Gateway. |
 | `KUBECTL_TIMEOUT` | `180s` | The timeout of each `kubectl wait`. |
-| `AIM_MODEL_IMAGES` | `amdenterpriseai/aim-openai-gpt-oss-20b:0.11.1` | The AIM model images to put in the catalogue. Separate two images with a space. |
-| `AIM_BASE_IMAGES` | `amdenterpriseai/aim-base:0.13.1` | The AIM base images to put in the catalogue. |
-| `AIM_CATALOG_REGISTRY` | `docker.io` | The registry that holds the AIM images. |
-| `AIM_CATALOG_MAX_MODELS` | `25` | The maximum number of models that discovery imports. |
+| `AIM_HARDWARE_FAMILY` | empty | Families for the AIM catalog. A comma separates two families. Allowed: `cpu`, `epyc`, `instinct`, `radeon`. Empty installs the unfiltered catalog. `cpu` installs no model source. |
 | `AIM_CATALOG_TIMEOUT_SECONDS` | `900` | How long to wait for the first AIMClusterModel to become Ready. |
