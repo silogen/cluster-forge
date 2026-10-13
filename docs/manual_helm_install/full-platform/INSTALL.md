@@ -84,27 +84,29 @@ Traefik with `--disable traefik`.
 │ kubectl  │ Configured for the cluster, with cluster-admin rights.       │
 │ bash     │ Version 4 or newer.                                          │
 │ openssl  │ The scripts generate the passwords with it.                  │
-│ git      │ Three scripts clone a repository. See "Limits" below.        │
+│ git      │ Four scripts clone a repository. See "Limits" below.         │
 │ curl     │ For the verification step.                                   │
 └──────────┴──────────────────────────────────────────────────────────────┘
 ```
 
 ### A domain name
 
-The product serves five host names under one domain. Choose the domain before
+The product serves six host names under one domain. Choose the domain before
 you start, because the installation writes it into Keycloak and you cannot
 change it afterwards without a reinstall.
 
 ```
-aiwbui.<domain>    the AI Workbench interface
-airmui.<domain>    the AI Resource Manager interface
-kc.<domain>        Keycloak, which signs users in
-aiwbapi.<domain>   the AI Workbench API
-airmapi.<domain>   the AI Resource Manager API
+aiwbui.<domain>      the AI Workbench interface
+airmui.<domain>      the AI Resource Manager interface
+kc.<domain>          Keycloak, which signs users in
+aiwbapi.<domain>     the AI Workbench API
+airmapi.<domain>     the AI Resource Manager API
+workloads.<domain>   the model endpoints
 ```
 
-Point all five names at the Envoy Gateway address. For a test you can skip DNS
-and use `curl --resolve`, which the verification step shows.
+Point each name at the Envoy Gateway address. `workloads.<domain>` answers
+after you serve a model. The verification step does not call it. For a test
+you can skip DNS and use `curl --resolve`, which the verification step shows.
 
 ### A TLS certificate
 
@@ -138,7 +140,7 @@ export TLS_CERT=/path/to/fullchain.pem
 export TLS_KEY=/path/to/privkey.pem
 ```
 
-Three scripts install a chart that is in this repository and in no registry.
+Four scripts install a chart that is in this repository and in no registry.
 Point them at your checkout, and they clone nothing:
 
 ```bash
@@ -183,7 +185,7 @@ What each script installs, and why it is there:
 │                      │ needs.                                           │
 │ kyverno.sh           │ Kyverno, and one policy. Read "The storage       │
 │                      │ policy" below. Do not skip this script.          │
-│ gateway.sh           │ The Gateway object that serves the five host     │
+│ gateway.sh           │ The Gateway object that serves the six hosts     │
 │                      │ names, and its TLS certificate.                  │
 │ openbao.sh           │ OpenBao, the secret store. It holds the          │
 │                      │ passwords of step 2. REQUIRED. Read "The secret  │
@@ -407,8 +409,7 @@ kubectl exec -n demo "$POD" -- curl -s http://localhost:8000/v1/chat/completions
   -d '{"model":"openai/gpt-oss-20b","messages":[{"role":"user","content":"Hello"}],"max_tokens":40}'
 ```
 
-The model also answers through the gateway, on the host name that the
-`HTTPRoute` of the service gives.
+The model also answers through the gateway, on `workloads.<domain>`.
 
 ## When something fails
 

@@ -137,19 +137,21 @@ before you run a script.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `DOMAIN` | none, required | The DNS domain of the platform. `localhost` selects the HTTP test mode. |
+| `DOMAIN` | none, required | The DNS domain. The gateway serves `https://*.<domain>`. |
 | `STORAGE_CLASS` | none, required | The StorageClass that each PersistentVolumeClaim uses. |
+| `AIWB_CNPG_INSTANCES` | empty | Number of AIWB PostgreSQL instances. Empty uses the chart default, 3. Set `1` on a cluster with one node. |
 | `TLS_CERT` | empty | Path to a certificate chain in PEM form. Empty makes a self-signed certificate. |
 | `TLS_KEY` | empty | Path to the private key of `TLS_CERT`. |
-| `CLUSTER_FORGE_DIR` | a temporary clone | Path to a Cluster Forge checkout. Set it to this repository, and the scripts clone nothing. |
+| `SECRETS_FILE` | `scripts/.secrets.env` | Path of the generated password file. |
+| `CLUSTER_FORGE_DIR` | `scripts/.cluster-forge` | Path to a Cluster Forge checkout. Set it to this repository, and the scripts clone nothing. |
 | `CLUSTER_FORGE_REF` | `main` | The git reference to clone when `CLUSTER_FORGE_DIR` is not set. |
-| `CHART_VERSION` | `2.0.3` | The AIRM and AIWB chart version to install. |
+| `CHART_VERSION` | `2.0.3` | Version of the AMD Enterprise AI OCI charts: AIRM, AIWB, PostgreSQL, RabbitMQ and External Secrets. |
 | `CLUSTER_NAME` | `demo-cluster` | The cluster name that the GPU metrics carry. |
 | `DRIVER_VERSION` | `7.0` | The ROCm version that the DeviceConfig declares. The host driver must match it. |
 | `RWX_MUTATION` | `auto` | Apply the Kyverno policy that rewrites a ReadWriteMany claim to ReadWriteOnce. `auto` applies it for `rancher.io/local-path` only. `on` and `off` force the choice. |
 | `GPU_READY_TIMEOUT_SECONDS` | `600` | How long to wait for a node to advertise `amd.com/gpu`. |
 | `KSERVE_ATTEMPTS` | `3` | How many times to install KServe. Its webhook is not ready on the first attempt. |
 | `ENVOY_GATEWAY_ATTEMPTS` | `4` | How many times to install the Envoy Gateway. |
-| `KUBECTL_TIMEOUT` | `180s` | The timeout of each `kubectl wait`. |
+| `KUBECTL_TIMEOUT` | `180s` | Timeout for each delete in `uninstall.sh`. |
 | `AIM_HARDWARE_FAMILY` | empty | Families for the AIM catalog. A comma separates two families. Allowed: `cpu`, `epyc`, `instinct`, `radeon`. Empty installs the unfiltered catalog. `cpu` installs no model source. |
 | `AIM_CATALOG_TIMEOUT_SECONDS` | `900` | How long to wait for the first AIMClusterModel to become Ready. |
