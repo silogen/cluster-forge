@@ -29,6 +29,38 @@ jobs:
       - name: Helm template
         run: helm template ./root -f ${{ matrix.values }}
 
+  spur-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4.3.0
+
+      - name: Lint and template every package
+        run: |
+          for pkg in spur/packages/*/; do
+            echo "== $pkg"
+            helm dependency build "$pkg"
+            helm lint "$pkg"
+            helm template spur "$pkg" > /dev/null
+          done
+
+      - name: Check version drift
+        run: spur/tests/check-version-drift.sh
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: spur/spur-aims/go.mod
+
+      - name: Setup just
+        uses: extractions/setup-just@v3
+
+      - name: Test the spur-aims plugin
+        run: just spur/test
+
   install-script-checks:
     runs-on: ubuntu-latest
     steps:

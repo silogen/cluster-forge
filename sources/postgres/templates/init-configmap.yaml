@@ -1,0 +1,20 @@
+{{- /* The entrypoint runs this script on the first start only, when the data
+       directory is empty. A later change of the database list needs a new
+       volume. */ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: {{ .Release.Namespace }}
+data:
+  10-databases.sh: |
+    #!/bin/sh
+    set -e
+    {{- range .Values.databases }}
+    user="$DB_USER_{{ .name | upper }}"
+    password="$DB_PASSWORD_{{ .name | upper }}"
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres <<SQL
+    CREATE ROLE "$user" LOGIN PASSWORD '$password';
+    CREATE DATABASE "{{ .name }}" OWNER "$user";
+    SQL
+    {{- end }}

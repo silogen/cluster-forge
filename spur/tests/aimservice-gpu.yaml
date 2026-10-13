@@ -1,0 +1,51 @@
+# GPU smoke-test service for the default profile. The image is
+# public on Docker Hub. PULL_SECRET_JSON is optional: it lifts the Docker Hub
+# rate limit of an anonymous pull.
+#
+# The AIM image holds the recipe, but the auto-made template asks for no GPU,
+# and then the runtime finds no GPU and no compatible profile. spec.resources
+# gives the GPU to the predictor.
+#
+# The tag is 0.11.1 and not the 0.8.5 of the first test: the amdsmi library of
+# the 0.8.5 image fails amdsmi_get_gpu_activity with AMDSMI_STATUS_UNEXPECTED_DATA
+# against the amdgpu driver 6.19.14 of the host, and the detector of the runtime
+# then reports "Detected GPU: NONE" and finds no profile.
+#
+# spec.profile selects the v1alpha2 profile pipeline. The MI325X profiles of
+# the image are unoptimized, and the default floor of the selector is
+# optimized, so minimumType lowers it. v1alpha1 did this with
+# template.allowUnoptimized. The image has tp2 profiles too, and
+# acceleratorCount keeps the profile at the one GPU of spec.resources.
+apiVersion: aim.eai.amd.com/v1alpha2
+kind: AIMService
+metadata:
+  name: aim-llama-3-1-8b
+  namespace: aims-test
+spec:
+  replicas: 1
+  # local-path-provisioner gives ReadWriteOnce only, and Shared mode asks for
+  # ReadWriteMany.
+  caching:
+    mode: Dedicated
+    # The model download job gets HF_TOKEN from the Secret hf-token, which
+    # smoke.sh makes when HF_TOKEN is set. The Llama weights are gated.
+    env:
+      - name: HF_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: hf-token
+            key: token
+            optional: true
+  profile:
+    selector:
+      minimumType: unoptimized
+      acceleratorCount: 1
+  resources:
+    requests:
+      amd.com/gpu: "1"
+    limits:
+      amd.com/gpu: "1"
+  imagePullSecrets:
+    - name: aim-pull
+  model:
+    image: docker.io/amdenterpriseai/aim-meta-llama-llama-3-1-8b-instruct:0.11.1

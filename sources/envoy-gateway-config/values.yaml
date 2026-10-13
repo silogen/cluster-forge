@@ -8,6 +8,25 @@ ports:
 # on the same :443 VIP by SNI. No separate tls-passthrough gateway.
 appsGateway:
   serviceType: LoadBalancer
+  # Node address that a ClusterIP Service also answers on. Use it on a cluster
+  # without a load balancer: the Envoy Service keeps type ClusterIP and takes
+  # the node address in externalIPs. Empty leaves the Service unchanged.
+  externalIP: ""
+
+# CoreDNS rewrite of *.domain to the gateway. The object is an RKE2
+# HelmChartConfig, so it works on an RKE2 cluster only. Set false elsewhere.
+coreDns:
+  enabled: true
+
+# Envoy data plane pod placement, for the apps gateway and the ai-gateway.
+# root/values.yaml sets the cluster-bloom first-node label for the ArgoCD install.
+# Spur install does not use the first-node label.
+envoyProxy:
+  nodeSelector: {}
+
+# TLS passthrough of k8s.<domain> to the Kubernetes API service.
+k8sPassthrough:
+  enabled: true
 
 # Stable ClusterIP `https` selecting the apps-gateway data plane, used by CoreDNS for the
 # *.domain rewrite (in-cluster resolution).

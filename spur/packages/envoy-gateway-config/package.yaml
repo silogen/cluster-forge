@@ -1,0 +1,7 @@
+name: envoy-gateway-config
+namespace: envoy-gateway-system
+provides:
+  - gateway.https
+requires:
+  - gateway.api
+  - tls.cluster-cert

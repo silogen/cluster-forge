@@ -1,0 +1,11 @@
+envoy-gateway-config:
+  # The HelmChartConfig object is RKE2 only.
+  coreDns:
+    enabled: false
+  # The kube API is reached with the kubeconfig, not through the gateway.
+  k8sPassthrough:
+    enabled: false
+  gatewayDnsService:
+    enabled: false
+  aiGateway:
+    enabled: false

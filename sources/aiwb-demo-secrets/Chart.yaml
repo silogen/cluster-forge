@@ -1,0 +1,9 @@
+apiVersion: v2
+name: aiwb-demo-secrets
+description: |
+  Every Secret of the aiwb-demo profile, made by the chart itself. It is the
+  package that a customer replaces with their own secret management. It uses
+  lookup to keep the values across an upgrade, so it does not work under
+  helm template or ArgoCD.
+type: application
+version: 0.1.0

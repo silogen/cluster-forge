@@ -1,0 +1,6 @@
+dependencies:
+- name: amd-gpu-operator-config
+  repository: file://../../../sources/amd-gpu-operator-config/v1.5.1
+  version: 0.1.0
+digest: sha256:38beec5b6652680f7729a015af2fc5b75097d16303bb1f7116cc2f05d7c4e5ce
+generated: "2026-09-28T13:28:51.408696949+03:00"

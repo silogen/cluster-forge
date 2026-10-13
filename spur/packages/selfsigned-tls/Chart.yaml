@@ -1,0 +1,9 @@
+apiVersion: v2
+name: selfsigned-tls
+description: Self-signed wildcard certificate for the gateway
+type: application
+version: 0.1.0
+dependencies:
+  - name: cert-manager-config
+    version: 0.1.0
+    repository: file://../../../sources/cert-manager-config

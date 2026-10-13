@@ -63,3 +63,6 @@ node_modules/
 # Task files
 # tasks.json
 # tasks/ 
+
+# Spur package chart dependencies are built, not committed
+spur/packages/*/charts/

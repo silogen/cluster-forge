@@ -204,7 +204,31 @@ export EAI_STORE=haul/eai-store
 ls haul/cluster-forge/sources/kuberay-operator/1.4.2/Chart.yaml
 ```
 
-Skip the clone if `haul/cluster-forge` already exists. The application
+Skip the clone if `haul/cluster-forge` already exists. To pack from a
+branch that is not `main`, pass `--branch`. To pack a Spur profile
+(`default`, `default-cpu`, `demo`, `demo-cpu`) instead of the full
+OpenShift stack, pass `--profile` as well:
+
+```bash
+./hauler.sh --profile demo --branch EAI-8560-byok none-model-images --skip-transfer
+```
+
+The store and the two archives live under `docs/airgap/haul/` and are
+tens of gigabytes. Put the clone on a large volume for that host, for
+example `/mnt/disk0`, never the 96 GB root disk. See the Demo section.
+
+`--profile` reads `spur/profiles/<name>.yaml` on that branch, including
+`extends`, and hauls only those packages. It also writes
+`haul-manifest.yaml` and `haul-manifest.json` into the store and into
+`eai-airgap.tar`. `dehauler.sh` uses that file to apply only the packed
+packages:
+
+```bash
+sudo env PATH="/usr/local/bin:/var/lib/rancher/rke2/bin:$PATH" \
+  KUBECONFIG=/etc/rancher/rke2/rke2.yaml \
+  CF_DOMAIN=spur-iro.silogen.ai \
+  ./dehauler.sh /path/to/eai-airgap.tar --confirm
+``` The application
 order below follows
 [`root/values-openshift.yaml`](https://github.com/silogen/cluster-forge/blob/main/root/values-openshift.yaml),
 but excludes the OpenShift-only SCC, OpenShift Kyverno, and Route steps.
@@ -597,7 +621,8 @@ hauler store add image amdenterpriseai/aim-qwen-qwen3-32b:0.13.0 --platform linu
 ```
 
 `hauler.sh` accepts the same names: `./hauler.sh all-model-images` or
-`./hauler.sh none-model-images [image …]`.
+`./hauler.sh none-model-images [image …]`. Add `--profile` and
+`--branch` to pack a Spur profile from a feature branch.
 
 
 ### 3.44 Steps that are not charts or images
@@ -1212,7 +1237,7 @@ helm template envoy-ai-gateway oci://127.0.0.1:5000/hauler/ai-gateway-helm --ver
 #### 4.4.23 Envoy Gateway configuration
 
 ```bash
-helm template envoy-gateway-config oci://127.0.0.1:5000/hauler/envoy-gateway-config --version 0.1.0 --plain-http --include-crds --no-hooks --namespace envoy-gateway-system --set domain=MY-HAULER-DOMAIN --set aiGateway.enabled=true --set aiGateway.routeHostname=ai.MY-HAULER-DOMAIN --set aiGateway.discoveryNamespace=ai-gateway-system --set aiGateway.bodyAuthMaxRequestBytes=4194304 | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n envoy-gateway-system --server-side --force-conflicts -f -
+helm template envoy-gateway-config oci://127.0.0.1:5000/hauler/envoy-gateway-config --version 0.1.0 --plain-http --include-crds --no-hooks --namespace envoy-gateway-system --set domain=MY-HAULER-DOMAIN --set-string envoyProxy.nodeSelector.cluster-bloom/first-node=true --set aiGateway.enabled=true --set aiGateway.routeHostname=ai.MY-HAULER-DOMAIN --set aiGateway.discoveryNamespace=ai-gateway-system --set aiGateway.bodyAuthMaxRequestBytes=4194304 | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n envoy-gateway-system --server-side --force-conflicts -f -
 ```
 
 #### 4.4.23a EnvoyProxy data-plane image
@@ -1352,7 +1377,7 @@ envsubst < "$HAUL_ROOT/extracted/objects-aiwb-infra-db-secrets.yaml" | kubectl a
 A stock python image running a mounted script, standing in for the cluster-auth
 operator. AIWB reads the admin token it serves, so it has to exist before
 4.4.35. The ConfigMap holding the script is rendered into the bundle at pack
-time, out of `docs/manual_helm_install/scripts/cluster-auth-shim.py`.
+time, out of `docs/manual_helm_install/aiwb-standalone/scripts/cluster-auth-shim.py`.
 
 The shim's image reference is a bare `python:3.11-slim`. `registries.yaml`
 mirrors only `127.0.0.1:5000`, so an unqualified reference is not redirected
@@ -1540,6 +1565,9 @@ export PATH="/var/lib/rancher/rke2/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
 export KUBECONFIG="$HOME/.kube/config"
 
 ./hauler.sh none-model-images --skip-transfer
+
+# Testing with profiles
+./hauler.sh --profile default-cpu --branch EAI-8560-byok none-model-images --skip-transfer
 ```
 
 #### 5.1 Transfer the binary
@@ -1554,5 +1582,12 @@ export KUBECONFIG="$HOME/.kube/config"
 
 ```bash
 cd /mnt/disk0/demo
-sudo env PATH="/usr/local/bin:/var/lib/rancher/rke2/bin:$PATH" KUBECONFIG=/etc/rancher/rke2/rke2.yaml CF_DOMAIN=MY-HAULER-DOMAIN ./dehauler.sh --confirm
+sudo env PATH="/usr/local/bin:/var/lib/rancher/rke2/bin:$PATH" KUBECONFIG=/etc/rancher/rke2/rke2.yaml CF_DOMAIN=MY-HAULER-DOMAIN ./dehauler.sh /mnt/disk0/demo/eai-airgap.tar --confirm
+```
+
+#### 5.3 Somke test
+
+
+```bash
+./haul/cluster-forge/spur/tests/smoke.sh
 ```

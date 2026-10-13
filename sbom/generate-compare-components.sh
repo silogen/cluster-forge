@@ -22,13 +22,15 @@ resolve_template_vars() {
 
     # Extract and resolve ociRegistry.ghcr
     if [[ "$url" =~ \{\{\ \.Values\.ociRegistry\.ghcr\ \}\} ]]; then
-        local ghcr_value=$(yq eval '.ociRegistry.ghcr // ""' "$config_file" 2>/dev/null || echo "")
+        local ghcr_value
+        ghcr_value=$(yq eval '.ociRegistry.ghcr // ""' "$config_file" 2>/dev/null || echo "")
         url="${url//\{\{ .Values.ociRegistry.ghcr \}\}/$ghcr_value}"
     fi
 
     # Extract and resolve ociRegistry.dockerHub
     if [[ "$url" =~ \{\{\ \.Values\.ociRegistry\.dockerHub\ \}\} ]]; then
-        local dockerhub_value=$(yq eval '.ociRegistry.dockerHub // ""' "$config_file" 2>/dev/null || echo "")
+        local dockerhub_value
+        dockerhub_value=$(yq eval '.ociRegistry.dockerHub // ""' "$config_file" 2>/dev/null || echo "")
         url="${url//\{\{ .Values.ociRegistry.dockerHub \}\}/$dockerhub_value}"
     fi
 

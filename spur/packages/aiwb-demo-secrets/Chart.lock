@@ -1,0 +1,6 @@
+dependencies:
+- name: aiwb-demo-secrets
+  repository: file://../../../sources/aiwb-demo-secrets
+  version: 0.1.0
+digest: sha256:f9768aa0f5adbf04ec6a447892008ac30919fe2381fed870b75628be27d9f3fa
+generated: "2026-09-10T19:32:27.466266793+03:00"

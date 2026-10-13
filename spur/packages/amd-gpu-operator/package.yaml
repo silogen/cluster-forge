@@ -1,0 +1,8 @@
+name: amd-gpu-operator
+namespace: kube-amd-gpu
+provides:
+  - gpu.amd.operator
+requires:
+  # The KMM and node-feature-discovery subcharts make Certificate and Issuer
+  # objects for their webhooks.
+  - certificates.cert-manager

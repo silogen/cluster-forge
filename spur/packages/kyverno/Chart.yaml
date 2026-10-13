@@ -1,0 +1,9 @@
+apiVersion: v2
+name: kyverno
+description: Kyverno admission controller for the storage access mode mutation
+type: application
+version: 0.1.0
+dependencies:
+  - name: kyverno
+    version: 3.5.1
+    repository: file://../../../sources/kyverno/3.5.1

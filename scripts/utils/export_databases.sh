@@ -148,8 +148,10 @@ fi
 
 # Get current kubectl context cluster name
 get_cluster_prefix() {
-    local CURRENT_CONTEXT=$(kubectl config current-context 2>/dev/null || echo "default")
-    local CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CURRENT_CONTEXT')].context.cluster}" 2>/dev/null || echo "default")
+    local CURRENT_CONTEXT
+    CURRENT_CONTEXT=$(kubectl config current-context 2>/dev/null || echo "default")
+    local CLUSTER_NAME
+    CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CURRENT_CONTEXT')].context.cluster}" 2>/dev/null || echo "default")
     
     # If cluster name is "default", return empty prefix
     if [ "$CLUSTER_NAME" = "default" ]; then
@@ -182,25 +184,32 @@ get_versioned_filename() {
 }
 
 # Global variables
-export CURRENT_DATE=$(date +%Y-%m-%d)
+CURRENT_DATE=$(date +%Y-%m-%d)
+export CURRENT_DATE
 CLUSTER_PREFIX=$(get_cluster_prefix)
 AIRM_DB_FILE_BASE=$OUTPUT_DIR/${CLUSTER_PREFIX}airm_db_backup_$CURRENT_DATE.sql
 KEYCLOAK_DB_FILE_BASE=$OUTPUT_DIR/${CLUSTER_PREFIX}keycloak_db_backup_$CURRENT_DATE.sql
 
-export AIRM_DB_FILE=$(get_versioned_filename "$AIRM_DB_FILE_BASE")
-export KEYCLOAK_DB_FILE=$(get_versioned_filename "$KEYCLOAK_DB_FILE_BASE")
+AIRM_DB_FILE=$(get_versioned_filename "$AIRM_DB_FILE_BASE")
+export AIRM_DB_FILE
+KEYCLOAK_DB_FILE=$(get_versioned_filename "$KEYCLOAK_DB_FILE_BASE")
+export KEYCLOAK_DB_FILE
 
 get_db_credentials() {
     if [ "$BACKUP_AIRM" = true ]; then
         echo "Retrieving AIRM database credentials..."
-        export AIRM_DB_USERNAME=$(kubectl get secret airm-cnpg-user -n airm -o jsonpath='{.data.username}' | base64 --decode)
-        export AIRM_DB_PASSWORD=$(kubectl get secret airm-cnpg-user -n airm -o jsonpath='{.data.password}' | base64 --decode)
+        AIRM_DB_USERNAME=$(kubectl get secret airm-cnpg-user -n airm -o jsonpath='{.data.username}' | base64 --decode)
+        export AIRM_DB_USERNAME
+        AIRM_DB_PASSWORD=$(kubectl get secret airm-cnpg-user -n airm -o jsonpath='{.data.password}' | base64 --decode)
+        export AIRM_DB_PASSWORD
     fi
     
     if [ "$BACKUP_KEYCLOAK" = true ]; then
         echo "Retrieving Keycloak database credentials..."
-        export KEYCLOAK_DB_USERNAME=$(kubectl get secret keycloak-cnpg-user -n keycloak -o jsonpath='{.data.username}' | base64 --decode)
-        export KEYCLOAK_DB_PASSWORD=$(kubectl get secret keycloak-cnpg-user -n keycloak -o jsonpath='{.data.password}' | base64 --decode)
+        KEYCLOAK_DB_USERNAME=$(kubectl get secret keycloak-cnpg-user -n keycloak -o jsonpath='{.data.username}' | base64 --decode)
+        export KEYCLOAK_DB_USERNAME
+        KEYCLOAK_DB_PASSWORD=$(kubectl get secret keycloak-cnpg-user -n keycloak -o jsonpath='{.data.password}' | base64 --decode)
+        export KEYCLOAK_DB_PASSWORD
     fi
     
     echo "Database credentials retrieved successfully."
@@ -215,7 +224,8 @@ run_pg_dump() {
     local NAMESPACE=$6
     
     # Get the primary CNPG pod in the namespace
-    local POD_NAME=$(kubectl get pods -n $NAMESPACE -l cnpg.io/instanceRole=primary -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+    local POD_NAME
+    POD_NAME=$(kubectl get pods -n $NAMESPACE -l cnpg.io/instanceRole=primary -o jsonpath='{.items[0].metadata.name}' 2>/dev/null) || true
     
     if [ -z "$POD_NAME" ]; then
         echo "Error: Could not find primary CNPG pod (cnpg.io/instanceRole=primary) in namespace '${NAMESPACE}'"
@@ -223,7 +233,8 @@ run_pg_dump() {
     fi
     
     # Filename for backup inside container
-    local CONTAINER_BACKUP_FILE="/var/lib/postgresql/data/$(basename $OUTPUT_FILE)"
+    local CONTAINER_BACKUP_FILE
+    CONTAINER_BACKUP_FILE="/var/lib/postgresql/data/$(basename $OUTPUT_FILE)"
     
     echo "Running pg_dump inside pod $POD_NAME..."
     
@@ -280,7 +291,8 @@ enable_port_forward() {
     
     # Check if port is already in use by any process
     if lsof -Pi :${LOCAL_PORT} -sTCP:LISTEN -t >/dev/null 2>&1; then
-        local PORT_OWNER_PID=$(lsof -Pi :${LOCAL_PORT} -sTCP:LISTEN -t 2>/dev/null | head -1)
+        local PORT_OWNER_PID
+        PORT_OWNER_PID=$(lsof -Pi :${LOCAL_PORT} -sTCP:LISTEN -t 2>/dev/null | head -1)
         echo "ERROR: Port ${LOCAL_PORT} is already in use by process ID: ${PORT_OWNER_PID}"
         echo ""
         echo "To kill the process using this port, run:"
@@ -295,7 +307,8 @@ enable_port_forward() {
     fi
     
     echo "Starting port-forward for $DB_TYPE database on port ${LOCAL_PORT}..."
-    local POD_NAME=$(kubectl get pods -n $NAMESPACE -l cnpg.io/instanceRole=primary -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+    local POD_NAME
+    POD_NAME=$(kubectl get pods -n $NAMESPACE -l cnpg.io/instanceRole=primary -o jsonpath='{.items[0].metadata.name}' 2>/dev/null) || true
     
     if [ -z "$POD_NAME" ]; then
         echo "ERROR: Could not find primary CNPG pod (cnpg.io/instanceRole=primary) in namespace '${NAMESPACE}'"

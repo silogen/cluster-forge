@@ -678,6 +678,11 @@ apps:
     path: envoy-gateway-config
     syncWave: -15
     valuesFile: values.yaml
+    # cluster-bloom labels the first node. The chart default is no selector.
+    valuesObject:
+      envoyProxy:
+        nodeSelector:
+          cluster-bloom/first-node: "true"
   envoy-ai-gateway-crds:
     namespace: envoy-ai-gateway-system
     path: envoy-ai-gateway-crds/v1.0.0

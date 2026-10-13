@@ -1,0 +1,7 @@
+config:
+  issuer: https://my-issuer.example.com
+
+  storage:
+    type: memory
+
+  enablePasswordDB: true

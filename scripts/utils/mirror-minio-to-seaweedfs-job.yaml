@@ -1,4 +1,3 @@
----
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -117,7 +116,13 @@ spec:
               # Install MinIO Client
               echo ""
               echo "Installing MinIO Client (mc)..."
-              wget -q https://dl.min.io/client/mc/release/linux-amd64/mc -O /tmp/mc
+              # wget -q https://dl.min.io/client/mc/release/linux-amd64/mc -O /tmp/mc
+              # dl.min.io is 410 Gone (OSS mc archived). Use the last OSS GitHub release asset.
+              MC_TAG="RELEASE.2025-08-13T08-35-41Z"
+              MC_URL="https://github.com/minio/mc/releases/download/${MC_TAG}/mc.linux-amd64.${MC_TAG}"
+              wget -q "$MC_URL" -O /tmp/mc
+              wget -q "${MC_URL}.sha256sum" -O /tmp/mc.sha256
+              echo "$(awk '{print $1}' /tmp/mc.sha256)  /tmp/mc" | sha256sum -c - || { echo "ERROR: mc checksum verification failed"; exit 1; }
               chmod +x /tmp/mc
               MC=/tmp/mc
               

@@ -99,13 +99,17 @@ get_db_credentials() {
     echo "Retrieving database credentials..."
     
     if [ "$AIRM_DB_FILE" != "skip" ]; then
-        export AIRM_DB_USERNAME=$(kubectl get secret airm-cnpg-user -n airm -o jsonpath='{.data.username}' | base64 --decode)
-        export AIRM_DB_PASSWORD=$(kubectl get secret airm-cnpg-user -n airm -o jsonpath='{.data.password}' | base64 --decode)
+        AIRM_DB_USERNAME=$(kubectl get secret airm-cnpg-user -n airm -o jsonpath='{.data.username}' | base64 --decode)
+        export AIRM_DB_USERNAME
+        AIRM_DB_PASSWORD=$(kubectl get secret airm-cnpg-user -n airm -o jsonpath='{.data.password}' | base64 --decode)
+        export AIRM_DB_PASSWORD
     fi
     
     if [ -n "$KEYCLOAK_DB_FILE" ]; then
-        export KEYCLOAK_DB_USERNAME=$(kubectl get secret keycloak-cnpg-user -n keycloak -o jsonpath='{.data.username}' | base64 --decode)
-        export KEYCLOAK_DB_PASSWORD=$(kubectl get secret keycloak-cnpg-user -n keycloak -o jsonpath='{.data.password}' | base64 --decode)
+        KEYCLOAK_DB_USERNAME=$(kubectl get secret keycloak-cnpg-user -n keycloak -o jsonpath='{.data.username}' | base64 --decode)
+        export KEYCLOAK_DB_USERNAME
+        KEYCLOAK_DB_PASSWORD=$(kubectl get secret keycloak-cnpg-user -n keycloak -o jsonpath='{.data.password}' | base64 --decode)
+        export KEYCLOAK_DB_PASSWORD
     fi
     
     echo "Database credentials retrieved successfully."
@@ -118,7 +122,8 @@ get_cluster_info() {
     local NAMESPACE=$2
     
     # Get cluster information
-    local CLUSTER_INFO=$(kubectl get clusters -n "$NAMESPACE" "$CLUSTER_NAME" -o json 2>/dev/null)
+    local CLUSTER_INFO
+    CLUSTER_INFO=$(kubectl get clusters -n "$NAMESPACE" "$CLUSTER_NAME" -o json 2>/dev/null) || true
     
     if [ -z "$CLUSTER_INFO" ]; then
         echo "ERROR: Could not find cluster '$CLUSTER_NAME' in namespace '$NAMESPACE'"
@@ -126,8 +131,10 @@ get_cluster_info() {
     fi
     
     # Extract instances and primary
-    local INSTANCES=$(echo "$CLUSTER_INFO" | jq -r '.status.instances // 0')
-    local PRIMARY=$(echo "$CLUSTER_INFO" | jq -r '.status.targetPrimary // ""')
+    local INSTANCES
+    INSTANCES=$(echo "$CLUSTER_INFO" | jq -r '.status.instances // 0')
+    local PRIMARY
+    PRIMARY=$(echo "$CLUSTER_INFO" | jq -r '.status.targetPrimary // ""')
     
     if [ "$INSTANCES" -eq 0 ]; then
         echo "WARNING: Cluster '$CLUSTER_NAME' has 0 instances - cannot perform restoration"
@@ -185,7 +192,8 @@ enable_port_forward() {
     
     # Check if port is already in use by any process
     if lsof -Pi :${LOCAL_PORT} -sTCP:LISTEN -t >/dev/null 2>&1; then
-        local PORT_OWNER_PID=$(lsof -Pi :${LOCAL_PORT} -sTCP:LISTEN -t 2>/dev/null | head -1)
+        local PORT_OWNER_PID
+        PORT_OWNER_PID=$(lsof -Pi :${LOCAL_PORT} -sTCP:LISTEN -t 2>/dev/null | head -1)
         echo "ERROR: Port ${LOCAL_PORT} is already in use by process ID: ${PORT_OWNER_PID}"
         echo ""
         echo "To kill the process using this port, run:"

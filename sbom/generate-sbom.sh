@@ -43,7 +43,8 @@ categorize_component() {
     local component_name="$1"
     
     # Read type field from components.yaml (helm or manifest)
-    local component_type=$(yq eval ".components.\"$component_name\".type // \"manifest\"" "$COMPONENTS_FILE")
+    local component_type
+    component_type=$(yq eval ".components.\"$component_name\".type // \"manifest\"" "$COMPONENTS_FILE")
     
     echo "$component_type"
 }
@@ -53,14 +54,20 @@ generate_component_row() {
     local component="$1"
     
     # Read all component data
-    local path=$(yq eval ".components.\"$component\".path" "$COMPONENTS_FILE")
-    local project_url=$(yq eval ".components.\"$component\".projectUrl // \"\"" "$COMPONENTS_FILE")
-    local source_url=$(yq eval ".components.\"$component\".sourceUrl // \"\"" "$COMPONENTS_FILE")
-    local license=$(yq eval ".components.\"$component\".license // \"\"" "$COMPONENTS_FILE")
-    local license_url=$(yq eval ".components.\"$component\".licenseUrl // \"\"" "$COMPONENTS_FILE")
+    local path
+    path=$(yq eval ".components.\"$component\".path" "$COMPONENTS_FILE")
+    local project_url
+    project_url=$(yq eval ".components.\"$component\".projectUrl // \"\"" "$COMPONENTS_FILE")
+    local source_url
+    source_url=$(yq eval ".components.\"$component\".sourceUrl // \"\"" "$COMPONENTS_FILE")
+    local license
+    license=$(yq eval ".components.\"$component\".license // \"\"" "$COMPONENTS_FILE")
+    local license_url
+    license_url=$(yq eval ".components.\"$component\".licenseUrl // \"\"" "$COMPONENTS_FILE")
     
     # Get version from repoVersion first, fall back to path extraction
-    local repo_version=$(yq eval ".components.\"$component\".repoVersion // \"\"" "$COMPONENTS_FILE")
+    local repo_version
+    repo_version=$(yq eval ".components.\"$component\".repoVersion // \"\"" "$COMPONENTS_FILE")
     local version
     if [[ -n "$repo_version" && "$repo_version" != "null" ]]; then
         version="$repo_version"
@@ -161,7 +168,8 @@ extract_images_for_component() {
     echo "" >> "$SBOM_FILE"
     
     # Find all YAML files in the component path
-    local yaml_files=$(find "$SOURCES_DIR/$component_path" -name "*.yaml" -o -name "*.yml" 2>/dev/null || true)
+    local yaml_files
+    yaml_files=$(find "$SOURCES_DIR/$component_path" -name "*.yaml" -o -name "*.yml" 2>/dev/null || true)
     
     if [ -z "$yaml_files" ]; then
         echo "No container images found in manifest files." >> "$SBOM_FILE"
@@ -169,7 +177,8 @@ extract_images_for_component() {
     fi
     
     # Extract container images
-    local images=$(grep -h -E "^[[:space:]]*image:" $yaml_files 2>/dev/null | \
+    local images
+    images=$(grep -h -E "^[[:space:]]*image:" $yaml_files 2>/dev/null | \
                    grep -v "description:" | \
                    grep -v "type: string" | \
                    sed 's/^[[:space:]]*image:[[:space:]]*//' | \

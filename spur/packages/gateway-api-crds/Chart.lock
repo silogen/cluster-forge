@@ -1,0 +1,6 @@
+dependencies:
+- name: crds
+  repository: file://../../../sources/envoy-gateway/v1.8.1/charts/crds
+  version: 0.0.0
+digest: sha256:3ed248b9062e4dc650b86de3304d24d222d97007500da7b6b418a65e1bd67b3c
+generated: "2026-09-09T16:01:44.97467861+03:00"

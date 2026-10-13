@@ -1,0 +1,23 @@
+# Demo only: one Pod, one volume, no backup and no high availability.
+image: postgres:17-alpine
+
+# Secret with the keys username and password of the superuser.
+superuserSecretName: postgres-superuser
+
+storage:
+  size: 5Gi
+  # Empty uses the default StorageClass.
+  storageClassName: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 1Gi
+
+# Databases that the first start makes. Every entry needs a Secret with the
+# keys username and password. The user becomes the owner of the database.
+databases: []
+  # - name: aiwb
+  #   secretName: aiwb-db-user

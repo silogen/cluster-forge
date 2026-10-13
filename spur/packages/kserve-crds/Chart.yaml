@@ -1,0 +1,9 @@
+apiVersion: v2
+name: kserve-crds
+description: KServe custom resource definitions
+type: application
+version: 0.1.0
+dependencies:
+  - name: kserve-crd
+    version: v0.16.0
+    repository: file://../../../sources/kserve-crds/v0.16.0

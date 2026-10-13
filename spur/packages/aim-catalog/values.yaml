@@ -1,0 +1,4 @@
+aim-cluster-model-source:
+  # The cpu family renders no sources. epyc gives CPU models.
+  hardwareFamilies:
+    - epyc

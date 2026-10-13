@@ -1,1 +1,5 @@
 domain: # to be filled by cluster-forge app
+
+# Namespace of the Certificate and of the cluster-tls Secret that it writes.
+# Empty means the namespace of the release.
+certificateNamespace: kgateway-system

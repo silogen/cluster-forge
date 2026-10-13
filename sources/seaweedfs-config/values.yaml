@@ -25,3 +25,10 @@ s3Route:
   timeouts:
     request: 30m
     backendRequest: 30m
+# Get the S3 and admin credentials from OpenBao through external-secrets.
+# If false, the chart makes the credentials itself.
+externalSecrets:
+  enabled: true
+# Make the HTTPRoutes for the S3 API and the admin UI.
+httpRoute:
+  enabled: true

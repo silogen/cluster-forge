@@ -1,0 +1,6 @@
+dependencies:
+- name: aim-cluster-model-source
+  repository: file://../../../sources/aim-cluster-model-source
+  version: 0.1.0
+digest: sha256:50ac44e137005963348a96a915b825f8a73b87ccde7eb9caef707e0308e8d2ab
+generated: "2026-09-09T15:04:11.440044904+03:00"

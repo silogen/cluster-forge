@@ -1,0 +1,6 @@
+# The amd-vgpu counterpart of deviceconfig-example.yaml, see the comment there.
+# It renders that file and changes only the name and the selector.
+{{- $dc := include (print $.Template.BasePath "/deviceconfig-example.yaml") . | fromYaml }}
+{{- $_ := set $dc.metadata "name" "gpu-operator-vf" }}
+{{- $_ := set $dc.spec "selector" (dict "feature.node.kubernetes.io/amd-vgpu" "true") }}
+{{ toYaml $dc }}
