@@ -168,7 +168,7 @@ Run them in this order. Each one must report `rc=0` before you run the next.
 ```bash
 cd scripts
 for s in operators kyverno gateway openbao external-secrets keycloak postgres \
-         rabbitmq object-storage cluster-auth observability compute aim-catalog; do
+         rabbitmq object-storage observability compute aim-catalog; do
   echo "=== $s ==="
   bash "$s.sh" || { echo "FAILED at $s"; break; }
 done
@@ -195,7 +195,6 @@ What each script installs, and why it is there:
 │ rabbitmq.sh          │ The message broker that AIRM uses.               │
 │ object-storage.sh    │ SeaweedFS, which stores the models and the files │
 │                      │ of a project.                                    │
-│ cluster-auth.sh      │ The service that gives a user a kubeconfig.      │
 │ observability.sh     │ Prometheus, Grafana, Loki and Tempo. AIRM reads  │
 │                      │ the GPU metrics from Prometheus.                 │
 │ compute.sh           │ The GPU stack: the AMD GPU operator, Kueue,      │

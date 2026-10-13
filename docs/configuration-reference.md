@@ -156,4 +156,3 @@ before you run a script.
 | `AIM_CATALOG_REGISTRY` | `docker.io` | The registry that holds the AIM images. |
 | `AIM_CATALOG_MAX_MODELS` | `25` | The maximum number of models that discovery imports. |
 | `AIM_CATALOG_TIMEOUT_SECONDS` | `900` | How long to wait for the first AIMClusterModel to become Ready. |
-| `SHIM_PY` | the copy in `aiwb-standalone/scripts/` | Path to `cluster-auth-shim.py`. |
