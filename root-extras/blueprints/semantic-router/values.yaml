@@ -58,6 +58,10 @@ dashboard:
 # route. They are lists, and Helm replaces lists wholesale rather than merging
 # them — so keep each one complete, don't trim it to just the changed field.
 config:
+  # Canonical v0.3 schema. Pin the chart to a commit whose Chart.yaml
+  # appVersion is a real release tag (not "latest"), or this schema drifts
+  # out from under the image again.
+  version: v0.3
   # Pairs with extraEnv above — both are required, neither works alone.
   global:
     services:
@@ -65,7 +69,14 @@ config:
         bind_address: "0.0.0.0"
   providers:
     defaults:
-      default_model: "TODO-your-model"
+      model: "TODO-your-model"
+      # Chart's own default values.yaml still sets these three under the same
+      # map; Helm merges maps instead of replacing them, so without explicit
+      # nulls here the deprecated keys survive into the rendered config and
+      # the router refuses to start.
+      default_model: null
+      reasoning_families: null
+      default_reasoning_effort: null
     models:
       - name: "TODO-your-model"
         # The ID the backend itself expects, which may differ from the name above.

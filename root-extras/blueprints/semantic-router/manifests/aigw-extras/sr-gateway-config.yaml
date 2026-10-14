@@ -1,0 +1,16 @@
+# GatewayConfig is namespace-scoped, so the cluster's own `ai-extproc`
+# (envoy-gateway-system, sources/envoy-gateway-config/templates/gateway-config-ai.yaml)
+# cannot be referenced from sr-gateway.yaml's annotation. This is that same
+# resource-sizing template, copied into the semantic-router namespace.
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: GatewayConfig
+metadata:
+  name: sr-extproc
+  namespace: semantic-router
+spec:
+  extProc:
+    kubernetes:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
