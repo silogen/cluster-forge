@@ -172,16 +172,13 @@ Then create `extra-apps/my-component/values.yaml` yourself, next to
 ## Shipping static manifests alongside a chart
 
 Sometimes the upstream chart does not ship a resource the cluster needs. The
-usual case is gateway wiring: routing a component through the cluster's Envoy
-takes `HTTPRoute`, `EnvoyExtensionPolicy`, `Backend`, `BackendTLSPolicy` and
-`ReferenceGrant` objects (or, for components going through the AI gateway
-specifically, `AIGatewayRoute`/`AIServiceBackend` instead of `HTTPRoute`) — none
-of which an application chart provides, because they describe *this* cluster's
-gateway topology rather than the application. The exact resource set depends on
-which gateway integration the component uses; see the
+usual case is Gateway routing. Envoy Gateway uses `HTTPRoute`,
+`EnvoyExtensionPolicy`, `Backend`, `BackendTLSPolicy` and `ReferenceGrant`
+resources. AI Gateway uses `AIGatewayRoute` and `AIServiceBackend`. Application
+charts often do not include these resources because they describe cluster
+routing. The required resources depend on the integration. The
 [`semantic-router`](../root-extras/blueprints/semantic-router/README.md)
-blueprint for a worked example that uses the plain Gateway API + Envoy Gateway
-extProc route rather than the AI gateway's own CRDs.
+blueprint shows Envoy Gateway ext_proc with AI Gateway routes and backends.
 
 Point an additional source at a directory of plain YAML in the overlay repo.
 ArgoCD combines the output of every source that sets `path`/`chart`, so the
@@ -275,7 +272,7 @@ blueprint change here will not alter a running cluster.
 
 | Blueprint | What it deploys |
 |---|---|
-| [`semantic-router`](../root-extras/blueprints/semantic-router/README.md) | vLLM Semantic Router + dashboard on the shared `https` Gateway, wired in as an Envoy external processor so it picks the model each request routes to |
+| [`semantic-router`](../root-extras/blueprints/semantic-router/README.md) | vLLM Semantic Router + dashboard; Envoy external processor selects a model for each request |
 
 Note the blueprint's `values.yaml` and `manifests/` land in your overlay repo and
 are read by ArgoCD directly, so unlike the `extraApps` block they are **not**

@@ -1,0 +1,52 @@
+# Per-client token quotas require the envoy-ai-gateway-ratelimit app in
+# enabledApps. If the rate-limit service is unavailable, requests fail open.
+# Verify enforcement before relying on a 429 or assuming a request is under
+# budget. The README describes setup and limitations.
+#
+# Keep shadowMode enabled until you verify token charging with your controller
+# and rate-limit service. PR #2664 fixes per-client token charging and merged
+# upstream on 2026-09-24, but no release includes it yet. A test image proved the
+# fix on a live cluster. The stock build used for this blueprint counts requests
+# instead of tokens for Distinct client buckets. Do not enforce token budgets
+# until your deployed build includes the fix.
+#
+# The installed CRD supports only `mode: Shared`. Do not add a defaultBucket
+# to this policy. In Shared mode, an available default bucket can allow a
+# request after a client bucket is exhausted.
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: QuotaPolicy
+metadata:
+  name: semantic-router
+  namespace: semantic-router
+spec:
+  targetRefs:
+    - group: aigateway.envoyproxy.io
+      kind: AIServiceBackend
+      # TODO: one entry per AIServiceBackend defined in gateway-routing.yaml
+      # that you want quota enforcement on. If you add more than one, each
+      # one needs its own perModelQuotas entry below too, or its traffic
+      # bleeds into another model's bucket instead of going unmetered — see
+      # examples/quota-tiers-example.md.
+      name: TODO-your-model-backend
+  perModelQuotas:
+    # Set this to a backendRef's modelNameOverride in gateway-routing.yaml.
+    - modelName: TODO-your-model
+      quota:
+        mode: Shared
+        bucketRules:
+          - shadowMode: true
+            clientSelectors:
+              # Distinct -> one bucket per unique x-api-key-id value, with no
+              # key named in this policy. x-api-key-id is set by
+              # gateway-routing.yaml's SecurityPolicy (forwardClientIDHeader),
+              # to the Secret key name that authenticated the request — so
+              # onboarding a new client is "add a Secret entry", never a quota
+              # edit here.
+              - headers:
+                  - name: x-api-key-id
+                    type: Distinct
+            quota:
+              # TODO: tokens per duration, per key. duration accepts only
+              # "1s", "1m", "1h", or "1d" — no arbitrary multiples.
+              limit: 100000
+              duration: 1h
