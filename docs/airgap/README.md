@@ -226,9 +226,11 @@ packages:
 ```bash
 sudo env PATH="/usr/local/bin:/var/lib/rancher/rke2/bin:$PATH" \
   KUBECONFIG=/etc/rancher/rke2/rke2.yaml \
-  CF_DOMAIN=spur-iro.silogen.ai \
+  DOMAIN=my-hauler-domain.example.com \
   ./dehauler.sh /path/to/eai-airgap.tar --confirm
-``` The application
+```
+
+The application
 order below follows
 [`root/values-openshift.yaml`](https://github.com/silogen/cluster-forge/blob/main/root/values-openshift.yaml),
 but excludes the OpenShift-only SCC, OpenShift Kyverno, and Route steps.
@@ -832,7 +834,7 @@ export HAUL_ROOT=/mnt/disk0/haul-airgap
 export EAI_STORE="$HAUL_ROOT/store"
 export TMPDIR="$HAUL_ROOT/tmp"
 export LOCAL_REG=127.0.0.1:5000
-export CF_DOMAIN=MY-HAULER-DOMAIN
+export DOMAIN=my-hauler-domain.example.com
 # Optional: create cluster-tls from files if the secret is not already in
 # envoy-gateway-system. Otherwise dehauler.sh prompts for the paths.
 # export CLUSTER_TLS_CERT=/path/to/fullchain.pem
@@ -842,7 +844,7 @@ export CF_DOMAIN=MY-HAULER-DOMAIN
 `dehauler.sh` refuses to start the charts until Secret `cluster-tls`
 exists in `envoy-gateway-system`. That is the wildcard/domain
 certificate the Gateway listeners terminate TLS with (SANs must cover
-`*.${CF_DOMAIN}`). Cluster-Forge copies it from the OpenShift router
+`*.${DOMAIN}`). Cluster-Forge copies it from the OpenShift router
 cert; that branch does not run here. Create it before the script, or
 let the script prompt:
 
@@ -868,9 +870,9 @@ CNPG initdb, webhook endpoints, or OpenBao (needs a TTY; do not
 
 ```bash
 chmod +x dehauler.sh
-sudo ./dehauler.sh --confirm
-sudo ./dehauler.sh --from 25 --confirm
-./dehauler.sh --dry-run
+sudo env DOMAIN="$DOMAIN" ./dehauler.sh --confirm
+sudo env DOMAIN="$DOMAIN" ./dehauler.sh --from 25 --confirm
+DOMAIN="$DOMAIN" ./dehauler.sh --dry-run
 ```
 
 The commands below are what that script runs. `kubectl apply` is
@@ -1034,7 +1036,7 @@ helm template openbao oci://127.0.0.1:5000/hauler/openbao --version 0.18.2 --pla
 #### 4.4.13 OpenBao configuration
 
 ```bash
-helm template openbao-config oci://127.0.0.1:5000/hauler/openbao-config --version 0.1.0 --plain-http --include-crds --no-hooks --namespace cf-openbao --set domain=MY-HAULER-DOMAIN --set minio.apiAccessKey=placeholder --set minio.consoleAccessKey=placeholder | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n cf-openbao --server-side --force-conflicts -f -
+helm template openbao-config oci://127.0.0.1:5000/hauler/openbao-config --version 0.1.0 --plain-http --include-crds --no-hooks --namespace cf-openbao --set domain=my-hauler-domain.example.com --set minio.apiAccessKey=placeholder --set minio.consoleAccessKey=placeholder | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n cf-openbao --server-side --force-conflicts -f -
 ```
 
 > **Lettered steps (4.4.0a, 4.4.6a/b, 4.4.13b, ...)**
@@ -1061,7 +1063,7 @@ helm template openbao-config oci://127.0.0.1:5000/hauler/openbao-config --versio
 > need the same variables exported:
 >
 > ```bash
-> export DOMAIN=MY-HAULER-DOMAIN
+> export DOMAIN=my-hauler-domain.example.com
 > export MINIO_API_ACCESS_KEY=placeholder MINIO_API_SECRET_KEY=placeholder
 > export MINIO_CONSOLE_ACCESS_KEY=placeholder MINIO_CONSOLE_SECRET_KEY=placeholder
 > export KEYCLOAK_INITIAL_ADMIN_PASSWORD=placeholder KEYCLOAK_INITIAL_DEVUSER_PASSWORD=placeholder
@@ -1100,7 +1102,7 @@ with is never created. `dehauler.sh` runs this as step `4.4.13b`.
 #### 4.4.14 OpenBao initialization job
 
 ```bash
-helm template openbao-init-job oci://127.0.0.1:5000/hauler/openbao-init-job --version 0.1.0 --plain-http --include-crds --no-hooks --namespace cf-openbao --set domain=MY-HAULER-DOMAIN | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n cf-openbao --server-side --force-conflicts -f -
+helm template openbao-init-job oci://127.0.0.1:5000/hauler/openbao-init-job --version 0.1.0 --plain-http --include-crds --no-hooks --namespace cf-openbao --set domain=my-hauler-domain.example.com | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n cf-openbao --server-side --force-conflicts -f -
 ```
 
 #### 4.4.15 External Secrets configuration
@@ -1121,7 +1123,7 @@ Chart version in the store is `1.0.8` (the `v1.0.7` source directory's
 
 ```bash
 kubectl create namespace otel-lgtm-stack --dry-run=client -o yaml | kubectl apply -f -
-helm template otel-lgtm-stack oci://127.0.0.1:5000/hauler/otel-lgtm-stack --version 1.0.8 --plain-http --include-crds --no-hooks --namespace otel-lgtm-stack --set cluster.name=MY-HAULER-DOMAIN --set collectors.resources.metrics.requests.cpu=500m --set collectors.resources.metrics.requests.memory=1Gi --set collectors.resources.metrics.limits.memory=4Gi --set collectors.resources.logs.requests.cpu=250m --set collectors.resources.logs.requests.memory=256Mi --set collectors.resources.logs.limits.cpu=1 --set collectors.resources.logs.limits.memory=1Gi --set dashboards.enabled=true --set kubeStateMetrics.enabled=true --set nodeExporter.enabled=true --set services.nodeExporter.metrics=9110 --set lgtm.resources.requests.cpu=1 --set lgtm.resources.requests.memory=2Gi --set lgtm.resources.limits.memory=8Gi --set lgtm.storage.grafana=10Gi --set lgtm.storage.loki=50Gi --set lgtm.storage.mimir=50Gi --set lgtm.storage.tempo=50Gi --set lgtm.storage.extra=50Gi | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n otel-lgtm-stack --server-side --force-conflicts -f -
+helm template otel-lgtm-stack oci://127.0.0.1:5000/hauler/otel-lgtm-stack --version 1.0.8 --plain-http --include-crds --no-hooks --namespace otel-lgtm-stack --set cluster.name=my-hauler-domain.example.com --set collectors.resources.metrics.requests.cpu=500m --set collectors.resources.metrics.requests.memory=1Gi --set collectors.resources.metrics.limits.memory=4Gi --set collectors.resources.logs.requests.cpu=250m --set collectors.resources.logs.requests.memory=256Mi --set collectors.resources.logs.limits.cpu=1 --set collectors.resources.logs.limits.memory=1Gi --set dashboards.enabled=true --set kubeStateMetrics.enabled=true --set nodeExporter.enabled=true --set services.nodeExporter.metrics=9110 --set lgtm.resources.requests.cpu=1 --set lgtm.resources.requests.memory=2Gi --set lgtm.resources.limits.memory=8Gi --set lgtm.storage.grafana=10Gi --set lgtm.storage.loki=50Gi --set lgtm.storage.mimir=50Gi --set lgtm.storage.tempo=50Gi --set lgtm.storage.extra=50Gi | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n otel-lgtm-stack --server-side --force-conflicts -f -
 ```
 
 #### 4.4.17 KEDA
@@ -1237,7 +1239,7 @@ helm template envoy-ai-gateway oci://127.0.0.1:5000/hauler/ai-gateway-helm --ver
 #### 4.4.23 Envoy Gateway configuration
 
 ```bash
-helm template envoy-gateway-config oci://127.0.0.1:5000/hauler/envoy-gateway-config --version 0.1.0 --plain-http --include-crds --no-hooks --namespace envoy-gateway-system --set domain=MY-HAULER-DOMAIN --set-string envoyProxy.nodeSelector.cluster-bloom/first-node=true --set aiGateway.enabled=true --set aiGateway.routeHostname=ai.MY-HAULER-DOMAIN --set aiGateway.discoveryNamespace=ai-gateway-system --set aiGateway.bodyAuthMaxRequestBytes=4194304 | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n envoy-gateway-system --server-side --force-conflicts -f -
+helm template envoy-gateway-config oci://127.0.0.1:5000/hauler/envoy-gateway-config --version 0.1.0 --plain-http --include-crds --no-hooks --namespace envoy-gateway-system --set domain=my-hauler-domain.example.com --set-string envoyProxy.nodeSelector.cluster-bloom/first-node=true --set aiGateway.enabled=true --set aiGateway.routeHostname=ai.my-hauler-domain.example.com --set aiGateway.discoveryNamespace=ai-gateway-system --set aiGateway.bodyAuthMaxRequestBytes=4194304 | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n envoy-gateway-system --server-side --force-conflicts -f -
 ```
 
 #### 4.4.23a EnvoyProxy data-plane image
@@ -1403,7 +1405,7 @@ Needs the Keycloak and CNPG Secrets from 4.4.29b/c for a healthy StatefulSet.
 
 ```bash
 kubectl create namespace keycloak --dry-run=client -o yaml | kubectl apply -f -
-helm template keycloak oci://127.0.0.1:5000/hauler/keycloak-old --version 0.2.0 --plain-http --include-crds --no-hooks --namespace keycloak --set domain=MY-HAULER-DOMAIN --set hostname=https://kc.MY-HAULER-DOMAIN --set externalSecrets.enabled=false --set cnpg.enabled=true --set cnpg.instances=1 --set cnpg.storage.storageClassName=default --set postgresql.username=keycloak | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n keycloak --server-side --force-conflicts -f -
+helm template keycloak oci://127.0.0.1:5000/hauler/keycloak-old --version 0.2.0 --plain-http --include-crds --no-hooks --namespace keycloak --set domain=my-hauler-domain.example.com --set hostname=https://kc.my-hauler-domain.example.com --set externalSecrets.enabled=false --set cnpg.enabled=true --set cnpg.instances=1 --set cnpg.storage.storageClassName=default --set postgresql.username=keycloak | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n keycloak --server-side --force-conflicts -f -
 ```
 
 #### 4.4.31b Keycloak against an external database (`PLUGGABLE_DB=true`)
@@ -1412,7 +1414,7 @@ Skipped in the default shape. Same chart and release name as 4.4.31, so only
 one of the two ever applies.
 
 ```bash
-helm template keycloak oci://127.0.0.1:5000/hauler/keycloak-old --version 0.2.0 --plain-http --include-crds --no-hooks --namespace keycloak --set domain=MY-HAULER-DOMAIN --set hostname=https://kc.MY-HAULER-DOMAIN --set externalSecrets.enabled=false --set cnpg.enabled=false --set postgresql.host="$POSTGRES_HOST" --set postgresql.port=5432 --set postgresql.database=keycloak --set postgresql.username=keycloak --set postgresql.userSecretName=keycloak-db-user | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n keycloak --server-side --force-conflicts -f -
+helm template keycloak oci://127.0.0.1:5000/hauler/keycloak-old --version 0.2.0 --plain-http --include-crds --no-hooks --namespace keycloak --set domain=my-hauler-domain.example.com --set hostname=https://kc.my-hauler-domain.example.com --set externalSecrets.enabled=false --set cnpg.enabled=false --set postgresql.host="$POSTGRES_HOST" --set postgresql.port=5432 --set postgresql.database=keycloak --set postgresql.username=keycloak --set postgresql.userSecretName=keycloak-db-user | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n keycloak --server-side --force-conflicts -f -
 ```
 
 #### 4.4.32 SeaweedFS CRDs
@@ -1427,7 +1429,7 @@ schema`.
 
 ```bash
 kubectl create namespace seaweedfs-operator --dry-run=client -o yaml | kubectl apply -f -
-helm template seaweedfs-operator oci://127.0.0.1:5000/hauler/seaweedfs-operator --version 0.1.36 --plain-http --include-crds --no-hooks --namespace seaweedfs-operator --set domain=MY-HAULER-DOMAIN --set webhook.enabled=false | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n seaweedfs-operator --server-side --force-conflicts -f -
+helm template seaweedfs-operator oci://127.0.0.1:5000/hauler/seaweedfs-operator --version 0.1.36 --plain-http --include-crds --no-hooks --namespace seaweedfs-operator --set domain=my-hauler-domain.example.com --set webhook.enabled=false | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n seaweedfs-operator --server-side --force-conflicts -f -
 ```
 
 #### 4.4.33b SeaweedFS S3 credentials
@@ -1444,7 +1446,7 @@ envsubst < "$HAUL_ROOT/extracted/objects-seaweedfs-secrets.yaml" | kubectl apply
 
 ```bash
 kubectl create namespace seaweedfs-instance --dry-run=client -o yaml | kubectl apply -f -
-helm template seaweedfs-config oci://127.0.0.1:5000/hauler/seaweedfs-config --version 0.1.0 --plain-http --include-crds --no-hooks --namespace seaweedfs-instance --set domain=MY-HAULER-DOMAIN --set seaweed.storageClassName=default --set 'initJob.buckets[0].name=default-bucket' --set 'initJob.buckets[1].name=models' --set 'initJob.buckets[2].name=datasets' | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n seaweedfs-instance --server-side --force-conflicts -f -
+helm template seaweedfs-config oci://127.0.0.1:5000/hauler/seaweedfs-config --version 0.1.0 --plain-http --include-crds --no-hooks --namespace seaweedfs-instance --set domain=my-hauler-domain.example.com --set seaweed.storageClassName=default --set 'initJob.buckets[0].name=default-bucket' --set 'initJob.buckets[1].name=models' --set 'initJob.buckets[2].name=datasets' | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n seaweedfs-instance --server-side --force-conflicts -f -
 ```
 
 #### 4.4.34b External MinIO redirect (`PLUGGABLE_S3=true`)
@@ -1461,14 +1463,14 @@ envsubst < "$HAUL_ROOT/extracted/objects-minio-external-redirect.yaml" | kubectl
 #### 4.4.35 AI Workbench
 
 ```bash
-helm template aiwb oci://127.0.0.1:5000/hauler/aiwb-chart --version 2.0.0 --plain-http --include-crds --no-hooks --namespace aiwb --set standAloneMode=true --set appDomain=MY-HAULER-DOMAIN --set backend.clusterHost=https://aiwbui.MY-HAULER-DOMAIN --set frontend.env.NEXTAUTH_URL=https://aiwbui.MY-HAULER-DOMAIN --set keycloak.url=https://kc.MY-HAULER-DOMAIN --set frontend.env.KEYCLOAK_ISSUER=https://kc.MY-HAULER-DOMAIN/realms/airm --set postgresql.username=aiwb_user --set kgateway.namespace=envoy-gateway-system --set kgateway.gatewayName=ai-gateway --set aim.routing.enabled=false | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g;s#registry-1.docker.io/#127.0.0.1:5000/#g' | kubectl apply -n aiwb --server-side --force-conflicts -f -
+helm template aiwb oci://127.0.0.1:5000/hauler/aiwb-chart --version 2.0.0 --plain-http --include-crds --no-hooks --namespace aiwb --set standAloneMode=true --set appDomain=my-hauler-domain.example.com --set backend.clusterHost=https://aiwbui.my-hauler-domain.example.com --set frontend.env.NEXTAUTH_URL=https://aiwbui.my-hauler-domain.example.com --set keycloak.url=https://kc.my-hauler-domain.example.com --set frontend.env.KEYCLOAK_ISSUER=https://kc.my-hauler-domain.example.com/realms/airm --set postgresql.username=aiwb_user --set kgateway.namespace=envoy-gateway-system --set kgateway.gatewayName=ai-gateway --set aim.routing.enabled=false | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g;s#registry-1.docker.io/#127.0.0.1:5000/#g' | kubectl apply -n aiwb --server-side --force-conflicts -f -
 ```
 
 #### 4.4.36 AI Gateway Discovery
 
 ```bash
 kubectl create namespace ai-gateway-system --dry-run=client -o yaml | kubectl apply -f -
-helm template ai-gateway-discovery oci://127.0.0.1:5000/hauler/ai-gateway-discovery-chart --version 2.0.0 --plain-http --include-crds --no-hooks --namespace ai-gateway-system --set controller.gateway.routeHostname=ai.MY-HAULER-DOMAIN --set controller.gateway.name=ai-gateway --set controller.bodyAuthMaxRequestBytes=4194304 | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g;s#registry-1.docker.io/#127.0.0.1:5000/#g' | kubectl apply -n ai-gateway-system --server-side --force-conflicts -f -
+helm template ai-gateway-discovery oci://127.0.0.1:5000/hauler/ai-gateway-discovery-chart --version 2.0.0 --plain-http --include-crds --no-hooks --namespace ai-gateway-system --set controller.gateway.routeHostname=ai.my-hauler-domain.example.com --set controller.gateway.name=ai-gateway --set controller.bodyAuthMaxRequestBytes=4194304 | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g;s#registry-1.docker.io/#127.0.0.1:5000/#g' | kubectl apply -n ai-gateway-system --server-side --force-conflicts -f -
 ```
 
 #### 4.4.37 RabbitMQ Cluster Operator
@@ -1546,47 +1548,47 @@ Demo to create a hauler binary with all images stored locally to be deployed on 
 
 NOTE: the expected binary will be around 50GB including several template apps and container images. So, that will affect the trasfer between the host where images can be pulled and packaing the whole binary (i.e. step 5.1) and the remote host that will allocate that file and then host all container images
 
-#### 5.1 Haul
+#### 5.1 Haul step
 
 ```bash
-mkdir -p ~/.kube
-sudo cat /etc/rancher/rke2/rke2.yaml > ~/.kube/config
-sudo chown ubuntu:ubuntu ~/.kube/config
-chmod 600 ~/.kube/config
+sudo mkdir -p /mnt/disk0/airgap
+sudo chown ubuntu:ubuntu /mnt/disk0/airgap
+cd /mnt/disk0/airgap
 
-# Deploy on a dedicated folder where there is enough space to create the binary
-cd /mnt/disk0/demo
+curl -fsSL -o hauler.sh https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/main/docs/airgap/hauler.sh
+curl -fsSL -o dehauler.sh https://raw.githubusercontent.com/silogen/cluster-forge/refs/heads/main/docs/airgap/dehauler.sh
+chmod +x hauler.sh dehauler.sh
 
-mkdir -p haul
-git clone https://github.com/silogen/cluster-forge.git haul/cluster-forge
-ls haul/cluster-forge/root/values-openshift.yaml
-
-export PATH="/var/lib/rancher/rke2/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
-export KUBECONFIG="$HOME/.kube/config"
-
-./hauler.sh none-model-images --skip-transfer
-
-# Testing with profiles
-./hauler.sh --profile default-cpu --branch EAI-8560-byok none-model-images --skip-transfer
+./hauler.sh --profile demo-cpu --skip-transfer
+# If other branch needed, just pass as argument
+# ./hauler.sh --profile demo-cpu --branch main none-model-images --skip-transfer
 ```
 
-#### 5.1 Transfer the binary
+#### 5.2 Transfer the binary
 
 ```bash
 # Transfer the output file from previous script to the destination host that is running within an airgap condition
 ```
 
+#### 5.3 Dehaul step
 
-#### 5.2 Dehaul
+Depending on the profile used, user might need to add additional env variables for the demo profile because of the of the endpoints needed for the gateway.
 
+#### 5.3.1 default profiles
 
 ```bash
-cd /mnt/disk0/demo
-sudo env PATH="/usr/local/bin:/var/lib/rancher/rke2/bin:$PATH" KUBECONFIG=/etc/rancher/rke2/rke2.yaml CF_DOMAIN=MY-HAULER-DOMAIN ./dehauler.sh /mnt/disk0/demo/eai-airgap.tar --confirm
+cd /mnt/disk0/airgap/haul
+sudo env PATH="/usr/local/bin:/var/lib/rancher/rke2/bin:$PATH" KUBECONFIG=/etc/rancher/rke2/rke2.yaml DOMAIN=my-hauler-domain.example.com ./dehauler.sh /mnt/disk0/demo/eai-airgap.tar
 ```
 
-#### 5.3 Somke test
+#### 5.3.2 demo profiles
 
+```bash
+cd /mnt/disk0/airgap/haul
+sudo env DOMAIN=my-hauler-domain.example.com gatewayServiceType=ClusterIP gatewayExternalIP=MY-NODE-PRIVATE-IP ./dehauler.sh /mnt/disk0/demo/eai-airgap.tar
+```
+
+#### 5.3 Smoke test
 
 ```bash
 ./haul/cluster-forge/spur/tests/smoke.sh
