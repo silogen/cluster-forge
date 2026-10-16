@@ -152,6 +152,7 @@ strip_airm_core_finalizers
 strip_resource_finalizers inferenceservices
 kdelete inferenceservices --all --all-namespaces
 kdelete httproutes --all --all-namespaces
+helm_uninstall aim-cluster-model-source aim-system
 helm_uninstall aim-engine aim-system
 helm_uninstall kaiwo kaiwo-system
 helm_uninstall kserve kserve-system

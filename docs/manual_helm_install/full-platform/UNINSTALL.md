@@ -79,14 +79,14 @@ On a k3s cluster the CRD count is not zero, because k3s owns the
 ## What it does not remove
 
 ```
-┌──────────────────────┬──────────────────────────────────────────────────┐
-│ scripts/.secrets.env    │ Your passwords. Delete the file yourself when you │
-│                      │ do not install again.                            │
-│ The GPU host driver  │ The installation never touched it.               │
-│ Your storage class   │ The script deletes the volumes of the product,   │
-│                      │ and not the class.                               │
-│ Kubernetes itself    │ The cluster keeps running.                       │
-└──────────────────────┴──────────────────────────────────────────────────┘
+┌──────────────────────────┬──────────────────────────────────────────────────┐
+│ scripts/.secrets.env     │ Your passwords. Delete the file yourself when    │
+│                          │ you do not install again.                        │
+│ The GPU host driver      │ The installation never touched it.               │
+│ Your storage class       │ The script deletes the volumes of the product,   │
+│                          │ and not the class.                               │
+│ Kubernetes itself        │ The cluster keeps running.                       │
+└──────────────────────────┴──────────────────────────────────────────────────┘
 ```
 
 ## When the script leaves something

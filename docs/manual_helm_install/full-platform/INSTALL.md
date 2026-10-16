@@ -84,27 +84,29 @@ Traefik with `--disable traefik`.
 │ kubectl  │ Configured for the cluster, with cluster-admin rights.       │
 │ bash     │ Version 4 or newer.                                          │
 │ openssl  │ The scripts generate the passwords with it.                  │
-│ git      │ Three scripts clone a repository. See "Limits" below.        │
+│ git      │ Four scripts clone a repository. See "Limits" below.         │
 │ curl     │ For the verification step.                                   │
 └──────────┴──────────────────────────────────────────────────────────────┘
 ```
 
 ### A domain name
 
-The product serves five host names under one domain. Choose the domain before
+The product serves six host names under one domain. Choose the domain before
 you start, because the installation writes it into Keycloak and you cannot
 change it afterwards without a reinstall.
 
 ```
-aiwbui.<domain>    the AI Workbench interface
-airmui.<domain>    the AI Resource Manager interface
-kc.<domain>        Keycloak, which signs users in
-aiwbapi.<domain>   the AI Workbench API
-airmapi.<domain>   the AI Resource Manager API
+aiwbui.<domain>      the AI Workbench interface
+airmui.<domain>      the AI Resource Manager interface
+kc.<domain>          Keycloak, which signs users in
+aiwbapi.<domain>     the AI Workbench API
+airmapi.<domain>     the AI Resource Manager API
+workloads.<domain>   the model endpoints
 ```
 
-Point all five names at the Envoy Gateway address. For a test you can skip DNS
-and use `curl --resolve`, which the verification step shows.
+Point each name at the Envoy Gateway address. `workloads.<domain>` answers
+after you serve a model. The verification step does not call it. For a test
+you can skip DNS and use `curl --resolve`, which the verification step shows.
 
 ### A TLS certificate
 
@@ -138,7 +140,7 @@ export TLS_CERT=/path/to/fullchain.pem
 export TLS_KEY=/path/to/privkey.pem
 ```
 
-Three scripts install a chart that is in this repository and in no registry.
+Four scripts install a chart that is in this repository and in no registry.
 Point them at your checkout, and they clone nothing:
 
 ```bash
@@ -168,7 +170,7 @@ Run them in this order. Each one must report `rc=0` before you run the next.
 ```bash
 cd scripts
 for s in operators kyverno gateway openbao external-secrets keycloak postgres \
-         rabbitmq object-storage cluster-auth observability compute aim-catalog; do
+         rabbitmq object-storage observability compute aim-catalog; do
   echo "=== $s ==="
   bash "$s.sh" || { echo "FAILED at $s"; break; }
 done
@@ -183,7 +185,7 @@ What each script installs, and why it is there:
 │                      │ needs.                                           │
 │ kyverno.sh           │ Kyverno, and one policy. Read "The storage       │
 │                      │ policy" below. Do not skip this script.          │
-│ gateway.sh           │ The Gateway object that serves the five host     │
+│ gateway.sh           │ The Gateway object that serves the six hosts     │
 │                      │ names, and its TLS certificate.                  │
 │ openbao.sh           │ OpenBao, the secret store. It holds the          │
 │                      │ passwords of step 2. REQUIRED. Read "The secret  │
@@ -195,7 +197,6 @@ What each script installs, and why it is there:
 │ rabbitmq.sh          │ The message broker that AIRM uses.               │
 │ object-storage.sh    │ SeaweedFS, which stores the models and the files │
 │                      │ of a project.                                    │
-│ cluster-auth.sh      │ The service that gives a user a kubeconfig.      │
 │ observability.sh     │ Prometheus, Grafana, Loki and Tempo. AIRM reads  │
 │                      │ the GPU metrics from Prometheus.                 │
 │ compute.sh           │ The GPU stack: the AMD GPU operator, Kueue,      │
@@ -235,22 +236,37 @@ shown above, before any other script creates a volume.
 #### The model catalog
 
 The AIM engine does not know any model until you tell it where to look.
-`aim-catalog.sh` creates an `AIMClusterModelSource`, which lists the model
-images. The engine then runs one job for each image, reads the model metadata,
-and creates an `AIMClusterModel` and its profiles.
+`aim-catalog.sh` installs the chart `sources/aim-cluster-model-source` from
+this repository. The chart creates the `AIMClusterModelSource` objects. The
+engine then runs one job for each image, reads the model metadata, and creates
+an `AIMClusterModel` and its profiles.
 
-The default list holds one model, `openai/gpt-oss-20b`. Change it with:
+`AIM_HARDWARE_FAMILY` selects the catalog for the hardware in the cluster.
+Separate two families with a comma. The allowed values are `instinct`,
+`radeon`, `epyc` and `cpu`.
 
 ```bash
-export AIM_MODEL_IMAGES="amdenterpriseai/aim-openai-gpt-oss-20b:0.11.1 amdenterpriseai/aim-qwen-qwen3-32b:0.11.1"
+export AIM_HARDWARE_FAMILY=radeon
 ```
 
-Each image starts a job that pulls several gigabytes. Keep the list short.
+```bash
+export AIM_HARDWARE_FAMILY=epyc,instinct
+```
 
-**Choose a model with no gated source repository.** The `meta-llama` and the
-`google/gemma` models need an approved HuggingFace account and an access token.
-The download fails with `Access denied. This repository requires approval.` The
-`openai/gpt-oss` and the Qwen models need no token.
+Leave the variable unset to install the unfiltered catalog. That catalog holds
+Instinct models plus base images for Instinct, EPYC and Radeon. It does not
+hold the Radeon model images. A Radeon cluster needs `radeon`. An EPYC cluster
+needs `epyc`.
+
+`cpu` installs no model source.
+
+Each image starts a job that pulls several gigabytes. A family catalog holds
+many images. The first models appear minutes later.
+
+**Some models need an approved HuggingFace account.** The `meta-llama` and the
+`google/gemma` models fail with
+`Access denied. This repository requires approval.` The `openai/gpt-oss` and
+the Qwen models need no token.
 
 ### Step 4 — Install the two charts
 
@@ -393,8 +409,7 @@ kubectl exec -n demo "$POD" -- curl -s http://localhost:8000/v1/chat/completions
   -d '{"model":"openai/gpt-oss-20b","messages":[{"role":"user","content":"Hello"}],"max_tokens":40}'
 ```
 
-The model also answers through the gateway, on the host name that the
-`HTTPRoute` of the service gives.
+The model also answers through the gateway, on `workloads.<domain>`.
 
 ## When something fails
 
@@ -455,19 +470,15 @@ token.
 
 Read these before you give this document to a customer.
 
-**It is not helm-only yet.** Three dependency scripts clone the cluster-forge
+**It is not helm-only yet.** Four dependency scripts clone the cluster-forge
 repository and install a chart from a path in it, because those charts are in no
-registry. Two more steps, the storage policy and the model catalog, write
-Kubernetes objects with `kubectl` for the same reason. A registry must hold
-these charts before this is a Helm-only procedure.
+registry. The storage policy writes a Kubernetes object with `kubectl` for the
+same reason. A registry must hold these charts before this is a Helm-only
+procedure.
 
-**The clone takes an unpinned branch.** The three scripts clone the `main`
+**The clone takes an unpinned branch.** The four scripts clone the `main`
 branch. Two installs on two days can therefore differ. Set `CLUSTER_FORGE_REF`
 to pin a tag.
 
 **One domain, one install.** The domain goes into the Keycloak realm. To change
 it, uninstall and install again.
-
-**The model catalog is a copy.** `aim-catalog.sh` holds a list of image names
-that AMD publishes elsewhere. The list goes out of date. Check for a newer tag
-before you install.

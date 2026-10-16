@@ -11,8 +11,6 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    outputs:
-      new_version: ${{ steps.semver.outputs.next }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -36,39 +34,12 @@ jobs:
         run: |
           VERSION="${{ github.event.inputs.version_override }}"
           if [[ -z "$VERSION" ]]; then
-            echo "Using auto-calculated version: $VERSION"
             VERSION="${{ steps.calculate_version.outputs.next }}"
+            echo "Using auto-calculated version: $VERSION"
           else
             echo "Using manual override version: $VERSION"
           fi
           echo "next=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Create GitHub Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.semver.outputs.next }}
-        run: |
-          # Prepare release artifact
-          tar -zcvf "release-enterprise-ai-${VERSION}.tar.gz" --transform 's,^,cluster-forge/,' root/ scripts/ sources
-          
-          # Prerelease so an arbitrary/backport tag never becomes GitHub Latest.
-          gh release create "$VERSION" "release-enterprise-ai-${VERSION}.tar.gz#ClusterForge Enterprise AI Package" \
-            --title="ClusterForge Release $VERSION" \
-            --target ${{ github.sha }} \
-            --generate-notes \
-            --prerelease || true # Ignore if release already exists
-
-  sbom:
-    needs: [release]
-    runs-on: ubuntu-latest
-    env:
-      VERSION: ${{ needs.release.outputs.new_version }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.sha }}
-          token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
 
       - name: Install yq
         run: |
@@ -78,46 +49,59 @@ jobs:
       - name: Generate SBOM
         id: generate_sbom
         working-directory: ./sbom
+        env:
+          VERSION: ${{ steps.semver.outputs.next }}
         run: |
           echo "Generating SBOM for release ${VERSION}..."
-          
+
           chmod +x generate-sbom.sh
           ./generate-sbom.sh
-          
+
           if [[ ! -f "SBOM.md" ]]; then
             echo "❌ Error: SBOM.md was not generated"
             exit 1
           fi
-          
+
           # Create the renamed SBOM file with release name and git hash
           SHORT_HASH=$(echo "${{ github.sha }}" | cut -c1-7)
           NEW_SBOM_NAME="sbom-${VERSION}-${SHORT_HASH}.md"
-          
+
           cp SBOM.md "$NEW_SBOM_NAME"
           echo "✅ SBOM generated successfully as $NEW_SBOM_NAME"
-          
+
           # Show SBOM summary
           echo ""
           echo "=== SBOM Summary ==="
           echo "Release: ${VERSION}"
           echo "Generated at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-          
+
           # Count components in each category
           all_components=$(yq eval '.components | keys | length' components.yaml)
           helm_components=$(yq eval '.components | to_entries | map(select(.value.valuesFile != null)) | length' components.yaml)
           manifest_components=$((all_components - helm_components))
-          
+
           echo "Total components: $all_components"
           echo "Helm charts: $helm_components"
           echo "Kubernetes manifests: $manifest_components"
           echo "===================="
-          
+
           echo "sbom_name=${NEW_SBOM_NAME}" >> $GITHUB_OUTPUT
 
-      - name: Upload SBOM as artifact
-        working-directory: ./sbom
+      - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.semver.outputs.next }}
           SBOM_NAME: ${{ steps.generate_sbom.outputs.sbom_name }}
         run: |
-          gh release upload ${VERSION} ${SBOM_NAME} --clobber
+          # Prepare release artifact
+          tar -zcvf "release-enterprise-ai-${VERSION}.tar.gz" --transform 's,^,cluster-forge/,' root/ scripts/ sources
+
+          # One create call uploads every asset, then publishes.
+          # Immutable releases reject assets added after publication.
+          gh release create "$VERSION" \
+            "release-enterprise-ai-${VERSION}.tar.gz#ClusterForge Enterprise AI Package" \
+            "sbom/${SBOM_NAME}" \
+            --title="ClusterForge Release $VERSION" \
+            --target ${{ github.sha }} \
+            --generate-notes \
+            --prerelease
