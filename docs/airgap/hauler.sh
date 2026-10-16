@@ -129,8 +129,7 @@ ensure_hauler() {
     return 0
   fi
   if [[ -x ./haul/hauler ]]; then
-    PATH="$(pwd)/haul:${PATH}"
-    export PATH
+    export PATH="$(pwd)/haul:${PATH}"
     echo "using bundled hauler $(command -v hauler)"
     return 0
   fi
@@ -251,16 +250,12 @@ write_dep_values() {
   [[ -f "$profile_values" ]] || printf '{}\n' >"$profile_values"
   yq eval-all '. as $item ireduce ({}; . * $item)' "$pkg_values" "$profile_values" |
     yq -r ".\"${dep_name}\" // {}" >"$out"
-  # A ${name} reference belongs to the deployment, not to the haul. Rendering
-  # needs a value that parses, so each one takes the default of the profile.
-  local key value
-  for key in "${!profile_vars[@]}"; do
-    value="${profile_vars[$key]}"
-    if [[ -z "$value" && "$key" == domain ]]; then
-      value=example.com
-    fi
-    sed -i "s|\${${key}}|${value}|g" "$out"
-  done
+  # ${name} references belong to the deployment, not to the haul. Keep every
+  # one intact, including variables with non-empty profile defaults. The
+  # defaults are recorded in haul-manifest.json below, and dehauler uses an
+  # environment value when present or that recorded default otherwise. This
+  # lets one haul choose ClusterIP on a bare node or LoadBalancer on a cluster
+  # that provides one.
 }
 
 haul_spur_package() {
@@ -309,12 +304,14 @@ haul_spur_package() {
       haul/haul-manifest.yaml
   done < <(yq -r '.dependencies[] | [.name, .version, .repository] | @tsv' "$chart_yaml")
   if [[ "$pkg" == amd-gpu-operator-config ]]; then
-    local ver
-    ver="$(yq -r '.dependencies[0].version' "$chart_yaml")"
-    ver="v${ver#v}"
-    add_image "docker.io/rocm/device-metrics-exporter:${ver}"
-    add_image "docker.io/rocm/device-config-manager:${ver}"
-    add_image "docker.io/rocm/test-runner:${ver}"
+    # The chart version is 0.1.0. The DeviceConfig deploys these tags, the
+    # same ones the full-stack path adds. The device plugin fields are not
+    # named image:, so --add-images does not see them.
+    add_image "docker.io/rocm/device-metrics-exporter:v1.4.1"
+    add_image "docker.io/rocm/device-config-manager:v1.4.1"
+    add_image "docker.io/rocm/test-runner:v1.4.1"
+    add_image "docker.io/rocm/k8s-device-plugin:latest"
+    add_image "docker.io/rocm/k8s-device-plugin:labeller-latest"
   fi
   if [[ "$pkg" == aim-catalog && "$MODEL_IMAGES" == none && ${#AIM_IMAGES[@]} -gt 0 ]]; then
     local img
@@ -337,8 +334,14 @@ pack_spur_profile() {
 apiVersion: cluster-forge.silogen.ai/v1
 kind: HaulManifest
 profile: ${PROFILE}
+vars: {}
 packages: []
 EOF
+  local key
+  for key in "${!profile_vars[@]}"; do
+    key="$key" value="${profile_vars[$key]}" \
+      yq -i '.vars[strenv(key)] = strenv(value)' haul/haul-manifest.yaml
+  done
   echo "profile ${PROFILE} packages: ${profile_packages[*]}"
   local pkg
   for pkg in "${profile_packages[@]}"; do
@@ -386,7 +389,7 @@ render_objects() {
     if [[ "$app" == cluster-auth-shim ]]; then
       kubectl create configmap cluster-auth-shim \
         --namespace cluster-auth \
-        --from-file=shim.py=haul/cluster-forge/docs/manual_helm_install/aiwb-standalone/scripts/cluster-auth-shim.py \
+        --from-file=shim.py=haul/cluster-forge/docs/manual_helm_install/scripts/cluster-auth-shim.py \
         --dry-run=client -o yaml >>"$out"
       echo '---' >>"$out"
     fi
