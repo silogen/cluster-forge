@@ -1528,7 +1528,7 @@ fi
 
 # 4.4.36 AI Gateway Discovery
 if should_run 36; then
-  apply_chart 4.4.36 ai-gateway-discovery ai-gateway-discovery-chart 2.0.0 ai-gateway-system --set "controller.gateway.routeHostname=ai.${DOMAIN}" --set controller.gateway.name=ai-gateway --set controller.bodyAuthMaxRequestBytes=4194304
+  apply_chart 4.4.36 ai-gateway-discovery ai-gateway-discovery-chart 2.1.0 ai-gateway-system --set "controller.gateway.routeHostname=ai.${DOMAIN}" --set controller.gateway.name=ai-gateway --set controller.bodyAuthMaxRequestBytes=4194304
 fi
 
 # 4.4.37 RabbitMQ Cluster Operator
