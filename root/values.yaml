@@ -27,7 +27,7 @@ ociRegistry:
 apps:
   ai-gateway-discovery:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.3"
+    repoVersion: "2.1.0"
     chart: "ai-gateway-discovery-chart"
     namespace: ai-gateway-system
     valuesFile: values.yaml
@@ -42,7 +42,7 @@ apps:
         value: "{{ .Values.global.aiGateway.bodyAuthMaxRequestBytes | int64 }}"
   aim-engine:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "0.2.6"
+    repoVersion: "0.2.7"
     chart: "aim-engine-chart"
     namespace: aim-system
     valuesFile: values.yaml
@@ -51,12 +51,12 @@ apps:
       - name: manager.image.repository
         value: amdenterpriseai/aim-engine
       - name: manager.artifactDownloaderImage
-        value: docker.io/amdenterpriseai/aim-artifact-downloader:v0.2.6
+        value: docker.io/amdenterpriseai/aim-artifact-downloader:v0.2.7
       - name: clusterRuntimeConfig.enable
         value: 'false'
   aim-engine-crds:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "0.2.6"
+    repoVersion: "0.2.7"
     chart: "aim-engine-crds-chart"
     namespace: aim-system
     syncWave: 0
@@ -72,7 +72,7 @@ apps:
       hardwareFamilies: []
   airm:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.4-rc.1"
+    repoVersion: "2.1.0"
     chart: "airm-chart"
     namespace: airm
     syncWave: 0
@@ -89,7 +89,7 @@ apps:
         kind: ClusterPolicy
   aiwb:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.4-rc.1"
+    repoVersion: "2.1.0"
     chart: "aiwb-chart"
     namespace: aiwb
     valuesFile: values.yaml
@@ -104,14 +104,14 @@ apps:
           - /spec/rules/*/skipBackgroundRequests
   airm-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.4-rc.1"
+    repoVersion: "2.1.0"
     chart: "airm-cnpg-chart"
     namespace: airm
     syncWave: -10
     valuesFile: values.yaml
   airm-infra-external-secrets:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.4-rc.1"
+    repoVersion: "2.1.0"
     chart: "airm-external-secrets-chart"
     namespace: airm
     syncWave: -20
@@ -125,21 +125,21 @@ apps:
           - ".spec.data[].remoteRef.metadataPolicy"
   airm-infra-rabbitmq:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.4-rc.1"
+    repoVersion: "2.1.0"
     chart: "airm-rabbitmq-chart"
     namespace: airm
     syncWave: -5
     valuesFile: values.yaml
   aiwb-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.4-rc.1"
+    repoVersion: "2.1.0"
     chart: "aiwb-cnpg-chart"
     namespace: aiwb
     syncWave: -10
     valuesFile: values.yaml
   aiwb-infra-external-secrets:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.0.4-rc.1"
+    repoVersion: "2.1.0"
     chart: "aiwb-external-secrets-chart"
     namespace: aiwb
     syncWave: -20
@@ -973,6 +973,30 @@ apps:
     helmParameters:
       - name: cluster.name
         value: "{{ .Values.global.domain }}"
+    # PVC size is deliberately NOT reconciled. Clusters run different sizes for
+    # loki-data-pvc (50Gi, 100Gi, 150Gi after past expansions), and a PVC can
+    # only ever grow: the API server rejects any request below status.capacity
+    # with "Forbidden: field can not be less than status.capacity". Without this,
+    # every cluster whose PVC is larger than the size tier asks for would sit
+    # permanently OutOfSync on a patch that can never apply -- and ArgoCD pins
+    # the Application to that failing revision and retries it, so later commits
+    # stop being deployed at all.
+    #
+    # The chart value therefore provisions NEW clusters and is not compared
+    # against existing ones. Growing an existing PVC is a deliberate, manual
+    # action (see EAI-9149), not something an upgrade does on its own -- which
+    # also avoids the in-place Longhorn resize that deadlocked int-test on
+    # 2026-10-06.
+    #
+    # NOTE: root/templates/cluster-apps.yaml adds RespectIgnoreDifferences=true
+    # whenever ignoreDifferences is set. That is required: on its own,
+    # ignoreDifferences only affects the diff, and a sync would still apply the
+    # field and attempt the shrink.
+    ignoreDifferences:
+      - group: ""
+        kind: PersistentVolumeClaim
+        jsonPointers:
+          - /spec/resources/requests/storage
     namespace: otel-lgtm-stack
     path: otel-lgtm-stack/v1.0.8
     syncWave: -20

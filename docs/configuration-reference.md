@@ -7,7 +7,7 @@ root `global` keys, install scripts, and platform gate helpers.
 
 | Application | Parameter | Default (root) | Purpose |
 |-------------|-----------|----------------|---------|
-| `aim-engine` | `clusterRuntimeConfig.enable` | `'false'` | Quoted string so Argo CD / Helm pass a boolean-looking value without YAML converting it to a boolean. When `'false'`, the aim-engine chart does not render `AIMClusterRuntimeConfig`. Set `'true'` for OpenShift/manual installs that need aim-engine-managed routing (see `docs/openshift/install.sh` and `docs/manual_helm_install/scripts/install_base.sh`). |
+| `aim-engine` | `clusterRuntimeConfig.enable` | `'false'` | Quoted string so Argo CD / Helm pass a boolean-looking value without YAML converting it to a boolean. When `'false'`, the aim-engine chart does not render `AIMClusterRuntimeConfig`. Set `'true'` for OpenShift/manual installs that need aim-engine-managed routing (see `docs/openshift/install.sh` and `docs/manual_helm_install/aiwb-standalone/scripts/install_base.sh`). |
 | `aim-engine` | `manager.image.repository` | `amdenterpriseai/aim-engine` | aim-engine controller image repository (tag comes from the chart / `repoVersion`). |
 | `aim-engine` | `manager.artifactDownloaderImage` | `docker.io/amdenterpriseai/aim-artifact-downloader:v0.2.6` | Full image reference for the artifact-downloader sidecar. The tag includes the `v` prefix. |
 | `ai-gateway-discovery` | `controller.bodyAuthMaxRequestBytes` | `4194304` (from `global.aiGateway.bodyAuthMaxRequestBytes`) | Per-model catch-all SecurityPolicy body-authz ceiling. Must match `envoy-gateway-config`'s `aiGateway.bodyAuthMaxRequestBytes`. |
@@ -32,6 +32,26 @@ rule-scoped policies override the gateway-scoped one per route, so the two
 must stay in step. The chart-local default in
 `sources/envoy-gateway-config/values.yaml` is the same number and applies
 only if the root helmParameter is omitted.
+
+## Envoy apps gateway load balancer
+
+The apps gateway Service is a LoadBalancer. A cloud load balancer controller
+often needs Service annotations. Some controllers, such as OpenStack CCM,
+still read `spec.loadBalancerIP`.
+
+Envoy Gateway 1.8.1 copies `envoyService.annotations` and
+`envoyService.loadBalancerIP` onto that Service. Set the chart values below
+from the cluster-values overlay, under
+`apps.envoy-gateway-config.valuesObject.appsGateway`.
+
+| Value | Default | Purpose |
+|-------|---------|---------|
+| `serviceAnnotations` | `{}` | Annotations Envoy Gateway copies onto the apps gateway Service. |
+| `loadBalancerIP` | `""` | Fixed load balancer IP. Envoy Gateway writes `spec.loadBalancerIP`. |
+
+An empty value leaves the Service field unset. `externalIP` still writes the
+`externalIPs` patch for a cluster that has no load balancer. The two settings
+can both be set: they write different Service fields.
 
 ## `seaweedfs-config` integrations
 
@@ -128,3 +148,31 @@ no ref and needs no tool on the node. See
 | Variable | Default | Meaning |
 |---|---|---|
 | `NAMESPACES` | `kyverno cert-manager kserve-system aim-system` | Namespaces to measure. |
+
+## `docs/manual_helm_install/full-platform/scripts/`
+
+These variables tune the manual Helm installation of the full platform
+(AIRM and AIWB). `docs/manual_helm_install/full-platform/INSTALL.md` gives the
+procedure that uses them. Each one is an environment variable that you export
+before you run a script.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `DOMAIN` | none, required | The DNS domain. The gateway serves `https://*.<domain>`. |
+| `STORAGE_CLASS` | none, required | The StorageClass that each PersistentVolumeClaim uses. |
+| `AIWB_CNPG_INSTANCES` | empty | Number of AIWB PostgreSQL instances. Empty uses the chart default, 3. Set `1` on a cluster with one node. |
+| `TLS_CERT` | empty | Path to a certificate chain in PEM form. Empty makes a self-signed certificate. |
+| `TLS_KEY` | empty | Path to the private key of `TLS_CERT`. |
+| `SECRETS_FILE` | `scripts/.secrets.env` | Path of the generated password file. |
+| `CLUSTER_FORGE_DIR` | `scripts/.cluster-forge` | Path to a Cluster Forge checkout. Set it to this repository, and the scripts clone nothing. |
+| `CLUSTER_FORGE_REF` | `main` | The git reference to clone when `CLUSTER_FORGE_DIR` is not set. |
+| `CHART_VERSION` | `2.0.3` | Version of the AMD Enterprise AI OCI charts: AIRM, AIWB, PostgreSQL, RabbitMQ and External Secrets. |
+| `CLUSTER_NAME` | `demo-cluster` | The cluster name that the GPU metrics carry. |
+| `DRIVER_VERSION` | `7.0` | The ROCm version that the DeviceConfig declares. The host driver must match it. |
+| `RWX_MUTATION` | `auto` | Apply the Kyverno policy that rewrites a ReadWriteMany claim to ReadWriteOnce. `auto` applies it for `rancher.io/local-path` only. `on` and `off` force the choice. |
+| `GPU_READY_TIMEOUT_SECONDS` | `600` | How long to wait for a node to advertise `amd.com/gpu`. |
+| `KSERVE_ATTEMPTS` | `3` | How many times to install KServe. Its webhook is not ready on the first attempt. |
+| `ENVOY_GATEWAY_ATTEMPTS` | `4` | How many times to install the Envoy Gateway. |
+| `KUBECTL_TIMEOUT` | `180s` | Timeout for each delete in `uninstall.sh`. |
+| `AIM_HARDWARE_FAMILY` | empty | Families for the AIM catalog. A comma separates two families. Allowed: `cpu`, `epyc`, `instinct`, `radeon`. Empty installs the unfiltered catalog. `cpu` installs no model source. |
+| `AIM_CATALOG_TIMEOUT_SECONDS` | `900` | How long to wait for the first AIMClusterModel to become Ready. |

@@ -11,6 +11,13 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 3
+      # A job whose init container cannot pull stays Pending forever: the pod never
+      # fails, so backoffLimit is never consumed and the job never completes. Under
+      # concurrencyPolicy: Forbid that one job blocks every later schedule, silently
+      # disabling auto-unseal. The deadline bounds that to a single period.
+      # Matches openbao-secret-manager, which already sets this.
+      activeDeadlineSeconds: 300
+      ttlSecondsAfterFinished: 3600
       template:
         metadata:
           name: openbao-unseal

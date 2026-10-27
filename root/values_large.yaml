@@ -98,12 +98,19 @@ apps:
             cpu: 750m
             memory: 4Gi
         storage:
-          # 100Gi rather than small/medium's 50Gi. Retention (168h) is what
-          # actually bounds Loki, but large clusters ingest more and this is
-          # the PVC that has needed expanding in the past -- and PVCs can be
-          # expanded, never shrunk, so the cost of starting too small is a
-          # manual migration.
-          loki: 100Gi
+          # Same 50Gi as small/medium. Retention (168h) is what actually bounds
+          # Loki, and measured steady state is well inside 50Gi even on a busy
+          # cluster (14 GiB on a 10-node workshop cluster under real load;
+          # 0.5-1.1 GiB on staging/epycenv/int-test).
+          #
+          # This was briefly 100Gi. The problem was not the number but the
+          # change: bumping it made ArgoCD expand loki-data-pvc in place during
+          # an upgrade, and Longhorn deadlocked on the live resize (int-test,
+          # 2026-10-06). Clusters that already run a larger PVC keep it -- the
+          # size field is in ignoreDifferences (see root/values.yaml), so this
+          # value provisions new clusters and is not reconciled against
+          # existing ones. Nothing is shrunk; the API server forbids that.
+          loki: 50Gi
       collectors:
         resources:
           # otel-collector-metrics-k8s. Measured 0.9-2.2 GiB. Raised to 16Gi

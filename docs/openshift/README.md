@@ -81,7 +81,7 @@ the values file, not this list.
 
 | Step | Phase | Description |
 |------|-------|-------------|
-| 1 | Downloading cluster-forge release | Downloads and extracts the pinned cluster-forge release tarball (`CLUSTER_FORGE_VERSION`), fetches `manual_helm_install` secrets and scripts from GitHub, and applies post-clone patches (e.g. envoy-gateway SecurityPolicy `failOpen: true`). |
+| 1 | Downloading cluster-forge release | Downloads and extracts the pinned cluster-forge release tarball (`CLUSTER_FORGE_VERSION`), fetches `manual_helm_install/aiwb-standalone` secrets and scripts from GitHub, and applies post-clone patches (e.g. envoy-gateway SecurityPolicy `failOpen: true`). |
 | 2 | Custom SecurityContextConstraints (SCCs) | Applies OpenShift custom SCC manifests from `extra/01-scc.yaml` so pods with non-default security contexts (e.g. OpenTelemetry operator with `seccompProfile: RuntimeDefault`) can be scheduled. |
 | 3 | local-path provisioner & default StorageClass | Ensures dynamic storage is available: installs the local-path provisioner if missing, creates a `default` StorageClass when absent, and marks it as the cluster default. |
 | 4 | Kuberay operator | Installs the Kuberay operator for Ray cluster management. |

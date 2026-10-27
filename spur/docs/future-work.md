@@ -168,7 +168,7 @@ This is the text of the issue for ROCm/spur. It is not open.
 - An upgrade test with two published chart versions.
 - High availability of the Spur controller. The raft pull requests of
   `spurctld` are open: ROCm/spur#806, #810, #843, #844 and #785.
-- Remove `docs/manual_helm_install`. EAI-8674 tracks this.
+- Remove `docs/manual_helm_install/aiwb-standalone`. EAI-8674 tracks this.
 - Persistent storage for Dex, so that a restart of the Dex Pod does not make
   every token of `just show-token-demo` invalid. The `kubernetes` storage of Dex
   needs cluster-scoped RBAC for its CRDs.
