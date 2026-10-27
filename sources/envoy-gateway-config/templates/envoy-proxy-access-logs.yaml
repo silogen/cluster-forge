@@ -23,14 +23,28 @@ spec:
         {{- with .Values.appsGateway.loadBalancerIP }}
         loadBalancerIP: {{ . | quote }}
         {{- end }}
-        {{- if .Values.appsGateway.externalIP }}
-        # A cluster without a load balancer reaches the gateway on the node address.
+        {{- if or .Values.appsGateway.externalIP .Values.appsGateway.extraServicePorts }}
         patch:
           type: StrategicMerge
           value:
             spec:
+              {{- with .Values.appsGateway.externalIP }}
+              # A cluster without a load balancer reaches the gateway on the node address.
               externalIPs:
-                - {{ .Values.appsGateway.externalIP | quote }}
+                - {{ . | quote }}
+              {{- end }}
+              {{- with .Values.appsGateway.extraServicePorts }}
+              {{- $listenerPort := int $.Values.ports.gateway }}
+              # Envoy Gateway binds a listener port below 1024 to that port + 10000 in the pod.
+              {{- $containerPort := ternary (add $listenerPort 10000) $listenerPort (lt $listenerPort 1024) }}
+              ports:
+                {{- range . }}
+                - name: https-{{ . }}
+                  port: {{ . }}
+                  protocol: TCP
+                  targetPort: {{ $containerPort }}
+                {{- end }}
+              {{- end }}
         {{- end }}
       envoyDeployment:
         pod:

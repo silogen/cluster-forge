@@ -19,6 +19,10 @@ appsGateway:
   # spec.loadBalancerIP. OpenStack CCM and some other controllers still read
   # that field. Empty leaves the field unset.
   loadBalancerIP: ""
+  # Extra ports on the apps gateway Service. Each port goes to the same
+  # listeners as ports.gateway. Use it when a jump host forwards :443 to a
+  # different port on the node, for example [8443]. Empty adds no ports.
+  extraServicePorts: []
 
 # CoreDNS rewrite of *.domain to the gateway. The object is an RKE2
 # HelmChartConfig, so it works on an RKE2 cluster only. Set false elsewhere.

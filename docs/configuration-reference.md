@@ -48,10 +48,27 @@ from the cluster-values overlay, under
 |-------|---------|---------|
 | `serviceAnnotations` | `{}` | Annotations Envoy Gateway copies onto the apps gateway Service. |
 | `loadBalancerIP` | `""` | Fixed load balancer IP. Envoy Gateway writes `spec.loadBalancerIP`. |
+| `extraServicePorts` | `[]` | More Service ports, for example `[8443]`, that go to the same listeners as `ports.gateway`. |
 
 An empty value leaves the Service field unset. `externalIP` still writes the
 `externalIPs` patch for a cluster that has no load balancer. The two settings
 can both be set: they write different Service fields.
+
+Use `extraServicePorts` when a jump host forwards client port 443 to a
+different port on the node. Clients still use `https://<host>.<domain>` on
+port 443, so redirect URLs and OIDC issuers do not change. The jump host must
+forward TCP and must not terminate TLS, because the gateway routes by SNI and
+serves `cluster-tls`. Each extra port targets the Envoy container port of the
+listener: Envoy Gateway binds a listener port below 1024 to that port + 10000,
+so 443 becomes 10443. Set the list from the cluster-values overlay:
+
+```yaml
+apps:
+  envoy-gateway-config:
+    valuesObject:
+      appsGateway:
+        extraServicePorts: [8443]
+```
 
 ## `seaweedfs-config` integrations
 
