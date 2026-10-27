@@ -98,8 +98,7 @@ func installPackage(ctx context.Context, c *cluster, name, namespace string, val
 		// An uninstall and a new install put the pull at the end of the queue.
 		// Wait for it, and let the next attempt upgrade the failed release.
 		// Only a timeout can come from a slow pull; other errors fail now.
-		if strings.Contains(lastErr.Error(), "context deadline exceeded") &&
-			waitForPulls(ctx, c, namespace, pullDeadline) {
+		if timedOut(lastErr) && waitForPulls(ctx, c, namespace, pullDeadline) {
 			attempt--
 			continue
 		}
@@ -344,6 +343,15 @@ func pullInProgress(pods []corev1.Pod, events []corev1.Event) string {
 	return ""
 }
 
+// timedOut matches the text because helm wraps hook errors with %s, which
+// breaks errors.Is. A resource wait reports "context deadline exceeded", a
+// hook "timed out waiting for the condition".
+func timedOut(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "context deadline exceeded") ||
+		strings.Contains(msg, "timed out waiting for the condition")
+}
+
 func isCreating(pod *corev1.Pod) bool {
 	statuses := append(pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses...)
 	for _, status := range statuses {
@@ -354,9 +362,6 @@ func isCreating(pod *corev1.Pod) bool {
 	return false
 }
 
-// crdNamesOf reads the CustomResourceDefinition names out of a release
-// manifest. A CRD that the chart ships in its crds/ directory is not in the
-// manifest, so helm never owned it and this does not remove it.
 // whyPodsFail names a pod of the namespace that cannot start for a reason that
 // a retry does not change. helm reports only `context deadline exceeded`, which
 // says nothing about the missing Secret or the image that is not there.
@@ -387,6 +392,9 @@ func whyPodsFail(ctx context.Context, c *cluster, namespace string) string {
 	return ""
 }
 
+// crdNamesOf reads the CustomResourceDefinition names out of a release
+// manifest. A CRD that the chart ships in its crds/ directory is not in the
+// manifest, so helm never owned it and this does not remove it.
 func crdNamesOf(manifest string) []string {
 	var names []string
 	for _, doc := range strings.Split(manifest, "\n---") {

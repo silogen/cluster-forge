@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -67,6 +68,20 @@ func TestPullInProgress(t *testing.T) {
 	for _, c := range cases {
 		if got := pullInProgress(c.pods, c.events); got != c.want {
 			t.Errorf("%s: pullInProgress() = %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
+func TestTimedOut(t *testing.T) {
+	cases := map[string]bool{
+		"context deadline exceeded":                                true,
+		"failed pre-install: timed out waiting for the condition":  true,
+		"failed post-install: timed out waiting for the condition": true,
+		"Internal error occurred: failed calling webhook":          false,
+	}
+	for msg, want := range cases {
+		if got := timedOut(errors.New(msg)); got != want {
+			t.Errorf("timedOut(%q) = %v, want %v", msg, got, want)
 		}
 	}
 }
