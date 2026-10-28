@@ -108,14 +108,33 @@ var probes = map[string]func(context.Context, *cluster) bool{
 		return c.crdExists(ctx, "deviceconfigs.amd.com")
 	},
 	"gpu.amd": func(ctx context.Context, c *cluster) bool {
-		// The DeviceConfig alone is not enough, the device plugin must also
-		// publish the GPUs of a node.
+		// The DeviceConfig alone is not enough, a driver must also publish
+		// the GPUs of a node: the device plugin, or the DRA driver on a
+		// shared node.
 		nodes, err := c.typed.CoreV1().Nodes().List(ctx, listAll)
+		if err == nil {
+			for _, n := range nodes.Items {
+				if q, ok := n.Status.Capacity["amd.com/gpu"]; ok && !q.IsZero() {
+					return true
+				}
+			}
+		}
+		slices := c.dynamic.Resource(gvr("resource.k8s.io", "v1", "resourceslices"))
+		list, err := slices.List(ctx, metav1.ListOptions{FieldSelector: "spec.driver=gpu.amd.com"})
+		return err == nil && len(list.Items) > 0
+	},
+	"gpu.spur-sharing": func(ctx context.Context, c *cluster) bool {
+		// A node that Spur shares with Kubernetes runs the AMD DRA driver,
+		// not the device plugin. The node is ready when the driver publishes
+		// its GPUs.
+		nodes, err := c.typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: "spur.amd.com/gpu-sharing=true"})
 		if err != nil {
 			return false
 		}
+		slices := c.dynamic.Resource(gvr("resource.k8s.io", "v1", "resourceslices"))
 		for _, n := range nodes.Items {
-			if q, ok := n.Status.Capacity["amd.com/gpu"]; ok && !q.IsZero() {
+			list, err := slices.List(ctx, metav1.ListOptions{FieldSelector: "spec.driver=gpu.amd.com,spec.nodeName=" + n.Name})
+			if err == nil && len(list.Items) > 0 {
 				return true
 			}
 		}
