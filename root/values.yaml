@@ -27,7 +27,7 @@ ociRegistry:
 apps:
   ai-gateway-discovery:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.1.0"
+    repoVersion: "2.1.1"
     chart: "ai-gateway-discovery-chart"
     namespace: ai-gateway-system
     valuesFile: values.yaml
@@ -89,7 +89,7 @@ apps:
         kind: ClusterPolicy
   aiwb:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.1.0"
+    repoVersion: "2.1.1"
     chart: "aiwb-chart"
     namespace: aiwb
     valuesFile: values.yaml
@@ -132,14 +132,14 @@ apps:
     valuesFile: values.yaml
   aiwb-infra-cnpg:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.1.0"
+    repoVersion: "2.1.1"
     chart: "aiwb-cnpg-chart"
     namespace: aiwb
     syncWave: -10
     valuesFile: values.yaml
   aiwb-infra-external-secrets:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
-    repoVersion: "2.1.0"
+    repoVersion: "2.1.1"
     chart: "aiwb-external-secrets-chart"
     namespace: aiwb
     syncWave: -20

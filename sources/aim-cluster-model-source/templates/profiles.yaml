@@ -211,6 +211,33 @@ spec:
   maxModels: 100
   registry: docker.io
   syncInterval: 1h
+---
+apiVersion: aim.eai.amd.com/v1alpha1
+kind: AIMClusterModelSource
+metadata:
+  name: amd-aim-instinct-mi350p
+spec:
+  filters:
+    # Base images
+    - image: amdenterpriseai/aim-base:2026.16
+    - image: amdenterpriseai/aim-base:2026.15
+    - image: amdenterpriseai/aim-base:2026.11
+    # Model AIMs
+    # openai/gpt-oss-120b (EAI-8992)
+    - image: amdenterpriseai/aim-openai-gpt-oss-120b:2026.11.0-rc1
+    # google/gemma-4-26B-A4B-it (EAI-8956)
+    - image: amdenterpriseai/aim-google-gemma-4-26b-a4b-it:2026.11.0-rc1
+    # moonshotai/Kimi-K3 (EAI-8935)
+    - image: amdenterpriseai/aim-moonshotai-kimi-k3:2026.11.0-rc1
+    # google/gemma-4-12B-it (EAI-8957)
+    - image: amdenterpriseai/aim-google-gemma-4-12b-it:2026.11.0-rc1
+    # Qwen/Qwen3.8-27B (EAI-8955)
+    - image: amdenterpriseai/aim-qwen-qwen3-8-27b:2026.15.0-rc1
+    # meta-models/Muse-Glimmer-30B (EAI-8390)
+    - image: amdenterpriseai/aim-meta-models-muse-glimmer-30b:2026.11.0-rc1
+  maxModels: 100
+  registry: docker.io
+  syncInterval: 1h
 # end of has "instinct"
 {{- end }}
 {{- if has "epyc" $families }}
