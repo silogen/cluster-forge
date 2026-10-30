@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,6 +25,10 @@ func TestPullInProgress(t *testing.T) {
 			Reason:         reason,
 			Message:        message,
 		}
+	}
+	at := func(e corev1.Event, minute int) corev1.Event {
+		e.LastTimestamp = metav1.NewTime(time.Date(2026, 1, 1, 0, minute, 0, 0, time.UTC))
+		return e
 	}
 	pulling := event("new", "Pulling", `Pulling image "postgres:17-alpine"`)
 	cases := []struct {
@@ -48,10 +54,34 @@ func TestPullInProgress(t *testing.T) {
 				event("new", "Pulled", `Successfully pulled image "postgres:17-alpine" in 9m`),
 				event("new", "Pulling", `Pulling image "busybox:1.36"`),
 			}, "pod db/postgres-0 pulls busybox:1.36"},
+		{"new pull after an earlier failed pull", []corev1.Pod{pod("ContainerCreating")},
+			[]corev1.Event{
+				at(pulling, 3),
+				at(event("new", "Failed", `Failed to pull image "postgres:17-alpine": timeout`), 1),
+			}, "pod db/postgres-0 pulls postgres:17-alpine"},
+		{"failed pull after a pull", []corev1.Pod{pod("ContainerCreating")},
+			[]corev1.Event{
+				at(pulling, 1),
+				at(event("new", "Failed", `Failed to pull image "postgres:17-alpine": timeout`), 3),
+			}, ""},
 	}
 	for _, c := range cases {
 		if got := pullInProgress(c.pods, c.events); got != c.want {
 			t.Errorf("%s: pullInProgress() = %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
+func TestTimedOut(t *testing.T) {
+	cases := map[string]bool{
+		"context deadline exceeded":                                true,
+		"failed pre-install: timed out waiting for the condition":  true,
+		"failed post-install: timed out waiting for the condition": true,
+		"Internal error occurred: failed calling webhook":          false,
+	}
+	for msg, want := range cases {
+		if got := timedOut(errors.New(msg)); got != want {
+			t.Errorf("timedOut(%q) = %v, want %v", msg, got, want)
 		}
 	}
 }

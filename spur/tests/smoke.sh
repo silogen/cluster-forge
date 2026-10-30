@@ -111,11 +111,14 @@ for ns in seaweedfs-instance keda opentelemetry-system; do
 done
 kubectl get crd -o name | grep -Eq 'keda\.sh$|opentelemetry\.io$|seaweed\.seaweedfs\.com$' \
   && fail "CRDs of an optional component exist"
-# The catalog starts discovery Job pods all the time, so Job pods do not count.
+# The catalog starts model discovery Job pods all the time, so they do not
+# count. aim-engine names the container of each discovery pod "discovery".
 bad_pods() {
   kubectl get pods --all-namespaces \
     --field-selector=status.phase!=Running,status.phase!=Succeeded -o json \
-    | jq -r '.items[] | select(.metadata.ownerReferences[0].kind != "Job")
+    | jq -r '.items[]
+             | select((.metadata.ownerReferences[0].kind == "Job"
+                       and .spec.containers[0].name == "discovery") | not)
              | "\(.metadata.namespace)/\(.metadata.name) \(.status.phase)"'
 }
 for _ in $(seq 1 6); do
