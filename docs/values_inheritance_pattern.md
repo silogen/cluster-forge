@@ -179,6 +179,12 @@ When ArgoCD renders applications with multi-source:
    `sources/aim-cluster-model-source`). The value travels as a structured list,
    not a string, so no comma parsing is involved. The base `root/values.yaml`
    default is an empty list, which selects the legacy (install-all) branch.
+   `valuesObject.includeProviders` and `valuesObject.excludeProviders` are
+   regular expressions matched against the image reference.
+   `excludeProviders` takes priority. The default include
+   list is `openai`, `mistralai`, `meta`, `google`, `unsloth`, and
+   `coherelabs`. The default exclude list is `zai-org`, `qwen`,
+   `deepseek-ai`, and `minimaxai`.
 
    GPU stack family (ROCm + GPU Operator) is injected the same way, driven by
    cluster-bloom's `GPU_STACK_FAMILY`. Two child-app keys are set:

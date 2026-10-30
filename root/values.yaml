@@ -70,6 +70,21 @@ apps:
       # injects the selected families as a YAML list at deploy time, and only
       # when AIM_HARDWARE_FAMILY is set.
       hardwareFamilies: []
+      # Regular expressions matched against the image reference.
+      # excludeProviders takes priority.
+      # See sources/aim-cluster-model-source/README.md.
+      includeProviders:
+        - openai
+        - mistralai
+        - meta
+        - google
+        - unsloth
+        - coherelabs
+      excludeProviders:
+        - zai-org
+        - qwen
+        - deepseek-ai
+        - minimaxai
   airm:
     repoURL: "{{ .Values.ociRegistry.dockerHub }}"
     repoVersion: "2.1.0"

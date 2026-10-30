@@ -111,6 +111,22 @@ Post-handoff cluster checks. See [`scripts/platform-gates/README.md`](../scripts
 
 Webhook gate env vars are inherited from `ai-gateway-webhook-health.sh`.
 
+## `aim-cluster-model-source` model providers
+
+Set the keys on the chart or under
+`apps.aim-cluster-model-source.valuesObject` in the cluster values. Each
+entry is a regular expression. Helm keeps a model image when the image
+reference matches `includeProviders` and does not match `excludeProviders`.
+A match in both lists is excluded.
+
+| Value | Default | Purpose |
+|---|---|---|
+| `includeProviders` | `openai`, `mistralai`, `meta`, `google`, `unsloth`, `coherelabs` | Patterns that allow an image. |
+| `excludeProviders` | `zai-org`, `qwen`, `deepseek-ai`, `minimaxai` | Patterns that block an image. This list takes priority. |
+
+An empty `includeProviders` list installs no model images. Base images are
+not filtered. Helm omits a source whose image list becomes empty.
+
 ## `spur/spur-aims` (the Spur CLI plugin)
 
 Installs a Spur profile on a Spur Kubernetes cluster, as the Spur CLI plugin
