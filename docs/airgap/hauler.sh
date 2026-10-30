@@ -129,7 +129,7 @@ ensure_hauler() {
     return 0
   fi
   if [[ -x ./haul/hauler ]]; then
-    export PATH="$(pwd)/haul:${PATH}"
+    export PATH="${PWD}/haul:${PATH}"
     echo "using bundled hauler $(command -v hauler)"
     return 0
   fi
@@ -403,8 +403,8 @@ packages: []
 EOF
   local key
   for key in "${!profile_vars[@]}"; do
-    key="$key" value="${profile_vars[$key]}" \
-      yq -i '.vars[strenv(key)] = strenv(value)' haul/haul-manifest.yaml
+    VAR_KEY="$key" VAR_VALUE="${profile_vars[$key]}" \
+      yq -i '.vars[strenv(VAR_KEY)] = strenv(VAR_VALUE)' haul/haul-manifest.yaml
   done
   echo "profile ${PROFILE} packages: ${profile_packages[*]}"
   local pkg
