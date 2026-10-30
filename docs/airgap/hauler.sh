@@ -235,6 +235,59 @@ add_image() {
   hauler store add image "$1" --platform "$PLATFORM" --store "$EAI_STORE"
 }
 
+# The Envoy Gateway controller creates the Envoy data-plane pods at runtime,
+# so --add-images never sees their image. Without a tag in
+# global.images.envoyProxy.image, the chart falls back to the default tag in
+# its _helpers.tpl, which is also the controller default. dehauler.sh reads
+# envoyProxyImage from the manifest and points the EnvoyProxy objects at the
+# hauled copy, because registries.yaml mirrors only the local registry.
+haul_envoy_proxy_image() {
+  local chart_path="$1" dep_values="$2" img tag
+  tag="$(sed -nE '/define "eg\.envoyProxy\.image"/,/end -/ s/.*default "([^"]+)" \$repositoryParts\._1.*/\1/p' \
+    "${chart_path}/templates/_helpers.tpl")"
+  if [[ -z "$tag" ]]; then
+    echo "no default Envoy proxy tag in ${chart_path}/templates/_helpers.tpl" >&2
+    exit 1
+  fi
+  img="$(yq -r '.global.images.envoyProxy.image // ""' "$dep_values")"
+  img="${img:-docker.io/envoyproxy/envoy}"
+  [[ "${img##*/}" == *:* ]] || img="${img}:${tag}"
+  add_image "$img"
+  image="$img" yq -i '.envoyProxyImage = strenv(image)' haul/haul-manifest.yaml
+}
+
+# AIMClusterModelSource names its base images in spec.images, a plain list of
+# strings, which --add-images does not read. The family blocks of the chart
+# hold plain YAML only, so cut out the blocks that hardwareFamilies selects and
+# read them with yq, the same selection as templates/_helpers.tpl. This keeps
+# helm off the pack machine.
+aim_source_base_images() {
+  local chart_dir="$1" values="$2" kind f
+  local -a families=() picked=()
+  kind="$(yq -r '.hardwareFamilies | tag' "$values")"
+  if [[ "$kind" == '!!str' ]]; then
+    IFS=',' read -ra families <<<"$(yq -r '.hardwareFamilies' "$values")"
+  elif [[ "$kind" == '!!seq' ]]; then
+    mapfile -t families < <(yq -r '.hardwareFamilies[]' "$values")
+  fi
+  for f in "${families[@]+"${families[@]}"}"; do
+    f="${f//[[:space:]]/}"
+    [[ -n "$f" ]] && picked+=("$f")
+  done
+  {
+    if [[ ${#picked[@]} -eq 0 ]]; then
+      awk '/^\{\{- if not \$families \}\}/{on=1; next} on && /^\{\{- end \}\}/{on=0} on' \
+        "${chart_dir}/templates/unfiltered.yaml"
+    else
+      for f in "${picked[@]}"; do
+        awk -v fam="$f" '$0 == "{{- if has \"" fam "\" $families }}" {on=1; next} on && /^\{\{- end \}\}/{on=0} on' \
+          "${chart_dir}/templates/profiles.yaml"
+        echo "---"
+      done
+    fi
+  } | yq -N -r 'select(.kind == "AIMClusterModelSource") | .spec.images[]?' | sort -u
+}
+
 # The values that one chart of a package is installed with: the package
 # values.yaml with the profile entry merged on top, reduced to the key of
 # that chart. Image discovery has to see them, or it reports the images of
@@ -295,6 +348,17 @@ haul_spur_package() {
     else
       echo "unsupported chart repository for ${pkg}: ${dep_repo}" >&2
       exit 1
+    fi
+    if [[ "$pkg" == envoy-gateway && "$dep_name" == gateway-helm ]]; then
+      haul_envoy_proxy_image "$(dirname "$chart_yaml")/${dep_repo#file://}" "$dep_values"
+    fi
+    if [[ "$pkg" == aim-catalog && "$dep_name" == aim-cluster-model-source && "$MODEL_IMAGES" == all ]]; then
+      local base_img
+      while read -r base_img; do
+        [[ -z "$base_img" ]] && continue
+        [[ "${base_img%%/*}" == *.* ]] || base_img="docker.io/${base_img}"
+        add_image "$base_img"
+      done < <(aim_source_base_images "$(dirname "$chart_yaml")/${dep_repo#file://}" "$dep_values")
     fi
     values_name="values-${pkg}-${dep_name}.yaml"
     cp "$dep_values" "haul/profile-values/${values_name}"
@@ -606,6 +670,15 @@ pack_full_stack() {
   # 3.43 AIM cluster model source
   if [[ "$MODEL_IMAGES" == all ]]; then
     hauler store add chart haul/cluster-forge/sources/aim-cluster-model-source --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
+    local base_img defaults
+    defaults="$(mktemp)"
+    printf '{}\n' >"$defaults"
+    while read -r base_img; do
+      [[ -z "$base_img" ]] && continue
+      [[ "${base_img%%/*}" == *.* ]] || base_img="docker.io/${base_img}"
+      hauler store add image "$base_img" --platform linux/amd64 --store "$EAI_STORE"
+    done < <(aim_source_base_images haul/cluster-forge/sources/aim-cluster-model-source "$defaults")
+    rm -f "$defaults"
   else
     hauler store add chart haul/cluster-forge/sources/aim-cluster-model-source --repo . --platform linux/amd64 --store "$EAI_STORE"
     if [[ ${#AIM_IMAGES[@]} -gt 0 ]]; then
