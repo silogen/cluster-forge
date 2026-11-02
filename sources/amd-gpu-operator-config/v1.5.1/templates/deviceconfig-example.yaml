@@ -141,6 +141,11 @@ spec:
     port: 5000
 
     # Node port for metrics exporter service, metrics endpoint $node-ip:$nodePort
+    # deviceconfig-vf.yaml copies this port. The operator makes a Service only
+    # for a DeviceConfig with matching nodes, so a cluster with one GPU type has
+    # one Service. A cluster with both amd-gpu and amd-vgpu nodes has two, and
+    # the second Service fails because the NodePort is in use. Such a cluster
+    # needs a different nodePort in deviceconfig-vf.yaml.
     nodePort: 32500
 
     # exporter image

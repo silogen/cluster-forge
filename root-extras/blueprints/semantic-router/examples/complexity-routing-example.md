@@ -164,9 +164,5 @@ candidates or lower the threshold.
 
 ## Other signal types
 
-`complexity` is one signal type among several upstream supports (domain
-classification and others). The shape is the same regardless — a
-`signals.<type>` block feeding `conditions` in `decisions` — but this example
-only covers `complexity`; it's the only one currently verified end-to-end
-against a live cluster. Treat other signal types as unverified here until
-someone runs them end-to-end and adds an example.
+`complexity` is one of several upstream signal types. This example covers only
+`complexity`. Test other signal types with your models and prompts.

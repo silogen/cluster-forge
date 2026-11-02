@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # airm-external-secrets and aiwb-external-secrets charts.
-# Alternative to deps/secrets.sh. Requires ClusterSecretStore openbao-secret-store
-# (deps/openbao.sh writes the keys). Also creates aiwb-openbao-token, which the chart does not sync.
+# Alternative to secrets.sh. Requires ClusterSecretStore openbao-secret-store
+# (openbao.sh writes the keys). Also creates aiwb-openbao-token, which the chart does not sync.
 set -euo pipefail
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"

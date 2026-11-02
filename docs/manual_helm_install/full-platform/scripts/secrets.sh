@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Kubernetes Secrets the AIRM and AIWB charts read.
-# Skip this when deps/external-secrets.sh syncs the same Secrets from openbao-secret-store.
+# Skip this when external-secrets.sh syncs the same Secrets from openbao-secret-store.
 # Does not create airm-rabbitmq-common-vhost-user.
 set -euo pipefail
 # shellcheck source=lib.sh

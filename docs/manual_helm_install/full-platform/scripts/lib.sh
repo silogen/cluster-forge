@@ -2,7 +2,7 @@
 # Shared settings for the dependency scripts. Source this file; do not execute it.
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-  echo "source deps/lib.sh from another script" >&2
+  echo "source lib.sh from another script" >&2
   exit 1
 fi
 

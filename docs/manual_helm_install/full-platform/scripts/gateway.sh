@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # GatewayClass envoy-gateway and Gateway https in envoy-gateway-system.
-# Uses TLS_CERT and TLS_KEY when set. Otherwise writes deps/.tls.crt and deps/.tls.key for *.${DOMAIN}.
-# Run deps/operators.sh first.
+# Uses TLS_CERT and TLS_KEY when set. Otherwise writes scripts/.tls.crt and scripts/.tls.key for *.${DOMAIN}.
+# Run operators.sh first.
 #
 # Helm applies the crds/ directory of a chart before it runs a pre-install hook.
 # A failed envoy-gateway install therefore leaves the Gateway API CRDs on the
@@ -13,7 +13,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 require_envoy_gateway_controller() {
   if ! kubectl get deployment envoy-gateway --namespace envoy-gateway-system >/dev/null 2>&1; then
-    echo "The envoy-gateway controller is absent. Run deps/operators.sh first." >&2
+    echo "The envoy-gateway controller is absent. Run operators.sh first." >&2
     echo "The Gateway API CRDs alone do not serve a Gateway." >&2
     return 1
   fi

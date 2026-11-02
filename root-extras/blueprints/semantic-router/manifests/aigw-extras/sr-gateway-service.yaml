@@ -1,0 +1,36 @@
+# ClusterIP Service for the inner Gateway proxy. Envoy Gateway creates managed
+# proxy pods in envoy-gateway-system, so keep this Service in that namespace.
+apiVersion: v1
+kind: Service
+metadata:
+  name: sr-gateway
+  namespace: envoy-gateway-system
+spec:
+  selector:
+    app.kubernetes.io/component: proxy
+    app.kubernetes.io/managed-by: envoy-gateway
+    app.kubernetes.io/name: envoy
+    gateway.envoyproxy.io/owning-gateway-name: sr-gateway
+    gateway.envoyproxy.io/owning-gateway-namespace: semantic-router
+  ports:
+    - name: http-8080
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+  type: ClusterIP
+---
+# Allow the HTTPRoute in semantic-router to reference this Service.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-semantic-router-httproute
+  namespace: envoy-gateway-system
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: semantic-router
+  to:
+    - group: ""
+      kind: Service
+      name: sr-gateway

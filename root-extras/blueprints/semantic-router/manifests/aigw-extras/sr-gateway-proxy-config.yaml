@@ -1,0 +1,76 @@
+# EnvoyProxy for the dedicated sr-gateway. EnvoyProxy is namespace-scoped,
+# so this Gateway needs its own resource. Keep proxy pods as ClusterIP services.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: sr-gateway-proxy-config
+  namespace: semantic-router
+spec:
+  # Keep the Envoy proxy alive long enough to drain in-flight completions.
+  # The 31m drain matches the cluster's 30m AI Gateway request timeout plus margin.
+  shutdown:
+    drainTimeout: 31m
+  # Same ordering fix as ai-gateway-proxy-config: run the sanitize Lua
+  # (sr-gateway-extproc.yaml) before apiKeyAuth AND before semantic-router's own
+  # ext_proc.
+  filterOrder:
+    - name: envoy.filters.http.lua
+      before: envoy.filters.http.api_key_auth
+    - name: envoy.filters.http.lua
+      before: envoy.filters.http.ext_proc
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        type: ClusterIP
+      envoyDeployment:
+        # Override Envoy Gateway's derived terminationGracePeriodSeconds
+        # (= drainTimeout + 5m) back to the 360s default -- see
+        # ai-gateway-proxy-config.yaml for why the two timers are independent
+        # and both need to be set explicitly. Verify on deploy that the
+        # Deployment shows terminationGracePeriodSeconds: 360.
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              template:
+                spec:
+                  terminationGracePeriodSeconds: 360
+  telemetry:
+    accessLog:
+      settings:
+        - format:
+            type: JSON
+            json:
+              start_time: "%START_TIME%"
+              method: "%REQ(X-ENVOY-ORIGINAL-METHOD?:METHOD)%"
+              path: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"
+              protocol: "%PROTOCOL%"
+              response_code: "%RESPONSE_CODE%"
+              response_flags: "%RESPONSE_FLAGS%"
+              bytes_received: "%BYTES_RECEIVED%"
+              bytes_sent: "%BYTES_SENT%"
+              total_duration: "%DURATION%"
+              resp_backend_service_time: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"
+              req_x_forwarded_for: "%REQ(X-FORWARDED-FOR)%"
+              user_agent: "%REQ(USER-AGENT)%"
+              request_id: "%REQ(X-REQUEST-ID)%"
+              authority: "%REQ(:AUTHORITY)%"
+              backendHost: "%UPSTREAM_HOST%"
+              backendCluster: "%UPSTREAM_CLUSTER%"
+              model: "%REQ(x-selected-model)%"
+              # These three are what make per-key spend measurable and
+              # alertable -- see the README's observability section. They come
+              # from llmRequestCosts on the AIGatewayRoute in gateway-routing.yaml;
+              # without that, these are always empty.
+              llm_input_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_input_token)%"
+              llm_output_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_output_token)%"
+              llm_total_token: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_total_token)%"
+              # Set by the Gateway-scoped SecurityPolicy's forwardClientIDHeader
+              # (gateway-routing.yaml) -- the Secret key name that authenticated
+              # the request, and the same value QuotaPolicy buckets on.
+              api_key_id: "%REQ(x-api-key-id)%"
+          sinks:
+            - type: File
+              file:
+                path: /dev/stdout

@@ -1,6 +1,6 @@
 dependencies:
 - name: aiwb-chart
   repository: oci://registry-1.docker.io/amdenterpriseai
-  version: 2.0.4-rc.1
-digest: sha256:b67671dfd9094756ddf389bf6e5444d2c495796e21f5e35fa64bbe8332ba9136
-generated: "2026-09-28T14:55:46.198714764+03:00"
+  version: 2.1.0
+digest: sha256:d9124f2e95a4df1f657f21eaffc47c5d6849fd2d4ec958a3c0eb45de86a9b1f3
+generated: "2026-10-14T15:05:42.269346015+03:00"

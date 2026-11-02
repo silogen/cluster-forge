@@ -33,6 +33,26 @@ must stay in step. The chart-local default in
 `sources/envoy-gateway-config/values.yaml` is the same number and applies
 only if the root helmParameter is omitted.
 
+## Envoy apps gateway load balancer
+
+The apps gateway Service is a LoadBalancer. A cloud load balancer controller
+often needs Service annotations. Some controllers, such as OpenStack CCM,
+still read `spec.loadBalancerIP`.
+
+Envoy Gateway 1.8.1 copies `envoyService.annotations` and
+`envoyService.loadBalancerIP` onto that Service. Set the chart values below
+from the cluster-values overlay, under
+`apps.envoy-gateway-config.valuesObject.appsGateway`.
+
+| Value | Default | Purpose |
+|-------|---------|---------|
+| `serviceAnnotations` | `{}` | Annotations Envoy Gateway copies onto the apps gateway Service. |
+| `loadBalancerIP` | `""` | Fixed load balancer IP. Envoy Gateway writes `spec.loadBalancerIP`. |
+
+An empty value leaves the Service field unset. `externalIP` still writes the
+`externalIPs` patch for a cluster that has no load balancer. The two settings
+can both be set: they write different Service fields.
+
 ## `seaweedfs-config` integrations
 
 | Value | Default | Purpose |
@@ -119,6 +139,7 @@ no ref and needs no tool on the node. See
 | Variable | Default | Meaning |
 |---|---|---|
 | `PULL_SECRET_JSON` | empty | Docker config JSON for the registry of the test image. The dummy image is public, so it is optional. The GPU test image needs the Docker Hub credentials. |
+| `HF_TOKEN` | empty | Hugging Face token for a gated model. The test puts it in the Secret `hf-token` in the test namespace. The dummy model does not need it. |
 | `AIM_TIMEOUT` | `15m` | How long to wait for the AIMService conditions. |
 | `KEEP` | `0` | `1` keeps the `aims-test` namespace after the test. |
 
@@ -137,23 +158,21 @@ before you run a script.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `DOMAIN` | none, required | The DNS domain of the platform. `localhost` selects the HTTP test mode. |
+| `DOMAIN` | none, required | The DNS domain. The gateway serves `https://*.<domain>`. |
 | `STORAGE_CLASS` | none, required | The StorageClass that each PersistentVolumeClaim uses. |
+| `AIWB_CNPG_INSTANCES` | empty | Number of AIWB PostgreSQL instances. Empty uses the chart default, 3. Set `1` on a cluster with one node. |
 | `TLS_CERT` | empty | Path to a certificate chain in PEM form. Empty makes a self-signed certificate. |
 | `TLS_KEY` | empty | Path to the private key of `TLS_CERT`. |
-| `CLUSTER_FORGE_DIR` | a temporary clone | Path to a Cluster Forge checkout. Set it to this repository, and the scripts clone nothing. |
+| `SECRETS_FILE` | `scripts/.secrets.env` | Path of the generated password file. |
+| `CLUSTER_FORGE_DIR` | `scripts/.cluster-forge` | Path to a Cluster Forge checkout. Set it to this repository, and the scripts clone nothing. |
 | `CLUSTER_FORGE_REF` | `main` | The git reference to clone when `CLUSTER_FORGE_DIR` is not set. |
-| `CHART_VERSION` | `2.0.3` | The AIRM and AIWB chart version to install. |
+| `CHART_VERSION` | `2.0.3` | Version of the AMD Enterprise AI OCI charts: AIRM, AIWB, PostgreSQL, RabbitMQ and External Secrets. |
 | `CLUSTER_NAME` | `demo-cluster` | The cluster name that the GPU metrics carry. |
 | `DRIVER_VERSION` | `7.0` | The ROCm version that the DeviceConfig declares. The host driver must match it. |
 | `RWX_MUTATION` | `auto` | Apply the Kyverno policy that rewrites a ReadWriteMany claim to ReadWriteOnce. `auto` applies it for `rancher.io/local-path` only. `on` and `off` force the choice. |
 | `GPU_READY_TIMEOUT_SECONDS` | `600` | How long to wait for a node to advertise `amd.com/gpu`. |
 | `KSERVE_ATTEMPTS` | `3` | How many times to install KServe. Its webhook is not ready on the first attempt. |
 | `ENVOY_GATEWAY_ATTEMPTS` | `4` | How many times to install the Envoy Gateway. |
-| `KUBECTL_TIMEOUT` | `180s` | The timeout of each `kubectl wait`. |
-| `AIM_MODEL_IMAGES` | `amdenterpriseai/aim-openai-gpt-oss-20b:0.11.1` | The AIM model images to put in the catalogue. Separate two images with a space. |
-| `AIM_BASE_IMAGES` | `amdenterpriseai/aim-base:0.13.1` | The AIM base images to put in the catalogue. |
-| `AIM_CATALOG_REGISTRY` | `docker.io` | The registry that holds the AIM images. |
-| `AIM_CATALOG_MAX_MODELS` | `25` | The maximum number of models that discovery imports. |
+| `KUBECTL_TIMEOUT` | `180s` | Timeout for each delete in `uninstall.sh`. |
+| `AIM_HARDWARE_FAMILY` | empty | Families for the AIM catalog. A comma separates two families. Allowed: `cpu`, `epyc`, `instinct`, `radeon`. Empty installs the unfiltered catalog. `cpu` installs no model source. |
 | `AIM_CATALOG_TIMEOUT_SECONDS` | `900` | How long to wait for the first AIMClusterModel to become Ready. |
-| `SHIM_PY` | the copy in `aiwb-standalone/scripts/` | Path to `cluster-auth-shim.py`. |

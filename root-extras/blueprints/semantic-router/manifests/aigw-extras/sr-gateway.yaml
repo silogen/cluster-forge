@@ -1,0 +1,30 @@
+# Inner Envoy Gateway for semantic-router. The public HTTPRoute terminates TLS
+# and forwards traffic here over cluster-internal HTTP. This Gateway has one
+# route, which keeps its Gateway-level SecurityPolicy scoped to semantic-router.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: sr-gateway
+  namespace: semantic-router
+  annotations:
+    # Must name a GatewayConfig in THIS namespace -- GatewayConfig is
+    # namespace-scoped, so the cluster's own `ai-extproc` (in
+    # envoy-gateway-system) is not reachable here. sr-gateway-config.yaml
+    # creates this blueprint's own copy.
+    aigateway.envoyproxy.io/gateway-config: sr-extproc
+spec:
+  gatewayClassName: envoy-gateway
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      # Also namespace-scoped and also needs its own copy -- see
+      # sr-gateway-proxy-config.yaml.
+      name: sr-gateway-proxy-config
+  listeners:
+    - allowedRoutes:
+        namespaces:
+          from: Same
+      name: http
+      port: 8080
+      protocol: HTTP
