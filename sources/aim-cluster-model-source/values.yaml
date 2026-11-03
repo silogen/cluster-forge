@@ -5,3 +5,20 @@
 # Hardware families to install (string or list). Allowed: cpu, epyc, instinct, radeon.
 # Empty = unfiltered catalog (Instinct 0.11.1+ plus mixed bases).
 hardwareFamilies: []
+
+# Each entry is a regular expression matched against the image reference.
+# A model is installed when the reference matches includeProviders and does
+# not match excludeProviders. excludeProviders takes priority. An empty
+# include list installs no model images. Base images are not filtered.
+includeProviders:
+  - openai
+  - mistralai
+  - meta
+  - google
+  - unsloth
+  - coherelabs
+excludeProviders:
+  - zai-org
+  - qwen
+  - deepseek-ai
+  - minimaxai
