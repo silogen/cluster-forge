@@ -23,6 +23,7 @@ TMPDIR="${TMPDIR:-$HAUL_ROOT/tmp}"
 export TMPDIR
 EXTRACT_DIR="${EXTRACT_DIR:-$HAUL_ROOT/extracted}"
 LOCAL_REG="${LOCAL_REG:-127.0.0.1:5000}"
+POD_REG="${POD_REG:-}"
 # One cluster domain. Older commands set CF_DOMAIN; that is used only when
 # DOMAIN is unset. The script stops later when both values are empty.
 export DOMAIN="${DOMAIN:-${CF_DOMAIN:-}}"
@@ -125,6 +126,9 @@ Environment:
   EAI_STORE     Hauler store path (default $HAUL_ROOT/eai-store)
   TMPDIR        scratch dir on the large volume (default $HAUL_ROOT/tmp)
   LOCAL_REG     registry host:port (default 127.0.0.1:5000)
+  POD_REG       registry host:port that pods can reach, used for the AIM
+                catalog images and mirrored in registries.yaml (default: the
+                node InternalIP of this host, port of LOCAL_REG)
   DOMAIN        Required cluster domain. Example:
                 my-hauler-domain.example.com. The script reads CF_DOMAIN
                 only when DOMAIN is unset.
@@ -319,6 +323,7 @@ prepare_host() {
   echo "    registry ready"
 
   echo "==> 4.3 configuring RKE2 HTTP mirror"
+  resolve_pod_registry
   local registry_file=/etc/rancher/rke2/registries.yaml
   local desired
   desired=$(cat <<'EOF'
@@ -328,6 +333,9 @@ mirrors:
       - "http://127.0.0.1:5000"
 EOF
 )
+  if [[ -n "$POD_REG" ]]; then
+    desired+=$(printf '\n  "%s":\n    endpoint:\n      - "http://%s"' "$POD_REG" "$LOCAL_REG")
+  fi
   mkdir -p /etc/rancher/rke2
   if [[ ! -f "$registry_file" ]] || [[ "$(cat "$registry_file")" != "$desired" ]]; then
     if [[ -f "$registry_file" ]]; then
@@ -481,6 +489,41 @@ maybe_filter_kinds() {
   local -a spec
   read -r -a spec <<<"$CHART_KINDS"
   filter_kinds "${spec[@]}"
+}
+
+# The AIM Engine controller reads image labels from the registry itself, from
+# its own pod, where 127.0.0.1 is the pod. Set CHART_POD_REG=1 just before
+# apply_chart for the AIM catalog to name POD_REG instead: the controller
+# talks plain HTTP to a private (RFC 1918) address, and registries.yaml
+# mirrors POD_REG for containerd. AIMClusterModelSource also lists base images
+# in spec.images as bare org/name:tag strings, which rewrite_images skips.
+CHART_POD_REG=0
+maybe_pod_registry() {
+  if [[ "$CHART_POD_REG" -ne 1 ]]; then
+    cat
+    return 0
+  fi
+  local target="${POD_REG:-$LOCAL_REG}"
+  sed -E \
+    -e "s#${LOCAL_REG//./\\.}/#${target}/#g" \
+    -e "s#^([[:space:]]*-[[:space:]]+)([\"']?)([a-z0-9][a-z0-9_-]*/[a-z0-9._-]+[a-z0-9._/-]*:[A-Za-z0-9._-]+)\\2[[:space:]]*\$#\\1\\2${target}/\\3\\2#"
+}
+
+# The hauler registry listens on every interface, so pods reach it on this
+# host's node InternalIP. An empty POD_REG keeps the AIM catalog on LOCAL_REG.
+resolve_pod_registry() {
+  [[ -n "$POD_REG" ]] && return 0
+  local node_ips host_ip
+  node_ips=$(kubectl get nodes \
+    -o jsonpath='{range .items[*]}{.status.addresses[?(@.type=="InternalIP")].address}{"\n"}{end}' 2>/dev/null || true)
+  for host_ip in $(hostname -I); do
+    if grep -qxF "$host_ip" <<<"$node_ips"; then
+      POD_REG="${host_ip}:${LOCAL_REG##*:}"
+      echo "    pod-reachable registry: ${POD_REG}"
+      return 0
+    fi
+  done
+  echo "    WARNING: no node InternalIP on this host; set POD_REG. AIM models cannot read image metadata." >&2
 }
 
 # StorageClasses that Cluster-Forge creates from handlers rather than charts.
@@ -681,8 +724,10 @@ apply_chart() {
   helm template "$release" "oci://${LOCAL_REG}/hauler/${chart}" --version "$version" --plain-http --include-crds --no-hooks --namespace "$ns" "$@" \
     | maybe_filter_kinds \
     | rewrite_images \
+    | maybe_pod_registry \
     | apply_stdin "$ns"
   CHART_KINDS=""
+  CHART_POD_REG=0
   wait_ready "$ns"
   pause_between "$ns"
 }
@@ -771,6 +816,13 @@ for p in m.get("packages") or []:
     echo "==> using existing ${CLUSTER_TLS_NS}/${CLUSTER_TLS_NAME}"
     preserve_tls=1
   fi
+  # Hauls packed before hauler.sh recorded envoyProxyImage skip the patch.
+  local envoy_image
+  envoy_image="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("envoyProxyImage",""))' "$manifest")"
+  if [[ -n "$envoy_image" ]]; then
+    envoy_image="$(printf 'image: %s\n' "$envoy_image" | rewrite_images)"
+    envoy_image="${envoy_image#image: }"
+  fi
   local step name ns chart version values vf
   while IFS='|' read -r step name ns chart version values; do
     [[ -z "$name" ]] && continue
@@ -795,6 +847,7 @@ for p in m.get("packages") or []:
     if [[ "$chart" == gateway-helm ]]; then
       apply_envoy_certgen "$version" "${extra[@]+"${extra[@]}"}"
     fi
+    [[ "$chart" == aim-cluster-model-source ]] && CHART_POD_REG=1
     if [[ "$chart" == kserve ]]; then
       CHART_KINDS="exclude ClusterServingRuntime"
       apply_chart "manifest/${step}" "$name" "$chart" "$version" "$ns" "${extra[@]+"${extra[@]}"}"
@@ -802,6 +855,9 @@ for p in m.get("packages") or []:
       apply_chart "manifest/${step}b" "$name" "$chart" "$version" "$ns" "${extra[@]+"${extra[@]}"}"
     else
       apply_chart "manifest/${step}" "$name" "$chart" "$version" "$ns" "${extra[@]+"${extra[@]}"}"
+    fi
+    if [[ "$chart" == envoy-gateway-config && -n "$envoy_image" ]]; then
+      patch_envoy_proxy_images "$envoy_image"
     fi
   done < <(python3 -c 'import json,sys
 m=json.load(open(sys.argv[1]))
@@ -955,7 +1011,7 @@ prepare_profile_tls() {
 # envoy-gateway-system to the hauled tag.
 patch_envoy_proxy_images() {
   local ns=envoy-gateway-system
-  local img="${LOCAL_REG}/envoyproxy/envoy:distroless-v1.38.4"
+  local img="${1:-${LOCAL_REG}/envoyproxy/envoy:distroless-v1.38.4}"
   echo "==> 4.4.23a EnvoyProxy data-plane image ${img}"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     return 0
@@ -1575,6 +1631,7 @@ if should_run 43; then
     grep -q instinct <<<"$products" && families="instinct"
     grep -q radeon <<<"$products" && families="${families:+${families},}radeon"
   fi
+  CHART_POD_REG=1
   if [[ -n "$families" ]]; then
     echo "    AIM hardware families: ${families}"
     apply_chart 4.4.43 aim-cluster-model-source aim-cluster-model-source 0.1.0 kaiwo-system --set "hardwareFamilies=${families}"
