@@ -547,8 +547,11 @@ hauler store add image docker.io/amdenterpriseai/aiwb-ui:2.0.0 --platform linux/
 ### 3.36 AI Gateway Discovery
 
 ```bash
-hauler store add chart ai-gateway-discovery-chart --repo oci://registry-1.docker.io/amdenterpriseai --version 2.0.0 --add-images --platform linux/amd64 --store "$EAI_STORE"
-hauler store add image docker.io/amdenterpriseai/ai-gateway-discovery:2.0.0 --platform linux/amd64 --store "$EAI_STORE"
+hauler store add chart ai-gateway-discovery-chart --repo oci://registry-1.docker.io/amdenterpriseai --version 2.1.0 --add-images --platform linux/amd64 --store "$EAI_STORE"
+hauler store add image docker.io/amdenterpriseai/ai-gateway-discovery:2.1.0 --platform linux/amd64 --store "$EAI_STORE"
+# The controller creates the endpoint picker from an env var, not an image:
+# field, so --add-images does not find this image.
+hauler store add image ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.10.0 --platform linux/amd64 --store "$EAI_STORE"
 ```
 
 ### 3.37 RabbitMQ Cluster Operator
@@ -1470,7 +1473,7 @@ helm template aiwb oci://127.0.0.1:5000/hauler/aiwb-chart --version 2.0.0 --plai
 
 ```bash
 kubectl create namespace ai-gateway-system --dry-run=client -o yaml | kubectl apply -f -
-helm template ai-gateway-discovery oci://127.0.0.1:5000/hauler/ai-gateway-discovery-chart --version 2.0.0 --plain-http --include-crds --no-hooks --namespace ai-gateway-system --set controller.gateway.routeHostname=ai.my-hauler-domain.example.com --set controller.gateway.name=ai-gateway --set controller.bodyAuthMaxRequestBytes=4194304 | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g;s#registry-1.docker.io/#127.0.0.1:5000/#g' | kubectl apply -n ai-gateway-system --server-side --force-conflicts -f -
+helm template ai-gateway-discovery oci://127.0.0.1:5000/hauler/ai-gateway-discovery-chart --version 2.1.0 --plain-http --include-crds --no-hooks --namespace ai-gateway-system --set controller.gateway.routeHostname=ai.my-hauler-domain.example.com --set controller.gateway.name=ai-gateway --set controller.bodyAuthMaxRequestBytes=4194304 | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g;s#registry-1.docker.io/#127.0.0.1:5000/#g' | kubectl apply -n ai-gateway-system --server-side --force-conflicts -f -
 ```
 
 #### 4.4.37 RabbitMQ Cluster Operator
