@@ -578,8 +578,11 @@ pack_full_stack() {
   hauler store add image docker.io/amdenterpriseai/aiwb-ui:2.0.0 --platform linux/amd64 --store "$EAI_STORE"
 
   # 3.36 AI Gateway Discovery
-  hauler store add chart ai-gateway-discovery-chart --repo oci://registry-1.docker.io/amdenterpriseai --version 2.0.0 --add-images --platform linux/amd64 --store "$EAI_STORE"
-  hauler store add image docker.io/amdenterpriseai/ai-gateway-discovery:2.0.0 --platform linux/amd64 --store "$EAI_STORE"
+  hauler store add chart ai-gateway-discovery-chart --repo oci://registry-1.docker.io/amdenterpriseai --version 2.1.0 --add-images --platform linux/amd64 --store "$EAI_STORE"
+  hauler store add image docker.io/amdenterpriseai/ai-gateway-discovery:2.1.0 --platform linux/amd64 --store "$EAI_STORE"
+  # The controller creates the endpoint picker from an env var, not an image:
+  # field, so --add-images does not find this image.
+  hauler store add image ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.10.0 --platform linux/amd64 --store "$EAI_STORE"
 
   # 3.37 RabbitMQ Cluster Operator
   hauler store add file haul/cluster-forge/sources/rabbitmq/v2.15.0/cluster-operator.yml --name rabbitmq-cluster-operator.yaml --store "$EAI_STORE"
