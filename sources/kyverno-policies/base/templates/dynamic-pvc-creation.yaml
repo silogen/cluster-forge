@@ -33,12 +33,22 @@ spec:
   background: false
   emitWarning: false
   rules:
-    - generate:
+    - context:
+        - name: readWriteManyStorageClasses
+          variable:
+            value: {{ .Values.dynamicPvc.readWriteManyStorageClasses | toJson }}
+        - name: accessMode
+          variable:
+            jmesPath: >-
+              contains(readWriteManyStorageClasses,
+              request.object.metadata.annotations."pvc.silogen.ai/user-pvc-storage-class-name")
+              && 'ReadWriteMany' || 'ReadWriteOnce'
+      generate:
         apiVersion: v1
         data:
           spec:
             accessModes:
-              - ReadWriteMany
+              - '{{ "{{" }} accessMode {{ "}}" }}'
             resources:
               requests:
                 storage: '{{ "{{" }} request.object.metadata.annotations."pvc.silogen.ai/user-pvc-size" {{ "}}" }}'
