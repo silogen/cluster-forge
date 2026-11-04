@@ -183,6 +183,7 @@ Comprehensive documentation is available in the `/docs` folder:
 | **Policy System** | [Kyverno Modular Design](docs/kyverno_modular_design.md) |
 | **Storage Policies** | [Kyverno Access Mode Policy](docs/kyverno_access_mode_policy.md) |
 | **Operations** | [Backup and Restore](docs/backup_and_restore.md) |
+| **GPUs** | [GPU partitioning](docs/gpu-partitioning.md) — Set Instinct GPUs to CPX and reapply it on boot |
 | **CI/CD** | [Workflow Documentation](.github/workflows/README.md) |
 
 Additional documentation:
