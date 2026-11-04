@@ -28,6 +28,10 @@ apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: dynamic-pvc-creation
+  annotations:
+    # Kyverno rejects an update to a generate rule of an existing policy.
+    # Argo CD must delete and create the policy to apply a change.
+    argocd.argoproj.io/sync-options: Force=true,Replace=true
 spec:
   admission: true
   background: false
