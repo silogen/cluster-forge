@@ -1,272 +1,99 @@
-# Kyverno PVC Access Mode Mutation Policy
+# PVC access modes and the local-path Kyverno rewrite
 
-This document describes the Kyverno mutating webhook implementation that automatically converts incompatible PersistentVolumeClaim access modes for small and medium clusters using the local-path provisioner.
+This document tells which access mode each PersistentVolumeClaim (PVC)
+requests on each cluster size. It also tells when the
+`local-path-access-mode-mutation` Kyverno policy is still necessary.
 
-## Overview
+## Storage per cluster size
 
-The local-path provisioner (used in small and medium clusters) only supports:
-- **ReadWriteOnce (RWO)**: Volume can be mounted as read-write by a single node
-- **ReadWriteOncePod (RWOP)**: Volume can be mounted as read-write by a single pod
+| Cluster size | StorageClasses | ReadWriteMany (RWX) |
+|--------------|----------------|---------------------|
+| Small | `local-path` (`rancher.io/local-path`) | No |
+| Medium | `local-path` (`rancher.io/local-path`) | No |
+| Large | Longhorn: `default`, `mlstorage`, `multinode`, `direct` | Yes, except `direct` |
 
-It does **NOT** support:
-- **ReadWriteMany (RWX)**: Volume can be mounted as read-write by many nodes
-- **ReadOnlyMany (ROX)**: Volume can be mounted as read-only by many nodes
+The local-path provisioner supports only ReadWriteOnce (RWO) and
+ReadWriteOncePod (RWOP). If a PVC requests RWX or ReadOnlyMany (ROX), the
+provisioner does not bind it. The error is
+`NodePath only supports ReadWriteOnce and ReadWriteOncePod`.
 
-## Problem Statement
+The Longhorn `direct` class is strict-local, so it cannot serve RWX.
 
-Applications or Helm charts that request RWX or ROX access modes will fail to create PVCs on small/medium clusters, causing deployment failures. This policy automatically converts these unsupported access modes to RWO to ensure compatibility.
+## Rule: request the correct mode at the source
 
-## Solution Architecture
+Each PVC requests the access mode that its storage can serve. Do not
+request RWX and rely on a policy to change it.
 
-### 1. **Deployment-Based Control (Simplified)**
+- Small and medium: platform PVCs request RWO.
+- Large: a PVC requests RWX only if more than one node must mount the
+  volume. All other PVCs request RWO.
 
-The policy is **ONLY deployed** to clusters that need it:
+Set the mode in the chart values or in `root/values_{small,medium,large}.yaml`.
 
-| Cluster Size | Policy Deployed | Storage Provider | RWX Support |
-|--------------|----------------|------------------|-------------|
-| Small        | ✅ **YES**     | local-path       | ❌ No       |
-| Medium       | ✅ **YES**     | local-path       | ❌ No       |
-| Large        | ❌ **NO**      | Longhorn         | ✅ Yes      |
+## User PVCs from `dynamic-pvc-creation`
 
-**Key Principle**: *The policy never exists on large clusters*, eliminating any need for runtime size detection.
+The `dynamic-pvc-creation` policy in `sources/kyverno-policies/base` makes
+`pvc-<uid>` for a Deployment or Pod that has the
+`pvc.silogen.ai/user-pvc-*` annotations. The policy sets the access mode from
+the storage class annotation:
 
-### 2. **Configuration Control**
+- RWX, if the storage class is in `dynamicPvc.readWriteManyStorageClasses`.
+- RWO, for all other storage classes.
 
-#### Small/Medium Clusters (`values_small.yaml`, `values_medium.yaml`)
-```yaml
-enabledApps:
-  - kyverno
-  - local-path-access-mode-policies  # ✅ Policy included
+| Cluster size | `readWriteManyStorageClasses` | Result on `local-path` |
+|--------------|-------------------------------|------------------------|
+| Small | `[]` (chart default) | RWO |
+| Medium | `[]` (chart default) | RWO |
+| Large | `[default, mlstorage, multinode]` (`root/values_large.yaml`) | Not applicable |
 
-apps:
-  local-path-access-mode-policies:
-    namespace: kyverno
-    path: kyverno-policies/base/local-path-access-mode-mutation.yaml
-```
+Thus `dynamic-pvc-creation` never makes an RWX PVC on `local-path`. If
+cluster-bloom adds a Longhorn class that can serve RWX, add it to the list in
+`root/values_large.yaml`.
 
-#### Large Clusters (`values_large.yaml`)
-```yaml
-enabledApps:
-  - kyverno
-  - kyverno-policies
-  # ❌ local-path-access-mode-policies NOT included
+## `local-path-access-mode-mutation`
 
-# ❌ No policy app definition at all
-```
+The `kyverno-policies-storage-local-path` application deploys this policy.
+The policy changes RWX and ROX to RWO when a PVC is created.
 
-### 3. **Simplified Kyverno Policy**
+| Cluster size | Policy deployed | Why |
+|--------------|-----------------|-----|
+| Small | No | — |
+| Medium | Yes | aim-engine 0.2.7 makes all model cache PVCs as RWX and has no setting to change this. |
+| Large | No | Longhorn serves RWX. |
 
-The policy has **no cluster size detection logic** - it simply converts all RWX/ROX to RWO:
+On small, an aim-engine model cache PVC stays Pending until aim-engine can
+request RWO. Remove the application from `values_medium.yaml` when aim-engine
+can request RWO.
 
-```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: local-path-access-mode-mutation
-spec:
-  rules:
-    - name: convert-rwx-rox-to-rwo
-      match:
-        resources:
-          kinds:
-            - PersistentVolumeClaim
-      preconditions:
-        any:
-          # Simply check if RWX or ROX is requested
-          - key: "{{ request.object.spec.accessModes || [] }}"
-            operator: Contains
-            value: "ReadWriteMany"
-          - key: "{{ request.object.spec.accessModes || [] }}"
-            operator: Contains
-            value: "ReadOnlyMany"
-      mutate:
-        patchStrategicMerge:
-          spec:
-            accessModes:
-              - ReadWriteOnce  # Always convert to RWO
-```
+The policy has a known defect: it can block an update of a PVC that already
+exists as RWX. Refer to EAI-9316.
 
-**No ConfigMaps, no cluster size detection, no complex logic!**
+## Existing clusters
 
-## Implementation Details
+The access mode of a PVC cannot change after the PVC is created. A new value
+in Git does not change an existing PVC.
 
-### File Structure
-```
-cluster-forge/
-├── sources/kyverno-policies/base/
-│   └── local-path-access-mode-mutation.yaml    # Simple policy
-├── root/
-│   ├── values_small.yaml                       # ✅ Includes policy
-│   ├── values_medium.yaml                      # ✅ Includes policy  
-│   └── values_large.yaml                       # ❌ Excludes policy
-└── scripts/
-    └── bootstrap.sh                            # No ConfigMap logic
-```
+- `kaiwo-config` has `ignoreDifferences` on `/spec/accessModes` for
+  `pvc-user-demo`. A large cluster that has this PVC as RWX keeps it, and
+  Argo CD does not show a diff.
+- To get the new mode on an existing cluster, delete the PVC. Argo CD makes
+  it again. Delete the PVC only if it has no data that you must keep.
+- If you remove `kyverno-policies-storage-local-path` from a cluster,
+  Argo CD does not delete the ClusterPolicy, because the Application has no
+  resources finalizer. Delete it manually:
 
-### Bootstrap Script Logic
+  ```bash
+  kubectl delete clusterpolicy local-path-access-mode-mutation local-path-access-mode-warning
+  ```
+
+## Verify
+
 ```bash
-# No cluster size detection needed!
-# The policy is deployed or not based on values_*.yaml configuration
-# Large clusters simply don't include the policy in enabledApps
+# Access mode and storage class of all PVCs
+kubectl get pvc -A -o custom-columns=NS:.metadata.namespace,NAME:.metadata.name,MODES:.spec.accessModes,SC:.spec.storageClassName,STATUS:.status.phase
 
-./scripts/bootstrap.sh example.com --cluster-size=small   # Policy deployed
-./scripts/bootstrap.sh example.com --cluster-size=medium # Policy deployed  
-./scripts/bootstrap.sh example.com --cluster-size=large  # Policy NOT deployed
+# Policies on the cluster
+kubectl get clusterpolicy
 ```
 
-## Usage Examples
-
-### Deployment Scenarios
-
-#### Small/Medium Cluster
-```bash
-./scripts/bootstrap.sh dev.example.com --cluster-size=small
-```
-**Result**:
-- Kyverno policy **deployed**
-- RWX/ROX automatically converted to RWO
-- No runtime detection needed
-
-#### Large Cluster  
-```bash
-./scripts/bootstrap.sh prod.example.com --cluster-size=large
-```
-**Result**:
-- Kyverno policy **NOT deployed at all**
-- RWX/ROX work natively with Longhorn
-- No policy to interfere or require detection
-
-### Application Examples
-
-#### On Small/Medium Clusters (Policy Active)
-```yaml
-# Original PVC request
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: shared-storage
-spec:
-  accessModes:
-    - ReadWriteMany    # ❌ Will be converted
-  resources:
-    requests:
-      storage: 10Gi
-  storageClassName: local-path
-
-# After Kyverno mutation (automatic)
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: shared-storage
-  annotations:
-    kyverno.io/original-access-modes: "ReadWriteMany"
-    kyverno.io/mutation-applied: "local-path-rwx-to-rwo"
-spec:
-  accessModes:
-    - ReadWriteOnce    # ✅ Converted to supported mode
-  resources:
-    requests:
-      storage: 10Gi
-  storageClassName: local-path
-```
-
-#### On Large Clusters (No Policy)
-```yaml
-# Original PVC request - works unchanged
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: shared-storage
-spec:
-  accessModes:
-    - ReadWriteMany    # ✅ Works natively with Longhorn
-  resources:
-    requests:
-      storage: 10Gi
-  storageClassName: longhorn
-```
-
-## Monitoring and Troubleshooting
-
-### Verify Policy Deployment
-```bash
-# Check if policy exists (should only be on small/medium clusters)
-kubectl get clusterpolicy local-path-access-mode-mutation
-
-# On small/medium: Policy found
-# On large: Error from server (NotFound)
-```
-
-### View Policy Status
-```bash
-# View policy details (only on small/medium)
-kubectl describe clusterpolicy local-path-access-mode-mutation
-
-# Check mutations applied
-kubectl get pvc -o yaml | grep -A5 "kyverno.io/"
-```
-
-### Troubleshooting
-
-#### Policy Deployed on Large Cluster (ERROR)
-**Should never happen**, but if it does:
-```bash
-# Check which values file was used
-kubectl get applications -n argocd -o yaml | grep "local-path-access-mode-policies"
-
-# If found, the wrong values_*.yaml was used
-# Redeploy with correct size:
-   ./scripts/bootstrap.sh <domain> --cluster-size=large
-```
-
-#### Policy NOT Working on Small/Medium Clusters
-```bash
-# Check if policy is deployed
-kubectl get clusterpolicy local-path-access-mode-mutation
-
-# Check ArgoCD application
-kubectl get application local-path-access-mode-policies -n argocd
-
-# Check Kyverno logs
-kubectl logs -n kyverno -l app.kubernetes.io/name=kyverno
-```
-
-## Benefits of Simplified Approach
-
-### ✅ Advantages
-
-1. **🎯 Simple Logic**: Policy either exists or doesn't - no complex detection
-2. **🛡️ Guaranteed Isolation**: Large clusters can never have the policy
-3. **🚀 Zero Runtime Overhead**: No ConfigMap lookups or size detection
-4. **📝 Clear Configuration**: Easy to see which clusters get the policy
-5. **🔧 Easy Debugging**: No complex conditional logic to troubleshoot
-6. **⚡ Faster Deployment**: No extra ConfigMap management
-7. **🎨 Clean Architecture**: Separation of concerns at configuration level
-
-### ❌ Alternative Approaches (Why We Didn't Use)
-
-- **Runtime Detection**: Complex ConfigMap logic, potential for misconfiguration
-- **Storage Class Detection**: Could interfere with custom storage classes
-- **Label-Based**: Requires manual labeling, prone to human error
-
-## Security Considerations
-
-- **Minimal Attack Surface**: Policy only exists where needed
-- **No Shared State**: No ConfigMaps to misconfigure or attack
-- **Audit Trail**: All mutations clearly logged and annotated
-- **Principle of Least Privilege**: Large clusters unaffected by any mutation logic
-
-## Migration Considerations
-
-### Upgrading from Small/Medium to Large
-1. **Deploy large cluster configuration**:
-   ```bash
-./scripts/bootstrap.sh <domain> --cluster-size=large
-   ```
-2. **Policy automatically removed** (not in enabledApps)
-3. **Deploy Longhorn** for native RWX support
-4. **Review existing PVCs** - may need to recreate for RWX if needed
-
----
-
-**This is the way** - Simple deployment-based policy control eliminates complexity and ensures large clusters never have unnecessary mutation logic! 🔥
+On small, `local-path-access-mode-mutation` is not in the list.
