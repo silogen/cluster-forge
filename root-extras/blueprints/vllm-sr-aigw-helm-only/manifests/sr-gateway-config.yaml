@@ -1,0 +1,15 @@
+# Resource sizing for the extProc sidecar AI Gateway injects into sr-gateway's
+# proxy pod. GatewayConfig is namespace-scoped, so it has to live in the same
+# namespace as the Gateway that names it (sr-gateway.yaml's annotation).
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: GatewayConfig
+metadata:
+  name: sr-extproc
+  namespace: semantic-router
+spec:
+  extProc:
+    kubernetes:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi

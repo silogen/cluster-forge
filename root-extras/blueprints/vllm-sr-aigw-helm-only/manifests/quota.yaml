@@ -1,0 +1,44 @@
+# Per-client token quota. Keep shadowMode enabled until the deployed
+# controller and extproc include PR #2664's token-charge fix. The PR merged
+# upstream on 2026-09-24, but no release includes it yet. The stock build counts
+# requests instead of tokens for Distinct client buckets. Quotas fail open if
+# the rate-limit service is unavailable.
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: QuotaPolicy
+metadata:
+  name: semantic-router
+  namespace: semantic-router
+spec:
+  targetRefs:
+    - group: aigateway.envoyproxy.io
+      kind: AIServiceBackend
+      name: TODO-your-model-backend
+    - group: aigateway.envoyproxy.io
+      kind: AIServiceBackend
+      name: TODO-your-complex-model-backend
+  perModelQuotas:
+    # Match each modelName to its route backendRef's modelNameOverride.
+    - modelName: TODO-your-backend-model
+      quota:
+        mode: Shared
+        bucketRules:
+          - shadowMode: true
+            clientSelectors:
+              - headers:
+                  - name: x-api-key-id
+                    type: Distinct
+            quota:
+              limit: 100000
+              duration: 1h
+    - modelName: TODO-your-complex-backend-model
+      quota:
+        mode: Shared
+        bucketRules:
+          - shadowMode: true
+            clientSelectors:
+              - headers:
+                  - name: x-api-key-id
+                    type: Distinct
+            quota:
+              limit: 100000
+              duration: 1h
