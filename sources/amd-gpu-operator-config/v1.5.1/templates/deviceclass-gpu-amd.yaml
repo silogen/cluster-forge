@@ -1,0 +1,18 @@
+{{- if .Values.gpuSharing.enabled }}
+# This chart owns the class, so the operator chart and the driver chart must
+# not make it (draDriver.deviceClass.create=false). extendedResourceName lets a
+# pod request amd.com/gpu as before and still get a GPU through DRA on a
+# shared node. Kubernetes 1.36 and later enables this by default; 1.34 and
+# 1.35 need the DRAExtendedResource feature gate.
+apiVersion: resource.k8s.io/v1
+kind: DeviceClass
+metadata:
+  name: gpu.amd.com
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  extendedResourceName: amd.com/gpu
+  selectors:
+    - cel:
+        expression: "device.driver == 'gpu.amd.com'"
+{{- end }}

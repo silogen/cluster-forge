@@ -16,6 +16,9 @@ Values:
 | `gpuStackFamily` | `radeon` \| `instinct`. Empty resolves to `instinct` (the current default). |
 | `driverVersion` | Explicit DeviceConfig `spec.driver.version` override. When set, wins over the per-family default. |
 | `profiles.<family>.driverVersion` | Per-family default ROCm driver version used when `driverVersion` is empty. |
+| `gpuSharing.enabled` | `true` adds the DeviceConfig `gpu-operator-dra` with the DRA driver on nodes labelled `spur.amd.com/gpu-sharing=true`, limits the device plugin to nodes labelled `spur.amd.com/gpu-sharing=false`, and adds the DeviceClass `gpu.amd.com` with `extendedResourceName: amd.com/gpu`. Set `draDriver.deviceClass.create=false` in the operator chart, so this chart is the one owner of the class. Default `false`. See `spur/docs/spur-gpu-sharing.md`. |
+| `gpuSharing.draDriverImage` | DRA driver image. Default `docker.io/rocm/k8s-gpu-dra-driver:v1.0.1`. |
+| `gpuSharing.metricsNodePort` | Node port of the metrics exporter of `gpu-operator-dra`. Default `32501`. |
 
 Resolution precedence (see `templates/_helpers.tpl`, `gpuStack.driverVersion`):
 
