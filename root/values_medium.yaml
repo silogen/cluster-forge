@@ -41,7 +41,6 @@ enabledApps:
   - kuberay-operator
   - kyverno
   - kyverno-policies-base
-  - kyverno-policies-storage-local-path
   - metallb
   - seaweedfs-operator
   - seaweedfs-config
