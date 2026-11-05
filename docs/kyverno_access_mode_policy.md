@@ -57,13 +57,19 @@ The policy changes RWX and ROX to RWO when a PVC is created.
 
 | Cluster size | Policy deployed | Why |
 |--------------|-----------------|-----|
-| Small | No | — |
-| Medium | Yes | aim-engine 0.2.7 makes all model cache PVCs as RWX and has no setting to change this. |
+| Small | No | Platform PVCs request RWO. |
+| Medium | No | Platform PVCs request RWO. |
 | Large | No | Longhorn serves RWX. |
+| OpenShift | Yes | `values-openshift.yaml` uses local-path and scoped copies of the policy. |
 
-On small, an aim-engine model cache PVC stays Pending until aim-engine can
-request RWO. Remove the application from `values_medium.yaml` when aim-engine
-can request RWO.
+Some operators still make RWX PVCs at runtime. On small and medium these
+PVCs stay Pending with `NodePath only supports ReadWriteOnce and
+ReadWriteOncePod`:
+
+- aim-engine 0.2.7 makes all model cache PVCs as RWX and has no setting to
+  change this.
+- kaiwo v0.2.1 sets `storage.accessMode: ReadWriteMany` as the default in
+  `KaiwoJob` and `KaiwoService`. Set `ReadWriteOnce` in the workload.
 
 The policy has a known defect: it can block an update of a PVC that already
 exists as RWX. Refer to EAI-9316.
@@ -96,4 +102,4 @@ kubectl get pvc -A -o custom-columns=NS:.metadata.namespace,NAME:.metadata.name,
 kubectl get clusterpolicy
 ```
 
-On small, `local-path-access-mode-mutation` is not in the list.
+On small, medium and large, `local-path-access-mode-mutation` is not in the list.

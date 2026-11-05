@@ -9,7 +9,10 @@ modules that it needs, in `enabledApps` of `root/values_{small,medium,large}.yam
 | Module | Application | Small | Medium | Large |
 |--------|-------------|-------|--------|-------|
 | `base/` | `kyverno-policies-base` | Yes | Yes | Yes |
-| `storage-local-path/` | `kyverno-policies-storage-local-path` | No | Yes | No |
+| `storage-local-path/` | `kyverno-policies-storage-local-path` | No | No | No |
+
+The OpenShift install (`root/values-openshift.yaml`) still uses
+`storage-local-path/`.
 
 ### `base/`
 
@@ -32,9 +35,8 @@ Chart values (`sources/kyverno-policies/base/values.yaml`):
 - `local-path-access-mode-warning`: Audit rule that reports PVCs that
   request ReadWriteMany or ReadOnlyMany.
 
-This module is temporary. Medium keeps it only because aim-engine makes
-model cache PVCs as ReadWriteMany. Platform PVCs request the correct mode at
-the source. Do not add a new dependency on this module.
+No cluster size enables this module. Platform PVCs request the correct mode
+at the source. Do not add a new dependency on this module.
 
 ## Add a module
 
