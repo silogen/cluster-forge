@@ -275,6 +275,21 @@ apps:
         value: "{{ .Values.global.domain }}"
       - name: oidc.issuer
         value: "https://auth.{{ .Values.global.domain }}"
+    # Standalone mode renders the workbench Namespace and the Kyverno
+    # policies. The chart reads the project-id label back with lookup, which
+    # Argo CD cannot do, so each render makes a new ID. Keep the first one.
+    # Kyverno adds skipBackgroundRequests to each rule. jsonPointers cannot
+    # use a wildcard, so this list uses jqPathExpressions.
+    ignoreDifferences:
+      - group: kyverno.io
+        kind: ClusterPolicy
+        jqPathExpressions:
+          - ".spec.rules[].skipBackgroundRequests"
+      - group: ""
+        kind: Namespace
+        name: workbench
+        jsonPointers:
+          - /metadata/labels/airm.silogen.ai~1project-id
     valuesObject:
       standAloneMode: true
       # Dex is the OIDC issuer. dex-config makes the aiwb client. Its secret
