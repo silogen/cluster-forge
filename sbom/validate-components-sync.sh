@@ -8,6 +8,7 @@ set -euo pipefail
 BASE_VALUES_FILE="../root/values.yaml"
 SMALL_VALUES_FILE="../root/values_small.yaml"
 MEDIUM_VALUES_FILE="../root/values_medium.yaml"
+MEDIUM_DEX_VALUES_FILE="../root/values_medium_dex.yaml"
 LARGE_VALUES_FILE="../root/values_large.yaml"
 COMPONENTS_FILE="./components.yaml"
 
@@ -40,7 +41,7 @@ if [[ -n "$base_apps" ]]; then
 fi
 
 # Collect from cluster size values
-for size_file in "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
+for size_file in "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$MEDIUM_DEX_VALUES_FILE" "$LARGE_VALUES_FILE"; do
     if [[ -f "$size_file" ]]; then
         size_apps=$(collect_enabled_apps "$size_file")
         if [[ -n "$size_apps" ]]; then
@@ -101,7 +102,7 @@ while IFS= read -r app; do
     
     # Find the app definition in any of the cluster configuration files
     values_path=""
-    for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
+    for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$MEDIUM_DEX_VALUES_FILE" "$LARGE_VALUES_FILE"; do
         if [[ -f "$config_file" ]]; then
             # Check if app exists by looking for any field (path, repoURL, namespace, etc.)
             app_exists=$(yq eval ".apps.\"$app\" // \"null\"" "$config_file" 2>/dev/null || echo "null")
@@ -126,7 +127,7 @@ while IFS= read -r app; do
     
     # Check valuesFile consistency
     values_file_values="null"
-    for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
+    for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$MEDIUM_DEX_VALUES_FILE" "$LARGE_VALUES_FILE"; do
         if [[ -f "$config_file" ]]; then
             # Check if app exists by looking for any field (not just path)
             app_exists=$(yq eval ".apps.\"$app\" // \"null\"" "$config_file" 2>/dev/null || echo "null")

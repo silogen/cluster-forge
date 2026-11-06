@@ -8,6 +8,7 @@ set -euo pipefail
 BASE_VALUES_FILE="../root/values.yaml"
 SMALL_VALUES_FILE="../root/values_small.yaml"
 MEDIUM_VALUES_FILE="../root/values_medium.yaml"
+MEDIUM_DEX_VALUES_FILE="../root/values_medium_dex.yaml"
 LARGE_VALUES_FILE="../root/values_large.yaml"
 
 echo "📋 Validating enabledApps have app definitions across all cluster sizes..."
@@ -45,6 +46,13 @@ medium_apps=$(collect_enabled_apps "$MEDIUM_VALUES_FILE")
 if [[ -n "$medium_apps" ]]; then
     echo "  📄 Found apps in values_medium.yaml: $(echo "$medium_apps" | wc -l) apps"
     all_enabled_apps="$all_enabled_apps$medium_apps"$'\n'
+fi
+
+# Collect from medium cluster values with Dex
+medium_dex_apps=$(collect_enabled_apps "$MEDIUM_DEX_VALUES_FILE")
+if [[ -n "$medium_dex_apps" ]]; then
+    echo "  📄 Found apps in values_medium_dex.yaml: $(echo "$medium_dex_apps" | wc -l) apps"
+    all_enabled_apps="$all_enabled_apps$medium_dex_apps"$'\n'
 fi
 
 # Collect from large cluster values
@@ -92,7 +100,7 @@ if [[ -n "$base_defined_apps" ]]; then
 fi
 
 # Collect from cluster size values
-for size_file in "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
+for size_file in "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$MEDIUM_DEX_VALUES_FILE" "$LARGE_VALUES_FILE"; do
     if [[ -f "$size_file" ]]; then
         size_defined_apps=$(collect_app_definitions "$size_file")
         if [[ -n "$size_defined_apps" ]]; then

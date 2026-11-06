@@ -340,6 +340,59 @@ apps:
     path: cnpg-operator/0.26.0
     syncWave: -30
     valuesFile: values.yaml
+  # Optional, opt-in: Dex as the OIDC issuer of AIWB instead of Keycloak. Only
+  # values_medium_dex.yaml enables it, together with the oidc values of aiwb.
+  # See "Dex as the OIDC issuer of AIWB" in docs/configuration-reference.md.
+  # dex-config makes the configuration Secret and the credentials, so the
+  # values here hold no domain except the hostname.
+  dex:
+    helmParameters:
+      - name: httpRoute.hostnames[0]
+        value: "auth.{{ .Values.global.domain }}"
+    namespace: dex
+    path: dex/0.24.1
+    syncWave: -5
+    valuesObject:
+      replicaCount: 1
+      configSecret:
+        create: false
+        name: dex-config
+      envVars:
+        - name: DEX_DEVUSER_PASSWORD_HASH
+          valueFrom:
+            secretKeyRef:
+              name: dex-credentials
+              key: password-hash
+        - name: DEX_AIWB_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: dex-credentials
+              key: client-secret
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - group: gateway.networking.k8s.io
+            kind: Gateway
+            name: https
+            namespace: envoy-gateway-system
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+      resources:
+        requests:
+          cpu: 20m
+          memory: 64Mi
+        limits:
+          memory: 128Mi
+  dex-config:
+    helmParameters:
+      - name: domain
+        value: "{{ .Values.global.domain }}"
+    namespace: dex
+    path: dex-config
+    syncWave: -10
   external-secrets:
     namespace: external-secrets
     path: external-secrets/0.15.1

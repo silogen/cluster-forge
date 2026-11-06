@@ -12,6 +12,8 @@ root `global` keys, install scripts, and platform gate helpers.
 | `aim-engine` | `manager.artifactDownloaderImage` | `docker.io/amdenterpriseai/aim-artifact-downloader:v0.2.6` | Full image reference for the artifact-downloader sidecar. The tag includes the `v` prefix. |
 | `ai-gateway-discovery` | `controller.bodyAuthMaxRequestBytes` | `4194304` (from `global.aiGateway.bodyAuthMaxRequestBytes`) | Per-model catch-all SecurityPolicy body-authz ceiling. Must match `envoy-gateway-config`'s `aiGateway.bodyAuthMaxRequestBytes`. |
 | `envoy-gateway-config` | `aiGateway.bodyAuthMaxRequestBytes` | `4194304` (from `global.aiGateway.bodyAuthMaxRequestBytes`) | Gateway-scoped `ai-gateway-default-deny` `bodyToExtAuth.maxRequestBytes`. See [AI Gateway body-authz request size](#ai-gateway-body-authz-request-size). |
+| `dex` | `httpRoute.hostnames[0]` | `auth.<global.domain>` | The hostname of Dex. It must agree with `hostPrefix` of `dex-config`. Opt-in app, see [Dex as the OIDC issuer of AIWB](#dex-as-the-oidc-issuer-of-aiwb). |
+| `dex-config` | `domain` | `<global.domain>` | Gives the issuer URL, the email of the static user and the redirect URI of the AIWB client. Opt-in app. |
 
 Defined in `root/values.yaml` under `apps.<app>.helmParameters`.
 
@@ -62,6 +64,36 @@ can both be set: they write different Service fields.
 
 The Spur `seaweedfs` package sets both values to `false`, because the minimal
 core has no OpenBao, no external-secrets and no gateway.
+
+## Dex as the OIDC issuer of AIWB
+
+`root/values.yaml` declares two opt-in apps. Only
+`root/values_medium_dex.yaml` enables them. Use that file as the cluster size,
+for example `global.clusterSize: values_medium_dex.yaml`.
+
+| App | Source | Purpose |
+|-----|--------|---------|
+| `dex-config` | `sources/dex-config` | Makes the Secret `dex-config` with `config.yaml`, and the ExternalSecret `dex-credentials`. |
+| `dex` | `sources/dex/0.24.1` | The upstream Dex chart. It reads `dex-config` and answers on `auth.<domain>`. |
+
+`dex-config` values:
+
+| Value | Default | Purpose |
+|-------|---------|---------|
+| `domain` | `""` (root sets `global.domain`) | Gives the issuer `https://<hostPrefix>.<domain>`, the email of the static user and the redirect URI of the AIWB client. |
+| `hostPrefix` | `auth` | First label of the Dex hostname. Keep it equal to `httpRoute.hostnames[0]` of `dex`. |
+| `externalSecretStore` | `openbao-secret-store` | ClusterSecretStore for the credentials. |
+| `user.name` | `devuser` | The static user. The email is `<name>@<domain>`. |
+| `user.passwordKey` | `keycloak-initial-devuser-password` | OpenBao value of the password. The ExternalSecret writes its bcrypt hash. |
+| `aiwb.clientId` | `aiwb` | Client ID of the AIWB UI. It is also the audience of the token. |
+| `aiwb.clientSecretKey` | `airm-ui-keycloak-secret` | OpenBao value of the client secret. AIWB reads the same value from `aiwb-ui-keycloak-secret`. |
+| `aiwb.uiHostPrefix` | `aiwbui` | First label of the AIWB UI hostname, for the redirect URI. |
+| `idTokenExpiry` | `8h` | Lifetime of an ID token. |
+
+In `values_medium_dex.yaml`, `aiwb` and `aiwb-infra-external-secrets` run with
+`standAloneMode: true`. Dex gives no `groups` claim, so AIWB cannot use the
+projects of AIRM. AIWB uses the `workbench` namespace. Keycloak stays for
+AIRM, Argo CD and Gitea.
 
 ## AI Gateway webhook TLS (prevention vs heal)
 

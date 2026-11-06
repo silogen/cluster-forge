@@ -1,6 +1,6 @@
 # Generated components metadata for SBOM creation
 # This file contains simplified component information for apps across all cluster sizes
-# Collected from: values.yaml, values_small.yaml, values_medium.yaml, values_large.yaml
+# Collected from: values.yaml, values_small.yaml, values_medium.yaml, values_medium_dex.yaml, values_large.yaml
 # Apps with "config" suffix are excluded from this SBOM
 
 components:
@@ -136,6 +136,13 @@ components:
     projectUrl: https://github.com/cloudnative-pg/cloudnative-pg
     license: Apache License 2.0
     licenseUrl: https://github.com/cloudnative-pg/cloudnative-pg/blob/main/LICENSE
+  dex:
+    path: dex/0.24.1
+    type: helm
+    sourceUrl: https://charts.dexidp.io
+    projectUrl: https://github.com/dexidp/dex
+    license: Apache License 2.0
+    licenseUrl: https://github.com/dexidp/dex/blob/master/LICENSE
   envoy-ai-gateway:
     path: envoy-ai-gateway/v1.0.0
     type: helm

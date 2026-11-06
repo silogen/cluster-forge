@@ -16,7 +16,7 @@ This directory contains CI/CD workflows for cluster-forge.
 ### `helm-chart-checks.yaml`
 
 - Runs on PR events (`opened`, `synchronize`, `reopened`, `ready_for_review`, `converted_to_draft`).
-- Validates `root` chart with all sizing values files (`values`, `values_small`, `values_medium`, `values_large`).
+- Validates `root` chart with all sizing values files (`values`, `values_small`, `values_medium`, `values_medium_dex`, `values_large`).
 - Lints and templates Kyverno policy charts.
 - Enforces Kyverno test coverage (test folder, `kyverno-test.yaml`, resource files, and policy mapping).
 - Runs `kyverno test` against generated policy manifests.

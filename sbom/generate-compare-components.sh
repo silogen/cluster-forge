@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # Script to update components.yaml from enabledApps across all cluster sizes
-# Collects components from values.yaml, values_small.yaml, values_medium.yaml, values_large.yaml
+# Collects components from values.yaml, values_small.yaml, values_medium.yaml, values_medium_dex.yaml, values_large.yaml
 # Only updates if there are new items or changes to existing ones
 # Preserves existing sourceUrl and projectUrl values
 # Only includes apps that are in the enabledApps list (excluding -config apps)
@@ -11,6 +11,7 @@ set -euo pipefail
 BASE_VALUES_FILE="../root/values.yaml"
 SMALL_VALUES_FILE="../root/values_small.yaml"
 MEDIUM_VALUES_FILE="../root/values_medium.yaml"
+MEDIUM_DEX_VALUES_FILE="../root/values_medium_dex.yaml"
 LARGE_VALUES_FILE="../root/values_large.yaml"
 OUTPUT_FILE="./components.yaml"
 TEMP_FILE="./components.yaml.tmp"
@@ -91,6 +92,13 @@ if [[ -n "$medium_apps" ]]; then
     all_enabled_apps="$all_enabled_apps$medium_apps"$'\n'
 fi
 
+# Collect from medium cluster values with Dex
+medium_dex_apps=$(collect_enabled_apps "$MEDIUM_DEX_VALUES_FILE")
+if [[ -n "$medium_dex_apps" ]]; then
+    echo "  📄 Found apps in values_medium_dex.yaml: $(echo "$medium_dex_apps" | wc -l) apps"
+    all_enabled_apps="$all_enabled_apps$medium_dex_apps"$'\n'
+fi
+
 # Collect from large cluster values
 large_apps=$(collect_enabled_apps "$LARGE_VALUES_FILE")
 if [[ -n "$large_apps" ]]; then
@@ -139,7 +147,7 @@ else
         current_values_files="null"
 
         # Try to find the app definition in any of the cluster configuration files
-        for values_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
+        for values_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$MEDIUM_DEX_VALUES_FILE" "$LARGE_VALUES_FILE"; do
             if [[ -f "$values_file" ]]; then
                 app_path=$(yq eval ".apps.\"$app\".path // \"null\"" "$values_file" 2>/dev/null || echo "null")
                 if [[ "$app_path" != "null" ]]; then
@@ -210,7 +218,7 @@ echo "Updating $OUTPUT_FILE..."
 cat > "$TEMP_FILE" << 'EOF'
 # Generated components metadata for SBOM creation
 # This file contains simplified component information for apps across all cluster sizes
-# Collected from: values.yaml, values_small.yaml, values_medium.yaml, values_large.yaml
+# Collected from: values.yaml, values_small.yaml, values_medium.yaml, values_medium_dex.yaml, values_large.yaml
 # Apps with "config" suffix are excluded from this SBOM
 
 components:
@@ -229,7 +237,7 @@ for app in $app_names; do
     repo_version="null"
 
     # Try to find the app definition in any of the cluster configuration files
-    for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
+    for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$MEDIUM_DEX_VALUES_FILE" "$LARGE_VALUES_FILE"; do
         if [[ -f "$config_file" ]]; then
             app_path=$(yq eval ".apps.\"$app\".path // \"null\"" "$config_file" 2>/dev/null || echo "null")
             # Also check if app exists by looking for any field (repoURL, namespace, etc.)
@@ -353,7 +361,7 @@ for app in $app_names; do
     # Check all cluster configuration files for valuesFile or valuesFiles
     values_file="null"
     values_files="null"
-    for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$LARGE_VALUES_FILE"; do
+    for config_file in "$BASE_VALUES_FILE" "$SMALL_VALUES_FILE" "$MEDIUM_VALUES_FILE" "$MEDIUM_DEX_VALUES_FILE" "$LARGE_VALUES_FILE"; do
         if [[ -f "$config_file" ]]; then
             app_path=$(yq eval ".apps.\"$app\".path // \"null\"" "$config_file" 2>/dev/null || echo "null")
             if [[ "$app_path" != "null" ]]; then

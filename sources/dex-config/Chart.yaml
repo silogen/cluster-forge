@@ -1,0 +1,4 @@
+apiVersion: v2
+name: dex-config
+description: Configuration and credentials for Dex as the OIDC issuer of AIWB
+version: 0.1.0

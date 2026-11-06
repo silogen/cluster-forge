@@ -1,0 +1,419 @@
+# The medium cluster with Dex as the OIDC issuer of AIWB. Bloom loads only
+# one size file, so this file is a full copy of values_medium.yaml. Keep the
+# two files in sync. The differences from medium are:
+#   - enabledApps also holds dex and dex-config.
+#   - aiwb and aiwb-infra-external-secrets run in standalone mode, because Dex
+#     gives no groups claim for the projects of AIRM.
+#   - aiwb logs in through Dex (the oidc helmParameters).
+# Keycloak stays for AIRM, Argo CD and Gitea.
+#
+# Medium & Small clusters add local-path storage policy for RWX→RWO conversion
+
+enabledApps:
+  - ai-gateway-discovery
+  - aim-cluster-model-source
+  - aim-engine
+  - aim-engine-crds
+  - airm
+  - airm-infra-cnpg
+  - airm-infra-external-secrets
+  - airm-infra-rabbitmq
+  - aiwb
+  - aiwb-infra-cnpg
+  - aiwb-infra-external-secrets
+  - amd-gpu-operator
+  - amd-gpu-operator-config
+  - appwrapper
+  - argocd
+  - argocd-config
+  - cert-manager
+  - cnpg-operator
+  - dex
+  - dex-config
+  - external-secrets
+  - external-secrets-config
+  - inference-extension-crds
+  - envoy-gateway
+  - envoy-gateway-config
+  - envoy-ai-gateway-crds
+  - envoy-ai-gateway
+  - gitea
+  - gitea-config
+  - kaiwo
+  - kaiwo-config
+  - kaiwo-crds
+  - keda
+  - kedify-otel
+  - keycloak
+  - kserve
+  - kserve-crds
+  - kueue
+  - kueue-config
+  - kuberay-operator
+  - kyverno
+  - kyverno-policies-base
+  - kyverno-policies-storage-local-path
+  - metallb
+  - seaweedfs-operator
+  - seaweedfs-config
+  - openbao
+  - openbao-config
+  - opentelemetry-operator
+  - otel-lgtm-stack
+  - prometheus-crds
+  - rabbitmq
+
+apps:
+  aiwb-infra-cnpg:
+    valuesObject:
+      instances: 1
+  argocd:
+    valuesObject:
+      applicationSet:
+        replicas: 1
+      controller:
+        replicas: 1
+        resources:
+          limits:
+            memory: "2Gi"
+          requests:
+            cpu: "125m" 
+            memory: "1Gi"
+      redis-ha:
+        enabled: false
+        redis:
+          resources:
+            limits:
+              memory: "1Gi"
+            requests:
+              cpu: "5m"
+              memory: "512Mi"
+      repoServer:
+        replicas: 1
+        resources:
+          limits:
+            memory: "1Gi"
+          requests:
+            cpu: "25m"
+            memory: "512Mi"
+      server:
+        replicas: 1
+        resources:
+          limits:
+            memory: "1Gi"
+          requests:
+            cpu: "25m"
+            memory: "256Mi"
+  grafana:
+    valuesObject:
+      persistence:
+        accessModes:
+          - ReadWriteOnce
+        enabled: true
+        size: 5Gi
+        storageClassName: direct
+      replicas: 1
+      resources:
+        limits:
+          memory: "2Gi"
+        requests:
+          cpu: "125m"
+          memory: "512Mi"
+  keycloak:
+    valuesObject:
+      # Increase memory resources for Keycloak to prevent OOMKilled during initialization
+      # Medium preset provides 1536Mi memory limit vs small preset's 768Mi
+      resourcesPreset: "medium"
+
+  seaweedfs-config:
+    valuesObject:
+      seaweed:
+        storageClassName: mlstorage
+        master:
+          replicas: 1
+          volumeSizeLimitMB: 1024
+        volume:
+          replicas: 1
+          requests:
+            storage: 500Gi
+        filer:
+          replicas: 1
+          requests:
+            storage: 50Gi
+      bucket:
+        name: default-bucket
+        namespace: demo
+
+  openbao:
+    valuesObject:
+      server:
+        dataStorage:
+          size: 5Gi
+          storageClass: direct
+        ha:
+          enabled: false
+          raft:
+            enabled: false
+          replicas: 1
+        resources:
+          limits:
+            memory: "2Gi"
+          requests:
+            cpu: "5m"
+            memory: "512Mi"
+  opentelemetry-operator:
+    valuesObject:
+      manager:
+        resources:
+          requests:
+            cpu: "125m"
+            memory: "512Mi"
+  # Cluster size tier: SMALL / MEDIUM -- single-node clusters (1 control plane).
+  #
+  # small and medium are deliberately IDENTICAL for this app. The measurements
+  # behind the tiers (2026-09-15/16, EAI-8713) found only one structural driver
+  # of observability cost: control-plane count, not node count. A 1-CP cluster
+  # produces ~137k apiserver samples / 237k series; a 3-CP cluster produces
+  # ~300-390k / 400-490k. Everything else -- all daemonsets, all small
+  # collectors -- measured flat across all seven clusters.
+  #
+  # Keep this block in sync with values_medium.yaml.
+  #
+  # These values match the chart defaults; they are written out explicitly so
+  # the tier is readable here rather than inferred from the chart.
+  otel-lgtm-stack:
+    valuesObject:
+      lgtm:
+        # Measured 3.0-3.5 GiB on 1-CP clusters. Memory request is 25% of the
+        # limit; no CPU limit (see docs/otel_lgtm_stack_tuning.md).
+        resources:
+          limits:
+            memory: 8Gi
+          requests:
+            cpu: 500m
+            memory: 2Gi
+        storage:
+          # Loki has never exceeded 1 GiB on a cluster with working retention
+          # (v1.0.8, 168h). 50Gi is already ~50x headroom; the PVCs that have
+          # had to be expanded were on v1.0.7, which has no retention.
+          loki: 50Gi
+      collectors:
+        resources:
+          # otel-collector-metrics-k8s. Measured 1.4 GiB on a 1-CP cluster.
+          # The 8Gi limit is deliberate: this collector has been OOMKilled at
+          # 8Gi twice, on separate clusters, from a
+          # ~2 GiB steady state, and the spike is not yet characterised.
+          metrics:
+            limits:
+              memory: 8Gi
+            requests:
+              cpu: 750m
+              memory: 2Gi
+  prometheus:
+    valuesObject:
+      prometheus:
+        prometheusSpec:
+          resources:
+            limits:
+              memory: "4Gi"
+            requests:
+              cpu: "250m"
+              memory: "1Gi"
+          retention: 15d
+          retentionSize: 20GB
+          storageSpec:
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 25Gi
+                storageClassName: direct
+  aim-engine:
+    valuesObject:
+      operator:
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+  airm:
+    valuesObject:
+      backend:
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "512Mi"
+      frontend:
+        resources:
+          requests:
+            cpu: "400m"
+            memory: "1Gi"
+  airm-infra-cnpg:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "500m"
+          memory: "512Mi"
+  airm-infra-external-secrets:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "128Mi"
+  airm-infra-rabbitmq:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "200m"
+          memory: "512Mi"
+  aiwb:
+    # Helm replaces a list, so this list must also hold appDomain from
+    # root/values.yaml. The issuer holds the domain, so it is a helmParameter.
+    helmParameters:
+      - name: appDomain
+        value: "{{ .Values.global.domain }}"
+      - name: oidc.issuer
+        value: "https://auth.{{ .Values.global.domain }}"
+    valuesObject:
+      standAloneMode: true
+      # Dex is the OIDC issuer. dex-config makes the aiwb client. Its secret
+      # is the same OpenBao value as aiwb-ui-keycloak-secret, which stays
+      # the client Secret of AIWB.
+      oidc:
+        internalUrl: http://dex.dex.svc.cluster.local:5556
+        jwksUrl: http://dex.dex.svc.cluster.local:5556/keys
+        clientId: aiwb
+        audience: aiwb
+      backend:
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "512Mi"
+  aiwb-infra-external-secrets:
+    valuesObject:
+      standAloneMode: true
+      resources:
+        requests:
+          cpu: "25m"
+          memory: "128Mi"
+  amd-gpu-operator:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "256Mi"
+  cert-manager:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "5m"
+          memory: "256Mi"
+  cnpg-operator:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "256Mi"
+  external-secrets:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "5m"
+          memory: "256Mi"
+  gitea:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "200m"
+          memory: "512Mi"
+  gitea-config:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "25m"
+          memory: "128Mi"
+  kaiwo:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "200m"
+          memory: "512Mi"
+  keda:
+    valuesObject:
+      resources:
+        operator:
+          requests:
+            cpu: "50m"
+            memory: "128Mi"
+        metricServer:
+          requests:
+            cpu: "50m"
+            memory: "128Mi"
+        webhooks:
+          requests:
+            cpu: "50m"
+            memory: "128Mi"
+  kedify-otel:
+    valuesObject:
+      resources:
+        limits:
+          memory: "256Mi"
+        requests:
+          cpu: "50m"
+          memory: "256Mi"
+  envoy-gateway:
+    valuesObject:
+      deployment:
+        envoyGateway:
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+  kserve:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "256Mi"
+  kueue:
+    valuesObject:
+      controllerManager:
+        manager:
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              memory: "512Mi"
+  kuberay-operator:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "256Mi"
+  kyverno:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "256Mi"
+  openbao-config:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "25m"
+          memory: "128Mi"
+  prometheus-crds:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "25m"
+          memory: "128Mi"
+
+  kserve-crds:
+    valuesObject:
+      resources:
+        requests:
+          cpu: "25m"
+          memory: "128Mi"

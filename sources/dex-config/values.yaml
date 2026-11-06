@@ -1,0 +1,29 @@
+# The DNS name of the cluster. Root sets it from global.domain.
+domain: ""
+# Dex answers on <hostPrefix>.<domain>. Keep it equal to the hostname that
+# root gives to the HTTPRoute of the dex app.
+hostPrefix: auth
+# The ClusterSecretStore that reads OpenBao.
+externalSecretStore: openbao-secret-store
+# Name of the Secret that holds config.yaml. The dex app mounts it through
+# configSecret.name.
+configSecretName: dex-config
+# Name of the Secret that Dex reads its environment from.
+credentialsSecretName: dex-credentials
+# The static user. The email is <name>@<domain>, the same as the devuser of
+# Keycloak. The password is the OpenBao value keycloak-initial-devuser-password,
+# so the devuser logs in with the same password as before.
+user:
+  name: devuser
+  id: 487590ed-165c-44d5-b686-1aff81cca298
+  passwordKey: keycloak-initial-devuser-password
+# The OIDC client of the AIWB UI. The secret is the OpenBao value that the
+# aiwb-ui-keycloak-secret Secret of AIWB also holds, so AIWB needs no new
+# Secret.
+aiwb:
+  clientId: aiwb
+  clientName: AI Workbench
+  clientSecretKey: airm-ui-keycloak-secret
+  uiHostPrefix: aiwbui
+# Lifetime of an ID token.
+idTokenExpiry: 8h
