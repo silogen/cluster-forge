@@ -44,7 +44,6 @@ enabledApps:
   - kueue-config
   - kyverno
   - kyverno-policies-base               # applicable to all cluster sizes
-  - kyverno-policies-storage-local-path # small & medium cluster sizes only
   - metallb
   - seaweedfs-operator
   - seaweedfs-config  

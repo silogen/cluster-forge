@@ -56,9 +56,10 @@ helm template ./root -f ./root/values_small.yaml   # also values_medium, values_
 # Tests for the install helpers. These are offline and need no cluster.
 scripts/test/run-tests.sh
 
-# Kyverno policy tests for one chart
+# Kyverno policy tests for one chart. If test/helm-values.yaml exists, CI
+# renders the chart with it: add "-f helm-values.yaml" to helm template.
 cd sources/kyverno-policies/base/test
-helm template test-release .. > all-resources.yaml
+helm template test-release .. -f helm-values.yaml > all-resources.yaml
 yq eval 'select(.apiVersion == "kyverno.io/v1")' all-resources.yaml > policy.yaml
 kyverno test . --detailed-results
 

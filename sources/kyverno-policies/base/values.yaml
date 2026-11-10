@@ -1,0 +1,5 @@
+dynamicPvc:
+  # StorageClasses that can serve ReadWriteMany. A generated user PVC requests
+  # ReadWriteMany only if its storage class is in this list. Other storage
+  # classes get ReadWriteOnce. local-path cannot serve ReadWriteMany.
+  readWriteManyStorageClasses: []
