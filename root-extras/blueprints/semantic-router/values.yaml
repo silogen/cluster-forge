@@ -27,21 +27,38 @@ extraEnv:
 dashboard:
   enabled: true
 
-  # Off by default upstream. Without it, the admin account and all session/
-  # workflow state live only in the pod's ephemeral filesystem and are wiped
-  # by ANY pod recreation — not just a restart, also a values change, a chart
-  # bump, or a node move. Cheap enough (1Gi) to leave on regardless of which
-  # login option below you pick — see the README's "Dashboard access" section.
+  # Off by default upstream. Without it, the admin account and the dashboard
+  # state live only in the pod filesystem and are wiped by any pod recreation.
+  # Leave this on. See the README's "Dashboard access" section.
   persistence:
     enabled: true
     storageClassName: ""
 
-  # Nobody can log in as shipped. Upstream's bootstrap endpoint is public and
-  # unauthenticated, so it stays off by default — otherwise the first stranger
-  # to load the URL claims admin. Pick one before using the dashboard:
-  #   - uncomment for a throwaway demo on a cluster you're about to delete
-  #   - or provision an admin via `extraEnv` (see this blueprint's README)
-  # allowOpenBootstrap: true
+  # The public first-admin form stays closed. Startup creates the admin from
+  # Secret semantic-router-dashboard-admin. See the README.
+  allowOpenBootstrap: false
+
+  # Stable session signing key. Without this, every pod start logs everyone out.
+  jwtSecret:
+    existingSecret: semantic-router-dashboard-admin
+    existingSecretKey: jwt-secret
+
+  extraEnv:
+    - name: DASHBOARD_ADMIN_EMAIL
+      valueFrom:
+        secretKeyRef:
+          name: semantic-router-dashboard-admin
+          key: email
+    - name: DASHBOARD_ADMIN_NAME
+      valueFrom:
+        secretKeyRef:
+          name: semantic-router-dashboard-admin
+          key: name
+    - name: DASHBOARD_ADMIN_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: semantic-router-dashboard-admin
+          key: password
 
   httpRoute:
     enabled: true

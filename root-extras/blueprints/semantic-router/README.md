@@ -12,6 +12,7 @@ Files fetched into your cluster-values overlay repo:
 | `extraApps.yaml` | `extra-apps-values.yaml` | the ArgoCD Application envelope |
 | `values.yaml` | `extra-apps/semantic-router/values.yaml` | the chart config you edit |
 | `manifests/gateway-routing.yaml` | `extra-apps/semantic-router/manifests/gateway-routing.yaml` | the routes and backends you edit |
+| `manifests/dashboard-admin-externalsecret.yaml` | `extra-apps/semantic-router/manifests/dashboard-admin-externalsecret.yaml` | ExternalSecret that copies the dashboard admin from OpenBao |
 | `manifests/aigw-extras/sr-gateway*.yaml` | `extra-apps/semantic-router/manifests/` (flattened, no `aigw-extras/`) | a dedicated Envoy data plane for the router — not edited per deployment, see "Routing traffic through the router" |
 | `manifests/aigw-extras/quota.yaml` | `extra-apps/semantic-router/manifests/` (flattened) | per-API-key token quota — optional, see "Quota" |
 | `manifests/gateway-routing-direct-envoy.yaml` | *(fallback, not fetched by default)* | no-AI-Gateway version, see "No AI Gateway? Direct-Envoy fallback" — if used, skip the `aigw-extras/` row above entirely |
@@ -47,8 +48,8 @@ Files fetched into your cluster-values overlay repo:
    first push, and the same pair logs you into the Gitea web UI at
    `https://gitea.<domain>`.
 
-2. Clone your cluster-values overlay repo from that Gitea and pull the three
-   files into it:
+2. Clone your cluster-values overlay repo from that Gitea and pull the
+   blueprint files into it:
 
    ```bash
    git clone https://gitea.<domain>/cluster-org/cluster-values.git
@@ -62,6 +63,8 @@ Files fetched into your cluster-values overlay repo:
    curl -fsSL "$BLUEPRINT/values.yaml" -o extra-apps/semantic-router/values.yaml
    curl -fsSL "$BLUEPRINT/manifests/gateway-routing.yaml" \
        -o extra-apps/semantic-router/manifests/gateway-routing.yaml
+   curl -fsSL "$BLUEPRINT/manifests/dashboard-admin-externalsecret.yaml" \
+       -o extra-apps/semantic-router/manifests/dashboard-admin-externalsecret.yaml
    for f in sr-gateway.yaml sr-gateway-config.yaml \
             sr-gateway-proxy-config.yaml sr-gateway-service.yaml \
             sr-gateway-extproc.yaml quota.yaml; do
@@ -456,63 +459,60 @@ stays Pending forever. If the cluster has no default class, name a real one.
 
 ## Dashboard access
 
-The dashboard has no admin account by default. Its bootstrap endpoint is public
-and unauthenticated. Enable open bootstrap only for a temporary demo; otherwise,
-create an admin through the documented environment variables.
+The blueprint creates one dashboard admin at startup. OpenBao stores the
+account. `manifests/dashboard-admin-externalsecret.yaml` copies it into Secret
+`semantic-router-dashboard-admin` in the `semantic-router` namespace. The chart
+reads that Secret. Fetch that manifest with the other blueprint files. An
+overlay that already has an older copy of this blueprint must take the new
+`values.yaml` and the new manifest.
 
-With `dashboard.persistence.enabled: false`, the admin account lives in the
-pod's ephemeral filesystem and is lost when the pod is recreated. Persistence
-is enabled by default in this blueprint.
+| OpenBao path | Kind | Secret key | Value |
+|---|---|---|---|
+| `secrets/semantic-router-dashboard-admin-email` | static | `email` | `admin@<cluster domain>` |
+| `secrets/semantic-router-dashboard-admin-name` | static | `name` | `admin` |
+| `secrets/semantic-router-dashboard-admin-password` | random, write-once | `password` | login password |
+| `secrets/semantic-router-dashboard-jwt-secret` | random, write-once | `jwt-secret` | session signing key |
 
-Pick one login option before you try to log in.
-
-**Throwaway demo** — uncomment in `values.yaml`:
-
-```yaml
-dashboard:
-  allowOpenBootstrap: true
-```
-
-Then create the admin through the web form. Turn it back off once the admin
-exists — with persistence on, the account survives that.
-
-**Anything longer-lived** — provision the admin at startup instead. First
-create the Secret the env vars below reference, directly on the cluster —
-**not** through the overlay repo, since that would put the plaintext password
-in Git:
+`openbao-config` renders the email from the cluster domain. On a cluster whose
+domain is `staging.silogen.ai`, the email is `admin@staging.silogen.ai`. The
+display name is `admin`. Sign in with that email and the password from the
+Secret:
 
 ```bash
-kubectl -n semantic-router create secret generic semantic-router-dashboard-admin \
-  --from-literal=password="$(openssl rand -hex 16)"
+kubectl -n semantic-router get secret semantic-router-dashboard-admin \
+    -o jsonpath='{.data.password}' | base64 -d; echo
 ```
 
-Then add these to `values.yaml`. Adding them closes the bootstrap path
-automatically:
+`dashboard.allowOpenBootstrap` is false. The public first-admin form stays
+closed. The startup account does not use that form.
 
-```yaml
-dashboard:
-  extraEnv:
-    - name: DASHBOARD_ADMIN_EMAIL
-      value: admin@example.com
-    - name: DASHBOARD_ADMIN_NAME
-      value: admin
-    - name: DASHBOARD_ADMIN_PASSWORD
-      valueFrom:
-        secretKeyRef:
-          name: semantic-router-dashboard-admin
-          key: password
-```
+The dashboard writes the admin on startup only when that email is absent from
+its database. An existing row for the same email keeps its password. A new
+password in OpenBao does not replace it. Delete the dashboard volume, then let
+the pod start again, when you need startup to create the account again.
 
-The Secret has to exist in the `semantic-router` namespace before ArgoCD syncs
-this, or the dashboard pod sits in `CreateContainerConfigError`.
+A later change of the cluster domain updates the email in OpenBao. Static
+OpenBao values follow the rendered value. The password and the signing key stay
+at their first value. After the Secret refreshes and the dashboard pod starts
+again, startup creates a second admin for the new email. The first admin
+remains.
 
-Self-healing even without persistence, since the admin is recreated from the
-env vars every startup — but persistence still matters for everything else the
-dashboard tracks (evaluation runs, saved workflows).
+The ExternalSecret is an Argo CD PreSync hook. The Application waits for that
+hook before it starts the dashboard pod. The pod reads the Secret at start.
+The OpenBao secret manager writes the four values on its five-minute schedule.
+On a cluster that is already up, the values exist before you install this
+blueprint. Delete a Secret of this name that you created by hand, so the
+ExternalSecret can create it.
 
-Worth knowing that login sessions are signed with a key the dashboard
-regenerates on every pod start, so any restart logs everyone out regardless of
-persistence. Set `dashboard.jwtSecret.existingSecret` if that matters.
+Persistence is on in this blueprint. The admin, evaluation runs, and saved
+workflows stay on the volume. With `dashboard.persistence.enabled: false`, that
+data is on the container filesystem and is lost when the pod is recreated.
+Startup creates the admin again on the next start, because the email is absent.
+
+`dashboard.jwtSecret.existingSecret` points at the same Secret. A pod restart
+keeps existing login sessions valid. Without that setting, the dashboard
+generates a new signing key on every start, and every restart logs everyone
+out.
 
 ## Updating
 
