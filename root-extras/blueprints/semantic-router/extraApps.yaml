@@ -1,8 +1,5 @@
-# vLLM Semantic Router — this file is extra-apps-values.yaml for a cluster with
-# no other extra components. If you already run some, add the `semantic-router:`
-# block below under your existing `extraApps:` key instead of replacing the file.
-# The chart config and gateway wiring it references live in two more files that
-# go in the same repo — see the README next to this one for ready-made commands.
+# Argo CD Application for semantic-router.
+# scripts/setup.sh merges this key into extra-apps-values.yaml.
 
 extraApps:
   semantic-router:
@@ -10,17 +7,13 @@ extraApps:
     sources:
       - repoURL: https://github.com/vllm-project/semantic-router.git
         path: deploy/helm/semantic-router
-        # Pinned to a revision we have tested end-to-end. Bump deliberately
-        # after re-validating, never track a branch.
-        targetRevision: "e79e43859ebae63ea4c935eab373cd11e3027745"
+        # Config schema v0.5. values.yaml pins both image tags to this commit.
+        targetRevision: "9968ac62a50aa0f79385b079f59170906d849a0c"
         helm:
           valueFiles:
             - $cluster-values/extra-apps/semantic-router/values.yaml
-      # Gateway wiring (HTTPRoute + EnvoyExtensionPolicy), applied by this same
-      # Application so it syncs and prunes with the chart. Drop this source if
-      # you do not want the router in the request path — but if you keep it, the
-      # directory must exist and be non-empty in the overlay repo or ArgoCD
-      # fails the whole Application and the chart goes down with it.
+      # Gateway manifests for this Application. An empty directory fails the sync.
+      # Drop this source to leave the router off the request path.
       - repoURL: "{{ .Values.externalValues.repoUrl }}"
         targetRevision: "{{ .Values.externalValues.targetRevision }}"
         path: extra-apps/semantic-router/manifests

@@ -1,35 +1,29 @@
-# vLLM Semantic Router — chart config for one deployment.
-#
-# Copy this to extra-apps/semantic-router/values.yaml in your cluster-values
-# overlay repo, then edit every `TODO` below. Only overrides live here; anything
-# not set falls through to the upstream chart's own defaults.
-#
-# Plain Helm values, read directly by ArgoCD — `{{ }}` is NOT evaluated here, so
-# values like the cluster domain have to be written out literally.
+# Chart values for one semantic-router deployment.
+# scripts/setup.sh copies this file to extra-apps/semantic-router/values.yaml.
+# Argo CD reads that copy as plain YAML. Write the cluster domain literally.
+# The script fills the smoke-test model. Replace it with the real model and Service.
 
 persistence:
-  # Upstream defaults to "standard", which does not exist on our clusters. Empty
-  # omits the field so the cluster's default StorageClass applies. Do not use
-  # "-": the chart turns that into an explicit `storageClassName: ""`, which
-  # means "no class at all" and leaves the PVC Pending forever. Set a real class
-  # name if this cluster has no default.
+  # Empty string omits the field. The cluster default StorageClass applies.
+  # "-" stores an explicit empty class, and the PVC stays Pending.
   storageClassName: ""
 
-# Management API (8080) defaults to binding 127.0.0.1, unreachable from the
-# dashboard's separate pod — this is why the dashboard reports the router as
-# not running. This env var widens the bind cluster-internally without the
-# heavier `remote_exposure: true` + bearer-auth path. Still not
-# internet-facing: no Gateway route touches 8080. See README.
+image:
+  # Same commit as targetRevision in extraApps.yaml. Config schema is v0.5.
+  tag: "9968ac62a50aa0f79385b079f59170906d849a0c"
+
+# Bind the management API on all interfaces so the dashboard pod can reach port 8080.
+# No Gateway route publishes this port.
 extraEnv:
   - name: VLLM_SR_MANAGEMENT_INTERNAL_LISTENER
     value: "true"
 
 dashboard:
   enabled: true
+  image:
+    tag: "9968ac62a50aa0f79385b079f59170906d849a0c"
 
-  # Off by default upstream. Without it, the admin account and the dashboard
-  # state live only in the pod filesystem and are wiped by any pod recreation.
-  # Leave this on. See the README's "Dashboard access" section.
+  # Keeps the admin account, evaluation runs, and workflows across pod restarts.
   persistence:
     enabled: true
     storageClassName: ""
@@ -69,17 +63,11 @@ dashboard:
       name: https
       namespace: envoy-gateway-system
 
-# TODO: point the router at your own model and vLLM backend.
-#
-# All four settings below have to name the SAME model, or requests match no
-# route. They are lists, and Helm replaces lists wholesale rather than merging
-# them — so keep each one complete, don't trim it to just the changed field.
+# Schema v0.5. Decisions live under recipes.
+# Repeat the model name in each list. Helm replaces a list.
 config:
-  # Canonical v0.3 schema. Pin the chart to a commit whose Chart.yaml
-  # appVersion is a real release tag (not "latest"), or this schema drifts
-  # out from under the image again.
-  version: v0.3
-  # Pairs with extraEnv above — both are required, neither works alone.
+  version: v0.5
+  # Required together with VLLM_SR_MANAGEMENT_INTERNAL_LISTENER.
   global:
     services:
       management_api:
@@ -87,33 +75,31 @@ config:
   providers:
     defaults:
       model: "TODO-your-model"
-      # Chart's own default values.yaml still sets these three under the same
-      # map; Helm merges maps instead of replacing them, so without explicit
-      # nulls here the deprecated keys survive into the rendered config and
-      # the router refuses to start.
-      default_model: null
-      reasoning_families: null
-      default_reasoning_effort: null
     models:
       - name: "TODO-your-model"
         # The ID the backend itself expects, which may differ from the name above.
         provider_model_id: "TODO-your-model"
         backend_refs:
           - name: "primary"
+            provider: vllm
             # TODO: your vLLM service, e.g. my-vllm.my-namespace.svc:8000
             endpoint: "TODO-your-vllm-service:8000"
             protocol: "http"
             weight: 100
-  routing:
-    modelCards:
-      - name: "TODO-your-model"
-    decisions:
-      - name: "default-route"
-        description: "Catch-all route. Add real decisions once a backend is wired up."
-        priority: 100
-        rules:
-          operator: "AND"
-          conditions: []
-        modelRefs:
-          - model: "TODO-your-model"
-            use_reasoning: false
+  recipes:
+    - name: default
+      signals:
+        domains:
+          - name: "general"
+            description: "Catch-all domain"
+            labels: ["other"]
+      decisions:
+        - name: "default-route"
+          description: "Catch-all route. Add real decisions once a backend is wired up."
+          priority: 100
+          rules:
+            operator: "AND"
+            conditions: []
+          modelRefs:
+            - model: "TODO-your-model"
+              use_reasoning: false
