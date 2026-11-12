@@ -217,7 +217,7 @@ kubectl -n envoy-gateway-system logs deploy/sr-gateway -f
 
 confirms which key each request was charged under. To see the actual bucket
 values (needs `envoy-ai-gateway-ratelimit`'s bundled Redis, see the README's
-"Installing `envoy-ai-gateway-ratelimit`"):
+"Quota"):
 
 ```bash
 kubectl -n envoy-gateway-system exec deploy/envoy-ai-gateway-ratelimit-redis -- \
