@@ -48,6 +48,10 @@ if ! domain=$(kubectl get configmap cluster-domain --namespace default --output 
   echo "Point kubectl at the cluster, then start the script again." >&2
   exit 1
 fi
+# cluster-bloom writes key DOMAIN. The manual install guide writes key domain.
+if [[ -z "${domain}" ]]; then
+  domain=$(kubectl get configmap cluster-domain --namespace default --output jsonpath='{.data.domain}')
+fi
 
 domain_re='^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$'
 if [[ ! "${domain}" =~ ${domain_re} ]]; then

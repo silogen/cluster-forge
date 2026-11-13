@@ -37,6 +37,8 @@ The script reads the domain with this command:
 kubectl get configmap cluster-domain --namespace default --output jsonpath='{.data.DOMAIN}'
 ```
 
+cluster-bloom writes the key `DOMAIN`. When that key is empty, the script reads the key `domain`. The manual install guide writes that key.
+
 The dashboard host name is `sr-dashboard.<domain>`. The router host name is `sr.<domain>`.
 
 ## Files
