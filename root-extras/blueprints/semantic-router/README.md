@@ -280,7 +280,7 @@ requests through the Gateway:
 
 | Service | Port | Serves |
 |---|---|---|
-| `semantic-router` | 8080 | management API — `/api/v1/classify/*`, `/health` |
+| `semantic-router` | 8080 | management API — `/health`, `/api/v1/routing/preview`, `/api/v1/diagnostics/classify/*` |
 | `semantic-router` | 50051 | gRPC, the external processor port the gateway wiring uses |
 | `semantic-router-metrics` | 9190 | Prometheus metrics |
 
@@ -293,19 +293,24 @@ kubectl -n semantic-router port-forward svc/semantic-router 8080:8080
 curl localhost:8080/health
 ```
 
-To see which model the router would pick for a given prompt, without needing
-the gateway or any backend running yet, hit its classification endpoint
-directly:
+To see which model the router selects for a given prompt, without the gateway
+or any backend, call the routing preview:
 
 ```bash
-curl -sX POST localhost:8080/api/v1/classify/intent \
+curl -sX POST localhost:8080/api/v1/routing/preview \
   -H 'Content-Type: application/json' \
   -d '{"text":"Write a Python function to implement a binary search tree"}'
 ```
 
-The response's `recommended_model` and `decision_result.decision_name` show
-the outcome — useful for checking `values.yaml`'s `signals`/`decisions` logic
-in isolation before testing the full request path through `sr.<domain>`.
+The response fields `selected_model` and `decision_result.decision_name` show
+the outcome. Use this check for the `signals` and `decisions` logic in
+`values.yaml` before you test the full request path through `sr.<domain>`.
+
+A classification-only check uses `/api/v1/diagnostics/classify/intent`. That
+response uses `recommended_model` and `decision_result.decision_name`. The
+older path `/api/v1/classify/intent` returns 404 on the current image.
+`GET /api/v1` lists the routes that this process registers. The chart image
+tag is `latest`, so confirm the path there when a newer image moves a route.
 
 The chart's `ingress.enabled` flag emits a classic `Ingress`. Envoy Gateway
 uses Gateway API resources, so leave this flag disabled.

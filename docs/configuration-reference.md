@@ -33,6 +33,26 @@ must stay in step. The chart-local default in
 `sources/envoy-gateway-config/values.yaml` is the same number and applies
 only if the root helmParameter is omitted.
 
+## Envoy apps gateway load balancer
+
+The apps gateway Service is a LoadBalancer. A cloud load balancer controller
+often needs Service annotations. Some controllers, such as OpenStack CCM,
+still read `spec.loadBalancerIP`.
+
+Envoy Gateway 1.8.1 copies `envoyService.annotations` and
+`envoyService.loadBalancerIP` onto that Service. Set the chart values below
+from the cluster-values overlay, under
+`apps.envoy-gateway-config.valuesObject.appsGateway`.
+
+| Value | Default | Purpose |
+|-------|---------|---------|
+| `serviceAnnotations` | `{}` | Annotations Envoy Gateway copies onto the apps gateway Service. |
+| `loadBalancerIP` | `""` | Fixed load balancer IP. Envoy Gateway writes `spec.loadBalancerIP`. |
+
+An empty value leaves the Service field unset. `externalIP` still writes the
+`externalIPs` patch for a cluster that has no load balancer. The two settings
+can both be set: they write different Service fields.
+
 ## `seaweedfs-config` integrations
 
 | Value | Default | Purpose |
@@ -119,6 +139,7 @@ no ref and needs no tool on the node. See
 | Variable | Default | Meaning |
 |---|---|---|
 | `PULL_SECRET_JSON` | empty | Docker config JSON for the registry of the test image. The dummy image is public, so it is optional. The GPU test image needs the Docker Hub credentials. |
+| `HF_TOKEN` | empty | Hugging Face token for a gated model. The test puts it in the Secret `hf-token` in the test namespace. The dummy model does not need it. |
 | `AIM_TIMEOUT` | `15m` | How long to wait for the AIMService conditions. |
 | `KEEP` | `0` | `1` keeps the `aims-test` namespace after the test. |
 

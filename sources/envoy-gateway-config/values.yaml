@@ -12,6 +12,13 @@ appsGateway:
   # without a load balancer: the Envoy Service keeps type ClusterIP and takes
   # the node address in externalIPs. Empty leaves the Service unchanged.
   externalIP: ""
+  # Annotations that Envoy Gateway copies onto the apps gateway Service.
+  # A cloud load balancer controller reads these. Empty adds no annotations.
+  serviceAnnotations: {}
+  # Fixed IP for the LoadBalancer Service. Envoy Gateway writes this value to
+  # spec.loadBalancerIP. OpenStack CCM and some other controllers still read
+  # that field. Empty leaves the field unset.
+  loadBalancerIP: ""
 
 # CoreDNS rewrite of *.domain to the gateway. The object is an RKE2
 # HelmChartConfig, so it works on an RKE2 cluster only. Set false elsewhere.
