@@ -121,11 +121,6 @@ metadata:
   name: amd-aim-instinct-mi350p
 spec:
   filters:
-    # Base images
-    - image: amdenterpriseai/aim-base:2026.22
-    - image: amdenterpriseai/aim-base:2026.16
-    - image: amdenterpriseai/aim-base:2026.15
-    - image: amdenterpriseai/aim-base:2026.11
     # Model AIMs
     # openai/gpt-oss-120b (EAI-8992)
     - image: amdenterpriseai/aim-openai-gpt-oss-120b:2026.11.0-rc1
