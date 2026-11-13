@@ -1,7 +1,5 @@
-# Chart values for one semantic-router deployment.
 # scripts/setup.sh copies this file to extra-apps/semantic-router/values.yaml.
-# Argo CD reads that copy as plain YAML. Write the cluster domain literally.
-# The script fills the smoke-test model. Replace it with the real model and Service.
+# Argo CD reads that copy as plain YAML, so write the cluster domain literally.
 
 persistence:
   # Empty string omits the field. The cluster default StorageClass applies.
@@ -95,7 +93,7 @@ config:
             labels: ["other"]
       decisions:
         - name: "default-route"
-          description: "Catch-all route. Add real decisions once a backend is wired up."
+          description: "Catch-all route. Add decisions after a backend is connected."
           priority: 100
           rules:
             operator: "AND"

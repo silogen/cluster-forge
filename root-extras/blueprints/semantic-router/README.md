@@ -97,7 +97,7 @@ ConfigMap. The next self-heal restores that ConfigMap from `values.yaml`. The
 dashboard does not write the Envoy Backend. Put the Service address in both
 files.
 
-A greenfield cluster uses the same files. Nothing in the platform copies live
+A new cluster uses the same files. Nothing in the platform copies live
 vLLM Services into this config.
 
 `config.recipes` ships with one catch-all decision. Config schema is v0.5.

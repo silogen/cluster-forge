@@ -1,8 +1,4 @@
-# Gateway resources for one semantic-router deployment.
 # scripts/setup.sh copies this file to extra-apps/semantic-router/manifests/.
-# It writes the router hostname and the smoke-test model names.
-# Replace those names with the real Service and model ID.
-# The shared HTTPS Gateway forwards traffic to sr-gateway.
 # Envoy calls semantic-router over ext_proc, then routes to the selected backend.
 
 apiVersion: gateway.networking.k8s.io/v1

@@ -137,7 +137,7 @@ logs to see what it decided:
 kubectl -n semantic-router logs deploy/semantic-router -f
 ```
 
-Backends not wired up yet? The router's classification endpoint (see the
+When no backend is connected, the router's classification endpoint (see the
 main README's "Check a decision") checks the same decision logic without
 `sr.<domain>` or a backend.
 
