@@ -117,6 +117,9 @@ kubectl -n semantic-router get secret semantic-router-dashboard-admin \
 OpenBao stores the account. ExternalSecret
 `semantic-router-dashboard-admin` copies it into the namespace before the
 dashboard pod starts. The public first-admin form stays closed.
+`openbao-config` in the same cluster-forge release defines the OpenBao paths.
+When the cluster runs an `openbao-config` without those paths, the
+ExternalSecret does not become healthy and the sync does not finish.
 
 The dashboard creates that admin when the email is absent from its database.
 A new password in OpenBao does not replace an existing row. Delete the
