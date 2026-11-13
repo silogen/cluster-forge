@@ -19,7 +19,9 @@ spec:
   - amdenterpriseai/aim-radeon-base:0.12
   - amdenterpriseai/aim-base:2026.9.0
   - amdenterpriseai/aim-base:2026.9.1
-  - amdenterpriseai/aim-base:2026.22.0
+  - amdenterpriseai/aim-base:2026.15
+  - amdenterpriseai/aim-base:2026.16
+  - amdenterpriseai/aim-base:2026.22
   maxModels: 20
   registry: docker.io
   syncInterval: 1h
@@ -109,6 +111,7 @@ metadata:
 spec:
   filters:
     # Base images
+    - image: amdenterpriseai/aim-base:2026.22
     - image: amdenterpriseai/aim-base:2026.16
     - image: amdenterpriseai/aim-base:2026.15
     - image: amdenterpriseai/aim-base:2026.11
