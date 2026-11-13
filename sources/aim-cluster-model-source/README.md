@@ -11,7 +11,7 @@ exclusive branches, selected by `hardwareFamilies`:
 
 | `hardwareFamilies` | Template | What is installed |
 |---|---|---|
-| Empty (`[]`, chart default) | `templates/unfiltered.yaml` | Instinct model sources **0.11.1, 0.12.0, 0.13.0** plus mixed bases (`aim-base` including **2026.9.0** and **2026.9.1**, `aim-epyc-base`, `aim-radeon-base`). Does **not** install generic `amd-aim-release-*` or `amd-aim-instinct-2026.9.0`. |
+| Empty (`[]`, chart default) | `templates/unfiltered.yaml` | Instinct model sources **0.11.1, 0.12.0, 0.13.0** plus mixed bases (`aim-base` including **2026.9.0**, **2026.9.1** and **2026.22.0**, `aim-epyc-base`, `aim-radeon-base`). Does **not** install generic `amd-aim-release-*` or `amd-aim-instinct-2026.9.0`. |
 | Non-empty list | `templates/profiles.yaml` | Only the listed families (see table below). Instinct includes generic `amd-aim-release-*` (0.8.5–0.11.0) plus Instinct **0.11.1, 0.12.0, 0.13.0, 2026.9.0**. |
 
 cluster-bloom injects a YAML list at install from `AIM_HARDWARE_FAMILY`. That
@@ -32,7 +32,7 @@ hardwareFamilies:
 
 | Family | Model sources | Base images | Notes |
 |---|---|---|---|
-| `instinct` | `amd-aim-release-0.8.5` … `0.11.0`, `amd-aim-instinct-0.11.1`, `0.12.0`, `0.13.0`, `2026.9.0` | `aim-base` 0.11–0.13.1, **2026.9.0**, **2026.9.1** | Generic `amd-aim-release-*` and `amd-aim-instinct-2026.9.0` are part of the Instinct profile, not the unfiltered catalog |
+| `instinct` | `amd-aim-release-0.8.5` … `0.11.0`, `amd-aim-instinct-0.11.1`, `0.12.0`, `0.13.0`, `2026.9.0` | `aim-base` 0.11–0.13.1, **2026.9.0**, **2026.9.1**, **2026.22.0** | Generic `amd-aim-release-*` and `amd-aim-instinct-2026.9.0` are part of the Instinct profile, not the unfiltered catalog |
 | `epyc` | `amd-aim-epyc-0.11.0`, `amd-aim-epyc-0.13.0` | `aim-epyc-base` 0.11, 0.13 | |
 | `radeon` | `amd-aim-radeon-0.12.0` | `aim-radeon-base` 0.12 | Preview tags |
 | `cpu` | — | — | Placeholder only; no `AIMClusterModelSource` is rendered |
