@@ -53,16 +53,13 @@ if [[ -z "${domain}" ]]; then
   domain=$(kubectl get configmap cluster-domain --namespace default --output jsonpath='{.data.domain}')
 fi
 
-domain_re='^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$'
+domain=${domain,,}
+# RFC 1123 host name, the format that HTTPRoute hostnames accept.
+domain_re='^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$'
 if [[ ! "${domain}" =~ ${domain_re} ]]; then
   echo "The cluster domain from kubectl is not a host name: '${domain}'." >&2
   exit 1
 fi
-
-# Escape characters that are special in the sed replacement.
-sed_domain=${domain//\\/\\\\}
-sed_domain=${sed_domain//&/\\&}
-sed_domain=${sed_domain//#/\\#}
 
 echo "Blueprint: ${src}"
 echo "Destination: ${dest}"
@@ -99,13 +96,13 @@ for f in "${aigw_files[@]}"; do
 done
 
 sed -i \
-  -e "s#sr-dashboard\\.mycluster\\.example\\.com#sr-dashboard.${sed_domain}#" \
+  -e "s#sr-dashboard\\.mycluster\\.example\\.com#sr-dashboard.${domain}#" \
   -e 's/TODO-your-vllm-service:8000/test-vllm.semantic-router.svc:8000/' \
   -e 's/TODO-your-model/smoke-test-model/g' \
   extra-apps/semantic-router/values.yaml
 
 sed -i \
-  -e "s#sr\\.mycluster\\.example\\.com#sr.${sed_domain}#" \
+  -e "s#sr\\.mycluster\\.example\\.com#sr.${domain}#" \
   -e 's/TODO-your-vllm-service\.TODO-your-vllm-namespace\.svc\.cluster\.local/test-vllm.semantic-router.svc.cluster.local/' \
   -e 's/TODO-your-model-backend/smoke-test-backend/g' \
   -e 's/TODO-your-backend-model/smoke-test-model/g' \
@@ -116,10 +113,10 @@ sed -i \
 git add extra-apps-values.yaml extra-apps/semantic-router
 if ! git diff --cached --quiet; then
   git commit -m "feat: Add semantic-router extra app"
-  git push
 else
   echo "No file changes to commit."
 fi
+git push
 
 # The Secret stays on the cluster. Do not write the key into this repository.
 if ! kubectl get namespace semantic-router >/dev/null 2>&1; then

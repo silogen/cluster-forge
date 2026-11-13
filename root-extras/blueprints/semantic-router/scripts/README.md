@@ -6,7 +6,7 @@ The script reads the cluster domain from kubectl. It writes that domain into the
 
 ## Blueprint path
 
-The script sets `SRC` from the path of `setup.sh`. `SRC` is the parent directory of `scripts/`. This is the blueprint directory. You do not set `SRC`.
+The script finds the blueprint from the path of `setup.sh`. The blueprint is the parent directory of `scripts/`. You do not set the blueprint path.
 
 Start `setup.sh` by any path. The blueprint path stays the same.
 
@@ -38,6 +38,8 @@ kubectl get configmap cluster-domain --namespace default --output jsonpath='{.da
 ```
 
 cluster-bloom writes the key `DOMAIN`. When that key is empty, the script reads the key `domain`. The manual install guide writes that key.
+
+The script changes the domain to lowercase. The domain must be an RFC 1123 host name, the format that an HTTPRoute hostname accepts. The script stops when the domain has a different format.
 
 The dashboard host name is `sr-dashboard.<domain>`. The router host name is `sr.<domain>`.
 
@@ -90,7 +92,7 @@ git commit -m "feat: Add semantic-router extra app"
 git push
 ```
 
-A second run with the same files skips the commit and the push.
+A second run with the same files skips the commit. Each run pushes, so a second run also pushes a commit that an earlier run did not push.
 
 ## API key
 
