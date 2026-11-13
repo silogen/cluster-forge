@@ -1,9 +1,5 @@
-# Gateway resources for one semantic-router deployment.
-# Copy this file to extra-apps/semantic-router/manifests/ in the overlay repo.
-# ArgoCD applies these manifests directly. Replace each TODO first.
-# The shared HTTPS Gateway forwards traffic to the dedicated sr-gateway.
+# scripts/setup.sh copies this file to extra-apps/semantic-router/manifests/.
 # Envoy calls semantic-router over ext_proc, then routes to the selected backend.
-# The SecurityPolicy requires an API key. llmRequestCosts enables token quotas.
 
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -125,10 +121,8 @@ spec:
 # QuotaPolicy uses this value as the client bucket key. Keep key names unique.
 # `sanitize: true` removes Authorization before forwarding the request.
 #
-# Store this Secret directly in the cluster, not in the overlay repo:
-#
-#   kubectl -n semantic-router create secret generic semantic-router-client-keys \
-#     --from-literal=TODO-your-client-name="$(openssl rand -hex 32)"
+# scripts/setup.sh creates Secret semantic-router-client-keys.
+# The data key is smoke-client. The script prints the key once.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
