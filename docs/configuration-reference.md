@@ -168,7 +168,7 @@ before you run a script.
 | `CLUSTER_FORGE_REF` | `main` | The git reference to clone when `CLUSTER_FORGE_DIR` is not set. |
 | `CHART_VERSION` | `2.0.3` | Version of the AMD Enterprise AI OCI charts: AIRM, AIWB, PostgreSQL, RabbitMQ and External Secrets. |
 | `CLUSTER_NAME` | `demo-cluster` | The cluster name that the GPU metrics carry. |
-| `DRIVER_VERSION` | `7.0` | The ROCm version that the DeviceConfig declares. The host driver must match it. |
+| `DRIVER_VERSION` | `7.0` | DeviceConfig driver train. Instinct default is `7.0`. Radeon uses `7.13`. This is not the host `amdgpu` package version. |
 | `RWX_MUTATION` | `auto` | Apply the Kyverno policy that rewrites a ReadWriteMany claim to ReadWriteOnce. `auto` applies it for `rancher.io/local-path` only. `on` and `off` force the choice. |
 | `GPU_READY_TIMEOUT_SECONDS` | `600` | How long to wait for a node to advertise `amd.com/gpu`. |
 | `KSERVE_ATTEMPTS` | `3` | How many times to install KServe. Its webhook is not ready on the first attempt. |

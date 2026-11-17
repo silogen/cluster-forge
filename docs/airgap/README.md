@@ -450,7 +450,7 @@ The operator and CRD steps use the same chart artifact. Add it once;
 chapter 4 will render the appropriate CRD and operator portions.
 
 ```bash
-hauler store add chart haul/cluster-forge/sources/amd-gpu-operator/v1.4.1 --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
+hauler store add chart haul/cluster-forge/sources/amd-gpu-operator/v1.5.1 --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
 ```
 
 ### 3.27 AMD GPU Operator configuration
@@ -465,10 +465,10 @@ Pack the chart as a file artifact, then add the images that are actually
 needed:
 
 ```bash
-hauler store add chart haul/cluster-forge/sources/amd-gpu-operator-config/v1.4.1 --repo . --platform linux/amd64 --store "$EAI_STORE"
-hauler store add image docker.io/rocm/device-metrics-exporter:v1.4.1 --platform linux/amd64 --store "$EAI_STORE"
-hauler store add image docker.io/rocm/device-config-manager:v1.4.1 --platform linux/amd64 --store "$EAI_STORE"
-hauler store add image docker.io/rocm/test-runner:v1.4.1 --platform linux/amd64 --store "$EAI_STORE"
+hauler store add chart haul/cluster-forge/sources/amd-gpu-operator-config/v1.5.1 --repo . --platform linux/amd64 --store "$EAI_STORE"
+hauler store add image docker.io/rocm/device-metrics-exporter:v1.5.1 --platform linux/amd64 --store "$EAI_STORE"
+hauler store add image docker.io/rocm/device-config-manager:v1.5.1 --platform linux/amd64 --store "$EAI_STORE"
+hauler store add image docker.io/rocm/test-runner:v1.5.1 --platform linux/amd64 --store "$EAI_STORE"
 ```
 
 ### 3.28 AIM Engine CRDs
@@ -1306,7 +1306,7 @@ Chart name is `gpu-operator-charts`. Cluster-Forge namespace is
 
 ```bash
 kubectl create namespace kube-amd-gpu --dry-run=client -o yaml | kubectl apply -f -
-helm template amd-gpu-operator oci://127.0.0.1:5000/hauler/gpu-operator-charts --version v1.4.1 --plain-http --include-crds --no-hooks --namespace kube-amd-gpu --set crds.defaultCR.install=false | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n kube-amd-gpu --server-side --force-conflicts -f -
+helm template amd-gpu-operator oci://127.0.0.1:5000/hauler/gpu-operator-charts --version v1.5.1 --plain-http --include-crds --no-hooks --namespace kube-amd-gpu --set crds.defaultCR.install=false | sed '/^Pulled:/d;/^Digest:/d;s#quay.io/#127.0.0.1:5000/#g;s#docker.io/#127.0.0.1:5000/#g;s#ghcr.io/#127.0.0.1:5000/#g' | kubectl apply -n kube-amd-gpu --server-side --force-conflicts -f -
 ```
 
 #### 4.4.27 AMD GPU Operator configuration
@@ -1314,7 +1314,7 @@ helm template amd-gpu-operator oci://127.0.0.1:5000/hauler/gpu-operator-charts -
 ROCm images were added by hand in 3.27. Placeholder
 `imageregistry.io` refs in the chart are not hauled.
 
-Cluster-Forge passes `--set namespace=${CF_AMD_GPU_NS}` here, which the v1.4.1
+Cluster-Forge passes `--set namespace=${CF_AMD_GPU_NS}` here, which the v1.5.1
 chart ignores — every template reads `.Release.Namespace`. So the value that
 matters is the release namespace, and it is also what the metrics collector's
 scrape config is built from: a job pointed at the wrong namespace finds no

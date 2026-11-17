@@ -161,7 +161,7 @@ AIWB deployment consists of three phases that must be completed in order:
     - Depends on: cert-manager, KEDA
     - Namespace: `kserve-system`
 
-14. **AMD GPU Operator** (v1.4.1)
+14. **AMD GPU Operator** (v1.5.1)
     - Installs NFD (node detection), KMM (kernel module management), device plugin, and metrics exporter
     - Nodes with AMD GPUs are automatically labelled and `amd.com/gpu` resources are registered
     - Namespace: `amd-gpu-operator`
@@ -369,7 +369,7 @@ Complete list of components and their versions:
 
 | Component | Version | Namespace | Required | Notes |
 |-----------|---------|-----------|----------|-------|
-| AMD GPU Operator | v1.4.1 | `amd-gpu-operator` | ✅ Yes (GPU nodes) | Includes NFD, KMM, device plugin, metrics exporter. See [gpu_operator.md](components/gpu_operator.md) |
+| AMD GPU Operator | v1.5.1 | `amd-gpu-operator` | ✅ Yes (GPU nodes) | Includes NFD, KMM, device plugin, metrics exporter. See [gpu_operator.md](components/gpu_operator.md) |
 
 ### Full Platform (AIRM + AIWB)
 
