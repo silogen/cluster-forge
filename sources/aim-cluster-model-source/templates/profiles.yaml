@@ -126,8 +126,6 @@ spec:
     - image: amdenterpriseai/aim-openai-gpt-oss-120b:2026.11.0-rc1
     # google/gemma-4-26B-A4B-it (EAI-8956)
     - image: amdenterpriseai/aim-google-gemma-4-26b-a4b-it:2026.22.1
-    # moonshotai/Kimi-K3 (EAI-8935)
-    - image: amdenterpriseai/aim-moonshotai-kimi-k3:2026.11.0-rc1
     # google/gemma-4-12B-it (EAI-8957)
     - image: amdenterpriseai/aim-google-gemma-4-12b-it:2026.22.0
     # Qwen/Qwen3.8-27B (EAI-8955)
