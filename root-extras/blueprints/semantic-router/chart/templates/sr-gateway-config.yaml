@@ -1,3 +1,4 @@
+{{- if eq .Values.routing.mode "aigw" }}
 # GatewayConfig is namespace-scoped, so the cluster's own `ai-extproc`
 # (envoy-gateway-system, sources/envoy-gateway-config/templates/gateway-config-ai.yaml)
 # cannot be referenced from sr-gateway.yaml's annotation. This is that same
@@ -14,3 +15,5 @@ spec:
         requests:
           cpu: 100m
           memory: 256Mi
+
+{{- end }}

@@ -12,13 +12,14 @@ extraApps:
         helm:
           valueFiles:
             - $cluster-values/extra-apps/semantic-router/values.yaml
-      # Gateway manifests for this Application. An empty directory fails the sync.
-      # Drop this source to leave the router off the request path.
+      # Gateway chart. It reads the same values file as the router chart.
+      # An empty chart path fails the sync.
       - repoURL: "{{ .Values.externalValues.repoUrl }}"
         targetRevision: "{{ .Values.externalValues.targetRevision }}"
-        path: extra-apps/semantic-router/manifests
-        directory:
-          recurse: true
+        path: extra-apps/semantic-router/chart
+        helm:
+          valueFiles:
+            - $cluster-values/extra-apps/semantic-router/values.yaml
       # The overlay repo the $cluster-values alias above resolves against.
       # externalValues is forwarded by cluster-forge-extras, so this needs no
       # editing.

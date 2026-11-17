@@ -1,5 +1,6 @@
-# scripts/setup.sh copies this file to extra-apps/semantic-router/values.yaml.
-# Argo CD reads that copy as plain YAML, so write the cluster domain literally.
+# setup.sh copies this file to extra-apps/semantic-router/values.yaml.
+# Edit models.small, models.medium, and models.large. Leave the alias lines in config.
+# Anchors copy each id and endpoint into config. The gateway chart reads the same entries.
 
 persistence:
   # Empty string omits the field. The cluster default StorageClass applies.
@@ -26,31 +27,30 @@ dashboard:
     enabled: true
     storageClassName: ""
 
-  # The public first-admin form stays closed. Startup creates the admin from
-  # Secret semantic-router-dashboard-admin. See the README.
+  # The public first-admin form stays closed.
   allowOpenBootstrap: false
 
-  # Stable session signing key. Without this, every pod start logs everyone out.
-  jwtSecret:
-    existingSecret: semantic-router-dashboard-admin
-    existingSecretKey: jwt-secret
-
-  extraEnv:
-    - name: DASHBOARD_ADMIN_EMAIL
-      valueFrom:
-        secretKeyRef:
-          name: semantic-router-dashboard-admin
-          key: email
-    - name: DASHBOARD_ADMIN_NAME
-      valueFrom:
-        secretKeyRef:
-          name: semantic-router-dashboard-admin
-          key: name
-    - name: DASHBOARD_ADMIN_PASSWORD
-      valueFrom:
-        secretKeyRef:
-          name: semantic-router-dashboard-admin
-          key: password
+  # Uncomment jwtSecret and extraEnv after Secret semantic-router-dashboard-admin exists.
+  # With those keys set and the Secret absent, the dashboard pod stays in CreateContainerConfigError.
+  # jwtSecret:
+  #   existingSecret: semantic-router-dashboard-admin
+  #   existingSecretKey: jwt-secret
+  # extraEnv:
+  #   - name: DASHBOARD_ADMIN_EMAIL
+  #     valueFrom:
+  #       secretKeyRef:
+  #         name: semantic-router-dashboard-admin
+  #         key: email
+  #   - name: DASHBOARD_ADMIN_NAME
+  #     valueFrom:
+  #       secretKeyRef:
+  #         name: semantic-router-dashboard-admin
+  #         key: name
+  #   - name: DASHBOARD_ADMIN_PASSWORD
+  #     valueFrom:
+  #       secretKeyRef:
+  #         name: semantic-router-dashboard-admin
+  #         key: password
 
   httpRoute:
     enabled: true
@@ -61,8 +61,32 @@ dashboard:
       name: https
       namespace: envoy-gateway-system
 
+# aigw uses the AI Gateway CRDs. envoy sends each model to its Service.
+routing:
+  mode: aigw
+  hostname: sr.mycluster.example.com
+
+# Set enabled to true to render QuotaPolicy. Requires routing.mode aigw.
+quota:
+  enabled: false
+  limit: 100000
+  duration: 1h
+
+# The three ids must differ. endpoint is <service>.<namespace>.svc.cluster.local:<port>.
+models:
+  small:
+    id: &modelSmall "TODO-small-model"
+    endpoint: &endpointSmall "TODO-your-vllm-service.TODO-your-vllm-namespace.svc.cluster.local:8000"
+  medium:
+    id: &modelMedium "TODO-medium-model"
+    endpoint: &endpointMedium "TODO-your-vllm-service.TODO-your-vllm-namespace.svc.cluster.local:8000"
+  large:
+    id: &modelLarge "TODO-large-model"
+    endpoint: &endpointLarge "TODO-your-vllm-service.TODO-your-vllm-namespace.svc.cluster.local:8000"
+
 # Schema v0.5. Decisions live under recipes.
-# Repeat the model name in each list. Helm replaces a list.
+# Easy prompts use the small model. Hard prompts use the large model.
+# Every other prompt uses the medium model.
 config:
   version: v0.5
   # Required together with VLLM_SR_MANAGEMENT_INTERNAL_LISTENER.
@@ -72,32 +96,69 @@ config:
         bind_address: "0.0.0.0"
   providers:
     defaults:
-      model: "TODO-your-model"
+      model: *modelMedium
     models:
-      - name: "TODO-your-model"
-        # The ID the backend itself expects, which may differ from the name above.
-        provider_model_id: "TODO-your-model"
+      - name: *modelSmall
+        provider_model_id: *modelSmall
         backend_refs:
           - name: "primary"
             provider: vllm
-            # TODO: your vLLM service, e.g. my-vllm.my-namespace.svc:8000
-            endpoint: "TODO-your-vllm-service:8000"
+            endpoint: *endpointSmall
+            protocol: "http"
+            weight: 100
+      - name: *modelMedium
+        provider_model_id: *modelMedium
+        backend_refs:
+          - name: "primary"
+            provider: vllm
+            endpoint: *endpointMedium
+            protocol: "http"
+            weight: 100
+      - name: *modelLarge
+        provider_model_id: *modelLarge
+        backend_refs:
+          - name: "primary"
+            provider: vllm
+            endpoint: *endpointLarge
             protocol: "http"
             weight: 100
   recipes:
     - name: default
       signals:
-        domains:
-          - name: "general"
-            description: "Catch-all domain"
-            labels: ["other"]
+        complexity:
+          - name: task-complexity
+            description: "Distinguish simple factual queries from complex reasoning tasks."
       decisions:
+        - name: "hard-to-large"
+          description: "Hard prompts use the large model."
+          priority: 200
+          rules:
+            operator: "AND"
+            conditions:
+              - type: "complexity"
+                name: "task-complexity"
+                label: "hard"
+          modelRefs:
+            - model: *modelLarge
+              use_reasoning: false
+        - name: "easy-to-small"
+          description: "Easy prompts use the small model."
+          priority: 150
+          rules:
+            operator: "AND"
+            conditions:
+              - type: "complexity"
+                name: "task-complexity"
+                label: "easy"
+          modelRefs:
+            - model: *modelSmall
+              use_reasoning: false
         - name: "default-route"
-          description: "Catch-all route. Add decisions after a backend is connected."
+          description: "Catch-all route. Other prompts use the medium model."
           priority: 100
           rules:
             operator: "AND"
             conditions: []
           modelRefs:
-            - model: "TODO-your-model"
+            - model: *modelMedium
               use_reasoning: false

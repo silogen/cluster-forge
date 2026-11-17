@@ -79,36 +79,33 @@ fi
 BLUEPRINT_EXTRA_APPS="${src}/extraApps.yaml" \
   yq eval -i '.extraApps.semantic-router = load(strenv(BLUEPRINT_EXTRA_APPS)).extraApps.semantic-router' extra-apps-values.yaml
 
-mkdir -p extra-apps/semantic-router/manifests
+mkdir -p extra-apps/semantic-router
 cp "${src}/values.yaml" extra-apps/semantic-router/values.yaml
-cp "${src}/manifests/gateway-routing.yaml" extra-apps/semantic-router/manifests/
-cp "${src}/manifests/dashboard-admin-externalsecret.yaml" extra-apps/semantic-router/manifests/
 
-aigw_files=(
-  sr-gateway.yaml
-  sr-gateway-config.yaml
-  sr-gateway-proxy-config.yaml
-  sr-gateway-service.yaml
-  sr-gateway-extproc.yaml
-)
-for f in "${aigw_files[@]}"; do
-  cp "${src}/manifests/aigw-extras/${f}" extra-apps/semantic-router/manifests/
-done
+# A later run replaces the chart. Keep an ExternalSecret the user added.
+preserved=""
+externalsecret_path="extra-apps/semantic-router/chart/templates/dashboard-admin-externalsecret.yaml"
+if [[ -f "${externalsecret_path}" ]]; then
+  preserved=$(mktemp)
+  cp "${externalsecret_path}" "${preserved}"
+fi
+rm -rf extra-apps/semantic-router/chart
+cp -a "${src}/chart" extra-apps/semantic-router/chart
+if [[ -n "${preserved}" ]]; then
+  cp "${preserved}" "${externalsecret_path}"
+  rm -f "${preserved}"
+fi
+# The chart replaced the old manifests directory.
+rm -rf extra-apps/semantic-router/manifests
 
 sed -i \
   -e "s#sr-dashboard\\.mycluster\\.example\\.com#sr-dashboard.${domain}#" \
-  -e 's/TODO-your-vllm-service:8000/test-vllm.semantic-router.svc:8000/' \
-  -e 's/TODO-your-model/smoke-test-model/g' \
-  extra-apps/semantic-router/values.yaml
-
-sed -i \
   -e "s#sr\\.mycluster\\.example\\.com#sr.${domain}#" \
-  -e 's/TODO-your-vllm-service\.TODO-your-vllm-namespace\.svc\.cluster\.local/test-vllm.semantic-router.svc.cluster.local/' \
-  -e 's/TODO-your-model-backend/smoke-test-backend/g' \
-  -e 's/TODO-your-backend-model/smoke-test-model/g' \
-  -e 's/TODO-your-model/smoke-test-model/g' \
-  -e 's/TODO-your-client-name/smoke-client/g' \
-  extra-apps/semantic-router/manifests/gateway-routing.yaml
+  -e 's/TODO-small-model/smoke-test-small/g' \
+  -e 's/TODO-medium-model/smoke-test-medium/g' \
+  -e 's/TODO-large-model/smoke-test-large/g' \
+  -e 's/TODO-your-vllm-service\.TODO-your-vllm-namespace\.svc\.cluster\.local:8000/test-vllm.semantic-router.svc.cluster.local:8000/g' \
+  extra-apps/semantic-router/values.yaml
 
 git add extra-apps-values.yaml extra-apps/semantic-router
 if ! git diff --cached --quiet; then

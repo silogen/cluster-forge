@@ -49,38 +49,28 @@ The dashboard host name is `sr-dashboard.<domain>`. The router host name is `sr.
 |---|---|
 | `extraApps.yaml` | `extra-apps-values.yaml`, key `extraApps.semantic-router` only |
 | `values.yaml` | `extra-apps/semantic-router/values.yaml` |
-| `manifests/gateway-routing.yaml` | `extra-apps/semantic-router/manifests/gateway-routing.yaml` |
-| `manifests/dashboard-admin-externalsecret.yaml` | `extra-apps/semantic-router/manifests/dashboard-admin-externalsecret.yaml` |
-| `manifests/aigw-extras/sr-gateway.yaml` | `extra-apps/semantic-router/manifests/sr-gateway.yaml` |
-| `manifests/aigw-extras/sr-gateway-config.yaml` | `extra-apps/semantic-router/manifests/sr-gateway-config.yaml` |
-| `manifests/aigw-extras/sr-gateway-proxy-config.yaml` | `extra-apps/semantic-router/manifests/sr-gateway-proxy-config.yaml` |
-| `manifests/aigw-extras/sr-gateway-service.yaml` | `extra-apps/semantic-router/manifests/sr-gateway-service.yaml` |
-| `manifests/aigw-extras/sr-gateway-extproc.yaml` | `extra-apps/semantic-router/manifests/sr-gateway-extproc.yaml` |
+| `chart/` | `extra-apps/semantic-router/chart/` |
+| `manifests/dashboard-admin-externalsecret.yaml` | Optional. The script does not copy it. Copy it to `extra-apps/semantic-router/chart/templates/` for dashboard way 2. A later run keeps that copy. |
+| `manifests/gateway-routing-direct-envoy.yaml` | Not copied. Annotated example for `routing.mode: envoy`. |
+
+A later run replaces `chart/` and deletes `extra-apps/semantic-router/manifests` when that directory is present. The old install kept gateway files in `manifests/`. The chart is the source Argo CD syncs.
 
 ## Replacements
 
-The script replaces each match in the destination file. A match in a comment changes too. A different TODO name stays in the file.
+The script replaces each match in `extra-apps/semantic-router/values.yaml`. A match in a comment changes too. A different TODO name stays in the file.
 
-A later run copies `values.yaml` and `gateway-routing.yaml` from the blueprint again. That run writes the smoke-test model names again. Put real Service addresses and model IDs into those files after the last run of this script. The blueprint README names the fields.
-
-In `extra-apps/semantic-router/values.yaml`:
+A later run copies `values.yaml` from the blueprint again and writes the smoke-test names again. Put real model ids and Service addresses into `models.small`, `models.medium`, and `models.large` after the last run. The blueprint README names the fields.
 
 | Text in the blueprint | Text after the script |
 |---|---|
 | `sr-dashboard.mycluster.example.com` | `sr-dashboard.<domain>` |
-| `TODO-your-vllm-service:8000` | `test-vllm.semantic-router.svc:8000` |
-| `TODO-your-model` | `smoke-test-model` |
-
-In `extra-apps/semantic-router/manifests/gateway-routing.yaml`:
-
-| Text in the blueprint | Text after the script |
-|---|---|
 | `sr.mycluster.example.com` | `sr.<domain>` |
-| `TODO-your-vllm-service.TODO-your-vllm-namespace.svc.cluster.local` | `test-vllm.semantic-router.svc.cluster.local` |
-| `TODO-your-model-backend` | `smoke-test-backend` |
-| `TODO-your-backend-model` | `smoke-test-model` |
-| `TODO-your-model` | `smoke-test-model` |
-| `TODO-your-client-name` | `smoke-client` |
+| `TODO-small-model` | `smoke-test-small` |
+| `TODO-medium-model` | `smoke-test-medium` |
+| `TODO-large-model` | `smoke-test-large` |
+| `TODO-your-vllm-service.TODO-your-vllm-namespace.svc.cluster.local:8000` | `test-vllm.semantic-router.svc.cluster.local:8000` |
+
+The three ids differ so the gateway chart can create one backend per model. The three endpoints share the smoke-test Service.
 
 ## Git commands
 
@@ -96,7 +86,7 @@ A second run with the same files skips the commit. Each run pushes, so a second 
 
 ## API key
 
-The script creates namespace `semantic-router` when that namespace is absent. It then creates Secret `semantic-router-client-keys` when that Secret is absent. The Secret data key is `smoke-client`. That name matches the client name written into `gateway-routing.yaml`.
+The script creates namespace `semantic-router` when that namespace is absent. It then creates Secret `semantic-router-client-keys` when that Secret is absent. The Secret data key is `smoke-client`. The gateway chart's `SecurityPolicy` reads that key.
 
 The script prints the key once:
 

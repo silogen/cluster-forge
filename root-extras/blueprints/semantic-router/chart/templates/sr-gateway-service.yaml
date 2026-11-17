@@ -1,3 +1,4 @@
+{{- if eq .Values.routing.mode "aigw" }}
 # ClusterIP Service for the inner Gateway proxy. Envoy Gateway creates managed
 # proxy pods in envoy-gateway-system, so keep this Service in that namespace.
 apiVersion: v1
@@ -34,3 +35,5 @@ spec:
     - group: ""
       kind: Service
       name: sr-gateway
+
+{{- end }}

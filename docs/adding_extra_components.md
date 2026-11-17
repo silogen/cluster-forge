@@ -178,7 +178,9 @@ resources. AI Gateway uses `AIGatewayRoute` and `AIServiceBackend`. Application
 charts often do not include these resources because they describe cluster
 routing. The required resources depend on the integration. The
 [`semantic-router`](../root-extras/blueprints/semantic-router/README.md)
-blueprint shows Envoy Gateway ext_proc with AI Gateway routes and backends.
+blueprint renders Envoy Gateway ext_proc, AI Gateway routes, and backends from
+a chart in the overlay. The directory source below is the other way to ship
+plain manifests.
 
 Point an additional source at a directory of plain YAML in the overlay repo.
 ArgoCD combines the output of every source that sets `path`/`chart`, so the
@@ -263,22 +265,23 @@ placeholder values pointing at a fake repo. Shows the shape; deploys nothing.
 
 **`root-extras/blueprints/<name>/`** — real, tested config for a named upstream
 component, pre-filled except for the parts only you know. Each blueprint ships
-an `extraApps.yaml` envelope, a `values.yaml`, a README covering prerequisites
-and which fields to edit, and — where the upstream chart is missing resources
-the cluster needs — a `manifests/` directory. The semantic-router blueprint
-installs with `scripts/setup.sh`. The copies in the overlay repo do not track
-this repo, so a blueprint change here does not alter a running cluster.
+an `extraApps.yaml` envelope, a `values.yaml`, and a README covering
+prerequisites and which fields to edit. Where the upstream chart is missing
+resources the cluster needs, the blueprint also ships those resources. The
+semantic-router blueprint installs with `scripts/setup.sh` and ships them as
+a chart. The copies in the overlay repo do not track this repo, so a blueprint
+change here does not alter a running cluster.
 
 | Blueprint | What it deploys |
 |---|---|
 | [`semantic-router`](../root-extras/blueprints/semantic-router/README.md) | vLLM Semantic Router + dashboard; Envoy external processor selects a model for each request |
 
-Note the blueprint's `values.yaml` and `manifests/` land in your overlay repo and
-are read by ArgoCD directly, so unlike the `extraApps` block they are **not**
-passed through `tpl` — `{{ .Values.global.domain }}` will not resolve in either.
-Anything that has to derive from forwarded context belongs in the envelope's
-inline `helm.values` instead; in a manifest it has to be written out literally
-(see [Shipping static manifests alongside a chart](#shipping-static-manifests-alongside-a-chart)).
+The semantic-router `values.yaml` lands in the overlay and is a Helm values
+file for both charts. `root-extras` does not pass that file through `tpl`, so
+`{{ .Values.global.domain }}` does not resolve in it. The gateway chart
+templates read `models` and `routing` from that same file. A directory of
+plain manifests, as in the section above, is also not passed through `tpl`.
+Write hostnames in the values file, or in the manifest, as literal text.
 
 ## Verifying locally
 
