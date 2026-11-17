@@ -150,15 +150,16 @@ creating the Secret. This way needs OpenBao, External Secrets Operator, and
 ClusterSecretStore `openbao-secret-store`. A bloomed cluster has all three.
 
 `openbao-config` in the same cluster-forge release defines the four OpenBao
-paths. Copy the ExternalSecret into the gateway chart. The file is necessary
-only to read the Secret from OpenBao. `setup.sh` does not copy it.
+paths. Run this script from the root of cluster-values, after `setup.sh`:
 
 ```bash
-cp /path/to/cluster-forge/root-extras/blueprints/semantic-router/manifests/dashboard-admin-externalsecret.yaml \
-  extra-apps/semantic-router/chart/templates/dashboard-admin-externalsecret.yaml
+/path/to/cluster-forge/root-extras/blueprints/semantic-router/scripts/setup-dashboard-admin.sh
 ```
 
-Uncomment the same two blocks as in way 1. Commit and push.
+The script copies the ExternalSecret into the gateway chart. It sets
+`dashboard.jwtSecret` and `dashboard.extraEnv` in
+`extra-apps/semantic-router/values.yaml`. It commits and pushes. The file is
+necessary only to read the Secret from OpenBao. `setup.sh` does not copy it.
 
 Sign in at `https://sr-dashboard.<domain>` with email `admin@<domain>` and
 display name `admin`. Read the password:
@@ -168,7 +169,9 @@ kubectl -n semantic-router get secret semantic-router-dashboard-admin \
     -o jsonpath='{.data.password}' | base64 -d; echo
 ```
 
-A later run of `setup.sh` keeps this file when it replaces the chart.
+A later run of `setup.sh` keeps this file when it replaces the chart. That
+run copies `values.yaml` from the blueprint again, so `jwtSecret` and
+`extraEnv` are comments again. Run `setup-dashboard-admin.sh` after that run.
 
 ### 3. Open bootstrap
 

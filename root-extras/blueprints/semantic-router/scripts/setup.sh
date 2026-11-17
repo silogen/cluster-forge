@@ -113,7 +113,20 @@ if ! git diff --cached --quiet; then
 else
   echo "No file changes to commit."
 fi
-git push
+
+# Push with GITEA_USERNAME and GITEA_PASSWORD when both are set. Otherwise git
+# prompts. The helper reads the variables from its environment, so the password
+# is not on the command line or in the repository.
+push_overlay() {
+  if [[ -n "${GITEA_USERNAME:-}" && -n "${GITEA_PASSWORD:-}" ]]; then
+    git -c credential.helper= \
+      -c 'credential.helper=!f() { test "$1" = get || exit 0; echo "username=$GITEA_USERNAME"; echo "password=$GITEA_PASSWORD"; }; f' \
+      push
+  else
+    git push
+  fi
+}
+push_overlay
 
 # The Secret stays on the cluster. Do not write the key into this repository.
 if ! kubectl get namespace semantic-router >/dev/null 2>&1; then
