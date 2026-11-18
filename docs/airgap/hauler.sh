@@ -371,9 +371,9 @@ haul_spur_package() {
     # The chart version is 0.1.0. The DeviceConfig deploys these tags, the
     # same ones the full-stack path adds. The device plugin fields are not
     # named image:, so --add-images does not see them.
-    add_image "docker.io/rocm/device-metrics-exporter:v1.4.1"
-    add_image "docker.io/rocm/device-config-manager:v1.4.1"
-    add_image "docker.io/rocm/test-runner:v1.4.1"
+    add_image "docker.io/rocm/device-metrics-exporter:v1.5.1"
+    add_image "docker.io/rocm/device-config-manager:v1.5.1"
+    add_image "docker.io/rocm/test-runner:v1.5.1"
     add_image "docker.io/rocm/k8s-device-plugin:latest"
     add_image "docker.io/rocm/k8s-device-plugin:labeller-latest"
   fi
@@ -580,13 +580,13 @@ pack_full_stack() {
   hauler store add image docker.io/kserve/kserve-controller:v0.16.0 --platform linux/amd64 --store "$EAI_STORE"
 
   # 3.26 AMD GPU Operator and CRDs
-  hauler store add chart haul/cluster-forge/sources/amd-gpu-operator/v1.4.1 --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
+  hauler store add chart haul/cluster-forge/sources/amd-gpu-operator/v1.5.1 --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
 
   # 3.27 AMD GPU Operator configuration (no --add-images: skip imageregistry.io placeholder)
-  hauler store add chart haul/cluster-forge/sources/amd-gpu-operator-config/v1.4.1 --repo . --platform linux/amd64 --store "$EAI_STORE"
-  hauler store add image docker.io/rocm/device-metrics-exporter:v1.4.1 --platform linux/amd64 --store "$EAI_STORE"
-  hauler store add image docker.io/rocm/device-config-manager:v1.4.1 --platform linux/amd64 --store "$EAI_STORE"
-  hauler store add image docker.io/rocm/test-runner:v1.4.1 --platform linux/amd64 --store "$EAI_STORE"
+  hauler store add chart haul/cluster-forge/sources/amd-gpu-operator-config/v1.5.1 --repo . --platform linux/amd64 --store "$EAI_STORE"
+  hauler store add image docker.io/rocm/device-metrics-exporter:v1.5.1 --platform linux/amd64 --store "$EAI_STORE"
+  hauler store add image docker.io/rocm/device-config-manager:v1.5.1 --platform linux/amd64 --store "$EAI_STORE"
+  hauler store add image docker.io/rocm/test-runner:v1.5.1 --platform linux/amd64 --store "$EAI_STORE"
 
   # 3.27b AMD GPU NodeFeatureRule
   hauler store add file haul/cluster-forge/docs/openshift/extra/08-amd-gpu-nodefeaturerule.yaml --name 08-amd-gpu-nodefeaturerule.yaml --store "$EAI_STORE"

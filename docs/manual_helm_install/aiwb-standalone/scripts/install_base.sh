@@ -535,9 +535,9 @@ kubectl create namespace amd-gpu-operator --dry-run=client -o yaml | kubectl app
 # before any pods start, otherwise they crash-loop on missing nodefeatures/nodefeaturegroups.
 # We use kubectl apply rather than helm's CRD handling because helm install with CRDs
 # is not idempotent across re-runs without a pre-existing release.
-kubectl apply --server-side -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/crds/
-kubectl apply --server-side -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/charts/node-feature-discovery/crds/
-kubectl apply --server-side -f ${SOURCES_DIR}/amd-gpu-operator/v1.4.1/charts/kmm/crds/
+kubectl apply --server-side -f ${SOURCES_DIR}/amd-gpu-operator/v1.5.1/crds/
+kubectl apply --server-side -f ${SOURCES_DIR}/amd-gpu-operator/v1.5.1/charts/node-feature-discovery/crds/
+kubectl apply --server-side -f ${SOURCES_DIR}/amd-gpu-operator/v1.5.1/charts/kmm/crds/
 
 echo "⏳ Waiting for AMD GPU Operator CRDs to be established..."
 kubectl wait --for=condition=established --timeout=60s \
@@ -548,7 +548,7 @@ kubectl wait --for=condition=established --timeout=60s \
 # Use helm upgrade --install (not helm template | kubectl apply) so that all resources
 # get the correct release namespace injected. The GPU operator chart omits explicit
 # namespace on several cluster-scoped resources and relies on Helm's injection.
-helm upgrade --install amd-gpu-operator ${SOURCES_DIR}/amd-gpu-operator/v1.4.1 \
+helm upgrade --install amd-gpu-operator ${SOURCES_DIR}/amd-gpu-operator/v1.5.1 \
   --namespace amd-gpu-operator \
   --set crds.defaultCR.install=true \
   --skip-crds \

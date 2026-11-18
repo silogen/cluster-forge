@@ -24,7 +24,7 @@ All four components are deployed via a single `DeviceConfig` custom resource tha
 
 ## What install_base.sh installs
 
-`install_base.sh` deploys the operator chart from `sources/amd-gpu-operator/v1.4.1` with these defaults:
+`install_base.sh` deploys the operator chart from `sources/amd-gpu-operator/v1.5.1` with these defaults:
 
 - NFD enabled — nodes are labelled automatically based on PCI device detection
 - KMM enabled — standing by to manage out-of-tree modules if requested
@@ -78,7 +78,7 @@ By default the inbox `amdgpu` driver loaded by the OS is used. Enable out-of-tre
 Re-apply the operator with driver management enabled:
 
 ```bash
-helm template amd-gpu-operator /tmp/cluster-forge/sources/amd-gpu-operator/v1.4.1 \
+helm template amd-gpu-operator /tmp/cluster-forge/sources/amd-gpu-operator/v1.5.1 \
   --namespace amd-gpu-operator \
   --set crds.defaultCR.install=true \
   --set deviceConfig.spec.driver.enable=true \
@@ -99,7 +99,7 @@ The default DeviceConfig covers most use cases. To customise it, delete the defa
 kubectl delete deviceconfig default-deviceconfig -n amd-gpu-operator
 ```
 
-A fully annotated example is at `sources/amd-gpu-operator-config/deviceconfig_example.yaml`. A minimal custom DeviceConfig looks like:
+A fully annotated example is at `sources/amd-gpu-operator-config/v1.5.1/templates/deviceconfig-example.yaml`. A minimal custom DeviceConfig looks like:
 
 ```yaml
 apiVersion: amd.com/v1alpha1
@@ -137,7 +137,7 @@ projects, and workloads. This is done via a ConfigMap named `gpu-config` in
 the `kube-amd-gpu` namespace.
 
 A reference configuration is available at
-[`sources/amd-gpu-operator-config/ConfigMap_amd-gpu-metrics-exporter-config.yaml`](../../../sources/amd-gpu-operator-config/ConfigMap_amd-gpu-metrics-exporter-config.yaml).
+[`sources/amd-gpu-operator-config/v1.5.1/templates/configmap-gpu-config.yaml`](../../../sources/amd-gpu-operator-config/v1.5.1/templates/configmap-gpu-config.yaml).
 
 Key fields in the ConfigMap:
 
@@ -155,7 +155,7 @@ for the full ConfigMap template and detailed setup instructions.
 The metrics exporter runs on every GPU node and listens on port 5000 by default. To configure Prometheus to scrape it automatically via a ServiceMonitor (requires Prometheus Operator CRDs to be installed):
 
 ```bash
-helm template amd-gpu-operator /tmp/cluster-forge/sources/amd-gpu-operator/v1.4.1 \
+helm template amd-gpu-operator /tmp/cluster-forge/sources/amd-gpu-operator/v1.5.1 \
   --namespace amd-gpu-operator \
   --set crds.defaultCR.install=true \
   --set deviceConfig.spec.metricsExporter.prometheus.serviceMonitor.enable=true \

@@ -109,7 +109,7 @@ See [Values Inheritance Pattern](docs/values_inheritance_pattern.md) for detaile
 ### Layer 5: AI/ML Compute Stack
 
 **GPU & Scheduling:**
-- **AMD GPU Operator v1.4.1** - GPU device plugin and drivers
+- **AMD GPU Operator v1.5.1** - GPU device plugin and drivers
 - **KubeRay Operator 1.4.2** - Ray distributed computing framework
 - **Kueue 0.13.0** - Job queueing with multi-framework support
 - **AppWrapper v1.1.2** - Application-level resource scheduling

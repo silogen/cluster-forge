@@ -1035,7 +1035,7 @@ apps:
     name: AMD GPU operator CRDs
     mode: core
     root-inherited: true
-    path: amd-gpu-operator/v1.4.1
+    path: amd-gpu-operator/v1.5.1
     namespace: amd-gpu-operator
     includeCrds: true
     onlyKinds:

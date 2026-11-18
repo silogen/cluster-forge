@@ -1452,12 +1452,12 @@ fi
 
 # 4.4.26 AMD GPU Operator and CRDs
 if should_run 26; then
-  apply_chart 4.4.26 amd-gpu-operator gpu-operator-charts v1.4.1 "$CF_AMD_GPU_NS" --set crds.defaultCR.install=false
+  apply_chart 4.4.26 amd-gpu-operator gpu-operator-charts v1.5.1 "$CF_AMD_GPU_NS" --set crds.defaultCR.install=false
 fi
 
 # 4.4.27 AMD GPU Operator configuration
 #
-# Cluster-Forge passes --set namespace=${CF_AMD_GPU_NS} here, which the v1.4.1
+# Cluster-Forge passes --set namespace=${CF_AMD_GPU_NS} here, which the v1.5.1
 # chart ignores: every template reads .Release.Namespace. The value that
 # matters is the release namespace, so this installs into CF_AMD_GPU_NS
 # instead of hardcoding one. It is the namespace the metrics collector's

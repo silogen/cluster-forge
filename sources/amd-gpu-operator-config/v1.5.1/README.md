@@ -5,9 +5,10 @@ resource plus supporting RBAC and the metrics `gpu-config` ConfigMap.
 
 ## GPU stack family selection
 
-The DeviceConfig out-of-tree driver ROCm version is selected by GPU family so it
-matches the host ROCm installed by cluster-bloom and the GPU Operator chart
-version. This is driven by cluster-bloom's `GPU_STACK_FAMILY` flag.
+`GPU_STACK_FAMILY` selects the DeviceConfig driver train. Cluster Bloom does
+not install a host ROCm runtime. The host `amdgpu` package default stays
+`31.40.0` for both families. The operator chart is AMD GPU Operator `v1.5.1`
+for every family. Cluster Forge pins that chart in `root/values.yaml`.
 
 Values:
 
@@ -23,17 +24,15 @@ Resolution precedence (see `templates/_helpers.tpl`, `gpuStack.driverVersion`):
 2. else `profiles[gpuStackFamily].driverVersion`,
 3. else the `instinct` profile.
 
-Empty input resolves to `instinct` → `7.0`, so existing installs are unchanged.
+Empty input resolves to `instinct` → `7.0`. `radeon` resolves to `7.13`
+(tech preview).
 
 ### How the value is injected
 
-- **Small clusters:** cluster-bloom renders the parent chart with
-  `--set apps.amd-gpu-operator-config.valuesObject.gpuStackFamily=<family>` and
-  `--set apps.amd-gpu-operator-config.valuesObject.driverVersion=<version>`.
-- **Medium / large clusters:** the `gitea-init-job` writes the same keys into the
-  cluster-values repo.
-
-The GPU Operator chart version itself is selected separately via the app-level
-`apps.amd-gpu-operator.path` field (a sibling of `valuesObject`), not in this
-chart.
+cluster-bloom writes `gpuStackFamily` and `driverVersion` into the
+cluster-values repository through the `gitea-init-job`. It does not write
+`apps.amd-gpu-operator.path` or `apps.amd-gpu-operator-config.path`. Those
+paths stay in the Cluster Forge release: `amd-gpu-operator/v1.5.1` and
+`amd-gpu-operator-config/v1.5.1`. A path set in cluster-values overrides that
+pin, because cluster-values is merged last.
 
