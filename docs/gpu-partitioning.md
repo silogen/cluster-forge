@@ -4,6 +4,8 @@ Set AMD Instinct GPUs to compute partition `CPX` on an Enterprise AI reference s
 
 `CPX` exposes each XCC as its own logical GPU. A process that holds `/dev/kfd` blocks the change even when it is using no VRAM. The mode is a property of the physical GPU and is not kept across reboot: the driver comes back on the default accelerator profile, so a oneshot unit has to set `CPX` again before anything opens the device.
 
+This guide sets the mode with `amd-smi` on the node. AMD also documents an operator-managed method that applies a partition profile through the Device Config Manager (DCM) ConfigMap and a node label: see [GPU Partitioning via DCM](https://instinct.docs.amd.com/projects/gpu-operator/en/latest/dcm/applying-partition-profiles.html) in the AMD GPU Operator documentation.
+
 Run the node commands on the GPU node. Run the `kubectl` commands against the cluster. The Argo CD Application names below are the ones Cluster Forge installs; confirm them on the cluster before patching.
 
 ## Check the modes this GPU actually supports
