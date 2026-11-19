@@ -16,6 +16,13 @@ spec:
         # LoadBalancer: the apps gateway is the external front door and owns the VIP on :443
         # (HTTPS terminate + k8s TLS-passthrough listeners).
         type: {{ .Values.appsGateway.serviceType }}
+        {{- with .Values.appsGateway.serviceAnnotations }}
+        annotations:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.appsGateway.loadBalancerIP }}
+        loadBalancerIP: {{ . | quote }}
+        {{- end }}
         {{- if .Values.appsGateway.externalIP }}
         # A cluster without a load balancer reaches the gateway on the node address.
         patch:

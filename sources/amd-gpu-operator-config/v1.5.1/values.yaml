@@ -8,8 +8,9 @@
 gpuStackFamily: ""
 
 # DeviceConfig out-of-tree driver ROCm version. When set, it overrides the
-# per-family default below. cluster-bloom passes the family-resolved version
-# here so the GPU Operator DeviceConfig matches the host ROCm train.
+# per-family default below. cluster-bloom passes the family-resolved train
+# here (7.0 for instinct, 7.13 for radeon). This is not the host amdgpu
+# package version, and cluster-bloom does not install host ROCm.
 driverVersion: ""
 
 # Per-family DeviceConfig defaults, used when driverVersion is not set.

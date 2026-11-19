@@ -44,6 +44,9 @@ spec:
       maxRequestBytes: {{ $bodyAuthMax }}
     headersToExtAuth:
       - authorization
+      # The handler reads the multipart boundary from content-type to find the model in an
+      # audio request. Without it, a multipart body is parsed as JSON and refused as malformed.
+      - content-type
     http:
       backendRefs:
         - group: ''

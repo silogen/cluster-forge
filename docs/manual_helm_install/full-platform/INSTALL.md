@@ -249,6 +249,10 @@ Separate two families with a comma. The allowed values are `instinct`,
 export AIM_HARDWARE_FAMILY=radeon
 ```
 
+**Choose a model with no gated source repository.** The `meta-llama` and the
+`google/gemma` models need an approved HuggingFace account and an access token.
+The download fails with `Access denied. This repository requires approval.` The
+`openai/gpt-oss` and the Qwen models need no token.
 ```bash
 export AIM_HARDWARE_FAMILY=epyc,instinct
 ```

@@ -23,18 +23,22 @@ aiwbOnly: false
 # Empty/null = install all (legacy). Example: "epyc,instinct"
 aimHardwareFamily: null
 
-# GPU stack family driving ROCm + GPU Operator defaults (injected by cluster-bloom from GPU_STACK_FAMILY).
-# Empty/null = instinct (current defaults). Example: "radeon"
+# GPU stack family for the DeviceConfig driver train (injected by cluster-bloom from GPU_STACK_FAMILY).
+# Empty/null = instinct (driver train 7.0). Example: "radeon"
+# Does not select the GPU Operator chart. That chart is v1.5.1 for every family.
 gpuStackFamily: null
 
-# GPU Operator ArgoCD app path for the resolved family (injected by cluster-bloom).
-# Example: "amd-gpu-operator/v1.4.1"
+# Optional override of the GPU Operator ArgoCD app path.
+# Leave unset. Cluster Forge root/values.yaml pins amd-gpu-operator/v1.5.1.
+# cluster-bloom does not inject this. A value here is written into cluster-values
+# and overrides the release pin.
 gpuOperatorPath: null
 
-# GPU Operator config ArgoCD app path for the resolved family (injected by cluster-bloom).
-# Example: "amd-gpu-operator-config/v1.4.1"
+# Optional override of the GPU Operator config ArgoCD app path.
+# Leave unset. Cluster Forge root/values.yaml pins amd-gpu-operator-config/v1.5.1.
+# cluster-bloom does not inject this.
 gpuOperatorConfigPath: null
 
-# DeviceConfig out-of-tree driver ROCm version for the resolved family (injected by cluster-bloom).
-# Example: "7.0"
+# DeviceConfig driver train for the resolved family (injected by cluster-bloom).
+# Example: "7.0" (instinct) or "7.13" (radeon). Not the host amdgpu package version.
 gpuDeviceConfigDriverVersion: null

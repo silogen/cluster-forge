@@ -141,10 +141,15 @@ spec:
     port: 5000
 
     # Node port for metrics exporter service, metrics endpoint $node-ip:$nodePort
+    # deviceconfig-vf.yaml copies this port. The operator makes a Service only
+    # for a DeviceConfig with matching nodes, so a cluster with one GPU type has
+    # one Service. A cluster with both amd-gpu and amd-vgpu nodes has two, and
+    # the second Service fails because the NodePort is in use. Such a cluster
+    # needs a different nodePort in deviceconfig-vf.yaml.
     nodePort: 32500
 
     # exporter image
-    image: docker.io/rocm/device-metrics-exporter:v1.4.1
+    image: docker.io/rocm/device-metrics-exporter:v1.5.1
     # image pull policy for metrics exporter
     # default value is IfNotPresent for valid tags, Always for no tag or "latest" tag
     imagePullPolicy: "IfNotPresent"
@@ -158,7 +163,7 @@ spec:
     enable: false
 
     # testrunner image
-    image: docker.io/rocm/test-runner:v1.4.1
+    image: docker.io/rocm/test-runner:v1.5.1
     # image pull policy for the testrunner
     # default value is IfNotPresent for valid tags, Always for no tag or "latest" tag
     imagePullPolicy: "IfNotPresent"
@@ -180,7 +185,7 @@ spec:
     # To enable/disable the config manager, enable to partition
     enable: false
     # image for the device-config-manager container
-    image: rocm/device-config-manager:v1.4.1
+    image: docker.io/rocm/device-config-manager:v1.5.1
     # image pull policy for config manager set to always to pull image of latest version
     imagePullPolicy: IfNotPresent
     # specify configmap name which stores profile config info

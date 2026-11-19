@@ -129,8 +129,7 @@ ensure_hauler() {
     return 0
   fi
   if [[ -x ./haul/hauler ]]; then
-    PATH="$(pwd)/haul:${PATH}"
-    export PATH
+    export PATH="${PWD}/haul:${PATH}"
     echo "using bundled hauler $(command -v hauler)"
     return 0
   fi
@@ -236,6 +235,59 @@ add_image() {
   hauler store add image "$1" --platform "$PLATFORM" --store "$EAI_STORE"
 }
 
+# The Envoy Gateway controller creates the Envoy data-plane pods at runtime,
+# so --add-images never sees their image. Without a tag in
+# global.images.envoyProxy.image, the chart falls back to the default tag in
+# its _helpers.tpl, which is also the controller default. dehauler.sh reads
+# envoyProxyImage from the manifest and points the EnvoyProxy objects at the
+# hauled copy, because registries.yaml mirrors only the local registry.
+haul_envoy_proxy_image() {
+  local chart_path="$1" dep_values="$2" img tag
+  tag="$(sed -nE '/define "eg\.envoyProxy\.image"/,/end -/ s/.*default "([^"]+)" \$repositoryParts\._1.*/\1/p' \
+    "${chart_path}/templates/_helpers.tpl")"
+  if [[ -z "$tag" ]]; then
+    echo "no default Envoy proxy tag in ${chart_path}/templates/_helpers.tpl" >&2
+    exit 1
+  fi
+  img="$(yq -r '.global.images.envoyProxy.image // ""' "$dep_values")"
+  img="${img:-docker.io/envoyproxy/envoy}"
+  [[ "${img##*/}" == *:* ]] || img="${img}:${tag}"
+  add_image "$img"
+  image="$img" yq -i '.envoyProxyImage = strenv(image)' haul/haul-manifest.yaml
+}
+
+# AIMClusterModelSource names its base images in spec.images, a plain list of
+# strings, which --add-images does not read. The family blocks of the chart
+# hold plain YAML only, so cut out the blocks that hardwareFamilies selects and
+# read them with yq, the same selection as templates/_helpers.tpl. This keeps
+# helm off the pack machine.
+aim_source_base_images() {
+  local chart_dir="$1" values="$2" kind f
+  local -a families=() picked=()
+  kind="$(yq -r '.hardwareFamilies | tag' "$values")"
+  if [[ "$kind" == '!!str' ]]; then
+    IFS=',' read -ra families <<<"$(yq -r '.hardwareFamilies' "$values")"
+  elif [[ "$kind" == '!!seq' ]]; then
+    mapfile -t families < <(yq -r '.hardwareFamilies[]' "$values")
+  fi
+  for f in "${families[@]+"${families[@]}"}"; do
+    f="${f//[[:space:]]/}"
+    [[ -n "$f" ]] && picked+=("$f")
+  done
+  {
+    if [[ ${#picked[@]} -eq 0 ]]; then
+      awk '/^\{\{- if not \$families \}\}/{on=1; next} on && /^\{\{- end \}\}/{on=0} on' \
+        "${chart_dir}/templates/unfiltered.yaml"
+    else
+      for f in "${picked[@]}"; do
+        awk -v fam="$f" '$0 == "{{- if has \"" fam "\" $families }}" {on=1; next} on && /^\{\{- end \}\}/{on=0} on' \
+          "${chart_dir}/templates/profiles.yaml"
+        echo "---"
+      done
+    fi
+  } | yq -N -r 'select(.kind == "AIMClusterModelSource") | .spec.images[]?' | sort -u
+}
+
 # The values that one chart of a package is installed with: the package
 # values.yaml with the profile entry merged on top, reduced to the key of
 # that chart. Image discovery has to see them, or it reports the images of
@@ -251,16 +303,12 @@ write_dep_values() {
   [[ -f "$profile_values" ]] || printf '{}\n' >"$profile_values"
   yq eval-all '. as $item ireduce ({}; . * $item)' "$pkg_values" "$profile_values" |
     yq -r ".\"${dep_name}\" // {}" >"$out"
-  # A ${name} reference belongs to the deployment, not to the haul. Rendering
-  # needs a value that parses, so each one takes the default of the profile.
-  local key value
-  for key in "${!profile_vars[@]}"; do
-    value="${profile_vars[$key]}"
-    if [[ -z "$value" && "$key" == domain ]]; then
-      value=example.com
-    fi
-    sed -i "s|\${${key}}|${value}|g" "$out"
-  done
+  # ${name} references belong to the deployment, not to the haul. Keep every
+  # one intact, including variables with non-empty profile defaults. The
+  # defaults are recorded in haul-manifest.json below, and dehauler uses an
+  # environment value when present or that recorded default otherwise. This
+  # lets one haul choose ClusterIP on a bare node or LoadBalancer on a cluster
+  # that provides one.
 }
 
 haul_spur_package() {
@@ -301,6 +349,17 @@ haul_spur_package() {
       echo "unsupported chart repository for ${pkg}: ${dep_repo}" >&2
       exit 1
     fi
+    if [[ "$pkg" == envoy-gateway && "$dep_name" == gateway-helm ]]; then
+      haul_envoy_proxy_image "$(dirname "$chart_yaml")/${dep_repo#file://}" "$dep_values"
+    fi
+    if [[ "$pkg" == aim-catalog && "$dep_name" == aim-cluster-model-source && "$MODEL_IMAGES" == all ]]; then
+      local base_img
+      while read -r base_img; do
+        [[ -z "$base_img" ]] && continue
+        [[ "${base_img%%/*}" == *.* ]] || base_img="docker.io/${base_img}"
+        add_image "$base_img"
+      done < <(aim_source_base_images "$(dirname "$chart_yaml")/${dep_repo#file://}" "$dep_values")
+    fi
     values_name="values-${pkg}-${dep_name}.yaml"
     cp "$dep_values" "haul/profile-values/${values_name}"
     hauler store add file "haul/profile-values/${values_name}" --name "$values_name" --store "$EAI_STORE"
@@ -309,12 +368,14 @@ haul_spur_package() {
       haul/haul-manifest.yaml
   done < <(yq -r '.dependencies[] | [.name, .version, .repository] | @tsv' "$chart_yaml")
   if [[ "$pkg" == amd-gpu-operator-config ]]; then
-    local ver
-    ver="$(yq -r '.dependencies[0].version' "$chart_yaml")"
-    ver="v${ver#v}"
-    add_image "docker.io/rocm/device-metrics-exporter:${ver}"
-    add_image "docker.io/rocm/device-config-manager:${ver}"
-    add_image "docker.io/rocm/test-runner:${ver}"
+    # The chart version is 0.1.0. The DeviceConfig deploys these tags, the
+    # same ones the full-stack path adds. The device plugin fields are not
+    # named image:, so --add-images does not see them.
+    add_image "docker.io/rocm/device-metrics-exporter:v1.5.1"
+    add_image "docker.io/rocm/device-config-manager:v1.5.1"
+    add_image "docker.io/rocm/test-runner:v1.5.1"
+    add_image "docker.io/rocm/k8s-device-plugin:latest"
+    add_image "docker.io/rocm/k8s-device-plugin:labeller-latest"
   fi
   if [[ "$pkg" == aim-catalog && "$MODEL_IMAGES" == none && ${#AIM_IMAGES[@]} -gt 0 ]]; then
     local img
@@ -337,8 +398,14 @@ pack_spur_profile() {
 apiVersion: cluster-forge.silogen.ai/v1
 kind: HaulManifest
 profile: ${PROFILE}
+vars: {}
 packages: []
 EOF
+  local key
+  for key in "${!profile_vars[@]}"; do
+    VAR_KEY="$key" VAR_VALUE="${profile_vars[$key]}" \
+      yq -i '.vars[strenv(VAR_KEY)] = strenv(VAR_VALUE)' haul/haul-manifest.yaml
+  done
   echo "profile ${PROFILE} packages: ${profile_packages[*]}"
   local pkg
   for pkg in "${profile_packages[@]}"; do
@@ -386,7 +453,7 @@ render_objects() {
     if [[ "$app" == cluster-auth-shim ]]; then
       kubectl create configmap cluster-auth-shim \
         --namespace cluster-auth \
-        --from-file=shim.py=haul/cluster-forge/docs/manual_helm_install/aiwb-standalone/scripts/cluster-auth-shim.py \
+        --from-file=shim.py=haul/cluster-forge/docs/manual_helm_install/scripts/cluster-auth-shim.py \
         --dry-run=client -o yaml >>"$out"
       echo '---' >>"$out"
     fi
@@ -513,13 +580,13 @@ pack_full_stack() {
   hauler store add image docker.io/kserve/kserve-controller:v0.16.0 --platform linux/amd64 --store "$EAI_STORE"
 
   # 3.26 AMD GPU Operator and CRDs
-  hauler store add chart haul/cluster-forge/sources/amd-gpu-operator/v1.4.1 --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
+  hauler store add chart haul/cluster-forge/sources/amd-gpu-operator/v1.5.1 --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
 
   # 3.27 AMD GPU Operator configuration (no --add-images: skip imageregistry.io placeholder)
-  hauler store add chart haul/cluster-forge/sources/amd-gpu-operator-config/v1.4.1 --repo . --platform linux/amd64 --store "$EAI_STORE"
-  hauler store add image docker.io/rocm/device-metrics-exporter:v1.4.1 --platform linux/amd64 --store "$EAI_STORE"
-  hauler store add image docker.io/rocm/device-config-manager:v1.4.1 --platform linux/amd64 --store "$EAI_STORE"
-  hauler store add image docker.io/rocm/test-runner:v1.4.1 --platform linux/amd64 --store "$EAI_STORE"
+  hauler store add chart haul/cluster-forge/sources/amd-gpu-operator-config/v1.5.1 --repo . --platform linux/amd64 --store "$EAI_STORE"
+  hauler store add image docker.io/rocm/device-metrics-exporter:v1.5.1 --platform linux/amd64 --store "$EAI_STORE"
+  hauler store add image docker.io/rocm/device-config-manager:v1.5.1 --platform linux/amd64 --store "$EAI_STORE"
+  hauler store add image docker.io/rocm/test-runner:v1.5.1 --platform linux/amd64 --store "$EAI_STORE"
 
   # 3.27b AMD GPU NodeFeatureRule
   hauler store add file haul/cluster-forge/docs/openshift/extra/08-amd-gpu-nodefeaturerule.yaml --name 08-amd-gpu-nodefeaturerule.yaml --store "$EAI_STORE"
@@ -575,8 +642,11 @@ pack_full_stack() {
   hauler store add image docker.io/amdenterpriseai/aiwb-ui:2.0.0 --platform linux/amd64 --store "$EAI_STORE"
 
   # 3.36 AI Gateway Discovery
-  hauler store add chart ai-gateway-discovery-chart --repo oci://registry-1.docker.io/amdenterpriseai --version 2.0.0 --add-images --platform linux/amd64 --store "$EAI_STORE"
-  hauler store add image docker.io/amdenterpriseai/ai-gateway-discovery:2.0.0 --platform linux/amd64 --store "$EAI_STORE"
+  hauler store add chart ai-gateway-discovery-chart --repo oci://registry-1.docker.io/amdenterpriseai --version 2.1.0 --add-images --platform linux/amd64 --store "$EAI_STORE"
+  hauler store add image docker.io/amdenterpriseai/ai-gateway-discovery:2.1.0 --platform linux/amd64 --store "$EAI_STORE"
+  # The controller creates the endpoint picker from an env var, not an image:
+  # field, so --add-images does not find this image.
+  hauler store add image ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.10.0 --platform linux/amd64 --store "$EAI_STORE"
 
   # 3.37 RabbitMQ Cluster Operator
   hauler store add file haul/cluster-forge/sources/rabbitmq/v2.15.0/cluster-operator.yml --name rabbitmq-cluster-operator.yaml --store "$EAI_STORE"
@@ -603,6 +673,15 @@ pack_full_stack() {
   # 3.43 AIM cluster model source
   if [[ "$MODEL_IMAGES" == all ]]; then
     hauler store add chart haul/cluster-forge/sources/aim-cluster-model-source --repo . --add-images --platform linux/amd64 --store "$EAI_STORE"
+    local base_img defaults
+    defaults="$(mktemp)"
+    printf '{}\n' >"$defaults"
+    while read -r base_img; do
+      [[ -z "$base_img" ]] && continue
+      [[ "${base_img%%/*}" == *.* ]] || base_img="docker.io/${base_img}"
+      hauler store add image "$base_img" --platform linux/amd64 --store "$EAI_STORE"
+    done < <(aim_source_base_images haul/cluster-forge/sources/aim-cluster-model-source "$defaults")
+    rm -f "$defaults"
   else
     hauler store add chart haul/cluster-forge/sources/aim-cluster-model-source --repo . --platform linux/amd64 --store "$EAI_STORE"
     if [[ ${#AIM_IMAGES[@]} -gt 0 ]]; then

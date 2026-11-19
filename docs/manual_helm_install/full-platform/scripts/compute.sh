@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# GPU operator v1.4.1, AppWrapper v1.1.2, Kueue 0.13.0,
+# GPU operator v1.5.1, AppWrapper v1.1.2, Kueue 0.13.0,
 # KubeRay 1.4.2, Kaiwo v0.2.1, KServe v0.16.0 Standard, AIM engine 0.2.6, KEDA 2.18.1.
 # Kaiwo CRDs are applied with helm template (Helm release Secret limit).
 # CLUSTER_NAME is the gpu-config label KUBE_CLUSTER_NAME. Default demo-cluster.
@@ -17,7 +17,7 @@ helm repo add --force-update kuberay https://ray-project.github.io/kuberay-helm/
 helm repo add --force-update kedacore https://kedacore.github.io/charts
 helm repo update rocm kuberay kedacore
 
-helm upgrade --install amd-gpu-operator rocm/gpu-operator-charts --version v1.4.1 \
+helm upgrade --install amd-gpu-operator rocm/gpu-operator-charts --version v1.5.1 \
   --namespace kube-amd-gpu --create-namespace \
   --set crds.defaultCR.install=false \
   --wait --timeout 8m
@@ -85,7 +85,7 @@ spec:
     serviceType: NodePort
     port: 5000
     nodePort: 32500
-    image: docker.io/rocm/device-metrics-exporter:v1.4.1
+    image: docker.io/rocm/device-metrics-exporter:v1.5.1
     config:
       name: gpu-config
   selector:

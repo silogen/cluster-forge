@@ -2,8 +2,8 @@
 # Sections 4.1-4.4: load, serve, configure RKE2, and apply the complete EAI
 # haul in Cluster-Forge install order.
 #
-#   sudo ./dehauler.sh --confirm
-#   sudo ./dehauler.sh --from 25 --confirm
+#   sudo env DOMAIN=my-hauler-domain.example.com ./dehauler.sh --confirm
+#   sudo env DOMAIN=my-hauler-domain.example.com ./dehauler.sh --from 25 --confirm
 set -euo pipefail
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
@@ -23,7 +23,10 @@ TMPDIR="${TMPDIR:-$HAUL_ROOT/tmp}"
 export TMPDIR
 EXTRACT_DIR="${EXTRACT_DIR:-$HAUL_ROOT/extracted}"
 LOCAL_REG="${LOCAL_REG:-127.0.0.1:5000}"
-CF_DOMAIN="${CF_DOMAIN:-hauler1.silogen.ai}"
+POD_REG="${POD_REG:-}"
+# One cluster domain. Older commands set CF_DOMAIN; that is used only when
+# DOMAIN is unset. The script stops later when both values are empty.
+export DOMAIN="${DOMAIN:-${CF_DOMAIN:-}}"
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-300s}"
 REGISTRY_WAIT_TIMEOUT="${REGISTRY_WAIT_TIMEOUT:-300}"
 METALLB_IP_RANGE="${METALLB_IP_RANGE:-}"
@@ -48,7 +51,6 @@ HAUL_ARCHIVE=""
 PLUGGABLE_DB="${PLUGGABLE_DB:-false}"
 PLUGGABLE_S3="${PLUGGABLE_S3:-false}"
 
-export DOMAIN="${DOMAIN:-$CF_DOMAIN}"
 export MINIO_API_ACCESS_KEY="${MINIO_API_ACCESS_KEY:-placeholder}"
 export MINIO_API_SECRET_KEY="${MINIO_API_SECRET_KEY:-placeholder}"
 export MINIO_CONSOLE_ACCESS_KEY="${MINIO_CONSOLE_ACCESS_KEY:-placeholder}"
@@ -66,10 +68,6 @@ export KEYCLOAK_CNPG_SUPERUSER_PASSWORD="${KEYCLOAK_CNPG_SUPERUSER_PASSWORD:-pla
 export KEYCLOAK_INITIAL_ADMIN_PASSWORD="${KEYCLOAK_INITIAL_ADMIN_PASSWORD:-placeholder}"
 export KEYCLOAK_INITIAL_DEVUSER_PASSWORD="${KEYCLOAK_INITIAL_DEVUSER_PASSWORD:-placeholder}"
 
-# Derived the way install.sh derives them.
-export AI_HOST="${AI_HOST:-ai.${DOMAIN}}"
-export AIWB_UI_URL="${AIWB_UI_URL:-https://aiwbui.${DOMAIN}}"
-export KC_URL="${KC_URL:-https://kc.${DOMAIN}}"
 export MINIO_HOST="${MINIO_HOST:-host.docker.internal}"
 export MINIO_BUCKET="${MINIO_BUCKET:-default-bucket}"
 export AI_GATEWAY_MCP_SEED="${AI_GATEWAY_MCP_SEED:-cluster-forge-default-seed-override-in-production}"
@@ -128,7 +126,12 @@ Environment:
   EAI_STORE     Hauler store path (default $HAUL_ROOT/eai-store)
   TMPDIR        scratch dir on the large volume (default $HAUL_ROOT/tmp)
   LOCAL_REG     registry host:port (default 127.0.0.1:5000)
-  CF_DOMAIN     cluster domain for charts that take --set domain (default hauler1.silogen.ai)
+  POD_REG       registry host:port that pods can reach, used for the AIM
+                catalog images and mirrored in registries.yaml (default: the
+                node InternalIP of this host, port of LOCAL_REG)
+  DOMAIN        Required cluster domain. Example:
+                my-hauler-domain.example.com. The script reads CF_DOMAIN
+                only when DOMAIN is unset.
   WAIT_TIMEOUT  per-workload rollout timeout (default 300s)
   REGISTRY_WAIT_TIMEOUT seconds to wait for registry /v2/ (default 300)
   METALLB_IP_RANGE  L2 pool range; defaults to the first-node InternalIP /32
@@ -137,8 +140,12 @@ Environment:
   CONFIRM       set to 1 for the same pause as --confirm
   PLUGGABLE_DB  true when PostgreSQL lives outside the cluster (default false)
   PLUGGABLE_S3  true when the object store lives outside it (default false)
-  CLUSTER_TLS_CERT  PEM full chain for secret cluster-tls (optional; prompted if missing)
-  CLUSTER_TLS_KEY   PEM private key for that secret (optional; prompted if missing)
+  gatewayServiceType profile override: ClusterIP, LoadBalancer, or NodePort
+  gatewayExternalIP profile override: node address used with ClusterIP
+  CLUSTER_TLS_CERT  PEM full chain for secret cluster-tls. On a profile haul,
+                    supplying this and CLUSTER_TLS_KEY skips selfsigned-tls.
+                    An existing usable cluster-tls Secret also skips it.
+  CLUSTER_TLS_KEY   PEM private key for secret cluster-tls
 
   The object steps also read the credentials install.sh reads, under the same
   names and defaults: MINIO_API_ACCESS_KEY, KEYCLOAK_INITIAL_ADMIN_PASSWORD,
@@ -186,6 +193,17 @@ die() {
   echo "ERROR: $*" >&2
   exit 1
 }
+
+# Do not fall back to a real address when DOMAIN is empty. --help exits
+# before this check.
+if [[ -z "$DOMAIN" ]]; then
+  die "DOMAIN is not set. Set DOMAIN to the cluster domain. Example: DOMAIN=my-hauler-domain.example.com"
+fi
+
+# Derived the way install.sh derives them.
+export AI_HOST="${AI_HOST:-ai.${DOMAIN}}"
+export AIWB_UI_URL="${AIWB_UI_URL:-https://aiwbui.${DOMAIN}}"
+export KC_URL="${KC_URL:-https://kc.${DOMAIN}}"
 
 find_hauler() {
   if command -v hauler >/dev/null 2>&1; then
@@ -305,6 +323,7 @@ prepare_host() {
   echo "    registry ready"
 
   echo "==> 4.3 configuring RKE2 HTTP mirror"
+  resolve_pod_registry
   local registry_file=/etc/rancher/rke2/registries.yaml
   local desired
   desired=$(cat <<'EOF'
@@ -314,6 +333,9 @@ mirrors:
       - "http://127.0.0.1:5000"
 EOF
 )
+  if [[ -n "$POD_REG" ]]; then
+    desired+=$(printf '\n  "%s":\n    endpoint:\n      - "http://%s"' "$POD_REG" "$LOCAL_REG")
+  fi
   mkdir -p /etc/rancher/rke2
   if [[ ! -f "$registry_file" ]] || [[ "$(cat "$registry_file")" != "$desired" ]]; then
     if [[ -f "$registry_file" ]]; then
@@ -393,6 +415,33 @@ rewrite_images() {
     -e "s#^([[:space:]]*-?[[:space:]]*image:[[:space:]]*)([\"']?)([a-z0-9][a-z0-9._-]*:[A-Za-z0-9._-]+)\\2[[:space:]]*\$#\\1\\2${LOCAL_REG}/library/\\3\\2#"
 }
 
+# Profile values keep ${name} until deployment. Prefer an environment override,
+# then the profile default recorded in the haul manifest. domain uses DOMAIN.
+expand_profile_vars() {
+  local src=$1 manifest=$2 dest
+  dest="$(mktemp)"
+  python3 -c '
+import json, os, re, sys
+src, manifest, dest = sys.argv[1], sys.argv[2], sys.argv[3]
+text = open(src).read()
+defaults = json.load(open(manifest)).get("vars") or {}
+def fill(match):
+    name = match.group(1)
+    if name == "domain":
+        value = os.environ.get("DOMAIN")
+    else:
+        value = os.environ.get(name) if name in os.environ else None
+    if value is None:
+        value = defaults.get(name, "")
+    if name == "domain" and not value:
+        sys.exit("profile values contain ${domain}; set DOMAIN")
+    return str(value)
+text = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", fill, text)
+open(dest, "w").write(text)
+' "$src" "$manifest" "$dest"
+  printf '%s' "$dest"
+}
+
 # ${VAR} in a hauled object bundle, replaced from the environment. Unset or
 # empty is fatal rather than expanded to nothing, because what uses this is
 # domains and access keys: a Secret rendered with an empty one installs
@@ -440,6 +489,41 @@ maybe_filter_kinds() {
   local -a spec
   read -r -a spec <<<"$CHART_KINDS"
   filter_kinds "${spec[@]}"
+}
+
+# The AIM Engine controller reads image labels from the registry itself, from
+# its own pod, where 127.0.0.1 is the pod. Set CHART_POD_REG=1 just before
+# apply_chart for the AIM catalog to name POD_REG instead: the controller
+# talks plain HTTP to a private (RFC 1918) address, and registries.yaml
+# mirrors POD_REG for containerd. AIMClusterModelSource also lists base images
+# in spec.images as bare org/name:tag strings, which rewrite_images skips.
+CHART_POD_REG=0
+maybe_pod_registry() {
+  if [[ "$CHART_POD_REG" -ne 1 ]]; then
+    cat
+    return 0
+  fi
+  local target="${POD_REG:-$LOCAL_REG}"
+  sed -E \
+    -e "s#${LOCAL_REG//./\\.}/#${target}/#g" \
+    -e "s#^([[:space:]]*-[[:space:]]+)([\"']?)([a-z0-9][a-z0-9_-]*/[a-z0-9._-]+[a-z0-9._/-]*:[A-Za-z0-9._-]+)\\2[[:space:]]*\$#\\1\\2${target}/\\3\\2#"
+}
+
+# The hauler registry listens on every interface, so pods reach it on this
+# host's node InternalIP. An empty POD_REG keeps the AIM catalog on LOCAL_REG.
+resolve_pod_registry() {
+  [[ -n "$POD_REG" ]] && return 0
+  local node_ips host_ip
+  node_ips=$(kubectl get nodes \
+    -o jsonpath='{range .items[*]}{.status.addresses[?(@.type=="InternalIP")].address}{"\n"}{end}' 2>/dev/null || true)
+  for host_ip in $(hostname -I); do
+    if grep -qxF "$host_ip" <<<"$node_ips"; then
+      POD_REG="${host_ip}:${LOCAL_REG##*:}"
+      echo "    pod-reachable registry: ${POD_REG}"
+      return 0
+    fi
+  done
+  echo "    WARNING: no node InternalIP on this host; set POD_REG. AIM models cannot read image metadata." >&2
 }
 
 # StorageClasses that Cluster-Forge creates from handlers rather than charts.
@@ -640,8 +724,10 @@ apply_chart() {
   helm template "$release" "oci://${LOCAL_REG}/hauler/${chart}" --version "$version" --plain-http --include-crds --no-hooks --namespace "$ns" "$@" \
     | maybe_filter_kinds \
     | rewrite_images \
+    | maybe_pod_registry \
     | apply_stdin "$ns"
   CHART_KINDS=""
+  CHART_POD_REG=0
   wait_ready "$ns"
   pause_between "$ns"
 }
@@ -707,9 +793,14 @@ find_haul_manifest() {
 
 apply_haul_manifest() {
   local manifest=$1
-  local profile
+  local profile external_tls=0 preserve_tls=0
   profile="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("profile",""))' "$manifest")"
   echo "==> applying profile ${profile:-unknown} from ${manifest}"
+  if [[ -n "$CLUSTER_TLS_CERT" || -n "$CLUSTER_TLS_KEY" ]]; then
+    [[ -n "$CLUSTER_TLS_CERT" && -n "$CLUSTER_TLS_KEY" ]] \
+      || die "set both CLUSTER_TLS_CERT and CLUSTER_TLS_KEY"
+    external_tls=1
+  fi
   if [[ "$DRY_RUN" -eq 1 ]]; then
     python3 -c 'import json,sys
 m=json.load(open(sys.argv[1]))
@@ -718,17 +809,45 @@ for p in m.get("packages") or []:
 ' "$manifest"
     return 0
   fi
+  if [[ "$external_tls" -eq 1 ]]; then
+    prepare_profile_tls
+    preserve_tls=1
+  elif cluster_tls_ok; then
+    echo "==> using existing ${CLUSTER_TLS_NS}/${CLUSTER_TLS_NAME}"
+    preserve_tls=1
+  fi
+  # Hauls packed before hauler.sh recorded envoyProxyImage skip the patch.
+  local envoy_image
+  envoy_image="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("envoyProxyImage",""))' "$manifest")"
+  if [[ -n "$envoy_image" ]]; then
+    envoy_image="$(printf 'image: %s\n' "$envoy_image" | rewrite_images)"
+    envoy_image="${envoy_image#image: }"
+  fi
   local step name ns chart version values vf
   while IFS='|' read -r step name ns chart version values; do
     [[ -z "$name" ]] && continue
+    if [[ "$preserve_tls" -eq 1 && "$name" == selfsigned-tls ]]; then
+      echo "==> manifest/${step} skip ${name} (${CLUSTER_TLS_NAME} already supplied)"
+      continue
+    fi
     local extra=()
     if [[ -n "$values" ]]; then
       vf=$(store_file "$values") || die "values file missing: ${values}"
+      vf=$(expand_profile_vars "$vf" "$manifest")
       extra=(--values "$vf")
     fi
     # The ClusterServingRuntime objects in this chart are validated by a
     # webhook the same chart installs. Apply the controller first, wait, then
     # the CRs, the same split as 4.4.25 / 4.4.25b.
+    # gateway-helm's controller mounts Secret envoy-gateway, which only the
+    # certgen pre-install hook creates. apply_chart passes --no-hooks, so any
+    # profile that includes this chart would stay in ContainerCreating. The
+    # hauled values decide whether certgen also has to fill the topology
+    # injector webhook.
+    if [[ "$chart" == gateway-helm ]]; then
+      apply_envoy_certgen "$version" "${extra[@]+"${extra[@]}"}"
+    fi
+    [[ "$chart" == aim-cluster-model-source ]] && CHART_POD_REG=1
     if [[ "$chart" == kserve ]]; then
       CHART_KINDS="exclude ClusterServingRuntime"
       apply_chart "manifest/${step}" "$name" "$chart" "$version" "$ns" "${extra[@]+"${extra[@]}"}"
@@ -736,6 +855,9 @@ for p in m.get("packages") or []:
       apply_chart "manifest/${step}b" "$name" "$chart" "$version" "$ns" "${extra[@]+"${extra[@]}"}"
     else
       apply_chart "manifest/${step}" "$name" "$chart" "$version" "$ns" "${extra[@]+"${extra[@]}"}"
+    fi
+    if [[ "$chart" == envoy-gateway-config && -n "$envoy_image" ]]; then
+      patch_envoy_proxy_images "$envoy_image"
     fi
   done < <(python3 -c 'import json,sys
 m=json.load(open(sys.argv[1]))
@@ -861,13 +983,35 @@ create_cluster_tls() {
   echo "    created ${CLUSTER_TLS_NS}/${CLUSTER_TLS_NAME} from ${cert}"
 }
 
+# A profile normally includes selfsigned-tls. When the deployment supplies a
+# real certificate, remove any Certificate that reconciles the same Secret,
+# replace the Secret, and let apply_haul_manifest skip that package. This also
+# makes a rerun converge after an earlier self-signed deployment.
+prepare_profile_tls() {
+  [[ -r "$CLUSTER_TLS_CERT" ]] || die "cannot read CLUSTER_TLS_CERT=$CLUSTER_TLS_CERT"
+  [[ -r "$CLUSTER_TLS_KEY" ]] || die "cannot read CLUSTER_TLS_KEY=$CLUSTER_TLS_KEY"
+  ensure_ns "$CLUSTER_TLS_NS"
+
+  local cert_name secret_name
+  while IFS='|' read -r cert_name secret_name; do
+    [[ -n "$cert_name" && "$secret_name" == "$CLUSTER_TLS_NAME" ]] || continue
+    echo "    deleting Certificate/${cert_name} that manages ${CLUSTER_TLS_NAME}"
+    kubectl -n "$CLUSTER_TLS_NS" delete certificate "$cert_name" --ignore-not-found
+  done < <(kubectl -n "$CLUSTER_TLS_NS" get certificates \
+    -o jsonpath='{range .items[*]}{.metadata.name}{"|"}{.spec.secretName}{"\n"}{end}' \
+    2>/dev/null || true)
+
+  kubectl -n "$CLUSTER_TLS_NS" delete secret "$CLUSTER_TLS_NAME" --ignore-not-found
+  create_cluster_tls "$CLUSTER_TLS_CERT" "$CLUSTER_TLS_KEY"
+}
+
 # The Gateway controller creates Envoy Deployments from EnvoyProxy CRs. Those
 # objects can keep docker.io even when global.images.envoyProxy.image was set
 # on the helm chart, unless mergeType is set. Patch every EnvoyProxy in
 # envoy-gateway-system to the hauled tag.
 patch_envoy_proxy_images() {
   local ns=envoy-gateway-system
-  local img="${LOCAL_REG}/envoyproxy/envoy:distroless-v1.38.4"
+  local img="${1:-${LOCAL_REG}/envoyproxy/envoy:distroless-v1.38.4}"
   echo "==> 4.4.23a EnvoyProxy data-plane image ${img}"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     return 0
@@ -925,9 +1069,11 @@ ensure_cluster_tls() {
 # ttlSecondsAfterFinished: 30, so it can be garbage-collected before or during
 # a wait on its condition.
 apply_envoy_certgen() {
+  local version=$1
+  shift
   local ns=envoy-gateway-system
   local webhook="envoy-gateway-topology-injector.${ns}"
-  echo "==> 4.4.21a envoy-gateway certgen"
+  echo "==> envoy-gateway certgen (${version})"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     return 0
   fi
@@ -935,26 +1081,29 @@ apply_envoy_certgen() {
 
   # Apply the hook objects other than the Job first. They are what certgen
   # needs in place to succeed, and server-side apply makes this a no-op when
-  # they already exist.
-  local hooks
+  # they already exist. With topologyInjector disabled the webhook is not
+  # rendered, and certgen only has to write the Secret.
+  local hooks need_ca=0
   hooks=$(helm template envoy-gateway "oci://${LOCAL_REG}/hauler/gateway-helm" \
-    --version v1.8.4 --plain-http --namespace "$ns" \
+    --version "$version" --plain-http --namespace "$ns" "$@" \
     | python3 -c '
 import re, sys
 for doc in re.split(r"(?m)^---\s*$", sys.stdin.read()):
     if doc.strip() and "helm.sh/hook" in doc:
         sys.stdout.write("---\n" + doc.strip("\n") + "\n")
 ')
+  [[ "$hooks" == *"envoy-gateway-topology-injector"* ]] && need_ca=1
   filter_kinds exclude Job <<<"$hooks" | rewrite_images | apply_stdin "$ns"
 
-  # certgen writes the Secrets and then patches the webhook caBundle, so both
-  # have to be there before this step is done. An empty caBundle means a
-  # previous run created the Secrets and failed on the missing webhook.
+  # certgen writes the Secrets and then, when the injector is enabled, patches
+  # the webhook caBundle. An empty caBundle means a previous run created the
+  # Secrets and failed on the missing webhook.
   local ca=""
   ca=$(kubectl get mutatingwebhookconfiguration "$webhook" \
     -o jsonpath='{.webhooks[0].clientConfig.caBundle}' 2>/dev/null || true)
-  if kubectl -n "$ns" get secret envoy-gateway >/dev/null 2>&1 && [[ -n "$ca" ]]; then
-    echo "    secret envoy-gateway and webhook caBundle are already in place"
+  if kubectl -n "$ns" get secret envoy-gateway >/dev/null 2>&1 \
+      && { [[ "$need_ca" -eq 0 ]] || [[ -n "$ca" ]]; }; then
+    echo "    secret envoy-gateway is in place"
     pause_between "$ns"
     return 0
   fi
@@ -973,12 +1122,13 @@ for doc in re.split(r"(?m)^---\s*$", sys.stdin.read()):
   # Success is the Secret and the caBundle, not the Job reporting complete:
   # the Job sets ttlSecondsAfterFinished: 30, so it can be garbage-collected
   # before or during a wait on its condition.
-  echo "    waiting for certgen to write secret envoy-gateway and the caBundle"
+  echo "    waiting for certgen to write secret envoy-gateway"
   local elapsed=0 limit="${WAIT_TIMEOUT%s}"
   while :; do
     ca=$(kubectl get mutatingwebhookconfiguration "$webhook" \
       -o jsonpath='{.webhooks[0].clientConfig.caBundle}' 2>/dev/null || true)
-    if kubectl -n "$ns" get secret envoy-gateway >/dev/null 2>&1 && [[ -n "$ca" ]]; then
+    if kubectl -n "$ns" get secret envoy-gateway >/dev/null 2>&1 \
+        && { [[ "$need_ca" -eq 0 ]] || [[ -n "$ca" ]]; }; then
       break
     fi
     if (( elapsed >= limit )); then
@@ -989,7 +1139,11 @@ for doc in re.split(r"(?m)^---\s*$", sys.stdin.read()):
     sleep 3
     elapsed=$((elapsed + 3))
   done
-  echo "    secret envoy-gateway and webhook caBundle are present"
+  if [[ "$need_ca" -eq 1 ]]; then
+    echo "    secret envoy-gateway and webhook caBundle are present"
+  else
+    echo "    secret envoy-gateway is present"
+  fi
   pause_between "$ns"
 }
 
@@ -1159,7 +1313,7 @@ fi
 
 # 4.4.13 OpenBao configuration
 if should_run 13; then
-  apply_chart 4.4.13 openbao-config openbao-config 0.1.0 cf-openbao --set "domain=${CF_DOMAIN}" --set "minio.apiAccessKey=${MINIO_API_ACCESS_KEY}" --set "minio.consoleAccessKey=${MINIO_CONSOLE_ACCESS_KEY}"
+  apply_chart 4.4.13 openbao-config openbao-config 0.1.0 cf-openbao --set "domain=${DOMAIN}" --set "minio.apiAccessKey=${MINIO_API_ACCESS_KEY}" --set "minio.consoleAccessKey=${MINIO_CONSOLE_ACCESS_KEY}"
 fi
 
 # 4.4.13b OpenBao init ConfigMap aliases. The init job mounts the two
@@ -1176,7 +1330,7 @@ fi
 
 # 4.4.14 OpenBao initialization job
 if should_run 14; then
-  apply_chart 4.4.14 openbao-init-job openbao-init-job 0.1.0 cf-openbao --set "domain=${CF_DOMAIN}"
+  apply_chart 4.4.14 openbao-init-job openbao-init-job 0.1.0 cf-openbao --set "domain=${DOMAIN}"
 fi
 
 # 4.4.15 External Secrets configuration
@@ -1186,7 +1340,7 @@ fi
 
 # 4.4.16 OpenTelemetry LGTM stack (Chart.yaml version 1.0.8 even if packed from v1.0.7 dir)
 if should_run 16; then
-  apply_chart 4.4.16 otel-lgtm-stack otel-lgtm-stack 1.0.8 otel-lgtm-stack --set "cluster.name=${CF_DOMAIN}" --set collectors.resources.metrics.requests.cpu=500m --set collectors.resources.metrics.requests.memory=1Gi --set collectors.resources.metrics.limits.memory=4Gi --set collectors.resources.logs.requests.cpu=250m --set collectors.resources.logs.requests.memory=256Mi --set collectors.resources.logs.limits.cpu=1 --set collectors.resources.logs.limits.memory=1Gi --set dashboards.enabled=true --set kubeStateMetrics.enabled=true --set nodeExporter.enabled=true --set services.nodeExporter.metrics=9110 --set lgtm.resources.requests.cpu=1 --set lgtm.resources.requests.memory=2Gi --set lgtm.resources.limits.memory=8Gi --set lgtm.storage.grafana=10Gi --set lgtm.storage.loki=50Gi --set lgtm.storage.mimir=50Gi --set lgtm.storage.tempo=50Gi --set lgtm.storage.extra=50Gi
+  apply_chart 4.4.16 otel-lgtm-stack otel-lgtm-stack 1.0.8 otel-lgtm-stack --set "cluster.name=${DOMAIN}" --set collectors.resources.metrics.requests.cpu=500m --set collectors.resources.metrics.requests.memory=1Gi --set collectors.resources.metrics.limits.memory=4Gi --set collectors.resources.logs.requests.cpu=250m --set collectors.resources.logs.requests.memory=256Mi --set collectors.resources.logs.limits.cpu=1 --set collectors.resources.logs.limits.memory=1Gi --set dashboards.enabled=true --set kubeStateMetrics.enabled=true --set nodeExporter.enabled=true --set services.nodeExporter.metrics=9110 --set lgtm.resources.requests.cpu=1 --set lgtm.resources.requests.memory=2Gi --set lgtm.resources.limits.memory=8Gi --set lgtm.storage.grafana=10Gi --set lgtm.storage.loki=50Gi --set lgtm.storage.mimir=50Gi --set lgtm.storage.tempo=50Gi --set lgtm.storage.extra=50Gi
 fi
 
 # 4.4.17 KEDA
@@ -1226,7 +1380,7 @@ fi
 # without --no-hooks, keep only the certgen objects, wait for the Job, then
 # install the rest of the chart as usual.
 if should_run 21; then
-  apply_envoy_certgen
+  apply_envoy_certgen v1.8.4
 fi
 
 # 4.4.21 Envoy Gateway
@@ -1245,11 +1399,10 @@ fi
 # 4.4.23 Envoy Gateway configuration
 if should_run 23; then
   apply_chart 4.4.23 envoy-gateway-config envoy-gateway-config 0.1.0 envoy-gateway-system \
-    --set "domain=${CF_DOMAIN}" \
-    --set-string envoyProxy.nodeSelector.cluster-bloom/first-node=true \
+    --set "domain=${DOMAIN}" \
     --set appsGateway.serviceType=LoadBalancer \
     --set aiGateway.enabled=true \
-    --set "aiGateway.routeHostname=ai.${CF_DOMAIN}" \
+    --set "aiGateway.routeHostname=ai.${DOMAIN}" \
     --set aiGateway.discoveryNamespace=ai-gateway-system \
     --set aiGateway.bodyAuthMaxRequestBytes=4194304
   wait_gateway_address
@@ -1299,12 +1452,12 @@ fi
 
 # 4.4.26 AMD GPU Operator and CRDs
 if should_run 26; then
-  apply_chart 4.4.26 amd-gpu-operator gpu-operator-charts v1.4.1 "$CF_AMD_GPU_NS" --set crds.defaultCR.install=false
+  apply_chart 4.4.26 amd-gpu-operator gpu-operator-charts v1.5.1 "$CF_AMD_GPU_NS" --set crds.defaultCR.install=false
 fi
 
 # 4.4.27 AMD GPU Operator configuration
 #
-# Cluster-Forge passes --set namespace=${CF_AMD_GPU_NS} here, which the v1.4.1
+# Cluster-Forge passes --set namespace=${CF_AMD_GPU_NS} here, which the v1.5.1
 # chart ignores: every template reads .Release.Namespace. The value that
 # matters is the release namespace, so this installs into CF_AMD_GPU_NS
 # instead of hardcoding one. It is the namespace the metrics collector's
@@ -1362,14 +1515,14 @@ fi
 
 # 4.4.31 Keycloak with its own CNPG database (PLUGGABLE_DB=false)
 if should_run 31 && [[ "$PLUGGABLE_DB" != true ]]; then
-  apply_chart 4.4.31 keycloak keycloak-old 0.2.0 keycloak --set "domain=${CF_DOMAIN}" --set "hostname=${KC_URL}" --set externalSecrets.enabled=false --set cnpg.enabled=true --set cnpg.instances=1 --set "cnpg.storage.storageClassName=${CF_STORAGE_CLASS}" --set "postgresql.username=${KEYCLOAK_DB_USER}"
+  apply_chart 4.4.31 keycloak keycloak-old 0.2.0 keycloak --set "domain=${DOMAIN}" --set "hostname=${KC_URL}" --set externalSecrets.enabled=false --set cnpg.enabled=true --set cnpg.instances=1 --set "cnpg.storage.storageClassName=${CF_STORAGE_CLASS}" --set "postgresql.username=${KEYCLOAK_DB_USER}"
 fi
 
 # 4.4.31b Keycloak against a database the cluster does not run
 # (PLUGGABLE_DB=true). Same chart and release as 4.4.31, so only one of the
 # two ever applies.
 if should_run 32 && [[ "$PLUGGABLE_DB" == true ]]; then
-  apply_chart 4.4.31b keycloak keycloak-old 0.2.0 keycloak --set "domain=${CF_DOMAIN}" --set "hostname=${KC_URL}" --set externalSecrets.enabled=false --set cnpg.enabled=false --set "postgresql.host=${POSTGRES_HOST}" --set "postgresql.port=${POSTGRES_PORT}" --set "postgresql.database=${KEYCLOAK_DB_NAME}" --set "postgresql.username=${KEYCLOAK_DB_USER}" --set postgresql.userSecretName=keycloak-db-user
+  apply_chart 4.4.31b keycloak keycloak-old 0.2.0 keycloak --set "domain=${DOMAIN}" --set "hostname=${KC_URL}" --set externalSecrets.enabled=false --set cnpg.enabled=false --set "postgresql.host=${POSTGRES_HOST}" --set "postgresql.port=${POSTGRES_PORT}" --set "postgresql.database=${KEYCLOAK_DB_NAME}" --set "postgresql.username=${KEYCLOAK_DB_USER}" --set postgresql.userSecretName=keycloak-db-user
 fi
 
 # 4.4.32 SeaweedFS CRDs come from the operator chart in 0.1.36 (crds.create),
@@ -1377,7 +1530,7 @@ fi
 
 # 4.4.33 SeaweedFS operator (PLUGGABLE_S3=false)
 if should_run 33 && [[ "$PLUGGABLE_S3" != true ]]; then
-  apply_chart 4.4.33 seaweedfs-operator seaweedfs-operator 0.1.36 seaweedfs-operator --set "domain=${CF_DOMAIN}" --set webhook.enabled=false
+  apply_chart 4.4.33 seaweedfs-operator seaweedfs-operator 0.1.36 seaweedfs-operator --set "domain=${DOMAIN}" --set webhook.enabled=false
 fi
 
 # 4.4.33b SeaweedFS S3 credentials. The Seaweed CR that 4.4.34 creates mounts
@@ -1388,7 +1541,7 @@ fi
 
 # 4.4.34 SeaweedFS configuration (PLUGGABLE_S3=false)
 if should_run 34 && [[ "$PLUGGABLE_S3" != true ]]; then
-  apply_chart 4.4.34 seaweedfs-config seaweedfs-config 0.1.0 seaweedfs-instance --set "domain=${CF_DOMAIN}" --set "seaweed.storageClassName=${CF_STORAGE_CLASS}" --set 'initJob.buckets[0].name=default-bucket' --set 'initJob.buckets[1].name=models' --set 'initJob.buckets[2].name=datasets'
+  apply_chart 4.4.34 seaweedfs-config seaweedfs-config 0.1.0 seaweedfs-instance --set "domain=${DOMAIN}" --set "seaweed.storageClassName=${CF_STORAGE_CLASS}" --set 'initJob.buckets[0].name=default-bucket' --set 'initJob.buckets[1].name=models' --set 'initJob.buckets[2].name=datasets'
 fi
 
 # 4.4.34b Redirect Service standing in for the in-cluster object store when one
@@ -1407,7 +1560,7 @@ fi
 if should_run 35; then
   aiwb_args=(
     --set standAloneMode=true
-    --set "appDomain=${CF_DOMAIN}"
+    --set "appDomain=${DOMAIN}"
     --set "backend.clusterHost=${AIWB_UI_URL}"
     --set "frontend.env.NEXTAUTH_URL=${AIWB_UI_URL}"
     --set "keycloak.url=${KC_URL}"
@@ -1431,7 +1584,7 @@ fi
 
 # 4.4.36 AI Gateway Discovery
 if should_run 36; then
-  apply_chart 4.4.36 ai-gateway-discovery ai-gateway-discovery-chart 2.0.0 ai-gateway-system --set "controller.gateway.routeHostname=ai.${CF_DOMAIN}" --set controller.gateway.name=ai-gateway --set controller.bodyAuthMaxRequestBytes=4194304
+  apply_chart 4.4.36 ai-gateway-discovery ai-gateway-discovery-chart 2.1.0 ai-gateway-system --set "controller.gateway.routeHostname=ai.${DOMAIN}" --set controller.gateway.name=ai-gateway --set controller.bodyAuthMaxRequestBytes=4194304
 fi
 
 # 4.4.37 RabbitMQ Cluster Operator
@@ -1478,6 +1631,7 @@ if should_run 43; then
     grep -q instinct <<<"$products" && families="instinct"
     grep -q radeon <<<"$products" && families="${families:+${families},}radeon"
   fi
+  CHART_POD_REG=1
   if [[ -n "$families" ]]; then
     echo "    AIM hardware families: ${families}"
     apply_chart 4.4.43 aim-cluster-model-source aim-cluster-model-source 0.1.0 kaiwo-system --set "hardwareFamilies=${families}"
