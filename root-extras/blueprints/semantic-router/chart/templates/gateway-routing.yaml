@@ -1,0 +1,314 @@
+{{- $mode := .Values.routing.mode -}}
+{{- if not (or (eq $mode "aigw") (eq $mode "envoy")) -}}
+{{- fail "routing.mode must be aigw or envoy" -}}
+{{- end -}}
+{{- $small := .Values.models.small.id -}}
+{{- $medium := .Values.models.medium.id -}}
+{{- $large := .Values.models.large.id -}}
+{{- if or (eq $small $medium) (eq $small $large) (eq $medium $large) -}}
+{{- fail "models.small.id, models.medium.id, and models.large.id must differ" -}}
+{{- end -}}
+{{- if eq $mode "aigw" }}
+# Envoy calls semantic-router over ext_proc, then routes to the selected backend.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  # Keep this name distinct from AIGatewayRoute/semantic-router. The controller
+  # overwrites an HTTPRoute that has the same name and namespace as an AIGatewayRoute.
+  name: semantic-router-gateway
+  namespace: semantic-router
+spec:
+  parentRefs:
+    - name: https
+      namespace: envoy-gateway-system
+  hostnames:
+    - {{ .Values.routing.hostname | quote }}
+  rules:
+    - filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            remove:
+              - x-api-key-id
+              - x-selected-model
+              - x-ai-eg-model
+              - x-ai-eg-backend
+      backendRefs:
+        - name: sr-gateway
+          namespace: envoy-gateway-system
+          port: 8080
+      timeouts:
+        request: 300s
+        backendRequest: 300s
+---
+# llmRequestCosts is what writes token counts into Envoy dynamic metadata.
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIGatewayRoute
+metadata:
+  name: semantic-router
+  namespace: semantic-router
+spec:
+  parentRefs:
+    - name: sr-gateway
+      namespace: semantic-router
+  llmRequestCosts:
+    - metadataKey: llm_input_token
+      type: InputToken
+    - metadataKey: llm_output_token
+      type: OutputToken
+    - metadataKey: llm_total_token
+      type: TotalToken
+  rules:
+    {{- range $tier := list "small" "medium" "large" }}
+    {{- $model := index $.Values.models $tier }}
+    - matches:
+        - headers:
+            - name: x-selected-model
+              value: {{ $model.id | quote }}
+      backendRefs:
+        - name: {{ include "semantic-router-gateway.backendName" $model.id }}
+          modelNameOverride: {{ $model.id | quote }}
+      timeouts:
+        request: 300s
+        backendRequest: 300s
+    {{- end }}
+    # Keep the catch-all last. Envoy needs a match before ext_proc runs.
+    - backendRefs:
+        - name: {{ include "semantic-router-gateway.backendName" .Values.models.medium.id }}
+          modelNameOverride: {{ .Values.models.medium.id | quote }}
+      timeouts:
+        request: 300s
+        backendRequest: 300s
+{{- range $tier := list "small" "medium" "large" }}
+{{- $model := index $.Values.models $tier }}
+---
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIServiceBackend
+metadata:
+  name: {{ include "semantic-router-gateway.backendName" $model.id }}
+  namespace: semantic-router
+spec:
+  schema:
+    name: OpenAI
+  backendRef:
+    group: gateway.envoyproxy.io
+    kind: Backend
+    name: {{ include "semantic-router-gateway.backendName" $model.id }}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: {{ include "semantic-router-gateway.backendName" $model.id }}
+  namespace: semantic-router
+spec:
+  endpoints:
+    - fqdn:
+        hostname: {{ include "semantic-router-gateway.host" $model.endpoint }}
+        port: {{ include "semantic-router-gateway.port" $model.endpoint }}
+{{- end }}
+---
+# Require an API key before the request reaches the router or backend.
+# forwardClientIDHeader sets x-api-key-id to the matching Secret key name.
+# setup.sh creates Secret semantic-router-client-keys with data key smoke-client.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: semantic-router-apikey
+  namespace: semantic-router
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: sr-gateway
+  apiKeyAuth:
+    credentialRefs:
+      - group: ""
+        kind: Secret
+        name: semantic-router-client-keys
+    extractFrom:
+      - headers:
+          - Authorization
+    forwardClientIDHeader: x-api-key-id
+    sanitize: true
+
+# Optional retry policy for connection failures. Confirm Envoy Gateway accepts
+# AIGatewayRoute as its target before enabling this example.
+#
+# ---
+# apiVersion: gateway.envoyproxy.io/v1alpha1
+# kind: BackendTrafficPolicy
+# metadata:
+#   name: semantic-router-retry
+#   namespace: semantic-router
+# spec:
+#   targetRefs:
+#     - group: aigateway.envoyproxy.io
+#       kind: AIGatewayRoute
+#       name: semantic-router
+#   retry:
+#     numRetries: 2
+#     retryOn:
+#       triggers:
+#         - connect-failure
+#         - refused-stream
+#         - reset-before-request
+#     perRetry:
+#       backOff:
+#         baseInterval: 1s
+#         maxInterval: 5s
+
+# Traffic splitting sends weighted traffic to independent deployments. It is
+# not failover. Configure health checks or outlier detection for failover.
+#
+#     - matches:
+#         - headers:
+#             - name: x-selected-model
+#               value: your-model
+#       backendRefs:
+#         - name: your-primary-backend
+#           weight: 90
+#         - name: your-secondary-backend
+#           weight: 10
+
+# External providers use the same AIServiceBackend and Backend resources.
+# Set the Backend FQDN and schema.name for the provider.
+#
+# ---
+# apiVersion: aigateway.envoyproxy.io/v1beta1
+# kind: AIServiceBackend
+# metadata:
+#   name: openai
+#   namespace: semantic-router
+# spec:
+#   schema:
+#     name: OpenAI
+#   backendRef:
+#     group: gateway.envoyproxy.io
+#     kind: Backend
+#     name: openai
+# ---
+# apiVersion: gateway.envoyproxy.io/v1alpha1
+# kind: Backend
+# metadata:
+#   name: openai
+#   namespace: semantic-router
+# spec:
+#   endpoints:
+#     - fqdn:
+#         hostname: api.openai.com
+#         port: 443
+# ---
+# apiVersion: gateway.networking.k8s.io/v1
+# kind: BackendTLSPolicy
+# metadata:
+#   name: openai-tls
+#   namespace: semantic-router
+# spec:
+#   targetRefs:
+#     - group: gateway.envoyproxy.io
+#       kind: Backend
+#       name: openai
+#   validation:
+#     wellKnownCACertificates: System
+#     hostname: api.openai.com
+#
+# Same pattern for an Anthropic upstream. Set schema.name to Anthropic.
+# Use hostname api.anthropic.com.
+{{- else }}
+# Direct Envoy path. Use this when the cluster has no AI Gateway CRDs.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: semantic-router
+  namespace: semantic-router
+spec:
+  parentRefs:
+    - name: https
+      namespace: envoy-gateway-system
+  hostnames:
+    - {{ .Values.routing.hostname | quote }}
+  rules:
+    {{- range $tier := list "small" "medium" "large" }}
+    {{- $model := index $.Values.models $tier }}
+    - matches:
+        - headers:
+            - name: x-selected-model
+              value: {{ $model.id | quote }}
+      backendRefs:
+        - name: {{ include "semantic-router-gateway.serviceName" $model.endpoint }}
+          namespace: {{ include "semantic-router-gateway.serviceNamespace" $model.endpoint }}
+          port: {{ include "semantic-router-gateway.port" $model.endpoint }}
+      timeouts:
+        request: 300s
+        backendRequest: 300s
+    {{- end }}
+    - backendRefs:
+        - name: {{ include "semantic-router-gateway.serviceName" .Values.models.medium.endpoint }}
+          namespace: {{ include "semantic-router-gateway.serviceNamespace" .Values.models.medium.endpoint }}
+          port: {{ include "semantic-router-gateway.port" .Values.models.medium.endpoint }}
+      timeouts:
+        request: 300s
+        backendRequest: 300s
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyExtensionPolicy
+metadata:
+  name: semantic-router-extproc
+  namespace: semantic-router
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: semantic-router
+  extProc:
+    - backendRefs:
+        - kind: Service
+          name: semantic-router
+          port: 50051
+      processingMode:
+        request:
+          body: Buffered
+      messageTimeout: 300s
+      failOpen: false
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: semantic-router-apikey
+  namespace: semantic-router
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: semantic-router
+  apiKeyAuth:
+    credentialRefs:
+      - group: ""
+        kind: Secret
+        name: semantic-router-client-keys
+    extractFrom:
+      - headers:
+          - Authorization
+    sanitize: true
+{{- $namespaces := dict -}}
+{{- range $tier := list "small" "medium" "large" -}}
+{{- $model := index $.Values.models $tier -}}
+{{- $ns := include "semantic-router-gateway.serviceNamespace" $model.endpoint -}}
+{{- $_ := set $namespaces $ns $ns -}}
+{{- end -}}
+{{- range $ns := keys $namespaces | sortAlpha }}
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-semantic-router-httproute
+  namespace: {{ $ns }}
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: semantic-router
+  to:
+    - group: ""
+      kind: Service
+{{- end }}
+{{- end }}

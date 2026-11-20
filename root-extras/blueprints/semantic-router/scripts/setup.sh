@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+# Copy the semantic-router blueprint into the current git repository.
+set -euo pipefail
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+src=$(cd "${script_dir}/.." && pwd)
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "Run this script from the root of the cluster-values repository." >&2
+  exit 1
+fi
+
+dest=$(git rev-parse --show-toplevel)
+if [[ "$(pwd -P)" != "${dest}" ]]; then
+  echo "Run this script from the repository root: ${dest}" >&2
+  exit 1
+fi
+
+blueprint_repo=$(git -C "${src}" rev-parse --show-toplevel)
+if [[ "${blueprint_repo}" == "${dest}" ]]; then
+  echo "Run this script from the root of the cluster-values repository." >&2
+  exit 1
+fi
+
+if ! command -v kubectl >/dev/null 2>&1; then
+  echo "kubectl is not available. Point kubectl at the cluster, then start the script again." >&2
+  exit 1
+fi
+
+if ! command -v openssl >/dev/null 2>&1; then
+  echo "openssl is not available. Install openssl, then start the script again." >&2
+  exit 1
+fi
+
+if ! command -v yq >/dev/null 2>&1; then
+  echo "yq is not available. Install mikefarah yq, then start the script again." >&2
+  exit 1
+fi
+
+yq_version=$(yq --version 2>&1 || true)
+if [[ "${yq_version}" != *mikefarah* ]]; then
+  echo "yq is not mikefarah yq. Install mikefarah yq, then start the script again." >&2
+  exit 1
+fi
+
+if ! domain=$(kubectl get configmap cluster-domain --namespace default --output jsonpath='{.data.DOMAIN}'); then
+  echo "kubectl did not read the cluster domain." >&2
+  echo "Point kubectl at the cluster, then start the script again." >&2
+  exit 1
+fi
+# cluster-bloom writes key DOMAIN. The manual install guide writes key domain.
+if [[ -z "${domain}" ]]; then
+  domain=$(kubectl get configmap cluster-domain --namespace default --output jsonpath='{.data.domain}')
+fi
+
+domain=${domain,,}
+# RFC 1123 host name, the format that HTTPRoute hostnames accept.
+domain_re='^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$'
+if [[ ! "${domain}" =~ ${domain_re} ]]; then
+  echo "The cluster domain from kubectl is not a host name: '${domain}'." >&2
+  exit 1
+fi
+
+echo "Blueprint: ${src}"
+echo "Destination: ${dest}"
+echo "Cluster domain: ${domain}"
+
+# Replace only the semantic-router key. Keep every other extraApps entry.
+if [[ ! -s extra-apps-values.yaml ]]; then
+  printf '%s\n' 'extraApps: {}' > extra-apps-values.yaml
+fi
+
+extra_apps_type=$(yq eval '.extraApps | type' extra-apps-values.yaml)
+if [[ "${extra_apps_type}" != "!!map" && "${extra_apps_type}" != "!!null" ]]; then
+  echo "extraApps in extra-apps-values.yaml is not a map. The script does not change that file." >&2
+  exit 1
+fi
+
+BLUEPRINT_EXTRA_APPS="${src}/extraApps.yaml" \
+  yq eval -i '.extraApps.semantic-router = load(strenv(BLUEPRINT_EXTRA_APPS)).extraApps.semantic-router' extra-apps-values.yaml
+
+mkdir -p extra-apps/semantic-router
+cp "${src}/values.yaml" extra-apps/semantic-router/values.yaml
+
+# A later run replaces the chart. Keep an ExternalSecret the user added.
+preserved=""
+externalsecret_path="extra-apps/semantic-router/chart/templates/dashboard-admin-externalsecret.yaml"
+if [[ -f "${externalsecret_path}" ]]; then
+  preserved=$(mktemp)
+  cp "${externalsecret_path}" "${preserved}"
+fi
+rm -rf extra-apps/semantic-router/chart
+cp -a "${src}/chart" extra-apps/semantic-router/chart
+if [[ -n "${preserved}" ]]; then
+  cp "${preserved}" "${externalsecret_path}"
+  rm -f "${preserved}"
+fi
+# The chart replaced the old manifests directory.
+rm -rf extra-apps/semantic-router/manifests
+
+sed -i \
+  -e "s#sr-dashboard\\.mycluster\\.example\\.com#sr-dashboard.${domain}#" \
+  -e "s#sr\\.mycluster\\.example\\.com#sr.${domain}#" \
+  -e 's/TODO-small-model/smoke-test-small/g' \
+  -e 's/TODO-medium-model/smoke-test-medium/g' \
+  -e 's/TODO-large-model/smoke-test-large/g' \
+  -e 's/TODO-your-vllm-service\.TODO-your-vllm-namespace\.svc\.cluster\.local:8000/test-vllm.semantic-router.svc.cluster.local:8000/g' \
+  extra-apps/semantic-router/values.yaml
+
+git add extra-apps-values.yaml extra-apps/semantic-router
+if ! git diff --cached --quiet; then
+  git commit -m "feat: Add semantic-router extra app"
+else
+  echo "No file changes to commit."
+fi
+
+# Push with GITEA_USERNAME and GITEA_PASSWORD when both are set. Otherwise git
+# prompts. The helper reads the variables from its environment, so the password
+# is not on the command line or in the repository.
+push_overlay() {
+  if [[ -n "${GITEA_USERNAME:-}" && -n "${GITEA_PASSWORD:-}" ]]; then
+    git -c credential.helper= \
+      -c 'credential.helper=!f() { test "$1" = get || exit 0; echo "username=$GITEA_USERNAME"; echo "password=$GITEA_PASSWORD"; }; f' \
+      push
+  else
+    git push
+  fi
+}
+push_overlay
+
+# The Secret stays on the cluster. Do not write the key into this repository.
+if ! kubectl get namespace semantic-router >/dev/null 2>&1; then
+  kubectl create namespace semantic-router
+fi
+
+if kubectl -n semantic-router get secret semantic-router-client-keys >/dev/null 2>&1; then
+  echo "Secret semantic-router-client-keys already exists. The script does not replace it."
+else
+  smoke_key=$(openssl rand -hex 32)
+  kubectl -n semantic-router create secret generic semantic-router-client-keys \
+    --from-literal=smoke-client="${smoke_key}"
+  echo "smoke-client API key: ${smoke_key}"
+fi

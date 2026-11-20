@@ -1,0 +1,19 @@
+---
+description: Keep comments succinct and limited to current behavior
+alwaysApply: true
+---
+
+# Comments
+
+Write a comment only when the code does not already state the fact. Keep it to one or two short sentences.
+
+State the current constraint. Leave out a previous value, a finished migration, or a bug the current code no longer has.
+
+```yaml
+# Bad. The v0.3 mismatch is finished. A reader does not need it.
+# Same commit as targetRevision in extraApps.yaml. The chart default tag
+# is "latest", which accepted schema v0.5 while this file still said v0.3.
+
+# Good
+# Same commit as targetRevision in extraApps.yaml. Config schema is v0.5.
+```

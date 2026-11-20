@@ -1,0 +1,5 @@
+apiVersion: v2
+name: semantic-router-gateway
+description: Gateway resources for the semantic-router blueprint
+type: application
+version: 0.1.0

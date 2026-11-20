@@ -1,18 +1,16 @@
 # Example: per-model quotas and a per-client tier override
 
-The blueprint's `quota.yaml` ships with exactly one `perModelQuotas` entry (one
-model) and one `bucketRule` (`type: Distinct` on `x-api-key-id`) — every API
-key gets the same limit, bucketed independently. This example shows the two
-extensions that are commonly needed on top of that: a separate budget **per
-model**, and a higher limit for **one named client** without raising the limit
-for everyone else.
+With `quota.enabled: true`, the gateway chart writes one `perModelQuotas` entry
+per model. Every API key shares `quota.limit`, in its own bucket (`type:
+Distinct` on `x-api-key-id`). This example is a custom policy: a separate
+budget per model, and a higher limit for one named client.
 
-This replaces `quota.yaml`; do not append it as a partial block. Set each
-backendRef's `modelNameOverride` to the model name that backend accepts. Use the
-same value in `perModelQuotas[].modelName`. This example uses router model names
-as backend model names; change both fields if your backend uses other names.
+Set `quota.enabled` to false before you add that policy. Add it as a template
+under `chart/templates/`. Two QuotaPolicies on the same backends both apply.
+Set each `modelName` to the matching `models.<tier>.id`.
 
-For example, add an override to each model rule in `gateway-routing.yaml`:
+The chart already writes `modelNameOverride` from that same id. The fragment
+below is the shape of one route rule:
 
 ```yaml
 rules:
@@ -28,8 +26,8 @@ rules:
       backendRequest: 300s
 ```
 
-Set that quota entry's `modelName` to `TODO-simple-backend-model`, not the
-`x-selected-model` value, unless both names are identical.
+Set that quota entry's `modelName` to the model's `id`. The chart uses that
+same id for the header value and for `modelNameOverride`.
 
 ## The config
 
@@ -101,9 +99,8 @@ spec:
 ## Rule order and precedence
 
 `type: Exact` (with a `value`) is a legal `clientSelectors` header match
-alongside `Distinct` — the CRD's enum is `Exact | RegularExpression |
-Distinct`, `quota.yaml`'s own comments just never mention the first two. A
-named client's requests match the `Exact` rule above (its own literal
+alongside `Distinct`. The CRD's enum is `Exact`, `RegularExpression`, or
+`Distinct`. A named client's requests match the `Exact` rule above (its own literal
 `x-api-key-id` value) **and** the `Distinct` rule (which matches any/all
 values, including that one) at the same time.
 
@@ -217,7 +214,7 @@ kubectl -n envoy-gateway-system logs deploy/sr-gateway -f
 
 confirms which key each request was charged under. To see the actual bucket
 values (needs `envoy-ai-gateway-ratelimit`'s bundled Redis, see the README's
-"Installing `envoy-ai-gateway-ratelimit`"):
+"Quota"):
 
 ```bash
 kubectl -n envoy-gateway-system exec deploy/envoy-ai-gateway-ratelimit-redis -- \
