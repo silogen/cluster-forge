@@ -7,27 +7,11 @@ budget per model, and a higher limit for one named client.
 
 Set `quota.enabled` to false before you add that policy. Add it as a template
 under `chart/templates/`. Two QuotaPolicies on the same backends both apply.
-Set each `modelName` to the matching `models.<tier>.id`.
 
-The chart already writes `modelNameOverride` from that same id. The fragment
-below is the shape of one route rule:
-
-```yaml
-rules:
-  - matches:
-      - headers:
-          - name: x-selected-model
-            value: TODO-simple-model
-    backendRefs:
-      - name: TODO-simple-model-backend
-        modelNameOverride: TODO-simple-backend-model
-    timeouts:
-      request: 300s
-      backendRequest: 300s
-```
-
-Set that quota entry's `modelName` to the model's `id`. The chart uses that
-same id for the header value and for `modelNameOverride`.
+Each `modelName` is the model's `id` from `models.<tier>`. Each `AIServiceBackend`
+name is that `id` in lowercase, with `/`, `.` and `_` replaced by `-`. The names
+below are the `values.yaml` defaults. Use your own ids. The example meters the
+small and large models. Add the medium model the same way.
 
 ## The config
 
@@ -44,13 +28,13 @@ spec:
     # of them.
     - group: aigateway.envoyproxy.io
       kind: AIServiceBackend
-      name: TODO-simple-model-backend
+      name: todo-small-model
     - group: aigateway.envoyproxy.io
       kind: AIServiceBackend
-      name: TODO-complex-model-backend
+      name: todo-large-model
   perModelQuotas:
-    # Match modelName to the corresponding BackendRef.modelNameOverride.
-    - modelName: TODO-simple-backend-model
+    # modelName is the model id.
+    - modelName: TODO-small-model
       quota:
         mode: Shared
         bucketRules:
@@ -73,7 +57,7 @@ spec:
             quota:
               limit: 50000
               duration: 1h
-    - modelName: TODO-complex-backend-model
+    - modelName: TODO-large-model
       quota:
         mode: Shared
         bucketRules:
@@ -120,8 +104,9 @@ Distinct. Test your deployed controller in shadow mode before enforcing tiers.
 
 Add each metered `AIServiceBackend` to `targetRefs` and add a matching
 `perModelQuotas` entry. Match its `modelName` to the route's
-`modelNameOverride`. Do not assume an omitted entry is unmetered; test your
+model `id`. Do not assume an omitted entry is unmetered; test your
 controller's behavior before relying on that.
+
 ## One budget across routed models
 
 `serviceQuota` is not enforced by the controller build tested for this
@@ -197,12 +182,12 @@ the same model, then watch what each accumulates:
 curl https://sr.<domain>/v1/chat/completions \
   -H "Authorization: Bearer <premium client's key>" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"TODO-simple-model","messages":[{"role":"user","content":"hello"}]}'
+  -d '{"model":"TODO-small-model","messages":[{"role":"user","content":"hello"}]}'
 
 curl https://sr.<domain>/v1/chat/completions \
   -H "Authorization: Bearer <a regular client's key>" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"TODO-simple-model","messages":[{"role":"user","content":"hello"}]}'
+  -d '{"model":"TODO-small-model","messages":[{"role":"user","content":"hello"}]}'
 ```
 
 Both requests' `api_key_id` and token counts land in `sr-gateway`'s access log

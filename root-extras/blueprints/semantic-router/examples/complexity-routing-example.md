@@ -2,8 +2,9 @@
 
 The blueprint's `values.yaml` ships this sample. `models.small` is the easy
 model. `models.large` is the hard model. `models.medium` is the catch-all.
-YAML anchors copy each id into `config.recipes`. The gateway chart builds one
-route per id from the same entries.
+YAML anchors copy each id and endpoint into `config.providers` and
+`config.recipes`. The gateway chart builds one route per id from the same
+entries.
 
 Edit those three entries. Do not paste a second `config:` block over the file.
 A second block drops the anchors, and the gateway chart then disagrees with
@@ -20,7 +21,7 @@ that name and a `label`, such as `hard` or `easy`. Schema v0.5 has no
 
 ## The config
 
-Both vLLM backends need to already be up and reachable. The `models` entries
+The three vLLM backends must already be up and reachable. The `models` entries
 name the servers. They do not start the servers.
 
 `hard-to-large` matches label `hard` and selects `models.large`.
@@ -32,8 +33,8 @@ evaluated highest-`priority` first. The first one whose `conditions` match
 wins. The catch-all keeps `conditions: []`, so it matches unconditionally. It
 has to sit at the lowest priority (`100` here), or it wins before the
 signal-based decisions. This is the same shape as the catch-all rule in
-`gateway-routing.yaml`. There, Envoy's route matching needs a fallback. Here,
-the router's own decision matching needs one.
+`chart/templates/gateway-routing.yaml`. There, Envoy's route matching needs a
+fallback. Here, the router's own decision matching needs one.
 
 **`use_reasoning: false`** means the request is sent without that model's
 extended-thinking mode. It is a per-model-ref switch. The `complexity` signal
@@ -45,10 +46,12 @@ Send an easy prompt and a hard one, then check which model each landed on:
 
 ```bash
 curl -sk https://sr.<domain>/v1/chat/completions \
+  -H "Authorization: Bearer <key>" \
   -H 'Content-Type: application/json' \
   -d '{"model":"auto","messages":[{"role":"user","content":"What is the capital of France?"}]}'
 
 curl -sk https://sr.<domain>/v1/chat/completions \
+  -H "Authorization: Bearer <key>" \
   -H 'Content-Type: application/json' \
   -d '{"model":"auto","messages":[{"role":"user","content":"Write a Python function to implement a binary search tree"}]}'
 ```
