@@ -50,6 +50,9 @@ jobs:
       - name: Check version drift
         run: spur/tests/check-version-drift.sh
 
+      - name: Check the gpu-sharing render
+        run: spur/tests/check-gpu-sharing-render.sh
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:

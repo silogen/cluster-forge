@@ -1,0 +1,42 @@
+{{- if .Values.gpuSharing.enabled }}
+apiVersion: amd.com/v1alpha1
+kind: DeviceConfig
+metadata:
+  name: gpu-operator-dra
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  driver:
+    enable: false
+    blacklist: false
+  # The operator rejects a DeviceConfig with both the device plugin and the
+  # DRA driver.
+  devicePlugin:
+    enableDevicePlugin: false
+    enableNodeLabeller: true
+    nodeLabellerImage: rocm/k8s-device-plugin:labeller-latest
+    nodeLabellerImagePullPolicy: "Always"
+  draDriver:
+    enable: true
+    image: {{ .Values.gpuSharing.draDriverImage | quote }}
+    imagePullPolicy: IfNotPresent
+  # Spur does not link pod-resources on a shared node, so the exporter needs
+  # the same socket path as on an ordinary node. Node port 32501, because
+  # the gpu-operator DeviceConfig already has 32500.
+  metricsExporter:
+    enable: true
+{{- with .Values.podResourceAPISocketPath }}
+    podResourceAPISocketPath: {{ . | quote }}
+{{- end }}
+    serviceType: "NodePort"
+    port: 5000
+    nodePort: {{ .Values.gpuSharing.metricsNodePort }}
+    image: docker.io/rocm/device-metrics-exporter:v1.5.1
+    imagePullPolicy: "IfNotPresent"
+    config:
+      name: "gpu-config"
+  selector:
+    feature.node.kubernetes.io/amd-gpu: "true"
+    spur.amd.com/gpu-sharing: "true"
+{{- end }}

@@ -159,6 +159,10 @@ apps:
       crds:
         defaultCR:
           install: false
+      # amd-gpu-operator-config owns the DeviceClass gpu.amd.com.
+      draDriver:
+        deviceClass:
+          create: false
   amd-gpu-operator-config:
     namespace: kube-amd-gpu
     path: amd-gpu-operator-config/v1.5.1
