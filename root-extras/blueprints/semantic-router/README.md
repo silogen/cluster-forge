@@ -14,6 +14,7 @@ Files fetched into your cluster-values overlay repo:
 | `manifests/gateway-routing.yaml` | `extra-apps/semantic-router/manifests/gateway-routing.yaml` | the routes and backends you edit |
 | `manifests/aigw-extras/sr-gateway*.yaml` | `extra-apps/semantic-router/manifests/` (flattened, no `aigw-extras/`) | a dedicated Envoy data plane for the router — not edited per deployment, see "Routing traffic through the router" |
 | `manifests/aigw-extras/quota.yaml` | `extra-apps/semantic-router/manifests/` (flattened) | per-API-key token quota — optional, see "Quota" |
+| `manifests/dashboard-admin-externalsecret.yaml` | `extra-apps/semantic-router/manifests/` | *(optional)* reads the dashboard admin from OpenBao, see "Dashboard access" way 2 |
 | `manifests/gateway-routing-direct-envoy.yaml` | *(fallback, not fetched by default)* | no-AI-Gateway version, see "No AI Gateway? Direct-Envoy fallback" — if used, skip the `aigw-extras/` row above entirely |
 
 ## Prerequisites
@@ -24,6 +25,9 @@ Files fetched into your cluster-values overlay repo:
 - A reachable vLLM backend serving the model you want to route to. The router
   deploys fine without one, it just has nothing to route to.
 - A default StorageClass, or a real class name set in `values.yaml` (see below).
+- **For dashboard way 2 only:** OpenBao, External Secrets Operator, and
+  ClusterSecretStore `openbao-secret-store`. A bloomed cluster has all three.
+  Ways 1 and 3 need none of them. See "Dashboard access".
 - **For token quota enforcement (`manifests/aigw-extras/quota.yaml`) only:** the
   `envoy-ai-gateway-ratelimit` app — optional, opt-in, cluster-forge core, not
   installed by default. Add `envoy-ai-gateway-ratelimit` to your cluster
@@ -456,63 +460,83 @@ stays Pending forever. If the cluster has no default class, name a real one.
 
 ## Dashboard access
 
-The dashboard has no admin account by default. Its bootstrap endpoint is public
-and unauthenticated. Enable open bootstrap only for a temporary demo; otherwise,
-create an admin through the documented environment variables.
+As shipped, the dashboard has no admin, and `allowOpenBootstrap` stays false.
+The router works. Nobody can log in until you pick one way below.
 
-With `dashboard.persistence.enabled: false`, the admin account lives in the
-pod's ephemeral filesystem and is lost when the pod is recreated. Persistence
-is enabled by default in this blueprint.
+Ways 1 and 2 use the same `dashboard.jwtSecret` and `dashboard.extraEnv`
+blocks. Those blocks ship commented out in `values.yaml`. Uncomment them after
+the Secret exists. With the blocks set and the Secret absent, the dashboard pod
+stays in `CreateContainerConfigError`.
 
-Pick one login option before you try to log in.
+The dashboard creates the admin when the email is absent from its database. A
+new password does not replace an existing row. Delete the dashboard volume and
+start the pod again to create the account again.
 
-**Throwaway demo** — uncomment in `values.yaml`:
+With `dashboard.persistence.enabled: false`, the admin account, evaluation
+runs, and saved workflows are lost when the pod is recreated. Persistence is
+enabled by default in this blueprint. The session signing key is `jwt-secret`
+in the same Secret, so a pod restart does not end the sessions.
 
-```yaml
-dashboard:
-  allowOpenBootstrap: true
-```
+### 1. Startup admin from a Secret
 
-Then create the admin through the web form. Turn it back off once the admin
-exists — with persistence on, the account survives that.
-
-**Anything longer-lived** — provision the admin at startup instead. First
-create the Secret the env vars below reference, directly on the cluster —
-**not** through the overlay repo, since that would put the plaintext password
-in Git:
+Use this on any cluster. Create Secret `semantic-router-dashboard-admin` in
+namespace `semantic-router` before the first sync. The keys are `email`,
+`name`, `password`, and `jwt-secret`.
 
 ```bash
 kubectl -n semantic-router create secret generic semantic-router-dashboard-admin \
-  --from-literal=password="$(openssl rand -hex 16)"
+  --from-literal=email=admin@<your domain> \
+  --from-literal=name=admin \
+  --from-literal=password="$(openssl rand -hex 16)" \
+  --from-literal=jwt-secret="$(openssl rand -hex 32)"
 ```
 
-Then add these to `values.yaml`. Adding them closes the bootstrap path
-automatically:
+Do not put this Secret in the overlay repo. The repo would then contain the
+password in plain text.
 
-```yaml
-dashboard:
-  extraEnv:
-    - name: DASHBOARD_ADMIN_EMAIL
-      value: admin@example.com
-    - name: DASHBOARD_ADMIN_NAME
-      value: admin
-    - name: DASHBOARD_ADMIN_PASSWORD
-      valueFrom:
-        secretKeyRef:
-          name: semantic-router-dashboard-admin
-          key: password
+Uncomment `dashboard.jwtSecret` and `dashboard.extraEnv` in
+`extra-apps/semantic-router/values.yaml`. Commit and push.
+
+Sign in at `https://sr-dashboard.<domain>` with that email and password.
+
+### 2. Startup admin from OpenBao
+
+Use this on a bloomed cluster. It is way 1, with External Secrets Operator
+creating the Secret. `openbao-config` in the same cluster-forge release defines
+the four OpenBao paths, so they are always present on a bloomed cluster.
+
+Fetch the ExternalSecret into the `manifests/` directory. This file is
+necessary only to read the Secret from OpenBao.
+
+```bash
+curl -fsSL "$BLUEPRINT/manifests/dashboard-admin-externalsecret.yaml" \
+    -o extra-apps/semantic-router/manifests/dashboard-admin-externalsecret.yaml
 ```
 
-The Secret has to exist in the `semantic-router` namespace before ArgoCD syncs
-this, or the dashboard pod sits in `CreateContainerConfigError`.
+Uncomment `dashboard.jwtSecret` and `dashboard.extraEnv` in
+`extra-apps/semantic-router/values.yaml`. Commit and push. The ExternalSecret
+has sync wave `-1`, so Argo CD creates the Secret before the dashboard pod.
+`extraApps.yaml` has `ignoreDifferences` for the fields that External Secrets
+Operator fills in.
 
-Self-healing even without persistence, since the admin is recreated from the
-env vars every startup — but persistence still matters for everything else the
-dashboard tracks (evaluation runs, saved workflows).
+Sign in at `https://sr-dashboard.<domain>` with email `admin@<domain>` and
+display name `admin`. Read the password:
 
-Worth knowing that login sessions are signed with a key the dashboard
-regenerates on every pod start, so any restart logs everyone out regardless of
-persistence. Set `dashboard.jwtSecret.existingSecret` if that matters.
+```bash
+kubectl -n semantic-router get secret semantic-router-dashboard-admin \
+    -o jsonpath='{.data.password}' | base64 -d; echo
+```
+
+Argo CD waits for the ExternalSecret to be healthy before it syncs the next
+wave. If the ClusterSecretStore is missing, the sync of the whole Application
+stops. Use way 1 on a cluster without OpenBao.
+
+### 3. Open bootstrap
+
+Use this for a short demo only. Set `allowOpenBootstrap: true` in `values.yaml`
+and create the admin in the web form. The form is public and has no
+authentication until an admin exists. Set `allowOpenBootstrap: false` again
+after you create the admin. Do not use this on a cluster that stays up.
 
 ## Updating
 
