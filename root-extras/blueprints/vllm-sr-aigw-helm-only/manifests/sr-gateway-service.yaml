@@ -1,0 +1,36 @@
+# Stable ClusterIP selecting sr-gateway's data plane (HTTP listener). This is
+# what you port-forward to, and what any ingress you put in front of this
+# blueprint should target -- rather than the auto-generated
+# envoy-semantic-router-sr-gateway-<hash> Service, whose name changes.
+#
+# CONFIRMED LIVE TEST (envoy-gateway v1.8.1): Envoy Gateway always creates its
+# managed proxy Deployment/Pod in envoy-gateway's OWN install namespace
+# (envoy-gateway-system), never in the namespace of the Gateway object that
+# owns it -- confirmed via the auto-generated Service/EndpointSlice for this
+# Gateway, which lives in envoy-gateway-system even though the sr-gateway
+# Gateway object itself is in semantic-router. A Service's label selector cannot
+# cross namespaces, so this Service must live here (envoy-gateway-system) rather
+# than semantic-router -- putting it in semantic-router silently selects zero
+# pods (empty Endpoints, every request 503s).
+apiVersion: v1
+kind: Service
+metadata:
+  name: sr-gateway
+  namespace: envoy-gateway-system
+spec:
+  selector:
+    app.kubernetes.io/component: proxy
+    app.kubernetes.io/managed-by: envoy-gateway
+    app.kubernetes.io/name: envoy
+    gateway.envoyproxy.io/owning-gateway-name: sr-gateway
+    gateway.envoyproxy.io/owning-gateway-namespace: semantic-router
+  ports:
+    - name: http-8080
+      port: 8080
+      protocol: TCP
+      # CONFIRMED LIVE TEST: unlike an HTTPS listener, where Envoy Gateway's
+      # real container port is offset (10443 for a declared port 443), a plain
+      # HTTP listener is NOT offset -- the real container port equals the
+      # declared listener port (8080 here).
+      targetPort: 8080
+  type: ClusterIP

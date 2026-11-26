@@ -1,0 +1,139 @@
+# vLLM Semantic Router — chart config for one deployment.
+#
+# Edit every `TODO` below before running install.sh. Only overrides live here;
+# anything not set falls through to the upstream chart's own defaults.
+
+persistence:
+  # Upstream defaults to "standard", which does not exist on most clusters.
+  # Empty omits the field so the cluster's default StorageClass applies. Do not
+  # use "-": the chart turns that into an explicit `storageClassName: ""`, which
+  # means "no class at all" and leaves the PVC Pending forever. Set a real class
+  # name if this cluster has no default.
+  storageClassName: ""
+
+# Management API (8080) defaults to binding 127.0.0.1, unreachable from the
+# dashboard's separate pod — this is why the dashboard reports the router as
+# not running. This env var widens the bind cluster-internally without the
+# heavier `remote_exposure: true` + bearer-auth path. Still not
+# internet-facing: no Gateway route touches 8080. See README.
+extraEnv:
+  - name: VLLM_SR_MANAGEMENT_INTERNAL_LISTENER
+    value: "true"
+
+dashboard:
+  enabled: true
+
+  # Off by default upstream. Without it, the admin account and all session/
+  # workflow state live only in the pod's ephemeral filesystem and are wiped
+  # by ANY pod recreation — not just a restart, also a values change, a chart
+  # bump, or a node move. Cheap enough (1Gi) to leave on regardless of which
+  # login option below you pick — see the README's "Dashboard" section.
+  persistence:
+    enabled: true
+    storageClassName: ""
+
+  # Upstream's bootstrap endpoint is public and unauthenticated — first
+  # stranger to load the URL claims admin. Default true here since this
+  # blueprint has no HTTPRoute for the dashboard (reachable only via
+  # port-forward, see README's "Dashboard" section) — fine for a demo/kind
+  # cluster. Set false, or provision an admin via `extraEnv` instead, before
+  # exposing this dashboard any wider than that.
+  allowOpenBootstrap: true
+
+  # No HTTPRoute: this blueprint installs no edge Gateway to attach one to.
+  # Reach the dashboard with `kubectl port-forward` — see the README. Set this
+  # to true and fill in a hostname + parentRef if your cluster already has a
+  # Gateway you want it published through.
+  httpRoute:
+    enabled: false
+
+# TODO: point the router at your own model and vLLM backend.
+#
+# All four settings below have to name the SAME model, or requests match no
+# route. They are lists, and Helm replaces lists wholesale rather than merging
+# them — so keep each one complete, don't trim it to just the changed field.
+config:
+  # Canonical v0.3 schema. Pin the chart to a commit whose Chart.yaml
+  # appVersion is a real release tag (not "latest") -- see install.sh's
+  # SR_COMMIT comment -- or this schema drifts out from under the image again.
+  version: v0.3
+  # Pairs with extraEnv above — both are required, neither works alone.
+  global:
+    services:
+      management_api:
+        bind_address: "0.0.0.0"
+  providers:
+    defaults:
+      model: "TODO-your-model"
+    models:
+      - name: "TODO-your-model"
+        # The ID the backend itself expects, which may differ from the name above.
+        provider_model_id: "TODO-your-model"
+        backend_refs:
+          - name: "primary"
+            # TODO: your vLLM service, e.g. my-vllm.my-namespace.svc:8000
+            endpoint: "TODO-your-vllm-service:8000"
+            protocol: "http"
+            weight: 100
+      # Complexity-routing example (see root-extras/blueprints/semantic-router/
+      # examples/complexity-routing-example.md) — a second, bigger/more-capable
+      # model that hard/complex prompts route to. Delete this model and the
+      # matching decisions/modelCards entries below if you don't want
+      # complexity-based routing.
+      - name: "TODO-your-complex-model"
+        provider_model_id: "TODO-your-complex-model"
+        backend_refs:
+          - name: "primary"
+            # TODO: your bigger vLLM service, e.g. my-vllm-70b.my-namespace.svc:8000
+            endpoint: "TODO-your-complex-vllm-service:8000"
+            protocol: "http"
+            weight: 100
+  routing:
+    signals:
+      complexity:
+        - name: task-complexity
+          description: "Distinguish simple factual queries from complex reasoning tasks."
+          threshold: 0.1
+          hard:
+            candidates:
+              - "Write a Python function to implement a binary search tree"
+              - "Explain trade-offs between consistency and availability in distributed systems"
+          easy:
+            candidates:
+              - "What is the capital of France?"
+              - "Summarize this paragraph"
+    modelCards:
+      - name: "TODO-your-model"
+      - name: "TODO-your-complex-model"
+    decisions:
+      - name: "hard-to-complex-model"
+        description: "Complex/reasoning prompts route to the bigger model."
+        priority: 200
+        rules:
+          operator: "AND"
+          conditions:
+            - type: "complexity"
+              name: "task-complexity:hard"
+        modelRefs:
+          - model: "TODO-your-complex-model"
+            use_reasoning: false
+      - name: "easy-to-simple-model"
+        description: "Simple factual prompts route to the smaller model."
+        priority: 150
+        rules:
+          operator: "AND"
+          conditions:
+            - type: "complexity"
+              name: "task-complexity:easy"
+        modelRefs:
+          - model: "TODO-your-model"
+            use_reasoning: false
+      - name: "default-route"
+        description: "Catch-all — anything that matches neither signal."
+        priority: 100
+        rules:
+          operator: "AND"
+          conditions: []
+        modelRefs:
+          - model: "TODO-your-model"
+            use_reasoning: false

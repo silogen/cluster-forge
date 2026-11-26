@@ -1,0 +1,379 @@
+# vLLM Semantic Router — gateway wiring for one deployment.
+#
+# Edit every `TODO` below before running install.sh.
+#
+# What this does: a request arriving at sr-gateway (sr-gateway.yaml, reached
+# through the ClusterIP Service in sr-gateway-service.yaml) is handed to
+# semantic-router running as an external processor: Envoy asks the router which
+# model should serve the request, the router answers by setting a header, and
+# Envoy re-runs its route matching and forwards to that model's backend. The
+# router never proxies the request itself.
+#
+# Every request REQUIRES a client API key — see the mandatory SecurityPolicy
+# below. Its apiKeyAuth rejects any request without a valid key in the Secret it
+# references (401), before the request ever reaches the router or backend. There
+# is no keyless opt-out path.
+#
+# Token accounting (llmRequestCosts, below) is what makes per-key quota
+# enforcement possible — see quota.yaml. Without it AIGatewayRoute still routes
+# correctly, but a QuotaPolicy targeting these backends loads and charges
+# nothing.
+
+# llmRequestCosts populates token metadata used by access logs and QuotaPolicy.
+# Apply Gateway before AIGatewayRoute. After installation, confirm the generated
+# route is Accepted and the proxy config contains its virtual host.
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIGatewayRoute
+metadata:
+  name: semantic-router
+  namespace: semantic-router
+spec:
+  parentRefs:
+    - name: sr-gateway
+      namespace: semantic-router
+  llmRequestCosts:
+    - metadataKey: llm_input_token
+      type: InputToken
+    - metadataKey: llm_output_token
+      type: OutputToken
+    - metadataKey: llm_total_token
+      type: TotalToken
+  rules:
+    # Add one rule per model in values/semantic-router.yaml. The router sets
+    # x-selected-model after it classifies the request.
+    - matches:
+        - headers:
+            - name: x-selected-model
+              value: TODO-your-model
+      backendRefs:
+        - name: TODO-your-model-backend
+          modelNameOverride: TODO-your-backend-model
+      timeouts:
+        request: 300s
+        backendRequest: 300s
+    # Second model for the complexity-routing example (see
+    # values/semantic-router.yaml's config.routing.signals /
+    # root-extras/blueprints/semantic-router/examples/complexity-routing-example.md).
+    # Point this at your bigger/more-capable model's own AIServiceBackend, or
+    # delete this block and the matching entry in values/semantic-router.yaml
+    # if you don't want complexity-based routing.
+    - matches:
+        - headers:
+            - name: x-selected-model
+              value: TODO-your-complex-model
+      backendRefs:
+        - name: TODO-your-complex-model-backend
+          modelNameOverride: TODO-your-complex-backend-model
+      timeouts:
+        request: 300s
+        backendRequest: 300s
+    # Keep catch-all last. Envoy needs a match before ext_proc runs. Requests
+    # land here if the router does not select a model. Use an intentional default.
+    - backendRefs:
+        - name: TODO-your-model-backend
+          modelNameOverride: TODO-your-backend-model
+      timeouts:
+        request: 300s
+        backendRequest: 300s
+---
+# Declares your vLLM backend's API shape to AI Gateway. Reuse one
+# AIServiceBackend + Backend pair per distinct upstream — the pair below
+# covers the primary model (both the rule above AND the catch-all point at
+# it); the pair after it is the second, complexity-routing model. Delete
+# whichever pairs you don't need, add more per additional model.
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIServiceBackend
+metadata:
+  name: TODO-your-model-backend
+  namespace: semantic-router
+spec:
+  schema:
+    name: OpenAI
+  backendRef:
+    group: gateway.envoyproxy.io
+    kind: Backend
+    name: TODO-your-model-backend
+---
+# AIServiceBackend.spec.backendRef currently must reference a Backend of this
+# kind — plain Service refs aren't supported yet (envoyproxy/ai-gateway#902) —
+# so this is a mandatory extra hop versus a plain HTTPRoute's backendRef. It
+# also requires `extensionApis.enableBackend: true` on Envoy Gateway, which
+# values/envoy-gateway.yaml sets.
+#
+# Because this is FQDN-only rather than a Service selector, no ReferenceGrant is
+# needed even when your vLLM Service lives in another namespace. Delete the
+# `.TODO-your-vllm-namespace` segment if it runs in `semantic-router` itself.
+#
+# This `port` must equal the real Service's port. A mismatch here routes and
+# selects correctly but Envoy gets an immediate connection reset dialing the
+# wrong port — surfaces as a generic 503 "connection termination" with nothing
+# in the router's own logs (which will show a correct routing_decision).
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: TODO-your-model-backend
+  namespace: semantic-router
+spec:
+  endpoints:
+    - fqdn:
+        hostname: TODO-your-vllm-service.TODO-your-vllm-namespace.svc.cluster.local
+        port: 8000
+---
+# Second AIServiceBackend + Backend pair, for the complexity-routing example's
+# bigger/more-capable model (see the second rule above). Delete this pair too
+# if you delete that rule.
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIServiceBackend
+metadata:
+  name: TODO-your-complex-model-backend
+  namespace: semantic-router
+spec:
+  schema:
+    name: OpenAI
+  backendRef:
+    group: gateway.envoyproxy.io
+    kind: Backend
+    name: TODO-your-complex-model-backend
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: TODO-your-complex-model-backend
+  namespace: semantic-router
+spec:
+  endpoints:
+    - fqdn:
+        hostname: TODO-your-complex-vllm-service.TODO-your-complex-vllm-namespace.svc.cluster.local
+        port: 8000
+---
+# Requiring a client API key — MANDATORY, not optional. apiKeyAuth alone is what
+# enforces this: without a valid key the api_key_auth filter itself returns 401,
+# before the request ever reaches the router or backend.
+#
+# CONFIRMED LIVE TEST (envoy-gateway v1.8.1, the version this blueprint
+# targets): do NOT also add an `authorization:` block here to "double up" the
+# deny. Envoy Gateway's RBAC authorization layer is independent of apiKeyAuth —
+# a successful apiKeyAuth authentication does NOT generate any RBAC allow rule.
+# `authorization: {defaultAction: Deny}` with no `rules` compiles to an RBAC
+# matcher with only an on_no_match: DENY branch and no match arm at all, so it
+# denies literally every request, authenticated or not (confirmed via Envoy's
+# /config_dump: the per-route RBACPerRoute had zero matcher branches). An
+# Allow rule can be added (principal.headers matching x-api-key-id against an
+# explicit list of onboarded client IDs) if you want RBAC as a second,
+# independent layer, but it requires listing every client ID here too — it is
+# not implied by apiKeyAuth and is not required for the "mandatory key" goal.
+#
+# CONFIRMED LIVE TEST (same envoy-gateway version): SecurityPolicy's CRD has a
+# hard CEL validation rule restricting targetRefs[*].kind to
+# Gateway/HTTPRoute/GRPCRoute/TCPRoute — AIGatewayRoute is rejected outright
+# ("this policy can only have a targetRefs[*].kind of
+# Gateway/HTTPRoute/GRPCRoute/TCPRoute"), so a policy targeting the
+# AIGatewayRoute above can never apply. Targeting the Gateway itself instead is
+# safe only because sr-gateway carries exactly one route — there is no other
+# traffic for a Gateway-scoped policy to over-broadly cover.
+#
+# apiKeyAuth checks the Authorization header against a Secret's values;
+# sanitize: true strips it again before the request reaches the router or
+# backend. forwardClientIDHeader stamps the Secret *key name* that matched
+# onto x-api-key-id — sr-gateway-proxy-config.yaml's access log reads it, and
+# quota.yaml's QuotaPolicy buckets its per-key limit on it. Reusing a key name
+# for a different tenant hands them the old tenant's accumulated spend.
+#
+# Same namespace as the AIGatewayRoute is required for both the policy and the
+# Secret. install.sh creates the Secret with one generated key if it does not
+# exist. To add clients later, keeping the existing keys:
+#
+#   kubectl -n semantic-router patch secret semantic-router-client-keys \
+#     --type merge -p "{\"stringData\":{\"your-client-name\":\"$(openssl rand -hex 32)\"}}"
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: semantic-router-apikey
+  namespace: semantic-router
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: sr-gateway
+  apiKeyAuth:
+    credentialRefs:
+      - group: ""
+        kind: Secret
+        name: semantic-router-client-keys
+    extractFrom:
+      - headers:
+          - Authorization
+    forwardClientIDHeader: x-api-key-id
+    sanitize: true
+---
+# Gateway-level timeout. Route-level timeouts above set the same 300s budget.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: sr-gateway-traffic
+  namespace: semantic-router
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: sr-gateway
+  timeout:
+    http:
+      requestTimeout: 300s
+  # retry:
+  #   numRetries: 2
+  #   retryOn:
+  #     triggers:
+  #       - connect-failure
+  #       - refused-stream
+  #       - reset-before-request
+  #   perRetry:
+  #     backOff:
+  #       baseInterval: 1s
+  #       maxInterval: 5s
+
+# Traffic splitting across two independent backends for the SAME model — e.g. a
+# second Deployment/Service in another namespace or region, not just extra
+# replicas of one Deployment (extra replicas of one Deployment are already
+# load-balanced across by the Service/EDS with no config here).
+#
+# AIGatewayRoute backendRefs take a `weight` directly, splitting across two
+# AIServiceBackends (each with its own Backend, defined the same way as
+# TODO-your-model-backend above).
+#
+# Weights split traffic. They are NOT failover. Measured on an earlier
+# plain-HTTPRoute shape of this blueprint (Envoy Gateway v1.8.1) with a 90/10
+# split: with the primary scaled to zero, 90 of 100 requests returned 503 —
+# unchanged with retries enabled, because an empty cluster is "no healthy
+# upstream" and matches none of the retry triggers. A primary that is present
+# but refusing connections does partly recover (retry re-picks a different
+# host), but still failed 15 of 100.
+#
+# Real failover needs the backend taken out of rotation, which is
+# BackendTrafficPolicy's `healthCheck` (active probing) or `outlierDetection`
+# (ejection on observed failures). Neither is configured by this blueprint.
+#
+#     - matches:
+#         - headers:
+#             - name: x-selected-model
+#               value: TODO-your-model
+#       backendRefs:
+#         - name: EXAMPLE-your-primary-model-backend
+#           weight: 90
+#         - name: EXAMPLE-your-secondary-model-backend
+#           weight: 10
+
+# Routing a model to an API outside the cluster (OpenAI, Anthropic, a vLLM box
+# on another network). AIServiceBackend + Backend is the SAME mechanism used
+# for an in-cluster model above — just point the Backend's fqdn at the
+# provider's hostname instead of a cluster-local Service DNS name, and set
+# schema.name to match the provider's API shape. No URLRewrite filter is needed:
+# AIServiceBackend's schema is what tells AI Gateway how to translate the
+# request onto that provider's wire format, host, and path, so the routing rule
+# needs nothing beyond the backendRef itself. (Inferred from AI Gateway's
+# schema-translation design, not independently re-verified against a live
+# external provider on this blueprint's shape — confirm the outbound request
+# actually reaches api.openai.com correctly rewritten before relying on it.)
+#
+# All objects below are commented out. Uncomment and edit if you need them,
+# then reference the AIServiceBackend from a rule in the AIGatewayRoute above:
+#
+#     - matches:
+#         - headers:
+#             - name: x-selected-model
+#               value: gpt-4o
+#       backendRefs:
+#         - name: openai
+#
+# The router does not need to reach the API itself — it only classifies and
+# names a model. Envoy makes the upstream call.
+#
+# Authentication is yours to arrange. Nothing here injects an API key, so a
+# client-supplied `Authorization` header would pass through to the provider as-is
+# — except that the SecurityPolicy above sets `sanitize: true` and strips it, so
+# an external provider gets no credential at all unless you add one. That needs
+# a mechanism this blueprint does not set up.
+#
+# ---
+# apiVersion: aigateway.envoyproxy.io/v1beta1
+# kind: AIServiceBackend
+# metadata:
+#   name: openai
+#   namespace: semantic-router
+# spec:
+#   schema:
+#     name: OpenAI
+#   backendRef:
+#     group: gateway.envoyproxy.io
+#     kind: Backend
+#     name: openai
+# ---
+# apiVersion: gateway.envoyproxy.io/v1alpha1
+# kind: Backend
+# metadata:
+#   name: openai
+#   namespace: semantic-router
+# spec:
+#   endpoints:
+#     - fqdn:
+#         hostname: api.openai.com
+#         port: 443
+# ---
+# # Without this Envoy talks plaintext to port 443 and every request fails. It
+# # also supplies the SNI name and verifies the provider's certificate against
+# # the system trust store.
+# apiVersion: gateway.networking.k8s.io/v1
+# kind: BackendTLSPolicy
+# metadata:
+#   name: openai-tls
+#   namespace: semantic-router
+# spec:
+#   targetRefs:
+#     - group: gateway.envoyproxy.io
+#       kind: Backend
+#       name: openai
+#   validation:
+#     wellKnownCACertificates: System
+#     hostname: api.openai.com
+#
+# Same pattern for an Anthropic upstream — same three objects, different
+# hostname and schema.name:
+#
+# ---
+# apiVersion: aigateway.envoyproxy.io/v1beta1
+# kind: AIServiceBackend
+# metadata:
+#   name: anthropic
+#   namespace: semantic-router
+# spec:
+#   schema:
+#     name: Anthropic
+#   backendRef:
+#     group: gateway.envoyproxy.io
+#     kind: Backend
+#     name: anthropic
+# ---
+# apiVersion: gateway.envoyproxy.io/v1alpha1
+# kind: Backend
+# metadata:
+#   name: anthropic
+#   namespace: semantic-router
+# spec:
+#   endpoints:
+#     - fqdn:
+#         hostname: api.anthropic.com
+#         port: 443
+# ---
+# apiVersion: gateway.networking.k8s.io/v1
+# kind: BackendTLSPolicy
+# metadata:
+#   name: anthropic-tls
+#   namespace: semantic-router
+# spec:
+#   targetRefs:
+#     - group: gateway.envoyproxy.io
+#       kind: Backend
+#       name: anthropic
+#   validation:
+#     wellKnownCACertificates: System
+#     hostname: api.anthropic.com
