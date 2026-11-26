@@ -17,3 +17,10 @@ spec:
     escapedSlashesAction: KeepUnchanged
   connection:
     bufferLimit: 50Mi
+  # Over HTTP/2 a buffered request body can only grow to the stream flow-control
+  # window. The Envoy default is 64 KiB, so without this the AI gateway ext_proc
+  # rejects larger uploads with 413 before bufferLimit applies. Keep it equal to
+  # bufferLimit.
+  http2:
+    initialStreamWindowSize: 50Mi
+    initialConnectionWindowSize: 50Mi
