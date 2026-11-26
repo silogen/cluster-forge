@@ -1,3 +1,4 @@
+{{- if eq .Values.routing.mode "aigw" }}
 # One Gateway policy carries metric-hygiene Lua and semantic-router ext_proc.
 # The Lua runs before api_key_auth and ext_proc. It removes client-supplied
 # routing headers so fail-open requests cannot select a backend directly.
@@ -40,3 +41,5 @@ spec:
       # Router unreachable -> requests skip it and take the catch-all rule,
       # instead of the whole hostname returning 5xx.
       failOpen: true
+
+{{- end }}

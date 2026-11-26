@@ -1,0 +1,33 @@
+{{- if and (eq .Values.routing.mode "aigw") .Values.quota.enabled }}
+# shadowMode true counts requests and does not reject them. Set quota.shadowMode
+# to false after the controller counts tokens for a Distinct client bucket.
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: QuotaPolicy
+metadata:
+  name: semantic-router
+  namespace: semantic-router
+spec:
+  targetRefs:
+    {{- range $tier := list "small" "medium" "large" }}
+    {{- $model := index $.Values.models $tier }}
+    - group: aigateway.envoyproxy.io
+      kind: AIServiceBackend
+      name: {{ include "semantic-router-gateway.backendName" $model.id }}
+    {{- end }}
+  perModelQuotas:
+    {{- range $tier := list "small" "medium" "large" }}
+    {{- $model := index $.Values.models $tier }}
+    - modelName: {{ $model.id | quote }}
+      quota:
+        mode: Shared
+        bucketRules:
+          - shadowMode: {{ $.Values.quota.shadowMode }}
+            clientSelectors:
+              - headers:
+                  - name: x-api-key-id
+                    type: Distinct
+            quota:
+              limit: {{ $.Values.quota.limit }}
+              duration: {{ $.Values.quota.duration }}
+    {{- end }}
+{{- end }}

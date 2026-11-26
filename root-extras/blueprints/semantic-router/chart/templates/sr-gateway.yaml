@@ -1,3 +1,4 @@
+{{- if eq .Values.routing.mode "aigw" }}
 # Inner Envoy Gateway for semantic-router. The public HTTPRoute terminates TLS
 # and forwards traffic here over cluster-internal HTTP. This Gateway has one
 # route, which keeps its Gateway-level SecurityPolicy scoped to semantic-router.
@@ -13,7 +14,7 @@ metadata:
     # creates this blueprint's own copy.
     aigateway.envoyproxy.io/gateway-config: sr-extproc
 spec:
-  gatewayClassName: envoy-gateway
+  gatewayClassName: {{ .Values.routing.gatewayClassName }}
   infrastructure:
     parametersRef:
       group: gateway.envoyproxy.io
@@ -28,3 +29,5 @@ spec:
       name: http
       port: 8080
       protocol: HTTP
+
+{{- end }}

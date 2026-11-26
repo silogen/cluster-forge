@@ -1,35 +1,17 @@
 # Example: per-model quotas and a per-client tier override
 
-The blueprint's `quota.yaml` ships with exactly one `perModelQuotas` entry (one
-model) and one `bucketRule` (`type: Distinct` on `x-api-key-id`) — every API
-key gets the same limit, bucketed independently. This example shows the two
-extensions that are commonly needed on top of that: a separate budget **per
-model**, and a higher limit for **one named client** without raising the limit
-for everyone else.
+With `quota.enabled: true`, the gateway chart writes one `perModelQuotas` entry
+per model. Every API key shares `quota.limit`, in its own bucket (`type:
+Distinct` on `x-api-key-id`). This example is a custom policy: a separate
+budget per model, and a higher limit for one named client.
 
-This replaces `quota.yaml`; do not append it as a partial block. Set each
-backendRef's `modelNameOverride` to the model name that backend accepts. Use the
-same value in `perModelQuotas[].modelName`. This example uses router model names
-as backend model names; change both fields if your backend uses other names.
+Set `quota.enabled` to false before you add that policy. Add it as a template
+under `chart/templates/`. Two QuotaPolicies on the same backends both apply.
 
-For example, add an override to each model rule in `gateway-routing.yaml`:
-
-```yaml
-rules:
-  - matches:
-      - headers:
-          - name: x-selected-model
-            value: TODO-simple-model
-    backendRefs:
-      - name: TODO-simple-model-backend
-        modelNameOverride: TODO-simple-backend-model
-    timeouts:
-      request: 300s
-      backendRequest: 300s
-```
-
-Set that quota entry's `modelName` to `TODO-simple-backend-model`, not the
-`x-selected-model` value, unless both names are identical.
+Each `modelName` is the model's `id` from `models.<tier>`. Each `AIServiceBackend`
+name is that `id` in lowercase, with `/`, `.` and `_` replaced by `-`. The names
+below are the `values.yaml` defaults. Use your own ids. The example meters the
+small and large models. Add the medium model the same way.
 
 ## The config
 
@@ -46,13 +28,13 @@ spec:
     # of them.
     - group: aigateway.envoyproxy.io
       kind: AIServiceBackend
-      name: TODO-simple-model-backend
+      name: todo-small-model
     - group: aigateway.envoyproxy.io
       kind: AIServiceBackend
-      name: TODO-complex-model-backend
+      name: todo-large-model
   perModelQuotas:
-    # Match modelName to the corresponding BackendRef.modelNameOverride.
-    - modelName: TODO-simple-backend-model
+    # modelName is the model id.
+    - modelName: TODO-small-model
       quota:
         mode: Shared
         bucketRules:
@@ -75,7 +57,7 @@ spec:
             quota:
               limit: 50000
               duration: 1h
-    - modelName: TODO-complex-backend-model
+    - modelName: TODO-large-model
       quota:
         mode: Shared
         bucketRules:
@@ -101,9 +83,8 @@ spec:
 ## Rule order and precedence
 
 `type: Exact` (with a `value`) is a legal `clientSelectors` header match
-alongside `Distinct` — the CRD's enum is `Exact | RegularExpression |
-Distinct`, `quota.yaml`'s own comments just never mention the first two. A
-named client's requests match the `Exact` rule above (its own literal
+alongside `Distinct`. The CRD's enum is `Exact`, `RegularExpression`, or
+`Distinct`. A named client's requests match the `Exact` rule above (its own literal
 `x-api-key-id` value) **and** the `Distinct` rule (which matches any/all
 values, including that one) at the same time.
 
@@ -123,8 +104,9 @@ Distinct. Test your deployed controller in shadow mode before enforcing tiers.
 
 Add each metered `AIServiceBackend` to `targetRefs` and add a matching
 `perModelQuotas` entry. Match its `modelName` to the route's
-`modelNameOverride`. Do not assume an omitted entry is unmetered; test your
+model `id`. Do not assume an omitted entry is unmetered; test your
 controller's behavior before relying on that.
+
 ## One budget across routed models
 
 `serviceQuota` is not enforced by the controller build tested for this
@@ -200,12 +182,12 @@ the same model, then watch what each accumulates:
 curl https://sr.<domain>/v1/chat/completions \
   -H "Authorization: Bearer <premium client's key>" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"TODO-simple-model","messages":[{"role":"user","content":"hello"}]}'
+  -d '{"model":"TODO-small-model","messages":[{"role":"user","content":"hello"}]}'
 
 curl https://sr.<domain>/v1/chat/completions \
   -H "Authorization: Bearer <a regular client's key>" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"TODO-simple-model","messages":[{"role":"user","content":"hello"}]}'
+  -d '{"model":"TODO-small-model","messages":[{"role":"user","content":"hello"}]}'
 ```
 
 Both requests' `api_key_id` and token counts land in `sr-gateway`'s access log
@@ -217,7 +199,7 @@ kubectl -n envoy-gateway-system logs deploy/sr-gateway -f
 
 confirms which key each request was charged under. To see the actual bucket
 values (needs `envoy-ai-gateway-ratelimit`'s bundled Redis, see the README's
-"Installing `envoy-ai-gateway-ratelimit`"):
+"Quota"):
 
 ```bash
 kubectl -n envoy-gateway-system exec deploy/envoy-ai-gateway-ratelimit-redis -- \

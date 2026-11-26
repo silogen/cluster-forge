@@ -1,3 +1,4 @@
+{{- if eq .Values.routing.mode "aigw" }}
 # EnvoyProxy for the dedicated sr-gateway. EnvoyProxy is namespace-scoped,
 # so this Gateway needs its own resource. Keep proxy pods as ClusterIP services.
 apiVersion: gateway.envoyproxy.io/v1alpha1
@@ -74,3 +75,5 @@ spec:
             - type: File
               file:
                 path: /dev/stdout
+
+{{- end }}
