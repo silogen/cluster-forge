@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment-with-rwx-pvc-annotation
+  namespace: default
+  annotations:
+    pvc.silogen.ai/user-pvc-auto-create: "true"
+    pvc.silogen.ai/user-pvc-size: "10Gi"
+    pvc.silogen.ai/user-pvc-storage-class-name: "shared"
+    pvc.silogen.ai/user-pvc-uid: "test-user-rwx"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-app-rwx
+  template:
+    metadata:
+      labels:
+        app: test-app-rwx
+    spec:
+      containers:
+      - name: test-container
+        image: nginx:latest
+        ports:
+        - containerPort: 80

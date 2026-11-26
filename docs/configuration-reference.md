@@ -63,6 +63,15 @@ can both be set: they write different Service fields.
 The Spur `seaweedfs` package sets both values to `false`, because the minimal
 core has no OpenBao, no external-secrets and no gateway.
 
+## `kyverno-policies-base` dynamic PVC access mode
+
+| Value | Default | Purpose |
+|-------|---------|---------|
+| `dynamicPvc.readWriteManyStorageClasses` | `[]` | StorageClasses that can serve ReadWriteMany. `dynamic-pvc-creation` makes a user PVC as ReadWriteMany only if its storage class is in this list, and as ReadWriteOnce if not. `root/values_large.yaml` sets `[default, mlstorage, multinode]`. Do not add `local-path` or the Longhorn `direct` class. |
+
+Set it under `apps.kyverno-policies-base.valuesObject`. Refer to
+[kyverno_access_mode_policy.md](kyverno_access_mode_policy.md).
+
 ## AI Gateway webhook TLS (prevention vs heal)
 
 Mainline clusters issue the envoy-ai-gateway mutating webhook serving cert via

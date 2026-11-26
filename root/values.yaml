@@ -420,6 +420,8 @@ apps:
           - ".spec.data[].remoteRef.decodingStrategy"
           - ".spec.data[].remoteRef.metadataPolicy"
         kind: ExternalSecret
+      # accessModes of a PVC cannot change. A cluster that already has
+      # pvc-user-demo as ReadWriteMany keeps it.
       - group: ""
         jsonPointers:
           - /spec/accessModes

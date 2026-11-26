@@ -58,6 +58,15 @@ apps:
     valuesObject:
       cnpg:
         instances: 2
+  kyverno-policies-base:
+    valuesObject:
+      dynamicPvc:
+        # Longhorn StorageClasses from cluster-bloom that can serve
+        # ReadWriteMany. direct is strict-local, so it cannot.
+        readWriteManyStorageClasses:
+          - default
+          - mlstorage
+          - multinode
   seaweedfs-config:
     valuesObject:
       seaweed:

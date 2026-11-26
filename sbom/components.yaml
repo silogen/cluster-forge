@@ -262,13 +262,6 @@ components:
     projectUrl: https://github.com/kyverno/kyverno
     license: Apache License 2.0
     licenseUrl: https://github.com/kyverno/kyverno/blob/main/LICENSE
-  kyverno-policies-storage-local-path:
-    path: kyverno-policies/storage-local-path
-    type: helm
-    sourceUrl: https://github.com/silogen/cluster-forge/tree/main/sources/kyverno-policies/storage-local-path
-    projectUrl: https://github.com/silogen/cluster-forge/
-    license: Apache License 2.0
-    licenseUrl: https://github.com/silogen/cluster-forge/blob/main/LICENSE
   metallb:
     path: metallb/v0.15.2
     type: manifest

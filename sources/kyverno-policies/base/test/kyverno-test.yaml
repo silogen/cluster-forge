@@ -6,6 +6,7 @@ policies:
 - policy.yaml
 resources:
 - test-deployment-with-pvc-annotation.yaml
+- test-deployment-with-rwx-pvc-annotation.yaml
 - test-deployment-without-pvc-annotation.yaml
 - test-modelcache-job.yaml
 - test-regular-job.yaml
@@ -17,6 +18,14 @@ results:
   kind: Deployment
   resources:
   - test-deployment-with-pvc-annotation
+  generatedResource: expected-pvc-rwo.yaml
+  result: pass
+- policy: dynamic-pvc-creation
+  rule: create-pvc-if-annotated
+  kind: Deployment
+  resources:
+  - test-deployment-with-rwx-pvc-annotation
+  generatedResource: expected-pvc-rwx.yaml
   result: pass
 - policy: dynamic-pvc-creation
   rule: create-pvc-if-annotated

@@ -28,17 +28,31 @@ apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: dynamic-pvc-creation
+  annotations:
+    # Kyverno rejects an update to a generate rule of an existing policy.
+    # Argo CD must delete and create the policy to apply a change.
+    argocd.argoproj.io/sync-options: Force=true,Replace=true
 spec:
   admission: true
   background: false
   emitWarning: false
   rules:
-    - generate:
+    - context:
+        - name: readWriteManyStorageClasses
+          variable:
+            value: {{ .Values.dynamicPvc.readWriteManyStorageClasses | toJson }}
+        - name: accessMode
+          variable:
+            jmesPath: >-
+              contains(readWriteManyStorageClasses,
+              request.object.metadata.annotations."pvc.silogen.ai/user-pvc-storage-class-name")
+              && 'ReadWriteMany' || 'ReadWriteOnce'
+      generate:
         apiVersion: v1
         data:
           spec:
             accessModes:
-              - ReadWriteMany
+              - '{{ "{{" }} accessMode {{ "}}" }}'
             resources:
               requests:
                 storage: '{{ "{{" }} request.object.metadata.annotations."pvc.silogen.ai/user-pvc-size" {{ "}}" }}'
